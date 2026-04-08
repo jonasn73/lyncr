@@ -18,41 +18,31 @@ import {
   getOrCreateTexmlApp,
   configureNumberVoice,
 } from "@/lib/telnyx-config"
+import {
+  collectPortingStatuses,
+  pickBestPortingStatus,
+  labelForPortingStatus,
+  PORTING_STATUS_PRIORITY,
+} from "@/lib/telnyx-porting-status"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Processing",
-  "in-process": "Transfer in progress",
-  submitted: "Transfer in progress",
-  exception: "Rejected or action needed",
-  ported: "Completed",
-  cancelled: "Cancelled",
-  "cancel-pending": "Cancellation pending",
-  "port-activating": "Activating",
-  rejected: "Rejected by carrier",
-  failed: "Transfer failed",
-}
+/** Extra GETs when list still looks draft/submitted — detail payload often has the real carrier outcome. */
+const MAX_ORDER_DETAIL_FETCH = 12
 
-/**
- * Higher = “more final / further along” for picking **one** row per phone number.
- * **Critical:** `draft` must stay **below** `cancelled` / `exception` — otherwise a stale
- * draft order hides the real outcome when Telnyx returns multiple orders per number.
- */
-const STATUS_PRIORITY: Record<string, number> = {
-  ported: 100,
-  "port-activating": 85,
-  "in-process": 70,
-  submitted: 65,
-  exception: 55,
-  cancelled: 50,
-  "cancel-pending": 45,
-  rejected: 52,
-  failed: 48,
-  draft: 10,
+async function fetchPortingOrderDetail(orderId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await fetch(`${TELNYX_BASE}/porting_orders/${orderId}?include_phone_numbers=true`, {
+      headers: telnyxHeaders(),
+    })
+    if (!r.ok) return null
+    const body = await r.json()
+    const d = body?.data ?? body
+    return d && typeof d === "object" ? (d as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
 }
-
-const DEFAULT_PRIORITY_UNKNOWN = 30
 
 export async function GET(req: NextRequest) {
   // Get current user so we can save completed ported numbers to their account
@@ -75,20 +65,45 @@ export async function GET(req: NextRequest) {
     }
 
     const body = await res.json()
-    const orders = body?.data || []
+    const rawOrders = (body?.data || []) as Record<string, unknown>[]
+
+    // List response can be stale vs GET /porting_orders/{id} — refresh likely stuck orders.
+    const candidatesForDetail = rawOrders
+      .filter((o) => {
+        const p = pickBestPortingStatus(collectPortingStatuses(o))
+        return p === "draft" || p === "submitted"
+      })
+      .slice(0, MAX_ORDER_DETAIL_FETCH)
+
+    const detailById = new Map<string, Record<string, unknown>>()
+    await Promise.all(
+      candidatesForDetail.map(async (o) => {
+        const id = o.id
+        if (typeof id !== "string") return
+        const d = await fetchPortingOrderDetail(id)
+        if (d) detailById.set(id, d)
+      })
+    )
+
+    const orders = rawOrders.map((o) => {
+      const id = o.id
+      if (typeof id === "string" && detailById.has(id)) {
+        return detailById.get(id)!
+      }
+      return o
+    })
 
     const allEntries: { id: string; number: string; status: string; statusLabel: string; createdAt: string; customerRef: string }[] = []
     const staleDraftIds: string[] = []
 
     for (const order of orders) {
-      const id = order.id ?? ""
-      const rawStatus = String(order.porting_order_status ?? "draft")
-        .toLowerCase()
-        .trim()
-      const statusLabel = STATUS_LABELS[rawStatus] || rawStatus.replace(/-/g, " ")
-      const createdAt = order.created_at ?? ""
-      const customerRef = order.customer_reference ?? ""
-      const numbers: { phone_number?: string }[] = order.phone_numbers ?? []
+      const id = String(order.id ?? "")
+      const statuses = collectPortingStatuses(order)
+      const rawStatus = pickBestPortingStatus(statuses)
+      const statusLabel = labelForPortingStatus(rawStatus)
+      const createdAt = String(order.created_at ?? "")
+      const customerRef = String(order.customer_reference ?? "")
+      const numbers: { phone_number?: string }[] = (order.phone_numbers as { phone_number?: string }[]) ?? []
 
       for (const p of numbers) {
         const num = p.phone_number ?? ""
@@ -98,7 +113,7 @@ export async function GET(req: NextRequest) {
 
     const bestPerNumber = new Map<string, (typeof allEntries)[0]>()
     function priorityOf(status: string): number {
-      return STATUS_PRIORITY[status] ?? DEFAULT_PRIORITY_UNKNOWN
+      return PORTING_STATUS_PRIORITY[status] ?? 30
     }
     function pickBetter(a: (typeof allEntries)[0], b: (typeof allEntries)[0]): (typeof allEntries)[0] {
       const pa = priorityOf(a.status)

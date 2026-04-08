@@ -852,7 +852,10 @@ export function SettingsPage() {
             const isComplete = p.status === "ported"
             const isError =
               p.status === "exception" || p.status === "rejected" || p.status === "failed"
-            const isCancelled = p.status === "cancelled" || p.status === "cancel-pending"
+            const isCancelled =
+              p.status === "cancelled" ||
+              p.status === "canceled" ||
+              p.status === "cancel-pending"
             const canCancel =
               !isComplete &&
               !isError &&
