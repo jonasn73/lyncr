@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("[Telnyx] Error searching numbers:", error)
     return NextResponse.json(
-      { error: "Failed to search Telnyx numbers" },
+      { error: "Failed to search available numbers" },
       { status: 500 }
     )
   }

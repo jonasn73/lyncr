@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     'business phone system',
     'AI call routing',
     'virtual receptionist',
-    'Telnyx call routing',
+    'business VoIP routing',
     'small business VoIP',
     'call analytics',
   ],

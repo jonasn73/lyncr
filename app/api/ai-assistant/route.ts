@@ -20,6 +20,7 @@ import {
   syncTelnyxAssistantFromIntakeOrRecover,
   ensureTelnyxVoiceAiAssistant,
 } from "@/lib/telnyx-ai-assistant-lifecycle"
+import { displayUserFacingMessage } from "@/lib/porting-display"
 
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
       provider: "telnyx",
       degraded: true,
       warning:
-        "Could not load intake. Check Neon has scripts/010-ai-leads-intake.sql and 012-telnyx-ai-assistant.sql applied.",
+        "Could not load intake. Ask support to confirm your database has the latest Zing migrations applied (AI intake + voice assistant tables).",
     })
   }
 }
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         assistantId: user.telnyx_ai_assistant_id,
-        message: "Telnyx assistant already linked",
+        message: "Voice assistant already linked",
         provider: "telnyx",
       })
     }
@@ -96,7 +97,9 @@ export async function POST(req: NextRequest) {
     if (!result.linked || !result.assistantId) {
       return NextResponse.json(
         {
-          error: `${result.error || "Failed to activate"}. Set TELNYX_AI_ASSISTANT_ID as a temporary platform default, or ask support.`,
+          error: displayUserFacingMessage(
+            `${result.error || "Failed to activate"}. Set your assistant ID as a temporary platform default, or ask support.`
+          ),
         },
         { status: 502 }
       )
@@ -108,13 +111,13 @@ export async function POST(req: NextRequest) {
       provisioned: result.provisioned,
       message: result.provisioned
         ? "Voice assistant created on your line — no-answer calls will connect to it automatically."
-        : "Telnyx Voice AI linked — no-answer fallback will use this assistant on the live call.",
+        : "Voice assistant linked — no-answer fallback will use it on your live calls.",
       provider: "telnyx",
     })
   } catch (error) {
     console.error("[POST /api/ai-assistant] failed:", error)
     const msg = error instanceof Error ? error.message : "Failed to activate"
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: displayUserFacingMessage(msg) }, { status: 500 })
   }
 }
 
@@ -186,12 +189,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: telnyxSyncError
-        ? "Saved in Zing — Telnyx did not confirm the assistant update (see telnyxSyncError)."
+        ? "Saved in Zing — the voice service did not confirm the assistant update (see telnyxSyncError)."
         : telnyxAssistantRecreated
-          ? "Saved. Your old assistant was missing in Telnyx — we created a new one and synced your call flow."
+          ? "Saved. Your old assistant was missing — we created a new one and synced your call flow."
           : "Saved.",
       provider: "telnyx",
-      telnyxSyncError,
+      telnyxSyncError: telnyxSyncError ? displayUserFacingMessage(telnyxSyncError) : null,
       telnyxAssistantRecreated: Boolean(!telnyxSyncError && telnyxAssistantRecreated),
     })
   } catch (error) {
@@ -199,7 +202,7 @@ export async function PATCH(req: NextRequest) {
     const message =
       error instanceof Error && error.message.trim()
         ? error.message.trim()
-        : "Could not save call flow (server error). Check Vercel logs or try again in a minute."
-    return NextResponse.json({ error: message }, { status: 500 })
+        : "Could not save call flow (server error). Check your deployment logs or try again in a minute."
+    return NextResponse.json({ error: displayUserFacingMessage(message) }, { status: 500 })
   }
 }

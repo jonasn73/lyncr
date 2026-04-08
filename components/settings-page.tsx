@@ -129,12 +129,12 @@ export function SettingsPage() {
   const [buyLoading, setBuyLoading] = useState(false)
   const [portingNumbers, setPortingNumbers] = useState<{ id: string; number: string; status: string; statusLabel?: string }[]>([])
   const [portingLoading, setPortingLoading] = useState(false)
-  /** Telnyx porting webhook → in-app (see `016-porting-notifications.sql`). */
+  /** Porting webhook → in-app notifications (see `016-porting-notifications.sql`). */
   const [portingNotifs, setPortingNotifs] = useState<
     { id: string; title: string; body: string; created_at: string; read_at: string | null }[]
   >([])
   const [portingNotifsUnread, setPortingNotifsUnread] = useState(0)
-  /** Telnyx port order Communications thread (GET/POST comments API). */
+  /** Port order message thread (GET/POST comments API). */
   const [portingMsgs, setPortingMsgs] = useState<{
     id: string
     number: string
@@ -168,7 +168,7 @@ export function SettingsPage() {
   const [numberRoutings, setNumberRoutings] = useState<NumberRouting[]>([])
   const [routingModalNumber, setRoutingModalNumber] = useState<string | null>(null) // E.164 number being configured, or null if closed
   const [routingSaving, setRoutingSaving] = useState(false)
-  /** Account has Telnyx assistant id — pairs with per-line `fallback_type === "ai"` for “AI live”. */
+  /** Account has voice AI assistant id — pairs with per-line `fallback_type === "ai"` for “AI live”. */
   const [telnyxAssistantLinked, setTelnyxAssistantLinked] = useState(false)
 
   // Load current user so we can show main line (cell) in profile
@@ -245,7 +245,7 @@ export function SettingsPage() {
     return () => { cancelled = true }
   }, [])
 
-  // Load porting orders + in-app porting notifications (carrier / Telnyx updates)
+  // Load porting orders + in-app porting notifications (carrier updates)
   useEffect(() => {
     let cancelled = false
     setPortingLoading(true)
@@ -316,7 +316,7 @@ export function SettingsPage() {
     return () => { cancelled = true }
   }, [])
 
-  // Auto-configure any unconfigured numbers with Telnyx TeXML webhook (runs silently)
+  // Auto-configure any unconfigured numbers with voice webhooks (runs silently)
   useEffect(() => {
     fetch("/api/numbers/configure", { method: "POST", credentials: "include" }).catch(() => {})
   }, [])
@@ -909,8 +909,8 @@ export function SettingsPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        // Reply whenever the order is still “open” on Telnyx — not finished or cancelled.
-                        // Do not treat exception/rejected/failed as read-only: those are often when Telnyx asks for PIN fixes.
+                        // Reply whenever the order is still open — not finished or cancelled.
+                        // Do not treat exception/rejected/failed as read-only: those are often when the porting team asks for PIN fixes.
                         setPortingMsgs({
                           id: p.id,
                           number: p.number,

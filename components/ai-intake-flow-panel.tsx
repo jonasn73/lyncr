@@ -1,7 +1,7 @@
 "use client"
 
 // ============================================
-// Playbook + intake + Telnyx Voice AI id (shared: full page or fallback modal)
+// Playbook + intake + optional voice assistant id (shared: full page or fallback modal)
 // ============================================
 
 import { useEffect, useId, useMemo, useState } from "react"
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { displayUserFacingMessage } from "@/lib/porting-display"
 import { getIntakeFlowSummary } from "@/lib/ai-intake-flow-summaries"
 import {
   type AiIntakeProfileId,
@@ -75,7 +76,7 @@ export function AiIntakeFlowPanel({
   const [saving, setSaving] = useState(false)
   const [hasAssistant, setHasAssistant] = useState(false)
   const [userIndustry, setUserIndustry] = useState<string>("generic")
-  /** Optional override — Zing normally creates the Telnyx assistant for you (see Advanced). */
+  /** Optional override — Zing normally creates the voice assistant for you (see Advanced). */
   const [telnyxAssistantId, setTelnyxAssistantId] = useState("")
   /** Show the rare “paste an existing assistant id” field (support / migrations). */
   const [showAdvancedAssistantId, setShowAdvancedAssistantId] = useState(false)
@@ -87,7 +88,7 @@ export function AiIntakeFlowPanel({
     otherNotes: "",
     smsNotify: true,
   })
-  /** Optional LLM / TTS / extra prompt — stored in user_ai_intake.config, synced to Telnyx on save/activate. */
+  /** Optional LLM / TTS / extra prompt — stored in user_ai_intake.config, synced on save/activate. */
   const [aiAdvanced, setAiAdvanced] = useState({
     telnyxModel: "",
     telnyxVoice: "",
@@ -97,9 +98,9 @@ export function AiIntakeFlowPanel({
   const [modelOptions, setModelOptions] = useState<{ id: string }[]>([])
   const [voiceOptions, setVoiceOptions] = useState<{ id: string; label: string }[]>([])
   const [catalogLoading, setCatalogLoading] = useState(false)
-  /** Set when Telnyx catalog APIs fail or return an error field (shown under Voice & model). */
+  /** Set when voice catalog APIs fail or return an error field (shown under Voice & model). */
   const [catalogError, setCatalogError] = useState<string | null>(null)
-  /** True while we are fetching MP3 from Telnyx TTS for “Play preview”. */
+  /** True while we are fetching MP3 for “Play preview”. */
   const [previewLoading, setPreviewLoading] = useState(false)
   const modelListId = useId()
   const voiceListId = useId()
@@ -260,16 +261,15 @@ export function AiIntakeFlowPanel({
       const recreated = Boolean((data as { telnyxAssistantRecreated?: unknown }).telnyxAssistantRecreated)
       if (syncErr) {
         toast({
-          title: "Saved locally — Telnyx sync failed",
-          description: `${syncErr} Fix the error, then Save again before testing calls.`,
+          title: "Saved locally — voice assistant sync failed",
+          description: `${displayUserFacingMessage(syncErr)} Fix the error, then Save again before testing calls.`,
           variant: "destructive",
         })
       } else if (recreated) {
         toast({
           title: "Saved — new assistant linked",
-          description: String(
-            data.message ||
-              "Telnyx no longer had your old assistant; we created a new one. Try a test call."
+          description: displayUserFacingMessage(
+            String(data.message || "Your previous voice assistant was missing; we created a new one. Try a test call.")
           ),
         })
       } else {
@@ -298,7 +298,7 @@ export function AiIntakeFlowPanel({
   }
 
   /**
-   * Ask the server for TTS (Telnyx MP3 or browser fallback) and play `text` with optional `voiceId`.
+   * Ask the server for TTS (cloud MP3 or browser fallback) and play `text` with optional `voiceId`.
    */
   async function runVoicePreview(text: string, voiceId?: string) {
     setPreviewLoading(true)
@@ -400,19 +400,19 @@ export function AiIntakeFlowPanel({
     <>
       {loadError && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-foreground">
-          {loadError}
+          {displayUserFacingMessage(loadError)}
         </div>
       )}
 
-      {/* No Telnyx assistant on file → /api/voice/telnyx/fallback plays backup voicemail instead of <AIAssistant>. */}
+      {/* No voice assistant on file → fallback plays backup voicemail instead of live AI. */}
       {variant === "modal" && aiNoAnswerSelected && !assistantReady && (
         <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2.5 text-[11px] leading-snug text-foreground">
           <p className="font-semibold text-destructive">Voice assistant is not linked yet</p>
           <p className="mt-1 text-muted-foreground">
-            No-answer calls will sound like voicemail until Zing stores a Telnyx assistant on your account. Tap{" "}
-            <span className="font-medium text-foreground">Save call flow</span> below, or toggle fallback off and
-            choose <span className="font-medium text-foreground">AI receptionist</span> again. In Vercel, confirm{" "}
-            <span className="font-mono text-[10px]">TELNYX_API_KEY</span> is set and redeploy if you just added it.
+            No-answer calls will sound like voicemail until Zing finishes linking your voice assistant. Tap{" "}
+            <span className="font-medium text-foreground">Save call flow</span> below, or toggle fallback off and choose{" "}
+            <span className="font-medium text-foreground">AI receptionist</span> again. If this persists, contact Zing
+            support — your deployment may need voice API credentials.
           </p>
         </div>
       )}
@@ -467,10 +467,9 @@ export function AiIntakeFlowPanel({
             {previewLoading ? "Loading preview…" : "Play preview"}
           </button>
           <p className="text-[9px] leading-snug text-muted-foreground sm:max-w-[14rem] sm:text-right">
-            Uses Telnyx <span className="font-medium text-foreground">POST /text-to-speech/speech</span> with your
-            voice when it succeeds; otherwise your <span className="font-medium text-foreground">browser voice</span>
-            . Live calls use your Telnyx assistant (see <span className="font-medium text-foreground">Voice &amp; model</span>
-            ).
+            Preview uses Zing&apos;s cloud voice when available; otherwise your{" "}
+            <span className="font-medium text-foreground">browser voice</span>. Live calls use your saved voice assistant
+            (see <span className="font-medium text-foreground">Voice &amp; model</span>).
           </p>
         </div>
 
@@ -614,15 +613,15 @@ export function AiIntakeFlowPanel({
             ) : null}
             {catalogError ? (
               <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[10px] text-destructive">
-                {catalogError}
+                {displayUserFacingMessage(catalogError)}
               </p>
             ) : null}
             {!catalogLoading && !catalogError ? (
               <p className="text-[10px] text-muted-foreground">
                 Suggestions use your browser&apos;s datalist:{" "}
                 <span className="font-semibold text-foreground">click the field</span>, then use the dropdown arrow (if
-                shown) or start typing — some browsers hide the list until you focus the box. You can always paste a Telnyx
-                id manually.
+                shown) or start typing — some browsers hide the list until you focus the box. You can always paste a
+                voice id manually.
               </p>
             ) : null}
             <div className="space-y-1">
@@ -667,7 +666,7 @@ export function AiIntakeFlowPanel({
               {!catalogLoading && voiceOptions.length > 0 ? (
                 <div className="mt-2 space-y-1.5 rounded-xl border border-border/60 bg-secondary/30 p-2">
                   <p className="text-[9px] font-medium text-muted-foreground">
-                    Review voices — same sample line for each (Telnyx audio when API allows; else browser).
+                    Review voices — same sample line for each (cloud preview when available; else browser).
                   </p>
                   <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {voiceOptions.slice(0, 50).map((v) => (
@@ -706,10 +705,9 @@ export function AiIntakeFlowPanel({
             </div>
             {!catalogLoading && modelOptions.length === 0 && voiceOptions.length === 0 && !catalogError ? (
               <p className="text-[10px] text-muted-foreground">
-                Telnyx returned no entries — leave both fields empty for Zing&apos;s platform defaults, or type e.g.{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">openai/gpt-4o</code> and{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">Telnyx.KokoroTTS.af_heart</code> then
-                Save.
+                No suggestions loaded — leave both fields empty for Zing&apos;s platform defaults, or type e.g.{" "}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">openai/gpt-4o</code> and a voice id
+                from your provider, then Save.
               </p>
             ) : null}
             <div className="space-y-1">

@@ -261,7 +261,7 @@ export function DashboardPage() {
   const isSetupComplete = hasBusinessNumbers && (hasReceptionists || Boolean(mainLinePhone))
 
   // Save routing for the primary business number (or default if none).
-  // When fallback_type is "ai", the API auto-provisions Telnyx Voice AI and returns voiceAi.
+  // When fallback_type is "ai", the API auto-provisions voice AI and returns voiceAi.
   function saveRouting(updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> {
     const primaryNumber = businessNumbers[0]?.number || null
     return fetch("/api/routing", {

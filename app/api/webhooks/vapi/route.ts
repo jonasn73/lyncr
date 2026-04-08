@@ -1,7 +1,7 @@
 // ============================================
 // POST /api/webhooks/vapi (deprecated)
 // ============================================
-// Zing no longer uses Vapi. Lead capture from Telnyx Voice AI will use a future webhook.
+// Legacy webhook removed — Zing voice AI uses the platform flow; lead capture is handled in-app.
 
 import { NextResponse } from "next/server"
 
@@ -12,7 +12,7 @@ export async function POST() {
     {
       error: "gone",
       message:
-        "Zing uses Telnyx Voice AI on the live call. This Vapi webhook is disabled. Configure tools in Telnyx if you need lead callbacks.",
+        "This webhook is no longer used. Zing handles voice AI and leads through the app. Contact support if you need API integrations.",
     },
     { status: 410 }
   )

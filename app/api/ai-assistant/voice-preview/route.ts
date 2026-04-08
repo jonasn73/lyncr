@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       {
         mode: "browser" as const,
         notice:
-          "TELNYX_API_KEY is not set in Vercel — using your browser’s voice for preview. Add the key for Telnyx features; live calls still need it.",
+          "Voice API key is not configured on the server — using your browser’s voice for preview. Add the key for cloud preview; live calls still need it.",
       },
       { status: 200 }
     )
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const payload: VoicePreviewResponse = {
       mode: "browser",
       notice:
-        "Telnyx TTS could not return audio (voice id, billing, or API error). Using your browser’s voice to check wording — live calls still use your Telnyx assistant.",
+        "Cloud voice preview could not return audio (voice id, billing, or API error). Using your browser’s voice to check wording — live calls still use your saved assistant.",
     }
     return NextResponse.json(payload, { status: 200, headers: { "Cache-Control": "private, no-store" } })
   }
