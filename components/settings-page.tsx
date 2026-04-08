@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { SIGNUP_INDUSTRY_OPTIONS } from "@/lib/business-industries"
+import { PortingOrderCommentsDialog } from "@/components/porting-order-comments-dialog"
 
 interface SettingToggle {
   id: string
@@ -132,6 +133,12 @@ export function SettingsPage() {
     { id: string; title: string; body: string; created_at: string; read_at: string | null }[]
   >([])
   const [portingNotifsUnread, setPortingNotifsUnread] = useState(0)
+  /** Telnyx port order Communications thread (GET/POST comments API). */
+  const [portingMsgs, setPortingMsgs] = useState<{
+    id: string
+    number: string
+    allowReply: boolean
+  } | null>(null)
   const [portSubmitLoading, setPortSubmitLoading] = useState(false)
   const [portError, setPortError] = useState<string | null>(null)
   // Port multi-step: 1 = number, 2 = account info, 3 = address
@@ -790,7 +797,9 @@ export function SettingsPage() {
             Business numbers
           </h3>
           <p className="text-xs text-muted-foreground">
-            Numbers your customers call (buy or port). Calls ring your main line or receptionist.
+            Numbers your customers call (buy or port). Calls ring your main line or receptionist. For ports in
+            progress, use <span className="font-medium text-foreground">Messages</span> to read and reply to Telnyx
+            (PIN fixes, deadlines) — same thread as in Telnyx Mission Control.
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -893,7 +902,23 @@ export function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {p.id ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPortingMsgs({
+                          id: p.id,
+                          number: p.number,
+                          allowReply: !isComplete && !isCancelled && !isError,
+                        })
+                      }}
+                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                    >
+                      Messages
+                    </button>
+                  ) : null}
                   {canCancel && (
                     <button
                       onClick={async (e) => {
@@ -1545,6 +1570,16 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+
+      <PortingOrderCommentsDialog
+        orderId={portingMsgs?.id ?? null}
+        phoneLabel={portingMsgs ? formatPhoneDisplay(portingMsgs.number) : ""}
+        open={portingMsgs !== null}
+        onOpenChange={(o) => {
+          if (!o) setPortingMsgs(null)
+        }}
+        allowReply={portingMsgs?.allowReply ?? false}
+      />
 
       {/* Version */}
       <p className="text-center text-xs text-muted-foreground">

@@ -108,9 +108,46 @@ function humanizeEventType(eventType: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
+/** Find Telnyx porting comment body in webhook JSON (nested shapes vary by event). */
+function deepFindPortingCommentBody(obj: unknown, depth = 0): string | null {
+  if (depth > 12 || obj == null) return null
+  if (typeof obj === "string" && obj.length > 4000) return null
+  if (typeof obj === "object" && !Array.isArray(obj)) {
+    const o = obj as Record<string, unknown>
+    const rt = o.record_type
+    const ut = o.user_type
+    const b = o.body
+    if (
+      typeof b === "string" &&
+      b.trim().length > 0 &&
+      (rt === "porting_comment" || ut === "admin" || ut === "user" || ut === "system")
+    ) {
+      return b.trim()
+    }
+    for (const v of Object.values(o)) {
+      const found = deepFindPortingCommentBody(v, depth + 1)
+      if (found) return found
+    }
+  }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const found = deepFindPortingCommentBody(item, depth + 1)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 /** Short description for notification body. */
 export function buildPortingNotificationText(body: Record<string, unknown>): string {
   try {
+    const data = body.data as Record<string, unknown> | undefined
+    const record = data?.record as Record<string, unknown> | undefined
+    if (typeof record?.body === "string" && record.body.trim()) {
+      return record.body.trim().slice(0, 2000)
+    }
+    const commentBody = deepFindPortingCommentBody(body)
+    if (commentBody) return commentBody.slice(0, 2000)
     const po = findPortingOrderId(body)
     const extra =
       (typeof body.message === "string" && body.message) ||
