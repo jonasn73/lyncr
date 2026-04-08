@@ -105,6 +105,7 @@ OPENAI_API_KEY=                         # Or use Vercel AI Gateway
 
 ## Git / Deployment
 - **Always push changes**: After making code changes, commit and push to the remote (e.g. `git add . && git commit -m "..." && git push origin main`) so the user does not have to do it manually. Use a clear, concise commit message describing the change.
+- **Always deploy to Vercel** after commits that should go live: from project root run `npm run deploy:vercel` (production). Telnyx is for phone APIs only; the hosted app ships via Vercel. See `.cursor/rules/git-always-push.mdc`.
 
 ## Coding Conventions
 - Use `async/await` for all DB and API calls

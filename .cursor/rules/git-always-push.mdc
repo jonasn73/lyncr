@@ -1,5 +1,5 @@
 ---
-description: After code changes, commit and push; document DB migrations when schema changes
+description: After code changes, commit, push, and deploy to Vercel; document DB migrations when schema changes
 alwaysApply: true
 ---
 
@@ -17,6 +17,19 @@ When a task **changes, adds, or deletes** files in this project (including edits
 If push fails (auth, network), give the user the **exact commands** to run in Terminal.
 
 If there is **nothing to commit**, say so briefly — no empty commit.
+
+# Vercel — always deploy production (direct)
+
+**Telnyx** = telephony (numbers, voice). **Vercel** = where the Next.js app is hosted (e.g. getzingapp.com). Pushing code live for users means deploying on **Vercel**, not “pushing to Telnyx.”
+
+After a successful **commit** in the same task (when there was something to ship), **also** deploy production from the project root:
+
+5. `npm run deploy:vercel`  
+   (uses the linked project in `.vercel/` — production build + alias)
+
+Run this even when `git push` failed, so production still updates. If deploy fails (not logged in, network), give the **exact command** and error so the user can run `npx vercel login` locally if needed. Allow enough time for the remote build (often 1–3 minutes).
+
+If there was **no commit** in the task, skip deploy unless the user asked to deploy only.
 
 # Database (Neon) — update when needed
 
