@@ -168,6 +168,10 @@ export function SettingsPage() {
   const [numberRoutings, setNumberRoutings] = useState<NumberRouting[]>([])
   const [routingModalNumber, setRoutingModalNumber] = useState<string | null>(null) // E.164 number being configured, or null if closed
   const [routingSaving, setRoutingSaving] = useState(false)
+  /** Draft line name in the Route Calls modal — saved to `phone_numbers.label` (whisper + UI). */
+  const [routingLineLabelDraft, setRoutingLineLabelDraft] = useState("")
+  const [routingLineLabelSaving, setRoutingLineLabelSaving] = useState(false)
+  const [routingLineLabelError, setRoutingLineLabelError] = useState<string | null>(null)
   /** Account has voice AI assistant id — pairs with per-line `fallback_type === "ai"` for “AI live”. */
   const [telnyxAssistantLinked, setTelnyxAssistantLinked] = useState(false)
 
@@ -315,6 +319,18 @@ export function SettingsPage() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
+
+  // When the per-line routing modal opens (or numbers reload), copy the saved label into the draft field.
+  useEffect(() => {
+    if (!routingModalNumber) {
+      setRoutingLineLabelDraft("")
+      setRoutingLineLabelError(null)
+      return
+    }
+    const row = myNumbers.find((n) => n.number === routingModalNumber)
+    setRoutingLineLabelDraft(row?.label ?? "")
+    setRoutingLineLabelError(null)
+  }, [routingModalNumber, myNumbers])
 
   // Auto-configure any unconfigured numbers with voice webhooks (runs silently)
   useEffect(() => {
@@ -557,6 +573,38 @@ export function SettingsPage() {
       label: "Ring phone fallback",
       tone: "muted",
       title: "No-answer follows your “ring again / owner” routing (see Dashboard).",
+    }
+  }
+
+  // Persist the line name for the number open in the routing modal (used in receptionist whisper + lists).
+  async function saveRoutingLineLabel() {
+    if (!routingModalNumber) return
+    const row = myNumbers.find((n) => n.number === routingModalNumber)
+    if (!row) return
+    setRoutingLineLabelSaving(true)
+    setRoutingLineLabelError(null)
+    try {
+      const res = await fetch(`/api/numbers/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ label: routingLineLabelDraft.trim() || "Business Line" }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setRoutingLineLabelError(typeof data?.error === "string" ? data.error : "Could not save line name")
+        return
+      }
+      const saved = routingLineLabelDraft.trim() || "Business Line"
+      setMyNumbers((prev) => prev.map((n) => (n.number === routingModalNumber ? { ...n, label: saved } : n)))
+      toast({
+        title: "Line name saved",
+        description: "Your team hears this in the short whisper when they pick up a forwarded call.",
+      })
+    } catch {
+      setRoutingLineLabelError("Network error — try again.")
+    } finally {
+      setRoutingLineLabelSaving(false)
     }
   }
 
@@ -821,6 +869,7 @@ export function SettingsPage() {
                   </IconSurface>
                   <div>
                     <p className="text-sm font-medium text-foreground">{formatPhoneDisplay(num.number)}</p>
+                    <p className="text-[11px] text-muted-foreground/90">{num.label}</p>
                     <p className="text-xs text-muted-foreground">
                       {routing.receptionist
                         ? `→ ${routing.receptionist.name}${routing.isDefault ? " (default)" : ""}`
@@ -1426,6 +1475,37 @@ export function SettingsPage() {
               </button>
             </div>
 
+            {/* Line name: stored on the number row; Telnyx whisper uses it so agents know which DID was called. */}
+            <div className="border-b border-border px-4 py-3">
+              <label htmlFor="zing-settings-line-label" className="text-[11px] font-semibold text-muted-foreground">
+                Line name (for your team)
+              </label>
+              <input
+                id="zing-settings-line-label"
+                type="text"
+                value={routingLineLabelDraft}
+                onChange={(e) => setRoutingLineLabelDraft(e.target.value)}
+                placeholder="e.g. Key Squad 502"
+                maxLength={120}
+                className="mt-1.5 w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              />
+              <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+                This text is used when a receptionist answers a forwarded call: a short whisper can speak it so they
+                know which business line rang (caller ID may still show this number).
+              </p>
+              {routingLineLabelError ? (
+                <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void saveRoutingLineLabel()}
+                disabled={routingLineLabelSaving}
+                className="zing-btn-sm mt-2 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {routingLineLabelSaving ? "Saving…" : "Save line name"}
+              </button>
+            </div>
+
             <div className="flex flex-col py-1" role="listbox" aria-label="Select who receives calls for this number">
               {/* Option: Your Phone (owner) */}
               {(() => {
@@ -1507,7 +1587,8 @@ export function SettingsPage() {
               {receptionistsList.length === 0 && (
                 <div className="px-4 py-4 text-center">
                   <p className="text-xs text-muted-foreground">
-                    No receptionists added yet. Add one from the dashboard to route calls to them.
+                    No receptionists yet. Open the <span className="font-medium text-foreground">Team</span> tab to add
+                    people who can answer for you.
                   </p>
                 </div>
               )}

@@ -1293,6 +1293,46 @@ export async function updatePhoneNumber(
   }
 }
 
+/**
+ * Updates display fields on a row the user owns. Returns false if no row matched (wrong id / other account).
+ * Clears incoming-call routing cache when label or friendly_name changes so voice webhooks read fresh values.
+ */
+export async function patchPhoneNumberForUser(
+  phoneNumberId: string, // `phone_numbers.id` UUID
+  userId: string, // Owner id — UPDATE is scoped so you cannot edit someone else’s number
+  updates: Partial<Pick<PhoneNumber, "label" | "friendly_name">> // At least one field should be set by the caller
+): Promise<boolean> {
+  const sql = getSql() // Shared SQL client (Neon serverless)
+  if (updates.label === undefined && updates.friendly_name === undefined) {
+    return false // Nothing to write — treat as failed patch
+  }
+  let rows: { id: string }[] // Rows returned by RETURNING id (empty array ⇒ no permission / wrong id)
+  if (updates.label !== undefined && updates.friendly_name !== undefined) {
+    rows = await sql`
+      UPDATE phone_numbers
+      SET label = ${updates.label}, friendly_name = ${updates.friendly_name}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  } else if (updates.label !== undefined) {
+    rows = await sql`
+      UPDATE phone_numbers SET label = ${updates.label}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  } else {
+    rows = await sql`
+      UPDATE phone_numbers SET friendly_name = ${updates.friendly_name!}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  }
+  if (rows.length > 0) {
+    clearIncomingRoutingCache() // Incoming Telnyx handler caches label — drop cache so next call is fresh
+  }
+  return rows.length > 0 // true iff one row updated
+}
+
 // --- AI Assistant Presets (cloud-synced) ---
 export async function getAiAssistantPresets(userId: string): Promise<{
   id: string
