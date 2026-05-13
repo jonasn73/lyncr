@@ -324,13 +324,16 @@ async function handleIncomingCall(
       INBOUND_RECEPTIONIST_WHISPER_DISABLED || whisperOffUser
         ? ""
         : buildInboundLineWhisperPhrase(
-            routing.business_name,
             routing.phone_line_label,
             routing.phone_line_friendly_name,
             businessLineE164
           )
 
-    const fromDisplayName = buildTelnyxDialFromDisplayName(routing.business_name)
+    // Outbound CNAM hint: prefer **line label** when set (not default "Main Line"); else account business name.
+    const lineLbl = routing.phone_line_label.trim()
+    const fromDisplaySource =
+      lineLbl && lineLbl.toLowerCase() !== "main line" ? lineLbl : routing.business_name
+    const fromDisplayName = buildTelnyxDialFromDisplayName(fromDisplaySource)
 
     if (routing.selected_receptionist_id && routing.receptionist_phone) {
       const recPhone = normalizePhoneNumberE164(routing.receptionist_phone)

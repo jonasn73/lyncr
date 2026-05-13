@@ -10,10 +10,12 @@ import {
   X,
   User,
   Bot,
-  ChevronRight,
   Check,
   Loader2,
   Sparkles,
+  Settings2,
+  Activity,
+  Clock,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -90,6 +92,8 @@ export function DashboardPage() {
   /** AI fallback + no receptionist: ring owner cell before Voice AI (see Fallback Settings). */
   const [aiRingOwnerFirst, setAiRingOwnerFirst] = useState(false)
   const [showFallbackSettings, setShowFallbackSettings] = useState(false)
+  /** Ring duration for the first leg before no-answer fallback (from GET /api/routing). */
+  const [ringTimeoutSec, setRingTimeoutSec] = useState(30)
 
   // AI assistant state
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
@@ -199,6 +203,10 @@ export function DashboardPage() {
           setSelectedReceptionistId(rData.config.selected_receptionist_id || null)
           setFallback(rData.config.fallback_type || "owner")
           setAiRingOwnerFirst(Boolean(rData.config.ai_ring_owner_first))
+          const rt = rData.config.ring_timeout_seconds
+          if (typeof rt === "number" && Number.isFinite(rt)) {
+            setRingTimeoutSec(Math.min(90, Math.max(10, Math.round(rt))))
+          }
         }
       })
       .catch(() => {})
@@ -387,8 +395,48 @@ export function DashboardPage() {
         </section>
       )}
 
+      <div className="mx-auto w-full max-w-4xl space-y-5">
+        <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground">Call routing</h1>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Choose the line, who answers first, how long it rings, and what happens if nobody picks up.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="#routing-lines"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <PhoneForwarded className="h-3.5 w-3.5 text-primary" aria-hidden />
+              Your lines
+            </a>
+            <a
+              href="#routing-ring-fallback"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <Clock className="h-3.5 w-3.5 text-primary" aria-hidden />
+              Ring &amp; backup
+            </a>
+            <Link
+              href="/dashboard/settings"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <Settings2 className="h-3.5 w-3.5 text-primary" aria-hidden />
+              Numbers &amp; labels
+            </Link>
+            <Link
+              href="/dashboard/activity"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <Activity className="h-3.5 w-3.5 text-primary" aria-hidden />
+              Activity
+            </Link>
+          </div>
+        </div>
+
       {/* Routing Status */}
-      <section className="zing-card relative p-6">
+      <section id="routing-forward" className="zing-card relative p-6">
         <div
           className="pointer-events-none absolute inset-0 rounded-2xl"
           style={{
@@ -396,7 +444,7 @@ export function DashboardPage() {
               "radial-gradient(ellipse at 50% 0%, oklch(0.72 0.17 175 / 0.08) 0%, transparent 70%)",
           }}
         />
-        <div className="relative flex w-full max-w-lg mx-auto flex-col items-center gap-5">
+        <div className="relative flex w-full max-w-2xl mx-auto flex-col items-center gap-5">
           {/* Centered icon */}
           <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]">
             <PhoneForwarded className="h-8 w-8 text-primary" />
@@ -404,9 +452,7 @@ export function DashboardPage() {
 
           {/* Status text + routing target */}
           <div className="flex w-full flex-col items-center gap-2 text-center">
-            <h2 className="text-xl font-semibold text-foreground">
-              Calls Are Being Routed
-            </h2>
+            <h2 className="text-xl font-semibold text-foreground">Forward incoming calls</h2>
 
             {/* Show which business number(s) this routing applies to */}
             {businessNumbers.length > 1 && (
@@ -417,6 +463,7 @@ export function DashboardPage() {
 
             {/* Show which business number(s) you own; with 2+ lines, tap to pick which routing block below applies to */}
             {businessNumbers.length > 0 && (
+              <div id="routing-lines" className="flex w-full flex-col items-center gap-2">
               <div className="flex flex-wrap justify-center gap-2">
                 {businessNumbers.map((bn) => {
                   const rs = bn.routing_summary
@@ -483,9 +530,12 @@ export function DashboardPage() {
                   )
                 })}
               </div>
+              </div>
             )}
 
-            <div className="relative w-full max-w-lg mx-auto flex flex-col gap-4">
+            </div>
+
+            <div className="relative w-full max-w-2xl mx-auto flex flex-col gap-4">
               {businessNumbers.length > 1 && routingBusinessNumber ? (
                 <p className="flex min-h-[1.25rem] items-center justify-center gap-1.5 text-center text-xs font-semibold text-primary">
                   {routingLineDetailLoading ? (
@@ -598,25 +648,78 @@ export function DashboardPage() {
                 </p>
               ) : null}
 
-              {(() => {
-                const activeFallback = fallbackOptions.find((f) => f.id === fallback)!
-                const FallbackIcon = activeFallback.icon
-                return (
-                  <button
-                    type="button"
-                    onClick={() => setShowFallbackSettings(true)}
-                    className="flex w-full items-center gap-2 rounded-xl border border-border bg-secondary/50 px-4 py-3 transition-all hover:bg-secondary active:scale-[0.99]"
-                  >
-                    <FallbackIcon className={cn("h-4 w-4 shrink-0", activeFallback.color)} />
-                    <p className="flex-1 text-left text-[11px] text-muted-foreground">
-                      {"If no answer: "}
-                      <span className="font-medium text-foreground">{activeFallback.label}</span>
+              <div
+                id="routing-ring-fallback"
+                className={cn(
+                  "w-full space-y-3 rounded-xl border border-border/70 bg-secondary/25 p-4 text-left",
+                  routingLineDetailLoading && "pointer-events-none opacity-50"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <p className="text-xs font-semibold text-foreground">Ring duration &amp; backup</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="zing-dash-ring-sec" className="text-[11px] text-muted-foreground">
+                      Ring first leg (seconds)
+                    </label>
+                    <select
+                      id="zing-dash-ring-sec"
+                      className="mt-1.5 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                      value={ringTimeoutSec}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10)
+                        if (!Number.isFinite(v)) return
+                        setRingTimeoutSec(v)
+                        void saveRouting({ ring_timeout_seconds: v })
+                      }}
+                    >
+                      {[15, 20, 25, 30, 35, 40, 45, 60].map((n) => (
+                        <option key={n} value={n}>
+                          {n} seconds
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+                      Applies to the first ring target for this line before voicemail, AI, or your backup runs.
                     </p>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
-                )
-              })()}
-            </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-foreground">If no answer</p>
+                    <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="No-answer backup">
+                      {fallbackOptions.map((opt) => {
+                        const active = fallback === opt.id
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setFallback(opt.id)
+                              void saveRouting({ fallback_type: opt.id })
+                            }}
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors",
+                              active
+                                ? "border-primary bg-primary/15 text-primary"
+                                : "border-border/80 bg-card text-foreground hover:bg-secondary"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowFallbackSettings(true)}
+                      className="mt-3 text-left text-[11px] font-semibold text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      Voice AI script, voicemail greeting, ring-my-phone-first →
+                    </button>
+                  </div>
+                </div>
+              </div>
 
             {/* Fallback Settings Modal — high z-index so it sits above mobile nav */}
             {showFallbackSettings && (
@@ -747,6 +850,25 @@ export function DashboardPage() {
           </div>
         </div>
       </section>
+
+        <section id="routing-tips" className="rounded-2xl border border-border/60 bg-muted/15 p-5">
+          <h2 className="text-sm font-semibold text-foreground">Caller ID and spam labels</h2>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            Forwarded legs use your Zing business number. We also send your line label as the outbound display name when
+            your carrier supports it, so the person answering may see a name instead of only digits. Labels like spam
+            risk are added by the receiving carrier from their own analytics; improving reputation usually means setting
+            CNAM on the number in Telnyx, registering it with services such as the Free Caller Registry, then carrying
+            normal traffic for a few days.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Give each number a clear line label in{" "}
+            <Link href="/dashboard/settings" className="font-semibold text-primary underline underline-offset-2">
+              Settings
+            </Link>{" "}
+            — that label is what your team hears in the whisper (not your account business name).
+          </p>
+        </section>
+      </div>
 
     </div>
   )

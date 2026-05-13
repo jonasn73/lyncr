@@ -743,7 +743,7 @@ export function SettingsPage() {
       setBusinessNameSavedAt(Date.now())
       toast({
         title: "Business name saved",
-        description: "Used at the start of the team whisper and as the outbound caller ID name when supported.",
+        description: "Used for outbound caller ID name on forwarded calls when your carrier supports it. Team whisper uses your line label only.",
       })
     } catch {
       toast({ title: "Error", description: "Could not save business name.", variant: "destructive" })
@@ -962,8 +962,8 @@ export function SettingsPage() {
             <div className="min-w-0 space-y-1">
               <p className="text-[11px] font-semibold text-muted-foreground">Team whisper after answer</p>
               <p className="text-[11px] text-muted-foreground">
-                Only the person who picks up the forwarded leg hears it (not the caller). Uses your account business name,
-                then the line label for this number.
+                Only the person who picks up the forwarded leg hears it (not the caller), right before the caller is
+                connected. It says this line&apos;s label only — not your account business name.
               </p>
             </div>
             <Switch
@@ -1486,7 +1486,7 @@ export function SettingsPage() {
                           Buy {formatPhoneDisplay(buyPendingNumber)}
                         </p>
                         <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                          Line label for your team. If the whisper is on in Settings, they hear your account business name first, then this label, after they answer. While ringing, caller ID is usually this business number.
+                          Line label for your team. If the whisper is on in Settings, they hear this label only right after they answer (before the caller is connected). While ringing, caller ID is usually this business number.
                         </p>
                         <label htmlFor="zing-buy-line-name" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
                           Line label
@@ -1620,7 +1620,7 @@ export function SettingsPage() {
                             className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                           />
                           <p className="text-[10px] leading-snug text-muted-foreground">
-                            Required. Saved on this number so your team can tell lines apart. Caller ID while ringing is this DID; if whisper is on, they hear your account business name first, then this label, after answer.
+                            Required. Saved on this number so your team can tell lines apart. Caller ID while ringing is this DID; if whisper is on, they hear this line label only after they answer.
                           </p>
                         </div>
                         {portError && <p className="text-xs text-destructive">{portError}</p>}
@@ -1786,8 +1786,8 @@ export function SettingsPage() {
                     />
                     <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
                       Name this line for your team (for example Dispatch or Main). Caller ID while ringing is{" "}
-                      {formatPhoneDisplay(routingModalNumber)}. If the whisper is on in Settings, your team hears your
-                      account business name first, then this label, right after they answer.
+                      {formatPhoneDisplay(routingModalNumber)}. If the whisper is on in Settings, your team hears this
+                      line label only, right after they answer (before the caller is connected).
                     </p>
                     {routingLineLabelError ? (
                       <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>

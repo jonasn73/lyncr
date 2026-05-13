@@ -2,31 +2,23 @@ import { describe, expect, it } from "vitest"
 import { buildInboundLineWhisperPhrase, sanitizeWhisperPhrase } from "@/lib/inbound-line-whisper"
 
 describe("buildInboundLineWhisperPhrase", () => {
-  it("prefixes account business name before custom line label", () => {
-    const s = buildInboundLineWhisperPhrase("Acme Plumbing", "Dispatch", "", "+15025199741")
-    expect(s.startsWith("Acme Plumbing")).toBe(true)
-    expect(s).toContain("Dispatch")
+  it("uses custom line label when not Main Line", () => {
+    expect(buildInboundLineWhisperPhrase("Dispatch", "", "+15025199741")).toBe("Dispatch")
   })
 
-  it("uses custom label only when business name is empty", () => {
-    const s = buildInboundLineWhisperPhrase("   ", "Key Squad 502", "", "+15025199741")
-    expect(s).toBe("Key Squad 502")
-  })
-
-  it("does not duplicate when line label matches business name", () => {
-    expect(buildInboundLineWhisperPhrase("Acme", "Acme", "", "+15025199741")).toBe("Acme")
-  })
-
-  it("falls back to friendly name when label is Main Line", () => {
-    const s = buildInboundLineWhisperPhrase("Big Co", "Main Line", "(502) 519-9741", "+15025199741")
-    expect(s.startsWith("Big Co")).toBe(true)
-    expect(s).toContain("502")
+  it("uses friendly name when label is Main Line", () => {
+    expect(buildInboundLineWhisperPhrase("Main Line", "(502) 519-9741", "+15025199741")).toContain("502")
   })
 
   it("uses last four digits when no label or friendly name", () => {
-    const s = buildInboundLineWhisperPhrase("Solo LLC", "Main Line", "", "+15025199741")
-    expect(s.startsWith("Solo LLC")).toBe(true)
+    const s = buildInboundLineWhisperPhrase("Main Line", "", "+15025199741")
     expect(s).toMatch(/9\s+7\s+4\s+1/)
+  })
+
+  it("does not include account business name", () => {
+    const s = buildInboundLineWhisperPhrase("Sales Line", "", "+15551234567")
+    expect(s).toBe("Sales Line")
+    expect(s.toLowerCase()).not.toContain("acme")
   })
 })
 
