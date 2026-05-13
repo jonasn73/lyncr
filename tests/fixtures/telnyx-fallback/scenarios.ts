@@ -247,6 +247,61 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
+    id: "owner-ai-completed-short-no-bridge-metadata-hangup",
+    description:
+      "Owner answered then hung up quickly: Telnyx completed + duration but no bridge fields — must hang up (no AI hold line, no ai_greeting+Record)",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner-ai?callSid=CA_fixture_short_nobridge&primary=owner&leg=owner-first",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "12",
+      CallSid: "CA_fixture_short_nobridge",
+      To: "+15551110002",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({}),
+      routingForNumber: baseRouting({ fallback_type: "ai" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-short-nb" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["Thanks for calling", "ai-bridge", "<Record"],
+      contentType: "text/xml",
+    },
+  },
+  {
+    id: "recv-ai-completed-short-no-bridge-metadata-hangup",
+    description:
+      "Receptionist answered briefly with no DialBridged* in callback — still hang up caller (no AI)",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/recv-ai?callSid=CA_fixture_recv_short_nb",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "11",
+      CallSid: "CA_fixture_recv_short_nb",
+      To: "+15558887766",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({
+        selected_receptionist_id: "recv-1",
+        ai_ring_owner_first: false,
+        receptionist_name: "Desk",
+        receptionist_phone: "+15558887766",
+      }),
+      routingForNumber: baseRouting({ fallback_type: "ai", selected_receptionist_id: "recv-1" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-recv-nb" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["Thanks for calling", "ai-bridge"],
+      contentType: "text/xml",
+    },
+  },
+  {
     id: "owner-bridged-duration-no-dial-bridged-to",
     description: "Telnyx sends DialBridgedDuration but omits DialBridgedTo — still hang up after owner answered",
     method: "POST",

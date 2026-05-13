@@ -224,6 +224,19 @@ function dialLegHadPstnBridge(formData: FormData): boolean {
   return dialCallbackBridgeDigitCount(formData) >= 10 || dialBridgedSecondsHint(formData) >= 1
 }
 
+/** Some Telnyx builds send an explicit answered flag without `DialBridgedTo` / duration. */
+function dialCallbackExplicitAnswered(formData: FormData): boolean {
+  const v = String(
+    formData.get("DialAnswered") ||
+      formData.get("DialCallAnswered") ||
+      formData.get("Answered") ||
+      ""
+  )
+    .trim()
+    .toLowerCase()
+  return v === "true" || v === "yes" || v === "1"
+}
+
 /** Resolve assistant id and return AI TeXML, or null to fall back to “AI unavailable” TeXML on the same VoiceResponse. */
 async function tryBuildAiAssistantResponse(args: {
   userId: string
@@ -446,7 +459,20 @@ export async function handleTelnyxFallbackDialEnded(
       formData,
     })
     /** True when this dial leg actually bridged to a callee (digits and/or bridged duration from Telnyx). */
-    const pstnBridgeEvidence = dialLegHadPstnBridge(formData)
+    const pstnBridgeEvidence = dialLegHadPstnBridge(formData) || dialCallbackExplicitAnswered(formData)
+    /**
+     * Telnyx often omits bridge fields on short answered calls; duration then stays **below** the configured
+     * ring window (unlike a full ring-no-answer that runs ~timeout seconds). Capped at 120s so the
+     * “long completed, no bridge metadata” quirk still reaches AI/voicemail (see tests).
+     */
+    const ringTimeoutCeiling = Math.min(Math.max(lr?.ring_timeout_seconds ?? 22, 8), 60)
+    const RING_SLACK_SEC = 6
+    const shortCompletedLooksAnswered =
+      dialStatus === "completed" &&
+      !pstnBridgeEvidence &&
+      dialDurationSec >= 3 &&
+      dialDurationSec < ringTimeoutCeiling - RING_SLACK_SEC &&
+      dialDurationSec < 120
     /**
      * Path stripped but `To` / `DialCalledNumber` matches the desk line — treat as receptionist leg.
      * Prefer **not** matching owner cell on the same payload so a stray `primary=owner` query does not suppress this.
@@ -465,14 +491,17 @@ export async function handleTelnyxFallbackDialEnded(
     const receptionistLegEndedAfterBridge =
       (pathFallbackMode === "recv" || pathFallbackMode === "recv-ai" || receptionistCalleeMatches) &&
       dialStatus === "completed" &&
-      pstnBridgeEvidence
+      (pstnBridgeEvidence || shortCompletedLooksAnswered)
     if (receptionistLegEndedAfterBridge) {
-      maybeLogTelnyxFallbackDiagnosticEarly("recv-bridged-hangup", {
-        dialDurationSec,
-        bridgedToDigits,
-        dialStatus,
-        pathFallbackMode: pathFallbackMode ?? null,
-      })
+      maybeLogTelnyxFallbackDiagnosticEarly(
+        pstnBridgeEvidence ? "recv-bridged-hangup" : "recv-short-completed-hangup",
+        {
+          dialDurationSec,
+          bridgedToDigits,
+          dialStatus,
+          pathFallbackMode: pathFallbackMode ?? null,
+        }
+      )
       if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
       texml.hangup()
       return new NextResponse(texml.toString(), {
@@ -660,15 +689,18 @@ export async function handleTelnyxFallbackDialEnded(
       !recvLegByPath &&
       !receptionistCalleeMatches &&
       dialStatus === "completed" &&
-      pstnBridgeEvidence
+      (pstnBridgeEvidence || shortCompletedLooksAnswered)
     if (ownerFirstLegBridgedComplete) {
-      maybeLogTelnyxFallbackDiagnosticEarly("owner-first-leg-bridged-hangup", {
-        dialDurationSec,
-        bridgedToDigits,
-        dialStatus,
-        pathFallbackMode: pathFallbackMode ?? null,
-        primaryWasOwner,
-      })
+      maybeLogTelnyxFallbackDiagnosticEarly(
+        pstnBridgeEvidence ? "owner-first-leg-bridged-hangup" : "owner-first-short-completed-hangup",
+        {
+          dialDurationSec,
+          bridgedToDigits,
+          dialStatus,
+          pathFallbackMode: pathFallbackMode ?? null,
+          primaryWasOwner,
+        }
+      )
       if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
       texml.hangup()
       return new NextResponse(texml.toString(), {
