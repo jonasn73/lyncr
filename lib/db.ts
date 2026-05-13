@@ -115,8 +115,10 @@ export type IncomingRoutingRow = {
   phone_line_friendly_name: string
 }
 
-// Cache for incoming voice routing to reduce per-request DB latency.
-// In serverless, the module can stay warm briefly, so this helps most traffic bursts.
+// Cache for incoming voice routing to reduce per-request DB latency on the **same** instance.
+// **Do not rely on this for correctness:** `clearIncomingRoutingCache()` only clears this process; other
+// Vercel/serverless instances keep their own Map. Telnyx `/incoming` must use `{ bypassCache: true }` so
+// receptionist + fallback match the dashboard immediately after saves.
 type IncomingRoutingByNumber = IncomingRoutingRow | null
 
 const incomingRoutingCache = new Map<string, { expiresAt: number; value: IncomingRoutingByNumber }>()

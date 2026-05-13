@@ -129,7 +129,7 @@ async function handleIncomingCall(
     const businessLineE164 = calledNumber ? normalizePhoneNumberE164(calledNumber) : ""
 
     // 1. Resolve owner + per-number routing + receptionist in one DB query.
-    const routing = await getIncomingRoutingByNumber(calledNumber)
+    const routing = await getIncomingRoutingByNumber(calledNumber, { bypassCache: true })
     if (!routing) {
       console.error(
         "[Zing] No user/routing for inbound — check phone_numbers row matches this line. Detail:",
