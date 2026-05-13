@@ -327,10 +327,11 @@ async function handleIncomingCall(
       process.env.ZING_AI_RING_OWNER_FIRST === "true" ||
       routing.ai_ring_owner_first === true // DB toggle (Fallback Settings) or env — Dial cell first, then /fallback for AI
     /**
-     * When “Ring my phone first” is on **and** a teammate is configured, the first PSTN leg is the owner’s cell;
-     * Dial `action` still uses `recv` / `recv-ai` so `/fallback` chains to the receptionist (`telnyx-fallback-dial-action.ts`).
+     * “Ring my phone first” is only for **AI fallback**: ring your cell before Voice AI after humans don’t answer.
+     * If we applied it when `fallback_type` is owner/voicemail, your phone would ring first even though the dashboard
+     * shows a receptionist as the ring target — callers never reach the teammate first.
      */
-    const firstDialOwnerWithTeammate = Boolean(ringOwnerFirst && hasReceptionist)
+    const firstDialOwnerWithTeammate = Boolean(ringOwnerFirst && hasReceptionist && wantsAiAfterNoAnswer)
     const twoStepAiHandoff =
       process.env.ZING_AI_HANDOFF_TWO_STEP === "1" || process.env.ZING_AI_HANDOFF_TWO_STEP === "true" // true = play “please hold” then redirect
     const connectDirectIncoming =
