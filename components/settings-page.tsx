@@ -22,6 +22,7 @@ import {
   Check,
   Loader2,
   Sparkles,
+  Pencil,
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -177,7 +178,6 @@ export function SettingsPage() {
   const [routingLineLabelDraft, setRoutingLineLabelDraft] = useState("")
   const [routingLineLabelSaving, setRoutingLineLabelSaving] = useState(false)
   const [routingLineLabelError, setRoutingLineLabelError] = useState<string | null>(null)
-  const [routingLineLabelEditing, setRoutingLineLabelEditing] = useState(false)
   /** Account has voice AI assistant id — pairs with per-line `fallback_type === "ai"` for “AI live”. */
   const [telnyxAssistantLinked, setTelnyxAssistantLinked] = useState(false)
 
@@ -331,13 +331,11 @@ export function SettingsPage() {
     if (!routingModalNumber) {
       setRoutingLineLabelDraft("")
       setRoutingLineLabelError(null)
-      setRoutingLineLabelEditing(false)
       return
     }
     const row = myNumbers.find((n) => n.number === routingModalNumber)
     setRoutingLineLabelDraft(row?.label ?? "")
     setRoutingLineLabelError(null)
-    setRoutingLineLabelEditing(false)
   }, [routingModalNumber, myNumbers])
 
   // Auto-configure any unconfigured numbers with voice webhooks (runs silently)
@@ -611,7 +609,6 @@ export function SettingsPage() {
       }
       const saved = routingLineLabelDraft.trim() || "Business Line" // Value we optimistically mirror in state
       setMyNumbers((prev) => prev.map((n) => (n.number === routingModalNumber ? { ...n, label: saved } : n))) // Update list under the hood
-      setRoutingLineLabelEditing(false)
       toast({
         title: "Line name saved",
         description: "Your team hears this in the short whisper when they pick up a forwarded call.",
@@ -873,46 +870,60 @@ export function SettingsPage() {
             const routing = getRoutingForNumber(num.number)
             const fb = getFallbackLineLabel(num.number)
             return (
-              <button
+              <div
                 key={num.number}
-                onClick={() => setRoutingModalNumber(num.number)}
-                className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
+                className="flex w-full items-stretch overflow-hidden rounded-2xl border border-border/70 bg-card/85 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
               >
-                <div className="flex items-center gap-3">
-                  <IconSurface tone="primary">
-                    <Phone className="h-4 w-4" />
-                  </IconSurface>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{formatPhoneDisplay(num.number)}</p>
-                    <p className="text-[11px] text-muted-foreground/90">{num.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {routing.receptionist
-                        ? `→ ${routing.receptionist.name}${routing.isDefault ? " (default)" : ""}`
-                        : `→ Your Phone${routing.isDefault ? " (default)" : ""}`}
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => setRoutingModalNumber(num.number)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 p-4 text-left"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <IconSurface tone="primary">
+                      <Phone className="h-4 w-4" />
+                    </IconSurface>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{formatPhoneDisplay(num.number)}</p>
+                      <p className="truncate text-[11px] text-muted-foreground/90">{num.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {routing.receptionist
+                          ? `→ ${routing.receptionist.name}${routing.isDefault ? " (default)" : ""}`
+                          : `→ Your Phone${routing.isDefault ? " (default)" : ""}`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="flex flex-wrap justify-end gap-1">
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
-                      Active
-                    </span>
-                    <Badge
-                      variant="secondary"
-                      title={fb.title}
-                      className={cn(
-                        "max-w-[9.5rem] text-[10px] font-semibold",
-                        fb.tone === "success" && "border-success/30 bg-success/10 text-success",
-                        fb.tone === "warning" && "border-warning/30 bg-warning/10 text-warning"
-                      )}
-                    >
-                      {fb.tone === "success" && <Sparkles className="mr-0.5 inline h-3 w-3 align-text-bottom" aria-hidden />}
-                      {fb.label}
-                    </Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+                        Active
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        title={fb.title}
+                        className={cn(
+                          "max-w-[9.5rem] text-[10px] font-semibold",
+                          fb.tone === "success" && "border-success/30 bg-success/10 text-success",
+                          fb.tone === "warning" && "border-warning/30 bg-warning/10 text-warning"
+                        )}
+                      >
+                        {fb.tone === "success" && <Sparkles className="mr-0.5 inline h-3 w-3 align-text-bottom" aria-hidden />}
+                        {fb.label}
+                      </Badge>
+                    </div>
+                    <PhoneForwarded className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </div>
-                  <PhoneForwarded className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </div>
-              </button>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Edit business name for ${formatPhoneDisplay(num.number)}`}
+                  title="Edit business name"
+                  onClick={() => setRoutingModalNumber(num.number)}
+                  className="flex shrink-0 items-center border-l border-border/60 px-3 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
             )
           })}
 
@@ -942,29 +953,83 @@ export function SettingsPage() {
             const iconColor = isComplete ? "text-success" : isError ? "text-destructive" : "text-warning"
             // For completed ports, show routing info and make tappable
             const routing = isComplete ? getRoutingForNumber(p.number) : null
-            const Wrapper = isComplete ? "button" as const : "div" as const
+            const portRowLabel = myNumbers.find((n) => n.number === p.number)?.label
+            if (isComplete) {
+              return (
+                <div
+                  key={p.id || p.number}
+                  className="flex w-full items-stretch overflow-hidden rounded-2xl border border-border/70 bg-card/85 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setRoutingModalNumber(p.number)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 p-4 text-left"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", iconBg)}>
+                        <Check className={cn("h-4 w-4", iconColor)} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{formatPhoneDisplay(p.number)}</p>
+                        {portRowLabel ? (
+                          <p className="truncate text-[11px] text-muted-foreground/90">{portRowLabel}</p>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          {routing
+                            ? routing.receptionist
+                              ? `→ ${routing.receptionist.name}${routing.isDefault ? " (default)" : ""}`
+                              : `→ Your Phone${routing.isDefault ? " (default)" : ""}`
+                            : null}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      {p.id ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPortingMsgs({
+                              id: p.id,
+                              number: p.number,
+                              allowReply: !isComplete && !isCancelled,
+                            })
+                          }}
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                        >
+                          Messages
+                        </button>
+                      ) : null}
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", badgeColor)}>
+                        Active
+                      </span>
+                      <PhoneForwarded className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Edit business name for ${formatPhoneDisplay(p.number)}`}
+                    title="Edit business name"
+                    onClick={() => setRoutingModalNumber(p.number)}
+                    className="flex shrink-0 items-center border-l border-border/60 px-3 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                </div>
+              )
+            }
             return (
-              <Wrapper
+              <div
                 key={p.id || p.number}
-                {...(isComplete ? { onClick: () => setRoutingModalNumber(p.number) } : {})}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm",
-                  isComplete && "transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
-                )}
+                className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", iconBg)}>
-                    {isComplete ? <Check className={cn("h-4 w-4", iconColor)} /> : <ArrowRightLeft className={cn("h-4 w-4", iconColor)} />}
+                    <ArrowRightLeft className={cn("h-4 w-4", iconColor)} />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">{formatPhoneDisplay(p.number)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {isComplete && routing
-                        ? routing.receptionist
-                          ? `→ ${routing.receptionist.name}${routing.isDefault ? " (default)" : ""}`
-                          : `→ Your Phone${routing.isDefault ? " (default)" : ""}`
-                        : p.statusLabel || "Transfer in progress"}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{p.statusLabel || "Transfer in progress"}</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -1018,7 +1083,7 @@ export function SettingsPage() {
                   </span>
                   {isComplete && <PhoneForwarded className="h-4 w-4 text-muted-foreground" />}
                 </div>
-              </Wrapper>
+              </div>
             )
           })}
 
@@ -1572,69 +1637,51 @@ export function SettingsPage() {
               </button>
             </div>
 
-            {/* Line label: set when the number was added; optional rename here. */}
+            {/* Business name: always editable here; PATCH /api/numbers/[id]. */}
             <div className="border-b border-border px-4 py-3">
               {(() => {
                 const row = myNumbers.find((n) => n.number === routingModalNumber)
-                const displayLine = row?.label?.trim() ? row.label : "—"
                 return (
                   <>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Line for your team</p>
-                    <p className="mt-0.5 text-sm font-medium text-foreground">{displayLine}</p>
+                    <label htmlFor="zing-settings-line-label" className="text-[11px] font-semibold text-muted-foreground">
+                      Business name for this line
+                    </label>
+                    <input
+                      id="zing-settings-line-label"
+                      type="text"
+                      value={routingLineLabelDraft}
+                      onChange={(e) => setRoutingLineLabelDraft(e.target.value)}
+                      placeholder="e.g. Main office, Dispatch"
+                      maxLength={120}
+                      className="mt-1.5 w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                    />
                     <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                      You chose this name when you added this number. While the phone rings, caller ID usually shows{" "}
-                      {formatPhoneDisplay(routingModalNumber)} so your receptionist can tell which business line is calling before they pick up. If
-                      whisper is enabled, a short message plays right after they answer, before they are connected to the caller.
+                      Shown to your team for this number (caller ID while ringing is {formatPhoneDisplay(routingModalNumber)}; whisper after answer uses this name when enabled).
                     </p>
-                    {!routingLineLabelEditing ? (
+                    {routingLineLabelError ? (
+                      <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>
+                    ) : null}
+                    <div className="mt-2 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setRoutingLineLabelEditing(true)}
-                        className="mt-2 text-xs font-semibold text-primary hover:underline"
+                        onClick={() => {
+                          setRoutingLineLabelDraft(row?.label ?? "")
+                          setRoutingLineLabelError(null)
+                        }}
+                        disabled={routingLineLabelSaving}
+                        className="flex-1 rounded-xl border border-border/70 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                       >
-                        Change name…
+                        Reset
                       </button>
-                    ) : (
-                      <>
-                        <label htmlFor="zing-settings-line-label" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
-                          Business name for this line
-                        </label>
-                        <input
-                          id="zing-settings-line-label"
-                          type="text"
-                          value={routingLineLabelDraft}
-                          onChange={(e) => setRoutingLineLabelDraft(e.target.value)}
-                          placeholder="e.g. Key Squad 502"
-                          maxLength={120}
-                          className="mt-1.5 w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                        />
-                        {routingLineLabelError ? (
-                          <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>
-                        ) : null}
-                        <div className="mt-2 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRoutingLineLabelEditing(false)
-                              setRoutingLineLabelDraft(row?.label ?? "")
-                              setRoutingLineLabelError(null)
-                            }}
-                            disabled={routingLineLabelSaving}
-                            className="flex-1 rounded-xl border border-border/70 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void saveRoutingLineLabel()}
-                            disabled={routingLineLabelSaving}
-                            className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                          >
-                            {routingLineLabelSaving ? "Saving…" : "Save"}
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => void saveRoutingLineLabel()}
+                        disabled={routingLineLabelSaving}
+                        className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {routingLineLabelSaving ? "Saving…" : "Save name"}
+                      </button>
+                    </div>
                   </>
                 )
               })()}
