@@ -363,10 +363,9 @@ export async function handleTelnyxFallbackDialEnded(
     const answeredAndHadConversation =
       dialStatus === "completed" && dialDurationSec >= 120 && bridgedToDigits >= 10
     /**
-     * "Ring my phone first" uses path mode `owner-ai`: after your cell leg ends — decline, voicemail pickup,
-     * short answer then hang-up, or long conversation — callers should reach **Voice AI** on `/fallback`.
-     * The old behavior hung up on the caller after 2+ min bridged; owners expect AI to take over when they hang up.
-     * Receptionist-first (`recv` / `recv-ai`) bridged completions are handled above so short and long desk calls end cleanly.
+     * `owner-ai` used to always hand the caller to Voice AI after the owner leg ended, even after a real conversation.
+     * That is handled later with the same rule as receptionist: **completed + PSTN bridge** → hang up the A-leg (see below).
+     * Keep skipping the generic 2‑minute “long bridged” hangup for `owner-ai` so we do not double‑end the call before that block runs.
      */
     const skipLongBridgedHangupForOwnerFirstAi = pathFallbackMode === "owner-ai"
     if (answeredAndHadConversation && !skipLongBridgedHangupForOwnerFirstAi) {
@@ -592,6 +591,30 @@ export async function handleTelnyxFallbackDialEnded(
         toNumber: toDial ? normalizePhoneNumberE164(toDial) : "Unknown",
         routedToReceptionistId: lr && lr.user_id === userId ? lr.selected_receptionist_id : null,
       }).catch((err) => console.error("[Zing] ensureCallLogForInboundLeg failed:", err))
+    }
+
+    /**
+     * Inbound first leg dialed the owner’s cell with AI fallback (`owner-ai`). If Telnyx reports `completed` after a
+     * real PSTN bridge, you picked up and the B-leg ended (you hung up or the call ended normally) — end the caller’s
+     * leg. Voice AI should run only when that dial **did not** bridge (no-answer / busy / missed), not after a live chat.
+     */
+    const ownerAiBridgedOwnerLegDone =
+      pathFallbackMode === "owner-ai" &&
+      primaryWasOwner &&
+      dialStatus === "completed" &&
+      pstnBridgeEvidence
+    if (ownerAiBridgedOwnerLegDone) {
+      maybeLogTelnyxFallbackDiagnosticEarly("owner-ai-bridged-hangup", {
+        dialDurationSec,
+        bridgedToDigits,
+        dialStatus,
+        pathFallbackMode: pathFallbackMode ?? null,
+        primaryWasOwner,
+      })
+      texml.hangup()
+      return new NextResponse(texml.toString(), {
+        headers: { "Content-Type": "text/xml" },
+      })
     }
 
     switch (fallbackType) {

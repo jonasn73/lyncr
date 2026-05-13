@@ -144,11 +144,11 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
-    id: "owner-ai-long-bridged-still-hands-off-to-ai",
+    id: "owner-ai-long-bridged-owner-hangup-ends-caller",
     description:
-      "Owner-first AI path: even 2+ min bridged owner leg → Voice AI (owner hang-up should not drop caller)",
+      "Owner-first AI path: after a real PSTN bridge and completed leg, hang up the caller (no Voice AI handoff)",
     method: "POST",
-    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner-ai?callSid=CA_fixture_long",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner-ai?callSid=CA_fixture_long&primary=owner&leg=owner-first",
     form: {
       DialCallStatus: "completed",
       DialCallDuration: "130",
@@ -164,8 +164,33 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
       primaryBusinessE164: "+15551110001",
     },
     expect: {
-      bodyContains: ["ai-bridge"],
-      bodyNotContains: ["</Hangup>"],
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["ai-bridge", "Thanks for calling"],
+      contentType: "text/xml",
+    },
+  },
+  {
+    id: "owner-ai-short-bridged-owner-hangup-ends-caller",
+    description: "Owner-first AI path: short bridged completed leg still ends caller (no AI after you hang up)",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner-ai?callSid=CA_fixture_owner_short&primary=owner",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "18",
+      DialBridgedTo: "+15551110002",
+      CallSid: "CA_fixture_owner_short",
+      To: "+15551110002",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({}),
+      routingForNumber: baseRouting({ fallback_type: "ai" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-g7" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["ai-bridge"],
       contentType: "text/xml",
     },
   },
