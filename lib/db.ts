@@ -129,13 +129,22 @@ export function clearIncomingRoutingCache(): void {
   incomingRoutingCache.clear()
 }
 
-// Normalize to E.164 (+1XXXXXXXXXX) so it matches how we store numbers in `phone_numbers.number`.
+// Normalize toward E.164 so values match `phone_numbers.number` and Telnyx `<Number>` dialing.
+// Returns "" when there are no digits (avoids a lone "+" that would make `hasReceptionist` truthy but nothing dials).
 export function normalizePhoneNumberE164(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
+  const trimmed = String(phone ?? "").trim()
+  if (!trimmed) return ""
+  const digits = trimmed.replace(/\D/g, "")
+  if (!digits) return ""
   if (digits.length === 10) return `+1${digits}`
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
-  if (phone.startsWith("+")) return phone
   return `+${digits}`
+}
+
+/** True when a string is plausibly dialable as PSTN E.164 (blocks "+", short extensions, and garbage joins). */
+export function isReasonablePstnDialString(e164: string): boolean {
+  const d = String(e164 ?? "").replace(/\D/g, "")
+  return d.length >= 10 && d.length <= 15
 }
 
 /** Digits-only key for matching webhook "To" vs rows stored as +1…, 1…, or 10-digit US. */
@@ -183,11 +192,18 @@ export async function getRoutingConfig(userId: string): Promise<RoutingConfig | 
   return rows[0] ? parseRoutingRow(rows[0]) : null
 }
 
-// Overlay account-wide “ring owner before AI” from the default routing row (per-number rows ignore their own column for this flag).
-async function mergeAiRingOwnerFirstFromDefault(userId: string, cfg: RoutingConfig): Promise<RoutingConfig> {
+// Overlay account defaults onto a per-number routing row when sparse (matches `getIncomingRoutingByNumber` semantics).
+async function mergePerNumberRoutingFromDefault(userId: string, cfg: RoutingConfig): Promise<RoutingConfig> {
   if (cfg.business_number == null) return cfg
   const def = await getRoutingConfig(userId)
-  return { ...cfg, ai_ring_owner_first: Boolean(def?.ai_ring_owner_first) }
+  return {
+    ...cfg,
+    ai_ring_owner_first: Boolean(def?.ai_ring_owner_first),
+    selected_receptionist_id:
+      cfg.selected_receptionist_id != null && String(cfg.selected_receptionist_id).trim() !== ""
+        ? cfg.selected_receptionist_id
+        : def?.selected_receptionist_id ?? null,
+  }
 }
 
 // Get routing config for a specific business number, falling back to the default config
@@ -199,7 +215,7 @@ export async function getRoutingConfigForNumber(userId: string, businessNumber: 
     SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
     FROM routing_config WHERE user_id = ${userId} AND business_number = ${businessNumber} LIMIT 1
   `
-  if (specificExact[0]) return mergeAiRingOwnerFirstFromDefault(userId, parseRoutingRow(specificExact[0]))
+  if (specificExact[0]) return mergePerNumberRoutingFromDefault(userId, parseRoutingRow(specificExact[0]))
   if (digitKey.length < 10) return getRoutingConfig(userId)
   // Digit match: per-number rows saved as a different string shape than TeXML sends (+1 vs 10-digit US).
   const specificLoose = await sql`
@@ -217,7 +233,7 @@ export async function getRoutingConfigForNumber(userId: string, businessNumber: 
       )
     LIMIT 1
   `
-  if (specificLoose[0]) return mergeAiRingOwnerFirstFromDefault(userId, parseRoutingRow(specificLoose[0]))
+  if (specificLoose[0]) return mergePerNumberRoutingFromDefault(userId, parseRoutingRow(specificLoose[0]))
   return getRoutingConfig(userId)
 }
 
@@ -371,16 +387,6 @@ export async function getReceptionists(userId: string): Promise<Receptionist[]> 
   return rows.map(parseReceptionistRow)
 }
 
-// Normalize a US phone number to E.164 format (+1XXXXXXXXXX)
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
-  if (phone.startsWith("+")) return phone
-  return `+${digits}`
-}
-
-// Create a receptionist
 export async function insertReceptionist(params: {
   user_id: string
   name: string
@@ -388,7 +394,7 @@ export async function insertReceptionist(params: {
 }): Promise<Receptionist> {
   const sql = getSql()
   const id = crypto.randomUUID()
-  const phone = normalizePhone(params.phone)
+  const phone = normalizePhoneNumberE164(params.phone)
   const nameParts = params.name.trim().split(/\s+/)
   const initials = nameParts.length >= 2
     ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
@@ -424,7 +430,10 @@ export async function updateReceptionist(
     await sql`UPDATE receptionists SET name = ${updates.name} WHERE id = ${receptionistId} AND user_id = ${userId}`
   }
   if (updates.phone !== undefined) {
-    await sql`UPDATE receptionists SET phone = ${updates.phone} WHERE id = ${receptionistId} AND user_id = ${userId}`
+    const raw = String(updates.phone).trim()
+    const normalizedPhone = normalizePhoneNumberE164(raw)
+    const toStore = isReasonablePstnDialString(normalizedPhone) ? normalizedPhone : raw
+    await sql`UPDATE receptionists SET phone = ${toStore} WHERE id = ${receptionistId} AND user_id = ${userId}`
   }
   if (updates.is_active !== undefined) {
     await sql`UPDATE receptionists SET is_active = ${updates.is_active} WHERE id = ${receptionistId} AND user_id = ${userId}`

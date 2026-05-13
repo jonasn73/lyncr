@@ -19,6 +19,7 @@ import {
   getReceptionist,
   getUser,
   insertCallLog,
+  isReasonablePstnDialString,
   normalizePhoneNumberE164,
   bumpTelnyxAiIncomingHitCount,
   isTelnyxInboundDialCallerLegDone,
@@ -39,6 +40,11 @@ export const preferredRegion = "iad1"
 /** Set to `0` / `false` / `no` to skip the short line-ID whisper on the callee leg. */
 const INBOUND_RECEPTIONIST_WHISPER_DISABLED = ["0", "false", "no"].includes(
   (process.env.ZING_INBOUND_RECEPTIONIST_WHISPER || "").trim().toLowerCase()
+)
+
+/** When true, `<Dial><Number>` to the receptionist omits `url=` (no pre-answer whisper) — use if Telnyx never rings the teammate when `url` is set. */
+const INBOUND_RECV_PLAIN_DIAL = ["1", "true", "yes"].includes(
+  (process.env.ZING_INBOUND_RECV_PLAIN_DIAL ?? "").trim().toLowerCase()
 )
 
 function receptionistWhisperScreenUrl(phrase: string): string {
@@ -220,35 +226,41 @@ async function handleIncomingCall(
     // 4. Route: receptionist (per-number or default) → owner's cell as fallback
     // Outbound PSTN leg: callerId must be set — use normalized business DID so the callee can see which number was dialed.
     const wantsAiAfterNoAnswer = String(routing.fallback_type || "").toLowerCase() === "ai"
-    // `getIncomingRoutingByNumber` joins `receptionists` for phone/name; if that join returns empty phone while
-    // `selected_receptionist_id` is set (proxy driver / row shape), load the row so we still emit `<Dial>` to the teammate.
+    // Joined `receptionist_phone` can be stale or malformed; always normalize and require plausible E.164 digit length.
     let receptionistDialE164 = ""
     const selectedReceptionistId = routing.selected_receptionist_id?.trim() || ""
     if (selectedReceptionistId) {
-      const joinedPhone = routing.receptionist_phone?.trim() || ""
-      if (joinedPhone) {
-        receptionistDialE164 = normalizePhoneNumberE164(joinedPhone)
-      } else {
+      const joinedRaw = routing.receptionist_phone?.trim() || ""
+      const fromJoined = joinedRaw ? normalizePhoneNumberE164(joinedRaw) : ""
+      if (fromJoined && isReasonablePstnDialString(fromJoined)) {
+        receptionistDialE164 = fromJoined
+      }
+      if (!receptionistDialE164) {
         const rec = await getReceptionist(selectedReceptionistId)
         if (rec && rec.user_id === routing.user_id && rec.phone?.trim()) {
-          receptionistDialE164 = normalizePhoneNumberE164(rec.phone)
-          console.log(
-            JSON.stringify({
-              zing: "telnyx-incoming-receptionist-phone-backfill",
-              userId: routing.user_id,
-              receptionistId: selectedReceptionistId,
-              callSid,
-            })
-          )
-        } else {
+          const fromRow = normalizePhoneNumberE164(rec.phone)
+          if (fromRow && isReasonablePstnDialString(fromRow)) {
+            receptionistDialE164 = fromRow
+            console.log(
+              JSON.stringify({
+                zing: "telnyx-incoming-receptionist-phone-backfill",
+                userId: routing.user_id,
+                receptionistId: selectedReceptionistId,
+                callSid,
+                joinedWasUnusable: Boolean(joinedRaw),
+              })
+            )
+          }
+        }
+        if (!receptionistDialE164) {
           console.error(
             JSON.stringify({
               zing: "telnyx-incoming-receptionist-phone-missing",
               userId: routing.user_id,
               receptionistId: selectedReceptionistId,
               callSid,
-              recFound: Boolean(rec),
-              recUserMatch: rec ? rec.user_id === routing.user_id : false,
+              joinedHadValue: Boolean(joinedRaw),
+              joinedNormalizedLen: fromJoined.replace(/\D/g, "").length,
             })
           )
         }
@@ -283,6 +295,8 @@ async function handleIncomingCall(
         userId: routing.user_id,
         wantsAiAfterNoAnswer,
         hasReceptionist,
+        recvDialDigitLen: receptionistDialE164.replace(/\D/g, "").length,
+        recvPlainDialEnv: INBOUND_RECV_PLAIN_DIAL,
         aiRingOwnerFirstFromDefaultRow: routing.ai_ring_owner_first,
         ringOwnerFirstEffective: ringOwnerFirst,
         useDirectAiWhenNoReceptionist,
@@ -427,7 +441,8 @@ async function handleIncomingCall(
         method: "POST",
         // Telnyx TeXML accepts `fromDisplayName` on Dial (outbound CNAM); Twilio typings omit it.
       } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
-      if (whisperPhrase.trim()) {
+      const useRecvScreenUrl = whisperPhrase.trim().length > 0 && !INBOUND_RECV_PLAIN_DIAL
+      if (useRecvScreenUrl) {
         dial.number({ url: receptionistWhisperScreenUrl(whisperPhrase) }, recPhone)
       } else {
         dial.number(recPhone)
