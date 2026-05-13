@@ -672,8 +672,8 @@ export async function getIncomingRoutingByNumber(
     LEFT JOIN routing_config rc_def
       ON rc_def.user_id = u.id
       AND rc_def.business_number IS NULL
-    LEFT JOIN receptionists rs ON rs.id = rc_spec.selected_receptionist_id
-    LEFT JOIN receptionists rd ON rd.id = rc_def.selected_receptionist_id
+    LEFT JOIN receptionists rs ON rs.id = rc_spec.selected_receptionist_id AND rs.user_id = u.id
+    LEFT JOIN receptionists rd ON rd.id = rc_def.selected_receptionist_id AND rd.user_id = u.id
     WHERE pn.status = 'active'
       AND (
         regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
@@ -725,8 +725,8 @@ export async function getIncomingRoutingByNumber(
     LEFT JOIN routing_config rc_def
       ON rc_def.user_id = u.id
       AND rc_def.business_number IS NULL
-    LEFT JOIN receptionists rs ON rs.id = rc_spec.selected_receptionist_id
-    LEFT JOIN receptionists rd ON rd.id = rc_def.selected_receptionist_id
+    LEFT JOIN receptionists rs ON rs.id = rc_spec.selected_receptionist_id AND rs.user_id = u.id
+    LEFT JOIN receptionists rd ON rd.id = rc_def.selected_receptionist_id AND rd.user_id = u.id
     WHERE pn.status = 'active'
       AND (
         regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}

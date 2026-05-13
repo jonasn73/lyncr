@@ -16,6 +16,7 @@ import { buildInboundLineWhisperPhrase } from "@/lib/inbound-line-whisper"
 import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
   getIncomingRoutingByNumber,
+  getReceptionist,
   getUser,
   insertCallLog,
   normalizePhoneNumberE164,
@@ -219,7 +220,41 @@ async function handleIncomingCall(
     // 4. Route: receptionist (per-number or default) → owner's cell as fallback
     // Outbound PSTN leg: callerId must be set — use normalized business DID so the callee can see which number was dialed.
     const wantsAiAfterNoAnswer = String(routing.fallback_type || "").toLowerCase() === "ai"
-    const hasReceptionist = Boolean(routing.selected_receptionist_id && routing.receptionist_phone)
+    // `getIncomingRoutingByNumber` joins `receptionists` for phone/name; if that join returns empty phone while
+    // `selected_receptionist_id` is set (proxy driver / row shape), load the row so we still emit `<Dial>` to the teammate.
+    let receptionistDialE164 = ""
+    const selectedReceptionistId = routing.selected_receptionist_id?.trim() || ""
+    if (selectedReceptionistId) {
+      const joinedPhone = routing.receptionist_phone?.trim() || ""
+      if (joinedPhone) {
+        receptionistDialE164 = normalizePhoneNumberE164(joinedPhone)
+      } else {
+        const rec = await getReceptionist(selectedReceptionistId)
+        if (rec && rec.user_id === routing.user_id && rec.phone?.trim()) {
+          receptionistDialE164 = normalizePhoneNumberE164(rec.phone)
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-receptionist-phone-backfill",
+              userId: routing.user_id,
+              receptionistId: selectedReceptionistId,
+              callSid,
+            })
+          )
+        } else {
+          console.error(
+            JSON.stringify({
+              zing: "telnyx-incoming-receptionist-phone-missing",
+              userId: routing.user_id,
+              receptionistId: selectedReceptionistId,
+              callSid,
+              recFound: Boolean(rec),
+              recUserMatch: rec ? rec.user_id === routing.user_id : false,
+            })
+          )
+        }
+      }
+    }
+    const hasReceptionist = Boolean(selectedReceptionistId && receptionistDialE164)
     /**
      * **Default (AI + no receptionist):** silent **`<Redirect>`** to `/ai-bridge` → `<Connect><AIAssistant>`.
      * Putting `<Connect>` on the first `/incoming` response often goes **dead-air** on Telnyx.
@@ -378,8 +413,8 @@ async function handleIncomingCall(
       lineLbl && lineLbl.toLowerCase() !== "main line" ? lineLbl : routing.business_name
     const fromDisplayName = buildTelnyxDialFromDisplayName(fromDisplaySource)
 
-    if (routing.selected_receptionist_id && routing.receptionist_phone) {
-      const recPhone = normalizePhoneNumberE164(routing.receptionist_phone)
+    if (selectedReceptionistId && receptionistDialE164) {
+      const recPhone = receptionistDialE164
       if (debug) console.log(`[Zing] Routing to receptionist: ${routing.receptionist_name || "Receptionist"} (${recPhone})`)
       const dial = texml.dial({
         callerId: businessLineE164,
