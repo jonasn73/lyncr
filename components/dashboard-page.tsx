@@ -25,6 +25,23 @@ import { Switch } from "@/components/ui/switch"
 import { AiIntakeFlowPanel } from "@/components/ai-intake-flow-panel"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 
+/** Ring timeout options in the dashboard (seconds); must match Telnyx `<Dial timeout>` sensible range. */
+const DASHBOARD_RING_TIMEOUT_CHOICES = [10, 12, 15, 20, 25, 30, 35, 40, 45, 60] as const
+
+function snapDashboardRingTimeoutSec(sec: number): (typeof DASHBOARD_RING_TIMEOUT_CHOICES)[number] {
+  const clamped = Math.min(90, Math.max(10, Math.round(sec)))
+  let best: (typeof DASHBOARD_RING_TIMEOUT_CHOICES)[number] = DASHBOARD_RING_TIMEOUT_CHOICES[0]
+  let bestD = Infinity
+  for (const n of DASHBOARD_RING_TIMEOUT_CHOICES) {
+    const d = Math.abs(n - clamped)
+    if (d < bestD) {
+      best = n
+      bestD = d
+    }
+  }
+  return best
+}
+
 /** Last 10 US digits so we can match +1… vs 10-digit values from APIs without breaking line selection. */
 function phoneDigits10(phone: string | null | undefined): string {
   if (phone == null || typeof phone !== "string") return ""
@@ -205,7 +222,7 @@ export function DashboardPage() {
           setAiRingOwnerFirst(Boolean(rData.config.ai_ring_owner_first))
           const rt = rData.config.ring_timeout_seconds
           if (typeof rt === "number" && Number.isFinite(rt)) {
-            setRingTimeoutSec(Math.min(90, Math.max(10, Math.round(rt))))
+            setRingTimeoutSec(snapDashboardRingTimeoutSec(rt))
           }
         }
       })
@@ -657,12 +674,12 @@ export function DashboardPage() {
               >
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  <p className="text-xs font-semibold text-foreground">Ring duration &amp; backup</p>
+                  <p className="text-xs font-semibold text-foreground">How long to ring before backup</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="zing-dash-ring-sec" className="text-[11px] text-muted-foreground">
-                      Ring first leg (seconds)
+                      Max ring time (first target)
                     </label>
                     <select
                       id="zing-dash-ring-sec"
@@ -675,14 +692,14 @@ export function DashboardPage() {
                         void saveRouting({ ring_timeout_seconds: v })
                       }}
                     >
-                      {[15, 20, 25, 30, 35, 40, 45, 60].map((n) => (
+                      {[...DASHBOARD_RING_TIMEOUT_CHOICES].map((n) => (
                         <option key={n} value={n}>
                           {n} seconds
                         </option>
                       ))}
                     </select>
                     <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                      Applies to the first ring target for this line before voicemail, AI, or your backup runs.
+                      This does <span className="font-medium text-foreground">not</span> add a delay before ringing starts — Telnyx rings your team (or you) right away. It is only how many seconds to wait for someone to <span className="font-medium text-foreground">answer</span> before Zing runs your backup (voicemail, AI, or second number). Lower = faster switch to backup if nobody picks up.
                     </p>
                   </div>
                   <div>

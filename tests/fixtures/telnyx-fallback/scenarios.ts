@@ -195,6 +195,32 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
+    id: "owner-path-voicemail-bridged-owner-hangup",
+    description:
+      "Voicemail fallback uses TeXML path owner: after answered owner leg, hang up caller (no AI/VM on their leg)",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner?callSid=CA_fixture_vm_owner&primary=owner&leg=owner-first",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "42",
+      DialBridgedTo: "+15551110002",
+      CallSid: "CA_fixture_vm_owner",
+      To: "+15551110002",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({ fallback_type: "voicemail", ai_ring_owner_first: false }),
+      routingForNumber: baseRouting({ fallback_type: "voicemail" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "voicemail", id: "rc-vm" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["ai-bridge", "Thanks for calling", "<Record"],
+      contentType: "text/xml",
+    },
+  },
+  {
     id: "recv-ai-long-bridged-early-hangup",
     description: "Receptionist-first AI: 2+ min bridged recv leg → hang up caller (no AI after long desk call)",
     method: "POST",

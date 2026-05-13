@@ -594,17 +594,17 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     /**
-     * Inbound first leg dialed the owner’s cell with AI fallback (`owner-ai`). If Telnyx reports `completed` after a
-     * real PSTN bridge, you picked up and the B-leg ended (you hung up or the call ended normally) — end the caller’s
-     * leg. Voice AI should run only when that dial **did not** bridge (no-answer / busy / missed), not after a live chat.
+     * Inbound first leg dialed **your cell** (`owner` = voicemail/ring-phone backup, `owner-ai` = AI after no-answer).
+     * If Telnyx reports `completed` after a real PSTN bridge, you answered and that B-leg ended — hang up the caller.
+     * Otherwise voicemail/AI would run on the customer leg even when fallback is voicemail (path `owner`, not `owner-ai`).
      */
-    const ownerAiBridgedOwnerLegDone =
-      pathFallbackMode === "owner-ai" &&
+    const ownerFirstLegBridgedComplete =
+      (pathFallbackMode === "owner" || pathFallbackMode === "owner-ai") &&
       primaryWasOwner &&
       dialStatus === "completed" &&
       pstnBridgeEvidence
-    if (ownerAiBridgedOwnerLegDone) {
-      maybeLogTelnyxFallbackDiagnosticEarly("owner-ai-bridged-hangup", {
+    if (ownerFirstLegBridgedComplete) {
+      maybeLogTelnyxFallbackDiagnosticEarly("owner-first-leg-bridged-hangup", {
         dialDurationSec,
         bridgedToDigits,
         dialStatus,
@@ -620,13 +620,11 @@ export async function handleTelnyxFallbackDialEnded(
     switch (fallbackType) {
       case "owner": {
         if (primaryWasOwner) {
-          // After owner’s cell we’re still in case "owner" — `fallbackType` is never "ai" here. Prefer AI if the account default / live join says ai or an assistant is already linked.
+          // After your cell leg: offer Voice AI only when routing explicitly asks for AI (not merely because an assistant id exists — that broke “ring phone then voicemail” lines).
           const wantAiHandoff =
             (virtualFbAi && primaryWasOwner) ||
             globalDefaultConfig?.fallback_type === "ai" ||
-            (useLive && lr?.fallback_type === "ai") ||
-            Boolean(user?.telnyx_ai_assistant_id?.trim()) ||
-            Boolean(process.env.TELNYX_AI_ASSISTANT_ID?.trim())
+            (useLive && lr?.fallback_type === "ai")
           if (wantAiHandoff) {
             const aiRes = await tryBuildAiAssistantResponse({
               userId,
