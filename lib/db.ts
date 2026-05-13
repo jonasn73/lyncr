@@ -1271,11 +1271,48 @@ export async function getPhoneNumberByNumberAndStatus(
   status: string
 ): Promise<PhoneNumber | null> {
   const sql = getSql()
+  const normalized = normalizePhoneNumberE164(number)
   const rows = await sql`
     SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
-    FROM phone_numbers WHERE number = ${number} AND status = ${status} LIMIT 1
+    FROM phone_numbers WHERE number = ${normalized} AND status = ${status} LIMIT 1
   `
   return rows[0] ? parsePhoneNumberRow(rows[0]) : null
+}
+
+/**
+ * When a port order is submitted, ensure we have a `phone_numbers` row in `porting` status with the user-chosen label.
+ * On repeat submit for the same number, updates label and port order id on the existing porting row.
+ */
+export async function ensurePortingLineRecord(params: {
+  user_id: string
+  number: string
+  label: string
+  port_order_id: string
+}): Promise<void> {
+  const sql = getSql()
+  const e164 = normalizePhoneNumberE164(params.number)
+  const active = await getPhoneNumberByNumberAndStatus(e164, "active")
+  if (active) return
+  const porting = await getPhoneNumberByNumberAndStatus(e164, "porting")
+  if (porting && porting.user_id === params.user_id) {
+    await sql`
+      UPDATE phone_numbers
+      SET label = ${params.label}, provider_number_sid = ${params.port_order_id}, twilio_sid = ${params.port_order_id}
+      WHERE id = ${porting.id} AND user_id = ${params.user_id}
+    `
+    clearIncomingRoutingCache()
+    return
+  }
+  if (porting) return
+  await insertPhoneNumber({
+    user_id: params.user_id,
+    number: e164,
+    friendly_name: e164,
+    label: params.label,
+    type: "local",
+    status: "porting",
+    provider_number_sid: params.port_order_id,
+  })
 }
 
 // Update a phone number (e.g. after port complete)

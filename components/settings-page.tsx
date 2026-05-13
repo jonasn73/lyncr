@@ -127,6 +127,11 @@ export function SettingsPage() {
   const [selectedAreaCode, setSelectedAreaCode] = useState("")
   const [buyStep, setBuyStep] = useState<"search" | "results">("search")
   const [buyLoading, setBuyLoading] = useState(false)
+  /** User picked a search result — must enter a line business name before POST /api/numbers/telnyx/buy. */
+  const [buyPendingNumber, setBuyPendingNumber] = useState<string | null>(null)
+  const [buyAcquireBusinessName, setBuyAcquireBusinessName] = useState("")
+  /** Port step 1: name for this line (saved to `phone_numbers.label` when the port order is created). */
+  const [portLineBusinessName, setPortLineBusinessName] = useState("")
   const [portingNumbers, setPortingNumbers] = useState<{ id: string; number: string; status: string; statusLabel?: string }[]>([])
   const [portingLoading, setPortingLoading] = useState(false)
   /** Porting webhook → in-app notifications (see `016-porting-notifications.sql`). */
@@ -172,6 +177,7 @@ export function SettingsPage() {
   const [routingLineLabelDraft, setRoutingLineLabelDraft] = useState("")
   const [routingLineLabelSaving, setRoutingLineLabelSaving] = useState(false)
   const [routingLineLabelError, setRoutingLineLabelError] = useState<string | null>(null)
+  const [routingLineLabelEditing, setRoutingLineLabelEditing] = useState(false)
   /** Account has voice AI assistant id — pairs with per-line `fallback_type === "ai"` for “AI live”. */
   const [telnyxAssistantLinked, setTelnyxAssistantLinked] = useState(false)
 
@@ -325,11 +331,13 @@ export function SettingsPage() {
     if (!routingModalNumber) {
       setRoutingLineLabelDraft("")
       setRoutingLineLabelError(null)
+      setRoutingLineLabelEditing(false)
       return
     }
     const row = myNumbers.find((n) => n.number === routingModalNumber)
     setRoutingLineLabelDraft(row?.label ?? "")
     setRoutingLineLabelError(null)
+    setRoutingLineLabelEditing(false)
   }, [routingModalNumber, myNumbers])
 
   // Auto-configure any unconfigured numbers with voice webhooks (runs silently)
@@ -342,6 +350,8 @@ export function SettingsPage() {
     setBuyError(null)
     setAvailableNumbers([])
     setBuySuccess(null)
+    setBuyPendingNumber(null)
+    setBuyAcquireBusinessName("")
     try {
       const res = await fetch(`/api/numbers/telnyx?area_code=${selectedAreaCode}&type=local`, { credentials: "include" })
       const data = await res.json()
@@ -365,7 +375,7 @@ export function SettingsPage() {
     }
   }
 
-  async function handleBuyNumber(phoneNumber: string) {
+  async function handleBuyNumber(phoneNumber: string, lineBusinessName: string) {
     setBuyingNumber(phoneNumber)
     setBuyError(null)
     try {
@@ -373,7 +383,7 @@ export function SettingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone_number: phoneNumber }),
+        body: JSON.stringify({ phone_number: phoneNumber, line_business_name: lineBusinessName }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -381,16 +391,18 @@ export function SettingsPage() {
         return
       }
       setBuySuccess(phoneNumber)
+      setBuyPendingNumber(null)
+      setBuyAcquireBusinessName("")
       toast({
         title: "Number purchased",
         description: `${formatPhoneDisplay(phoneNumber)} is ready to receive calls.`,
       })
       setAvailableNumbers((prev) => prev.filter((n) => n.number !== phoneNumber))
-      // Add the newly purchased number to the displayed list right away
+      const savedLabel = typeof data.number?.label === "string" ? data.number.label : lineBusinessName
       setMyNumbers((prev) => [...prev, {
         id: data.number?.id || phoneNumber,
         number: phoneNumber,
-        label: "Business Line",
+        label: savedLabel,
         type: "local",
         status: "active",
       }])
@@ -411,6 +423,7 @@ export function SettingsPage() {
         credentials: "include",
         body: JSON.stringify({
           number: portNumber,
+          line_business_name: portLineBusinessName.trim(),
           account_name: portAccountName,
           authorized_person: portAuthPerson,
           account_number: portAccountNumber || undefined,
@@ -506,6 +519,7 @@ export function SettingsPage() {
   function resetPortForm() {
     setPortStep(1)
     setPortNumber("")
+    setPortLineBusinessName("")
     setPortCarrier("")
     setPortAccountName("")
     setPortAuthPerson("")
@@ -597,6 +611,7 @@ export function SettingsPage() {
       }
       const saved = routingLineLabelDraft.trim() || "Business Line" // Value we optimistically mirror in state
       setMyNumbers((prev) => prev.map((n) => (n.number === routingModalNumber ? { ...n, label: saved } : n))) // Update list under the hood
+      setRoutingLineLabelEditing(false)
       toast({
         title: "Line name saved",
         description: "Your team hears this in the short whisper when they pick up a forwarded call.",
@@ -1051,7 +1066,15 @@ export function SettingsPage() {
           ) : null}
 
           <button
-            onClick={() => { setShowNumberModal(true); setNumberTab("buy"); setBuyStep("search"); setSelectedAreaCode(""); resetPortForm() }}
+            onClick={() => {
+              setShowNumberModal(true)
+              setNumberTab("buy")
+              setBuyStep("search")
+              setSelectedAreaCode("")
+              setBuyPendingNumber(null)
+              setBuyAcquireBusinessName("")
+              resetPortForm()
+            }}
             className="flex w-full items-center justify-between rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/10"
           >
             <div className="flex items-center gap-3">
@@ -1154,7 +1177,11 @@ export function SettingsPage() {
         <>
           <div
             className="fixed inset-0 z-[60] animate-in fade-in-0 bg-background/60 backdrop-blur-sm duration-150"
-            onClick={() => setShowNumberModal(false)}
+            onClick={() => {
+              setShowNumberModal(false)
+              setBuyPendingNumber(null)
+              setBuyAcquireBusinessName("")
+            }}
             aria-hidden="true"
           />
           <div className="fixed inset-x-4 top-16 z-[70] mx-auto max-h-[calc(100dvh-5rem)] max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-border/70 bg-card pb-3 shadow-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200 [-webkit-overflow-scrolling:touch]">
@@ -1162,7 +1189,11 @@ export function SettingsPage() {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-4 py-3">
               <h3 className="text-sm font-semibold text-foreground">Get a Number</h3>
               <button
-                onClick={() => setShowNumberModal(false)}
+                onClick={() => {
+                  setShowNumberModal(false)
+                  setBuyPendingNumber(null)
+                  setBuyAcquireBusinessName("")
+                }}
                 className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 aria-label="Close"
               >
@@ -1230,7 +1261,14 @@ export function SettingsPage() {
                         {availableNumbers.length} number{availableNumbers.length !== 1 ? "s" : ""} in ({selectedAreaCode})
                       </p>
                       <button
-                        onClick={() => { setBuyStep("search"); setAvailableNumbers([]); setBuyError(null); setBuySuccess(null) }}
+                        onClick={() => {
+                          setBuyStep("search")
+                          setAvailableNumbers([])
+                          setBuyError(null)
+                          setBuySuccess(null)
+                          setBuyPendingNumber(null)
+                          setBuyAcquireBusinessName("")
+                        }}
                         className="text-[11px] font-medium text-primary hover:underline"
                       >
                         Change
@@ -1248,11 +1286,60 @@ export function SettingsPage() {
 
                     {buyError && <p className="text-xs text-destructive">{buyError}</p>}
 
+                    {buyPendingNumber ? (
+                      <div className="rounded-xl border border-primary/35 bg-primary/5 p-3">
+                        <p className="text-xs font-semibold text-foreground">
+                          Buy {formatPhoneDisplay(buyPendingNumber)}
+                        </p>
+                        <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                          Name this line for your team. It is whispered after they answer (if whisper is on). While the phone is still ringing, their caller ID usually shows this business number so they can tell which line is calling.
+                        </p>
+                        <label htmlFor="zing-buy-line-name" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
+                          Business name for this line
+                        </label>
+                        <input
+                          id="zing-buy-line-name"
+                          type="text"
+                          value={buyAcquireBusinessName}
+                          onChange={(e) => setBuyAcquireBusinessName(e.target.value)}
+                          placeholder="e.g. Main storefront, Dispatch west"
+                          maxLength={120}
+                          className="mt-1 w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                          autoFocus
+                        />
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBuyPendingNumber(null)
+                              setBuyAcquireBusinessName("")
+                            }}
+                            disabled={buyingNumber !== null}
+                            className="flex-1 rounded-xl border border-border/70 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleBuyNumber(buyPendingNumber, buyAcquireBusinessName.trim())}
+                            disabled={buyingNumber !== null || buyAcquireBusinessName.trim().length === 0}
+                            className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                          >
+                            {buyingNumber === buyPendingNumber ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Purchase"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="max-h-[300px] overflow-y-auto flex flex-col gap-2">
                       {availableNumbers.map((num) => (
                         <button
                           key={num.number}
-                          onClick={() => handleBuyNumber(num.number)}
+                          type="button"
+                          onClick={() => {
+                            setBuyPendingNumber(num.number)
+                            setBuyAcquireBusinessName("")
+                          }}
                           disabled={buyingNumber !== null}
                           className="flex items-center justify-between rounded-xl border border-border/70 bg-secondary p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 disabled:opacity-50"
                         >
@@ -1263,11 +1350,7 @@ export function SettingsPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-foreground">{num.price}</span>
                             <span className="rounded-md bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                              {buyingNumber === num.number ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                "Buy"
-                              )}
+                              Choose
                             </span>
                           </div>
                         </button>
@@ -1332,10 +1415,24 @@ export function SettingsPage() {
                             autoFocus
                           />
                         </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[11px] font-semibold text-muted-foreground">Business name for this line</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Main office line, After-hours service"
+                            value={portLineBusinessName}
+                            onChange={(e) => setPortLineBusinessName(e.target.value)}
+                            maxLength={120}
+                            className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                          />
+                          <p className="text-[10px] leading-snug text-muted-foreground">
+                            Required. Saved with this number so your team knows which line is ringing (caller ID shows this DID while ringing; a short whisper can repeat this name after answer if enabled).
+                          </p>
+                        </div>
                         {portError && <p className="text-xs text-destructive">{portError}</p>}
                         <button
                           onClick={() => { setPortError(null); setPortStep(2) }}
-                          disabled={!portNumber.replace(/\D/g, "").length}
+                          disabled={!portNumber.replace(/\D/g, "").length || !portLineBusinessName.trim().length}
                           className="zing-btn-sm mt-1 w-full bg-primary py-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
                         >
                           Next: Account info
@@ -1475,35 +1572,72 @@ export function SettingsPage() {
               </button>
             </div>
 
-            {/* Line name: stored on the number row; Telnyx whisper uses it so agents know which DID was called. */}
+            {/* Line label: set when the number was added; optional rename here. */}
             <div className="border-b border-border px-4 py-3">
-              <label htmlFor="zing-settings-line-label" className="text-[11px] font-semibold text-muted-foreground">
-                Line name (for your team)
-              </label>
-              <input
-                id="zing-settings-line-label"
-                type="text"
-                value={routingLineLabelDraft}
-                onChange={(e) => setRoutingLineLabelDraft(e.target.value)}
-                placeholder="e.g. Key Squad 502"
-                maxLength={120}
-                className="mt-1.5 w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-              />
-              <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
-                This text is used when a receptionist answers a forwarded call: a short whisper can speak it so they
-                know which business line rang (caller ID may still show this number).
-              </p>
-              {routingLineLabelError ? (
-                <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void saveRoutingLineLabel()}
-                disabled={routingLineLabelSaving}
-                className="zing-btn-sm mt-2 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {routingLineLabelSaving ? "Saving…" : "Save line name"}
-              </button>
+              {(() => {
+                const row = myNumbers.find((n) => n.number === routingModalNumber)
+                const displayLine = row?.label?.trim() ? row.label : "—"
+                return (
+                  <>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Line for your team</p>
+                    <p className="mt-0.5 text-sm font-medium text-foreground">{displayLine}</p>
+                    <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+                      You chose this name when you added this number. While the phone rings, caller ID usually shows{" "}
+                      {formatPhoneDisplay(routingModalNumber)} so your receptionist can tell which business line is calling before they pick up. If
+                      whisper is enabled, a short message plays right after they answer, before they are connected to the caller.
+                    </p>
+                    {!routingLineLabelEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => setRoutingLineLabelEditing(true)}
+                        className="mt-2 text-xs font-semibold text-primary hover:underline"
+                      >
+                        Change name…
+                      </button>
+                    ) : (
+                      <>
+                        <label htmlFor="zing-settings-line-label" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
+                          Business name for this line
+                        </label>
+                        <input
+                          id="zing-settings-line-label"
+                          type="text"
+                          value={routingLineLabelDraft}
+                          onChange={(e) => setRoutingLineLabelDraft(e.target.value)}
+                          placeholder="e.g. Key Squad 502"
+                          maxLength={120}
+                          className="mt-1.5 w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                        />
+                        {routingLineLabelError ? (
+                          <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>
+                        ) : null}
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRoutingLineLabelEditing(false)
+                              setRoutingLineLabelDraft(row?.label ?? "")
+                              setRoutingLineLabelError(null)
+                            }}
+                            disabled={routingLineLabelSaving}
+                            className="flex-1 rounded-xl border border-border/70 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void saveRoutingLineLabel()}
+                            disabled={routingLineLabelSaving}
+                            className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                          >
+                            {routingLineLabelSaving ? "Saving…" : "Save"}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )
+              })()}
             </div>
 
             <div className="flex flex-col py-1" role="listbox" aria-label="Select who receives calls for this number">

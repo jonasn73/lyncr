@@ -15,6 +15,7 @@ import {
 } from "@/lib/telnyx-config"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
+const MAX_LINE_BUSINESS_NAME_LEN = 120
 
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -27,10 +28,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { phone_number } = body as { phone_number: string }
+    const { phone_number, line_business_name } = body as { phone_number: string; line_business_name?: string }
 
     if (!phone_number) {
       return NextResponse.json({ error: "Phone number is required" }, { status: 400 })
+    }
+    const label =
+      typeof line_business_name === "string" ? line_business_name.trim().slice(0, MAX_LINE_BUSINESS_NAME_LEN) : ""
+    if (!label) {
+      return NextResponse.json(
+        { error: "Business name for this line is required (what your team hears for this number)." },
+        { status: 400 }
+      )
     }
 
     // Step 1: Purchase the number
@@ -72,7 +81,7 @@ export async function POST(req: NextRequest) {
       user_id: userId,
       number: boughtNumber,
       friendly_name: boughtNumber,
-      label: "Business Line",
+      label,
       type: "local",
       status: "active",
       provider_number_sid: orderId,
@@ -87,6 +96,7 @@ export async function POST(req: NextRequest) {
         telnyx_order_id: orderId,
         number: boughtNumber,
         friendly_name: boughtNumber,
+        label: saved.label,
       },
     })
   } catch (error) {

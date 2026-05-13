@@ -4,6 +4,9 @@
 // Telnyx/TwiML: when `<Number url="…">` is used on outbound Dial, this URL is
 // fetched after the callee answers. Returned TeXML plays only on their leg
 // (whisper) before they are bridged to the original caller.
+//
+// **Before answer:** the callee usually sees the business DID as caller ID (set on `<Dial callerId>` in incoming).
+// True spoken-ID *before* pickup is not something standard PSTN TeXML provides; CNAM varies by carrier.
 
 import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse } from "@/lib/telnyx"

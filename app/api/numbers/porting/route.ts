@@ -12,6 +12,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import {
   getPhoneNumberByNumberAndStatus,
   insertPhoneNumber,
+  updatePhoneNumber,
 } from "@/lib/db"
 import {
   telnyxHeaders,
@@ -165,18 +166,24 @@ export async function GET(req: NextRequest) {
             if (!refUserId) continue
 
             // Only add to DB if not already there
-            const existing = await getPhoneNumberByNumberAndStatus(entry.number, "active")
-            if (!existing) {
-              await insertPhoneNumber({
-                user_id: refUserId,
-                number: entry.number,
-                friendly_name: entry.number,
-                label: "Ported Line",
-                type: "local",
-                status: "active",
-                provider_number_sid: entry.id,
-              })
-              console.log(`[Zing] Ported number ${entry.number} added to database for user ${refUserId}`)
+            const existingActive = await getPhoneNumberByNumberAndStatus(entry.number, "active")
+            if (!existingActive) {
+              const portingRow = await getPhoneNumberByNumberAndStatus(entry.number, "porting")
+              if (portingRow && portingRow.user_id === refUserId) {
+                await updatePhoneNumber(portingRow.id, refUserId, { status: "active" })
+                console.log(`[Zing] Ported number ${entry.number} activated from porting row for user ${refUserId}`)
+              } else {
+                await insertPhoneNumber({
+                  user_id: refUserId,
+                  number: entry.number,
+                  friendly_name: entry.number,
+                  label: "Ported Line",
+                  type: "local",
+                  status: "active",
+                  provider_number_sid: entry.id,
+                })
+                console.log(`[Zing] Ported number ${entry.number} added to database for user ${refUserId}`)
+              }
             }
 
             // Configure the number with TeXML webhook

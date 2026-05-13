@@ -12,8 +12,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getAppUrl } from "@/lib/telnyx"
+import { ensurePortingLineRecord } from "@/lib/db"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
+const MAX_LINE_BUSINESS_NAME_LEN = 120
 
 function getApiKey(): string {
   const key = process.env.TELNYX_API_KEY
@@ -109,6 +111,7 @@ export async function POST(req: NextRequest) {
       zip,
       invoice_base64,
       invoice_filename,
+      line_business_name,
     } = body as {
       number: string
       account_name: string
@@ -121,10 +124,22 @@ export async function POST(req: NextRequest) {
       zip: string
       invoice_base64?: string
       invoice_filename?: string
+      line_business_name?: string
     }
 
     if (!number) {
       return NextResponse.json({ error: "Phone number is required" }, { status: 400 })
+    }
+    const lineName =
+      typeof line_business_name === "string" ? line_business_name.trim().slice(0, MAX_LINE_BUSINESS_NAME_LEN) : ""
+    if (!lineName) {
+      return NextResponse.json(
+        {
+          error:
+            "Business name for this line is required — this is what your team associates with the number (whisper / caller context).",
+        },
+        { status: 400 }
+      )
     }
     if (!account_name || !authorized_person) {
       return NextResponse.json({ error: "Account name and authorized person are required" }, { status: 400 })
@@ -167,6 +182,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create port order" }, { status: 500 })
     }
     console.log(`[Zing] Port order created: ${orderId} for ${e164}`)
+
+    await ensurePortingLineRecord({
+      user_id: userId,
+      number: e164,
+      label: lineName,
+      port_order_id: orderId,
+    })
 
     // ── Step 3: Fill end-user info, service address, and port type ──
     await telnyxFetch(`/porting_orders/${orderId}`, {
