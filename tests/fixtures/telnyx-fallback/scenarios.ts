@@ -221,6 +221,32 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
+    id: "owner-stripped-path-bridged-hangup",
+    description:
+      "Telnyx truncated /n/{did}/{mode} — still hang up after answered owner leg (no AI when path mode is unknown)",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111?callSid=CA_fixture_strip&primary=owner&leg=owner-first&bn=%2B15551110001",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "30",
+      DialBridgedTo: "+15551110002",
+      CallSid: "CA_fixture_strip",
+      To: "+15551110002",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({ fallback_type: "voicemail", ai_ring_owner_first: false }),
+      routingForNumber: baseRouting({ fallback_type: "voicemail" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "voicemail", id: "rc-strip" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["ai-bridge"],
+      contentType: "text/xml",
+    },
+  },
+  {
     id: "recv-ai-long-bridged-early-hangup",
     description: "Receptionist-first AI: 2+ min bridged recv leg → hang up caller (no AI after long desk call)",
     method: "POST",

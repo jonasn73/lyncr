@@ -37,7 +37,7 @@ vi.mock("@/lib/telnyx-ai-assistant-lifecycle", () => ({
 }))
 
 function pathUserIdFromUrl(url: string): string | null {
-  const m = url.match(/\/fallback\/u\/([^/]+)\//)
+  const m = url.match(/\/fallback\/u\/([^/?]+)/)
   return m ? decodeURIComponent(m[1]) : null
 }
 
