@@ -247,6 +247,31 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
+    id: "owner-bridged-duration-no-dial-bridged-to",
+    description: "Telnyx sends DialBridgedDuration but omits DialBridgedTo — still hang up after owner answered",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner?callSid=CA_fixture_bridgedur&primary=owner",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "45",
+      DialBridgedDuration: "38",
+      CallSid: "CA_fixture_bridgedur",
+      To: "+15551110002",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({ fallback_type: "ai", ai_ring_owner_first: false }),
+      routingForNumber: baseRouting({ fallback_type: "ai" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-bd" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["ai-bridge"],
+      contentType: "text/xml",
+    },
+  },
+  {
     id: "recv-ai-long-bridged-early-hangup",
     description: "Receptionist-first AI: 2+ min bridged recv leg → hang up caller (no AI after long desk call)",
     method: "POST",

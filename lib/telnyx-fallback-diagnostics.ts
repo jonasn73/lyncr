@@ -62,6 +62,7 @@ export function maybeLogTelnyxFallbackDiagnosticEntry(args: {
   rawDialStatus: string
   dialDurationSec: number
   bridgedToDigits: number
+  bridgedSecHint?: number
   callSid: string
   virtualFbAi: boolean
   primaryWasOwner: boolean
@@ -80,6 +81,7 @@ export function maybeLogTelnyxFallbackDiagnosticEntry(args: {
       rawDialStatus: args.rawDialStatus,
       dialDurationSec: args.dialDurationSec,
       bridgedToDigits: args.bridgedToDigits,
+      bridgedSecHint: args.bridgedSecHint ?? null,
       callSid: args.callSid,
       virtualFbAi: args.virtualFbAi,
       primaryWasOwner: args.primaryWasOwner,

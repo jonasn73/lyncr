@@ -39,10 +39,23 @@ async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
     })
     return body
   }
-  try {
-    body = await req.formData()
-  } catch {
-    body = new FormData()
+  const contentType = (req.headers.get("content-type") || "").toLowerCase()
+  if (contentType.includes("application/json")) {
+    try {
+      const json = (await req.json()) as Record<string, unknown>
+      for (const [k, v] of Object.entries(json)) {
+        if (v == null) continue
+        body.append(k, typeof v === "object" ? JSON.stringify(v) : String(v))
+      }
+    } catch {
+      body = new FormData()
+    }
+  } else {
+    try {
+      body = await req.formData()
+    } catch {
+      body = new FormData()
+    }
   }
   // Copy any query params missing from the POST body (Telnyx may split userId/callSid between URL and body).
   url.searchParams.forEach((value, key) => {
@@ -173,6 +186,19 @@ function parseDialDurationSeconds(formData: FormData): number {
   return n
 }
 
+/** Telnyx sometimes omits `DialBridgedTo` but still sends bridged time once the B-leg was connected. */
+function dialBridgedSecondsHint(formData: FormData): number {
+  const raw =
+    (formData.get("DialBridgedDuration") as string) ||
+    (formData.get("BridgeDuration") as string) ||
+    (formData.get("BridgedDuration") as string) ||
+    ""
+  let n = parseInt(String(raw).trim(), 10)
+  if (!Number.isFinite(n) || n < 0) return 0
+  if (n > 600) n = Math.round(n / 1000)
+  return n
+}
+
 /** Longest digit run across Telnyx/TwiML Dial callback fields that may carry the bridged PSTN party (names vary by release). */
 function dialCallbackBridgeDigitCount(formData: FormData): number {
   const keys = [
@@ -182,6 +208,7 @@ function dialCallbackBridgeDigitCount(formData: FormData): number {
     "BridgeTarget",
     "DialLegBridgedTo",
     "ConnectedParty",
+    "DestinationNumber",
   ]
   let max = 0
   for (const k of keys) {
@@ -189,6 +216,11 @@ function dialCallbackBridgeDigitCount(formData: FormData): number {
     if (d > max) max = d
   }
   return max
+}
+
+/** True if the dial leg actually connected to a callee (bridge digits and/or positive bridged duration). */
+function dialLegHadPstnBridge(formData: FormData): boolean {
+  return dialCallbackBridgeDigitCount(formData) >= 10 || dialBridgedSecondsHint(formData) >= 1
 }
 
 /** Resolve assistant id and return AI TeXML, or null to fall back to “AI unavailable” TeXML on the same VoiceResponse. */
@@ -396,6 +428,7 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     const bridgedToDigits = dialCallbackBridgeDigitCount(formData)
+    const bridgedSecHint = dialBridgedSecondsHint(formData)
     maybeLogTelnyxFallbackDiagnosticEntry({
       pathname: url.pathname,
       method: req.method,
@@ -405,22 +438,23 @@ export async function handleTelnyxFallbackDialEnded(
       rawDialStatus: rawStatus,
       dialDurationSec,
       bridgedToDigits,
+      bridgedSecHint,
       callSid,
       virtualFbAi,
       primaryWasOwner,
       formData,
     })
-    /** True when Telnyx reports the B-leg bridged to something that looks like a PSTN number (E.164 has enough digits). */
-    const pstnBridgeEvidence = bridgedToDigits >= 10
-    const primaryFromUrl =
-      url.searchParams.get("primary") === "owner" ||
-      String(formData.get("primary") || "").trim() === "owner" ||
-      legHint === "owner-first"
+    /** True when this dial leg actually bridged to a callee (digits and/or bridged duration from Telnyx). */
+    const pstnBridgeEvidence = dialLegHadPstnBridge(formData)
+    /**
+     * Path stripped but `To` / `DialCalledNumber` matches the desk line — treat as receptionist leg.
+     * Prefer **not** matching owner cell on the same payload so a stray `primary=owner` query does not suppress this.
+     */
     const receptionistCalleeMatches =
       Boolean(
         lr?.receptionist_phone?.trim() &&
           inferDialLegWasOwnerCell(formData, lr.receptionist_phone) &&
-          !primaryFromUrl
+          !inferDialLegWasOwnerCell(formData, lr.owner_phone)
       )
     /**
      * Receptionist leg ended after a real bridge — hang up the caller (no AI / voicemail on their leg).
@@ -444,7 +478,7 @@ export async function handleTelnyxFallbackDialEnded(
       })
     }
     const answeredAndHadConversation =
-      dialStatus === "completed" && dialDurationSec >= 120 && bridgedToDigits >= 10
+      dialStatus === "completed" && dialDurationSec >= 120 && pstnBridgeEvidence
     /**
      * `owner-ai` used to always hand the caller to Voice AI after the owner leg ended, even after a real conversation.
      * That is handled later with the same rule as receptionist: **completed + PSTN bridge** → hang up the A-leg (see below).
