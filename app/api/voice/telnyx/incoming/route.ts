@@ -20,6 +20,8 @@ import {
   insertCallLog,
   normalizePhoneNumberE164,
   bumpTelnyxAiIncomingHitCount,
+  isTelnyxInboundDialCallerLegDone,
+  markTelnyxInboundDialCallerLegDone,
 } from "@/lib/db"
 import {
   buildAiHandoffGiveUpTeXML,
@@ -147,6 +149,47 @@ async function handleIncomingCall(
 
     if (debug) console.log(`[Zing] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
     if (debug) console.log(`[Zing] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
+
+    if (await isTelnyxInboundDialCallerLegDone(callSid)) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-incoming-skip-repeat-texml",
+          callSid,
+          userId: routing.user_id,
+          reason: "first-dial-leg-ended",
+        })
+      )
+      texml.hangup()
+      return { kind: "twiml", texml }
+    }
+
+    const dialOutcomeOnVoiceUrl = pickField(webhookFields, [
+      "DialCallStatus",
+      "DialStatus",
+      "DialCallLegStatus",
+      "DialCallLegState",
+      "dial_call_status",
+    ])
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-")
+
+    const dialOutcomeIsNonLive = (s: string) =>
+      ["ringing", "ring", "queued", "init", "in-progress", "inprogress", "answered", "early-media"].includes(s)
+
+    if (dialOutcomeOnVoiceUrl && !dialOutcomeIsNonLive(dialOutcomeOnVoiceUrl) && dialOutcomeOnVoiceUrl === "completed") {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-incoming-dial-completed-on-voice-url",
+          callSid,
+          userId: routing.user_id,
+          dialOutcomeOnVoiceUrl,
+        })
+      )
+      void markTelnyxInboundDialCallerLegDone(callSid)
+      texml.hangup()
+      return { kind: "twiml", texml }
+    }
 
     // 3. Log the incoming call (don't let logging failures break call routing)
     try {

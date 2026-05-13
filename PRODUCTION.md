@@ -5,7 +5,7 @@ For the app to work in production (sign up, login, settings, call routing), you 
 ## 1. Database (Neon)
 
 1. Go to [neon.tech](https://neon.tech) and create a project (free tier is fine).
-2. In the Neon dashboard, open **SQL Editor** and run migrations **in order**. See **`scripts/MIGRATE-ALL.md`** for the full checklist (001 → 016). At minimum for a new project: **`001`**, **`002`**, then **`010`**, **`011`**, **`012`**, **`013`**, **`014`**, **`015`** if you use Telnyx Voice AI and the dashboard **“Ring my phone first”** toggle (015 adds `ai_ring_owner_first`). Run **`016`** if you want **in-app transfer / porting notifications** (stores Telnyx port-in webhook events; `NEXT_PUBLIC_APP_URL` must match your deployed origin for `webhook_url` on new port orders).
+2. In the Neon dashboard, open **SQL Editor** and run migrations **in order**. See **`scripts/MIGRATE-ALL.md`** for the full checklist (001 → 018). At minimum for a new project: **`001`**, **`002`**, then **`010`**, **`011`**, **`012`**, **`013`**, **`014`**, **`015`** if you use Telnyx Voice AI and the dashboard **“Ring my phone first”** toggle (015 adds `ai_ring_owner_first`). Run **`016`** if you want **in-app transfer / porting notifications** (stores Telnyx port-in webhook events; `NEXT_PUBLIC_APP_URL` must match your deployed origin for `webhook_url` on new port orders). Run **`018`** if callers still reach **Voice AI after a live conversation** with your team (stores `telnyx_inbound_dial_caller_done` so repeat `/incoming` fetches hang up cleanly).
 3. In Neon, go to **Connection details** and copy the connection string (URI). It looks like:
    `postgresql://USER:PASSWORD@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
 

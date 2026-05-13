@@ -1823,6 +1823,46 @@ export async function bumpTelnyxAiIncomingHitCount(callSid: string): Promise<num
 }
 
 /**
+ * Mark this inbound `call_sid` so `/incoming` can return `<Hangup>` on repeat fetches (Telnyx may re-hit the voice URL after `<Dial>` ends instead of only the Dial `action` URL).
+ * Safe to call multiple times. Requires **`018-telnyx-inbound-dial-caller-done.sql`** in Neon.
+ */
+export async function markTelnyxInboundDialCallerLegDone(providerCallSid: string): Promise<void> {
+  const sid = providerCallSid.trim()
+  if (!sid) return
+  const sql = getSql()
+  try {
+    await sql`
+      INSERT INTO telnyx_inbound_dial_caller_done (call_sid) VALUES (${sid})
+      ON CONFLICT (call_sid) DO NOTHING
+    `
+  } catch (e) {
+    if (isUndefinedRelationError(e, "telnyx_inbound_dial_caller_done")) {
+      console.warn(
+        "[db] telnyx_inbound_dial_caller_done missing — run scripts/018-telnyx-inbound-dial-caller-done.sql in Neon SQL Editor."
+      )
+      return
+    }
+    console.error("[db] markTelnyxInboundDialCallerLegDone:", e)
+  }
+}
+
+/** True after `markTelnyxInboundDialCallerLegDone` ran for this `call_sid` (table missing → always false). */
+export async function isTelnyxInboundDialCallerLegDone(providerCallSid: string): Promise<boolean> {
+  const sid = providerCallSid.trim()
+  if (!sid) return false
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT 1 AS ok FROM telnyx_inbound_dial_caller_done WHERE call_sid = ${sid} LIMIT 1
+    `
+    return Array.isArray(rows) && rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "telnyx_inbound_dial_caller_done")) return false
+    throw e
+  }
+}
+
+/**
  * Insert a Telnyx porting webhook event for the user (idempotent on `telnyx_event_id`).
  * Returns `true` if a new row was inserted.
  */

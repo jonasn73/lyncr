@@ -16,6 +16,7 @@ import {
   updateCallLog,
   ensureCallLogForInboundLeg,
   normalizePhoneNumberE164,
+  markTelnyxInboundDialCallerLegDone,
 } from "@/lib/db"
 import { normalizeTelnyxAssistantIdForTexml } from "@/lib/telnyx-ai-texml"
 import { buildSayThenRedirectToAiBridgeTeXML } from "@/lib/telnyx-ai-handoff"
@@ -472,6 +473,7 @@ export async function handleTelnyxFallbackDialEnded(
         dialStatus,
         pathFallbackMode: pathFallbackMode ?? null,
       })
+      if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
       texml.hangup()
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },
@@ -492,6 +494,7 @@ export async function handleTelnyxFallbackDialEnded(
         dialStatus,
         pathFallbackMode: pathFallbackMode ?? null,
       })
+      if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
       texml.hangup()
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },
@@ -666,6 +669,7 @@ export async function handleTelnyxFallbackDialEnded(
         pathFallbackMode: pathFallbackMode ?? null,
         primaryWasOwner,
       })
+      if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
       texml.hangup()
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },

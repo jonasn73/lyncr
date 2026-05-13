@@ -29,6 +29,8 @@ vi.mock("@/lib/db", () => {
     updateCallLog: vi.fn(() => Promise.resolve()),
     ensureCallLogForInboundLeg: vi.fn(() => Promise.resolve()),
     normalizePhoneNumberE164,
+    markTelnyxInboundDialCallerLegDone: vi.fn(() => Promise.resolve()),
+    isTelnyxInboundDialCallerLegDone: vi.fn(() => Promise.resolve(false)),
   }
 })
 
