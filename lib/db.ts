@@ -616,6 +616,10 @@ function inboundWhisperEnabledFromRoutingRow(row: Record<string, unknown>): bool
 
 // Fast routing lookup for incoming voice webhooks.
 // Returns user + resolved routing + receptionist in one query to reduce latency.
+//
+// Per-number `routing_config` rows are often sparse: if a row exists for the DID but
+// `selected_receptionist_id` is NULL, we still inherit the account default receptionist
+// from `rc_def` so inbound `<Dial>` matches what the dashboard shows when only the default row was edited.
 export async function getIncomingRoutingByNumber(
   toNumber: string,
   options?: { bypassCache?: boolean }
@@ -640,8 +644,12 @@ export async function getIncomingRoutingByNumber(
       COALESCE(NULLIF(trim(u.business_name), ''), 'My Business') AS business_name,
       COALESCE(u.inbound_receptionist_whisper_enabled, true) AS inbound_receptionist_whisper_enabled,
       u.phone AS owner_phone,
-      CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.selected_receptionist_id ELSE rc_def.selected_receptionist_id END
-        AS selected_receptionist_id,
+      COALESCE(
+        CASE
+          WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+        END,
+        rc_def.selected_receptionist_id
+      ) AS selected_receptionist_id,
       COALESCE(
         CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.fallback_type ELSE rc_def.fallback_type END,
         'owner'
@@ -651,8 +659,8 @@ export async function getIncomingRoutingByNumber(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
-      CASE WHEN rc_spec.id IS NOT NULL THEN rs.name ELSE rd.name END AS receptionist_name,
-      CASE WHEN rc_spec.id IS NOT NULL THEN rs.phone ELSE rd.phone END AS receptionist_phone,
+      reff.name AS receptionist_name,
+      reff.phone AS receptionist_phone,
       COALESCE(NULLIF(trim(pn.label), ''), 'Main Line') AS phone_line_label,
       COALESCE(pn.friendly_name, '') AS phone_line_friendly_name
     FROM phone_numbers pn
@@ -672,8 +680,12 @@ export async function getIncomingRoutingByNumber(
     LEFT JOIN routing_config rc_def
       ON rc_def.user_id = u.id
       AND rc_def.business_number IS NULL
-    LEFT JOIN receptionists rs ON rs.id = rc_spec.selected_receptionist_id AND rs.user_id = u.id
-    LEFT JOIN receptionists rd ON rd.id = rc_def.selected_receptionist_id AND rd.user_id = u.id
+    LEFT JOIN receptionists reff ON reff.id = COALESCE(
+      CASE
+        WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+      END,
+      rc_def.selected_receptionist_id
+    )
     WHERE pn.status = 'active'
       AND (
         regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
@@ -693,8 +705,12 @@ export async function getIncomingRoutingByNumber(
       u.name AS user_name,
       COALESCE(NULLIF(trim(u.business_name), ''), 'My Business') AS business_name,
       u.phone AS owner_phone,
-      CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.selected_receptionist_id ELSE rc_def.selected_receptionist_id END
-        AS selected_receptionist_id,
+      COALESCE(
+        CASE
+          WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+        END,
+        rc_def.selected_receptionist_id
+      ) AS selected_receptionist_id,
       COALESCE(
         CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.fallback_type ELSE rc_def.fallback_type END,
         'owner'
@@ -704,8 +720,8 @@ export async function getIncomingRoutingByNumber(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
-      CASE WHEN rc_spec.id IS NOT NULL THEN rs.name ELSE rd.name END AS receptionist_name,
-      CASE WHEN rc_spec.id IS NOT NULL THEN rs.phone ELSE rd.phone END AS receptionist_phone,
+      reff.name AS receptionist_name,
+      reff.phone AS receptionist_phone,
       COALESCE(NULLIF(trim(pn.label), ''), 'Main Line') AS phone_line_label,
       COALESCE(pn.friendly_name, '') AS phone_line_friendly_name
     FROM phone_numbers pn
@@ -725,8 +741,12 @@ export async function getIncomingRoutingByNumber(
     LEFT JOIN routing_config rc_def
       ON rc_def.user_id = u.id
       AND rc_def.business_number IS NULL
-    LEFT JOIN receptionists rs ON rs.id = rc_spec.selected_receptionist_id AND rs.user_id = u.id
-    LEFT JOIN receptionists rd ON rd.id = rc_def.selected_receptionist_id AND rd.user_id = u.id
+    LEFT JOIN receptionists reff ON reff.id = COALESCE(
+      CASE
+        WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+      END,
+      rc_def.selected_receptionist_id
+    )
     WHERE pn.status = 'active'
       AND (
         regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
