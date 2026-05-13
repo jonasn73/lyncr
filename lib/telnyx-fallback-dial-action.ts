@@ -91,14 +91,24 @@ function mergeFallbackType(
   const g = (globalDefaultFb || "").toLowerCase().trim()
 
   if (hasSpecificNumberRow) {
-    if (c === "ai" || l === "ai") return "ai"
-    if (c === "voicemail" || l === "voicemail") return "voicemail"
-    if (c === "owner" || l === "owner") return "owner"
+    // Per-DID `routing_config` row wins; evaluate `c` before `l` so voicemail on the line is not overridden by a stray `l`.
+    if (c === "voicemail") return "voicemail"
+    if (c === "ai") return "ai"
+    if (c === "owner") return "owner"
+    if (l === "voicemail") return "voicemail"
+    if (l === "ai") return "ai"
+    if (l === "owner") return "owner"
     return normalizeFallbackType(resolvedConfig?.fallback_type)
   }
 
-  if (c === "ai" || l === "ai" || g === "ai") return "ai"
-  if (c === "voicemail" || l === "voicemail" || g === "voicemail") return "voicemail"
+  // No distinct per-number row on `resolvedConfig` (often the NULL-`business_number` default row): trust the inbound DID join first.
+  if (useLive && (l === "ai" || l === "voicemail" || l === "owner")) {
+    return normalizeFallbackType(l)
+  }
+
+  if (c === "ai" || g === "ai") return "ai"
+  if (c === "voicemail" || g === "voicemail") return "voicemail"
+  if (c === "owner" || g === "owner") return "owner"
   return normalizeFallbackType(resolvedConfig?.fallback_type ?? liveFb ?? globalDefaultFb)
 }
 

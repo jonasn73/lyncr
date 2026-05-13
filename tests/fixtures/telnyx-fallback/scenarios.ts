@@ -120,6 +120,45 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
+    id: "recv-no-answer-live-voicemail-wins-over-global-ai",
+    description:
+      "After receptionist no-answer: inbound join says voicemail but account default routing row is ai — must play voicemail (Record), not Voice AI",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/recv?callSid=CA_fixture_vm_beats_ai&bn=%2B15551110001",
+    form: {
+      DialCallStatus: "no-answer",
+      CallSid: "CA_fixture_vm_beats_ai",
+      To: "+15558887766",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({
+        fallback_type: "voicemail",
+        selected_receptionist_id: "recv-1",
+        receptionist_name: "Desk",
+        receptionist_phone: "+15558887766",
+        ai_ring_owner_first: false,
+      }),
+      routingForNumber: baseRouting({
+        id: "rc-global-shape",
+        business_number: null,
+        selected_receptionist_id: null,
+        fallback_type: "ai",
+      }),
+      globalRouting: baseRouting({
+        id: "rc-global-shape",
+        business_number: null,
+        fallback_type: "ai",
+      }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["<Record"],
+      bodyNotContains: ["ai-bridge"],
+      contentType: "text/xml",
+    },
+  },
+  {
     id: "completed-long-duration-no-bridge-still-ai",
     description: "Telnyx sometimes sends completed + large DialCallDuration without DialBridgedTo (reject) — must not early-hangup; still hand off to AI",
     method: "POST",
