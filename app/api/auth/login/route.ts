@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
         name: "Dev User",
         phone: "+15551234567",
         business_name: "My Business",
+        inbound_receptionist_whisper_enabled: true,
         industry: "generic",
+        telnyx_ai_assistant_id: null,
         created_at: new Date().toISOString(),
       }
       const cookieValue = createSessionCookie(devUser.id)

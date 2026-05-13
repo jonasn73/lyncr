@@ -26,6 +26,7 @@ import {
   maybeLogTelnyxFallbackDiagnosticEarly,
 } from "@/lib/telnyx-fallback-diagnostics"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
+import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -622,6 +623,7 @@ export async function handleTelnyxFallbackDialEnded(
             ""
           // Must be a Telnyx-owned business DID — not `To` from this webhook (often the callee’s cell), or carriers may flag spam / fail attestation.
           const outboundCallerId = bnForAction.trim() ? normalizePhoneNumberE164(bnForAction) : undefined
+          const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name)
           const didPath = bnForAction.replace(/\D/g, "")
           const secondMode: TelnyxFallbackPathMode =
             (useLive && lr?.fallback_type === "ai") || globalDefaultConfig?.fallback_type === "ai"
@@ -636,11 +638,12 @@ export async function handleTelnyxFallbackDialEnded(
           const secondModeQuery = didPath.length < 10 ? `&zingFbMode=${encodeURIComponent(secondMode)}` : ""
           const dial = texml.dial({
             callerId: outboundCallerId,
+            ...(fromDisplayName ? { fromDisplayName } : {}),
             answerOnBridge: true,
             timeout: 30,
             action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}`,
             method: "POST",
-          })
+          } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
           dial.number(toE164(user.phone))
         } else {
           texmlSayNatural(texml, "We're sorry, no one is available. Please leave a message after the beep.")

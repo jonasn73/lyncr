@@ -10,6 +10,8 @@ export type TelnyxFallbackFixtureMocks = {
   incomingRouting: {
     user_id: string
     user_name: string
+    business_name: string
+    inbound_receptionist_whisper_enabled: boolean
     owner_phone: string
     selected_receptionist_id: string | null
     fallback_type: FallbackType
@@ -50,6 +52,7 @@ const baseUser = (over: Partial<User>): User => ({
   name: "Fixture User",
   phone: "+15551110002",
   business_name: "Fixture Biz",
+  inbound_receptionist_whisper_enabled: true,
   industry: "other",
   telnyx_ai_assistant_id: "assistant-22222222-2222-4222-8222-222222222222",
   created_at: "2020-01-01T00:00:00.000Z",
@@ -74,6 +77,8 @@ const baseIncomingRouting = (
 ): NonNullable<TelnyxFallbackFixtureMocks["incomingRouting"]> => ({
   user_id: "11111111-1111-1111-1111-111111111111",
   user_name: "Fixture User",
+  business_name: "Fixture Biz",
+  inbound_receptionist_whisper_enabled: true,
   owner_phone: "+15551110002",
   selected_receptionist_id: null,
   fallback_type: "ai",

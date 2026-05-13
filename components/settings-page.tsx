@@ -75,7 +75,13 @@ export function SettingsPage() {
     email: string
     phone: string
     industry: string
+    business_name: string
+    inbound_receptionist_whisper_enabled: boolean
   } | null>(null)
+  const [businessNameDraft, setBusinessNameDraft] = useState("")
+  const [businessNameSaving, setBusinessNameSaving] = useState(false)
+  const [businessNameSavedAt, setBusinessNameSavedAt] = useState<number | null>(null)
+  const [whisperSaving, setWhisperSaving] = useState(false)
   const [settings, setSettings] = useState<SettingToggle[]>([
     {
       id: "dnd",
@@ -188,13 +194,17 @@ export function SettingsPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled && data?.data?.user) {
+          const u = data.data.user
           setUser({
-            name: data.data.user.name ?? "My Business",
-            email: data.data.user.email ?? "",
-            phone: data.data.user.phone ?? "",
-            industry: data.data.user.industry ?? "generic",
+            name: u.name ?? "My Business",
+            email: u.email ?? "",
+            phone: u.phone ?? "",
+            industry: u.industry ?? "generic",
+            business_name: u.business_name ?? "My Business",
+            inbound_receptionist_whisper_enabled: u.inbound_receptionist_whisper_enabled !== false,
           })
-          setIndustryDraft(data.data.user.industry ?? "generic")
+          setIndustryDraft(u.industry ?? "generic")
+          setBusinessNameDraft(String(u.business_name ?? "").trim() || "My Business")
         }
       })
       .catch(() => {})
@@ -709,6 +719,71 @@ export function SettingsPage() {
     }
   }
 
+  async function saveAccountBusinessName() {
+    const trimmed = businessNameDraft.trim() || "My Business"
+    setBusinessNameSaving(true)
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ business_name: trimmed }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({
+          title: "Could not save business name",
+          description: data.error || "Try again.",
+          variant: "destructive",
+        })
+        return
+      }
+      setUser((prev) => (prev ? { ...prev, business_name: trimmed } : prev))
+      setBusinessNameDraft(trimmed)
+      setBusinessNameSavedAt(Date.now())
+      toast({
+        title: "Business name saved",
+        description: "Used at the start of the team whisper and as the outbound caller ID name when supported.",
+      })
+    } catch {
+      toast({ title: "Error", description: "Could not save business name.", variant: "destructive" })
+    } finally {
+      setBusinessNameSaving(false)
+    }
+  }
+
+  async function saveWhisperEnabled(next: boolean) {
+    setWhisperSaving(true)
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ inbound_receptionist_whisper_enabled: next }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({
+          title: "Could not update whisper",
+          description: data.error || "Try again.",
+          variant: "destructive",
+        })
+        return
+      }
+      setUser((prev) => (prev ? { ...prev, inbound_receptionist_whisper_enabled: next } : prev))
+      toast({
+        title: next ? "Whisper on" : "Whisper off",
+        description: next
+          ? "Your team will hear a short spoken ID after they answer a forwarded call."
+          : "Forwarded calls connect without the spoken line ID.",
+      })
+    } catch {
+      toast({ title: "Error", description: "Could not update whisper setting.", variant: "destructive" })
+    } finally {
+      setWhisperSaving(false)
+    }
+  }
+
   async function saveMainLine() {
     if (!mainLineEdit.trim()) return
     setMainLineError(null)
@@ -732,12 +807,16 @@ export function SettingsPage() {
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json()
         if (sessionData?.data?.user) {
+          const su = sessionData.data.user
           setUser({
-            name: sessionData.data.user.name ?? "My Business",
-            email: sessionData.data.user.email ?? "",
-            phone: sessionData.data.user.phone ?? "",
-            industry: sessionData.data.user.industry ?? "generic",
+            name: su.name ?? "My Business",
+            email: su.email ?? "",
+            phone: su.phone ?? "",
+            industry: su.industry ?? "generic",
+            business_name: su.business_name ?? "My Business",
+            inbound_receptionist_whisper_enabled: su.inbound_receptionist_whisper_enabled !== false,
           })
+          setBusinessNameDraft(String(su.business_name ?? "").trim() || "My Business")
           toast({
             title: "Main line updated",
             description: "Default destination number has been saved.",
@@ -843,6 +922,56 @@ export function SettingsPage() {
             {industrySavedAt ? (
               <p className="text-[11px] text-success">Industry saved — check AI call flow if you use Auto playbook.</p>
             ) : null}
+          </div>
+          <div className="mt-3 space-y-2 rounded-xl border border-border/60 bg-secondary/20 p-3">
+            <label htmlFor="zing-settings-account-business-name" className="text-[11px] font-semibold text-muted-foreground">
+              Account business name
+            </label>
+            <p className="text-[11px] text-muted-foreground">
+              Spoken first in the team whisper (if enabled). Telnyx also sends it as the outbound display name on forwarded
+              calls when your carrier supports it, which can reduce &quot;spam risk&quot; labels compared to showing only a bare number.
+            </p>
+            <input
+              id="zing-settings-account-business-name"
+              type="text"
+              value={businessNameDraft}
+              onChange={(e) => setBusinessNameDraft(e.target.value)}
+              placeholder="e.g. Key Squad Locksmith"
+              maxLength={120}
+              className="w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void saveAccountBusinessName()}
+                disabled={
+                  businessNameSaving ||
+                  !businessNameDraft.trim() ||
+                  businessNameDraft.trim() === (user?.business_name ?? "").trim()
+                }
+                className="zing-btn-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {businessNameSaving ? "Saving…" : "Save business name"}
+              </button>
+            </div>
+            {businessNameSavedAt ? (
+              <p className="text-[11px] text-success">Business name saved.</p>
+            ) : null}
+          </div>
+          <div className="mt-3 flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-secondary/20 p-3">
+            <div className="min-w-0 space-y-1">
+              <p className="text-[11px] font-semibold text-muted-foreground">Team whisper after answer</p>
+              <p className="text-[11px] text-muted-foreground">
+                Only the person who picks up the forwarded leg hears it (not the caller). Uses your account business name,
+                then the line label for this number.
+              </p>
+            </div>
+            <Switch
+              checked={user?.inbound_receptionist_whisper_enabled !== false}
+              onCheckedChange={(v) => void saveWhisperEnabled(v)}
+              disabled={whisperSaving || !user}
+              aria-label="Toggle team whisper after answer"
+            />
           </div>
           <Badge variant="secondary" className="mt-1 text-[10px]">
             Pro Plan
@@ -1357,10 +1486,10 @@ export function SettingsPage() {
                           Buy {formatPhoneDisplay(buyPendingNumber)}
                         </p>
                         <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                          Name this line for your team. It is whispered after they answer (if whisper is on). While the phone is still ringing, their caller ID usually shows this business number so they can tell which line is calling.
+                          Line label for your team. If the whisper is on in Settings, they hear your account business name first, then this label, after they answer. While ringing, caller ID is usually this business number.
                         </p>
                         <label htmlFor="zing-buy-line-name" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
-                          Business name for this line
+                          Line label
                         </label>
                         <input
                           id="zing-buy-line-name"
@@ -1481,7 +1610,7 @@ export function SettingsPage() {
                           />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-semibold text-muted-foreground">Business name for this line</label>
+                          <label className="text-[11px] font-semibold text-muted-foreground">Line label</label>
                           <input
                             type="text"
                             placeholder="e.g. Main office line, After-hours service"
@@ -1491,7 +1620,7 @@ export function SettingsPage() {
                             className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                           />
                           <p className="text-[10px] leading-snug text-muted-foreground">
-                            Required. Saved with this number so your team knows which line is ringing (caller ID shows this DID while ringing; a short whisper can repeat this name after answer if enabled).
+                            Required. Saved on this number so your team can tell lines apart. Caller ID while ringing is this DID; if whisper is on, they hear your account business name first, then this label, after answer.
                           </p>
                         </div>
                         {portError && <p className="text-xs text-destructive">{portError}</p>}
@@ -1644,7 +1773,7 @@ export function SettingsPage() {
                 return (
                   <>
                     <label htmlFor="zing-settings-line-label" className="text-[11px] font-semibold text-muted-foreground">
-                      Business name for this line
+                      Line label
                     </label>
                     <input
                       id="zing-settings-line-label"
@@ -1656,7 +1785,9 @@ export function SettingsPage() {
                       className="mt-1.5 w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                     />
                     <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                      Shown to your team for this number (caller ID while ringing is {formatPhoneDisplay(routingModalNumber)}; whisper after answer uses this name when enabled).
+                      Name this line for your team (for example Dispatch or Main). Caller ID while ringing is{" "}
+                      {formatPhoneDisplay(routingModalNumber)}. If the whisper is on in Settings, your team hears your
+                      account business name first, then this label, right after they answer.
                     </p>
                     {routingLineLabelError ? (
                       <p className="mt-1.5 text-[11px] text-destructive">{routingLineLabelError}</p>

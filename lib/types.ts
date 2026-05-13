@@ -9,6 +9,8 @@ export interface User {
   name: string
   phone: string // owner's personal cell
   business_name: string
+  /** When false, skip the short callee-only whisper on forwarded inbound calls (TeXML Number url). */
+  inbound_receptionist_whisper_enabled: boolean
   /** Signup industry — default AI fallback playbook when intake has no profileId override */
   industry: string
   /** Telnyx Mission Control → Voice AI → Assistant id (TeXML AIAssistant verb). */

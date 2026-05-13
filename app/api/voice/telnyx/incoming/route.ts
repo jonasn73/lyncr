@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
 import { buildInboundLineWhisperPhrase } from "@/lib/inbound-line-whisper"
+import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
   getIncomingRoutingByNumber,
   getUser,
@@ -318,26 +319,33 @@ async function handleIncomingCall(
     const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
 
     // callerId on the outbound PSTN leg is the business DID so the callee’s phone can show which line was dialed.
-    const whisperPhrase = INBOUND_RECEPTIONIST_WHISPER_DISABLED
-      ? ""
-      : buildInboundLineWhisperPhrase(
-          routing.phone_line_label,
-          routing.phone_line_friendly_name,
-          businessLineE164
-        )
+    const whisperOffUser = routing.inbound_receptionist_whisper_enabled === false
+    const whisperPhrase =
+      INBOUND_RECEPTIONIST_WHISPER_DISABLED || whisperOffUser
+        ? ""
+        : buildInboundLineWhisperPhrase(
+            routing.business_name,
+            routing.phone_line_label,
+            routing.phone_line_friendly_name,
+            businessLineE164
+          )
+
+    const fromDisplayName = buildTelnyxDialFromDisplayName(routing.business_name)
 
     if (routing.selected_receptionist_id && routing.receptionist_phone) {
       const recPhone = normalizePhoneNumberE164(routing.receptionist_phone)
       if (debug) console.log(`[Zing] Routing to receptionist: ${routing.receptionist_name || "Receptionist"} (${recPhone})`)
       const dial = texml.dial({
         callerId: businessLineE164,
+        ...(fromDisplayName ? { fromDisplayName } : {}),
         // Keep the caller on carrier ringback until bridge, which avoids
         // the mid-ring tone change from early answer + handoff.
         answerOnBridge: true,
         timeout: receptionistRingSec,
         action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}`,
         method: "POST",
-      })
+        // Telnyx TeXML accepts `fromDisplayName` on Dial (outbound CNAM); Twilio typings omit it.
+      } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
       if (whisperPhrase.trim()) {
         dial.number({ url: receptionistWhisperScreenUrl(whisperPhrase) }, recPhone)
       } else {
@@ -349,11 +357,12 @@ async function handleIncomingCall(
       // Same as receptionist path: if your phone does not answer, POST to fallback so AI / voicemail / second leg can run.
       const dial = texml.dial({
         callerId: businessLineE164,
+        ...(fromDisplayName ? { fromDisplayName } : {}),
         answerOnBridge: true,
         timeout: ownerRingSec,
         action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first${bnQuery}${fbQuery}${modeQuery}`,
         method: "POST",
-      })
+      } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
       if (whisperPhrase.trim()) {
         dial.number({ url: receptionistWhisperScreenUrl(whisperPhrase) }, ownerPhone)
       } else {

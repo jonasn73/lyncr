@@ -91,6 +91,10 @@ function parseRoutingRow(row: Record<string, unknown>): RoutingConfig {
 export type IncomingRoutingRow = {
   user_id: string
   user_name: string
+  /** Account business name (users.business_name) — whisper prefix + optional Telnyx fromDisplayName. */
+  business_name: string
+  /** Per-account whisper toggle (users.inbound_receptionist_whisper_enabled). */
+  inbound_receptionist_whisper_enabled: boolean
   owner_phone: string
   selected_receptionist_id: string | null
   fallback_type: RoutingConfig["fallback_type"]
@@ -432,7 +436,7 @@ export async function getAuthUserByEmail(email: string): Promise<(User & { passw
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, password_hash, created_at
+      SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, password_hash, created_at
       FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
     `
     const row = rows[0]
@@ -503,6 +507,10 @@ function parseUserRow(row: Record<string, unknown>): User {
     name: String(row.name),
     phone: String(row.phone),
     business_name: String(row.business_name ?? "My Business"),
+    inbound_receptionist_whisper_enabled:
+      row.inbound_receptionist_whisper_enabled === null || row.inbound_receptionist_whisper_enabled === undefined
+        ? true
+        : pgBool(row.inbound_receptionist_whisper_enabled),
     industry: row.industry != null ? String(row.industry) : "generic",
     telnyx_ai_assistant_id: row.telnyx_ai_assistant_id ? String(row.telnyx_ai_assistant_id) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
@@ -514,7 +522,7 @@ export async function getUserByPhoneNumber(toNumber: string): Promise<User | nul
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT u.id, u.email, u.name, u.phone, u.business_name, u.industry, u.telnyx_ai_assistant_id, u.created_at
+      SELECT u.id, u.email, u.name, u.phone, u.business_name, u.inbound_receptionist_whisper_enabled, u.industry, u.telnyx_ai_assistant_id, u.created_at
       FROM users u
       JOIN phone_numbers pn ON pn.user_id = u.id
       WHERE pn.number = ${toNumber} AND pn.status = 'active'
@@ -524,7 +532,7 @@ export async function getUserByPhoneNumber(toNumber: string): Promise<User | nul
   } catch (e) {
     if (!isMissingIndustryColumnError(e)) throw e
     const rows = await sql`
-      SELECT u.id, u.email, u.name, u.phone, u.business_name, u.telnyx_ai_assistant_id, u.created_at
+      SELECT u.id, u.email, u.name, u.phone, u.business_name, u.inbound_receptionist_whisper_enabled, u.telnyx_ai_assistant_id, u.created_at
       FROM users u
       JOIN phone_numbers pn ON pn.user_id = u.id
       WHERE pn.number = ${toNumber} AND pn.status = 'active'
@@ -555,6 +563,8 @@ export async function getIncomingRoutingByNumber(
     SELECT
       u.id AS user_id,
       u.name AS user_name,
+      COALESCE(NULLIF(trim(u.business_name), ''), 'My Business') AS business_name,
+      COALESCE(u.inbound_receptionist_whisper_enabled, true) AS inbound_receptionist_whisper_enabled,
       u.phone AS owner_phone,
       CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.selected_receptionist_id ELSE rc_def.selected_receptionist_id END
         AS selected_receptionist_id,
@@ -611,6 +621,8 @@ export async function getIncomingRoutingByNumber(
   const value: IncomingRoutingRow = {
     user_id: String(row.user_id),
     user_name: String(row.user_name),
+    business_name: row.business_name != null ? String(row.business_name) : "My Business",
+    inbound_receptionist_whisper_enabled: pgBool(row.inbound_receptionist_whisper_enabled),
     owner_phone: String(row.owner_phone),
     selected_receptionist_id: row.selected_receptionist_id ? String(row.selected_receptionist_id) : null,
     fallback_type: (row.fallback_type as RoutingConfig["fallback_type"]) || "owner",
@@ -631,14 +643,14 @@ export async function getUser(userId: string): Promise<User | null> {
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, created_at
+      SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at
       FROM users WHERE id = ${userId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
   } catch (e) {
     if (!isMissingIndustryColumnError(e)) throw e
     const rows = await sql`
-      SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at
+      SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, telnyx_ai_assistant_id, created_at
       FROM users WHERE id = ${userId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
@@ -652,6 +664,7 @@ export async function updateUser(
     phone?: string
     name?: string
     business_name?: string
+    inbound_receptionist_whisper_enabled?: boolean
     industry?: string
     telnyx_ai_assistant_id?: string | null
   }
@@ -665,6 +678,20 @@ export async function updateUser(
   }
   if (updates.business_name !== undefined) {
     await sql`UPDATE users SET business_name = ${updates.business_name} WHERE id = ${userId}`
+  }
+  if (updates.inbound_receptionist_whisper_enabled !== undefined) {
+    try {
+      await sql`UPDATE users SET inbound_receptionist_whisper_enabled = ${updates.inbound_receptionist_whisper_enabled} WHERE id = ${userId}`
+    } catch (e) {
+      const code = pgErrorCode(e)
+      const msg = pgErrorMessage(e)
+      if (code === "42703" && msg.includes("inbound_receptionist_whisper_enabled")) {
+        throw new Error(
+          "Could not save whisper setting: column inbound_receptionist_whisper_enabled is missing. In Neon → SQL Editor, run scripts/017-inbound-whisper-user-toggle.sql, then try again."
+        )
+      }
+      throw e
+    }
   }
   if (updates.industry !== undefined) {
     try {
@@ -687,6 +714,9 @@ export async function updateUser(
       }
       throw e
     }
+  }
+  if (updates.business_name !== undefined || updates.inbound_receptionist_whisper_enabled !== undefined) {
+    clearIncomingRoutingCache()
   }
 }
 
