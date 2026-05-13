@@ -162,6 +162,8 @@ export function DashboardPage() {
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
   // Business numbers for showing which number routing applies to
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>([])
+  // Which business line the dropdown + fallback controls edit (E.164); null = account default when you have no numbers yet
+  const [routingBusinessNumber, setRoutingBusinessNumber] = useState<string | null>(null)
 
   // Wait until these complete before showing “Quick setup” — otherwise empty initial state looks
   // like an incomplete setup and the banner flashes away when APIs return (confusing on refresh).
@@ -217,23 +219,15 @@ export function DashboardPage() {
             routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
           }))
         setBusinessNumbers(active)
+        // Keep the same selected line after refresh when possible; otherwise default to the first active number
+        setRoutingBusinessNumber((prev) => {
+          if (prev && active.some((x: DashboardBusinessNumber) => x.number === prev)) return prev
+          return active[0]?.number ?? null
+        })
 
-        const primaryNumber = active[0]?.number
-        const routingUrl = primaryNumber
-          ? `/api/routing?number=${encodeURIComponent(primaryNumber)}`
-          : "/api/routing"
-
-        return Promise.all([
-          fetch(routingUrl, { credentials: "include" }).then((r) => (r.ok ? r.json() : null)),
-          fetch("/api/ai-assistant", { credentials: "include" }).then((r) => (r.ok ? r.json() : null)),
-        ])
-          .then(([rData, aiData]) => {
+        return fetch("/api/ai-assistant", { credentials: "include" }).then((r) => (r.ok ? r.json() : null))
+          .then((aiData) => {
             if (cancelled) return
-            if (rData?.config) {
-              setSelectedReceptionistId(rData.config.selected_receptionist_id || null)
-              setFallback(rData.config.fallback_type || "owner")
-              setAiRingOwnerFirst(Boolean(rData.config.ai_ring_owner_first))
-            }
             if (aiData?.hasAssistant) setHasTelnyxAiAssistant(true)
           })
           .catch(() => {})
@@ -253,6 +247,36 @@ export function DashboardPage() {
     router.replace("/dashboard", { scroll: false })
   }, [searchParams, router])
 
+  // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
+  useEffect(() => {
+    if (!numbersRoutingFetchDone) return
+    let cancelled = false
+    const num = routingBusinessNumber
+    const routingUrl = num ? `/api/routing?number=${encodeURIComponent(num)}` : "/api/routing"
+    fetch(routingUrl, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((rData) => {
+        if (cancelled) return
+        if (rData?.config) {
+          setSelectedReceptionistId(rData.config.selected_receptionist_id || null)
+          setFallback(rData.config.fallback_type || "owner")
+          setAiRingOwnerFirst(Boolean(rData.config.ai_ring_owner_first))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [numbersRoutingFetchDone, routingBusinessNumber])
+
+  // If the selected line disappears (released number), snap back to the first remaining line.
+  useEffect(() => {
+    if (businessNumbers.length === 0) return
+    if (!routingBusinessNumber || !businessNumbers.some((b) => b.number === routingBusinessNumber)) {
+      setRoutingBusinessNumber(businessNumbers[0].number)
+    }
+  }, [businessNumbers, routingBusinessNumber])
+
   const ownerPhoneDisplay = formatPhoneDisplay(mainLinePhone)
   const selectedReceptionist = receptionists.find((c) => c.id === selectedReceptionistId) || null
   const isRoutingToOwner = !selectedReceptionist
@@ -260,15 +284,15 @@ export function DashboardPage() {
   const hasReceptionists = receptionists.length > 0
   const isSetupComplete = hasBusinessNumbers && (hasReceptionists || Boolean(mainLinePhone))
 
-  // Save routing for the primary business number (or default if none).
+  // Save routing for the line shown in the UI (`routingBusinessNumber`), or the account default when you have no numbers yet.
   // When fallback_type is "ai", the API auto-provisions voice AI and returns voiceAi.
   function saveRouting(updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> {
-    const primaryNumber = businessNumbers[0]?.number || null
+    const lineE164 = routingBusinessNumber
     return fetch("/api/routing", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ ...updates, business_number: primaryNumber }),
+      body: JSON.stringify({ ...updates, business_number: lineE164 }),
     })
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as {
@@ -284,9 +308,9 @@ export function DashboardPage() {
               variant: "destructive",
             })
           }
-          const primary = businessNumbers[0]?.number || null
-          const routingUrl = primary
-            ? `/api/routing?number=${encodeURIComponent(primary)}`
+          const refetchNum = routingBusinessNumber
+          const routingUrl = refetchNum
+            ? `/api/routing?number=${encodeURIComponent(refetchNum)}`
             : "/api/routing"
           void fetch(routingUrl, { credentials: "include" })
             .then((r) => (r.ok ? r.json() : null))
@@ -328,7 +352,10 @@ export function DashboardPage() {
           } else {
             toast({
               title: "Routing updated",
-              description: "Incoming calls will follow your new routing rule.",
+              description:
+                businessNumbers.length > 1
+                  ? `Line ${formatPhoneDisplay(routingBusinessNumber)} will use this ring target and fallback.`
+                  : "Incoming calls will follow your new routing rule.",
             })
           }
         }
@@ -505,15 +532,32 @@ export function DashboardPage() {
             </h2>
 
             {/* Show which business number(s) this routing applies to */}
+            {businessNumbers.length > 1 && (
+              <p className="max-w-sm text-[11px] text-muted-foreground">
+                Tap a number to choose which line you are configuring — each can ring a different person.
+              </p>
+            )}
+
+            {/* Show which business number(s) you own; with 2+ lines, tap to pick which routing block below applies to */}
             {businessNumbers.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2">
                 {businessNumbers.map((bn) => {
                   const rs = bn.routing_summary
-                  return (
-                    <div
-                      key={bn.number}
-                      className="flex max-w-[11rem] flex-col items-center gap-1 rounded-xl border border-primary/20 bg-primary/5 px-2 py-1.5"
-                    >
+                  const showLinePicker = businessNumbers.length > 1
+                  const isLineSelected = showLinePicker && bn.number === routingBusinessNumber
+                  const cardClass = cn(
+                    "flex max-w-[11rem] flex-col items-center gap-1 rounded-xl border px-2 py-1.5 transition-colors",
+                    showLinePicker
+                      ? cn(
+                          "cursor-pointer hover:bg-primary/10",
+                          isLineSelected
+                            ? "border-primary ring-2 ring-primary/40 bg-primary/10"
+                            : "border-primary/20 bg-primary/5"
+                        )
+                      : "border-primary/20 bg-primary/5"
+                  )
+                  const tags = (
+                    <>
                       <span className="text-xs font-medium text-primary">{formatPhoneDisplay(bn.number)}</span>
                       {rs?.ai_fallback_live ? (
                         <span
@@ -539,6 +583,21 @@ export function DashboardPage() {
                           Ring phone fallback
                         </span>
                       )}
+                    </>
+                  )
+                  return showLinePicker ? (
+                    <button
+                      key={bn.number}
+                      type="button"
+                      className={cardClass}
+                      onClick={() => setRoutingBusinessNumber(bn.number)}
+                      aria-pressed={isLineSelected}
+                    >
+                      {tags}
+                    </button>
+                  ) : (
+                    <div key={bn.number} className={cardClass}>
+                      {tags}
                     </div>
                   )
                 })}
@@ -698,7 +757,7 @@ export function DashboardPage() {
                             </div>
                             {isSelected && (
                               <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                Active
+                                {businessNumbers.length > 1 ? "This line" : "Active"}
                               </span>
                             )}
                           </button>
@@ -731,6 +790,11 @@ export function DashboardPage() {
                         {isRoutingToOwner
                           ? "What happens if your phone does not answer"
                           : `What happens if ${selectedReceptionist?.name.split(" ")[0]} doesn't answer`}
+                        {businessNumbers.length > 1 && routingBusinessNumber ? (
+                          <span className="mt-0.5 block text-[10px] text-muted-foreground/90">
+                            Applies to {formatPhoneDisplay(routingBusinessNumber)}
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                     <button
@@ -884,7 +948,7 @@ export function DashboardPage() {
                 <div className="flex items-center gap-2">
                   {selectedReceptionistId === rec.id && (
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                      Active
+                      {businessNumbers.length > 1 ? "This line" : "Active"}
                     </span>
                   )}
                   <button
