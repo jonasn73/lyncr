@@ -23,8 +23,8 @@ const ASSISTANT_MODEL_ALIASES: Record<string, string> = {
   "openai/gpt-4o-mini": "openai/gpt-4o",
 }
 
-/** Default Telnyx TTS voice string. Override with TELNYX_AI_VOICE. */
-const FALLBACK_VOICE = "Telnyx.KokoroTTS.af_heart"
+/** Default Telnyx TTS for Voice AI — NaturalHD is less robotic than Kokoro for receptionist-style speech. Override with TELNYX_AI_VOICE. */
+const FALLBACK_VOICE = "Telnyx.NaturalHD.astra"
 
 /** Read model id from env or use a safe default (remap legacy blocked ids). */
 function defaultModel(): string {
@@ -36,6 +36,31 @@ function defaultModel(): string {
 /** Read voice id from env or use Telnyx built-in default. */
 function defaultVoice(): string {
   return process.env.TELNYX_AI_VOICE?.trim() || FALLBACK_VOICE
+}
+
+/**
+ * Telnyx assistant `voice_settings`: slight `voice_speed` for Natural / NaturalHD / Kokoro;
+ * `expressive_mode` for Ultra voices (Telnyx-only).
+ */
+export function buildVoiceSettingsForAssistant(voice: string): {
+  voice: string
+  voice_speed?: number
+  expressive_mode?: boolean
+} {
+  const v = voice.trim()
+  const out: { voice: string; voice_speed?: number; expressive_mode?: boolean } = { voice: v }
+  if (/^Telnyx\.(NaturalHD|KokoroTTS|Natural\.)/i.test(v)) {
+    const sp = parseFloat(process.env.TELNYX_AI_VOICE_SPEED || "1.08")
+    if (Number.isFinite(sp) && sp >= 0.9 && sp <= 1.25) {
+      out.voice_speed = sp
+    }
+  }
+  if (v.includes("Telnyx.Ultra.")) {
+    if (process.env.TELNYX_AI_EXPRESSIVE !== "0" && process.env.TELNYX_AI_EXPRESSIVE !== "false") {
+      out.expressive_mode = true
+    }
+  }
+  return out
 }
 
 /** User override wins; otherwise platform env / built-in default (used on create). */
@@ -210,7 +235,7 @@ export async function telnyxCreateAssistant(params: CreateTelnyxAssistantParams)
         model,
         instructions: clamped.instructions,
         greeting: clamped.greeting,
-        voice_settings: { voice },
+        voice_settings: buildVoiceSettingsForAssistant(voice),
       }),
     })
     const rawText = await res.text()
@@ -256,7 +281,7 @@ export type UpdateTelnyxAssistantParams = {
   greeting?: string
   name?: string
   model?: string
-  voice_settings?: { voice?: string }
+  voice_settings?: ReturnType<typeof buildVoiceSettingsForAssistant>
 }
 
 /**

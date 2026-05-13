@@ -5,6 +5,7 @@
 // Pattern: Say + Redirect → second URL returns only <Connect><AIAssistant> (see /api/voice/telnyx/ai-bridge/u/[userId]).
 
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
+import { texmlSayNatural } from "@/lib/texml-say-voice"
 
 /**
  * Silent handoff: one `<Redirect>` to `/ai-bridge` (no `<Say>`). Telnyx often needs this second fetch
@@ -35,7 +36,7 @@ export function buildShortSayThenRedirectToAiBridgeTeXML(userId: string, callSid
       ? `?callSid=${encodeURIComponent(cs)}&zingFrom=incoming-repeat`
       : `?zingFrom=incoming-repeat` // Query string for logging / cache behavior on ai-bridge
   const vr = new VoiceResponse() // TwiML builder Telnyx accepts
-  vr.say("One moment please.") // Short TTS so the document is not Redirect-only on a “stuck” leg
+  texmlSayNatural(vr, "One moment please.") // Short TTS so the document is not Redirect-only on a “stuck” leg
   vr.pause({ length: 1 }) // Small gap before fetch (mirrors longer pause on the full Say variant)
   vr.redirect(
     { method: "GET" }, // GET /ai-bridge returns only <Connect><AIAssistant>
@@ -47,7 +48,8 @@ export function buildShortSayThenRedirectToAiBridgeTeXML(userId: string, callSid
 /** After redirect loops + optional last-resort `<Connect>`, end the call clearly (not Telnyx’s generic error tone). */
 export function buildAiHandoffGiveUpTeXML(): string {
   const vr = new VoiceResponse() // TwiML builder
-  vr.say(
+  texmlSayNatural(
+    vr,
     "We're sorry, our voice assistant did not start on this line. Please try again in a few minutes, or contact support if this keeps happening."
   ) // Explains it is the AI leg, not a random app error
   vr.hangup() // End the call leg
@@ -64,9 +66,7 @@ export function buildSayThenRedirectToAiBridgeTeXML(userId: string, callSid?: st
   const cs = callSid?.trim()
   const qs = cs ? `?callSid=${encodeURIComponent(cs)}` : ""
   const vr = new VoiceResponse()
-  vr.say(
-    "Thanks for calling. Please hold a moment while we connect you to our assistant."
-  )
+  texmlSayNatural(vr, "Thanks for calling. Please hold a moment while we connect you to our assistant.")
   // Give TTS time to finish before the next fetch; some Telnyx builds were skipping audio when Redirect followed immediately.
   vr.pause({ length: 2 })
   // GET avoids edge cases where a redirect POST has an empty body and the app returns 4xx.

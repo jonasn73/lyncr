@@ -11,6 +11,7 @@
 import { randomUUID } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
+import { texmlSayNatural } from "@/lib/texml-say-voice"
 import { buildInboundLineWhisperPhrase } from "@/lib/inbound-line-whisper"
 import {
   getIncomingRoutingByNumber,
@@ -138,7 +139,7 @@ async function handleIncomingCall(
           webhookFieldKeys: webhookFieldKeys.slice(0, 40),
         })
       )
-      texml.say("Sorry, this number is not configured. Goodbye.")
+      texmlSayNatural(texml, "Sorry, this number is not configured. Goodbye.")
       texml.hangup()
       return { kind: "twiml", texml }
     }
@@ -361,7 +362,7 @@ async function handleIncomingCall(
     }
   } catch (error) {
     console.error("[Telnyx] Error in incoming webhook:", error)
-    texml.say("We're sorry, there was an error connecting your call. Please try again later.")
+    texmlSayNatural(texml, "We're sorry, there was an error connecting your call. Please try again later.")
     texml.hangup()
   }
 

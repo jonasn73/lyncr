@@ -23,6 +23,7 @@ import {
   type UpdateTelnyxAssistantParams,
   resolveAssistantModel,
   resolveAssistantVoice,
+  buildVoiceSettingsForAssistant,
 } from "@/lib/telnyx-voice-ai-api"
 
 const DEFAULT_BUSINESS_HOURS = "Monday through Friday, 9 AM to 5 PM. Closed weekends."
@@ -72,7 +73,7 @@ export async function syncTelnyxAssistantFromIntake(userId: string): Promise<voi
   const greeting = resolveTelnyxAssistantGreeting(cfg)
   const updates: UpdateTelnyxAssistantParams = { instructions, greeting }
   if (cfg.telnyxModel?.trim()) updates.model = cfg.telnyxModel.trim()
-  if (cfg.telnyxVoice?.trim()) updates.voice_settings = { voice: cfg.telnyxVoice.trim() }
+  updates.voice_settings = buildVoiceSettingsForAssistant(resolveAssistantVoice(cfg.telnyxVoice))
   await telnyxUpdateAssistant(aid, updates)
 }
 

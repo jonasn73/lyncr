@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
+import { texmlSayNatural } from "@/lib/texml-say-voice"
 import { getUser } from "@/lib/db"
 import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycle"
 import { buildTelnyxAiAssistantTexml, normalizeTelnyxAssistantIdForTexml } from "@/lib/telnyx-ai-texml"
@@ -45,7 +46,7 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
   const user = await getUser(userId)
   if (!user) {
     const vr = new VoiceResponse()
-    vr.say("We are sorry, this line is not available.")
+    texmlSayNatural(vr, "We are sorry, this line is not available.")
     vr.hangup()
     return new NextResponse(vr.toString(), {
       headers: { "Content-Type": "text/xml" },
@@ -64,7 +65,8 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
   if (!assistantId) {
     const appUrl = getAppUrl()
     const vr = new VoiceResponse()
-    vr.say(
+    texmlSayNatural(
+      vr,
       "Our voice assistant is not set up on this line yet. Please leave your name and number after the tone."
     )
     const sid = callSid || `zing-${userId.slice(0, 8)}`

@@ -21,7 +21,7 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `NEXT_PUBLIC_APP_URL` | Your live site base URL (e.g. `https://your-app.vercel.app`) — used for Telnyx voice webhooks. |
 | `TELNYX_AI_ASSISTANT_ID` | Optional **fallback** only if **creating** an assistant via API fails. **Remove it** (or update it) if that id was **deleted** in Telnyx — otherwise Save call flow can keep re-linking a **404** assistant. Prefer leaving unset so Zing creates per-user assistants. |
 | `TELNYX_AI_DEFAULT_MODEL` | Optional: LLM id for auto-created assistants (default `openai/gpt-4o`). List: Telnyx **GET /v2/ai/models**. Avoid `openai/gpt-4o-mini` if Telnyx says it is not available for AI assistants. |
-| `TELNYX_AI_VOICE` | Optional: Telnyx TTS voice string for new assistants (default `Telnyx.KokoroTTS.af_heart`). |
+| `TELNYX_AI_VOICE` | Optional: Telnyx Voice AI **assistant** voice id for **new** assistants (default **`Telnyx.NaturalHD.astra`**). Per-user override: AI call flow saves `telnyxVoice` in intake. |
 | `TELNYX_MESSAGING_FROM_E164` | Optional: your Telnyx number in E.164, enabled for **outbound SMS** — sends **AI lead** alerts to the owner’s main line. |
 | `ZING_AI_RING_OWNER_FIRST` | Optional global override (same as dashboard **Ring my phone first**). Stored on the **default** `routing_config` row (`business_number` null) so it applies even when you use **per-number** routing. Run **`015`**. **Default:** straight to Voice AI when off. |
 | `ZING_AI_HANDOFF_TWO_STEP` | Optional. If `true` / `1`: **Say + Pause + Redirect** to **`/ai-bridge`** from `/incoming`. Default is a **silent** Redirect (no Say) to **`/ai-bridge`** — avoids **dead air** from `<Connect>` on the first `/incoming` response and avoids a **repeating hold line** if Telnyx re-requests `/incoming`. |
@@ -30,6 +30,12 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `ZING_AI_DIRECT_NO_RECEPTIONIST` | Legacy no-op (still accepted). Direct-to-AI is now the **default** when AI fallback + no receptionist; use **`ZING_AI_RING_OWNER_FIRST`** if you need the old ring-first behavior. |
 | `ZING_TELNYX_FALLBACK_DIAGNOSTIC` | Optional. If `true` / `1`: log **`zing: telnyx-fallback-diagnostic`** per Dial `action` request (PII-redacted form fields + routing snapshot). Use when debugging; turn off after. See **`tests/fixtures/telnyx-fallback/README.md`**. |
 | `ZING_INBOUND_RECEPTIONIST_WHISPER` | Optional. Set to **`0`**, **`false`**, or **`no`** to **disable** the short spoken line-ID (**`Zing. …`**) played only to the person who answers the forwarded leg (before the caller is connected). **Default:** whisper is **on** when Zing can build a phrase from `phone_numbers.label` / `friendly_name` / last four digits. |
+| `ZING_TEXML_SAY_VOICE` | Optional. Twilio-style **Polly / Google neural** voice id for TeXML `<Say>` (whisper, voicemail prompts, IVR). Default **`Polly.Joanna-Neural`**. Set e.g. `Polly.Matthew-Neural` or `Google.en-US-Neural2-F` if Telnyx accepts it on your account. |
+| `ZING_TEXML_SAY_LANGUAGE` | Optional. BCP-47 language for `<Say>` (default **`en-US`**). |
+| `ZING_TEXML_SAY_RATE` | Optional. SSML prosody rate for `<Say>` plain TTS (default **`1.08`** = slightly faster). Set **`1`** or **`off`** to disable prosody wrapper. |
+| `ZING_TEXML_SAY_SSML` | Optional. Set **`0`** / **`false`** to send **plain text only** (no `<prosody>`), if a carrier mis-reads SSML. |
+| `TELNYX_AI_VOICE_SPEED` | Optional. Assistant **`voice_speed`** for Telnyx Natural / NaturalHD / Kokoro voices (default **`1.08`**, range about **0.9–1.25**). |
+| `TELNYX_AI_EXPRESSIVE` | Optional. Set **`0`** / **`false`** to skip **`expressive_mode`** when using **`Telnyx.Ultra.*`** voices. Default enables expressive for Ultra. |
 
 Save and **redeploy** the project (Deployments → … → Redeploy).
 

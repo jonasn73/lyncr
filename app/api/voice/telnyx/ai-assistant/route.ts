@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
+import { texmlSayNatural } from "@/lib/texml-say-voice"
 
 export const runtime = "nodejs"
 
@@ -15,7 +16,8 @@ export async function POST(req: NextRequest) {
   const texml = new VoiceResponse()
   const appUrl = getAppUrl()
 
-  texml.say(
+  texmlSayNatural(
+    texml,
     "This number now uses our new voice assistant. It is not active on this call. Please leave your name, number, and how we can help after the tone."
   )
   texml.record({

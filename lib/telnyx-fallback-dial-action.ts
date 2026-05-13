@@ -25,6 +25,7 @@ import {
   maybeLogTelnyxFallbackDiagnosticEntry,
   maybeLogTelnyxFallbackDiagnosticEarly,
 } from "@/lib/telnyx-fallback-diagnostics"
+import { texmlSayNatural } from "@/lib/texml-say-voice"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -146,7 +147,8 @@ function playTelnyxAiUnavailableVoicemail(
   userId: string,
   callSid: string
 ) {
-  texml.say(
+  texmlSayNatural(
+    texml,
     "Thanks for calling. Our voice assistant is not set up on this line yet. Please leave your name, phone number, and what you need after the tone and we will get back to you."
   )
   // Omit Twilio-only `transcribe` — Telnyx TeXML may not support it and can break `<Record>`.
@@ -395,7 +397,7 @@ export async function handleTelnyxFallbackDialEnded(
         pathname: url.pathname,
         callSid,
       })
-      texml.say("We're sorry, this call could not be completed. Please try again later.")
+      texmlSayNatural(texml, "We're sorry, this call could not be completed. Please try again later.")
       texml.hangup()
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },
@@ -603,7 +605,7 @@ export async function handleTelnyxFallbackDialEnded(
           }
           const greeting =
             config?.ai_greeting?.trim() || "Sorry we could not reach you. Please leave a message after the tone."
-          texml.say(greeting)
+          texmlSayNatural(texml, greeting)
           texml.record({
             maxLength: 120,
             recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
@@ -641,7 +643,7 @@ export async function handleTelnyxFallbackDialEnded(
           })
           dial.number(toE164(user.phone))
         } else {
-          texml.say("We're sorry, no one is available. Please leave a message after the beep.")
+          texmlSayNatural(texml, "We're sorry, no one is available. Please leave a message after the beep.")
           texml.record({
             maxLength: 120,
             recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
@@ -673,7 +675,7 @@ export async function handleTelnyxFallbackDialEnded(
 
       case "voicemail": {
         const greeting = config?.ai_greeting || "Please leave a message after the beep."
-        texml.say(greeting)
+        texmlSayNatural(texml, greeting)
         texml.record({
           maxLength: 120,
           recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
@@ -683,7 +685,7 @@ export async function handleTelnyxFallbackDialEnded(
       }
 
       default: {
-        texml.say("We're sorry, no one is available right now. Goodbye.")
+        texmlSayNatural(texml, "We're sorry, no one is available right now. Goodbye.")
         texml.hangup()
       }
     }
@@ -698,7 +700,7 @@ export async function handleTelnyxFallbackDialEnded(
     }
   } catch (error) {
     console.error("[Telnyx] Error in fallback webhook:", error)
-    texml.say("We're sorry, there was an error. Please try again later.")
+    texmlSayNatural(texml, "We're sorry, there was an error. Please try again later.")
     texml.hangup()
   }
 
