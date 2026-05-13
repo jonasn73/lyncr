@@ -319,9 +319,9 @@ export async function handleTelnyxFallbackDialEnded(
   const appUrl = getAppUrl()
 
   try {
-    // Only skip AI/voicemail if someone was actually bridged for 2+ minutes. Telnyx often sends
-    // DialCallStatus=completed when the callee rejects — with no DialBridgedTo — and DialCallDuration
-    // can still be large in some builds; treating that as "had conversation" wrongly hung up on the caller.
+    // Receptionist-first paths hang up as soon as `completed` + DialBridgedTo (see below). For **other** paths,
+    // require 2+ minutes bridged before treating as "had conversation" — Telnyx often sends completed on reject
+    // with no DialBridgedTo while DialCallDuration is still large; that must not hang up the caller early.
     const bridgedToDigits = String(formData.get("DialBridgedTo") || "").replace(/\D/g, "").length
     maybeLogTelnyxFallbackDiagnosticEntry({
       pathname: url.pathname,
@@ -337,13 +337,36 @@ export async function handleTelnyxFallbackDialEnded(
       primaryWasOwner,
       formData,
     })
+    /** True when Telnyx reports the B-leg bridged to something that looks like a PSTN number (E.164 has enough digits). */
+    const pstnBridgeEvidence = bridgedToDigits >= 10
+    /**
+     * First leg dialed a receptionist (`recv` / `recv-ai`). If that leg **completed** after a real bridge, the
+     * receptionist hung up (or ended normally) — the caller should **not** hear AI handoff ("please hold…") or
+     * voicemail. Previously we only hung up after 2+ minutes bridged, so short desk calls wrongly fell through to AI.
+     */
+    const receptionistLegEndedAfterBridge =
+      (pathFallbackMode === "recv" || pathFallbackMode === "recv-ai") &&
+      dialStatus === "completed" &&
+      pstnBridgeEvidence
+    if (receptionistLegEndedAfterBridge) {
+      maybeLogTelnyxFallbackDiagnosticEarly("recv-bridged-hangup", {
+        dialDurationSec,
+        bridgedToDigits,
+        dialStatus,
+        pathFallbackMode: pathFallbackMode ?? null,
+      })
+      texml.hangup()
+      return new NextResponse(texml.toString(), {
+        headers: { "Content-Type": "text/xml" },
+      })
+    }
     const answeredAndHadConversation =
       dialStatus === "completed" && dialDurationSec >= 120 && bridgedToDigits >= 10
     /**
      * "Ring my phone first" uses path mode `owner-ai`: after your cell leg ends — decline, voicemail pickup,
      * short answer then hang-up, or long conversation — callers should reach **Voice AI** on `/fallback`.
      * The old behavior hung up on the caller after 2+ min bridged; owners expect AI to take over when they hang up.
-     * Receptionist-first AI (`recv-ai`) still uses early hang-up so a long front-desk call does not restart AI.
+     * Receptionist-first (`recv` / `recv-ai`) bridged completions are handled above so short and long desk calls end cleanly.
      */
     const skipLongBridgedHangupForOwnerFirstAi = pathFallbackMode === "owner-ai"
     if (answeredAndHadConversation && !skipLongBridgedHangupForOwnerFirstAi) {

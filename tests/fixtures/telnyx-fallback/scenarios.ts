@@ -200,6 +200,37 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
+    id: "recv-ai-short-bridged-early-hangup",
+    description:
+      "Receptionist-first AI: answered then hung up after a short bridge — hang up caller (no AI hold message)",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/recv-ai?callSid=CA_fixture_recv_short",
+    form: {
+      DialCallStatus: "completed",
+      DialCallDuration: "25",
+      DialBridgedTo: "+15558887766",
+      CallSid: "CA_fixture_recv_short",
+      To: "+15558887766",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({
+        selected_receptionist_id: "recv-1",
+        ai_ring_owner_first: false,
+        receptionist_name: "Desk",
+        receptionist_phone: "+15558887766",
+      }),
+      routingForNumber: baseRouting({ fallback_type: "ai", selected_receptionist_id: "recv-1" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-g6" }),
+      user: baseUser({}),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["Hangup"],
+      bodyNotContains: ["Thanks for calling", "ai-bridge"],
+      contentType: "text/xml",
+    },
+  },
+  {
     id: "no-assistant-ai-unavailable-voicemail",
     description: "AI path but no assistant id and ensure fails → Record / AI-unavailable copy",
     method: "POST",
