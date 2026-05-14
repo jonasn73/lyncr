@@ -639,6 +639,69 @@ export async function createUser(params: {
   }
 }
 
+/** Sets login hash and platform admin flag (019 columns optional). Used by bootstrap repair API. */
+export async function setUserPasswordHashAndPlatformAdmin(userId: string, passwordHash: string): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE users
+      SET password_hash = ${passwordHash}, is_platform_admin = true
+      WHERE id = ${userId}
+    `
+  } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${userId}`
+      return
+    }
+    const msg = pgErrorMessage(e)
+    if (pgErrorCode(e) === "42703" && msg.includes("is_platform_admin")) {
+      await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${userId}`
+      return
+    }
+    throw e
+  }
+}
+
+/**
+ * Ensures `email` can log in with the password that produced `passwordHash` (bcrypt),
+ * creating the account + default routing_config if missing.
+ */
+export async function repairBootstrapPlatformAdminAccount(params: {
+  email: string
+  passwordHash: string
+}): Promise<{ created: boolean }> {
+  const email = params.email.trim().toLowerCase()
+  const existing = await getAuthUserByEmail(email)
+  if (existing) {
+    await setUserPasswordHashAndPlatformAdmin(existing.id, params.passwordHash)
+    return { created: false }
+  }
+  try {
+    await createUser({
+      email,
+      name: "Platform Admin",
+      phone: "+10000000000",
+      business_name: "Zing",
+      password_hash: params.passwordHash,
+      industry: "generic",
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes("unique") || msg.includes("duplicate")) {
+      const again = await getAuthUserByEmail(email)
+      if (again) {
+        await setUserPasswordHashAndPlatformAdmin(again.id, params.passwordHash)
+        return { created: false }
+      }
+    }
+    throw e
+  }
+  const again = await getAuthUserByEmail(email)
+  if (!again) throw new Error("repairBootstrapPlatformAdminAccount: user missing after createUser")
+  await setUserPasswordHashAndPlatformAdmin(again.id, params.passwordHash)
+  return { created: true }
+}
+
 function parseUserRow(row: Record<string, unknown>): User {
   return {
     id: String(row.id),

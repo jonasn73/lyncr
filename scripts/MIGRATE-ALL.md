@@ -30,7 +30,7 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 
 **Not part of the numbered migration chain.** Only if you want a pre-made operator account (weak password — change after login). Paste and run the full contents of **`020-bootstrap-admin-getzingapp.sql`** in Neon. In Vercel, you can also set **`ZING_ADMIN_EMAILS=admin@getzingapp.com`** so that email can open `/admin` even without the DB flag (this script sets **both** password and `is_platform_admin`).
 
-If you already ran **`020`** and **`admin` / `admin` login fails**, run **`021-fix-admin-bootstrap-password.sql`** once (corrects a bad bcrypt string in an earlier `020` revision), or re-run the current **`020`** from the repo (it now embeds the verified hash).
+If you already ran **`020`** and **`admin` / `admin` login fails**, run **`021-fix-admin-bootstrap-password.sql`** once (corrects a bad bcrypt string in an earlier `020` revision), or re-run the current **`020`** from the repo (it now embeds the verified hash). **Alternatively**, set a temporary **`ZING_BOOTSTRAP_ADMIN_SECRET`** in Vercel (24+ chars), redeploy, then `POST https://<your-domain>/api/auth/repair-bootstrap-admin` with `{ "secret": "…" }` — see **`PRODUCTION.md`** — then **delete** the secret.
 
 ## If “Save call flow” fails
 

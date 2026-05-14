@@ -36,6 +36,9 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `ZING_TEXML_SAY_RATE` | Optional. When set to a number **≠ 1** (e.g. **`1.08`**), `<Say>` wraps text in SSML `<prosody rate="…">`. **Default is off (plain text):** omit this variable. Telnyx often **reads SSML tags as words** (“prosody…”) — use plain default or set `ZING_TEXML_SAY_SSML` to **`false`**. |
 | `ZING_TEXML_SAY_SSML` | Optional. Set **`0`** / **`false`** to send **plain text only** (no `<prosody>`), recommended if a carrier speaks tag names aloud. |
 | `ZING_ADMIN_EMAILS` | Optional. Comma-separated owner emails that may open **`/admin`** even when `users.is_platform_admin` is false (bootstrap / support). Example: `you@company.com,ops@company.com`. |
+| `ZING_BOOTSTRAP_ADMIN_SECRET` | **Optional emergency only.** If set (24+ random characters), `POST /api/auth/repair-bootstrap-admin` with JSON body `{ "secret": "<same value>" }` re-hashes the bootstrap admin password on the **live** `DATABASE_URL` (fixes “Invalid email or password” without Neon). Defaults: email `admin@getzingapp.com`, password `admin`. Override with `ZING_BOOTSTRAP_ADMIN_EMAIL` / `ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD`. **Remove this env var after one successful call.** |
+| `ZING_BOOTSTRAP_ADMIN_EMAIL` | Optional. With `ZING_BOOTSTRAP_ADMIN_SECRET`, which `users.email` to repair (default `admin@getzingapp.com`). |
+| `ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD` | Optional. Plain password used by the repair endpoint (default `admin`). |
 | `TELNYX_AI_VOICE_SPEED` | Optional. Assistant **`voice_speed`** for Telnyx Natural / NaturalHD / Kokoro voices (default **`1.08`**, range about **0.9–1.25**). |
 | `TELNYX_AI_EXPRESSIVE` | Optional. Set **`0`** / **`false`** to skip **`expressive_mode`** when using **`Telnyx.Ultra.*`** voices. Default enables expressive for Ultra. |
 
