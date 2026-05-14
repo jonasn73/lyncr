@@ -336,7 +336,7 @@ async function receptionistOutboundE164FromIncomingRow(
   }
   if (!selectedId) return null
   const rec = await getReceptionist(selectedId)
-  if (!rec || rec.user_id !== userId || !rec.phone?.trim()) return null
+  if (!rec || String(rec.user_id) !== String(userId) || !rec.phone?.trim()) return null
   let cand = normalizePhoneNumberE164(rec.phone)
   if (cand && isReasonablePstnDialString(cand)) return cand
   const digits = rec.phone.replace(/\D/g, "")

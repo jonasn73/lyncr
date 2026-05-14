@@ -26,6 +26,7 @@ import {
   isTelnyxInboundDialCallerLegDone,
   markTelnyxInboundDialCallerLegDone,
 } from "@/lib/db"
+import type { RoutingConfig } from "@/lib/types"
 import {
   buildAiHandoffGiveUpTeXML,
   buildRedirectOnlyToAiBridgeTeXML,
@@ -295,36 +296,43 @@ async function handleIncomingCall(
       )
     }
 
-    // 3. Resolve receptionist id + PSTN target to match the dashboard (GET /api/routing?number=…) — same merge as the UI, then read phone from `receptionists` (avoids a bad SQL join or wrong LIMIT 1 row).
-    const wantsAiAfterNoAnswer = String(routing.fallback_type || "").toLowerCase() === "ai"
+    // 3. Per-DID routing must match the dashboard (GET /api/routing?number=…): one `getRoutingConfigForNumber` read drives
+    // selected receptionist, fallback (AI vs not), and ring timeout — the SQL join row can disagree after edits.
     const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
-    let selectedReceptionistId = routing.selected_receptionist_id?.trim() || ""
+    let routingCfg: RoutingConfig | null = null
     try {
-      const cfg = await getRoutingConfigForNumber(routing.user_id, cfgDid)
-      const fromCfg = cfg?.selected_receptionist_id?.trim() || ""
-      if (fromCfg) {
-        if (fromCfg !== selectedReceptionistId) {
-          console.log(
-            JSON.stringify({
-              zing: "telnyx-incoming-recv-id-overlay",
-              sqlSelectedId: selectedReceptionistId || null,
-              cfgSelectedId: fromCfg,
-              callSid,
-              userId: routing.user_id,
-            })
-          )
-        }
-        selectedReceptionistId = fromCfg
-      }
+      routingCfg = await getRoutingConfigForNumber(routing.user_id, cfgDid)
     } catch (cfgErr) {
-      console.error("[Zing] getRoutingConfigForNumber on incoming failed (using SQL routing only):", cfgErr)
+      console.error("[Zing] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
+    }
+
+    const wantsAiAfterNoAnswer =
+      String(routingCfg?.fallback_type ?? routing.fallback_type ?? "").toLowerCase() === "ai"
+    const effectiveRingTimeout = Number(routingCfg?.ring_timeout_seconds ?? routing.ring_timeout_seconds ?? 30) || 30
+    const aiRingFirstEffective = Boolean(routingCfg?.ai_ring_owner_first ?? routing.ai_ring_owner_first)
+
+    let selectedReceptionistId = routing.selected_receptionist_id?.trim() || ""
+    if (routingCfg) {
+      const fromCfg = routingCfg.selected_receptionist_id?.trim() || ""
+      if (fromCfg !== selectedReceptionistId) {
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-incoming-recv-id-overlay",
+            sqlSelectedId: selectedReceptionistId || null,
+            cfgSelectedId: fromCfg || null,
+            callSid,
+            userId: routing.user_id,
+          })
+        )
+      }
+      selectedReceptionistId = fromCfg
     }
 
     let receptionistDialE164 = ""
     let receptionistDisplayName = routing.receptionist_name
     if (selectedReceptionistId) {
       const rec = await getReceptionist(selectedReceptionistId)
-      const recOk = Boolean(rec && rec.user_id === routing.user_id)
+      const recOk = Boolean(rec && String(rec.user_id) === String(routing.user_id))
       if (recOk && rec) {
         receptionistDisplayName = rec.name ?? receptionistDisplayName
         if (rec.phone?.trim()) {
@@ -407,7 +415,7 @@ async function handleIncomingCall(
     const ringOwnerFirst =
       process.env.ZING_AI_RING_OWNER_FIRST === "1" ||
       process.env.ZING_AI_RING_OWNER_FIRST === "true" ||
-      routing.ai_ring_owner_first === true
+      aiRingFirstEffective === true
     const twoStepAiHandoff =
       process.env.ZING_AI_HANDOFF_TWO_STEP === "1" || process.env.ZING_AI_HANDOFF_TWO_STEP === "true" // true = play “please hold” then redirect
     const connectDirectIncoming =
@@ -415,6 +423,11 @@ async function handleIncomingCall(
     const useDirectAiWhenNoReceptionist =
       wantsAiAfterNoAnswer && !hasReceptionist && !ringOwnerFirst // AI fallback with nobody to Dial first
 
+    const tail4 = (e164: string) => {
+      const d = e164.replace(/\D/g, "")
+      return d.length >= 4 ? d.slice(-4) : null
+    }
+    const ownerNorm = normalizePhoneNumberE164(routing.owner_phone)
     console.log(
       JSON.stringify({
         zing: "telnyx-incoming-routing-flags",
@@ -423,12 +436,17 @@ async function handleIncomingCall(
         calledLen: calledNumber.trim().length,
         wantsAiAfterNoAnswer,
         hasReceptionist,
+        firstPstnLeg: hasReceptionist ? "receptionist" : "owner_cell",
         selectedRecvConfigured: Boolean(selectedReceptionistId),
         recvDialDigitLen: receptionistDialE164.replace(/\D/g, "").length,
+        recvPhoneTail4: receptionistDialE164 ? tail4(receptionistDialE164) : null,
+        recvDisplayName: receptionistDisplayName || null,
+        ownerPhoneTail4: ownerNorm ? tail4(ownerNorm) : null,
         recvPstnDialPlain: true,
-        aiRingOwnerFirstFromDefaultRow: routing.ai_ring_owner_first,
+        aiRingFirstFromCfg: aiRingFirstEffective,
         ringOwnerFirstEffective: ringOwnerFirst,
         useDirectAiWhenNoReceptionist,
+        effectiveRingTimeout,
         envRingFirst:
           process.env.ZING_AI_RING_OWNER_FIRST === "1" || process.env.ZING_AI_RING_OWNER_FIRST === "true",
       })
@@ -517,11 +535,11 @@ async function handleIncomingCall(
 
     // When the next step is Voice AI, cap ring time on the first leg so cell voicemail is less likely to answer the Dial.
     const receptionistRingSec = wantsAiAfterNoAnswer
-      ? Math.min(routing.ring_timeout_seconds || 20, 22)
-      : routing.ring_timeout_seconds || 20
+      ? Math.min(effectiveRingTimeout || 20, 22)
+      : effectiveRingTimeout || 20
     const ownerRingSec = wantsAiAfterNoAnswer
-      ? Math.min(routing.ring_timeout_seconds || 30, 22)
-      : routing.ring_timeout_seconds || 30
+      ? Math.min(effectiveRingTimeout || 30, 22)
+      : effectiveRingTimeout || 30
 
     const didDigits = businessLineE164.replace(/\D/g, "")
     const fallbackMode = wantsAiAfterNoAnswer

@@ -14,6 +14,8 @@ import {
   getAllRoutingConfigs,
   updateRoutingConfig,
   getPhoneNumbers,
+  getReceptionist,
+  normalizePhoneNumberE164,
 } from "@/lib/db"
 import type { UpdateRoutingRequest } from "@/lib/types"
 import {
@@ -41,6 +43,36 @@ export async function GET(req: NextRequest) {
     // ?number=+1xxx → return config for that specific number (with fallback to default)
     if (number) {
       const config = await getRoutingConfigForNumber(userId, number)
+      const effective = req.nextUrl.searchParams.get("effective")
+      if (effective === "1" || effective === "true") {
+        const sid = config?.selected_receptionist_id?.trim() || ""
+        let receptionist_name: string | null = null
+        let receptionist_phone_last4: string | null = null
+        let receptionist_active: boolean | null = null
+        if (sid) {
+          const rec = await getReceptionist(sid)
+          if (rec && String(rec.user_id) === String(userId)) {
+            receptionist_name = rec.name
+            receptionist_active = rec.is_active
+            const d = normalizePhoneNumberE164(rec.phone).replace(/\D/g, "")
+            receptionist_phone_last4 = d.length >= 4 ? d.slice(-4) : null
+          }
+        }
+        const u = await getUser(userId)
+        const ownerDigits = u?.phone ? normalizePhoneNumberE164(u.phone).replace(/\D/g, "") : ""
+        const owner_phone_last4 = ownerDigits.length >= 4 ? ownerDigits.slice(-4) : null
+        return NextResponse.json({
+          config,
+          effective: {
+            first_pstn_leg: sid && receptionist_phone_last4 ? "receptionist" : "owner_cell",
+            receptionist_id: sid || null,
+            receptionist_name,
+            receptionist_phone_last4,
+            receptionist_active,
+            owner_phone_last4,
+          },
+        })
+      }
       return NextResponse.json({ config })
     }
 
