@@ -310,13 +310,35 @@ async function handleIncomingCall(
         }
       }
     }
+    // If strict E.164 checks left us empty, build NANP/international `+…` from digits only (some saved phones fail `isReasonablePstnDialString` on the first pass).
+    if (selectedReceptionistId && !receptionistDialE164) {
+      const rec = await getReceptionist(selectedReceptionistId)
+      if (rec && rec.user_id === routing.user_id && rec.phone?.trim()) {
+        const digits = rec.phone.replace(/\D/g, "")
+        if (digits.length === 10) receptionistDialE164 = `+1${digits}`
+        else if (digits.length === 11 && digits.startsWith("1")) receptionistDialE164 = `+${digits}`
+        else if (digits.length >= 10 && digits.length <= 15) receptionistDialE164 = `+${digits}`
+        if (receptionistDialE164) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-receptionist-phone-relaxed-digits",
+              userId: routing.user_id,
+              receptionistId: selectedReceptionistId,
+              callSid,
+            })
+          )
+        }
+      }
+    }
     const hasReceptionist = Boolean(selectedReceptionistId && receptionistDialE164)
     /**
      * **Default (AI + no receptionist):** silent **`<Redirect>`** to `/ai-bridge` → `<Connect><AIAssistant>`.
      * Putting `<Connect>` on the first `/incoming` response often goes **dead-air** on Telnyx.
      * **`ZING_AI_HANDOFF_TWO_STEP`:** Say + Redirect (repeats if Telnyx re-fetches `/incoming` — avoid unless needed).
      * **`ZING_AI_CONNECT_DIRECT`:** `<Connect>` on `/incoming` only (experimental).
-     * **`ZING_AI_RING_OWNER_FIRST` or dashboard “Ring my phone first”:** `<Dial>` owner + `/fallback` before AI.
+     * **`ZING_AI_RING_OWNER_FIRST` or dashboard “Ring my phone first”:** when there is **no** receptionist to `<Dial>`,
+     * affects whether we send Voice AI straight to `/ai-bridge` vs your cell first (`useDirectAiWhenNoReceptionist`).
+     * A configured receptionist is **always** the first PSTN ring.
      *
      * **Do not** skip the redirect when `CallStatus` looks “live” on the **first** `/incoming` request —
      * Telnyx sometimes sends `in-progress` / `answered` while fetching TeXML; `<Connect>` on that first
@@ -325,13 +347,7 @@ async function handleIncomingCall(
     const ringOwnerFirst =
       process.env.ZING_AI_RING_OWNER_FIRST === "1" ||
       process.env.ZING_AI_RING_OWNER_FIRST === "true" ||
-      routing.ai_ring_owner_first === true // DB toggle (Fallback Settings) or env — Dial cell first, then /fallback for AI
-    /**
-     * “Ring my phone first” is only for **AI fallback**: ring your cell before Voice AI after humans don’t answer.
-     * If we applied it when `fallback_type` is owner/voicemail, your phone would ring first even though the dashboard
-     * shows a receptionist as the ring target — callers never reach the teammate first.
-     */
-    const firstDialOwnerWithTeammate = Boolean(ringOwnerFirst && hasReceptionist && wantsAiAfterNoAnswer)
+      routing.ai_ring_owner_first === true
     const twoStepAiHandoff =
       process.env.ZING_AI_HANDOFF_TWO_STEP === "1" || process.env.ZING_AI_HANDOFF_TWO_STEP === "true" // true = play “please hold” then redirect
     const connectDirectIncoming =
@@ -345,7 +361,7 @@ async function handleIncomingCall(
         userId: routing.user_id,
         wantsAiAfterNoAnswer,
         hasReceptionist,
-        firstDialOwnerWithTeammate,
+        selectedRecvConfigured: Boolean(selectedReceptionistId),
         recvDialDigitLen: receptionistDialE164.replace(/\D/g, "").length,
         recvWhisperUrlEnabled: INBOUND_RECV_WHISPER_URL_ENABLED && !INBOUND_RECV_PLAIN_DIAL,
         aiRingOwnerFirstFromDefaultRow: routing.ai_ring_owner_first,
@@ -478,7 +494,7 @@ async function handleIncomingCall(
       lineLbl && lineLbl.toLowerCase() !== "main line" ? lineLbl : routing.business_name
     const fromDisplayName = buildTelnyxDialFromDisplayName(fromDisplaySource)
 
-    if (hasReceptionist && !firstDialOwnerWithTeammate) {
+    if (hasReceptionist) {
       const recPhone = receptionistDialE164
       if (debug) console.log(`[Zing] Routing to receptionist: ${routing.receptionist_name || "Receptionist"} (${recPhone})`)
       const dial = texml.dial({
@@ -500,22 +516,6 @@ async function handleIncomingCall(
         dial.number({ url: receptionistWhisperScreenUrl(whisperPhrase) }, recPhone)
       } else {
         dial.number(recPhone)
-      }
-    } else if (firstDialOwnerWithTeammate) {
-      const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
-      if (debug) console.log(`[Zing] Ring-owner-first: routing to owner cell, then teammate via /fallback (${ownerPhone})`)
-      const dial = texml.dial({
-        callerId: businessLineE164,
-        ...(fromDisplayName ? { fromDisplayName } : {}),
-        answerOnBridge: true,
-        timeout: ownerRingSec,
-        action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first${bnQuery}${fbQuery}${modeQuery}`,
-        method: "POST",
-      } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
-      if (whisperPhrase.trim()) {
-        dial.number({ url: receptionistWhisperScreenUrl(whisperPhrase) }, ownerPhone)
-      } else {
-        dial.number(ownerPhone)
       }
     } else {
       const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
