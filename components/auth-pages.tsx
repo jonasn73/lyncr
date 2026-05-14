@@ -196,7 +196,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={isSignup ? 8 : 1}
                   autoComplete={isSignup ? "new-password" : "current-password"}
                   className="w-full rounded-lg border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                 />

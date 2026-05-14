@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
         industry: "generic",
         telnyx_ai_assistant_id: null,
         created_at: new Date().toISOString(),
+        credit_balance_cents: 0,
+        billing_plan: "trial",
+        is_platform_admin: false,
       }
       const cookieValue = createSessionCookie(devUser.id)
       const res = NextResponse.json({ data: { user: devUser } })
