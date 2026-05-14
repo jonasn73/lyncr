@@ -2508,6 +2508,19 @@ export async function adminAdjustUserCreditBalance(params: {
   }
 }
 
+/** Grant or revoke `/admin` access for another user (`019` column). */
+export async function adminSetUserPlatformAdminFlag(targetUserId: string, is_platform_admin: boolean): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`UPDATE users SET is_platform_admin = ${is_platform_admin} WHERE id = ${targetUserId}`
+  } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      throw new Error("is_platform_admin requires scripts/019-billing-admin-feedback.sql in Neon.")
+    }
+    throw e
+  }
+}
+
 // Get talk time analytics for a date range
 export async function getAgentTalkTime(
   userId: string,
