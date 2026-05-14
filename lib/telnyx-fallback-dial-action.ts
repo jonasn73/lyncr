@@ -39,6 +39,7 @@ import {
 } from "@/lib/telnyx-fallback-diagnostics"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
 import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
+import { shouldEmitVoiceHotPathDebugLogs } from "@/lib/voice-log-gate"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -668,48 +669,52 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     if (useLive && lr && config?.fallback_type && config.fallback_type !== lr.fallback_type) {
+      if (shouldEmitVoiceHotPathDebugLogs()) {
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-fallback-routing-mismatch",
+            userId,
+            businessLineE164: businessLineE164 || null,
+            effectiveBusinessLine: effectiveBusinessLine || null,
+            fromIncomingJoin: lr.fallback_type,
+            fromConfigQuery: config.fallback_type,
+            mergedFallback: fallbackType,
+          })
+        )
+      }
+    }
+
+    if (shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
-          zing: "telnyx-fallback-routing-mismatch",
+          zing: "telnyx-fallback",
+          userIdSource,
           userId,
           businessLineE164: businessLineE164 || null,
           effectiveBusinessLine: effectiveBusinessLine || null,
-          fromIncomingJoin: lr.fallback_type,
-          fromConfigQuery: config.fallback_type,
-          mergedFallback: fallbackType,
+          hadBnQuery: Boolean(bnFromQuery),
+          pathBnE164: pathBnE164 || null,
+          pathFallbackMode: pathFallbackMode ?? null,
+          inboundFbIntent: inboundFbIntent || null,
+          virtualFbAi,
+          dialBridgedToDigits: bridgedToDigits,
+          httpMethod: req.method,
+          toField: String(formData.get("To") || ""),
+          fallbackFromConfig: config?.fallback_type ?? null,
+          fallbackFromGlobalDefault: globalDefaultConfig?.fallback_type ?? null,
+          resolvedRoutingIsPerNumber: Boolean(config?.business_number?.trim()),
+          fallbackFromLiveJoin: useLive ? lr?.fallback_type ?? null : null,
+          fallbackType,
+          primaryWasOwner,
+          primaryOwnerFromParam,
+          primaryOwnerInferred: primaryWasOwner && !primaryOwnerFromParam,
+          legHint: legHint || null,
+          dialDurationSec,
+          hasTelnyxAiAssistant: Boolean(user?.telnyx_ai_assistant_id?.trim()),
+          dialStatus: dialStatus || rawStatus || null,
         })
       )
     }
-
-    console.log(
-      JSON.stringify({
-        zing: "telnyx-fallback",
-        userIdSource,
-        userId,
-        businessLineE164: businessLineE164 || null,
-        effectiveBusinessLine: effectiveBusinessLine || null,
-        hadBnQuery: Boolean(bnFromQuery),
-        pathBnE164: pathBnE164 || null,
-        pathFallbackMode: pathFallbackMode ?? null,
-        inboundFbIntent: inboundFbIntent || null,
-        virtualFbAi,
-        dialBridgedToDigits: bridgedToDigits,
-        httpMethod: req.method,
-        toField: String(formData.get("To") || ""),
-        fallbackFromConfig: config?.fallback_type ?? null,
-        fallbackFromGlobalDefault: globalDefaultConfig?.fallback_type ?? null,
-        resolvedRoutingIsPerNumber: Boolean(config?.business_number?.trim()),
-        fallbackFromLiveJoin: useLive ? lr?.fallback_type ?? null : null,
-        fallbackType,
-        primaryWasOwner,
-        primaryOwnerFromParam,
-        primaryOwnerInferred: primaryWasOwner && !primaryOwnerFromParam,
-        legHint: legHint || null,
-        dialDurationSec,
-        hasTelnyxAiAssistant: Boolean(user?.telnyx_ai_assistant_id?.trim()),
-        dialStatus: dialStatus || rawStatus || null,
-      })
-    )
 
     maybeLogTelnyxFallbackDiagnostic({
       requestUrl: url.toString(),

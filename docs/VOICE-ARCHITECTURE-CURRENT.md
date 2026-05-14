@@ -34,10 +34,28 @@ Legacy routes under `/api/voice/*` are adapters and should not be used for new i
 
 ## Performance decisions in current implementation
 
-- Incoming routing lookup is optimized and cached briefly.
+- Incoming routing lookup is optimized and cached briefly (`bypassCache: true` on webhooks so saves are immediate).
 - Non-critical call-log writes run fire-and-forget to reduce setup latency.
-- `answerOnBridge` defaults to **off** on `<Dial>` so the inbound caller leg can bridge sooner after the teammate answers (set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1` for classic “ringback until callee answers”).
-- Voice routes are configured for `nodejs` runtime and preferred region.
+- **Parallel DB on `/incoming`:** `getIncomingRoutingByNumber` + `isTelnyxInboundDialCallerLegDone`; then `getRoutingConfigForNumber` + `getPhoneNumbers` together before building TeXML.
+- **Parallel DB on `/fallback`:** `getRoutingConfigForNumber` (or default) + default routing + `getUser` in one `Promise.all`.
+- **JSON webhooks:** nested `data.payload` fields are flattened so we resolve the correct DID on the first hop (avoids wrong routing + retries).
+- **`answerOnBridge`:** defaults to **off** on `<Dial>` so the inbound caller leg can bridge sooner after the teammate answers (`ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1` restores classic ringback-until-answer).
+- **Production logs:** large structured `console.log(JSON.stringify(...))` lines on the hot path are **skipped** unless `ZING_VOICE_DEBUG_LOGS=1` (reduces CPU and log pipeline delay on every ring). **Errors** (`console.error`) are always emitted.
+- Voice routes use `nodejs` runtime and **`preferredRegion = iad1`** to stay close to Telnyx US-East voice.
+
+## Call quality & latency checklist (operator / Telnyx)
+
+| Goal | What to check |
+|------|-----------------|
+| Fastest first ring | Keep **line whisper** off unless needed: `ZING_INBOUND_RECEPTIONIST_WHISPER=no` (or disable per user in Settings). Owner leg uses `<Number url=…>` only when whisper is on — that adds an extra HTTP round trip before audio. |
+| Clear TTS | Optional faster speech: `ZING_TEXML_SAY_RATE` (see `lib/texml-say-voice.ts`). |
+| AI without extra spoken steps | Avoid `ZING_AI_HANDOFF_TWO_STEP` (default off). Prefer silent redirect to `/ai-bridge`. |
+| Second DID outbound | Multi-line accounts may use primary DID as PSTN `callerId` when the dialed line is not on the outbound voice profile yet (auto). All numbers should be on the **same Telnyx outbound voice profile** for best attestation. |
+| Callee sees real CLI | Default PSTN `callerId` = inbound caller; `ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` shows business line on teammate phone instead. |
+| Deep trace in prod | Set `ZING_VOICE_DEBUG_LOGS=1` on Vercel to restore full `telnyx-incoming-routing-flags`, `telnyx-fallback`, and related JSON logs. |
+| Fallback forensics | `ZING_TELNYX_FALLBACK_DIAGNOSTIC=1` adds redacted entry diagnostics (see `lib/telnyx-fallback-diagnostics.ts`). |
+
+**Outside the app (biggest wins):** Telnyx Mission Control — same region as app (`iad1`), low-latency PSTN, outbound voice profile on every purchased DID, stable public URL for TeXML (`NEXT_PUBLIC_APP_URL`), and minimal middleware between Telnyx and Vercel.
 
 ## Routing model
 

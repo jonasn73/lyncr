@@ -42,6 +42,7 @@ import {
   readTelnyxDialAnswerOnBridge,
   resolvePstnDialCallerIdForInboundForward,
 } from "@/lib/telnyx-pstn-dial-callerid"
+import { shouldEmitVoiceHotPathDebugLogs } from "@/lib/voice-log-gate"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -415,29 +416,31 @@ async function handleIncomingCall(
       return d.length >= 4 ? d.slice(-4) : null
     }
     const ownerNorm = normalizePhoneNumberE164(routing.owner_phone)
-    console.log(
-      JSON.stringify({
-        zing: "telnyx-incoming-routing-flags",
-        userId: routing.user_id,
-        cfgDid: businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim(),
-        calledLen: calledNumber.trim().length,
-        wantsAiAfterNoAnswer,
-        hasReceptionist,
-        firstPstnLeg: hasReceptionist ? "receptionist" : "owner_cell",
-        selectedRecvConfigured: Boolean(selectedReceptionistId),
-        recvDialDigitLen: receptionistDialE164.replace(/\D/g, "").length,
-        recvPhoneTail4: receptionistDialE164 ? tail4(receptionistDialE164) : null,
-        recvDisplayName: receptionistDisplayName || null,
-        ownerPhoneTail4: ownerNorm ? tail4(ownerNorm) : null,
-        recvPstnDialPlain: true,
-        aiRingFirstFromCfg: aiRingFirstEffective,
-        ringOwnerFirstEffective: ringOwnerFirst,
-        useDirectAiWhenNoReceptionist,
-        effectiveRingTimeout,
-        envRingFirst:
-          process.env.ZING_AI_RING_OWNER_FIRST === "1" || process.env.ZING_AI_RING_OWNER_FIRST === "true",
-      })
-    )
+    if (shouldEmitVoiceHotPathDebugLogs()) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-incoming-routing-flags",
+          userId: routing.user_id,
+          cfgDid: businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim(),
+          calledLen: calledNumber.trim().length,
+          wantsAiAfterNoAnswer,
+          hasReceptionist,
+          firstPstnLeg: hasReceptionist ? "receptionist" : "owner_cell",
+          selectedRecvConfigured: Boolean(selectedReceptionistId),
+          recvDialDigitLen: receptionistDialE164.replace(/\D/g, "").length,
+          recvPhoneTail4: receptionistDialE164 ? tail4(receptionistDialE164) : null,
+          recvDisplayName: receptionistDisplayName || null,
+          ownerPhoneTail4: ownerNorm ? tail4(ownerNorm) : null,
+          recvPstnDialPlain: true,
+          aiRingFirstFromCfg: aiRingFirstEffective,
+          ringOwnerFirstEffective: ringOwnerFirst,
+          useDirectAiWhenNoReceptionist,
+          effectiveRingTimeout,
+          envRingFirst:
+            process.env.ZING_AI_RING_OWNER_FIRST === "1" || process.env.ZING_AI_RING_OWNER_FIRST === "true",
+        })
+      )
+    }
 
     const callStatusRaw = pickField(webhookFields, [
       // Telnyx may use different key names; try each until one has a value
@@ -500,19 +503,21 @@ async function handleIncomingCall(
           handoff = "redirect-silent-ai-bridge-repeat" // Hit 3+ until last-resort
           xml = buildRedirectOnlyToAiBridgeTeXML(routing.user_id, callSid)
         }
-        console.log(
-          JSON.stringify({
-            zing: "telnyx-incoming-ai-direct", // Fixed key: search Vercel logs for this
-            userId: routing.user_id, // Which business user this call belongs to
-            handoff, // Which branch above ran
-            callStatus: callStatus || null, // Raw normalized status from webhook (empty on first ring sometimes)
-            incomingHitCount, // Logged every POST
-            lastResortConnectHit: useLastResortConnect ? lastResortHit : null, // null = disabled (default)
-            note: useLastResortConnect
-              ? "Experimental: <Connect> on /incoming at lastResortConnectHit; next hit = give up. Telnyx may error — unset env to use silent cap only."
-              : `Last-resort <Connect> on /incoming is off. When incomingHitCount > ${SILENT_INCOMING_LOOP_CAP} we play Zing give-up (not Telnyx error). Set ZING_AI_LAST_RESORT_CONNECT_HIT=N to try Connect on hit N.`,
-          })
-        )
+        if (shouldEmitVoiceHotPathDebugLogs()) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-ai-direct", // Fixed key: search Vercel logs for this
+              userId: routing.user_id, // Which business user this call belongs to
+              handoff, // Which branch above ran
+              callStatus: callStatus || null, // Raw normalized status from webhook (empty on first ring sometimes)
+              incomingHitCount, // Logged every POST
+              lastResortConnectHit: useLastResortConnect ? lastResortHit : null, // null = disabled (default)
+              note: useLastResortConnect
+                ? "Experimental: <Connect> on /incoming at lastResortConnectHit; next hit = give up. Telnyx may error — unset env to use silent cap only."
+                : `Last-resort <Connect> on /incoming is off. When incomingHitCount > ${SILENT_INCOMING_LOOP_CAP} we play Zing give-up (not Telnyx error). Set ZING_AI_LAST_RESORT_CONNECT_HIT=N to try Connect on hit N.`,
+            })
+          )
+        }
         return { kind: "raw", xml } // Bypass VoiceResponse builder because helpers return full XML strings
       }
       console.warn(
@@ -559,15 +564,17 @@ async function handleIncomingCall(
     if (preferPrimaryCallerId) {
       if (primaryE164 && isReasonablePstnDialString(primaryE164)) {
         outboundCallerId = primaryE164
-        console.log(
-          JSON.stringify({
-            zing: "telnyx-incoming-callerid-forced-primary-env",
-            callSid,
-            userId: routing.user_id,
-            dialedLine: businessLineE164 || null,
-            callerIdUsed: outboundCallerId,
-          })
-        )
+        if (shouldEmitVoiceHotPathDebugLogs()) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-callerid-forced-primary-env",
+              callSid,
+              userId: routing.user_id,
+              dialedLine: businessLineE164 || null,
+              callerIdUsed: outboundCallerId,
+            })
+          )
+        }
       }
     } else if (
       multiLine &&
@@ -579,28 +586,32 @@ async function handleIncomingCall(
       const primary10 = primaryE164.replace(/\D/g, "").slice(-10)
       if (dialed10.length >= 10 && primary10.length >= 10 && dialed10 !== primary10) {
         outboundCallerId = primaryE164
-        console.log(
-          JSON.stringify({
-            zing: "telnyx-incoming-callerid-auto-primary-multi-did",
-            callSid,
-            userId: routing.user_id,
-            dialedLine: businessLineE164,
-            callerIdUsed: outboundCallerId,
-          })
-        )
+        if (shouldEmitVoiceHotPathDebugLogs()) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-callerid-auto-primary-multi-did",
+              callSid,
+              userId: routing.user_id,
+              dialedLine: businessLineE164,
+              callerIdUsed: outboundCallerId,
+            })
+          )
+        }
       }
     }
 
     if (!isReasonablePstnDialString(outboundCallerId)) {
       if (primaryE164 && isReasonablePstnDialString(primaryE164)) {
         outboundCallerId = primaryE164
-        console.log(
-          JSON.stringify({
-            zing: "telnyx-incoming-callerid-fallback-primary",
-            callSid,
-            userId: routing.user_id,
-          })
-        )
+        if (shouldEmitVoiceHotPathDebugLogs()) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-callerid-fallback-primary",
+              callSid,
+              userId: routing.user_id,
+            })
+          )
+        }
       }
     }
     if (!isReasonablePstnDialString(outboundCallerId)) {
@@ -620,18 +631,20 @@ async function handleIncomingCall(
       businessOutboundE164: outboundCallerId,
     })
     const answerOnBridge = readTelnyxDialAnswerOnBridge()
-    console.log(
-      JSON.stringify({
-        zing: "telnyx-incoming-pstn-dial-callerid",
-        callSid,
-        useBusinessLineEnv: ["1", "true", "yes", "on"].includes(
-          (process.env.ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
-        ),
-        pstnDialCallerTail4: pstnDialCallerE164 ? tail4(pstnDialCallerE164) : null,
-        businessOutboundTail4: isReasonablePstnDialString(outboundCallerId) ? tail4(outboundCallerId) : null,
-        answerOnBridge,
-      })
-    )
+    if (shouldEmitVoiceHotPathDebugLogs()) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-incoming-pstn-dial-callerid",
+          callSid,
+          useBusinessLineEnv: ["1", "true", "yes", "on"].includes(
+            (process.env.ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
+          ),
+          pstnDialCallerTail4: pstnDialCallerE164 ? tail4(pstnDialCallerE164) : null,
+          businessOutboundTail4: isReasonablePstnDialString(outboundCallerId) ? tail4(outboundCallerId) : null,
+          answerOnBridge,
+        })
+      )
+    }
     const whisperOffUser = routing.inbound_receptionist_whisper_enabled === false
     const whisperPhrase =
       INBOUND_RECEPTIONIST_WHISPER_DISABLED || whisperOffUser
