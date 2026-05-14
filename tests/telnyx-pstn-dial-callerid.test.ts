@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach, vi } from "vitest"
 import {
   origFromQuerySuffix,
+  readTelnyxDialAnswerOnBridge,
   resolveExternalCallerE164ForDialChain,
   resolvePstnDialCallerIdForInboundForward,
 } from "@/lib/telnyx-pstn-dial-callerid"
@@ -49,6 +50,22 @@ describe("resolveExternalCallerE164ForDialChain", () => {
         formFromDial: "+15025199741",
       })
     ).toBe("+16125550100")
+  })
+})
+
+describe("readTelnyxDialAnswerOnBridge", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("is false when env is unset", () => {
+    vi.stubEnv("ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE", "")
+    expect(readTelnyxDialAnswerOnBridge()).toBe(false)
+  })
+
+  it("is true when env is 1", () => {
+    vi.stubEnv("ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE", "1")
+    expect(readTelnyxDialAnswerOnBridge()).toBe(true)
   })
 })
 

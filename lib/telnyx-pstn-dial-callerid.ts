@@ -47,3 +47,15 @@ export function origFromQuerySuffixFromRaw(inboundFromRaw: string): string {
   const e164 = resolveExternalCallerE164ForDialChain({ origFromParam: "", formFromDial: inboundFromRaw })
   return e164 ? `&origFrom=${encodeURIComponent(e164)}` : ""
 }
+
+/**
+ * Twilio/Telnyx `<Dial answerOnBridge>`.
+ * **Default `false`:** the inbound caller leg is answered when `<Dial>` runs so the PSTN bridge can complete sooner when
+ * the teammate answers (reduces “caller still ringing after I picked up”).
+ * **Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1`:** wait to answer the caller until the callee answers (classic ringback).
+ */
+export function readTelnyxDialAnswerOnBridge(): boolean {
+  return ["1", "true", "yes", "on"].includes(
+    (process.env.ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE || "").trim().toLowerCase()
+  )
+}

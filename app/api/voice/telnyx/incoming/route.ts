@@ -39,6 +39,7 @@ import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycl
 import { flattenJsonWebhookToStringMap } from "@/lib/telnyx-incoming-webhook-flatten"
 import {
   origFromQuerySuffixFromRaw,
+  readTelnyxDialAnswerOnBridge,
   resolvePstnDialCallerIdForInboundForward,
 } from "@/lib/telnyx-pstn-dial-callerid"
 
@@ -194,8 +195,11 @@ async function handleIncomingCall(
     // E.164 for DB + fallback URL — must match phone_numbers.number (we also match by digits in SQL).
     const businessLineE164 = calledNumber ? normalizePhoneNumberE164(calledNumber) : ""
 
-    // 1. Resolve owner + per-number routing + receptionist in one DB query.
-    const routing = await getIncomingRoutingByNumber(calledNumber, { bypassCache: true })
+    // 1. Resolve routing and “first leg ended” flag together — both hit the DB independently.
+    const [routing, firstLegDone] = await Promise.all([
+      getIncomingRoutingByNumber(calledNumber, { bypassCache: true }),
+      isTelnyxInboundDialCallerLegDone(callSid),
+    ])
     if (!routing) {
       console.error(
         "[Zing] No user/routing for inbound — check phone_numbers row matches this line. Detail:",
@@ -216,7 +220,7 @@ async function handleIncomingCall(
     if (debug) console.log(`[Zing] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
     if (debug) console.log(`[Zing] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
 
-    if (await isTelnyxInboundDialCallerLegDone(callSid)) {
+    if (firstLegDone) {
       console.log(
         JSON.stringify({
           zing: "telnyx-incoming-skip-repeat-texml",
@@ -280,12 +284,14 @@ async function handleIncomingCall(
     // 3. Per-DID routing must match the dashboard (GET /api/routing?number=…): one `getRoutingConfigForNumber` read drives
     // selected receptionist, fallback (AI vs not), and ring timeout — the SQL join row can disagree after edits.
     const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
-    let routingCfg: RoutingConfig | null = null
-    try {
-      routingCfg = await getRoutingConfigForNumber(routing.user_id, cfgDid)
-    } catch (cfgErr) {
-      console.error("[Zing] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
-    }
+    const [routingCfgResult, phoneList] = await Promise.all([
+      getRoutingConfigForNumber(routing.user_id, cfgDid).catch((cfgErr) => {
+        console.error("[Zing] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
+        return null
+      }),
+      getPhoneNumbers(routing.user_id),
+    ])
+    const routingCfg: RoutingConfig | null = routingCfgResult
 
     const wantsAiAfterNoAnswer =
       String(routingCfg?.fallback_type ?? routing.fallback_type ?? "").toLowerCase() === "ai"
@@ -545,7 +551,6 @@ async function handleIncomingCall(
     const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
       (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
     )
-    const phoneList = await getPhoneNumbers(routing.user_id)
     const primaryRow = phoneList.find((p) => p.status === "active") ?? phoneList[0]
     const primaryE164 = primaryRow?.number?.trim() ? normalizePhoneNumberE164(primaryRow.number) : ""
     const multiLine = phoneList.filter((p) => p.status === "active").length >= 2
@@ -614,6 +619,7 @@ async function handleIncomingCall(
       inboundFromRaw: callerNumber,
       businessOutboundE164: outboundCallerId,
     })
+    const answerOnBridge = readTelnyxDialAnswerOnBridge()
     console.log(
       JSON.stringify({
         zing: "telnyx-incoming-pstn-dial-callerid",
@@ -623,6 +629,7 @@ async function handleIncomingCall(
         ),
         pstnDialCallerTail4: pstnDialCallerE164 ? tail4(pstnDialCallerE164) : null,
         businessOutboundTail4: isReasonablePstnDialString(outboundCallerId) ? tail4(outboundCallerId) : null,
+        answerOnBridge,
       })
     )
     const whisperOffUser = routing.inbound_receptionist_whisper_enabled === false
@@ -647,7 +654,7 @@ async function handleIncomingCall(
       // Receptionist leg: omit `fromDisplayName` — Telnyx often fails or drops the PSTN B-leg when CNAM + forwarded mobile combine.
       const dial = texml.dial({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
-        answerOnBridge: true,
+        answerOnBridge,
         timeout: receptionistRingSec,
         action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${origFromQuery}`,
         method: "POST",
@@ -660,7 +667,7 @@ async function handleIncomingCall(
       const dial = texml.dial({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
         ...(fromDisplayName ? { fromDisplayName } : {}),
-        answerOnBridge: true,
+        answerOnBridge,
         timeout: ownerRingSec,
         action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first${bnQuery}${fbQuery}${modeQuery}${origFromQuery}`,
         method: "POST",

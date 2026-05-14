@@ -24,6 +24,7 @@ import {
 import { normalizeTelnyxAssistantIdForTexml } from "@/lib/telnyx-ai-texml"
 import {
   origFromQuerySuffix,
+  readTelnyxDialAnswerOnBridge,
   resolvePstnDialCallerIdForInboundForward,
 } from "@/lib/telnyx-pstn-dial-callerid"
 import {
@@ -760,6 +761,7 @@ export async function handleTelnyxFallbackDialEnded(
     const inboundCallerRawForPstnId =
       (url.searchParams.get("origFrom") || String(formData.get("origFrom") || "")).trim() ||
       (fromDial !== "Unknown" ? fromDial : "")
+    const answerOnBridge = readTelnyxDialAnswerOnBridge()
 
     /**
      * Owner cell leg ended after a real PSTN bridge — end the caller’s leg unless Voice AI should run next.
@@ -866,7 +868,7 @@ export async function handleTelnyxFallbackDialEnded(
       const dial = texml.dial({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
         ...(fromDisplayName ? { fromDisplayName } : {}),
-        answerOnBridge: true,
+        answerOnBridge,
         timeout: recvRingSec,
         action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&zingAfter=recv&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}${origFromSuffix}`,
         method: "POST",
@@ -946,7 +948,7 @@ export async function handleTelnyxFallbackDialEnded(
           const dial = texml.dial({
             ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
             ...(fromDisplayName ? { fromDisplayName } : {}),
-            answerOnBridge: true,
+            answerOnBridge,
             timeout: 30,
             action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}${origFromSuffix}`,
             method: "POST",

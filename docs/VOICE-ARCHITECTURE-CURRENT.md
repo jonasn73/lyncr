@@ -36,7 +36,7 @@ Legacy routes under `/api/voice/*` are adapters and should not be used for new i
 
 - Incoming routing lookup is optimized and cached briefly.
 - Non-critical call-log writes run fire-and-forget to reduce setup latency.
-- `answerOnBridge` is enabled on dial legs to improve ringback continuity.
+- `answerOnBridge` defaults to **off** on `<Dial>` so the inbound caller leg can bridge sooner after the teammate answers (set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1` for classic “ringback until callee answers”).
 - Voice routes are configured for `nodejs` runtime and preferred region.
 
 ## Routing model
