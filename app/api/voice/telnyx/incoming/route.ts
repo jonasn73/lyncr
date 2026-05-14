@@ -37,6 +37,10 @@ import {
 import { buildTelnyxAiAssistantTexml } from "@/lib/telnyx-ai-texml"
 import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycle"
 import { flattenJsonWebhookToStringMap } from "@/lib/telnyx-incoming-webhook-flatten"
+import {
+  origFromQuerySuffixFromRaw,
+  resolvePstnDialCallerIdForInboundForward,
+} from "@/lib/telnyx-pstn-dial-callerid"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -375,7 +379,7 @@ async function handleIncomingCall(
     }
 
     // 5. Route: receptionist (per-number or default) → owner's cell as fallback
-    // Outbound PSTN leg: callerId must be set — use normalized business DID so the callee can see which number was dialed.
+    // PSTN B-leg caller ID is chosen later (`pstnDialCallerE164`): default = inbound caller; optional env = business line.
     /**
      * **Default (AI + no receptionist):** silent **`<Redirect>`** to `/ai-bridge` → `<Connect><AIAssistant>`.
      * Putting `<Connect>` on the first `/incoming` response often goes **dead-air** on Telnyx.
@@ -605,7 +609,22 @@ async function handleIncomingCall(
       )
     }
 
-    // callerId on the outbound PSTN leg is the business DID so the callee’s phone can show which line was dialed.
+    const origFromQuery = origFromQuerySuffixFromRaw(callerNumber)
+    const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
+      inboundFromRaw: callerNumber,
+      businessOutboundE164: outboundCallerId,
+    })
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-incoming-pstn-dial-callerid",
+        callSid,
+        useBusinessLineEnv: ["1", "true", "yes", "on"].includes(
+          (process.env.ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
+        ),
+        pstnDialCallerTail4: pstnDialCallerE164 ? tail4(pstnDialCallerE164) : null,
+        businessOutboundTail4: isReasonablePstnDialString(outboundCallerId) ? tail4(outboundCallerId) : null,
+      })
+    )
     const whisperOffUser = routing.inbound_receptionist_whisper_enabled === false
     const whisperPhrase =
       INBOUND_RECEPTIONIST_WHISPER_DISABLED || whisperOffUser
@@ -627,10 +646,10 @@ async function handleIncomingCall(
       if (debug) console.log(`[Zing] Routing to receptionist: ${receptionistDisplayName || "Receptionist"} (${recPhone})`)
       // Receptionist leg: omit `fromDisplayName` — Telnyx often fails or drops the PSTN B-leg when CNAM + forwarded mobile combine.
       const dial = texml.dial({
-        ...(isReasonablePstnDialString(outboundCallerId) ? { callerId: outboundCallerId } : {}),
+        ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
         answerOnBridge: true,
         timeout: receptionistRingSec,
-        action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}`,
+        action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${origFromQuery}`,
         method: "POST",
       } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
       dial.number(recPhone)
@@ -639,11 +658,11 @@ async function handleIncomingCall(
       if (debug) console.log(`[Zing] No receptionist assigned, routing to owner: ${ownerPhone}`)
       // Same as receptionist path: if your phone does not answer, POST to fallback so AI / voicemail / second leg can run.
       const dial = texml.dial({
-        ...(isReasonablePstnDialString(outboundCallerId) ? { callerId: outboundCallerId } : {}),
+        ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
         ...(fromDisplayName ? { fromDisplayName } : {}),
         answerOnBridge: true,
         timeout: ownerRingSec,
-        action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first${bnQuery}${fbQuery}${modeQuery}`,
+        action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first${bnQuery}${fbQuery}${modeQuery}${origFromQuery}`,
         method: "POST",
       } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
       if (whisperPhrase.trim()) {

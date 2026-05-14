@@ -23,6 +23,10 @@ import {
 } from "@/lib/db"
 import { normalizeTelnyxAssistantIdForTexml } from "@/lib/telnyx-ai-texml"
 import {
+  origFromQuerySuffix,
+  resolvePstnDialCallerIdForInboundForward,
+} from "@/lib/telnyx-pstn-dial-callerid"
+import {
   buildRedirectOnlyToAiBridgeTeXML,
   buildSayThenRedirectToAiBridgeTeXML,
 } from "@/lib/telnyx-ai-handoff"
@@ -752,6 +756,11 @@ export async function handleTelnyxFallbackDialEnded(
       }).catch((err) => console.error("[Zing] ensureCallLogForInboundLeg failed:", err))
     }
 
+    const origFromSuffix = origFromQuerySuffix(url, formData, fromDial)
+    const inboundCallerRawForPstnId =
+      (url.searchParams.get("origFrom") || String(formData.get("origFrom") || "")).trim() ||
+      (fromDial !== "Unknown" ? fromDial : "")
+
     /**
      * Owner cell leg ended after a real PSTN bridge — end the caller’s leg unless Voice AI should run next.
      */
@@ -838,7 +847,11 @@ export async function handleTelnyxFallbackDialEnded(
         businessLineE164 ||
         (await getPrimaryActiveBusinessNumberE164(userId)) ||
         ""
-      const outboundCallerId = bnForAction.trim() ? normalizePhoneNumberE164(bnForAction) : undefined
+      const bizNorm = bnForAction.trim() ? normalizePhoneNumberE164(bnForAction) : ""
+      const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
+        inboundFromRaw: inboundCallerRawForPstnId,
+        businessOutboundE164: bizNorm,
+      })
       const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name || "Business")
       const didPath = bnForAction.replace(/\D/g, "")
       const nextPathMode: TelnyxFallbackPathMode =
@@ -851,11 +864,11 @@ export async function handleTelnyxFallbackDialEnded(
       const secondModeQuery = didPath.length < 10 ? `&zingFbMode=${encodeURIComponent(nextPathMode)}` : ""
       const recvRingSec = Math.min(Math.max(lr?.ring_timeout_seconds ?? 30, 10), 60)
       const dial = texml.dial({
-        callerId: outboundCallerId,
+        ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
         ...(fromDisplayName ? { fromDisplayName } : {}),
         answerOnBridge: true,
         timeout: recvRingSec,
-        action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&zingAfter=recv&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}`,
+        action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&zingAfter=recv&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}${origFromSuffix}`,
         method: "POST",
       } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
       dial.number(recvOutboundE164)
@@ -912,8 +925,11 @@ export async function handleTelnyxFallbackDialEnded(
             businessLineE164 ||
             (await getPrimaryActiveBusinessNumberE164(userId)) ||
             ""
-          // Must be a Telnyx-owned business DID — not `To` from this webhook (often the callee’s cell), or carriers may flag spam / fail attestation.
-          const outboundCallerId = bnForAction.trim() ? normalizePhoneNumberE164(bnForAction) : undefined
+          const bizNorm = bnForAction.trim() ? normalizePhoneNumberE164(bnForAction) : ""
+          const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
+            inboundFromRaw: inboundCallerRawForPstnId,
+            businessOutboundE164: bizNorm,
+          })
           const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name)
           const didPath = bnForAction.replace(/\D/g, "")
           const secondMode: TelnyxFallbackPathMode =
@@ -928,11 +944,11 @@ export async function handleTelnyxFallbackDialEnded(
               : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(userId)}`
           const secondModeQuery = didPath.length < 10 ? `&zingFbMode=${encodeURIComponent(secondMode)}` : ""
           const dial = texml.dial({
-            callerId: outboundCallerId,
+            ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
             ...(fromDisplayName ? { fromDisplayName } : {}),
             answerOnBridge: true,
             timeout: 30,
-            action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}`,
+            action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}${origFromSuffix}`,
             method: "POST",
           } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
           dial.number(toE164(user.phone))
