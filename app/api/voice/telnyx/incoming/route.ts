@@ -17,6 +17,7 @@ import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
   getIncomingRoutingByNumber,
   getReceptionist,
+  getRoutingConfigForNumber,
   getUser,
   insertCallLog,
   isReasonablePstnDialString,
@@ -242,7 +243,76 @@ async function handleIncomingCall(
       )
     }
 
-    // 3. Log the incoming call (don't let logging failures break call routing)
+    // 3. Resolve receptionist id + PSTN target to match the dashboard (GET /api/routing?number=…) — same merge as the UI, then read phone from `receptionists` (avoids a bad SQL join or wrong LIMIT 1 row).
+    const wantsAiAfterNoAnswer = String(routing.fallback_type || "").toLowerCase() === "ai"
+    const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
+    let selectedReceptionistId = routing.selected_receptionist_id?.trim() || ""
+    try {
+      const cfg = await getRoutingConfigForNumber(routing.user_id, cfgDid)
+      const fromCfg = cfg?.selected_receptionist_id?.trim() || ""
+      if (fromCfg) {
+        if (fromCfg !== selectedReceptionistId) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-incoming-recv-id-overlay",
+              sqlSelectedId: selectedReceptionistId || null,
+              cfgSelectedId: fromCfg,
+              callSid,
+              userId: routing.user_id,
+            })
+          )
+        }
+        selectedReceptionistId = fromCfg
+      }
+    } catch (cfgErr) {
+      console.error("[Zing] getRoutingConfigForNumber on incoming failed (using SQL routing only):", cfgErr)
+    }
+
+    let receptionistDialE164 = ""
+    let receptionistDisplayName = routing.receptionist_name
+    if (selectedReceptionistId) {
+      const rec = await getReceptionist(selectedReceptionistId)
+      const recOk = Boolean(rec && rec.user_id === routing.user_id)
+      if (recOk && rec) {
+        receptionistDisplayName = rec.name ?? receptionistDisplayName
+        if (rec.phone?.trim()) {
+          const fromRow = normalizePhoneNumberE164(rec.phone)
+          if (fromRow && isReasonablePstnDialString(fromRow)) {
+            receptionistDialE164 = fromRow
+          }
+          if (!receptionistDialE164) {
+            const digits = rec.phone.replace(/\D/g, "")
+            if (digits.length === 10) receptionistDialE164 = `+1${digits}`
+            else if (digits.length === 11 && digits.startsWith("1")) receptionistDialE164 = `+${digits}`
+            else if (digits.length >= 10 && digits.length <= 15) receptionistDialE164 = `+${digits}`
+            if (receptionistDialE164) {
+              console.log(
+                JSON.stringify({
+                  zing: "telnyx-incoming-receptionist-phone-relaxed-digits",
+                  userId: routing.user_id,
+                  receptionistId: selectedReceptionistId,
+                  callSid,
+                })
+              )
+            }
+          }
+        }
+      }
+      if (!receptionistDialE164) {
+        console.error(
+          JSON.stringify({
+            zing: "telnyx-incoming-receptionist-phone-missing",
+            userId: routing.user_id,
+            receptionistId: selectedReceptionistId,
+            callSid,
+            getReceptionistFound: recOk,
+          })
+        )
+      }
+    }
+    const hasReceptionist = Boolean(selectedReceptionistId && receptionistDialE164)
+
+    // 4. Log the incoming call (don't let logging failures break call routing)
     try {
       // Fire-and-forget so Telnyx doesn't wait for database writes.
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -255,7 +325,7 @@ async function handleIncomingCall(
         call_type: "incoming",
         status: "ringing",
         duration_seconds: 0,
-        routed_to_receptionist_id: routing.selected_receptionist_id || null,
+        routed_to_receptionist_id: selectedReceptionistId || null,
         routed_to_name: null,
         has_recording: false,
         recording_url: null,
@@ -267,70 +337,8 @@ async function handleIncomingCall(
       console.error("[Zing] Call log insert failed (continuing with routing):", logErr)
     }
 
-    // 4. Route: receptionist (per-number or default) → owner's cell as fallback
+    // 5. Route: receptionist (per-number or default) → owner's cell as fallback
     // Outbound PSTN leg: callerId must be set — use normalized business DID so the callee can see which number was dialed.
-    const wantsAiAfterNoAnswer = String(routing.fallback_type || "").toLowerCase() === "ai"
-    // Joined `receptionist_phone` can be stale or malformed; always normalize and require plausible E.164 digit length.
-    let receptionistDialE164 = ""
-    const selectedReceptionistId = routing.selected_receptionist_id?.trim() || ""
-    if (selectedReceptionistId) {
-      const joinedRaw = routing.receptionist_phone?.trim() || ""
-      const fromJoined = joinedRaw ? normalizePhoneNumberE164(joinedRaw) : ""
-      if (fromJoined && isReasonablePstnDialString(fromJoined)) {
-        receptionistDialE164 = fromJoined
-      }
-      if (!receptionistDialE164) {
-        const rec = await getReceptionist(selectedReceptionistId)
-        if (rec && rec.user_id === routing.user_id && rec.phone?.trim()) {
-          const fromRow = normalizePhoneNumberE164(rec.phone)
-          if (fromRow && isReasonablePstnDialString(fromRow)) {
-            receptionistDialE164 = fromRow
-            console.log(
-              JSON.stringify({
-                zing: "telnyx-incoming-receptionist-phone-backfill",
-                userId: routing.user_id,
-                receptionistId: selectedReceptionistId,
-                callSid,
-                joinedWasUnusable: Boolean(joinedRaw),
-              })
-            )
-          }
-        }
-        if (!receptionistDialE164) {
-          console.error(
-            JSON.stringify({
-              zing: "telnyx-incoming-receptionist-phone-missing",
-              userId: routing.user_id,
-              receptionistId: selectedReceptionistId,
-              callSid,
-              joinedHadValue: Boolean(joinedRaw),
-              joinedNormalizedLen: fromJoined.replace(/\D/g, "").length,
-            })
-          )
-        }
-      }
-    }
-    // If strict E.164 checks left us empty, build NANP/international `+…` from digits only (some saved phones fail `isReasonablePstnDialString` on the first pass).
-    if (selectedReceptionistId && !receptionistDialE164) {
-      const rec = await getReceptionist(selectedReceptionistId)
-      if (rec && rec.user_id === routing.user_id && rec.phone?.trim()) {
-        const digits = rec.phone.replace(/\D/g, "")
-        if (digits.length === 10) receptionistDialE164 = `+1${digits}`
-        else if (digits.length === 11 && digits.startsWith("1")) receptionistDialE164 = `+${digits}`
-        else if (digits.length >= 10 && digits.length <= 15) receptionistDialE164 = `+${digits}`
-        if (receptionistDialE164) {
-          console.log(
-            JSON.stringify({
-              zing: "telnyx-incoming-receptionist-phone-relaxed-digits",
-              userId: routing.user_id,
-              receptionistId: selectedReceptionistId,
-              callSid,
-            })
-          )
-        }
-      }
-    }
-    const hasReceptionist = Boolean(selectedReceptionistId && receptionistDialE164)
     /**
      * **Default (AI + no receptionist):** silent **`<Redirect>`** to `/ai-bridge` → `<Connect><AIAssistant>`.
      * Putting `<Connect>` on the first `/incoming` response often goes **dead-air** on Telnyx.
@@ -496,7 +504,7 @@ async function handleIncomingCall(
 
     if (hasReceptionist) {
       const recPhone = receptionistDialE164
-      if (debug) console.log(`[Zing] Routing to receptionist: ${routing.receptionist_name || "Receptionist"} (${recPhone})`)
+      if (debug) console.log(`[Zing] Routing to receptionist: ${receptionistDisplayName || "Receptionist"} (${recPhone})`)
       const dial = texml.dial({
         callerId: businessLineE164,
         ...(fromDisplayName ? { fromDisplayName } : {}),
