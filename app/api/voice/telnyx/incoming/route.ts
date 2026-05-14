@@ -18,7 +18,7 @@ import {
   getIncomingRoutingByNumber,
   getReceptionist,
   getRoutingConfigForNumber,
-  getPrimaryActiveBusinessNumberE164,
+  getPhoneNumbers,
   getUser,
   insertCallLog,
   isReasonablePstnDialString,
@@ -36,6 +36,7 @@ import {
 } from "@/lib/telnyx-ai-handoff"
 import { buildTelnyxAiAssistantTexml } from "@/lib/telnyx-ai-texml"
 import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycle"
+import { flattenJsonWebhookToStringMap } from "@/lib/telnyx-incoming-webhook-flatten"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -92,31 +93,6 @@ function hasVoiceUrlDialCompletedEvidence(fields: Record<string, string>): boole
   ]).trim()
   const dur = parseInt(durRaw, 10)
   return Number.isFinite(dur) && dur > 0
-}
-
-// Read TeXML instruction request body as form fields or JSON.
-// Telnyx sometimes POSTs JSON with a nested `data` object; flatten so `pickField` sees `To` / `From` / `CallSid`.
-function flattenJsonWebhookToStringMap(body: Record<string, unknown>): Record<string, string> {
-  const out: Record<string, string> = {}
-  const put = (key: string, val: unknown) => {
-    if (val === null || val === undefined) return
-    if (typeof val === "object" && !Array.isArray(val)) return
-    const s = String(val).trim()
-    if (!s) return
-    if (out[key] == null || out[key] === "") out[key] = s
-  }
-  for (const [k, v] of Object.entries(body)) {
-    put(k, v)
-    if (k === "data" && v && typeof v === "object" && !Array.isArray(v)) {
-      for (const [ik, iv] of Object.entries(v as Record<string, unknown>)) {
-        put(ik, iv)
-        if (ik === "to") put("To", iv)
-        if (ik === "from") put("From", iv)
-        if (ik === "call_control_id") put("CallSid", iv)
-      }
-    }
-  }
-  return out
 }
 
 /** If `To` is missing from the map, find a value that looks like E.164 — prefer keys that look like the callee, never `From`. */
@@ -558,12 +534,57 @@ async function handleIncomingCall(
     const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
     const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
 
-    // PSTN `<Dial callerId>` must be a Telnyx-owned E.164; if the webhook DID normalizes badly, fall back to this user’s primary active number.
+    // PSTN `<Dial callerId>` must be a Telnyx-owned E.164 on your outbound voice profile. A newly purchased second DID
+    // often is not yet usable as outbound caller ID on the same TeXML app; using the account’s first active DID for
+    // PSTN legs when multiple lines exist avoids failed/fake rings on the non-primary number. Optional override:
+    // `ZING_INBOUND_PSTN_CALLER_ID_PRIMARY=1` forces primary caller ID even on the primary line’s inbound leg.
+    const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
+      (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
+    )
+    const phoneList = await getPhoneNumbers(routing.user_id)
+    const primaryRow = phoneList.find((p) => p.status === "active") ?? phoneList[0]
+    const primaryE164 = primaryRow?.number?.trim() ? normalizePhoneNumberE164(primaryRow.number) : ""
+    const multiLine = phoneList.filter((p) => p.status === "active").length >= 2
+
     let outboundCallerId = businessLineE164
+    if (preferPrimaryCallerId) {
+      if (primaryE164 && isReasonablePstnDialString(primaryE164)) {
+        outboundCallerId = primaryE164
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-incoming-callerid-forced-primary-env",
+            callSid,
+            userId: routing.user_id,
+            dialedLine: businessLineE164 || null,
+            callerIdUsed: outboundCallerId,
+          })
+        )
+      }
+    } else if (
+      multiLine &&
+      primaryE164 &&
+      isReasonablePstnDialString(primaryE164) &&
+      isReasonablePstnDialString(businessLineE164)
+    ) {
+      const dialed10 = businessLineE164.replace(/\D/g, "").slice(-10)
+      const primary10 = primaryE164.replace(/\D/g, "").slice(-10)
+      if (dialed10.length >= 10 && primary10.length >= 10 && dialed10 !== primary10) {
+        outboundCallerId = primaryE164
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-incoming-callerid-auto-primary-multi-did",
+            callSid,
+            userId: routing.user_id,
+            dialedLine: businessLineE164,
+            callerIdUsed: outboundCallerId,
+          })
+        )
+      }
+    }
+
     if (!isReasonablePstnDialString(outboundCallerId)) {
-      const primary = await getPrimaryActiveBusinessNumberE164(routing.user_id)
-      if (primary && isReasonablePstnDialString(primary)) {
-        outboundCallerId = primary
+      if (primaryE164 && isReasonablePstnDialString(primaryE164)) {
+        outboundCallerId = primaryE164
         console.log(
           JSON.stringify({
             zing: "telnyx-incoming-callerid-fallback-primary",
