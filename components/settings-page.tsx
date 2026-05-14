@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect } from "react"
 import {
   Moon,
@@ -1939,22 +1940,18 @@ export function SettingsPage() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </a>
 
-          <a
-            href={process.env.NEXT_PUBLIC_SUPPORT_URL || "/support"}
-            target={process.env.NEXT_PUBLIC_SUPPORT_URL ? "_blank" : undefined}
-            rel={process.env.NEXT_PUBLIC_SUPPORT_URL ? "noopener noreferrer" : undefined}
+          <Link
+            href="/dashboard/help"
             className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
           >
             <div className="flex items-center gap-3">
               <IconSurface>
                 <HelpCircle className="h-4 w-4 text-muted-foreground" />
               </IconSurface>
-              <p className="text-sm font-medium text-foreground">
-                Help & Support
-              </p>
+              <p className="text-sm font-medium text-foreground">Help, pricing & feedback</p>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </a>
+          </Link>
 
           <button className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-destructive/5">
             <div className="flex items-center gap-3">

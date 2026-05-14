@@ -16,6 +16,39 @@ export interface User {
   /** Telnyx Mission Control → Voice AI → Assistant id (TeXML AIAssistant verb). */
   telnyx_ai_assistant_id: string | null
   created_at: string
+  /** Prepaid balance in USD cents (requires `019-billing-admin-feedback.sql`). */
+  credit_balance_cents: number
+  /** Entitlements tier key: trial | starter | growth | enterprise */
+  billing_plan: string
+  /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */
+  is_platform_admin: boolean
+}
+
+export type FeedbackCategory = "issue" | "feature" | "billing" | "other"
+export type FeedbackStatus = "open" | "triaged" | "closed"
+
+export interface FeedbackSubmission {
+  id: string
+  user_id: string | null
+  category: FeedbackCategory
+  subject: string
+  body: string
+  status: FeedbackStatus
+  created_at: string
+}
+
+/** Admin user list row with recent call volume (30 days). */
+export interface AdminUserSummary {
+  id: string
+  email: string
+  name: string
+  business_name: string
+  credit_balance_cents: number
+  billing_plan: string
+  is_platform_admin: boolean
+  created_at: string
+  calls_last_30_days: number
+  talk_seconds_last_30_days: number
 }
 
 // --- Receptionists / Agents ---

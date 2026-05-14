@@ -13,6 +13,7 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { getUser } from "@/lib/db"
+import { isPlatformAdminUser } from "@/lib/platform-admin"
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,19 +35,23 @@ export async function GET(req: NextRequest) {
     // Dev bypass: no DB call for dev-user (used when database is not connected)
     if (process.env.NODE_ENV === "development" && userId === "dev-user") {
       const devEmail = process.env.DEV_LOGIN_EMAIL?.trim().toLowerCase() ?? "dev@zing.local"
+      const devUser = {
+        id: "dev-user",
+        email: devEmail,
+        name: "Dev User",
+        phone: "+15551234567",
+        business_name: "My Business",
+        inbound_receptionist_whisper_enabled: true,
+        industry: "generic",
+        telnyx_ai_assistant_id: null,
+        created_at: new Date().toISOString(),
+        credit_balance_cents: 0,
+        billing_plan: "trial",
+        is_platform_admin: false,
+      }
       const res = NextResponse.json({
         data: {
-          user: {
-            id: "dev-user",
-            email: devEmail,
-            name: "Dev User",
-            phone: "+15551234567",
-            business_name: "My Business",
-            inbound_receptionist_whisper_enabled: true,
-            industry: "generic",
-            telnyx_ai_assistant_id: null,
-            created_at: new Date().toISOString(),
-          },
+          user: { ...devUser, operator_access: isPlatformAdminUser(devUser) },
         },
       })
       res.cookies.set(getSessionCookieName(), newCookieValue, opts)
@@ -56,7 +61,9 @@ export async function GET(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 401 })
     }
-    const res = NextResponse.json({ data: { user } })
+    const res = NextResponse.json({
+      data: { user: { ...user, operator_access: isPlatformAdminUser(user) } },
+    })
     res.cookies.set(getSessionCookieName(), newCookieValue, opts)
     return res
   } catch (error) {

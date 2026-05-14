@@ -1,5 +1,5 @@
 // ============================================
-// Edge middleware — fast gate for /dashboard/*
+// Edge middleware — session cookie gate for /dashboard/* and /admin/*
 // ============================================
 // Only checks that the session cookie exists (shape: payload.signature).
 // Real signature + expiry validation stays in /api/auth/session (Node).
@@ -20,7 +20,8 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-zing-pathname", pathname)
 
-  if (!pathname.startsWith("/dashboard")) {
+  const needsSession = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+  if (!needsSession) {
     return NextResponse.next({
       request: { headers: requestHeaders },
     })
@@ -37,5 +38,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/admin", "/admin/:path*"],
 }

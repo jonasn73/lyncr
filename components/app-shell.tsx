@@ -10,6 +10,7 @@ import {
   Zap,
   ClipboardList,
   Inbox,
+  LifeBuoy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +21,7 @@ const navItems = [
   { id: "contacts", label: "Team", icon: Users },
   { id: "analytics", label: "Pay", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
+  { id: "help", label: "Help", icon: LifeBuoy },
 ] as const
 
 export type PageId = (typeof navItems)[number]["id"]
@@ -32,6 +34,7 @@ const PAGE_HREF: Record<PageId, string> = {
   contacts: "/dashboard/contacts",
   analytics: "/dashboard/analytics",
   settings: "/dashboard/settings",
+  help: "/dashboard/help",
 }
 
 export function AppShell({
@@ -105,12 +108,12 @@ export function AppShell({
         role="navigation"
         aria-label="Main navigation"
       >
-        <div className="mx-2 my-2 flex items-center justify-around rounded-2xl border border-border/60 bg-card/70 px-2 py-1.5">
+        <div className="mx-1 my-2 flex max-w-full items-center justify-around gap-0.5 overflow-x-auto rounded-2xl border border-border/60 bg-card/70 px-1 py-1.5 sm:mx-2 sm:gap-1 sm:px-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = activePage === item.id
             const className = cn(
-              "flex min-h-11 min-w-[58px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2",
+              "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 sm:min-w-[58px] sm:px-3",
               "transition-all duration-200 ease-out motion-safe:active:scale-[0.96]",
               isActive
                 ? "bg-primary/12 text-primary shadow-[0_0_20px_-8px_var(--primary)]"

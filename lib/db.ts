@@ -13,6 +13,10 @@ import type {
   CallLog,
   PhoneNumber,
   PortingNotification,
+  FeedbackSubmission,
+  FeedbackStatus,
+  AdminUserSummary,
+  FeedbackCategory,
 } from "./types"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 
@@ -78,6 +82,18 @@ function isMissingInboundReceptionistWhisperColumnError(e: unknown): boolean {
   const code = pgErrorCode(e)
   const msg = pgErrorMessage(e).toLowerCase()
   return code === "42703" && msg.includes("inbound_receptionist_whisper_enabled")
+}
+
+/** True when `019-billing-admin-feedback.sql` has not been applied yet (missing billing columns on `users`). */
+function isMissingBillingColumnsError(e: unknown): boolean {
+  const code = pgErrorCode(e)
+  if (code !== "42703") return false
+  const msg = pgErrorMessage(e).toLowerCase()
+  return (
+    msg.includes("credit_balance_cents") ||
+    msg.includes("billing_plan") ||
+    msg.includes("is_platform_admin")
+  )
 }
 
 // Parse a routing_config row into a RoutingConfig object
@@ -463,8 +479,10 @@ export async function deleteReceptionist(receptionistId: string, userId: string)
   await sql`DELETE FROM receptionists WHERE id = ${receptionistId} AND user_id = ${userId}`
 }
 
-// Get user by email (for auth login; includes password_hash)
-export async function getAuthUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
+/** Auth login row fetch before `019-billing-admin-feedback.sql` (no billing columns in SELECT). */
+async function getAuthUserByEmailWithoutBillingColumns(
+  email: string
+): Promise<(User & { password_hash: string }) | null> {
   const sql = getSql()
   const pack = (row: Record<string, unknown> | undefined) => {
     if (!row) return null
@@ -513,6 +531,70 @@ export async function getAuthUserByEmail(email: string): Promise<(User & { passw
   }
 }
 
+// Get user by email (for auth login; includes password_hash)
+export async function getAuthUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
+  const sql = getSql()
+  const pack = (row: Record<string, unknown> | undefined) => {
+    if (!row) return null
+    return { ...parseUserRow(row), password_hash: String(row.password_hash) }
+  }
+  try {
+    const rows = await sql`
+      SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, password_hash, created_at,
+        credit_balance_cents, billing_plan, is_platform_admin
+      FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+    `
+    return pack(rows[0])
+  } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      return getAuthUserByEmailWithoutBillingColumns(email)
+    }
+    if (isMissingInboundReceptionistWhisperColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, password_hash, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+        `
+        return pack(rows[0])
+      } catch (e2) {
+        if (isMissingBillingColumnsError(e2)) {
+          return getAuthUserByEmailWithoutBillingColumns(email)
+        }
+        if (!isMissingIndustryColumnError(e2)) throw e2
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, password_hash, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+        `
+        return pack(rows[0])
+      }
+    }
+    if (isMissingIndustryColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, telnyx_ai_assistant_id, password_hash, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+        `
+        return pack(rows[0])
+      } catch (e2) {
+        if (isMissingBillingColumnsError(e2)) {
+          return getAuthUserByEmailWithoutBillingColumns(email)
+        }
+        if (!isMissingInboundReceptionistWhisperColumnError(e2)) throw e2
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, password_hash, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+        `
+        return pack(rows[0])
+      }
+    }
+    throw e
+  }
+}
+
 // Create user (for auth signup); also creates routing_config row
 export async function createUser(params: {
   email: string
@@ -551,6 +633,9 @@ export async function createUser(params: {
     industry,
     telnyx_ai_assistant_id: null,
     created_at: new Date().toISOString(),
+    credit_balance_cents: 0,
+    billing_plan: "trial",
+    is_platform_admin: false,
   }
 }
 
@@ -568,6 +653,10 @@ function parseUserRow(row: Record<string, unknown>): User {
     industry: row.industry != null ? String(row.industry) : "generic",
     telnyx_ai_assistant_id: row.telnyx_ai_assistant_id ? String(row.telnyx_ai_assistant_id) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    credit_balance_cents: row.credit_balance_cents != null && row.credit_balance_cents !== undefined ? Number(row.credit_balance_cents) : 0,
+    billing_plan: row.billing_plan != null && row.billing_plan !== undefined ? String(row.billing_plan) : "trial",
+    is_platform_admin:
+      row.is_platform_admin === null || row.is_platform_admin === undefined ? false : pgBool(row.is_platform_admin),
   }
 }
 
@@ -821,8 +910,8 @@ export async function getIncomingRoutingByNumber(
   return value
 }
 
-// Get user by ID
-export async function getUser(userId: string): Promise<User | null> {
+/** `getUser` when `users` has no billing columns yet (pre-019 migration). */
+async function getUserWithoutBillingColumnsInSelect(userId: string): Promise<User | null> {
   const sql = getSql()
   try {
     const rows = await sql`
@@ -858,6 +947,66 @@ export async function getUser(userId: string): Promise<User | null> {
         if (!isMissingInboundReceptionistWhisperColumnError(e2)) throw e2
         const rows = await sql`
           SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      }
+    }
+    throw e
+  }
+}
+
+// Get user by ID
+export async function getUser(userId: string): Promise<User | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
+        credit_balance_cents, billing_plan, is_platform_admin
+      FROM users WHERE id = ${userId} LIMIT 1
+    `
+    return rows[0] ? parseUserRow(rows[0]) : null
+  } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      return getUserWithoutBillingColumnsInSelect(userId)
+    }
+    if (isMissingInboundReceptionistWhisperColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        if (isMissingBillingColumnsError(e2)) {
+          return getUserWithoutBillingColumnsInSelect(userId)
+        }
+        if (!isMissingIndustryColumnError(e2)) throw e2
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      }
+    }
+    if (isMissingIndustryColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        if (isMissingBillingColumnsError(e2)) {
+          return getUserWithoutBillingColumnsInSelect(userId)
+        }
+        if (!isMissingInboundReceptionistWhisperColumnError(e2)) throw e2
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
           FROM users WHERE id = ${userId} LIMIT 1
         `
         return rows[0] ? parseUserRow(rows[0]) : null
@@ -1700,17 +1849,46 @@ export async function getUserByTelnyxAssistantId(telnyxAssistantId: string): Pro
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, created_at
+      SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, created_at,
+        credit_balance_cents, billing_plan, is_platform_admin
       FROM users WHERE telnyx_ai_assistant_id = ${telnyxAssistantId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
   } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, industry, telnyx_ai_assistant_id, created_at
+          FROM users WHERE telnyx_ai_assistant_id = ${telnyxAssistantId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        if (!isMissingIndustryColumnError(e2)) throw e2
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at
+          FROM users WHERE telnyx_ai_assistant_id = ${telnyxAssistantId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      }
+    }
     if (!isMissingIndustryColumnError(e)) throw e
-    const rows = await sql`
-      SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at
-      FROM users WHERE telnyx_ai_assistant_id = ${telnyxAssistantId} LIMIT 1
-    `
-    return rows[0] ? parseUserRow(rows[0]) : null
+    try {
+      const rows = await sql`
+        SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at,
+          credit_balance_cents, billing_plan, is_platform_admin
+        FROM users WHERE telnyx_ai_assistant_id = ${telnyxAssistantId} LIMIT 1
+      `
+      return rows[0] ? parseUserRow(rows[0]) : null
+    } catch (e2) {
+      if (isMissingBillingColumnsError(e2)) {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, telnyx_ai_assistant_id, created_at
+          FROM users WHERE telnyx_ai_assistant_id = ${telnyxAssistantId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      }
+      throw e2
+    }
   }
 }
 
@@ -2035,6 +2213,234 @@ export async function markAllPortingNotificationsRead(userId: string): Promise<v
     `
   } catch (e) {
     if (isUndefinedRelationError(e, "porting_notifications")) return
+    throw e
+  }
+}
+
+function parseFeedbackSubmissionRow(row: Record<string, unknown>): FeedbackSubmission {
+  return {
+    id: String(row.id),
+    user_id: row.user_id != null ? String(row.user_id) : null,
+    category: String(row.category) as FeedbackSubmission["category"],
+    subject: String(row.subject ?? ""),
+    body: String(row.body ?? ""),
+    status: String(row.status ?? "open") as FeedbackSubmission["status"],
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+  }
+}
+
+/** Logged-in user submits product feedback (requires `019-billing-admin-feedback.sql`). */
+export async function insertFeedbackSubmission(params: {
+  user_id: string
+  category: FeedbackCategory
+  subject: string
+  body: string
+}): Promise<FeedbackSubmission> {
+  const sql = getSql()
+  const id = crypto.randomUUID()
+  try {
+    await sql`
+      INSERT INTO feedback_submissions (id, user_id, category, subject, body, status)
+      VALUES (${id}, ${params.user_id}, ${params.category}, ${params.subject}, ${params.body}, 'open')
+    `
+    const rows = await sql`
+      SELECT id, user_id, category, subject, body, status, created_at
+      FROM feedback_submissions WHERE id = ${id} LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) throw new Error("Feedback row missing after insert")
+    return parseFeedbackSubmissionRow(row)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "feedback_submissions")) {
+      throw new Error(
+        "Feedback is not enabled until scripts/019-billing-admin-feedback.sql is run in Neon (creates feedback_submissions)."
+      )
+    }
+    throw e
+  }
+}
+
+/** Admin queue — newest first. */
+export async function listFeedbackSubmissionsForAdmin(limit: number = 100): Promise<FeedbackSubmission[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 500)
+  try {
+    const rows = await sql`
+      SELECT id, user_id, category, subject, body, status, created_at
+      FROM feedback_submissions
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return (rows as Record<string, unknown>[]).map(parseFeedbackSubmissionRow)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "feedback_submissions")) return []
+    throw e
+  }
+}
+
+export async function updateFeedbackSubmissionStatusAdmin(
+  submissionId: string,
+  status: FeedbackStatus
+): Promise<FeedbackSubmission | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE feedback_submissions SET status = ${status}
+      WHERE id = ${submissionId}
+      RETURNING id, user_id, category, subject, body, status, created_at
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseFeedbackSubmissionRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "feedback_submissions")) return null
+    throw e
+  }
+}
+
+export type AdminDashboardStats = {
+  user_count: number
+  total_credit_balance_cents: number
+  open_feedback_count: number
+}
+
+export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT
+        (SELECT count(*)::int FROM users) AS user_count,
+        (SELECT coalesce(sum(credit_balance_cents), 0)::bigint FROM users) AS total_credit_cents,
+        (SELECT count(*)::int FROM feedback_submissions WHERE status = 'open') AS open_feedback_count
+    `
+    const row = rows[0] as { user_count?: number; total_credit_cents?: bigint; open_feedback_count?: number } | undefined
+    return {
+      user_count: row?.user_count != null ? Number(row.user_count) : 0,
+      total_credit_balance_cents: row?.total_credit_cents != null ? Number(row.total_credit_cents) : 0,
+      open_feedback_count: row?.open_feedback_count != null ? Number(row.open_feedback_count) : 0,
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "feedback_submissions")) {
+      const rows = await sql`
+        SELECT
+          (SELECT count(*)::int FROM users) AS user_count,
+          (SELECT coalesce(sum(credit_balance_cents), 0)::bigint FROM users) AS total_credit_cents
+      `
+      const row = rows[0] as { user_count?: number; total_credit_cents?: bigint } | undefined
+      return {
+        user_count: row?.user_count != null ? Number(row.user_count) : 0,
+        total_credit_balance_cents: row?.total_credit_cents != null ? Number(row.total_credit_cents) : 0,
+        open_feedback_count: 0,
+      }
+    }
+    if (isMissingBillingColumnsError(e)) {
+      const rows = await sql`SELECT count(*)::int AS user_count FROM users`
+      const row = rows[0] as { user_count?: number } | undefined
+      return {
+        user_count: row?.user_count != null ? Number(row.user_count) : 0,
+        total_credit_balance_cents: 0,
+        open_feedback_count: 0,
+      }
+    }
+    throw e
+  }
+}
+
+/** Operator console: accounts with last-30-day call volume. */
+export async function listAdminUserSummaries(limit: number = 200): Promise<AdminUserSummary[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 500)
+  try {
+    const rows = await sql`
+      SELECT
+        u.id,
+        u.email,
+        u.name,
+        u.business_name,
+        u.credit_balance_cents,
+        u.billing_plan,
+        u.is_platform_admin,
+        u.created_at,
+        coalesce(agg.cnt, 0)::int AS calls_last_30_days,
+        coalesce(agg.secs, 0)::bigint AS talk_seconds_last_30_days
+      FROM users u
+      LEFT JOIN LATERAL (
+        SELECT
+          count(*)::int AS cnt,
+          coalesce(sum(cl.duration_seconds), 0)::bigint AS secs
+        FROM call_logs cl
+        WHERE cl.user_id = u.id AND cl.created_at > (now() - interval '30 days')
+      ) agg ON true
+      ORDER BY u.created_at DESC
+      LIMIT ${lim}
+    `
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      id: String(row.id),
+      email: String(row.email ?? ""),
+      name: String(row.name ?? ""),
+      business_name: String(row.business_name ?? ""),
+      credit_balance_cents: Number(row.credit_balance_cents ?? 0),
+      billing_plan: String(row.billing_plan ?? "trial"),
+      is_platform_admin: pgBool(row.is_platform_admin),
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+      calls_last_30_days: Number(row.calls_last_30_days ?? 0),
+      talk_seconds_last_30_days: Number(row.talk_seconds_last_30_days ?? 0),
+    }))
+  } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      throw new Error(
+        "Admin billing list requires scripts/019-billing-admin-feedback.sql in Neon (adds credit_balance_cents, billing_plan, is_platform_admin)."
+      )
+    }
+    throw e
+  }
+}
+
+/** Credit adjustment + ledger row (platform admin). */
+export async function adminAdjustUserCreditBalance(params: {
+  target_user_id: string
+  delta_cents: number
+  reason: string
+  actor_user_id: string
+  reference?: string | null
+  meta?: Record<string, unknown>
+}): Promise<{ balance_after_cents: number }> {
+  const sql = getSql()
+  const delta = Math.trunc(params.delta_cents)
+  if (!Number.isFinite(delta) || delta === 0) {
+    throw new Error("delta_cents must be a non-zero finite integer (cents)")
+  }
+  const metaJson = JSON.stringify(params.meta ?? {})
+  try {
+    const rows = await sql`
+      UPDATE users
+      SET credit_balance_cents = credit_balance_cents + ${delta}
+      WHERE id = ${params.target_user_id}
+      RETURNING credit_balance_cents
+    `
+    const row = rows[0] as { credit_balance_cents?: bigint | number } | undefined
+    if (!row || row.credit_balance_cents === undefined) {
+      throw new Error("User not found or credit column missing (run scripts/019-billing-admin-feedback.sql).")
+    }
+    const balanceAfter = Number(row.credit_balance_cents)
+    await sql`
+      INSERT INTO billing_ledger (user_id, delta_cents, balance_after_cents, reason, reference, meta, actor_user_id)
+      VALUES (
+        ${params.target_user_id},
+        ${delta},
+        ${balanceAfter},
+        ${params.reason},
+        ${params.reference ?? null},
+        ${metaJson}::jsonb,
+        ${params.actor_user_id}
+      )
+    `
+    return { balance_after_cents: balanceAfter }
+  } catch (e) {
+    if (isMissingBillingColumnsError(e) || isUndefinedRelationError(e, "billing_ledger")) {
+      throw new Error(
+        "Credit adjustments require scripts/019-billing-admin-feedback.sql in Neon (users balance + billing_ledger)."
+      )
+    }
     throw e
   }
 }
