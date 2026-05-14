@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { AppShell, type PageId } from "@/components/app-shell"
+import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "contacts", "analytics", "settings", "help"]
@@ -30,6 +30,7 @@ export function DashboardShell({
   const clientPathname = usePathname()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [accountHeader, setAccountHeader] = useState<AccountHeaderState>({ kind: "loading" })
 
   useEffect(() => {
     setMounted(true)
@@ -37,8 +38,20 @@ export function DashboardShell({
 
   useEffect(() => {
     fetch("/api/auth/session", { credentials: "include" })
-      .then((res) => {
+      .then(async (res) => {
         if (res.status === 401 || !res.ok) {
+          router.replace("/login")
+          return
+        }
+        const data = await res.json().catch(() => ({}))
+        const u = data?.data?.user
+        if (u?.email) {
+          setAccountHeader({
+            kind: "ready",
+            name: String(u.name ?? "Account"),
+            email: String(u.email),
+          })
+        } else {
           router.replace("/login")
         }
       })
@@ -61,7 +74,7 @@ export function DashboardShell({
   const activePage = getActivePage(pathname)
 
   return (
-    <AppShell activePage={activePage} pathname={pathname}>
+    <AppShell activePage={activePage} pathname={pathname} accountHeader={accountHeader}>
       <DashboardPageView pathname={pathname}>{children}</DashboardPageView>
     </AppShell>
   )

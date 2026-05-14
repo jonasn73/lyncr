@@ -4,10 +4,10 @@
 // Clears the session cookie.
 
 import { NextResponse } from "next/server"
-import { getSessionCookieName } from "@/lib/auth"
+import { getSessionCookieName, getLogoutCookieClearOptions } from "@/lib/auth"
 
 export async function POST() {
   const res = NextResponse.json({ data: { ok: true } })
-  res.cookies.set(getSessionCookieName(), "", { path: "/", maxAge: 0 })
+  res.cookies.set(getSessionCookieName(), "", getLogoutCookieClearOptions())
   return res
 }

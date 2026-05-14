@@ -72,6 +72,26 @@ export function getSessionCookieOptions(): {
   }
 }
 
+/** Same Site/Secure/Path as login so browsers actually remove the cookie (especially `Secure` in production). */
+export function getLogoutCookieClearOptions(): {
+  httpOnly: boolean
+  secure: boolean
+  sameSite: "lax"
+  path: string
+  maxAge: number
+  expires: Date
+} {
+  const login = getSessionCookieOptions()
+  return {
+    httpOnly: login.httpOnly,
+    secure: login.secure,
+    sameSite: login.sameSite,
+    path: login.path,
+    maxAge: 0,
+    expires: new Date(0),
+  }
+}
+
 /** Read session from request cookies (for API routes). Returns userId or null. */
 export function getUserIdFromRequest(cookieHeader: string | null): string | null {
   if (!cookieHeader) return null

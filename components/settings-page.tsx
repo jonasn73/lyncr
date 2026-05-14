@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { SIGNUP_INDUSTRY_OPTIONS } from "@/lib/business-industries"
 import { PortingOrderCommentsDialog } from "@/components/porting-order-comments-dialog"
+import { signOutAndGoToLogin } from "@/lib/client-auth"
 
 interface SettingToggle {
   id: string
@@ -71,6 +72,7 @@ function formatPhoneDisplay(phone: string | undefined | null): string {
 
 export function SettingsPage() {
   const { toast } = useToast()
+  const [signingOut, setSigningOut] = useState(false)
   const [user, setUser] = useState<{
     name: string
     email: string
@@ -1922,6 +1924,11 @@ export function SettingsPage() {
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Account
         </h3>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          You can also open your profile in the{" "}
+          <span className="font-medium text-foreground">top-right corner</span> on any screen for Help, Settings, and Sign
+          out.
+        </p>
         <div className="flex flex-col gap-2">
           <a
             href={process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL || "/privacy"}
@@ -1953,13 +1960,22 @@ export function SettingsPage() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </Link>
 
-          <button className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-destructive/5">
+          <button
+            type="button"
+            disabled={signingOut}
+            onClick={() => {
+              setSigningOut(true)
+              void signOutAndGoToLogin().finally(() => setSigningOut(false))
+            }}
+            className="flex w-full items-center justify-between rounded-2xl border border-destructive/25 bg-card/85 p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-destructive/10 disabled:opacity-60"
+          >
             <div className="flex items-center gap-3">
               <IconSurface tone="danger">
                 <LogOut className="h-4 w-4 text-destructive" />
               </IconSurface>
-              <p className="text-sm font-medium text-destructive">Sign Out</p>
+              <p className="text-sm font-medium text-destructive">{signingOut ? "Signing out…" : "Sign out"}</p>
             </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
         </div>
       </section>
