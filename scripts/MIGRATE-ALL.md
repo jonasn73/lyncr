@@ -26,6 +26,10 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 | 18 | `018-telnyx-inbound-dial-caller-done.sql` | **`telnyx_inbound_dial_caller_done`** — after a answered first `<Dial>` leg ends, `/incoming` returns **Hangup** instead of sending the caller to AI again |
 | 19 | `019-billing-admin-feedback.sql` | **`users`**: `credit_balance_cents`, `billing_plan`, `is_platform_admin` — **`billing_ledger`**, **`feedback_submissions`** (Help tab + `/admin` + credit adjustments) |
 
+## Optional: first platform admin (`admin@getzingapp.com` / `admin`)
+
+**Not part of the numbered migration chain.** Only if you want a pre-made operator account (weak password — change after login). Paste and run the full contents of **`020-bootstrap-admin-getzingapp.sql`** in Neon. In Vercel, you can also set **`ZING_ADMIN_EMAILS=admin@getzingapp.com`** so that email can open `/admin` even without the DB flag (this script sets **both** password and `is_platform_admin`).
+
 ## If “Save call flow” fails
 
 Run **`010-ai-leads-intake.sql`** and **`012-telnyx-ai-assistant.sql`** if the error mentions `user_ai_intake` or `telnyx_ai_assistant_id`.
