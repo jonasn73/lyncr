@@ -14,8 +14,8 @@
 DO $$
 DECLARE
   v_id uuid;
-  -- bcrypt hash for literal password: admin (bcryptjs, 10 rounds)
-  v_hash text := '$2a$10$jXk5L5X99v5ReRZI.ym3O.of2W7yZw3HqWEqmKafkbbWqqXRFwsZe';
+  -- bcrypt hash for literal password: admin (bcryptjs, 10 rounds) — verified with bcrypt.compare
+  v_hash text := '$2a$10$mU5OAacSA28h1434ybixXeZVyzSWL79TSOsgM3i46TaZdONv1X/R6';
 BEGIN
   SELECT id INTO v_id FROM users WHERE lower(email) = lower('admin@getzingapp.com');
   IF v_id IS NULL THEN
