@@ -316,20 +316,34 @@ async function tryBuildAiAssistantResponse(args: {
   return "missing-assistant"
 }
 
-/** PSTN target for the teammate leg (join + optional `receptionists` row), same rules as `/incoming`. */
+/** PSTN target for the teammate leg — same resolution as `/incoming` (`getRoutingConfigForNumber` + `receptionists.phone`), not the SQL join alone. */
 async function receptionistOutboundE164FromIncomingRow(
   lr: IncomingRoutingRow | null,
-  userId: string
+  userId: string,
+  businessDidE164: string
 ): Promise<string | null> {
-  if (!lr || lr.user_id !== userId || !lr.selected_receptionist_id?.trim()) return null
-  const joined = lr.receptionist_phone?.trim()
-  let cand = joined ? normalizePhoneNumberE164(joined) : ""
-  if (!cand || !isReasonablePstnDialString(cand)) {
-    const rec = await getReceptionist(lr.selected_receptionist_id.trim())
-    if (rec && rec.user_id === userId && rec.phone?.trim()) {
-      cand = normalizePhoneNumberE164(rec.phone)
+  if (!lr || lr.user_id !== userId) return null
+  const did = businessDidE164.trim()
+  let selectedId = lr.selected_receptionist_id?.trim() || ""
+  if (did) {
+    try {
+      const cfg = await getRoutingConfigForNumber(userId, did)
+      const fromCfg = cfg?.selected_receptionist_id?.trim() || ""
+      if (fromCfg) selectedId = fromCfg
+    } catch {
+      /* keep join id */
     }
   }
+  if (!selectedId) return null
+  const rec = await getReceptionist(selectedId)
+  if (!rec || rec.user_id !== userId || !rec.phone?.trim()) return null
+  let cand = normalizePhoneNumberE164(rec.phone)
+  if (cand && isReasonablePstnDialString(cand)) return cand
+  const digits = rec.phone.replace(/\D/g, "")
+  if (digits.length === 10) cand = `+1${digits}`
+  else if (digits.length === 11 && digits.startsWith("1")) cand = `+${digits}`
+  else if (digits.length >= 10 && digits.length <= 15) cand = `+${digits}`
+  else cand = ""
   return cand && isReasonablePstnDialString(cand) ? cand : null
 }
 
@@ -468,7 +482,12 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     if (!primaryWasOwner && lr?.owner_phone) {
-      if ((!userId || lr.user_id === userId) && inferDialLegWasOwnerCell(formData, lr.owner_phone)) {
+      const recvFirstLeg = pathFallbackMode === "recv" || pathFallbackMode === "recv-ai"
+      if (
+        !recvFirstLeg &&
+        (!userId || lr.user_id === userId) &&
+        inferDialLegWasOwnerCell(formData, lr.owner_phone)
+      ) {
         primaryWasOwner = true
         console.log(
           JSON.stringify({
@@ -589,15 +608,18 @@ export async function handleTelnyxFallbackDialEnded(
       getUser(userId),
     ])
 
-    if (!primaryWasOwner && inferDialLegWasOwnerCell(formData, user?.phone)) {
-      primaryWasOwner = true
-      console.log(
-        JSON.stringify({
-          zing: "telnyx-fallback-primary-owner-inferred",
-          userId,
-          source: "users_phone_column",
-        })
-      )
+    if (!primaryWasOwner) {
+      const recvFirstLeg2 = pathFallbackMode === "recv" || pathFallbackMode === "recv-ai"
+      if (!recvFirstLeg2 && inferDialLegWasOwnerCell(formData, user?.phone)) {
+        primaryWasOwner = true
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-fallback-primary-owner-inferred",
+            userId,
+            source: "users_phone_column",
+          })
+        )
+      }
     }
 
     const useLive = Boolean(lr && lr.user_id === userId)
@@ -760,7 +782,9 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     const zingAfterRecv = url.searchParams.get("zingAfter") === "recv"
-    const recvOutboundE164 = await receptionistOutboundE164FromIncomingRow(lr, userId)
+    const recvDidHint =
+      (effectiveBusinessLine || businessLineE164 || pathBnE164 || bnMergedForResolve || "").trim()
+    const recvOutboundE164 = await receptionistOutboundE164FromIncomingRow(lr, userId, recvDidHint)
 
     if (zingAfterRecv && (virtualFbAi || pathFallbackMode === "recv-ai" || pathFallbackMode === "owner-ai")) {
       const aiRes = await tryBuildAiAssistantResponse({
