@@ -13,7 +13,7 @@ export default function SignupPage() {
         else if (page === "login") router.push("/login")
         else if (page === "onboarding") router.push("/dashboard")
       }}
-      onAuth={() => router.push("/dashboard")}
+      onAuth={(ctx) => router.push(ctx?.operator_access ? "/admin" : "/dashboard")}
     />
   )
 }

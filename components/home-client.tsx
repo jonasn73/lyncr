@@ -24,8 +24,8 @@ export function HomeClient() {
     }
   }
 
-  function handleAuth() {
-    router.replace("/dashboard")
+  function handleAuth(ctx?: { operator_access?: boolean }) {
+    router.replace(ctx?.operator_access ? "/admin" : "/dashboard")
   }
 
   function handleSignup() {

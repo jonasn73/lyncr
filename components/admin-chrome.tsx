@@ -9,7 +9,6 @@ import {
   SlidersHorizontal,
   Shield,
   LogOut,
-  ExternalLink,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
@@ -64,9 +63,10 @@ function AdminSidebar() {
         })}
       </nav>
       <div className="mt-auto hidden border-t border-slate-800 p-3 lg:block">
-        <p className="text-[10px] uppercase tracking-wider text-slate-500">Not the member app</p>
+        <p className="text-[10px] uppercase tracking-wider text-slate-500">Operator-only</p>
         <p className="mt-1 text-xs leading-snug text-slate-500">
-          This skin is only for platform operators. Customers use the green dashboard.
+          Platform fleet tools. Members use the separate app at getzingapp.com after signing in with a non-operator
+          account.
         </p>
       </div>
     </aside>
@@ -83,19 +83,7 @@ function AdminTopBar({ userName, userEmail }: { userName: string; userEmail: str
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:bg-slate-800 hover:text-slate-100">
-          <Link href="/dashboard/help">Help</Link>
-        </Button>
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-        >
-          <Link href="/dashboard">
-            <ExternalLink className="mr-1 h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Member app</span>
-            <span className="sm:hidden">App</span>
-          </Link>
+          <Link href="/support">Help</Link>
         </Button>
         <Button
           type="button"

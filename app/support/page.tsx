@@ -13,12 +13,9 @@ export default function SupportPage() {
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
-        <Link
-          href="/dashboard/settings"
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
-          Back to Settings
+          Back home
         </Link>
       </header>
       <main className="mx-auto max-w-prose px-4 py-8">

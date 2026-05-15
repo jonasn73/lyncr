@@ -383,9 +383,9 @@ export function AdminConsole() {
                 <code className="rounded bg-slate-950 px-1 text-violet-200">scripts/MIGRATE-ALL.md</code> and run them in the Neon SQL Editor.
               </p>
               <p>
-                Member-facing help:{" "}
-                <Link href="/dashboard/help" className="font-medium text-violet-300 underline-offset-2 hover:underline">
-                  /dashboard/help
+                Member-facing help and contact:{" "}
+                <Link href="/support" className="font-medium text-violet-300 underline-offset-2 hover:underline">
+                  /support
                 </Link>
               </p>
             </CardContent>

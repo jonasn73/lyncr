@@ -14,7 +14,6 @@ import {
   LogOut,
   Loader2,
   ChevronDown,
-  Shield,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
@@ -41,10 +40,8 @@ const navItems = [
 
 export type PageId = (typeof navItems)[number]["id"]
 
-/** Session snapshot for the header: name/email plus whether this login may open /admin (operator console). */
-export type AccountHeaderState =
-  | { kind: "loading" }
-  | { kind: "ready"; name: string; email: string; operator_access: boolean }
+/** Session snapshot for the header account menu (dashboard only). */
+export type AccountHeaderState = { kind: "loading" } | { kind: "ready"; name: string; email: string }
 
 /** Href for each tab — use Link (not router.push) so App Router always swaps the page under this client layout. */
 const PAGE_HREF: Record<PageId, string> = {
@@ -64,7 +61,7 @@ function initialsFromName(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function HeaderAccountMenu({ name, email, operatorAccess }: { name: string; email: string; operatorAccess: boolean }) {
+function HeaderAccountMenu({ name, email }: { name: string; email: string }) {
   const [busy, setBusy] = useState(false)
   return (
     <DropdownMenu>
@@ -73,19 +70,11 @@ function HeaderAccountMenu({ name, email, operatorAccess }: { name: string; emai
           type="button"
           variant="outline"
           size="sm"
-          className={cn(
-            "h-9 max-w-[min(100vw-8rem,14rem)] gap-2 border-border/80 bg-card/80 px-2 shadow-sm",
-            operatorAccess && "border-violet-500/35 ring-1 ring-violet-500/20"
-          )}
+          className="h-9 max-w-[min(100vw-8rem,14rem)] gap-2 border-border/80 bg-card/80 px-2 shadow-sm"
           aria-label="Open account menu"
         >
           <Avatar className="h-7 w-7">
-            <AvatarFallback
-              className={cn(
-                "text-[11px] font-semibold",
-                operatorAccess ? "bg-violet-600/25 text-violet-200" : "bg-primary/15 text-primary"
-              )}
-            >
+            <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
@@ -101,26 +90,9 @@ function HeaderAccountMenu({ name, email, operatorAccess }: { name: string; emai
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-medium text-foreground">{name}</span>
             <span className="truncate text-xs text-muted-foreground">{email}</span>
-            {operatorAccess && (
-              <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-md bg-violet-600/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-200">
-                <Shield className="size-3" aria-hidden />
-                Platform operator
-              </span>
-            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {operatorAccess && (
-          <>
-            <DropdownMenuItem asChild>
-              <Link href="/admin" className="cursor-pointer text-violet-200 focus:text-violet-100">
-                <Shield className="size-4" />
-                Operator console
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
         <DropdownMenuItem asChild>
           <Link href="/dashboard/settings" className="cursor-pointer">
             <Settings className="size-4" />
@@ -175,16 +147,8 @@ export function AppShell({
     if (el) el.scrollTop = 0
   }, [pathname])
 
-  const isOperator =
-    useLinks && accountHeader?.kind === "ready" && accountHeader.operator_access
-
   return (
-    <div
-      className={cn(
-        "flex h-dvh max-h-dvh flex-col overflow-hidden bg-background",
-        isOperator && "shadow-[inset_0_3px_0_0] shadow-violet-500/55"
-      )}
-    >
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background">
       <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background px-3 py-2.5 sm:px-4 sm:py-3">
         {useLinks ? (
           <Link
@@ -214,28 +178,11 @@ export function AppShell({
         <div className="min-w-0 flex-1" />
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {isOperator && (
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 gap-1.5 border-violet-500/40 bg-violet-950/40 px-2 text-violet-100 hover:bg-violet-900/50 hover:text-violet-50 sm:px-2.5"
-            >
-              <Link href="/admin" title="Fleet tools, credits, and support queue">
-                <Shield className="h-4 w-4 shrink-0" aria-hidden />
-                <span className="hidden text-xs font-semibold sm:inline">Operator</span>
-              </Link>
-            </Button>
-          )}
           {useLinks && accountHeader?.kind === "loading" && (
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
           )}
           {useLinks && accountHeader?.kind === "ready" && (
-            <HeaderAccountMenu
-              name={accountHeader.name}
-              email={accountHeader.email}
-              operatorAccess={accountHeader.operator_access}
-            />
+            <HeaderAccountMenu name={accountHeader.name} email={accountHeader.email} />
           )}
           <div className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2 py-1 sm:gap-2 sm:px-2.5">
             <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
@@ -243,20 +190,6 @@ export function AppShell({
           </div>
         </div>
       </header>
-
-      {isOperator && (
-        <div className="flex shrink-0 flex-col items-stretch gap-2 border-b border-violet-500/35 bg-violet-950/45 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-center text-xs leading-snug text-violet-100/95 sm:text-left">
-            Member dashboard (your lines). Fleet tools live in the operator console.
-          </p>
-          <Link
-            href="/admin"
-            className="shrink-0 rounded-md bg-violet-600 px-2.5 py-1.5 text-center text-xs font-semibold text-white hover:bg-violet-500"
-          >
-            Open operator console
-          </Link>
-        </div>
-      )}
 
       <main
         ref={mainRef}

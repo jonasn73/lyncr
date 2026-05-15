@@ -1,20 +1,25 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { verifySessionCookie } from "@/lib/auth"
+import { verifySessionCookie, getSessionCookieName } from "@/lib/auth"
+import { getSessionUser } from "@/lib/server-session-user"
+import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { HomeClient } from "@/components/home-client"
 
-// Must read cookies per request — no static shell for `/`.
 export const dynamic = "force-dynamic"
 
 /**
- * Valid session → immediate server redirect to `/dashboard` (no client spinner on `/`).
- * Invalid / missing → render login shell without waiting on `fetch("/api/auth/session")`.
+ * Valid session → redirect: operators to `/admin`, everyone else to `/dashboard`.
+ * No session → marketing / login shell.
  */
 export default async function Home() {
   const cookieStore = await cookies()
-  const raw = cookieStore.get("zing_session")?.value
-  if (verifySessionCookie(raw)) {
-    redirect("/dashboard")
+  const raw = cookieStore.get(getSessionCookieName())?.value
+  if (!verifySessionCookie(raw)) {
+    return <HomeClient />
   }
-  return <HomeClient />
+  const user = await getSessionUser()
+  if (user && isPlatformAdminUser(user)) {
+    redirect("/admin")
+  }
+  redirect("/dashboard")
 }

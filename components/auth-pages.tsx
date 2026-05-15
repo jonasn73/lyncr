@@ -8,7 +8,8 @@ import { Phone, Eye, EyeOff, Loader2 } from "lucide-react"
 interface AuthPageProps {
   mode: "login" | "signup"
   onNavigate: (page: string) => void
-  onAuth: () => void
+  /** Called after successful login or signup; `operator_access` means redirect to `/admin` instead of dashboard. */
+  onAuth: (ctx?: { operator_access: boolean }) => void
 }
 
 export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
@@ -48,7 +49,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
           setLoading(false)
           return
         }
-        onAuth()
+        onAuth({ operator_access: Boolean(data?.data?.operator_access) })
       } else {
         const res = await fetch("/api/auth/login", {
           method: "POST",
@@ -61,7 +62,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
           setLoading(false)
           return
         }
-        onAuth()
+        onAuth({ operator_access: Boolean(data?.data?.operator_access) })
       }
     } catch {
       setError("Something went wrong. Try again.")

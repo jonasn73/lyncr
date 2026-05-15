@@ -50,7 +50,6 @@ export function DashboardShell({
             kind: "ready",
             name: String(u.name ?? "Account"),
             email: String(u.email),
-            operator_access: Boolean(u.operator_access),
           })
         } else {
           router.replace("/login")

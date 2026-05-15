@@ -12,6 +12,7 @@ import {
   getSessionCookieName,
   getSessionCookieOptions,
 } from "@/lib/auth"
+import { isPlatformAdminUser } from "@/lib/platform-admin"
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,7 +48,9 @@ export async function POST(req: NextRequest) {
     })
 
     const cookieValue = createSessionCookie(user.id)
-    const res = NextResponse.json({ data: { user } })
+    const res = NextResponse.json({
+      data: { user, operator_access: isPlatformAdminUser(user) },
+    })
     res.cookies.set(getSessionCookieName(), cookieValue, getSessionCookieOptions())
     return res
   } catch (error: unknown) {
