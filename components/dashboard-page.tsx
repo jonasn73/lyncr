@@ -7,7 +7,6 @@ import {
   Phone,
   PhoneForwarded,
   Voicemail,
-  X,
   User,
   Bot,
   Check,
@@ -16,12 +15,20 @@ import {
   Settings2,
   Activity,
   Clock,
+  ChevronRight,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { Switch } from "@/components/ui/switch"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { AiIntakeFlowPanel } from "@/components/ai-intake-flow-panel"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 
@@ -109,6 +116,8 @@ export function DashboardPage() {
   /** AI fallback + no receptionist: ring owner cell before Voice AI (see Fallback Settings). */
   const [aiRingOwnerFirst, setAiRingOwnerFirst] = useState(false)
   const [showFallbackSettings, setShowFallbackSettings] = useState(false)
+  const [whoAnswersOpen, setWhoAnswersOpen] = useState(false)
+  const [ringBackupOpen, setRingBackupOpen] = useState(false)
   /** Ring duration for the first leg before no-answer fallback (from GET /api/routing). */
   const [ringTimeoutSec, setRingTimeoutSec] = useState(30)
 
@@ -253,6 +262,7 @@ export function DashboardPage() {
   const hasBusinessNumbers = businessNumbers.length > 0
   const hasReceptionists = receptionists.length > 0
   const isSetupComplete = hasBusinessNumbers && (hasReceptionists || Boolean(mainLinePhone))
+  const activeFallbackMeta = fallbackOptions.find((o) => o.id === fallback)
 
   // Save routing for the line shown in the UI (`routingBusinessNumber`), or the account default when you have no numbers yet.
   // When fallback_type is "ai", the API auto-provisions voice AI and returns voiceAi.
@@ -469,7 +479,7 @@ export function DashboardPage() {
                     <span className="text-xs font-medium text-foreground">2 · Who answers</span>
                     {hasBusinessNumbers ? (
                       <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                        On this page
+                        Tap panels below
                       </span>
                     ) : (
                       <span className="shrink-0 text-[10px] text-muted-foreground">After step 1</span>
@@ -512,75 +522,88 @@ export function DashboardPage() {
       )}
 
       <div className="mx-auto w-full max-w-4xl space-y-5">
-        <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">Call routing</h1>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Choose the line, who answers first, how long it rings, and what happens if nobody picks up.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href="#routing-lines"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
-            >
-              <PhoneForwarded className="h-3.5 w-3.5 text-primary" aria-hidden />
-              Your lines
-            </a>
-            <a
-              href="#routing-ring-fallback"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
-            >
-              <Clock className="h-3.5 w-3.5 text-primary" aria-hidden />
-              Ring &amp; backup
-            </a>
-            <Link
-              href="/dashboard/settings#business-numbers"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
-            >
-              <Settings2 className="h-3.5 w-3.5 text-primary" aria-hidden />
-              Numbers &amp; labels
-            </Link>
-            <Link
-              href="/dashboard/activity"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
-            >
-              <Activity className="h-3.5 w-3.5 text-primary" aria-hidden />
-              Activity
-            </Link>
-          </div>
-        </div>
-
-      {/* Routing Status */}
-      <section id="routing-forward" className="sigo-card relative p-6">
+        {/* Routing Status */}
+        <section id="routing-forward" className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.06] p-5 shadow-md ring-1 ring-border/40 sm:p-6">
         <div
-          className="pointer-events-none absolute inset-0 rounded-2xl"
+          className="pointer-events-none absolute inset-0 rounded-2xl opacity-90"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 0%, oklch(0.70 0.19 278 / 0.09) 0%, transparent 70%)",
+              "radial-gradient(ellipse 120% 80% at 100% 0%, oklch(0.72 0.17 278 / 0.11) 0%, transparent 55%), radial-gradient(ellipse 80% 50% at 0% 100%, oklch(0.65 0.12 195 / 0.08) 0%, transparent 50%)",
           }}
         />
-        <div className="relative flex w-full max-w-2xl mx-auto flex-col items-center gap-5">
-          {/* Centered icon */}
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]">
-            <PhoneForwarded className="h-8 w-8 text-primary" />
+        <div className="relative flex w-full flex-col gap-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-primary/12 shadow-[inset_0_1px_0_0_oklch(1_0_0/0.06)]">
+                <PhoneForwarded className="h-6 w-6 text-primary" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">Call console</h2>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                    </span>
+                    Live
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Tap a card to open a sliding panel. Changes save as soon as you choose an option.
+                </p>
+                <p className="text-sm text-foreground">
+                  <span className="font-medium">{isRoutingToOwner ? "Your phone" : selectedReceptionist?.name ?? "—"}</span>
+                  <span className="mx-1.5 text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">rings up to</span>{" "}
+                  <span className="font-semibold text-primary">{ringTimeoutSec}s</span>
+                  <span className="mx-1.5 text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">then</span>{" "}
+                  <span className="font-medium text-foreground">{activeFallbackMeta?.label ?? "Backup"}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <a
+                href="#routing-lines"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+              >
+                <PhoneForwarded className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Lines
+              </a>
+              <button
+                type="button"
+                onClick={() => setRingBackupOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+              >
+                <Clock className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Ring &amp; backup
+              </button>
+              <Link
+                href="/dashboard/settings#business-numbers"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+              >
+                <Settings2 className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Numbers
+              </Link>
+              <Link
+                href="/dashboard/activity"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+              >
+                <Activity className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Activity
+              </Link>
+            </div>
           </div>
 
-          {/* Status text + routing target */}
-          <div className="flex w-full flex-col items-center gap-2 text-center">
-            <h2 className="text-xl font-semibold text-foreground">Forward incoming calls</h2>
+          {businessNumbers.length > 1 && (
+            <p className="max-w-xl text-[11px] text-muted-foreground">
+              Tap a number, then a panel — each line can ring your phone or a different teammate.
+            </p>
+          )}
 
-            {/* Show which business number(s) this routing applies to */}
-            {businessNumbers.length > 1 && (
-              <p className="max-w-sm text-[11px] text-muted-foreground">
-                Tap a number, then use the controls below — each line can ring your phone or a different receptionist.
-              </p>
-            )}
-
-            {/* Show which business number(s) you own; with 2+ lines, tap to pick which routing block below applies to */}
-            {businessNumbers.length > 0 && (
-              <div id="routing-lines" className="flex w-full flex-col items-center gap-2">
-              <div className="flex flex-wrap justify-center gap-2">
+          {businessNumbers.length > 0 && (
+            <div id="routing-lines" className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
                 {businessNumbers.map((bn) => {
                   const rs = bn.routing_summary
                   const ringId = rs?.ring_first_receptionist_id ?? null
@@ -646,326 +669,383 @@ export function DashboardPage() {
                   )
                 })}
               </div>
-              </div>
-            )}
+            </div>
+          )}
 
+          {businessNumbers.length > 1 && routingBusinessNumber ? (
+            <p className="flex min-h-[1.25rem] items-center gap-1.5 text-xs font-semibold text-primary">
+              {routingLineDetailLoading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                  <span>Loading line…</span>
+                </>
+              ) : (
+                <span>Editing {formatPhoneDisplay(routingBusinessNumber)}</span>
+              )}
+            </p>
+          ) : null}
+
+          <div
+            className={cn(
+              "grid gap-2 sm:grid-cols-3",
+              routingLineDetailLoading && "pointer-events-none opacity-50"
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => setWhoAnswersOpen(true)}
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Who answers</span>
+              <span className="text-base font-semibold text-foreground">
+                {isRoutingToOwner ? "Your phone" : selectedReceptionist?.name ?? "—"}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {isRoutingToOwner ? ownerPhoneDisplay : formatPhoneDisplay(selectedReceptionist?.phone)}
+              </span>
+              <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-semibold text-primary">
+                Open panel
+                <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </span>
+            </button>
+
+            <div id="routing-ring-fallback" className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setRingBackupOpen(true)}
+                className="group flex h-full min-h-[8.5rem] w-full flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ring &amp; backup</span>
+                <span className="text-base font-semibold text-foreground">{ringTimeoutSec}s</span>
+                <span className="text-[11px] text-muted-foreground">then {activeFallbackMeta?.label ?? "backup"}</span>
+                <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-semibold text-primary">
+                  Open panel
+                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </span>
+              </button>
             </div>
 
-            <div className="relative w-full max-w-2xl mx-auto flex flex-col gap-4">
-              {businessNumbers.length > 1 && routingBusinessNumber ? (
-                <p className="flex min-h-[1.25rem] items-center justify-center gap-1.5 text-center text-xs font-semibold text-primary">
-                  {routingLineDetailLoading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-                      <span>Loading line…</span>
-                    </>
-                  ) : (
-                    <span>Editing {formatPhoneDisplay(routingBusinessNumber)}</span>
-                  )}
-                </p>
-              ) : null}
+            <button
+              type="button"
+              onClick={() => setShowFallbackSettings(true)}
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Voice &amp; greetings</span>
+              <span className="text-base font-semibold text-foreground">AI script &amp; voicemail</span>
+              <span className="text-[11px] text-muted-foreground">Playbook, opening line, ring-my-phone-first</span>
+              <span className="mt-2 inline-flex items-center gap-0.5 text-[11px] font-semibold text-primary">
+                Open panel
+                <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </span>
+            </button>
+          </div>
+        </div>
+        </section>
 
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">Who answers first?</p>
-                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                  Choose where this business line rings. Add people on{" "}
-                  <Link href="/dashboard/contacts" className="font-semibold text-primary underline underline-offset-2">
-                    Team
-                  </Link>
-                  {" "}— then pick them here (per line if you have more than one number).
-                </p>
-              </div>
-
-              <div
+        <Sheet open={whoAnswersOpen} onOpenChange={setWhoAnswersOpen}>
+        <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg">
+          <SheetHeader className="shrink-0 border-b border-border bg-card px-4 py-3 text-left">
+            <SheetTitle>Who answers first?</SheetTitle>
+            <SheetDescription>
+              Choose where this business line rings. Add people on{" "}
+              <Link href="/dashboard/contacts" className="font-semibold text-primary underline underline-offset-2">
+                Team
+              </Link>
+              , then pick them here (per line if you have more than one number).
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
+            <div
+              className={cn(
+                "flex w-full flex-col gap-2",
+                routingLineDetailLoading && "pointer-events-none opacity-50"
+              )}
+              role="radiogroup"
+              aria-label="Who answers calls to this business line"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isRoutingToOwner}
+                onClick={() => {
+                  clearReceptionist()
+                  setWhoAnswersOpen(false)
+                }}
                 className={cn(
-                  "flex w-full flex-col gap-2",
-                  routingLineDetailLoading && "pointer-events-none opacity-50"
+                  "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                  isRoutingToOwner
+                    ? "border-primary bg-primary/8 ring-2 ring-primary/35"
+                    : "border-border bg-card hover:bg-secondary"
                 )}
-                role="radiogroup"
-                aria-label="Who answers calls to this business line"
               >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={isRoutingToOwner}
-                  onClick={() => clearReceptionist()}
+                <div
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
-                    isRoutingToOwner
-                      ? "border-primary bg-primary/8 ring-2 ring-primary/35"
-                      : "border-border bg-card hover:bg-secondary"
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                    isRoutingToOwner ? "bg-foreground/15" : "bg-muted-foreground/15"
                   )}
                 >
-                  <div
+                  <User className="h-5 w-5 text-foreground" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">Your phone</p>
+                  <p className="text-[11px] text-muted-foreground">{ownerPhoneDisplay}</p>
+                </div>
+                {isRoutingToOwner ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary">
+                    <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                  </div>
+                ) : null}
+              </button>
+
+              {receptionists.map((contact) => {
+                const picked = contact.id === selectedReceptionistId
+                return (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={picked}
+                    onClick={() => {
+                      selectReceptionist(contact.id)
+                      setWhoAnswersOpen(false)
+                    }}
                     className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                      isRoutingToOwner ? "bg-foreground/15" : "bg-muted-foreground/15"
+                      "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                      picked
+                        ? "border-primary bg-primary/8 ring-2 ring-primary/35"
+                        : "border-border bg-card hover:bg-secondary"
                     )}
                   >
-                    <User className="h-5 w-5 text-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-foreground">Your phone</p>
-                    <p className="text-[11px] text-muted-foreground">{ownerPhoneDisplay}</p>
-                  </div>
-                  {isRoutingToOwner ? (
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary">
-                      <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarFallback
+                        className={cn(contact.color, "text-primary-foreground text-xs font-semibold")}
+                      >
+                        {contact.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-sm font-semibold", picked ? "text-primary" : "text-foreground")}>
+                        {contact.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{formatPhoneDisplay(contact.phone)}</p>
                     </div>
-                  ) : null}
-                </button>
+                    {picked ? (
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary">
+                        <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                      </div>
+                    ) : null}
+                  </button>
+                )
+              })}
+            </div>
 
-                {receptionists.map((contact) => {
-                  const picked = contact.id === selectedReceptionistId
+            {receptionists.length === 0 ? (
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                No team members yet — open{" "}
+                <Link href="/dashboard/contacts" className="font-semibold text-primary underline underline-offset-2">
+                  Team
+                </Link>{" "}
+                to add someone you can route calls to.
+              </p>
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={ringBackupOpen} onOpenChange={setRingBackupOpen}>
+        <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg">
+          <SheetHeader className="shrink-0 border-b border-border bg-card px-4 py-3 text-left">
+            <SheetTitle>Ring time &amp; backup</SheetTitle>
+            <SheetDescription>
+              How long the first target rings, then what happens if nobody answers.
+            </SheetDescription>
+          </SheetHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 pb-6 pt-3",
+              routingLineDetailLoading && "pointer-events-none opacity-50"
+            )}
+          >
+            <div>
+              <label htmlFor="sigo-dash-ring-sec" className="text-[11px] text-muted-foreground">
+                Max ring time (first target)
+              </label>
+              <select
+                id="sigo-dash-ring-sec"
+                className="mt-1.5 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                value={ringTimeoutSec}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10)
+                  if (!Number.isFinite(v)) return
+                  setRingTimeoutSec(v)
+                  void saveRouting({ ring_timeout_seconds: v })
+                }}
+              >
+                {[...DASHBOARD_RING_TIMEOUT_CHOICES].map((n) => (
+                  <option key={n} value={n}>
+                    {n} seconds
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+                This does <span className="font-medium text-foreground">not</span> add a delay before ringing starts — Telnyx rings your team (or you) right away. It is only how many seconds to wait for someone to{" "}
+                <span className="font-medium text-foreground">answer</span> before Sigo runs your backup (voicemail, AI, or second number). Lower = faster switch to backup if nobody picks up.
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-foreground">If no answer</p>
+              <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="No-answer backup">
+                {fallbackOptions.map((opt) => {
+                  const active = fallback === opt.id
                   return (
                     <button
-                      key={contact.id}
+                      key={opt.id}
                       type="button"
-                      role="radio"
-                      aria-checked={picked}
-                      onClick={() => selectReceptionist(contact.id)}
+                      onClick={() => {
+                        setFallback(opt.id)
+                        void saveRouting({ fallback_type: opt.id })
+                      }}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
-                        picked
-                          ? "border-primary bg-primary/8 ring-2 ring-primary/35"
-                          : "border-border bg-card hover:bg-secondary"
+                        "rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors",
+                        active
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-border/80 bg-card text-foreground hover:bg-secondary"
                       )}
                     >
-                      <Avatar className="h-10 w-10 shrink-0">
-                        <AvatarFallback
-                          className={cn(contact.color, "text-primary-foreground text-xs font-semibold")}
-                        >
-                          {contact.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className={cn("text-sm font-semibold", picked ? "text-primary" : "text-foreground")}>
-                          {contact.name}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">{formatPhoneDisplay(contact.phone)}</p>
-                      </div>
-                      {picked ? (
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary">
-                          <Check className="h-3.5 w-3.5 text-primary-foreground" />
-                        </div>
-                      ) : null}
+                      {opt.label}
                     </button>
                   )
                 })}
               </div>
-
-              {receptionists.length === 0 ? (
-                <p className="text-center text-[11px] text-muted-foreground">
-                  No team members yet — open{" "}
-                  <Link href="/dashboard/contacts" className="font-semibold text-primary underline underline-offset-2">
-                    Team
-                  </Link>{" "}
-                  to add someone you can route calls to.
-                </p>
-              ) : null}
-
-              <div
-                id="routing-ring-fallback"
-                className={cn(
-                  "w-full space-y-3 rounded-xl border border-border/70 bg-secondary/25 p-4 text-left",
-                  routingLineDetailLoading && "pointer-events-none opacity-50"
-                )}
+              <button
+                type="button"
+                onClick={() => {
+                  setRingBackupOpen(false)
+                  setShowFallbackSettings(true)
+                }}
+                className="mt-4 w-full rounded-xl border border-primary/25 bg-primary/8 py-2.5 text-center text-[11px] font-semibold text-primary transition-colors hover:bg-primary/12"
               >
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  <p className="text-xs font-semibold text-foreground">How long to ring before backup</p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="sigo-dash-ring-sec" className="text-[11px] text-muted-foreground">
-                      Max ring time (first target)
-                    </label>
-                    <select
-                      id="sigo-dash-ring-sec"
-                      className="mt-1.5 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-                      value={ringTimeoutSec}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10)
-                        if (!Number.isFinite(v)) return
-                        setRingTimeoutSec(v)
-                        void saveRouting({ ring_timeout_seconds: v })
-                      }}
-                    >
-                      {[...DASHBOARD_RING_TIMEOUT_CHOICES].map((n) => (
-                        <option key={n} value={n}>
-                          {n} seconds
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                      This does <span className="font-medium text-foreground">not</span> add a delay before ringing starts — Telnyx rings your team (or you) right away. It is only how many seconds to wait for someone to <span className="font-medium text-foreground">answer</span> before Sigo runs your backup (voicemail, AI, or second number). Lower = faster switch to backup if nobody picks up.
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium text-foreground">If no answer</p>
-                    <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="No-answer backup">
-                      {fallbackOptions.map((opt) => {
-                        const active = fallback === opt.id
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => {
-                              setFallback(opt.id)
-                              void saveRouting({ fallback_type: opt.id })
-                            }}
-                            className={cn(
-                              "rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors",
-                              active
-                                ? "border-primary bg-primary/15 text-primary"
-                                : "border-border/80 bg-card text-foreground hover:bg-secondary"
-                            )}
-                          >
-                            {opt.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowFallbackSettings(true)}
-                      className="mt-3 text-left text-[11px] font-semibold text-primary underline underline-offset-2 hover:no-underline"
-                    >
-                      Voice AI script, voicemail greeting, ring-my-phone-first →
-                    </button>
-                  </div>
-                </div>
-              </div>
+                Voice AI script, voicemail greeting, ring-my-phone-first →
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-            {/* Fallback Settings Modal — high z-index so it sits above mobile nav */}
-            {showFallbackSettings && (
-              <>
-                <div
-                  className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-sm"
-                  onClick={() => setShowFallbackSettings(false)}
-                  aria-hidden="true"
-                />
-                <div
-                  className={cn(
-                    "fixed inset-x-4 top-14 z-[110] mx-auto max-h-[calc(100dvh-5rem)] w-full overflow-y-auto overscroll-contain rounded-2xl border border-border/70 bg-card pb-3 shadow-2xl [-webkit-overflow-scrolling:touch]",
-                    fallback === "ai" ? "max-w-md" : "max-w-sm"
-                  )}
-                >
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-4 py-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">Fallback Settings</h3>
-                      <p className="text-[11px] text-muted-foreground">
-                        {isRoutingToOwner
-                          ? "What happens if your phone does not answer"
-                          : `What happens if ${selectedReceptionist?.name.split(" ")[0]} doesn't answer`}
-                        {businessNumbers.length > 1 && routingBusinessNumber ? (
-                          <span className="mt-0.5 block text-[10px] text-muted-foreground/90">
-                            Applies to {formatPhoneDisplay(routingBusinessNumber)}
-                          </span>
-                        ) : null}
+      <Sheet open={showFallbackSettings} onOpenChange={setShowFallbackSettings}>
+        <SheetContent
+          side="bottom"
+          className={cn(
+            "flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg",
+            fallback === "ai" && "sm:max-w-xl"
+          )}
+        >
+          <SheetHeader className="shrink-0 border-b border-border bg-card px-4 py-3 text-left">
+            <SheetTitle>Fallback settings</SheetTitle>
+            <SheetDescription>
+              {isRoutingToOwner
+                ? "What happens if your phone does not answer"
+                : `What happens if ${selectedReceptionist?.name.split(" ")[0] ?? "they"} doesn't answer`}
+              {businessNumbers.length > 1 && routingBusinessNumber ? (
+                <span className="mt-1 block text-[11px] text-muted-foreground">
+                  Applies to {formatPhoneDisplay(routingBusinessNumber)}
+                </span>
+              ) : null}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="flex flex-col gap-1 p-2">
+              {fallbackOptions.map((option) => {
+                const Icon = option.icon
+                const isActive = fallback === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      setFallback(option.id)
+                      void saveRouting({ fallback_type: option.id })
+                    }}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-3 text-left transition-all",
+                      isActive ? "bg-primary/5 ring-1 ring-primary/30" : "hover:bg-secondary"
+                    )}
+                  >
+                    <IconSurface className={cn("h-10 w-10", option.bgColor)}>
+                      <Icon className={cn("h-5 w-5", option.color)} />
+                    </IconSurface>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium leading-tight text-foreground">{option.label}</p>
+                      <p className="text-[11px] text-muted-foreground">{option.description}</p>
+                    </div>
+                    {isActive && (
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
+                        <Check className="h-3 w-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {fallback === "ai" && (
+              <div className="border-t border-border px-4 py-3">
+                {isRoutingToOwner ? (
+                  <div className="mb-3 flex gap-3 rounded-xl border border-border/70 bg-secondary/25 p-3">
+                    <Switch
+                      id="sigo-ai-ring-owner-first"
+                      checked={aiRingOwnerFirst}
+                      onCheckedChange={(on) => {
+                        setAiRingOwnerFirst(on)
+                        void saveRouting({ ai_ring_owner_first: on }, { quiet: true })
+                      }}
+                      className="mt-0.5 shrink-0"
+                      aria-labelledby="sigo-ai-ring-owner-first-label"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <label
+                        id="sigo-ai-ring-owner-first-label"
+                        htmlFor="sigo-ai-ring-owner-first"
+                        className="text-xs font-semibold text-foreground"
+                      >
+                        Ring my phone first
+                      </label>
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                        Callers hear normal ringing on your business line, then your cell rings for up to your ring time.
+                        If you don&apos;t answer, Voice AI takes over — good for testing the full flow. Turn off to connect
+                        straight to the assistant (default).
                       </p>
                     </div>
+                  </div>
+                ) : (
+                  <p className="mb-3 text-[10px] text-muted-foreground">
+                    Calls ring <span className="font-medium text-foreground">{selectedReceptionist?.name}</span> first; if
+                    they don&apos;t answer, Voice AI runs. To ring your own phone before AI, open{" "}
                     <button
-                      onClick={() => setShowFallbackSettings(false)}
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      aria-label="Close fallback settings"
+                      type="button"
+                      className="font-medium text-primary underline underline-offset-2"
+                      onClick={() => {
+                        setShowFallbackSettings(false)
+                        setWhoAnswersOpen(true)
+                      }}
                     >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col gap-1 p-2">
-                    {fallbackOptions.map((option) => {
-                      const Icon = option.icon
-                      const isActive = fallback === option.id
-                      return (
-                        <button
-                          key={option.id}
-                          onClick={() => {
-                            setFallback(option.id)
-                            void saveRouting({ fallback_type: option.id })
-                          }}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-3 text-left transition-all",
-                            isActive
-                              ? "bg-primary/5 ring-1 ring-primary/30"
-                              : "hover:bg-secondary"
-                          )}
-                        >
-                          <IconSurface className={cn("h-10 w-10", option.bgColor)}>
-                            <Icon className={cn("h-5 w-5", option.color)} />
-                          </IconSurface>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium leading-tight text-foreground">
-                              {option.label}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">{option.description}</p>
-                          </div>
-                          {isActive && (
-                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
-                              <Check className="h-3 w-3 text-primary-foreground" />
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* AI: playbook, opening line, voice — same sheet (no separate AI tab). */}
-                  {fallback === "ai" && (
-                    <div className="border-t border-border px-4 py-3">
-                      {isRoutingToOwner ? (
-                        <div className="mb-3 flex gap-3 rounded-xl border border-border/70 bg-secondary/25 p-3">
-                          <Switch
-                            id="sigo-ai-ring-owner-first"
-                            checked={aiRingOwnerFirst}
-                            onCheckedChange={(on) => {
-                              setAiRingOwnerFirst(on)
-                              void saveRouting({ ai_ring_owner_first: on }, { quiet: true })
-                            }}
-                            className="mt-0.5 shrink-0"
-                            aria-labelledby="sigo-ai-ring-owner-first-label"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <label
-                              id="sigo-ai-ring-owner-first-label"
-                              htmlFor="sigo-ai-ring-owner-first"
-                              className="text-xs font-semibold text-foreground"
-                            >
-                              Ring my phone first
-                            </label>
-                            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                              Callers hear normal ringing on your business line, then your cell rings for up to your ring
-                              time. If you don&apos;t answer, Voice AI takes over — good for testing the full flow. Turn
-                              off to connect straight to the assistant (default).
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="mb-3 text-[10px] text-muted-foreground">
-                          Calls ring <span className="font-medium text-foreground">{selectedReceptionist?.name}</span>{" "}
-                          first; if they don&apos;t answer, Voice AI runs. To ring your own phone before AI, choose
-                          <span className="font-medium text-foreground"> Your phone </span>
-                          in the list above.
-                        </p>
-                      )}
-                      <AiIntakeFlowPanel
-                        variant="modal"
-                        aiNoAnswerSelected={fallback === "ai"}
-                        externalAssistantLinked={hasTelnyxAiAssistant}
-                        onHasAssistantChange={(active) => setHasTelnyxAiAssistant(active)}
-                        onBusyGreetingSavedToRouting={(text) =>
-                          saveRouting({ ai_greeting: text }, { quiet: true })
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              </>
+                      Who answers
+                    </button>{" "}
+                    and choose <span className="font-medium text-foreground">Your phone</span>.
+                  </p>
+                )}
+                <AiIntakeFlowPanel
+                  variant="modal"
+                  aiNoAnswerSelected={fallback === "ai"}
+                  externalAssistantLinked={hasTelnyxAiAssistant}
+                  onHasAssistantChange={(active) => setHasTelnyxAiAssistant(active)}
+                  onBusyGreetingSavedToRouting={(text) => saveRouting({ ai_greeting: text }, { quiet: true })}
+                />
+              </div>
             )}
           </div>
-        </div>
-      </section>
+        </SheetContent>
+      </Sheet>
 
         <section id="routing-tips" className="rounded-2xl border border-border/60 bg-muted/15 p-5">
           <h2 className="text-sm font-semibold text-foreground">Caller ID and spam labels</h2>
