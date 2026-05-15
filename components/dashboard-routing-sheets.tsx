@@ -142,6 +142,35 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
 }: DashboardRoutingSheetsProps) {
   return (
     <>
+      {/* In-page follow-up after the call-flow cards (parent renders this block right under that section). */}
+      <section id="routing-tips" className="rounded-2xl border border-border/60 bg-muted/15 p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">After your flow · Optional</p>
+            <h2 className="mt-1 text-sm font-semibold text-foreground">Caller ID and spam labels</h2>
+          </div>
+          <SheetInfoTrigger
+            onPress={() => setDashboardStoryKey("dashboard-caller-id-tips")}
+            label="About caller ID and spam labels"
+            className="h-8 w-8 shrink-0"
+          />
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Forwarded legs use your {SITE_NAME} business number. We also send your line label as the outbound display name when
+          your carrier supports it, so the person answering may see a name instead of only digits. Labels like spam
+          risk are added by the receiving carrier from their own analytics; improving reputation usually means setting
+          CNAM on the number in Telnyx, registering it with services such as the Free Caller Registry, then carrying
+          normal traffic for a few days.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Give each number a clear line label in{" "}
+          <Link href="/dashboard/settings#business-numbers" className="font-semibold text-primary underline underline-offset-2">
+            Settings
+          </Link>{" "}
+          — that label is what your team hears in the whisper (not your account business name).
+        </p>
+      </section>
+
       <Sheet open={whoAnswersOpen} onOpenChange={setWhoAnswersOpen} modal>
         <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
           <RoutingCallPathSheetHeader
@@ -537,31 +566,6 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
           </div>
         </SheetContent>
       </Sheet>
-
-      <section id="routing-tips" className="rounded-2xl border border-border/60 bg-muted/15 p-5">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Caller ID and spam labels</h2>
-          <SheetInfoTrigger
-            onPress={() => setDashboardStoryKey("dashboard-caller-id-tips")}
-            label="About caller ID and spam labels"
-            className="h-8 w-8 shrink-0"
-          />
-        </div>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Forwarded legs use your {SITE_NAME} business number. We also send your line label as the outbound display name when
-          your carrier supports it, so the person answering may see a name instead of only digits. Labels like spam
-          risk are added by the receiving carrier from their own analytics; improving reputation usually means setting
-          CNAM on the number in Telnyx, registering it with services such as the Free Caller Registry, then carrying
-          normal traffic for a few days.
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Give each number a clear line label in{" "}
-          <Link href="/dashboard/settings#business-numbers" className="font-semibold text-primary underline underline-offset-2">
-            Settings
-          </Link>{" "}
-          — that label is what your team hears in the whisper (not your account business name).
-        </p>
-      </section>
 
       <Sheet open={dashboardStoryKey != null} onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
         <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">

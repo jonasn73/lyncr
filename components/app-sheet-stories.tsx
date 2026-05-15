@@ -638,16 +638,16 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     ),
   },
 
-  "dashboard-call-console": {
+  "dashboard-call-flow": {
     eyebrow: "Live routing",
-    storyline: "This card is the hero surface: who rings, how long, then what the caller hears.",
-    title: "Call console",
+    storyline: "One surface walks the caller’s path: first ring, wait time, then what they hear if nobody answers.",
+    title: "Call flow",
     description: (
       <>
         <p>
-          Tap <strong>Who answers</strong>, <strong>Ring & backup</strong>, or <strong>Voice & greetings</strong> to walk the three-part story without leaving the page.
+          Tap <strong>Who answers</strong>, <strong>Ring & backup</strong>, or <strong>Voice & greetings</strong> to open each step in order without leaving the page.
         </p>
-        <p className="mt-2">With multiple lines, pick the green chip first so you edit the right DID.</p>
+        <p className="mt-2">With multiple lines, pick the highlighted number chip first so you edit the right line.</p>
       </>
     ),
   },
