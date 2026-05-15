@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const receptionists = await getReceptionists(userId)
     return NextResponse.json({ data: receptionists })
   } catch (error) {
-    console.error("[Zing] List receptionists error:", error)
+    console.error("[Sigo] List receptionists error:", error)
     return NextResponse.json(
       { error: "Failed to list receptionists" },
       { status: 500 }
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ data: receptionist })
   } catch (error) {
-    console.error("[Zing] Create receptionist error:", error)
+    console.error("[Sigo] Create receptionist error:", error)
     return NextResponse.json(
       { error: "Failed to add receptionist" },
       { status: 500 }

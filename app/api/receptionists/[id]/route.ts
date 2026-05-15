@@ -35,7 +35,7 @@ export async function PATCH(
     const updated = await getReceptionist(id)
     return NextResponse.json({ data: updated })
   } catch (error) {
-    console.error("[Zing] Update receptionist error:", error)
+    console.error("[Sigo] Update receptionist error:", error)
     return NextResponse.json(
       { error: "Failed to update receptionist" },
       { status: 500 }
@@ -60,7 +60,7 @@ export async function DELETE(
     await deleteReceptionist(id, userId)
     return NextResponse.json({ data: { ok: true } })
   } catch (error) {
-    console.error("[Zing] Delete receptionist error:", error)
+    console.error("[Sigo] Delete receptionist error:", error)
     return NextResponse.json(
       { error: "Failed to remove receptionist" },
       { status: 500 }

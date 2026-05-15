@@ -1,7 +1,7 @@
 "use client"
 
 // ============================================
-// Number transfer thread — read + reply (vendor-backed; UI stays Zing-branded)
+// Number transfer thread — read + reply (vendor-backed; UI stays Sigo-branded)
 // ============================================
 
 import { useState, useEffect } from "react"
@@ -107,7 +107,7 @@ export function PortingOrderCommentsDialog({
           </DialogTitle>
           <DialogDescription className="text-left text-xs">
             {phoneLabel} — updates from the people handling your transfer (PIN, deadlines, carrier questions). Replies
-            you send here are delivered to that team through Zing.
+            you send here are delivered to that team through Sigo.
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">

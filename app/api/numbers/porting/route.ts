@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
     // Delete stale drafts in background
     if (staleDraftIds.length > 0) {
       const uniqueIds = [...new Set(staleDraftIds)]
-      console.log(`[Zing] Deleting ${uniqueIds.length} stale draft port orders`)
+      console.log(`[Sigo] Deleting ${uniqueIds.length} stale draft port orders`)
       for (const draftId of uniqueIds) {
         fetch(`${TELNYX_BASE}/porting_orders/${draftId}`, {
           method: "DELETE",
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
               const portingRow = await getPhoneNumberByNumberAndStatus(entry.number, "porting")
               if (portingRow && portingRow.user_id === refUserId) {
                 await updatePhoneNumber(portingRow.id, refUserId, { status: "active" })
-                console.log(`[Zing] Ported number ${entry.number} activated from porting row for user ${refUserId}`)
+                console.log(`[Sigo] Ported number ${entry.number} activated from porting row for user ${refUserId}`)
               } else {
                 await insertPhoneNumber({
                   user_id: refUserId,
@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
                   status: "active",
                   provider_number_sid: entry.id,
                 })
-                console.log(`[Zing] Ported number ${entry.number} added to database for user ${refUserId}`)
+                console.log(`[Sigo] Ported number ${entry.number} added to database for user ${refUserId}`)
               }
             }
 
@@ -190,7 +190,7 @@ export async function GET(req: NextRequest) {
             await configureNumberVoice(entry.number, texmlAppId)
           }
         } catch (err) {
-          console.error("[Zing] Auto-configure ported numbers error:", err)
+          console.error("[Sigo] Auto-configure ported numbers error:", err)
         }
       })()
     }
@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ porting: list })
   } catch (error: unknown) {
-    console.error("[Zing] Error listing porting orders:", error)
+    console.error("[Sigo] Error listing porting orders:", error)
     return NextResponse.json({ error: "Failed to load porting orders" }, { status: 500 })
   }
 }

@@ -128,7 +128,7 @@ function mergeFallbackType(
  * Public business DID for routing — **not** the party we just dialed on a Dial `action` callback.
  * Telnyx/TwiML often sets `To` / `DialCalledNumber` to the **owner cell** on that webhook; treating that as the DID
  * makes `getIncomingRoutingByNumber` fail or mismatch, so `fallback_type` can fall back to the **default row** (e.g. voicemail)
- * even when the line they called is set to **AI** in Zing.
+ * even when the line they called is set to **AI** in Sigo.
  */
 function resolveBusinessLineE164(bnFromQuery: string, formData: FormData): string {
   const q = bnFromQuery.trim()
@@ -299,7 +299,7 @@ async function tryBuildAiAssistantResponse(args: {
       void updateCallLog(callSid, {
         call_type: "incoming",
         status: dialStatus || rawStatus || "ai-handoff",
-      }).catch((e) => console.error("[Zing] Call log update (AI handoff):", e))
+      }).catch((e) => console.error("[Sigo] Call log update (AI handoff):", e))
     }
     const spokenDialFallbackHandoff =
       process.env.ZING_AI_FALLBACK_SPOKEN_HANDOFF === "1" ||
@@ -397,7 +397,7 @@ export async function handleTelnyxFallbackDialEnded(
     formData.forEach((v, k) => {
       fields[k] = String(v)
     })
-    console.log("[Zing] Telnyx fallback webhook:", JSON.stringify({ method: req.method, fields }))
+    console.log("[Sigo] Telnyx fallback webhook:", JSON.stringify({ method: req.method, fields }))
   }
 
   const rawStatus =
@@ -759,7 +759,7 @@ export async function handleTelnyxFallbackDialEnded(
         fromNumber: fromDial === "Unknown" ? fromDial : normalizePhoneNumberE164(fromDial),
         toNumber: toDial ? normalizePhoneNumberE164(toDial) : "Unknown",
         routedToReceptionistId: lr && lr.user_id === userId ? lr.selected_receptionist_id : null,
-      }).catch((err) => console.error("[Zing] ensureCallLogForInboundLeg failed:", err))
+      }).catch((err) => console.error("[Sigo] ensureCallLogForInboundLeg failed:", err))
     }
 
     const origFromSuffix = origFromQuerySuffix(url, formData, fromDial)
@@ -1012,7 +1012,7 @@ export async function handleTelnyxFallbackDialEnded(
         call_type: fallbackType === "voicemail" ? "voicemail" : "incoming",
         status: dialStatus || rawStatus || "unknown",
       }).catch((logErr) => {
-        console.error("[Zing] Call log update failed (continuing):", logErr)
+        console.error("[Sigo] Call log update failed (continuing):", logErr)
       })
     }
   } catch (error) {

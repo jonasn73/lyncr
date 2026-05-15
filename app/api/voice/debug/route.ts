@@ -14,7 +14,7 @@ import {
   getPhoneNumbers,
 } from "@/lib/db"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { telnyxHeaders } from "@/lib/telnyx-config"
+import { telnyxHeaders, TEXML_ROUTER_NAMES } from "@/lib/telnyx-config"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
@@ -33,18 +33,20 @@ export async function GET(req: NextRequest) {
     })
     const listBody = await listRes.json()
     const apps = listBody?.data || []
-    const zingApp = apps.find((a: Record<string, string>) => a.friendly_name === "Zing Call Router")
-    if (zingApp) {
+    const texmlRouterApp = apps.find((a: Record<string, string>) =>
+      (TEXML_ROUTER_NAMES as readonly string[]).includes(a.friendly_name)
+    )
+    if (texmlRouterApp) {
       debug.texml_app = {
-        id: zingApp.id,
-        friendly_name: zingApp.friendly_name,
-        voice_url: zingApp.voice_url,
-        outbound: zingApp.outbound,
-        active: zingApp.active,
+        id: texmlRouterApp.id,
+        friendly_name: texmlRouterApp.friendly_name,
+        voice_url: texmlRouterApp.voice_url,
+        outbound: texmlRouterApp.outbound,
+        active: texmlRouterApp.active,
       }
 
       // Auto-fix: if outbound voice profile is missing, assign the Default one
-      if (!zingApp.outbound?.outbound_voice_profile_id) {
+      if (!texmlRouterApp.outbound?.outbound_voice_profile_id) {
         // Find an existing profile
         const profilesRes = await fetch(`${TELNYX_BASE}/outbound_voice_profiles?page[size]=10`, {
           headers: telnyxHeaders(),
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
         const profilesBody = await profilesRes.json()
         const profileId = profilesBody?.data?.[0]?.id
         if (profileId) {
-          const patchRes = await fetch(`${TELNYX_BASE}/texml_applications/${zingApp.id}`, {
+          const patchRes = await fetch(`${TELNYX_BASE}/texml_applications/${texmlRouterApp.id}`, {
             method: "PATCH",
             headers: telnyxHeaders(),
             body: JSON.stringify({

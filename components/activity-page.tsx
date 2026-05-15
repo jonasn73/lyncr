@@ -230,7 +230,7 @@ export function ActivityPage() {
       </div>
 
       {/* 7-Day Setup Trend */}
-      <section className="zing-card p-4">
+      <section className="sigo-card p-4">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-sm font-medium text-foreground">7-day setup latency trend</p>
           <span className="text-xs text-muted-foreground">Goal: &lt; 1000ms</span>
@@ -259,7 +259,7 @@ export function ActivityPage() {
       </section>
 
       {/* Per-number quality */}
-      <section className="zing-card p-4">
+      <section className="sigo-card p-4">
         <p className="mb-2 text-sm font-medium text-foreground">Per-number quality</p>
         {awaitingFirstPayload ? (
           <p className="text-xs text-muted-foreground">Loading per-number quality…</p>
@@ -284,7 +284,7 @@ export function ActivityPage() {
       </section>
 
       {/* Top missed callers */}
-      <section className="zing-card p-4">
+      <section className="sigo-card p-4">
         <p className="mb-2 text-sm font-medium text-foreground">Top missed callers</p>
         {awaitingFirstPayload ? (
           <p className="text-xs text-muted-foreground">Loading missed callers…</p>

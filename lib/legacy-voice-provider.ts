@@ -1,5 +1,5 @@
 // ============================================
-// Zing - Legacy Voice Provider Helpers
+// Sigo - Legacy Voice Provider Helpers
 // ============================================
 // Compatibility layer for legacy provider-backed endpoints.
 // Env vars needed:

@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     const config = await getRoutingConfig(userId)
     return NextResponse.json({ config })
   } catch (error) {
-    console.error("[Zing] Error fetching routing config:", error)
+    console.error("[Sigo] Error fetching routing config:", error)
     return NextResponse.json({ error: "Failed to fetch routing config" }, { status: 500 })
   }
 }
@@ -154,7 +154,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ config: updated, ...(voiceAi ? { voiceAi } : {}) })
   } catch (error) {
-    console.error("[Zing] Error updating routing config:", error)
+    console.error("[Sigo] Error updating routing config:", error)
     return NextResponse.json({ error: "Failed to update routing config" }, { status: 500 })
   }
 }

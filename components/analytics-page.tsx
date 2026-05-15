@@ -247,7 +247,7 @@ export function AnalyticsPage() {
   return (
     <div className="flex flex-col gap-5 p-4 pb-8">
       {/* Header */}
-      <div className="zing-section-header">
+      <div className="sigo-section-header">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Pay</h2>
           <p className="text-sm text-muted-foreground">
@@ -279,7 +279,7 @@ export function AnalyticsPage() {
 
       {/* Pay Rate Configuration Panel */}
       {showRateConfig && (
-        <section className="zing-card border-primary/20">
+        <section className="sigo-card border-primary/20">
           <div className="border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold text-foreground">Configure Pay Rates</h3>
             <p className="text-xs text-muted-foreground">
@@ -361,7 +361,7 @@ export function AnalyticsPage() {
       )}
 
       {/* Week Selector */}
-      <div className="zing-card flex items-center justify-between px-4 py-3">
+      <div className="sigo-card flex items-center justify-between px-4 py-3">
         <button
           onClick={() => setWeekOffset((w) => Math.max(w - 1, -1))}
           className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -389,7 +389,7 @@ export function AnalyticsPage() {
 
       {/* Account summary — real rows from GET /api/calls (up to 100). */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <div className="zing-card col-span-2 flex flex-col items-center gap-1 p-3.5 sm:col-span-1">
+        <div className="sigo-card col-span-2 flex flex-col items-center gap-1 p-3.5 sm:col-span-1">
           <IconSurface tone="primary">
             <Clock className="h-5 w-5 text-primary" />
           </IconSurface>
@@ -398,7 +398,7 @@ export function AnalyticsPage() {
           </p>
           <p className="text-[10px] text-muted-foreground">Account talk time</p>
         </div>
-        <div className="zing-card flex flex-col items-center gap-1 p-3.5">
+        <div className="sigo-card flex flex-col items-center gap-1 p-3.5">
           <IconSurface tone="success">
             <Phone className="h-5 w-5 text-success" />
           </IconSurface>
@@ -407,7 +407,7 @@ export function AnalyticsPage() {
           </p>
           <p className="text-[10px] text-muted-foreground">Calls in log</p>
         </div>
-        <div className="zing-card flex flex-col items-center gap-1 p-3.5">
+        <div className="sigo-card flex flex-col items-center gap-1 p-3.5">
           <IconSurface tone="warning">
             <DollarSign className="h-5 w-5 text-warning" />
           </IconSurface>

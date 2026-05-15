@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getAppUrl } from "@/lib/telnyx"
 import { ensurePortingLineRecord } from "@/lib/db"
+import { SITE_NAME } from "@/lib/brand"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 const MAX_LINE_BUSINESS_NAME_LEN = 120
@@ -178,10 +179,10 @@ export async function POST(req: NextRequest) {
     const ordersArr = createRes?.data
     const orderId: string | undefined = Array.isArray(ordersArr) ? ordersArr[0]?.id : ordersArr?.id
     if (!orderId) {
-      console.error("[Zing] Unexpected create response:", JSON.stringify(createRes).slice(0, 500))
+      console.error("[Sigo] Unexpected create response:", JSON.stringify(createRes).slice(0, 500))
       return NextResponse.json({ error: "Failed to create port order" }, { status: 500 })
     }
-    console.log(`[Zing] Port order created: ${orderId} for ${e164}`)
+    console.log(`[Sigo] Port order created: ${orderId} for ${e164}`)
 
     await ensurePortingLineRecord({
       user_id: userId,
@@ -216,19 +217,19 @@ export async function POST(req: NextRequest) {
         customer_reference: `zing-${userId}`,
       }),
     })
-    console.log(`[Zing] End-user info filled for order ${orderId}`)
+    console.log(`[Sigo] End-user info filled for order ${orderId}`)
 
-    // Telnyx POSTs port-in events (status changes, comments) to this URL so users see updates in Zing, not only in the Telnyx dashboard inbox.
+    // Telnyx POSTs port-in events (status changes, comments) to this URL so users see updates in Sigo, not only in the Telnyx dashboard inbox.
     const portingWebhookUrl = `${getAppUrl().replace(/\/$/, "")}/api/webhooks/telnyx/porting`
     try {
       await telnyxFetch(`/porting_orders/${orderId}`, {
         method: "PATCH",
         body: JSON.stringify({ webhook_url: portingWebhookUrl }),
       })
-      console.log(`[Zing] Porting webhook_url set for order ${orderId}`)
+      console.log(`[Sigo] Porting webhook_url set for order ${orderId}`)
     } catch (whErr) {
       console.warn(
-        `[Zing] Could not set webhook_url on port order ${orderId} (check Telnyx API / plan):`,
+        `[Sigo] Could not set webhook_url on port order ${orderId} (check Telnyx API / plan):`,
         whErr instanceof Error ? whErr.message : whErr
       )
     }
@@ -243,7 +244,7 @@ export async function POST(req: NextRequest) {
       if (windows.length > 0) {
         // Use the earliest allowed window
         focDatetime = windows[0].started_at || windows[0].foc_datetime
-        console.log(`[Zing] Using earliest allowed FOC window: ${focDatetime}`)
+        console.log(`[Sigo] Using earliest allowed FOC window: ${focDatetime}`)
       } else {
         throw new Error("No allowed FOC windows returned")
       }
@@ -258,7 +259,7 @@ export async function POST(req: NextRequest) {
       }
       focDate.setUTCHours(12, 0, 0, 0)
       focDatetime = focDate.toISOString()
-      console.log(`[Zing] FOC windows unavailable (${focErr instanceof Error ? focErr.message : focErr}), using fallback: ${focDatetime}`)
+      console.log(`[Sigo] FOC windows unavailable (${focErr instanceof Error ? focErr.message : focErr}), using fallback: ${focDatetime}`)
     }
 
     await telnyxFetch(`/porting_orders/${orderId}`, {
@@ -269,29 +270,29 @@ export async function POST(req: NextRequest) {
         },
       }),
     })
-    console.log(`[Zing] FOC date set for order ${orderId}: ${focDatetime}`)
+    console.log(`[Sigo] FOC date set for order ${orderId}: ${focDatetime}`)
 
     // ── Step 4a: Generate and attach LOA (Letter of Authorization) ──
     // Telnyx auto-generates an LOA PDF pre-filled with the end-user info we just set.
     // Download it, upload it as a document, and attach it to the order.
     let loaFulfilled = false
     try {
-      console.log(`[Zing] Downloading LOA template for order ${orderId}...`)
+      console.log(`[Sigo] Downloading LOA template for order ${orderId}...`)
       const loaPdf = await telnyxFetchRaw(`/porting_orders/${orderId}/loa_template`)
-      console.log(`[Zing] LOA template downloaded (${loaPdf.length} bytes)`)
+      console.log(`[Sigo] LOA template downloaded (${loaPdf.length} bytes)`)
 
       const docId = await uploadDocument(loaPdf, `loa-${orderId}.pdf`)
-      console.log(`[Zing] LOA uploaded as document ${docId}`)
+      console.log(`[Sigo] LOA uploaded as document ${docId}`)
 
       await telnyxFetch(`/porting_orders/${orderId}`, {
         method: "PATCH",
         body: JSON.stringify({ documents: { loa: docId } }),
       })
       loaFulfilled = true
-      console.log(`[Zing] LOA attached to order ${orderId}`)
+      console.log(`[Sigo] LOA attached to order ${orderId}`)
     } catch (loaErr) {
       const loaMsg = loaErr instanceof Error ? loaErr.message : String(loaErr)
-      console.error(`[Zing] LOA auto-fulfill failed for order ${orderId}: ${loaMsg}`)
+      console.error(`[Sigo] LOA auto-fulfill failed for order ${orderId}: ${loaMsg}`)
     }
 
     // ── Step 4b: Upload and attach invoice (recent carrier bill) ──
@@ -301,23 +302,23 @@ export async function POST(req: NextRequest) {
       try {
         const invoiceBuffer = Buffer.from(invoice_base64, "base64")
         const fname = invoice_filename || `invoice-${orderId}.pdf`
-        console.log(`[Zing] Uploading invoice for order ${orderId} (${invoiceBuffer.length} bytes, ${fname})...`)
+        console.log(`[Sigo] Uploading invoice for order ${orderId} (${invoiceBuffer.length} bytes, ${fname})...`)
 
         const invoiceDocId = await uploadDocument(invoiceBuffer, fname)
-        console.log(`[Zing] Invoice uploaded as document ${invoiceDocId}`)
+        console.log(`[Sigo] Invoice uploaded as document ${invoiceDocId}`)
 
         await telnyxFetch(`/porting_orders/${orderId}`, {
           method: "PATCH",
           body: JSON.stringify({ documents: { invoice: invoiceDocId } }),
         })
         invoiceFulfilled = true
-        console.log(`[Zing] Invoice attached to order ${orderId}`)
+        console.log(`[Sigo] Invoice attached to order ${orderId}`)
       } catch (invErr) {
         const invMsg = invErr instanceof Error ? invErr.message : String(invErr)
-        console.error(`[Zing] Invoice upload failed for order ${orderId}: ${invMsg}`)
+        console.error(`[Sigo] Invoice upload failed for order ${orderId}: ${invMsg}`)
       }
     } else {
-      console.warn(`[Zing] No invoice provided for order ${orderId} — carrier may reject`)
+      console.warn(`[Sigo] No invoice provided for order ${orderId} — carrier may reject`)
     }
 
     // ── Step 5: Confirm (submit) the port order ──
@@ -330,7 +331,7 @@ export async function POST(req: NextRequest) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         if (attempt === 2) {
-          console.log(`[Zing] Retrying confirm for order ${orderId} after 3s...`)
+          console.log(`[Sigo] Retrying confirm for order ${orderId} after 3s...`)
           await new Promise((r) => setTimeout(r, 3000))
         }
         const confirmRes = await telnyxFetch(`/porting_orders/${orderId}/actions/confirm`, {
@@ -338,12 +339,12 @@ export async function POST(req: NextRequest) {
         })
         const confirmData = confirmRes?.data
         submitStatus = (Array.isArray(confirmData) ? confirmData[0]?.porting_order_status : confirmData?.porting_order_status) || "in-process"
-        console.log(`[Zing] Port order ${orderId} confirmed on attempt ${attempt}, status: ${submitStatus}`)
+        console.log(`[Sigo] Port order ${orderId} confirmed on attempt ${attempt}, status: ${submitStatus}`)
         confirmSuccess = true
         break
       } catch (confirmErr: unknown) {
         lastConfirmError = confirmErr instanceof Error ? confirmErr.message : String(confirmErr)
-        console.error(`[Zing] Port order ${orderId} confirm attempt ${attempt} failed: ${lastConfirmError}`)
+        console.error(`[Sigo] Port order ${orderId} confirm attempt ${attempt} failed: ${lastConfirmError}`)
       }
     }
 
@@ -361,7 +362,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       status: submitStatus,
-      message: "Your number is being transferred to Zing. This usually takes 1-3 business days. Check Settings for progress.",
+      message: `Your number is being transferred to ${SITE_NAME}. This usually takes 1-3 business days. Check Settings for progress.`,
       port: {
         number: e164,
         port_order_id: orderId,
@@ -370,7 +371,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error: unknown) {
-    console.error("[Zing] Port request error:", error)
+    console.error("[Sigo] Port request error:", error)
     const msg = error instanceof Error ? error.message : String(error)
 
     if (/feature not permitted|not permitted|10038/i.test(msg)) {

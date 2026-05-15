@@ -181,15 +181,15 @@ function clampAssistantCreateFields(
   let instructions = params.instructions
   if (instructions.length > MAX_ASSISTANT_INSTRUCTIONS_CHARS) {
     console.warn(
-      `[Zing] Truncating assistant instructions from ${instructions.length} to ${MAX_ASSISTANT_INSTRUCTIONS_CHARS} for Telnyx create`
+      `[Sigo] Truncating assistant instructions from ${instructions.length} to ${MAX_ASSISTANT_INSTRUCTIONS_CHARS} for Telnyx create`
     )
     instructions =
       instructions.slice(0, MAX_ASSISTANT_INSTRUCTIONS_CHARS) +
-      "\n\n[Zing: instructions truncated for Telnyx — shorten extra notes in AI call flow if needed]"
+      "\n\n[Sigo: instructions truncated for Telnyx — shorten extra notes in AI call flow if needed]"
   }
   let greeting = params.greeting
   if (greeting.length > MAX_ASSISTANT_GREETING_CHARS) {
-    console.warn(`[Zing] Truncating greeting from ${greeting.length} to ${MAX_ASSISTANT_GREETING_CHARS}`)
+    console.warn(`[Sigo] Truncating greeting from ${greeting.length} to ${MAX_ASSISTANT_GREETING_CHARS}`)
     greeting = greeting.slice(0, MAX_ASSISTANT_GREETING_CHARS)
   }
   return { name: params.name.slice(0, 120), instructions, greeting }
@@ -250,18 +250,18 @@ export async function telnyxCreateAssistant(params: CreateTelnyxAssistantParams)
     if (res.ok) {
       const id = extractAssistantIdFromCreateResponse(body)
       if (!id) {
-        console.error("[Zing] Telnyx create assistant 200 but unparseable id:", JSON.stringify(body).slice(0, 2500))
+        console.error("[Sigo] Telnyx create assistant 200 but unparseable id:", JSON.stringify(body).slice(0, 2500))
         throw new Error(
           "Telnyx create assistant succeeded but the response did not include an assistant id (unexpected JSON shape)."
         )
       }
       if (model !== primary) {
-        console.log(`[Zing] Telnyx assistant created with fallback model "${model}" (primary "${primary}" was rejected).`)
+        console.log(`[Sigo] Telnyx assistant created with fallback model "${model}" (primary "${primary}" was rejected).`)
       }
       return { id }
     }
 
-    console.error(`[Zing] Telnyx POST /ai/assistants HTTP ${res.status}:`, rawText.slice(0, 5000))
+    console.error(`[Sigo] Telnyx POST /ai/assistants HTTP ${res.status}:`, rawText.slice(0, 5000))
     const detail = formatTelnyxErrorBody(body, res.status)
     lastError = new Error(`Telnyx create assistant failed: ${detail}`)
     const modelRejected =
@@ -270,7 +270,7 @@ export async function telnyxCreateAssistant(params: CreateTelnyxAssistantParams)
     if (!modelRejected) {
       throw lastError
     }
-    console.warn(`[Zing] Telnyx rejected assistant model "${model}", trying next…`, detail)
+    console.warn(`[Sigo] Telnyx rejected assistant model "${model}", trying next…`, detail)
   }
 
   throw lastError ?? new Error("Telnyx create assistant failed")
@@ -285,7 +285,7 @@ export type UpdateTelnyxAssistantParams = {
 }
 
 /**
- * POST /v2/ai/assistants/{id} — push new instructions/greeting after user edits intake in Zing.
+ * POST /v2/ai/assistants/{id} — push new instructions/greeting after user edits intake in Sigo.
  */
 export async function telnyxUpdateAssistant(
   assistantId: string,
@@ -310,7 +310,7 @@ export async function telnyxUpdateAssistant(
     }
   }
   if (!res.ok) {
-    console.error(`[Zing] Telnyx POST /ai/assistants/${id} HTTP ${res.status}:`, rawText.slice(0, 4000))
+    console.error(`[Sigo] Telnyx POST /ai/assistants/${id} HTTP ${res.status}:`, rawText.slice(0, 4000))
     throw new Error(`Telnyx update assistant failed: ${formatTelnyxErrorBody(body, res.status)}`)
   }
 }

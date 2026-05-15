@@ -39,7 +39,7 @@ export async function PATCH(
     }
     return NextResponse.json({ data: { ok: true, ...patch } }) // Client can refresh local state from echoed fields
   } catch (error) {
-    console.error("[Zing] PATCH /api/numbers/[id] error:", error) // Log server-side for debugging
+    console.error("[Sigo] PATCH /api/numbers/[id] error:", error) // Log server-side for debugging
     return NextResponse.json({ error: "Failed to update number" }, { status: 500 }) // Malformed JSON or DB error
   }
 }

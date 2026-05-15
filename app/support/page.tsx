@@ -1,10 +1,11 @@
 import Link from "next/link"
 import { HelpCircle, ArrowLeft, Mail } from "lucide-react"
 import type { Metadata } from "next"
+import { SITE_NAME } from "@/lib/brand"
 
 export const metadata: Metadata = {
   title: "Support",
-  description: "Get help with Zing call routing, numbers, receptionists, and account setup.",
+  description: `Get help with ${SITE_NAME} call routing, numbers, receptionists, and account setup.`,
 }
 
 export default function SupportPage() {

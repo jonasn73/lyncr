@@ -124,7 +124,7 @@ export function ContactsPage() {
   return (
     <div className="flex flex-col gap-4 p-4 pb-8">
       {/* Header */}
-      <div className="zing-section-header">
+      <div className="sigo-section-header">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Team</h2>
           <p className="text-sm text-muted-foreground">
@@ -191,7 +191,7 @@ export function ContactsPage() {
           <div
             key={contact.id}
             className={cn(
-              "zing-card flex items-center justify-between p-4 transition-all",
+              "sigo-card flex items-center justify-between p-4 transition-all",
               contact.active && "border-primary/30 bg-primary/5"
             )}
           >

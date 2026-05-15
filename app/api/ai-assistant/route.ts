@@ -21,6 +21,7 @@ import {
   ensureTelnyxVoiceAiAssistant,
 } from "@/lib/telnyx-ai-assistant-lifecycle"
 import { displayUserFacingMessage } from "@/lib/porting-display"
+import { SITE_NAME } from "@/lib/brand"
 
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
       provider: "telnyx",
       degraded: true,
       warning:
-        "Could not load intake. Ask support to confirm your database has the latest Zing migrations applied (AI intake + voice assistant tables).",
+        `Could not load intake. Ask support to confirm your database has the latest ${SITE_NAME} migrations applied (AI intake + voice assistant tables).`,
     })
   }
 }
@@ -189,7 +190,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: telnyxSyncError
-        ? "Saved in Zing — the voice service did not confirm the assistant update (see telnyxSyncError)."
+        ? `Saved in ${SITE_NAME} — the voice service did not confirm the assistant update (see telnyxSyncError).`
         : telnyxAssistantRecreated
           ? "Saved. Your old assistant was missing — we created a new one and synced your call flow."
           : "Saved.",

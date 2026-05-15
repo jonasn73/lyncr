@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     if (msg.includes("019-billing-admin-feedback")) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
-    console.error("[Zing] admin users:", e)
+    console.error("[Sigo] admin users:", e)
     return NextResponse.json({ error: "Failed to list users" }, { status: 500 })
   }
 }

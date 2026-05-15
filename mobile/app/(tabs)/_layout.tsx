@@ -23,7 +23,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Zing",
+          title: "Sigo",
           headerTitle: "Routing",
           tabBarLabel: "Routing",
           tabBarIcon: ({ focused }) => <TabIcon emoji="⚡" focused={focused} />,

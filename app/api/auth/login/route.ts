@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     res.cookies.set(getSessionCookieName(), cookieValue, getSessionCookieOptions())
     return res
   } catch (error) {
-    console.error("[Zing] Login error:", error)
+    console.error("[Sigo] Login error:", error)
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes("SESSION_SECRET")) {
       return NextResponse.json(

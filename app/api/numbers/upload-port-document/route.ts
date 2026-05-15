@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const documentSid = await uploadLegacyUtilityBill(buffer, filename, mimeType)
     return NextResponse.json({ document_sid: documentSid })
   } catch (error) {
-    console.error("[Zing] Upload port document error:", error)
+    console.error("[Sigo] Upload port document error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed" },
       { status: 500 }

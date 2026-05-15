@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     res.cookies.set(getSessionCookieName(), newCookieValue, opts)
     return res
   } catch (error) {
-    console.error("[Zing] Session error:", error)
+    console.error("[Sigo] Session error:", error)
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 }

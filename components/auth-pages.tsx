@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { SITE_NAME } from "@/lib/brand"
 import { SIGNUP_INDUSTRY_OPTIONS } from "@/lib/business-industries"
 import { Phone, Eye, EyeOff, Loader2 } from "lucide-react"
 
@@ -79,7 +80,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Phone className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-base font-bold text-foreground">Zing</span>
+          <span className="text-base font-bold text-foreground">{SITE_NAME}</span>
         </div>
       </header>
 

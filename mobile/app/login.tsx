@@ -48,7 +48,7 @@ export default function LoginScreen() {
           <View style={styles.logo}>
             <Text style={styles.logoIcon}>📞</Text>
           </View>
-          <Text style={styles.title}>Zing</Text>
+          <Text style={styles.title}>Sigo</Text>
         </View>
 
         <Text style={styles.heading}>Welcome back</Text>

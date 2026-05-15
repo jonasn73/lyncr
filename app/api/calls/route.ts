@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ calls })
   } catch (error) {
-    console.error("[Zing] Error fetching calls:", error)
+    console.error("[Sigo] Error fetching calls:", error)
     return NextResponse.json(
       { error: "Failed to fetch call logs" },
       { status: 500 }

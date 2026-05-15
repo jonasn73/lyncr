@@ -61,7 +61,7 @@ export default function SignupScreen() {
           <View style={styles.logo}>
             <Text style={styles.logoIcon}>📞</Text>
           </View>
-          <Text style={styles.title}>Zing</Text>
+          <Text style={styles.title}>Sigo</Text>
         </View>
 
         <Text style={styles.heading}>Create your account</Text>

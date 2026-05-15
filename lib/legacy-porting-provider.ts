@@ -1,5 +1,5 @@
 // ============================================
-// Zing - Legacy Porting API Helpers
+// Sigo - Legacy Porting API Helpers
 // ============================================
 // Compatibility layer for legacy porting/document APIs.
 

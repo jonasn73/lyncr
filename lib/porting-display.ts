@@ -1,9 +1,9 @@
 /**
- * User-facing copy helpers. Vendor APIs still store original text; this only changes *display* in Zing.
+ * User-facing copy helpers. Vendor APIs still store original text; this only changes *display* in Sigo.
  */
 
 /**
- * Neutralizes vendor names in toasts, help text, and port threads so the product reads as Zing-first.
+ * Neutralizes vendor names in toasts, help text, and port threads so the product reads as Sigo-first.
  * Skips hostnames (e.g. *.telnyx.com) so links stay valid.
  */
 export function displayUserFacingMessage(raw: string): string {

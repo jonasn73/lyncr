@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 }) {
   const user = await getSessionUser()
   const h = await headers()
-  const pathnameFromRequest = h.get("x-zing-pathname")
+  const pathnameFromRequest = h.get("x-sigo-pathname")
 
   if (!user) {
     const next =

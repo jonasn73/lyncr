@@ -1,5 +1,5 @@
 // ============================================
-// Zing - Session (HTTP-only cookie)
+// Sigo - Session (HTTP-only cookie)
 // ============================================
 // Signs a session payload (userId + expiry) and verifies it.
 // Uses HMAC-SHA256 so we don't need a sessions table.

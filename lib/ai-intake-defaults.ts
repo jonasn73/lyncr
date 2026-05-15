@@ -1,5 +1,5 @@
 // ============================================
-// Zing — AI phone intake (industry-aware fallback)
+// Sigo — AI phone intake (industry-aware fallback)
 // ============================================
 // user_ai_intake.config holds overrides; users.industry picks the default playbook
 // when profileId is not stored (follow industry).
@@ -119,10 +119,10 @@ export function buildFullTelnyxInstructions(
   const base = buildIntakeSystemExtension(businessName, ownerPhone, businessHours, cfg)
   const extra = cfg.extraAiInstructions?.trim()
   if (!extra) return base
-  return `${base}\n\n## Additional instructions (from Zing)\n${extra}`
+  return `${base}\n\n## Additional instructions (from Sigo)\n${extra}`
 }
 
-/** Full system instructions for Telnyx Voice AI (Zing syncs this when users activate or save AI call flow). */
+/** Full system instructions for Telnyx Voice AI (Sigo syncs this when users activate or save AI call flow). */
 export function buildIntakeSystemExtension(
   businessName: string,
   ownerPhone: string,

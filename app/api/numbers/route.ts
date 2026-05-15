@@ -17,7 +17,7 @@ export async function GET() {
     const numbers = await getPhoneNumbers(DEMO_USER_ID)
     return NextResponse.json({ numbers })
   } catch (error) {
-    console.error("[Zing] Error fetching numbers:", error)
+    console.error("[Sigo] Error fetching numbers:", error)
     return NextResponse.json(
       { error: "Failed to fetch phone numbers" },
       { status: 500 }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       })),
     })
   } catch (error) {
-    console.error("[Zing] Error searching numbers:", error)
+    console.error("[Sigo] Error searching numbers:", error)
     return NextResponse.json(
       { error: "Failed to search numbers" },
       { status: 500 }

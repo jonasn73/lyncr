@@ -25,6 +25,7 @@ import {
   resolveAssistantVoice,
   buildVoiceSettingsForAssistant,
 } from "@/lib/telnyx-voice-ai-api"
+import { SITE_NAME } from "@/lib/brand"
 
 const DEFAULT_BUSINESS_HOURS = "Monday through Friday, 9 AM to 5 PM. Closed weekends."
 
@@ -115,7 +116,7 @@ export async function syncTelnyxAssistantFromIntakeOrRecover(userId: string): Pr
     if (rc?.fallback_type !== "ai") {
       return {
         error:
-          "The Voice AI assistant saved in Zing no longer exists in Telnyx (404). Turn on AI fallback in Routing again, or paste a valid assistant id under Support.",
+          `The Voice AI assistant saved in ${SITE_NAME} no longer exists in Telnyx (404). Turn on AI fallback in Routing again, or paste a valid assistant id under Support.`,
         recreatedAssistant: false,
       }
     }
@@ -204,7 +205,7 @@ export async function ensureTelnyxVoiceAiAssistant(
 
   try {
     const created = await telnyxCreateAssistant({
-      name: `Zing — ${user.business_name}`.slice(0, 120),
+      name: `${SITE_NAME} — ${user.business_name}`.slice(0, 120),
       instructions,
       greeting: telnyxGreeting,
       model: resolveAssistantModel(intakeCfg.telnyxModel),

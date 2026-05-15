@@ -18,7 +18,7 @@ export function middleware(request: NextRequest) {
   // the active tab to the same route as `children` on first paint (avoids a
   // one-frame wrong highlight / “wrong page” flash from usePathname during hydration).
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set("x-zing-pathname", pathname)
+  requestHeaders.set("x-sigo-pathname", pathname)
 
   const needsSession = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
   if (!needsSession) {

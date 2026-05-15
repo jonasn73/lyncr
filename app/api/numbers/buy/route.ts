@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("[Zing] Error buying number:", error)
+    console.error("[Sigo] Error buying number:", error)
     return NextResponse.json(
       { error: "Failed to purchase number" },
       { status: 500 }

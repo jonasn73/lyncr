@@ -1,5 +1,5 @@
 /**
- * Zing mobile – design tokens for consistency and easier tweaks.
+ * Sigo mobile – design tokens for consistency and easier tweaks.
  * Use these in StyleSheet so colors and spacing stay aligned across screens.
  */
 

@@ -32,7 +32,7 @@ function AdminSidebar() {
             <Shield className="h-5 w-5 text-white" aria-hidden />
           </div>
           <div className="min-w-0 lg:mt-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300/90">Zing Ops</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300/90">Sigo Ops</p>
             <p className="truncate text-sm font-semibold text-slate-100">Operator console</p>
           </div>
         </div>
@@ -117,7 +117,7 @@ export function AdminChrome({
     <AdminConsoleProvider>
       <div
         className="flex min-h-dvh flex-col bg-[#0b1120] text-slate-200 antialiased lg:flex-row"
-        data-zing-surface="operator"
+        data-sigo-surface="operator"
       >
         <AdminSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">

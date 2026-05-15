@@ -39,7 +39,7 @@ export default function OnboardingScreen() {
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: Math.max(48, insets.top + 16), paddingBottom: insets.bottom + 48 }]}>
       <View style={styles.header}>
         <Text style={styles.logo}>📞</Text>
-        <Text style={styles.title}>Zing</Text>
+        <Text style={styles.title}>Sigo</Text>
         <Text style={styles.steps}>Step {step} of 3</Text>
       </View>
 

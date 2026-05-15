@@ -16,6 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { SITE_NAME } from "@/lib/brand"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import {
   DropdownMenu,
@@ -159,7 +160,7 @@ export function AppShell({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Phone className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">Zing</span>
+            <span className="text-lg font-semibold tracking-tight text-foreground">{SITE_NAME}</span>
           </Link>
         ) : (
           <button
@@ -171,7 +172,7 @@ export function AppShell({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Phone className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">Zing</span>
+            <span className="text-lg font-semibold tracking-tight text-foreground">{SITE_NAME}</span>
           </button>
         )}
 

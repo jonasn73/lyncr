@@ -1,5 +1,5 @@
 // ============================================
-// Zing - Database Client
+// Sigo - Database Client
 // ============================================
 // Uses Neon serverless when DATABASE_URL is set (production / live app).
 // Set DATABASE_URL in Vercel → Settings → Environment Variables, then run
@@ -681,7 +681,7 @@ export async function repairBootstrapPlatformAdminAccount(params: {
       email,
       name: "Platform Admin",
       phone: "+10000000000",
-      business_name: "Zing",
+      business_name: "Sigo",
       password_hash: params.passwordHash,
       industry: "generic",
     })

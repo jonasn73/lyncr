@@ -17,7 +17,7 @@ export function EmptyState({
   className?: string
 }) {
   return (
-    <div className={cn("zing-empty-state", className)}>
+    <div className={cn("sigo-empty-state", className)}>
       {icon ? <div className="text-muted-foreground/60">{icon}</div> : null}
       <p className="text-sm font-medium text-foreground">{title}</p>
       {description ? <p className="max-w-xs text-xs text-muted-foreground">{description}</p> : null}

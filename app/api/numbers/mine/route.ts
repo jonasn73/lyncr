@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ numbers: numbersWithRouting })
   } catch (error) {
-    console.error("[Zing] Error fetching user numbers:", error)
+    console.error("[Sigo] Error fetching user numbers:", error)
     return NextResponse.json({ error: "Failed to load numbers" }, { status: 500 })
   }
 }

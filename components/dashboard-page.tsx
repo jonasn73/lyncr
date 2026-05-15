@@ -276,7 +276,7 @@ export function DashboardPage() {
           variant: "destructive",
         })
       }
-      return Promise.reject(new Error("ZING_NO_ROUTING_LINE"))
+      return Promise.reject(new Error("SIGO_NO_ROUTING_LINE"))
     }
 
     return fetch("/api/routing", {
@@ -390,7 +390,7 @@ export function DashboardPage() {
     const prev = selectedReceptionistId
     setSelectedReceptionistId(id)
     void saveRouting({ selected_receptionist_id: id }).catch((e) => {
-      if (e instanceof Error && e.message === "ZING_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
+      if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
     })
   }
 
@@ -407,7 +407,7 @@ export function DashboardPage() {
     const prev = selectedReceptionistId
     setSelectedReceptionistId(null)
     void saveRouting({ selected_receptionist_id: null }).catch((e) => {
-      if (e instanceof Error && e.message === "ZING_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
+      if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
     })
   }
 
@@ -498,7 +498,7 @@ export function DashboardPage() {
         </div>
 
       {/* Routing Status */}
-      <section id="routing-forward" className="zing-card relative p-6">
+      <section id="routing-forward" className="sigo-card relative p-6">
         <div
           className="pointer-events-none absolute inset-0 rounded-2xl"
           style={{
@@ -723,11 +723,11 @@ export function DashboardPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="zing-dash-ring-sec" className="text-[11px] text-muted-foreground">
+                    <label htmlFor="sigo-dash-ring-sec" className="text-[11px] text-muted-foreground">
                       Max ring time (first target)
                     </label>
                     <select
-                      id="zing-dash-ring-sec"
+                      id="sigo-dash-ring-sec"
                       className="mt-1.5 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                       value={ringTimeoutSec}
                       onChange={(e) => {
@@ -744,7 +744,7 @@ export function DashboardPage() {
                       ))}
                     </select>
                     <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                      This does <span className="font-medium text-foreground">not</span> add a delay before ringing starts — Telnyx rings your team (or you) right away. It is only how many seconds to wait for someone to <span className="font-medium text-foreground">answer</span> before Zing runs your backup (voicemail, AI, or second number). Lower = faster switch to backup if nobody picks up.
+                      This does <span className="font-medium text-foreground">not</span> add a delay before ringing starts — Telnyx rings your team (or you) right away. It is only how many seconds to wait for someone to <span className="font-medium text-foreground">answer</span> before Sigo runs your backup (voicemail, AI, or second number). Lower = faster switch to backup if nobody picks up.
                     </p>
                   </div>
                   <div>
@@ -863,19 +863,19 @@ export function DashboardPage() {
                       {isRoutingToOwner ? (
                         <div className="mb-3 flex gap-3 rounded-xl border border-border/70 bg-secondary/25 p-3">
                           <Switch
-                            id="zing-ai-ring-owner-first"
+                            id="sigo-ai-ring-owner-first"
                             checked={aiRingOwnerFirst}
                             onCheckedChange={(on) => {
                               setAiRingOwnerFirst(on)
                               void saveRouting({ ai_ring_owner_first: on }, { quiet: true })
                             }}
                             className="mt-0.5 shrink-0"
-                            aria-labelledby="zing-ai-ring-owner-first-label"
+                            aria-labelledby="sigo-ai-ring-owner-first-label"
                           />
                           <div className="min-w-0 flex-1">
                             <label
-                              id="zing-ai-ring-owner-first-label"
-                              htmlFor="zing-ai-ring-owner-first"
+                              id="sigo-ai-ring-owner-first-label"
+                              htmlFor="sigo-ai-ring-owner-first"
                               className="text-xs font-semibold text-foreground"
                             >
                               Ring my phone first
@@ -916,7 +916,7 @@ export function DashboardPage() {
         <section id="routing-tips" className="rounded-2xl border border-border/60 bg-muted/15 p-5">
           <h2 className="text-sm font-semibold text-foreground">Caller ID and spam labels</h2>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            Forwarded legs use your Zing business number. We also send your line label as the outbound display name when
+            Forwarded legs use your Sigo business number. We also send your line label as the outbound display name when
             your carrier supports it, so the person answering may see a name instead of only digits. Labels like spam
             risk are added by the receiving carrier from their own analytics; improving reputation usually means setting
             CNAM on the number in Telnyx, registering it with services such as the Free Caller Registry, then carrying

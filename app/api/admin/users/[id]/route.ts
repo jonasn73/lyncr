@@ -26,7 +26,7 @@ export async function PATCH(
     if (msg.includes("019-billing-admin-feedback")) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
-    console.error("[Zing] admin user PATCH:", e)
+    console.error("[Sigo] admin user PATCH:", e)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

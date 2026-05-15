@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { SITE_NAME } from "@/lib/brand"
 import { displayPortingMessageBody } from "@/lib/porting-display"
 import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
@@ -452,7 +453,7 @@ export function SettingsPage() {
         setPortError(data.error || "Failed to start port")
         return
       }
-      setPortSubmitMessage(data.message || "Your number is being transferred to Zing.")
+      setPortSubmitMessage(data.message || `Your number is being transferred to ${SITE_NAME}.`)
       setPortSubmitted(true)
       toast({
         title: "Port request submitted",
@@ -864,7 +865,7 @@ export function SettingsPage() {
                   type="button"
                   onClick={saveMainLine}
                   disabled={mainLineSaveLoading || !mainLineEdit.trim()}
-                  className="zing-btn-sm bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  className="sigo-btn-sm bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   {mainLineSaveLoading ? "Saving…" : "Save"}
                 </button>
@@ -872,7 +873,7 @@ export function SettingsPage() {
                   type="button"
                   onClick={cancelEditMainLine}
                   disabled={mainLineSaveLoading}
-                  className="zing-btn-sm border border-border/70 text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  className="sigo-btn-sm border border-border/70 text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -917,7 +918,7 @@ export function SettingsPage() {
                 type="button"
                 onClick={saveIndustry}
                 disabled={industrySaving || industryDraft === (user?.industry ?? "")}
-                className="zing-btn-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="sigo-btn-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 {industrySaving ? "Saving…" : "Save industry"}
               </button>
@@ -927,7 +928,7 @@ export function SettingsPage() {
             ) : null}
           </div>
           <div className="mt-3 space-y-2 rounded-xl border border-border/60 bg-secondary/20 p-3">
-            <label htmlFor="zing-settings-account-business-name" className="text-[11px] font-semibold text-muted-foreground">
+            <label htmlFor="sigo-settings-account-business-name" className="text-[11px] font-semibold text-muted-foreground">
               Account business name
             </label>
             <p className="text-[11px] text-muted-foreground">
@@ -935,7 +936,7 @@ export function SettingsPage() {
               calls when your carrier supports it, which can reduce &quot;spam risk&quot; labels compared to showing only a bare number.
             </p>
             <input
-              id="zing-settings-account-business-name"
+              id="sigo-settings-account-business-name"
               type="text"
               value={businessNameDraft}
               onChange={(e) => setBusinessNameDraft(e.target.value)}
@@ -952,7 +953,7 @@ export function SettingsPage() {
                   !businessNameDraft.trim() ||
                   businessNameDraft.trim() === (user?.business_name ?? "").trim()
                 }
-                className="zing-btn-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="sigo-btn-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 {businessNameSaving ? "Saving…" : "Save business name"}
               </button>
@@ -1491,11 +1492,11 @@ export function SettingsPage() {
                         <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                           Line label for your team. If the whisper is on in Settings, they hear this label only right after they answer (before the caller is connected). While ringing, caller ID is usually this business number.
                         </p>
-                        <label htmlFor="zing-buy-line-name" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
+                        <label htmlFor="sigo-buy-line-name" className="mt-2 block text-[11px] font-semibold text-muted-foreground">
                           Line label
                         </label>
                         <input
-                          id="zing-buy-line-name"
+                          id="sigo-buy-line-name"
                           type="text"
                           value={buyAcquireBusinessName}
                           onChange={(e) => setBuyAcquireBusinessName(e.target.value)}
@@ -1598,7 +1599,7 @@ export function SettingsPage() {
                         <div className="flex items-start gap-2.5 rounded-xl bg-secondary p-3">
                           <ArrowRightLeft className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                           <p className="text-xs leading-relaxed text-muted-foreground">
-                            Port your existing business number to Zing. No downtime, no missed calls.
+                            Port your existing business number to {SITE_NAME}. No downtime, no missed calls.
                           </p>
                         </div>
                         <div className="flex flex-col gap-1.5">
@@ -1630,7 +1631,7 @@ export function SettingsPage() {
                         <button
                           onClick={() => { setPortError(null); setPortStep(2) }}
                           disabled={!portNumber.replace(/\D/g, "").length || !portLineBusinessName.trim().length}
-                          className="zing-btn-sm mt-1 w-full bg-primary py-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                          className="sigo-btn-sm mt-1 w-full bg-primary py-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
                         >
                           Next: Account info
                         </button>
@@ -1733,7 +1734,7 @@ export function SettingsPage() {
                           </button>
                         </div>
                         <p className="text-center text-[10px] text-muted-foreground">
-                          By submitting, you authorize the transfer of this number to Zing.
+                          By submitting, you authorize the transfer of this number to {SITE_NAME}.
                         </p>
                       </>
                     )}
@@ -1775,11 +1776,11 @@ export function SettingsPage() {
                 const row = myNumbers.find((n) => n.number === routingModalNumber)
                 return (
                   <>
-                    <label htmlFor="zing-settings-line-label" className="text-[11px] font-semibold text-muted-foreground">
+                    <label htmlFor="sigo-settings-line-label" className="text-[11px] font-semibold text-muted-foreground">
                       Line label
                     </label>
                     <input
-                      id="zing-settings-line-label"
+                      id="sigo-settings-line-label"
                       type="text"
                       value={routingLineLabelDraft}
                       onChange={(e) => setRoutingLineLabelDraft(e.target.value)}
@@ -1992,7 +1993,7 @@ export function SettingsPage() {
 
       {/* Version */}
       <p className="text-center text-xs text-muted-foreground">
-        Zing v1.0.0
+        {SITE_NAME} v1.0.0
       </p>
     </div>
   )

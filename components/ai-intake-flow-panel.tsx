@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { SITE_NAME } from "@/lib/brand"
 import { displayUserFacingMessage } from "@/lib/porting-display"
 import { getIntakeFlowSummary } from "@/lib/ai-intake-flow-summaries"
 import {
@@ -76,7 +77,7 @@ export function AiIntakeFlowPanel({
   const [saving, setSaving] = useState(false)
   const [hasAssistant, setHasAssistant] = useState(false)
   const [userIndustry, setUserIndustry] = useState<string>("generic")
-  /** Optional override — Zing normally creates the voice assistant for you (see Advanced). */
+  /** Optional override — Sigo normally creates the voice assistant for you (see Advanced). */
   const [telnyxAssistantId, setTelnyxAssistantId] = useState("")
   /** Show the rare “paste an existing assistant id” field (support / migrations). */
   const [showAdvancedAssistantId, setShowAdvancedAssistantId] = useState(false)
@@ -409,9 +410,9 @@ export function AiIntakeFlowPanel({
         <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2.5 text-[11px] leading-snug text-foreground">
           <p className="font-semibold text-destructive">Voice assistant is not linked yet</p>
           <p className="mt-1 text-muted-foreground">
-            No-answer calls will sound like voicemail until Zing finishes linking your voice assistant. Tap{" "}
+            No-answer calls will sound like voicemail until {SITE_NAME} finishes linking your voice assistant. Tap{" "}
             <span className="font-medium text-foreground">Save call flow</span> below, or toggle fallback off and choose{" "}
-            <span className="font-medium text-foreground">AI receptionist</span> again. If this persists, contact Zing
+            <span className="font-medium text-foreground">AI receptionist</span> again. If this persists, contact {SITE_NAME}
             support — your deployment may need voice API credentials.
           </p>
         </div>
@@ -426,7 +427,7 @@ export function AiIntakeFlowPanel({
             <div>
               <h1 className="text-lg font-bold text-foreground">AI call flow</h1>
               <p className="text-[11px] text-muted-foreground">
-                Set what the AI says and collects when nobody answers — all in Zing.
+                Set what the AI says and collects when nobody answers — all in {SITE_NAME}.
               </p>
             </div>
           </div>
@@ -467,7 +468,7 @@ export function AiIntakeFlowPanel({
             {previewLoading ? "Loading preview…" : "Play preview"}
           </button>
           <p className="text-[9px] leading-snug text-muted-foreground sm:max-w-[14rem] sm:text-right">
-            Preview uses Zing&apos;s cloud voice when available; otherwise your{" "}
+            Preview uses {SITE_NAME}&apos;s cloud voice when available; otherwise your{" "}
             <span className="font-medium text-foreground">browser voice</span>. Live calls use your saved voice assistant
             (see <span className="font-medium text-foreground">Voice &amp; model</span>).
           </p>
@@ -705,7 +706,7 @@ export function AiIntakeFlowPanel({
             </div>
             {!catalogLoading && modelOptions.length === 0 && voiceOptions.length === 0 && !catalogError ? (
               <p className="text-[10px] text-muted-foreground">
-                No suggestions loaded — leave both fields empty for Zing&apos;s platform defaults, or type e.g.{" "}
+                No suggestions loaded — leave both fields empty for {SITE_NAME}&apos;s platform defaults, or type e.g.{" "}
                 <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">openai/gpt-4o</code> and a voice id
                 from your provider, then Save.
               </p>
@@ -721,7 +722,7 @@ export function AiIntakeFlowPanel({
               />
             </div>
             <p className="text-[9px] text-muted-foreground">
-              Rare: use Support → link assistant ID at the bottom of this screen instead of Zing&apos;s auto-created one.
+              Rare: use Support → link assistant ID at the bottom of this screen instead of {SITE_NAME}&apos;s auto-created one.
             </p>
           </div>
         )}

@@ -24,7 +24,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[Zing] Client error:", error, info.componentStack)
+    console.error("[Sigo] Client error:", error, info.componentStack)
   }
 
   render() {

@@ -1,5 +1,5 @@
 // ============================================
-// Telnyx porting webhook — parse payloads into Zing rows
+// Telnyx porting webhook — parse payloads into Sigo rows
 // ============================================
 // Telnyx sends several JSON shapes (event_type at root vs meta, nested porting_order, etc.).
 // We walk the tree for `customer_reference` starting with `zing-` and stable event ids.

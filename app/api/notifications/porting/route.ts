@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     const data = unreadOnly ? notifications.filter((n) => n.read_at == null) : notifications
     return NextResponse.json({ data: { notifications: data, unreadCount } })
   } catch (e) {
-    console.error("[Zing] GET /api/notifications/porting:", e)
+    console.error("[Sigo] GET /api/notifications/porting:", e)
     return NextResponse.json({ error: "Failed to load notifications" }, { status: 500 })
   }
 }
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest) {
     await markPortingNotificationsRead(userId, ids)
     return NextResponse.json({ data: { ok: true } })
   } catch (e) {
-    console.error("[Zing] PATCH /api/notifications/porting:", e)
+    console.error("[Sigo] PATCH /api/notifications/porting:", e)
     return NextResponse.json({ error: "Failed to update" }, { status: 500 })
   }
 }

@@ -190,7 +190,7 @@ async function handleIncomingCall(
   const appUrl = getAppUrl()
   const debug = process.env.NODE_ENV !== "production"
 
-  if (debug) console.log(`[Zing] Incoming call: To=${calledNumber} From=${callerNumber} CallSid=${callSid}`)
+  if (debug) console.log(`[Sigo] Incoming call: To=${calledNumber} From=${callerNumber} CallSid=${callSid}`)
 
   try {
     // E.164 for DB + fallback URL — must match phone_numbers.number (we also match by digits in SQL).
@@ -203,7 +203,7 @@ async function handleIncomingCall(
     ])
     if (!routing) {
       console.error(
-        "[Zing] No user/routing for inbound — check phone_numbers row matches this line. Detail:",
+        "[Sigo] No user/routing for inbound — check phone_numbers row matches this line. Detail:",
         JSON.stringify({
           calledRaw: calledNumber,
           businessLineE164,
@@ -218,8 +218,8 @@ async function handleIncomingCall(
       return { kind: "twiml", texml }
     }
 
-    if (debug) console.log(`[Zing] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
-    if (debug) console.log(`[Zing] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
+    if (debug) console.log(`[Sigo] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
+    if (debug) console.log(`[Sigo] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
 
     if (firstLegDone) {
       console.log(
@@ -287,7 +287,7 @@ async function handleIncomingCall(
     const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
     const [routingCfgResult, phoneList] = await Promise.all([
       getRoutingConfigForNumber(routing.user_id, cfgDid).catch((cfgErr) => {
-        console.error("[Zing] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
+        console.error("[Sigo] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
         return null
       }),
       getPhoneNumbers(routing.user_id),
@@ -379,10 +379,10 @@ async function handleIncomingCall(
         recording_url: null,
         recording_duration_seconds: null,
       }).catch((logErr) => {
-        console.error("[Zing] Call log insert failed (continuing with routing):", logErr)
+        console.error("[Sigo] Call log insert failed (continuing with routing):", logErr)
       })
     } catch (logErr) {
-      console.error("[Zing] Call log insert failed (continuing with routing):", logErr)
+      console.error("[Sigo] Call log insert failed (continuing with routing):", logErr)
     }
 
     // 5. Route: receptionist (per-number or default) → owner's cell as fallback
@@ -514,14 +514,14 @@ async function handleIncomingCall(
               lastResortConnectHit: useLastResortConnect ? lastResortHit : null, // null = disabled (default)
               note: useLastResortConnect
                 ? "Experimental: <Connect> on /incoming at lastResortConnectHit; next hit = give up. Telnyx may error — unset env to use silent cap only."
-                : `Last-resort <Connect> on /incoming is off. When incomingHitCount > ${SILENT_INCOMING_LOOP_CAP} we play Zing give-up (not Telnyx error). Set ZING_AI_LAST_RESORT_CONNECT_HIT=N to try Connect on hit N.`,
+                : `Last-resort <Connect> on /incoming is off. When incomingHitCount > ${SILENT_INCOMING_LOOP_CAP} we play Sigo give-up (not Telnyx error). Set ZING_AI_LAST_RESORT_CONNECT_HIT=N to try Connect on hit N.`,
             })
           )
         }
         return { kind: "raw", xml } // Bypass VoiceResponse builder because helpers return full XML strings
       }
       console.warn(
-        "[Zing] AI direct path skipped — no assistant id; falling back to <Dial> owner + /fallback webhook."
+        "[Sigo] AI direct path skipped — no assistant id; falling back to <Dial> owner + /fallback webhook."
       )
     }
 
@@ -663,7 +663,7 @@ async function handleIncomingCall(
 
     if (hasReceptionist) {
       const recPhone = receptionistDialE164
-      if (debug) console.log(`[Zing] Routing to receptionist: ${receptionistDisplayName || "Receptionist"} (${recPhone})`)
+      if (debug) console.log(`[Sigo] Routing to receptionist: ${receptionistDisplayName || "Receptionist"} (${recPhone})`)
       // Receptionist leg: omit `fromDisplayName` — Telnyx often fails or drops the PSTN B-leg when CNAM + forwarded mobile combine.
       const dial = texml.dial({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -675,7 +675,7 @@ async function handleIncomingCall(
       dial.number(recPhone)
     } else {
       const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
-      if (debug) console.log(`[Zing] No receptionist assigned, routing to owner: ${ownerPhone}`)
+      if (debug) console.log(`[Sigo] No receptionist assigned, routing to owner: ${ownerPhone}`)
       // Same as receptionist path: if your phone does not answer, POST to fallback so AI / voicemail / second leg can run.
       const dial = texml.dial({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -697,14 +697,14 @@ async function handleIncomingCall(
     texml.hangup()
   }
 
-  if (debug) console.log(`[Zing] TeXML response: ${texml.toString().slice(0, 500)}`)
+  if (debug) console.log(`[Sigo] TeXML response: ${texml.toString().slice(0, 500)}`)
   return { kind: "twiml", texml }
 }
 
 export async function POST(req: NextRequest) {
   const fields = await readWebhookFields(req)
   if (process.env.NODE_ENV !== "production") {
-    console.log("[Zing] Telnyx webhook fields:", JSON.stringify(fields))
+    console.log("[Sigo] Telnyx webhook fields:", JSON.stringify(fields))
   }
 
   const calledNumberRaw = resolveCalledParty(fields)
@@ -723,7 +723,7 @@ export async function POST(req: NextRequest) {
   const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
   if (!callSidRaw.trim()) {
     console.error(
-      "[Zing] Telnyx incoming missing CallSid/CallControlId — using synthetic id; confirm webhook fields in Telnyx portal."
+      "[Sigo] Telnyx incoming missing CallSid/CallControlId — using synthetic id; confirm webhook fields in Telnyx portal."
     )
   }
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
@@ -753,7 +753,7 @@ export async function GET(req: NextRequest) {
   const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
   const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
   if (!callSidRaw.trim()) {
-    console.error("[Zing] Telnyx incoming (GET) missing CallSid — using synthetic id.")
+    console.error("[Sigo] Telnyx incoming (GET) missing CallSid — using synthetic id.")
   }
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
 

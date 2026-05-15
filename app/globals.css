@@ -4,46 +4,45 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Dark-first theme - deep charcoal background with teal accent */
-  --background: oklch(0.13 0.005 260);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.17 0.005 260);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.17 0.005 260);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.72 0.17 175);
-  --primary-foreground: oklch(0.13 0.005 260);
-  --secondary: oklch(0.22 0.005 260);
-  --secondary-foreground: oklch(0.90 0 0);
-  --muted: oklch(0.22 0.005 260);
-  --muted-foreground: oklch(0.60 0 0);
-  --accent: oklch(0.72 0.17 175);
-  --accent-foreground: oklch(0.13 0.005 260);
+  /* Sigo — deep slate base, violet “signal” primary (continuity / routing in motion) */
+  --background: oklch(0.14 0.02 275);
+  --foreground: oklch(0.96 0.01 275);
+  --card: oklch(0.18 0.02 275);
+  --card-foreground: oklch(0.96 0.01 275);
+  --popover: oklch(0.18 0.02 275);
+  --popover-foreground: oklch(0.96 0.01 275);
+  --primary: oklch(0.70 0.19 278);
+  --primary-foreground: oklch(0.14 0.03 278);
+  --secondary: oklch(0.24 0.02 275);
+  --secondary-foreground: oklch(0.92 0.01 275);
+  --muted: oklch(0.24 0.02 275);
+  --muted-foreground: oklch(0.62 0.02 275);
+  --accent: oklch(0.70 0.19 278);
+  --accent-foreground: oklch(0.14 0.03 278);
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.26 0.005 260);
-  --input: oklch(0.22 0.005 260);
-  --ring: oklch(0.72 0.17 175);
-  --chart-1: oklch(0.72 0.17 175);
-  --chart-2: oklch(0.65 0.15 200);
-  --chart-3: oklch(0.55 0.12 230);
-  --chart-4: oklch(0.78 0.14 160);
-  --chart-5: oklch(0.60 0.18 190);
+  --border: oklch(0.30 0.02 275);
+  --input: oklch(0.24 0.02 275);
+  --ring: oklch(0.70 0.19 278);
+  --chart-1: oklch(0.70 0.19 278);
+  --chart-2: oklch(0.65 0.16 240);
+  --chart-3: oklch(0.58 0.14 210);
+  --chart-4: oklch(0.75 0.14 310);
+  --chart-5: oklch(0.68 0.18 200);
   --radius: 0.75rem;
-  --sidebar: oklch(0.15 0.005 260);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.72 0.17 175);
-  --sidebar-primary-foreground: oklch(0.13 0.005 260);
-  --sidebar-accent: oklch(0.22 0.005 260);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.26 0.005 260);
-  --sidebar-ring: oklch(0.72 0.17 175);
-  /* Custom tokens */
+  --sidebar: oklch(0.16 0.02 275);
+  --sidebar-foreground: oklch(0.96 0.01 275);
+  --sidebar-primary: oklch(0.70 0.19 278);
+  --sidebar-primary-foreground: oklch(0.14 0.03 278);
+  --sidebar-accent: oklch(0.24 0.02 275);
+  --sidebar-accent-foreground: oklch(0.96 0.01 275);
+  --sidebar-border: oklch(0.30 0.02 275);
+  --sidebar-ring: oklch(0.70 0.19 278);
   --success: oklch(0.72 0.19 155);
-  --success-foreground: oklch(0.13 0.005 260);
+  --success-foreground: oklch(0.14 0.03 155);
   --warning: oklch(0.80 0.16 85);
-  --warning-foreground: oklch(0.13 0.005 260);
-  --surface: oklch(0.20 0.005 260);
+  --warning-foreground: oklch(0.18 0.03 85);
+  --surface: oklch(0.21 0.02 275);
 }
 
 @theme inline {
@@ -99,8 +98,8 @@
   body {
     @apply bg-background text-foreground;
     background-image:
-      radial-gradient(1200px 500px at 50% -10%, oklch(0.72 0.17 175 / 0.08), transparent 60%),
-      radial-gradient(700px 300px at 10% 0%, oklch(0.65 0.15 200 / 0.05), transparent 65%);
+      radial-gradient(1200px 500px at 50% -10%, oklch(0.70 0.19 278 / 0.10), transparent 58%),
+      radial-gradient(700px 320px at 12% 0%, oklch(0.62 0.16 300 / 0.06), transparent 62%);
     background-attachment: fixed;
   }
   /* Show pointer (finger) cursor on all clickable elements */
@@ -127,31 +126,31 @@
 }
 
 @layer components {
-  .zing-card {
+  .sigo-card {
     @apply rounded-2xl border border-border/70 bg-card/85 shadow-sm;
   }
 
-  .zing-card-interactive {
+  .sigo-card-interactive {
     @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30;
   }
 
-  .zing-section-header {
+  .sigo-section-header {
     @apply mb-3 flex items-center justify-between;
   }
 
-  .zing-section-title {
+  .sigo-section-title {
     @apply text-sm font-semibold uppercase tracking-wider text-muted-foreground;
   }
 
-  .zing-empty-state {
+  .sigo-empty-state {
     @apply flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/70 p-8 text-center;
   }
 
-  .zing-btn-sm {
+  .sigo-btn-sm {
     @apply rounded-xl px-3 py-1.5 text-xs font-semibold;
   }
 
-  .zing-btn-md {
+  .sigo-btn-md {
     @apply rounded-xl px-4 py-2 text-sm font-semibold;
   }
 }

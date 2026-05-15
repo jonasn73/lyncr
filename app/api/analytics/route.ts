@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       period: { start: startDate, end: endDate },
     })
   } catch (error) {
-    console.error("[Zing] Error fetching analytics:", error)
+    console.error("[Sigo] Error fetching analytics:", error)
     return NextResponse.json(
       { error: "Failed to fetch analytics" },
       { status: 500 }

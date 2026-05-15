@@ -1,10 +1,11 @@
 import Link from "next/link"
 import { Shield, ArrowLeft } from "lucide-react"
 import type { Metadata } from "next"
+import { SITE_NAME } from "@/lib/brand"
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description: "Learn how Zing protects account data, call routing settings, and call records.",
+  description: `Learn how ${SITE_NAME} protects account data, call routing settings, and call records.`,
 }
 
 export default function PrivacyPage() {
@@ -26,14 +27,14 @@ export default function PrivacyPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Security & Privacy</h1>
-            <p className="text-sm text-muted-foreground">How Zing handles your data</p>
+            <p className="text-sm text-muted-foreground">How {SITE_NAME} handles your data</p>
           </div>
         </div>
         <div className="space-y-6 text-sm text-foreground">
           <section>
             <h2 className="mb-2 font-semibold text-foreground">Your data</h2>
             <p className="text-muted-foreground">
-              Zing stores your account info (name, email, phone), call routing settings, and call logs so we can route calls and show you activity. We do not sell your data to third parties.
+              {SITE_NAME} stores your account info (name, email, phone), call routing settings, and call logs so we can route calls and show you activity. We do not sell your data to third parties.
             </p>
           </section>
           <section>

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (e) {
-    console.error("[Zing] admin overview:", e)
+    console.error("[Sigo] admin overview:", e)
     return NextResponse.json({ error: "Failed to load admin stats" }, { status: 500 })
   }
 }

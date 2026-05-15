@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
     await updateUser(userId, updates)
     return NextResponse.json({ data: { ok: true } })
   } catch (error) {
-    console.error("[Zing] Update profile error:", error)
+    console.error("[Sigo] Update profile error:", error)
     return NextResponse.json(
       { error: "Failed to update profile" },
       { status: 500 }

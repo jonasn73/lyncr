@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       try {
         await configureNumberVoice(boughtNumber, texmlAppId)
       } catch (retryErr) {
-        console.error("[Zing] Voice config failed after retry (number still purchased):", retryErr)
+        console.error("[Sigo] Voice config failed after retry (number still purchased):", retryErr)
       }
     }
 
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       provider_number_sid: orderId,
     })
 
-    console.log(`[Zing] Number ${boughtNumber} purchased, configured, and saved (order: ${orderId}, db: ${saved.id})`)
+    console.log(`[Sigo] Number ${boughtNumber} purchased, configured, and saved (order: ${orderId}, db: ${saved.id})`)
 
     return NextResponse.json({
       success: true,

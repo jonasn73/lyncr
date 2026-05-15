@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify({
         zing: "telnyx-porting-webhook-no-zing-ref",
         eventType: extractEventType(body),
-        hint: "Set customer_reference zing-<userId> on port orders (Zing does this automatically).",
+        hint: "Set customer_reference zing-<userId> on port orders (Sigo does this automatically; legacy prefix zing-).",
       })
     )
     return NextResponse.json({ received: true, stored: false, reason: "no_zing_customer_reference" })
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     )
     return NextResponse.json({ received: true, stored: inserted })
   } catch (e) {
-    console.error("[Zing] telnyx-porting-webhook insert error:", e)
+    console.error("[Sigo] telnyx-porting-webhook insert error:", e)
     return NextResponse.json({ error: "Storage failed" }, { status: 500 })
   }
 }

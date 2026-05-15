@@ -113,7 +113,7 @@ const pricing = [
 const faqs = [
   {
     q: "Can I keep my existing business number?",
-    a: "Yes. You can port your current number to Zing in 24-48 hours with zero downtime. Your callers won't notice a thing.",
+    a: "Yes. You can port your current number to Sigo in 24-48 hours with zero downtime. Your callers won't notice a thing.",
   },
   {
     q: "How does the AI assistant work?",
@@ -121,11 +121,11 @@ const faqs = [
   },
   {
     q: "How does receptionist pay tracking work?",
-    a: "Set a per-minute rate for each receptionist. Zing logs every second of talk time and calculates what you owe automatically. Export pay reports anytime.",
+    a: "Set a per-minute rate for each receptionist. Sigo logs every second of talk time and calculates what you owe automatically. Export pay reports anytime.",
   },
   {
     q: "Do my receptionists need to install anything?",
-    a: "No. Calls forward to their personal cell phone. They answer like a normal call. You manage everything from the Zing app.",
+    a: "No. Calls forward to their personal cell phone. They answer like a normal call. You manage everything from the Sigo app.",
   },
 ]
 
@@ -167,7 +167,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Phone className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground">Zing</span>
+            <span className="text-lg font-bold text-foreground">Sigo</span>
           </div>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
@@ -221,7 +221,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             <span className="text-primary">with one tap</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground md:text-xl">
-            Buy a number, add receptionists, set up AI fallback. Zing handles your calls so you can run your business.
+            Buy a number, add receptionists, set up AI fallback. Sigo handles your calls so you can run your business.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
@@ -361,7 +361,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
               Customer Stories
             </p>
             <h2 className="text-3xl font-bold text-foreground md:text-4xl">
-              Teams using Zing every day
+              Teams using Sigo every day
             </h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -488,7 +488,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             Ready to take control of your calls?
           </h2>
           <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-            Join hundreds of small businesses using Zing to route calls, track pay, and never miss a customer.
+            Join hundreds of small businesses using Sigo to route calls, track pay, and never miss a customer.
           </p>
           <a
             href={appUrl}
@@ -507,7 +507,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
               <Phone className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
-            <span className="text-sm font-bold text-foreground">Zing</span>
+            <span className="text-sm font-bold text-foreground">Sigo</span>
           </div>
           <div className="flex gap-6">
             <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy</a>
@@ -515,7 +515,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             <a href={appUrl} className="text-xs text-muted-foreground hover:text-foreground">Log in</a>
           </div>
           <p className="text-xs text-muted-foreground">
-            2026 Zing. All rights reserved.
+            2026 Sigo. All rights reserved.
           </p>
         </div>
       </footer>

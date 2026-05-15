@@ -1,8 +1,16 @@
-import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
-import { Toaster } from '@/components/ui/toaster'
-import './globals.css'
+import type { Metadata, Viewport } from "next"
+import { Inter, Geist_Mono } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from "@/components/ui/toaster"
+import {
+  SITE_CANONICAL_URL,
+  SITE_DESCRIPTION,
+  SITE_KEYWORDS,
+  SITE_METADATA_DEFAULT_TITLE,
+  SITE_NAME,
+  SITE_TITLE_TEMPLATE_SUFFIX,
+} from "@/lib/brand"
+import "./globals.css"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -14,35 +22,25 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.getzingapp.com'),
+  metadataBase: new URL(SITE_CANONICAL_URL),
   title: {
-    default: 'Zing - AI Call Routing for Small Businesses',
-    template: '%s | Zing',
+    default: SITE_METADATA_DEFAULT_TITLE,
+    template: `%s | ${SITE_TITLE_TEMPLATE_SUFFIX}`,
   },
-  description:
-    'Zing helps small businesses buy or port numbers, route calls to receptionists, and use AI fallback so no lead is missed.',
-  keywords: [
-    'business phone system',
-    'AI call routing',
-    'virtual receptionist',
-    'business VoIP routing',
-    'small business VoIP',
-    'call analytics',
-  ],
+  description: SITE_DESCRIPTION,
+  keywords: [...SITE_KEYWORDS],
   openGraph: {
-    title: 'Zing - AI Call Routing for Small Businesses',
-    description:
-      'Buy or port numbers, route calls instantly, and use AI fallback to capture every customer call.',
-    url: 'https://www.getzingapp.com',
-    siteName: 'Zing',
-    type: 'website',
-    locale: 'en_US',
+    title: SITE_METADATA_DEFAULT_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_CANONICAL_URL,
+    siteName: SITE_NAME,
+    type: "website",
+    locale: "en_US",
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Zing - AI Call Routing for Small Businesses',
-    description:
-      'Route calls to your team or AI in seconds. Built for small business operations.',
+    card: "summary_large_image",
+    title: SITE_METADATA_DEFAULT_TITLE,
+    description: SITE_DESCRIPTION,
   },
   robots: {
     index: true,
@@ -51,8 +49,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1a1a2e',
-  width: 'device-width',
+  themeColor: "#1e1740",
+  width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
@@ -72,19 +70,18 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'SoftwareApplication',
-              name: 'Zing',
-              applicationCategory: 'BusinessApplication',
-              operatingSystem: 'Web',
-              description:
-                'AI call routing and receptionist operations platform for small businesses.',
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: SITE_NAME,
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Web",
+              description: SITE_DESCRIPTION,
               offers: {
-                '@type': 'Offer',
-                priceCurrency: 'USD',
-                price: '19',
+                "@type": "Offer",
+                priceCurrency: "USD",
+                price: "19",
               },
-              url: 'https://www.getzingapp.com',
+              url: SITE_CANONICAL_URL,
             }),
           }}
         />
