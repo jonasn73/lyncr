@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Clock,
   DollarSign,
@@ -16,7 +16,8 @@ import {
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { IconSurface } from "@/components/ui/icon-surface"
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { StorySheetHeader } from "@/components/story-sheet-header"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 
 interface DailyBreakdown {
@@ -197,7 +198,7 @@ export function AnalyticsPage() {
   )
 
   const [weekOffset, setWeekOffset] = useState(0)
-  const [expandedAgent, setExpandedAgent] = useState<string | null>(null)
+  const [paySheetAgentId, setPaySheetAgentId] = useState<string | null>(null)
   const [editingRateId, setEditingRateId] = useState<string | null>(null)
   const [editRateValue, setEditRateValue] = useState("")
   const [rateOverrides, setRateOverrides] = useState<Record<string, number>>({})
@@ -207,6 +208,15 @@ export function AnalyticsPage() {
     ...a,
     rate: rateOverrides[a.id] ?? a.rate,
   }))
+
+  const paySheetAgent = useMemo(
+    () => (paySheetAgentId ? agents.find((a) => a.id === paySheetAgentId) ?? null : null),
+    [paySheetAgentId, agents]
+  )
+
+  useEffect(() => {
+    if (paySheetAgentId && !paySheetAgent) setPaySheetAgentId(null)
+  }, [paySheetAgentId, paySheetAgent])
 
   const totalMinutes = agents.reduce((sum, a) => sum + a.weeklyMinutes, 0)
   const totalCalls = agents.reduce((sum, a) => sum + a.weeklyCalls, 0)
@@ -239,10 +249,15 @@ export function AnalyticsPage() {
     setEditingRateId(null)
   }
 
-  const maxDailyMinutes = Math.max(
-    ...agents.flatMap((a) => a.daily.map((d) => d.minutes)),
-    1
-  )
+  const paySheetTrend =
+    paySheetAgent && paySheetAgent.previousWeekMinutes
+      ? ((paySheetAgent.weeklyMinutes - paySheetAgent.previousWeekMinutes) /
+          paySheetAgent.previousWeekMinutes) *
+        100
+      : 0
+  const paySheetMaxDaily = paySheetAgent
+    ? Math.max(...paySheetAgent.daily.map((d) => d.minutes), 1)
+    : 1
 
   return (
     <div className="flex flex-col gap-5 p-4 pb-8">
@@ -449,22 +464,11 @@ export function AnalyticsPage() {
         <div className="flex flex-col gap-3">
           {agents.map((agent) => {
             const earnings = agent.weeklyMinutes * agent.rate
-            const isExpanded = expandedAgent === agent.id
-            const agentTrend = agent.previousWeekMinutes
-              ? ((agent.weeklyMinutes - agent.previousWeekMinutes) /
-                  agent.previousWeekMinutes) *
-                100
-              : 0
             return (
-              <div
-                key={agent.id}
-                className="overflow-hidden rounded-xl border border-border bg-card"
-              >
-                {/* Agent header - tappable */}
+              <div key={agent.id} className="overflow-hidden rounded-xl border border-border bg-card">
                 <button
-                  onClick={() =>
-                    setExpandedAgent(isExpanded ? null : agent.id)
-                  }
+                  type="button"
+                  onClick={() => setPaySheetAgentId(agent.id)}
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-secondary/50"
                 >
                   <div className="flex items-center gap-3">
@@ -498,150 +502,179 @@ export function AnalyticsPage() {
                     </span>
                   </div>
                 </button>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="border-t border-border">
-                    {/* Rate editor */}
-                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Per-minute rate
-                      </span>
-                      {editingRateId === agent.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm text-muted-foreground">
-                            $
-                          </span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editRateValue}
-                            onChange={(e) => setEditRateValue(e.target.value)}
-                            className="w-16 rounded-md border border-border bg-secondary px-2 py-1 text-right text-sm text-foreground outline-none focus:border-primary"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveRate(agent.id)
-                              if (e.key === "Escape") cancelEditRate()
-                            }}
-                          />
-                          <button
-                            onClick={() => saveRate(agent.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20"
-                            aria-label="Save rate"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={cancelEditRate}
-                            className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground hover:bg-muted hover:text-foreground"
-                            aria-label="Cancel"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startEditRate(agent)}
-                          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-                        >
-                          {formatCurrency(agent.rate)}/min
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Quick math */}
-                    <div className="grid grid-cols-3 gap-px bg-border">
-                      <div className="flex flex-col items-center bg-card px-3 py-3">
-                        <span className="text-xs text-muted-foreground">
-                          Minutes
-                        </span>
-                        <span className="text-sm font-bold text-foreground">
-                          {agent.weeklyMinutes}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center bg-card px-3 py-3">
-                        <span className="text-xs text-muted-foreground">
-                          Rate
-                        </span>
-                        <span className="text-sm font-bold text-foreground">
-                          {formatCurrency(agent.rate)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center bg-card px-3 py-3">
-                        <span className="text-xs text-muted-foreground">
-                          Earned
-                        </span>
-                        <span className="text-sm font-bold text-primary">
-                          {formatCurrency(earnings)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Daily bar chart */}
-                    <div className="px-4 py-4">
-                      <p className="mb-3 text-xs font-medium text-muted-foreground">
-                        Daily breakdown
-                      </p>
-                      <div className="flex items-end justify-between gap-1.5">
-                        {agent.daily.map((day) => (
-                          <div
-                            key={day.shortDay}
-                            className="flex flex-1 flex-col items-center gap-1.5"
-                          >
-                            <span className="text-[10px] font-medium text-foreground">
-                              {day.minutes > 0 ? `${day.minutes}m` : ""}
-                            </span>
-                            <div
-                              className={cn(
-                                "w-full rounded-t-md transition-all",
-                                day.minutes > 0
-                                  ? agent.color + " opacity-70"
-                                  : "bg-secondary"
-                              )}
-                              style={{
-                                height: `${Math.max(
-                                  (day.minutes / maxDailyMinutes) * 80,
-                                  4
-                                )}px`,
-                              }}
-                            />
-                            <span className="text-[10px] text-muted-foreground">
-                              {day.shortDay}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Week over week */}
-                    <div className="border-t border-border px-4 py-3">
-                      <div
-                        className={cn(
-                          "flex items-center gap-1.5",
-                          agentTrend >= 0 ? "text-success" : "text-destructive"
-                        )}
-                      >
-                        {agentTrend >= 0 ? (
-                          <TrendingUp className="h-3 w-3" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3" />
-                        )}
-                        <span className="text-xs">
-                          {agentTrend >= 0 ? "+" : ""}
-                          {agentTrend.toFixed(0)}% vs previous week (
-                          {formatMinutes(agent.previousWeekMinutes)})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )
           })}
         </div>
       </section>
+
+      <Sheet
+        open={paySheetAgent != null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPaySheetAgentId(null)
+            cancelEditRate()
+          }
+        }}
+        modal
+      >
+        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {paySheetAgent ? (
+            <>
+              <StorySheetHeader
+                eyebrow="Pay story"
+                storyline="Same week you see on Pay — minutes, rate, and what they earned (sample data until payroll is wired)."
+                title={paySheetAgent.name}
+                description={
+                  <>
+                    {paySheetAgent.weeklyCalls} calls · {formatMinutes(paySheetAgent.weeklyMinutes)} on air ·{" "}
+                    {formatCurrency(paySheetAgent.weeklyMinutes * paySheetAgent.rate)} estimated payout
+                  </>
+                }
+              />
+              <div className="max-h-[min(78dvh,640px)] space-y-0 overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Per-minute rate
+                  </span>
+                  {editingRateId === paySheetAgent.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm text-muted-foreground">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editRateValue}
+                        onChange={(e) => setEditRateValue(e.target.value)}
+                        className="w-16 rounded-md border border-border bg-secondary px-2 py-1 text-right text-sm text-foreground outline-none focus:border-primary"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveRate(paySheetAgent.id)
+                          if (e.key === "Escape") cancelEditRate()
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => saveRate(paySheetAgent.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20"
+                        aria-label="Save rate"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditRate}
+                        className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEditRate(paySheetAgent)}
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                    >
+                      {formatCurrency(paySheetAgent.rate)}/min
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-px bg-border">
+                  <div className="flex flex-col items-center bg-card px-3 py-3">
+                    <span className="text-xs text-muted-foreground">
+                      Minutes
+                    </span>
+                    <span className="text-sm font-bold text-foreground">
+                      {paySheetAgent.weeklyMinutes}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center bg-card px-3 py-3">
+                    <span className="text-xs text-muted-foreground">
+                      Rate
+                    </span>
+                    <span className="text-sm font-bold text-foreground">
+                      {formatCurrency(paySheetAgent.rate)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center bg-card px-3 py-3">
+                    <span className="text-xs text-muted-foreground">
+                      Earned
+                    </span>
+                    <span className="text-sm font-bold text-primary">
+                      {formatCurrency(paySheetAgent.weeklyMinutes * paySheetAgent.rate)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="px-4 py-4">
+                  <p className="mb-3 text-xs font-medium text-muted-foreground">
+                    Daily breakdown
+                  </p>
+                  <div className="flex items-end justify-between gap-1.5">
+                    {paySheetAgent.daily.map((day) => (
+                      <div
+                        key={day.shortDay}
+                        className="flex flex-1 flex-col items-center gap-1.5"
+                      >
+                        <span className="text-[10px] font-medium text-foreground">
+                          {day.minutes > 0 ? `${day.minutes}m` : ""}
+                        </span>
+                        <div
+                          className={cn(
+                            "w-full rounded-t-md transition-all",
+                            day.minutes > 0
+                              ? paySheetAgent.color + " opacity-70"
+                              : "bg-secondary"
+                          )}
+                          style={{
+                            height: `${Math.max(
+                              (day.minutes / paySheetMaxDaily) * 80,
+                              4
+                            )}px`,
+                          }}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {day.shortDay}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-border px-4 py-3">
+                  <div
+                    className={cn(
+                      "flex items-center gap-1.5",
+                      paySheetTrend >= 0 ? "text-success" : "text-destructive"
+                    )}
+                  >
+                    {paySheetTrend >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    <span className="text-xs">
+                      {paySheetTrend >= 0 ? "+" : ""}
+                      {paySheetTrend.toFixed(0)}% vs previous week (
+                      {formatMinutes(paySheetAgent.previousWeekMinutes)})
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
+                <p className="text-[11px] text-muted-foreground">
+                  Live account talk time is on this page above; agent rows stay sample until API-backed payroll ships.
+                </p>
+              </SheetFooter>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
       {/* Payout Summary */}
       <section className="rounded-xl border border-primary/20 bg-primary/5 p-4">

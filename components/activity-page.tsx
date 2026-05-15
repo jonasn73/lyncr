@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -21,6 +22,8 @@ import { cn } from "@/lib/utils"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import { EmptyState } from "@/components/ui/empty-state"
 import { IconSurface } from "@/components/ui/icon-surface"
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { StorySheetHeader } from "@/components/story-sheet-header"
 
 type CallType = "incoming" | "outgoing" | "missed" | "voicemail"
 type FilterType = "all" | CallType
@@ -69,7 +72,7 @@ function formatPhoneDisplay(phone: string | undefined | null): string {
 export function ActivityPage() {
   const [filter, setFilter] = useState<FilterType>("all")
   const [search, setSearch] = useState("")
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailCall, setDetailCall] = useState<CallRecord | null>(null)
   const { calls, quality, insights, loading, loadError, refreshing } = useOperationsData()
 
   const filters: { id: FilterType; label: string }[] = [
@@ -330,12 +333,12 @@ export function ActivityPage() {
             {calls.map((call) => {
               const config = callTypeConfig[call.type]
               const Icon = config.icon
-              const isExpanded = expandedId === call.id
 
               return (
                 <div key={call.id} className="overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-sm">
                   <button
-                    onClick={() => setExpandedId(isExpanded ? null : call.id)}
+                    type="button"
+                    onClick={() => setDetailCall(call)}
                     className="flex w-full items-center justify-between p-3.5 text-left"
                   >
                     <div className="flex items-center gap-3">
@@ -364,68 +367,69 @@ export function ActivityPage() {
                       </div>
                     </div>
                   </button>
-
-                  {/* Expanded Detail */}
-                  {isExpanded && (
-                    <div className="border-t border-border px-3.5 pb-3.5 pt-3 flex flex-col gap-3">
-                      {/* Details Row */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Routed To</span>
-                          <div className="flex items-center gap-1.5">
-                            <Avatar className="h-5 w-5">
-                              <AvatarFallback className={cn(call.routedColor, "text-primary-foreground text-[8px] font-bold")}>
-                                {call.routedInitials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm font-medium text-foreground">{call.routedTo}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Duration</span>
-                          <span className="text-sm font-medium text-foreground">
-                            {formatDurationLong(call.durationSeconds)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Recording Player */}
-                      {call.hasRecording ? (
-                        <div>
-                          <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-muted-foreground">
-                            Recording
-                          </span>
-                          {call.recordingUrl ? (
-                            <a
-                              href={call.recordingUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2.5 text-xs text-foreground hover:bg-secondary"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              Open recording
-                            </a>
-                          ) : (
-                            <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2.5">
-                              <Voicemail className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">Recording not available yet</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2.5">
-                          <Voicemail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">No recording available</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )
             })}
           </div>
         </section>
       ))}
+
+      <Sheet open={detailCall != null} onOpenChange={(o) => !o && setDetailCall(null)} modal>
+        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {detailCall ? (
+            <>
+              <StorySheetHeader
+                eyebrow="Operations story"
+                storyline="One call path — who picked up, how long they talked, and proof if you recorded it."
+                title={detailCall.callerName}
+                description={
+                  <>
+                    {detailCall.callerNumber} · {detailCall.date} {detailCall.time} ·{" "}
+                    <span className="capitalize">{detailCall.type}</span>
+                    {" · "}
+                    Routed to <span className="font-medium text-foreground">{detailCall.routedTo}</span>
+                  </>
+                }
+              />
+              <div className="space-y-4 px-4 pb-4 pt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Duration</span>
+                    <span className="text-sm font-medium text-foreground">{formatDurationLong(detailCall.durationSeconds)}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Recording</span>
+                    {detailCall.hasRecording && detailCall.recordingUrl ? (
+                      <a
+                        href={detailCall.recordingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex w-fit items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-xs text-foreground hover:bg-secondary"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Open recording
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {detailCall.hasRecording ? "Processing…" : "No recording"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <SheetFooter className="border-t border-border/70 bg-secondary/20 px-4 py-3">
+                <Link
+                  href="/dashboard"
+                  className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                  onClick={() => setDetailCall(null)}
+                >
+                  Adjust routing on Call console →
+                </Link>
+              </SheetFooter>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
       {!awaitingFirstPayload && filtered.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12">

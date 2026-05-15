@@ -9,6 +9,8 @@ import { useEffect, useState } from "react"
 import { Inbox, Loader2, Phone, MessageSquare } from "lucide-react"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { Badge } from "@/components/ui/badge"
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { StorySheetHeader } from "@/components/story-sheet-header"
 
 /** One lead row from GET /api/ai-leads */
 interface LeadRow {
@@ -47,6 +49,7 @@ export function LeadsPage() {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [leadSheet, setLeadSheet] = useState<LeadRow | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -104,43 +107,83 @@ export function LeadsPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {leads.map((lead) => (
-            <li
-              key={lead.id}
-              className="rounded-2xl border border-border/70 bg-card/85 p-4 shadow-sm"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="text-[10px] uppercase">
-                  {intentLabel(lead.intent_slug)}
-                </Badge>
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Phone className="h-3 w-3" />
-                  {formatCaller(lead.caller_e164)}
-                </span>
-                {lead.sms_sent ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-success">
-                    <MessageSquare className="h-3 w-3" />
-                    Text sent
+            <li key={lead.id}>
+              <button
+                type="button"
+                onClick={() => setLeadSheet(lead)}
+                className="w-full rounded-2xl border border-border/70 bg-card/85 p-4 text-left shadow-sm transition-colors hover:border-primary/35 hover:bg-card"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px] uppercase">
+                    {intentLabel(lead.intent_slug)}
+                  </Badge>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    {formatCaller(lead.caller_e164)}
                   </span>
-                ) : lead.sms_error ? (
-                  <span className="text-[11px] text-warning">SMS: {lead.sms_error}</span>
+                  {lead.sms_sent ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-success">
+                      <MessageSquare className="h-3 w-3" />
+                      Text sent
+                    </span>
+                  ) : lead.sms_error ? (
+                    <span className="text-[11px] text-warning">SMS: {lead.sms_error}</span>
+                  ) : null}
+                </div>
+                {lead.summary ? (
+                  <p className="mt-2 line-clamp-2 text-sm font-medium text-foreground">{lead.summary}</p>
                 ) : null}
-              </div>
-              {lead.summary ? (
-                <p className="mt-2 text-sm font-medium text-foreground">{lead.summary}</p>
-              ) : null}
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {new Date(lead.created_at).toLocaleString()}
-              </p>
-              <details className="mt-2 text-[11px] text-muted-foreground">
-                <summary className="cursor-pointer font-medium text-foreground">Details</summary>
-                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-secondary/50 p-2 text-[10px]">
-                  {JSON.stringify(lead.collected, null, 2)}
-                </pre>
-              </details>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {new Date(lead.created_at).toLocaleString()} · tap for full capture
+                </p>
+              </button>
             </li>
           ))}
         </ul>
       )}
+
+      <Sheet open={leadSheet != null} onOpenChange={(o) => !o && setLeadSheet(null)} modal>
+        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {leadSheet ? (
+            <>
+              <StorySheetHeader
+                eyebrow="AI intake story"
+                storyline="What the assistant heard and saved — the same thread your routing promised callers."
+                title={intentLabel(leadSheet.intent_slug)}
+                description={
+                  <>
+                    Caller {formatCaller(leadSheet.caller_e164)} · {new Date(leadSheet.created_at).toLocaleString()}
+                    {leadSheet.sms_sent ? (
+                      <span className="mt-1 block text-success">SMS confirmation sent to your line.</span>
+                    ) : null}
+                    {leadSheet.sms_error ? (
+                      <span className="mt-1 block text-warning">SMS: {leadSheet.sms_error}</span>
+                    ) : null}
+                  </>
+                }
+              />
+              {leadSheet.summary ? (
+                <p className="border-b border-border/60 px-4 py-3 text-sm font-medium text-foreground">{leadSheet.summary}</p>
+              ) : null}
+              <div className="max-h-[min(55vh,420px)] overflow-y-auto px-4 py-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Captured fields</p>
+                <pre className="whitespace-pre-wrap rounded-xl bg-secondary/40 p-3 text-[11px] leading-relaxed text-foreground">
+                  {JSON.stringify(leadSheet.collected, null, 2)}
+                </pre>
+              </div>
+              <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
+                <p className="text-[11px] text-muted-foreground">
+                  Tune how the assistant asks on{" "}
+                  <a href="/dashboard" className="font-semibold text-primary underline-offset-2 hover:underline">
+                    Call console
+                  </a>{" "}
+                  → Voice &amp; greetings.
+                </p>
+              </SheetFooter>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

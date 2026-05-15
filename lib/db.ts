@@ -16,6 +16,7 @@ import type {
   FeedbackSubmission,
   FeedbackStatus,
   AdminUserSummary,
+  AdminUserDetail,
   FeedbackCategory,
 } from "./types"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -2452,6 +2453,103 @@ export async function listAdminUserSummaries(limit: number = 200): Promise<Admin
     if (isMissingBillingColumnsError(e)) {
       throw new Error(
         "Admin billing list requires scripts/019-billing-admin-feedback.sql in Neon (adds credit_balance_cents, billing_plan, is_platform_admin)."
+      )
+    }
+    throw e
+  }
+}
+
+/** Operator drill-down: one account + recent calls (newest first). */
+export async function getAdminUserDetail(targetUserId: string): Promise<AdminUserDetail | null> {
+  const sql = getSql()
+  const callLimit = 40
+  try {
+    const userRows = await sql`
+      SELECT
+        u.id,
+        u.email,
+        u.name,
+        u.business_name,
+        u.credit_balance_cents,
+        u.billing_plan,
+        u.is_platform_admin,
+        u.created_at,
+        coalesce(agg.cnt, 0)::int AS calls_last_30_days,
+        coalesce(agg.secs, 0)::bigint AS talk_seconds_last_30_days
+      FROM users u
+      LEFT JOIN LATERAL (
+        SELECT
+          count(*)::int AS cnt,
+          coalesce(sum(cl.duration_seconds), 0)::bigint AS secs
+        FROM call_logs cl
+        WHERE cl.user_id = u.id AND cl.created_at > (now() - interval '30 days')
+      ) agg ON true
+      WHERE u.id = ${targetUserId}
+      LIMIT 1
+    `
+    if (!userRows.length) return null
+    const row = userRows[0] as Record<string, unknown>
+    const user = {
+      id: String(row.id),
+      email: String(row.email ?? ""),
+      name: String(row.name ?? ""),
+      business_name: String(row.business_name ?? ""),
+      credit_balance_cents: Number(row.credit_balance_cents ?? 0),
+      billing_plan: String(row.billing_plan ?? "trial"),
+      is_platform_admin: pgBool(row.is_platform_admin),
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+      calls_last_30_days: Number(row.calls_last_30_days ?? 0),
+      talk_seconds_last_30_days: Number(row.talk_seconds_last_30_days ?? 0),
+    }
+
+    const [rc] = await sql`
+      SELECT count(*)::int AS c FROM receptionists WHERE user_id = ${targetUserId}
+    `
+    const [pn] = await sql`
+      SELECT count(*)::int AS c FROM phone_numbers WHERE user_id = ${targetUserId}
+    `
+    const callRows = await sql`
+      SELECT
+        id,
+        created_at,
+        call_type,
+        status,
+        duration_seconds,
+        from_number,
+        to_number,
+        caller_name,
+        routed_to_name,
+        has_recording,
+        recording_url
+      FROM call_logs
+      WHERE user_id = ${targetUserId}
+      ORDER BY created_at DESC
+      LIMIT ${callLimit}
+    `
+    const recent_calls = (callRows as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ""),
+      call_type: String(r.call_type ?? "incoming"),
+      status: String(r.status ?? ""),
+      duration_seconds: Number(r.duration_seconds ?? 0),
+      from_number: String(r.from_number ?? ""),
+      to_number: String(r.to_number ?? ""),
+      caller_name: r.caller_name == null ? null : String(r.caller_name),
+      routed_to_name: r.routed_to_name == null ? null : String(r.routed_to_name),
+      has_recording: pgBool(r.has_recording),
+      recording_url: r.recording_url == null ? null : String(r.recording_url),
+    }))
+
+    return {
+      user,
+      receptionist_count: Number((rc as { c?: number })?.c ?? 0),
+      phone_number_count: Number((pn as { c?: number })?.c ?? 0),
+      recent_calls,
+    }
+  } catch (e) {
+    if (isMissingBillingColumnsError(e)) {
+      throw new Error(
+        "Admin user detail requires scripts/019-billing-admin-feedback.sql in Neon (adds credit_balance_cents, billing_plan, is_platform_admin)."
       )
     }
     throw e

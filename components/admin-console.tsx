@@ -10,6 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+} from "@/components/ui/sheet"
+import { StorySheetHeader } from "@/components/story-sheet-header"
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,7 +33,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useAdminConsoleSection } from "@/components/admin-console-context"
-import type { AdminUserSummary, FeedbackSubmission, FeedbackStatus } from "@/lib/types"
+import type { AdminUserDetail, AdminUserSummary, FeedbackSubmission, FeedbackStatus } from "@/lib/types"
 
 /** Numbers returned by GET /api/admin/overview (subset we display). */
 type Overview = {
@@ -49,7 +55,10 @@ export function AdminConsole() {
   const [overview, setOverview] = useState<Overview | null>(null)
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [feedback, setFeedback] = useState<FeedbackSubmission[]>([])
-  const [creditUserId, setCreditUserId] = useState<string | null>(null)
+  const [userSheetId, setUserSheetId] = useState<string | null>(null)
+  const [userDetail, setUserDetail] = useState<AdminUserDetail | null>(null)
+  const [userDetailLoading, setUserDetailLoading] = useState(false)
+  const [feedbackSheet, setFeedbackSheet] = useState<FeedbackSubmission | null>(null)
   const [creditUsd, setCreditUsd] = useState("")
   const [creditReason, setCreditReason] = useState("")
   const [busy, setBusy] = useState(false)
@@ -70,6 +79,26 @@ export function AdminConsole() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!userSheetId) {
+      setUserDetail(null)
+      return
+    }
+    let cancelled = false
+    setUserDetailLoading(true)
+    void fetch(`/api/admin/users/${encodeURIComponent(userSheetId)}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.resolve(null)))
+      .then((j) => {
+        if (!cancelled && j?.data) setUserDetail(j.data as AdminUserDetail)
+      })
+      .finally(() => {
+        if (!cancelled) setUserDetailLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userSheetId])
 
   /** Sums 30-day call volume across the loaded user list for the overview strip. */
   const usageTotals = useMemo(() => {
@@ -109,10 +138,14 @@ export function AdminConsole() {
         return
       }
       toast({ title: "Balance updated", description: `New balance (cents): ${j?.data?.balance_after_cents}` })
-      setCreditUserId(null)
       setCreditUsd("")
       setCreditReason("")
       await reload()
+      if (userSheetId === targetId) {
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(targetId)}`, { credentials: "include" })
+        const d = await res.json().catch(() => ({}))
+        if (res.ok && d?.data) setUserDetail(d.data as AdminUserDetail)
+      }
     } finally {
       setBusy(false)
     }
@@ -134,6 +167,9 @@ export function AdminConsole() {
         return
       }
       setUsers((prev) => prev.map((u) => (u.id === targetId ? { ...u, is_platform_admin: next } : u)))
+      setUserDetail((d) =>
+        d && d.user.id === targetId ? { ...d, user: { ...d.user, is_platform_admin: next } } : d
+      )
       toast({ title: next ? "Granted operator access" : "Revoked operator access" })
     } finally {
       setOperatorBusyId(null)
@@ -152,6 +188,7 @@ export function AdminConsole() {
       toast({ title: "Update failed", variant: "destructive" })
       return
     }
+    setFeedbackSheet((prev) => (prev && prev.id === id ? { ...prev, status } : prev))
     await reload()
   }
 
@@ -231,7 +268,7 @@ export function AdminConsole() {
                     <TableHead className="text-right text-slate-300">Calls 30d</TableHead>
                     <TableHead className="text-right text-slate-300">Talk sec</TableHead>
                     <TableHead className="text-slate-300">Operator</TableHead>
-                    <TableHead className="w-[100px] text-slate-300" />
+                    <TableHead className="w-[160px] text-slate-300">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -259,9 +296,9 @@ export function AdminConsole() {
                           variant="outline"
                           size="sm"
                           className="border-slate-600 text-slate-200 hover:bg-slate-800"
-                          onClick={() => setCreditUserId(u.id)}
+                          onClick={() => setUserSheetId(u.id)}
                         >
-                          Credit
+                          Manage
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -271,52 +308,203 @@ export function AdminConsole() {
             </CardContent>
           </Card>
 
-          {creditUserId && (
-            <Card className={cn(opCard, "border-violet-500/40 ring-1 ring-violet-500/20")}>
-              <CardHeader>
-                <CardTitle className="text-base text-slate-100">Adjust balance</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Positive dollars add credit; negative subtracts (e.g. -5 debits five dollars). Reason is stored on the
-                  ledger.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="usd" className="text-slate-300">
-                    Amount (USD)
-                  </Label>
-                  <Input
-                    id="usd"
-                    inputMode="decimal"
-                    value={creditUsd}
-                    onChange={(e) => setCreditUsd(e.target.value)}
-                    placeholder="10.00"
-                    className="border-slate-600 bg-slate-950/80 text-slate-100"
-                  />
-                </div>
-                <div className="flex-[2] space-y-2">
-                  <Label htmlFor="why" className="text-slate-300">
-                    Reason (shown in ledger)
-                  </Label>
-                  <Input
-                    id="why"
-                    value={creditReason}
-                    onChange={(e) => setCreditReason(e.target.value)}
-                    placeholder="Manual goodwill credit — ticket #123"
-                    className="border-slate-600 bg-slate-950/80 text-slate-100"
-                  />
-                </div>
-                <Button type="button" disabled={busy} onClick={() => void applyCredit(creditUserId)}>
-                  Apply
-                </Button>
-                <Button type="button" variant="ghost" className="text-slate-300 hover:bg-slate-800" onClick={() => setCreditUserId(null)}>
-                  Cancel
-                </Button>
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
+
+      <Sheet open={userSheetId != null} onOpenChange={(o) => !o && setUserSheetId(null)} modal>
+        <SheetContent
+          side="bottom"
+          className="gap-0 border-slate-700 bg-slate-950 p-0 text-slate-200 sm:mx-auto sm:max-w-2xl [&>button]:top-3 [&>button]:text-slate-300 [&>button]:hover:bg-slate-800"
+        >
+          <StorySheetHeader
+            variant="operator"
+            eyebrow="Fleet pulse"
+            storyline="One business account — routing volume, recent calls, and ledger tools in one place."
+            title={userDetail?.user.email ?? "Account"}
+            description={
+              userDetailLoading
+                ? "Loading account snapshot…"
+                : userDetail
+                  ? `${userDetail.user.name || "—"} · ${userDetail.user.business_name || "No business name"} · plan ${userDetail.user.billing_plan}`
+                  : "Open an account from the table."
+            }
+          />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4 pt-3">
+              {userDetailLoading && <p className="text-sm text-slate-400">Loading…</p>}
+              {!userDetailLoading && userDetail && (
+                <>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2">
+                      <p className="text-[10px] font-medium uppercase text-slate-500">Balance</p>
+                      <p className="text-lg font-semibold tabular-nums text-violet-200">
+                        {(userDetail.user.credit_balance_cents / 100).toLocaleString(undefined, {
+                          style: "currency",
+                          currency: "USD",
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2">
+                      <p className="text-[10px] font-medium uppercase text-slate-500">30d calls / talk</p>
+                      <p className="text-lg font-semibold tabular-nums text-slate-100">
+                        {userDetail.user.calls_last_30_days}{" "}
+                        <span className="text-sm font-normal text-slate-400">/ {userDetail.user.talk_seconds_last_30_days}s</span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2">
+                      <p className="text-[10px] font-medium uppercase text-slate-500">Team / numbers</p>
+                      <p className="text-lg font-semibold text-slate-100">
+                        {userDetail.receptionist_count}{" "}
+                        <span className="text-sm font-normal text-slate-400">/ {userDetail.phone_number_count} lines</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/80 bg-slate-900/40 px-3 py-2">
+                    <span className="text-xs text-slate-400">Operator (this console)</span>
+                    <Switch
+                      checked={userDetail.user.is_platform_admin}
+                      disabled={operatorBusyId === userDetail.user.id}
+                      onCheckedChange={(v) => void patchOperatorFlag(userDetail.user.id, v)}
+                      className="data-[state=checked]:bg-violet-600"
+                      aria-label="Platform admin"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent calls (newest)</p>
+                    {userDetail.recent_calls.length === 0 ? (
+                      <p className="text-sm text-slate-500">No call_logs rows yet.</p>
+                    ) : (
+                      <div className="max-h-56 overflow-auto rounded-lg border border-slate-800">
+                        <table className="w-full text-left text-xs">
+                          <thead className="sticky top-0 bg-slate-900 text-[10px] uppercase text-slate-500">
+                            <tr>
+                              <th className="px-2 py-1.5">When</th>
+                              <th className="px-2 py-1.5">Type</th>
+                              <th className="px-2 py-1.5">From / to</th>
+                              <th className="px-2 py-1.5 text-right">Sec</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userDetail.recent_calls.map((c) => (
+                              <tr key={c.id} className="border-t border-slate-800/80 text-slate-300">
+                                <td className="whitespace-nowrap px-2 py-1.5 text-[10px] text-slate-400">
+                                  {new Date(c.created_at).toLocaleString()}
+                                </td>
+                                <td className="px-2 py-1.5 capitalize">{c.call_type}</td>
+                                <td className="max-w-[140px] truncate px-2 py-1.5 text-[10px]" title={`${c.from_number} → ${c.to_number}`}>
+                                  {c.from_number} → {c.to_number}
+                                </td>
+                                <td className="px-2 py-1.5 text-right tabular-nums">{c.duration_seconds}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-violet-500/30 bg-violet-950/20 p-3">
+                    <p className="text-xs font-semibold text-violet-200">Adjust prepaid balance</p>
+                    <p className="mt-1 text-[11px] text-slate-400">Positive adds credit; negative debits. Reason is stored on the ledger.</p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <div className="flex-1 space-y-1">
+                        <Label htmlFor="op-credit-usd" className="text-slate-400">
+                          Amount (USD)
+                        </Label>
+                        <Input
+                          id="op-credit-usd"
+                          inputMode="decimal"
+                          value={creditUsd}
+                          onChange={(e) => setCreditUsd(e.target.value)}
+                          placeholder="10.00"
+                          className="border-slate-600 bg-slate-950/80 text-slate-100"
+                        />
+                      </div>
+                      <div className="flex-[2] space-y-1">
+                        <Label htmlFor="op-credit-why" className="text-slate-400">
+                          Reason
+                        </Label>
+                        <Input
+                          id="op-credit-why"
+                          value={creditReason}
+                          onChange={(e) => setCreditReason(e.target.value)}
+                          placeholder="Goodwill credit — ticket #123"
+                          className="border-slate-600 bg-slate-950/80 text-slate-100"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={busy || !userSheetId}
+                        className="bg-violet-600 text-white hover:bg-violet-500"
+                        onClick={() => userSheetId && void applyCredit(userSheetId)}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <SheetFooter className="border-t border-slate-800 bg-slate-900/80 px-4 py-3">
+              <Button type="button" variant="ghost" className="text-slate-300 hover:bg-slate-800" onClick={() => setUserSheetId(null)}>
+                Close
+              </Button>
+            </SheetFooter>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={feedbackSheet != null} onOpenChange={(o) => !o && setFeedbackSheet(null)} modal>
+        <SheetContent
+          side="bottom"
+          className="gap-0 border-slate-700 bg-slate-950 p-0 text-slate-200 sm:mx-auto sm:max-w-lg [&>button]:top-3 [&>button]:text-slate-300"
+        >
+          {feedbackSheet && (
+            <>
+              <StorySheetHeader
+                variant="operator"
+                eyebrow="Voice of the customer"
+                storyline="What members are asking — triage without leaving the story."
+                title={feedbackSheet.subject}
+                description={
+                  <>
+                    <span className="font-medium text-slate-300">{feedbackSheet.category}</span> ·{" "}
+                    {new Date(feedbackSheet.created_at).toLocaleString()} · id {feedbackSheet.id}
+                  </>
+                }
+              />
+              <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 pb-4 pt-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-medium uppercase text-slate-500">Status</span>
+                  <Select
+                    value={feedbackSheet.status}
+                    onValueChange={(v) => void setFeedbackStatus(feedbackSheet.id, v as FeedbackStatus)}
+                  >
+                    <SelectTrigger className="h-8 w-[140px] border-slate-600 bg-slate-900 text-xs text-slate-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FEEDBACK_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{feedbackSheet.body}</p>
+              </div>
+              <SheetFooter className="border-t border-slate-800 bg-slate-900/80 px-4 py-3">
+                <Button type="button" variant="ghost" className="text-slate-300 hover:bg-slate-800" onClick={() => setFeedbackSheet(null)}>
+                  Close
+                </Button>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {section === "support" && (
         <>
@@ -332,28 +520,24 @@ export function AdminConsole() {
             <CardContent className="space-y-4">
               {feedback.length === 0 && <p className="text-sm text-slate-400">No rows (or table not migrated yet).</p>}
               {feedback.map((row) => (
-                <div key={row.id} className="rounded-xl border border-slate-700/80 bg-slate-950/40 p-4">
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => setFeedbackSheet(row)}
+                  className="w-full rounded-xl border border-slate-700/80 bg-slate-950/40 p-4 text-left transition-colors hover:border-violet-500/40 hover:bg-slate-900/60"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-medium uppercase text-slate-500">{row.category}</span>
-                    <Select value={row.status} onValueChange={(v) => void setFeedbackStatus(row.id, v as FeedbackStatus)}>
-                      <SelectTrigger className="h-8 w-[130px] border-slate-600 bg-slate-900 text-xs text-slate-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FEEDBACK_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-300">
+                      {row.status}
+                    </span>
                   </div>
                   <p className="mt-2 text-sm font-medium text-slate-100">{row.subject}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-400">{row.body}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{row.body}</p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {new Date(row.created_at).toLocaleString()} · id {row.id}
+                    {new Date(row.created_at).toLocaleString()} · id {row.id} · tap for full view
                   </p>
-                </div>
+                </button>
               ))}
             </CardContent>
           </Card>

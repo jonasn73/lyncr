@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import Link from "next/link"
 import {
   Search,
   Plus,
@@ -27,6 +28,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { StorySheetHeader } from "@/components/story-sheet-header"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -58,12 +61,18 @@ export function ContactsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newName, setNewName] = useState("")
   const [newPhone, setNewPhone] = useState("")
+  const [teamSheet, setTeamSheet] = useState<Contact | null>(null)
 
   const filtered = contacts.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone.includes(searchQuery)
   )
+
+  const teamSheetLive = useMemo(() => {
+    if (!teamSheet) return null
+    return contacts.find((c) => c.id === teamSheet.id) ?? teamSheet
+  }, [teamSheet, contacts])
 
   const activeCount = contacts.filter((c) => c.active).length
 
@@ -195,7 +204,11 @@ export function ContactsPage() {
               contact.active && "border-primary/30 bg-primary/5"
             )}
           >
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setTeamSheet(contact)}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left outline-none ring-offset-background transition-colors hover:bg-secondary/40 focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <div className="relative">
                 <Avatar className="h-11 w-11">
                   <AvatarFallback
@@ -229,7 +242,7 @@ export function ContactsPage() {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
             <div className="flex items-center gap-2">
               <Switch
                 checked={contact.active}
@@ -310,6 +323,63 @@ export function ContactsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={teamSheet != null} onOpenChange={(o) => !o && setTeamSheet(null)} modal>
+        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {teamSheetLive ? (
+            <>
+              <StorySheetHeader
+                eyebrow="Team story"
+                storyline="Who answers when your business line rings — flip routing without leaving the narrative."
+                title={teamSheetLive.name}
+                description={
+                  <>
+                    {teamSheetLive.phone} · {teamSheetLive.active ? "Receiving calls" : "Paused"} ·{" "}
+                    {teamSheetLive.priority ? "Priority ring order" : "Standard order"}
+                  </>
+                }
+              />
+              <div className="space-y-4 px-4 pb-4 pt-3">
+                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-3 py-2.5">
+                  <span className="text-sm text-foreground">Route calls here</span>
+                  <Switch
+                    checked={teamSheetLive.active}
+                    onCheckedChange={() => toggleContact(teamSheetLive.id)}
+                    aria-label={`Route calls to ${teamSheetLive.name}`}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-3 py-2.5">
+                  <span className="text-sm text-foreground">Priority</span>
+                  <Switch
+                    checked={teamSheetLive.priority}
+                    onCheckedChange={() => togglePriority(teamSheetLive.id)}
+                    aria-label="Priority"
+                  />
+                </div>
+              </div>
+              <SheetFooter className="flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3 sm:flex-row sm:justify-between">
+                <Link
+                  href="/dashboard"
+                  className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                  onClick={() => setTeamSheet(null)}
+                >
+                  Choose who answers on Call console →
+                </Link>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-destructive hover:underline"
+                  onClick={() => {
+                    removeContact(teamSheetLive.id)
+                    setTeamSheet(null)
+                  }}
+                >
+                  Remove from team
+                </button>
+              </SheetFooter>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

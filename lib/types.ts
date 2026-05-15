@@ -51,6 +51,29 @@ export interface AdminUserSummary {
   talk_seconds_last_30_days: number
 }
 
+/** One call row in the operator drill-down (subset of `call_logs`). */
+export interface AdminRecentCallRow {
+  id: string
+  created_at: string
+  call_type: string
+  status: string
+  duration_seconds: number
+  from_number: string
+  to_number: string
+  caller_name: string | null
+  routed_to_name: string | null
+  has_recording: boolean
+  recording_url: string | null
+}
+
+/** GET /api/admin/users/[id] — account pulse + recent activity. */
+export interface AdminUserDetail {
+  user: AdminUserSummary
+  receptionist_count: number
+  phone_number_count: number
+  recent_calls: AdminRecentCallRow[]
+}
+
 // --- Receptionists / Agents ---
 export interface Receptionist {
   id: string
