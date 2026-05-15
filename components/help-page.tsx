@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { StorySheetHeader } from "@/components/story-sheet-header"
+import { getAppSheetStory, helpPlanStoryKey, helpCategoryStoryKey } from "@/components/app-sheet-stories"
+import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import {
   Select,
   SelectContent,
@@ -40,6 +44,8 @@ export function HelpPage() {
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [sending, setSending] = useState(false)
+  /** Story sheet key from `getAppSheetStory` (Help-specific keys use `help-*` prefix). */
+  const [helpSheetKey, setHelpSheetKey] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/auth/session", { credentials: "include" })
@@ -81,36 +87,55 @@ export function HelpPage() {
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6 pb-28">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Help & feedback</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pricing overview, account balance, and a direct line to report issues or suggest features.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Help & feedback</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pricing overview, account balance, and a direct line to report issues or suggest features.
+          </p>
+        </div>
+        <SheetInfoTrigger onPress={() => setHelpSheetKey("help-page-overview")} label="About Help and feedback" />
       </div>
 
       {billing && (
         <Card className="border-border/80 bg-card/90 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Your plan & balance</CardTitle>
-            <CardDescription>Prepaid credits apply to future metered usage (voice minutes, AI, etc.).</CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <CardTitle className="text-base">Your plan & balance</CardTitle>
+                <CardDescription>Prepaid credits apply to future metered usage (voice minutes, AI, etc.).</CardDescription>
+              </div>
+              <SheetInfoTrigger onPress={() => setHelpSheetKey("help-balance")} label="About plan and balance" />
+            </div>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Current plan</span>
-              <span className="font-medium capitalize text-foreground">{billing.current_plan}</span>
+              <span className="flex items-center gap-1 font-medium capitalize text-foreground">
+                {billing.current_plan}
+                <SheetInfoTrigger
+                  onPress={() => setHelpSheetKey(helpPlanStoryKey(billing.current_plan))}
+                  label="About this plan tier"
+                  className="h-7 w-7"
+                />
+              </span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Account balance</span>
-              <span className="font-medium text-foreground">{billing.credit_balance_label}</span>
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {billing.credit_balance_label}
+                <SheetInfoTrigger onPress={() => setHelpSheetKey("help-balance")} label="About account balance" className="h-7 w-7" />
+              </span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Voice overage (after included minutes)</span>
-              <span className="font-medium text-foreground">
+              <span className="flex items-center gap-1 font-medium text-foreground">
                 {(billing.metered_voice_cents_per_minute / 100).toLocaleString(undefined, {
                   style: "currency",
                   currency: "USD",
                 })}
                 /min
+                <SheetInfoTrigger onPress={() => setHelpSheetKey("help-overage")} label="About voice overage rate" className="h-7 w-7" />
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -123,15 +148,30 @@ export function HelpPage() {
 
       <Card className="border-border/80 bg-card/90 shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Plans (reference)</CardTitle>
-          <CardDescription>Included minutes are pooled estimates before metered rates apply.</CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="text-base">Plans (reference)</CardTitle>
+              <CardDescription>Included minutes are pooled estimates before metered rates apply.</CardDescription>
+            </div>
+            <SheetInfoTrigger onPress={() => setHelpSheetKey("help-plans-table")} label="About the plan ladder" />
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
           {(billing?.plans ?? []).map((p) => (
-            <div key={p.key} className="flex justify-between rounded-xl border border-border/60 px-3 py-2 text-sm">
-              <span className="capitalize text-foreground">{p.key}</span>
-              <span className="text-muted-foreground">
-                {p.monthly_price_label}/mo · {p.included_minutes_per_month} min incl.
+            <div
+              key={p.key}
+              className="flex flex-col gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="min-w-0 capitalize text-foreground">{p.key}</span>
+              <span className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground sm:justify-end">
+                <span>
+                  {p.monthly_price_label}/mo · {p.included_minutes_per_month} min incl.
+                </span>
+                <SheetInfoTrigger
+                  onPress={() => setHelpSheetKey(helpPlanStoryKey(p.key))}
+                  label={`About ${p.key} plan`}
+                  className="h-7 w-7"
+                />
               </span>
             </div>
           ))}
@@ -141,13 +181,25 @@ export function HelpPage() {
 
       <Card className="border-border/80 bg-card/90 shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Send a message</CardTitle>
-          <CardDescription>Bug reports, billing questions, or feature ideas go to the same queue.</CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="text-base">Send a message</CardTitle>
+              <CardDescription>Bug reports, billing questions, or feature ideas go to the same queue.</CardDescription>
+            </div>
+            <SheetInfoTrigger onPress={() => setHelpSheetKey("help-feedback-form")} label="About sending a message" />
+          </div>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="cat">Category</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="cat">Category</Label>
+                <SheetInfoTrigger
+                  onPress={() => setHelpSheetKey(helpCategoryStoryKey(category))}
+                  label="About this category"
+                  className="h-7 w-7"
+                />
+              </div>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger id="cat" className="w-full">
                   <SelectValue placeholder="Pick one" />
@@ -198,6 +250,41 @@ export function HelpPage() {
           </Link>
         </p>
       )}
+
+      <Sheet open={helpSheetKey != null} onOpenChange={(open) => !open && setHelpSheetKey(null)} modal>
+        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {(() => {
+            const story = helpSheetKey ? getAppSheetStory(helpSheetKey) : null
+            if (!helpSheetKey) return null
+            if (!story) {
+              return (
+                <div className="p-6 text-sm text-muted-foreground">
+                  No story is defined for this item yet.
+                </div>
+              )
+            }
+            return (
+              <>
+                <StorySheetHeader {...story} />
+                <div className="border-t border-border/60 px-4 py-3">
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Routing and call flow live on{" "}
+                    <Link href="/dashboard" className="font-medium text-primary underline-offset-4 hover:underline">
+                      the Call console
+                    </Link>
+                    .
+                  </p>
+                </div>
+                <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
+                  <p className="text-[11px] text-muted-foreground">
+                    Submit the form above after you read this — include enough detail for a one-pass reply.
+                  </p>
+                </SheetFooter>
+              </>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
