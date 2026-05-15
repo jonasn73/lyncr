@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import {
   Moon,
@@ -190,6 +191,18 @@ export function SettingsPage() {
   const [routingLineLabelError, setRoutingLineLabelError] = useState<string | null>(null)
   /** Account has voice AI assistant id — pairs with per-line `fallback_type === "ai"` for “AI live”. */
   const [telnyxAssistantLinked, setTelnyxAssistantLinked] = useState(false)
+
+  const pathname = usePathname()
+
+  // Deep link from dashboard Quick setup: /dashboard/settings#business-numbers
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (window.location.hash !== "#business-numbers") return
+    const id = window.setTimeout(() => {
+      document.getElementById("business-numbers")?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 120)
+    return () => window.clearTimeout(id)
+  }, [pathname])
 
   // Load current user so we can show main line (cell) in profile
   useEffect(() => {
@@ -985,7 +998,7 @@ export function SettingsPage() {
       </div>
 
       {/* Business numbers: the numbers customers call; buy or port; route to cell or receptionists */}
-      <section className="space-y-3">
+      <section id="business-numbers" className="scroll-mt-20 space-y-3">
         <div>
           <h3 className="mb-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Business numbers

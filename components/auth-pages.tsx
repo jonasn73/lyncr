@@ -93,7 +93,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {isSignup
-                ? "Use your cell as your main line. Add a business number to port or buy after signup."
+                ? "First you will add a business number (buy or port). Your cell is the line we ring you on until you add teammates."
                 : "Log in to manage your calls"}
             </p>
           </div>
@@ -143,7 +143,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
                     className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Calls will ring here by default. Add a business number (buy or port) in Settings after signup.
+                    After signup, open Settings → Business numbers first. Your cell is where we ring you by default.
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5">

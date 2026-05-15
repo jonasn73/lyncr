@@ -422,33 +422,87 @@ export function DashboardPage() {
             <div className="flex-1">
               <p className="text-sm font-semibold text-foreground">Quick setup</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Complete these steps to go live fast.
+                Start with a business line, then choose who answers and what happens if nobody picks up. Add teammates when
+                you are ready.
               </p>
               <div className="mt-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/70 px-3 py-2">
-                  <span className="text-xs text-foreground">1. Add a business number</span>
-                  {hasBusinessNumbers ? (
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">Done</span>
-                  ) : (
-                    <a href="/dashboard/settings" className="text-[11px] font-semibold text-primary hover:underline">Open settings</a>
+                <div
+                  className={cn(
+                    "flex flex-col gap-2 rounded-xl border bg-card/70 px-3 py-2.5",
+                    hasBusinessNumbers ? "border-border/70" : "border-primary/35 ring-1 ring-primary/15"
                   )}
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/70 px-3 py-2">
-                  <span className="text-xs text-foreground">2. Add people to route to (optional)</span>
-                  {hasReceptionists ? (
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">Done</span>
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-foreground">1 · Business number</span>
+                    {hasBusinessNumbers ? (
+                      <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+                        Done
+                      </span>
+                    ) : null}
+                  </div>
+                  {!hasBusinessNumbers ? (
+                    <p className="text-[11px] leading-snug text-muted-foreground">
+                      Buy or port the number customers dial — routing and fallbacks apply to this line.
+                    </p>
+                  ) : null}
+                  {!hasBusinessNumbers ? (
+                    <Link
+                      href="/dashboard/settings#business-numbers"
+                      className="inline-flex w-fit items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Add number in Settings
+                    </Link>
                   ) : (
-                    <Link href="/dashboard/contacts" className="text-[11px] font-semibold text-primary hover:underline">
-                      Open Team
+                    <Link href="/dashboard/settings#business-numbers" className="w-fit text-[11px] font-semibold text-primary hover:underline">
+                      Manage numbers
                     </Link>
                   )}
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/70 px-3 py-2">
-                  <span className="text-xs text-foreground">3. Pick who answers below</span>
+
+                <div
+                  className={cn(
+                    "flex flex-col gap-1.5 rounded-xl border border-border/70 bg-card/70 px-3 py-2",
+                    !hasBusinessNumbers && "opacity-60"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-foreground">2 · Who answers</span>
+                    {hasBusinessNumbers ? (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        On this page
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[10px] text-muted-foreground">After step 1</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Ring your cell or a receptionist first, then set voicemail, AI, or owner backup below.
+                  </p>
                   {hasBusinessNumbers ? (
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">Ready</span>
+                    <a
+                      href="#routing-forward"
+                      className="w-fit text-[11px] font-semibold text-primary hover:underline"
+                    >
+                      Jump to routing
+                    </a>
+                  ) : null}
+                </div>
+
+                <div
+                  className={cn(
+                    "flex items-center justify-between rounded-xl border border-border/70 bg-card/70 px-3 py-2",
+                    !hasBusinessNumbers && "opacity-60"
+                  )}
+                >
+                  <span className="text-xs text-foreground">3 · Team (optional)</span>
+                  {hasReceptionists ? (
+                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">Added</span>
+                  ) : hasBusinessNumbers ? (
+                    <Link href="/dashboard/contacts" className="text-[11px] font-semibold text-primary hover:underline">
+                      Open Team
+                    </Link>
                   ) : (
-                    <span className="text-[10px] text-muted-foreground">Add a number first</span>
+                    <span className="text-[10px] text-muted-foreground">After step 1</span>
                   )}
                 </div>
               </div>
@@ -481,7 +535,7 @@ export function DashboardPage() {
               Ring &amp; backup
             </a>
             <Link
-              href="/dashboard/settings"
+              href="/dashboard/settings#business-numbers"
               className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary"
             >
               <Settings2 className="h-3.5 w-3.5 text-primary" aria-hidden />
@@ -503,7 +557,7 @@ export function DashboardPage() {
           className="pointer-events-none absolute inset-0 rounded-2xl"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 0%, oklch(0.72 0.17 175 / 0.08) 0%, transparent 70%)",
+              "radial-gradient(ellipse at 50% 0%, oklch(0.70 0.19 278 / 0.09) 0%, transparent 70%)",
           }}
         />
         <div className="relative flex w-full max-w-2xl mx-auto flex-col items-center gap-5">
@@ -924,7 +978,7 @@ export function DashboardPage() {
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             Give each number a clear line label in{" "}
-            <Link href="/dashboard/settings" className="font-semibold text-primary underline underline-offset-2">
+            <Link href="/dashboard/settings#business-numbers" className="font-semibold text-primary underline underline-offset-2">
               Settings
             </Link>{" "}
             — that label is what your team hears in the whisper (not your account business name).
