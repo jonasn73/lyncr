@@ -1,12 +1,13 @@
 "use client"
 
+import { memo, useMemo } from "react"
 import { Info } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { cn } from "@/lib/utils"
 
 /** Compact story layer above sheets/modals (z-[200]) so it stacks above Sheet z-[110]. */
-export function StoryPopoverInfo({
+export const StoryPopoverInfo = memo(function StoryPopoverInfo({
   storyKey,
   label = "Learn more",
   className,
@@ -19,11 +20,11 @@ export function StoryPopoverInfo({
   triggerClassName?: string
   variant?: "member" | "operator"
 }) {
-  const story = getAppSheetStory(storyKey)
+  const story = useMemo(() => getAppSheetStory(storyKey), [storyKey])
   if (!story) return null
   const op = variant === "operator"
   return (
-    <Popover>
+    <Popover modal={false}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -40,10 +41,11 @@ export function StoryPopoverInfo({
         </button>
       </PopoverTrigger>
       <PopoverContent
+        motion="fade"
         align="end"
         sideOffset={6}
         className={cn(
-          "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto p-0 shadow-xl",
+          "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto overscroll-contain p-0 shadow-xl",
           op ? "border-slate-600 bg-slate-950 text-slate-200" : "border-border/80 bg-popover text-popover-foreground",
           className
         )}
@@ -84,4 +86,4 @@ export function StoryPopoverInfo({
       </PopoverContent>
     </Popover>
   )
-}
+})

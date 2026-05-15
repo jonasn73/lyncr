@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useRef, useCallback, memo, type ReactNode } from "react"
+import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -30,7 +31,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { AiIntakeFlowPanel } from "@/components/ai-intake-flow-panel"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { StorySheetHeader } from "@/components/story-sheet-header"
@@ -109,7 +109,20 @@ const fallbackOptions: { id: FallbackOption; label: string; description: string;
   { id: "voicemail", label: "Voicemail", description: "Send caller to voicemail", icon: Voicemail, color: "text-warning", bgColor: "bg-warning/10" },
 ]
 
-function RoutingCallPathSheetHeader({
+const AiIntakeFlowPanelLazy = dynamic(
+  () => import("@/components/ai-intake-flow-panel").then((mod) => mod.AiIntakeFlowPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground" role="status" aria-live="polite">
+        <Loader2 className="h-7 w-7 shrink-0 animate-spin" aria-hidden />
+        <span className="text-xs">Loading AI flow…</span>
+      </div>
+    ),
+  }
+)
+
+const RoutingCallPathSheetHeader = memo(function RoutingCallPathSheetHeader({
   step,
   title,
   description,
@@ -133,7 +146,7 @@ function RoutingCallPathSheetHeader({
           <span
             key={n}
             className={cn(
-              "h-1 flex-1 rounded-full transition-all",
+              "h-1 flex-1 rounded-full transition-[background-color,box-shadow] duration-200",
               n <= step ? "bg-primary shadow-[0_0_10px_-2px_var(--primary)]" : "bg-muted/70"
             )}
           />
@@ -145,7 +158,7 @@ function RoutingCallPathSheetHeader({
       </SheetDescription>
     </SheetHeader>
   )
-}
+})
 
 export function DashboardPage() {
   const searchParams = useSearchParams()
@@ -313,7 +326,8 @@ export function DashboardPage() {
   // When fallback_type is "ai", the API auto-provisions voice AI and returns voiceAi.
   // With **two or more** business lines, never send `business_number: null` for per-line fields — that only updated the
   // account default row and left the tapped line’s `routing_config` unchanged (calls still rang the wrong person).
-  function saveRouting(updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> {
+  const saveRouting = useCallback(
+    (updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> => {
     const active = businessNumbers.filter((b) => b.status === "active")
     const lineE164 =
       (routingBusinessNumber && routingBusinessNumber.trim()) ||
@@ -430,26 +444,31 @@ export function DashboardPage() {
           })
         }
       })
-  }
+  },
+    [businessNumbers, routingBusinessNumber, toast]
+  )
 
-  function selectReceptionist(id: string) {
-    const active = businessNumbers.filter((b) => b.status === "active")
-    if (active.length >= 2 && !routingBusinessNumber?.trim()) {
-      toast({
-        title: "Tap a business number first",
-        description: "With two lines, tap the green number card for the line Sarah should answer, then tap Sarah again.",
-        variant: "destructive",
+  const selectReceptionist = useCallback(
+    (id: string) => {
+      const active = businessNumbers.filter((b) => b.status === "active")
+      if (active.length >= 2 && !routingBusinessNumber?.trim()) {
+        toast({
+          title: "Tap a business number first",
+          description: "With two lines, tap the green number card for the line Sarah should answer, then tap Sarah again.",
+          variant: "destructive",
+        })
+        return
+      }
+      const prev = selectedReceptionistId
+      setSelectedReceptionistId(id)
+      void saveRouting({ selected_receptionist_id: id }).catch((e) => {
+        if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
       })
-      return
-    }
-    const prev = selectedReceptionistId
-    setSelectedReceptionistId(id)
-    void saveRouting({ selected_receptionist_id: id }).catch((e) => {
-      if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
-    })
-  }
+    },
+    [businessNumbers, routingBusinessNumber, toast, saveRouting, selectedReceptionistId]
+  )
 
-  function clearReceptionist() {
+  const clearReceptionist = useCallback(() => {
     const active = businessNumbers.filter((b) => b.status === "active")
     if (active.length >= 2 && !routingBusinessNumber?.trim()) {
       toast({
@@ -464,7 +483,7 @@ export function DashboardPage() {
     void saveRouting({ selected_receptionist_id: null }).catch((e) => {
       if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
     })
-  }
+  }, [businessNumbers, routingBusinessNumber, toast, saveRouting, selectedReceptionistId])
 
   return (
     <div className="flex flex-col gap-5 p-4 pb-24">
@@ -593,10 +612,7 @@ export function DashboardPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-semibold tracking-tight text-foreground">Call console</h2>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                    </span>
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_10px_oklch(0.72_0.19_155_/_0.55)]" aria-hidden />
                     Live
                   </span>
                   <SheetInfoTrigger
@@ -622,7 +638,7 @@ export function DashboardPage() {
             <div className="flex flex-wrap gap-2 lg:justify-end">
               <a
                 href="#routing-lines"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-secondary"
               >
                 <PhoneForwarded className="h-3.5 w-3.5 text-primary" aria-hidden />
                 Lines
@@ -630,21 +646,21 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setRingBackupOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-secondary"
               >
                 <Clock className="h-3.5 w-3.5 text-primary" aria-hidden />
                 Ring &amp; backup
               </button>
               <Link
                 href="/dashboard/settings#business-numbers"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-secondary"
               >
                 <Settings2 className="h-3.5 w-3.5 text-primary" aria-hidden />
                 Numbers
               </Link>
               <Link
                 href="/dashboard/activity"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-secondary"
               >
                 <Activity className="h-3.5 w-3.5 text-primary" aria-hidden />
                 Activity
@@ -758,7 +774,7 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() => setWhoAnswersOpen(true)}
-              className="group flex flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-[transform,box-shadow,border-color] duration-200 hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
             >
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Who answers</span>
               <span className="text-base font-semibold text-foreground">
@@ -777,7 +793,7 @@ export function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setRingBackupOpen(true)}
-                className="group flex h-full min-h-[8.5rem] w-full flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
+                className="group flex h-full min-h-[8.5rem] w-full flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-[transform,box-shadow,border-color] duration-200 hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
               >
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ring &amp; backup</span>
                 <span className="text-base font-semibold text-foreground">{ringTimeoutSec}s</span>
@@ -792,7 +808,7 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() => setShowFallbackSettings(true)}
-              className="group flex flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-border/80 bg-background/80 p-4 text-left shadow-sm ring-1 ring-transparent transition-[transform,box-shadow,border-color] duration-200 hover:border-primary/35 hover:ring-primary/15 hover:shadow-md"
             >
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Voice &amp; greetings</span>
               <span className="text-base font-semibold text-foreground">AI script &amp; voicemail</span>
@@ -1104,7 +1120,7 @@ export function DashboardPage() {
                           void saveRouting({ fallback_type: option.id })
                         }}
                         className={cn(
-                          "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-3 text-left transition-all",
+                          "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-3 text-left transition-[background-color,box-shadow] duration-200",
                           isActive ? "bg-primary/5 ring-1 ring-primary/30" : "hover:bg-secondary"
                         )}
                       >
@@ -1180,7 +1196,7 @@ export function DashboardPage() {
                       and choose <span className="font-medium text-foreground">Your phone</span>.
                     </p>
                   )}
-                  <AiIntakeFlowPanel
+                  <AiIntakeFlowPanelLazy
                     variant="modal"
                     aiNoAnswerSelected={fallback === "ai"}
                     externalAssistantLinked={hasTelnyxAiAssistant}
