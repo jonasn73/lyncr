@@ -3,7 +3,6 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState, memo } from "react"
 import Link from "next/link"
 import {
-  Phone,
   Users,
   BarChart3,
   Settings,
@@ -17,6 +16,7 @@ import {
   Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import {
@@ -183,7 +183,7 @@ export function AppShell({
             aria-label="Go to home"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Phone className="h-4 w-4 text-primary-foreground" />
+              <BrandMark className="h-4 w-4 text-primary-foreground" />
             </div>
             <BrandWordmark size="md" />
           </Link>
@@ -195,7 +195,7 @@ export function AppShell({
             aria-label="Go to routing"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Phone className="h-4 w-4 text-primary-foreground" />
+              <BrandMark className="h-4 w-4 text-primary-foreground" />
             </div>
             <BrandWordmark size="md" />
           </button>

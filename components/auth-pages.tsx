@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
 import { SIGNUP_INDUSTRY_OPTIONS } from "@/lib/business-industries"
-import { Phone, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 
 interface AuthPageProps {
   mode: "login" | "signup"
@@ -78,7 +79,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
       <header className="flex items-center justify-center px-6 py-5">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Phone className="h-4 w-4 text-primary-foreground" />
+            <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" />
         </div>

@@ -8,13 +8,13 @@ import {
   Bot,
   BarChart3,
   ArrowRight,
-  Phone,
   Clock,
   Shield,
   Zap,
   ChevronDown,
   Check,
 } from "lucide-react"
+import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/brand"
 
@@ -167,7 +167,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Phone className="h-4 w-4 text-primary-foreground" />
+              <BrandMark className="h-4 w-4 text-primary-foreground" />
             </div>
             <BrandWordmark size="md" />
           </div>
@@ -510,7 +510,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 md:flex-row">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-              <Phone className="h-3.5 w-3.5 text-primary-foreground" />
+              <BrandMark className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
             <BrandWordmark size="sm" />
           </div>

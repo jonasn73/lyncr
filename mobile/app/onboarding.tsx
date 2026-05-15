@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
 import { apiMutate } from "../lib/api"
 import { BrandWordmark } from "@/components/BrandWordmark"
+import { BrandMark } from "@/components/BrandMark"
 import { colors } from "../lib/theme"
 
 export default function OnboardingScreen() {
@@ -40,7 +41,9 @@ export default function OnboardingScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: Math.max(48, insets.top + 16), paddingBottom: insets.bottom + 48 }]}>
       <View style={styles.header}>
-        <Text style={styles.logo}>📞</Text>
+        <View style={styles.logoTile}>
+          <BrandMark size={20} tone="onPrimary" />
+        </View>
         <BrandWordmark size="lg" />
         <Text style={styles.steps}>Step {step} of 3</Text>
       </View>
@@ -105,7 +108,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 24, paddingBottom: 48 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 32, gap: 8 },
-  logo: { fontSize: 24 },
+  logoTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   steps: { marginLeft: "auto", fontSize: 12, color: colors.textMuted },
   heading: { fontSize: 22, fontWeight: "700", color: colors.text, marginBottom: 8 },
   subheading: { fontSize: 14, color: colors.textMuted, marginBottom: 24 },

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
 import { apiMutate } from "../lib/api"
 import { BrandWordmark } from "@/components/BrandWordmark"
+import { BrandMark } from "@/components/BrandMark"
 import { colors } from "../lib/theme"
 
 export default function LoginScreen() {
@@ -48,7 +49,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: Math.max(48, insets.top + 16), paddingBottom: insets.bottom + 24 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={styles.logo}>
-            <Text style={styles.logoIcon}>📞</Text>
+            <BrandMark size={18} tone="onPrimary" />
           </View>
           <BrandWordmark size="md" />
         </View>
@@ -106,7 +107,6 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, padding: 24, paddingBottom: 48, maxWidth: 400, alignSelf: "center", width: "100%" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 32 },
   logo: { width: 32, height: 32, borderRadius: 8, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  logoIcon: { fontSize: 18 },
   heading: { fontSize: 24, fontWeight: "700", color: colors.text },
   subheading: { fontSize: 14, color: colors.textMuted, marginTop: 8, marginBottom: 24 },
   label: { fontSize: 12, fontWeight: "600", color: colors.textMuted, marginBottom: 6 },

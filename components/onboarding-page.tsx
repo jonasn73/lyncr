@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { DEFAULT_BUSY_GENERIC } from "@/lib/ai-intake-defaults" // Default opening line for the voice AI (high-volume tone, not "we're closed")
 import { cn } from "@/lib/utils"
+import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
 import { SITE_NAME } from "@/lib/brand"
 import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
@@ -11,7 +12,6 @@ import { StorySheetHeader } from "@/components/story-sheet-header"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import {
-  Phone,
   ArrowRight,
   ArrowRightLeft,
   Hash,
@@ -82,7 +82,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-              <Phone className="h-3.5 w-3.5 text-primary-foreground" />
+              <BrandMark className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
             <BrandWordmark size="sm" />
           </div>
