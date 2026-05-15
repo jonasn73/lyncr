@@ -15,6 +15,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { StorySheetHeader } from "@/components/story-sheet-header"
+import { StoryPopoverInfo } from "@/components/story-popover-info"
 import {
   Table,
   TableBody,
@@ -196,23 +197,47 @@ export function AdminConsole() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
       {section === "overview" && (
         <>
-          <header>
-            <h1 className="text-xl font-semibold text-slate-100">Fleet overview</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              High-level counts from the database. Use Users for per-account balances and operator flags.
-            </p>
+          <header className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-100">Fleet overview</h1>
+              <p className="mt-1 text-sm text-slate-400">
+                High-level counts from the database. Use Users for per-account balances and operator flags.
+              </p>
+            </div>
+            <StoryPopoverInfo
+              storyKey="admin-overview-fleet"
+              variant="operator"
+              label="About fleet overview"
+              triggerClassName="h-9 w-9"
+            />
           </header>
           {overview && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Card className={opCard}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400">Accounts</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-sm font-medium text-slate-400">Accounts</CardTitle>
+                    <StoryPopoverInfo
+                      storyKey="admin-metric-accounts"
+                      variant="operator"
+                      label="About accounts metric"
+                      triggerClassName="h-7 w-7"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold tabular-nums text-slate-50">{overview.user_count}</CardContent>
               </Card>
               <Card className={opCard}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400">Total prepaid balance</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-sm font-medium text-slate-400">Total prepaid balance</CardTitle>
+                    <StoryPopoverInfo
+                      storyKey="admin-metric-prepaid-balance"
+                      variant="operator"
+                      label="About prepaid balance metric"
+                      triggerClassName="h-7 w-7"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold tabular-nums text-violet-200">
                   {overview.total_credit_balance_label}
@@ -220,13 +245,29 @@ export function AdminConsole() {
               </Card>
               <Card className={opCard}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400">Calls (30d, all users)</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-sm font-medium text-slate-400">Calls (30d, all users)</CardTitle>
+                    <StoryPopoverInfo
+                      storyKey="admin-metric-calls-30d"
+                      variant="operator"
+                      label="About 30-day calls metric"
+                      triggerClassName="h-7 w-7"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold tabular-nums text-slate-50">{usageTotals.calls}</CardContent>
               </Card>
               <Card className={opCard}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400">Talk seconds (30d)</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-sm font-medium text-slate-400">Talk seconds (30d)</CardTitle>
+                    <StoryPopoverInfo
+                      storyKey="admin-metric-talk-seconds"
+                      variant="operator"
+                      label="About talk seconds metric"
+                      triggerClassName="h-7 w-7"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold tabular-nums text-slate-50">{usageTotals.secs}</CardContent>
               </Card>
@@ -234,10 +275,20 @@ export function AdminConsole() {
           )}
           <Card className={opCard}>
             <CardHeader>
-              <CardTitle className="text-base text-slate-100">Open feedback</CardTitle>
-              <CardDescription className="text-slate-400">
-                {overview != null ? `${overview.open_feedback_count} open items.` : "Loading…"} Switch to Support for triage.
-              </CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base text-slate-100">Open feedback</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    {overview != null ? `${overview.open_feedback_count} open items.` : "Loading…"} Switch to Support for triage.
+                  </CardDescription>
+                </div>
+                <StoryPopoverInfo
+                  storyKey="admin-open-feedback-queue"
+                  variant="operator"
+                  label="About open feedback"
+                  triggerClassName="h-8 w-8"
+                />
+              </div>
             </CardHeader>
           </Card>
         </>
@@ -245,12 +296,20 @@ export function AdminConsole() {
 
       {section === "users" && (
         <>
-          <header>
-            <h1 className="text-xl font-semibold text-slate-100">Users &amp; usage</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Last 30 days call count and talk time from call_logs. Credit adjusts the prepaid ledger; Operator toggles
-              platform admin (this console).
-            </p>
+          <header className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-100">Users &amp; usage</h1>
+              <p className="mt-1 text-sm text-slate-400">
+                Last 30 days call count and talk time from call_logs. Credit adjusts the prepaid ledger; Operator toggles
+                platform admin (this console).
+              </p>
+            </div>
+            <StoryPopoverInfo
+              storyKey="admin-users-directory"
+              variant="operator"
+              label="About users table"
+              triggerClassName="h-9 w-9"
+            />
           </header>
 
           <Card className={opCard}>
@@ -334,6 +393,15 @@ export function AdminConsole() {
               {userDetailLoading && <p className="text-sm text-slate-400">Loading…</p>}
               {!userDetailLoading && userDetail && (
                 <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Account snapshot</p>
+                    <StoryPopoverInfo
+                      storyKey="admin-user-sheet-snapshot"
+                      variant="operator"
+                      label="About snapshot tiles"
+                      triggerClassName="h-7 w-7"
+                    />
+                  </div>
                   <div className="grid gap-2 sm:grid-cols-3">
                     <div className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-3 py-2">
                       <p className="text-[10px] font-medium uppercase text-slate-500">Balance</p>
@@ -362,17 +430,33 @@ export function AdminConsole() {
 
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/80 bg-slate-900/40 px-3 py-2">
                     <span className="text-xs text-slate-400">Operator (this console)</span>
-                    <Switch
-                      checked={userDetail.user.is_platform_admin}
-                      disabled={operatorBusyId === userDetail.user.id}
-                      onCheckedChange={(v) => void patchOperatorFlag(userDetail.user.id, v)}
-                      className="data-[state=checked]:bg-violet-600"
-                      aria-label="Platform admin"
-                    />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <StoryPopoverInfo
+                        storyKey="admin-user-sheet-operator"
+                        variant="operator"
+                        label="About operator switch"
+                        triggerClassName="h-7 w-7"
+                      />
+                      <Switch
+                        checked={userDetail.user.is_platform_admin}
+                        disabled={operatorBusyId === userDetail.user.id}
+                        onCheckedChange={(v) => void patchOperatorFlag(userDetail.user.id, v)}
+                        className="data-[state=checked]:bg-violet-600"
+                        aria-label="Platform admin"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent calls (newest)</p>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent calls (newest)</p>
+                      <StoryPopoverInfo
+                        storyKey="admin-user-sheet-call-log"
+                        variant="operator"
+                        label="About recent calls table"
+                        triggerClassName="h-7 w-7"
+                      />
+                    </div>
                     {userDetail.recent_calls.length === 0 ? (
                       <p className="text-sm text-slate-500">No call_logs rows yet.</p>
                     ) : (
@@ -406,8 +490,18 @@ export function AdminConsole() {
                   </div>
 
                   <div className="rounded-xl border border-violet-500/30 bg-violet-950/20 p-3">
-                    <p className="text-xs font-semibold text-violet-200">Adjust prepaid balance</p>
-                    <p className="mt-1 text-[11px] text-slate-400">Positive adds credit; negative debits. Reason is stored on the ledger.</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-violet-200">Adjust prepaid balance</p>
+                        <p className="mt-1 text-[11px] text-slate-400">Positive adds credit; negative debits. Reason is stored on the ledger.</p>
+                      </div>
+                      <StoryPopoverInfo
+                        storyKey="admin-user-sheet-credit"
+                        variant="operator"
+                        label="About credit adjustment"
+                        triggerClassName="h-7 w-7 shrink-0"
+                      />
+                    </div>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
                       <div className="flex-1 space-y-1">
                         <Label htmlFor="op-credit-usd" className="text-slate-400">
@@ -478,6 +572,12 @@ export function AdminConsole() {
               <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 pb-4 pt-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-medium uppercase text-slate-500">Status</span>
+                  <StoryPopoverInfo
+                    storyKey="admin-feedback-triage"
+                    variant="operator"
+                    label="About feedback status"
+                    triggerClassName="h-7 w-7"
+                  />
                   <Select
                     value={feedbackSheet.status}
                     onValueChange={(v) => void setFeedbackStatus(feedbackSheet.id, v as FeedbackStatus)}
@@ -508,9 +608,17 @@ export function AdminConsole() {
 
       {section === "support" && (
         <>
-          <header>
-            <h1 className="text-xl font-semibold text-slate-100">Support queue</h1>
-            <p className="mt-1 text-sm text-slate-400">Newest first. Status is stored on feedback_submissions.</p>
+          <header className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-100">Support queue</h1>
+              <p className="mt-1 text-sm text-slate-400">Newest first. Status is stored on feedback_submissions.</p>
+            </div>
+            <StoryPopoverInfo
+              storyKey="admin-support-queue-intro"
+              variant="operator"
+              label="About support queue"
+              triggerClassName="h-9 w-9"
+            />
           </header>
           <Card className={opCard}>
             <CardHeader>
@@ -546,11 +654,19 @@ export function AdminConsole() {
 
       {section === "advanced" && (
         <>
-          <header>
-            <h1 className="text-xl font-semibold text-slate-100">Advanced</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Environment-driven access and database operations live outside this UI.
-            </p>
+          <header className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-100">Advanced</h1>
+              <p className="mt-1 text-sm text-slate-400">
+                Environment-driven access and database operations live outside this UI.
+              </p>
+            </div>
+            <StoryPopoverInfo
+              storyKey="admin-advanced-console"
+              variant="operator"
+              label="About advanced operator notes"
+              triggerClassName="h-9 w-9"
+            />
           </header>
           <Card className={opCard}>
             <CardHeader>

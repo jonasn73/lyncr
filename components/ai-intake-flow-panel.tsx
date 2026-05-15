@@ -22,6 +22,7 @@ import {
   isAiIntakeProfileId,
 } from "@/lib/business-industries"
 import { DEFAULT_BUSY_GREETING_LOCKSMITH } from "@/lib/ai-intake-defaults"
+import { StoryPopoverInfo } from "@/components/story-popover-info"
 
 /** Tiny labels at bottom of fallback modal — not primary setup. */
 const VOICE_AI_FOOTER_CHIPS = ["Industry intake", "Leads", "SMS alerts", "Business hours"] as const
@@ -399,6 +400,11 @@ export function AiIntakeFlowPanel({
 
   const inner = (
     <>
+      {variant === "modal" && (
+        <div className="flex justify-end">
+          <StoryPopoverInfo storyKey="ai-flow-overview" label="About AI call flow" triggerClassName="h-8 w-8" />
+        </div>
+      )}
       {loadError && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-foreground">
           {displayUserFacingMessage(loadError)}
@@ -407,38 +413,51 @@ export function AiIntakeFlowPanel({
 
       {/* No voice assistant on file → fallback plays backup voicemail instead of live AI. */}
       {variant === "modal" && aiNoAnswerSelected && !assistantReady && (
-        <div className="rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2.5 text-[11px] leading-snug text-foreground">
-          <p className="font-semibold text-destructive">Voice assistant is not linked yet</p>
-          <p className="mt-1 text-muted-foreground">
-            No-answer calls will sound like voicemail until {SITE_NAME} finishes linking your voice assistant. Tap{" "}
-            <span className="font-medium text-foreground">Save call flow</span> below, or toggle fallback off and choose{" "}
-            <span className="font-medium text-foreground">AI receptionist</span> again. If this persists, contact {SITE_NAME}
-            support — your deployment may need voice API credentials.
-          </p>
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2.5 text-[11px] leading-snug text-foreground">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-destructive">Voice assistant is not linked yet</p>
+            <p className="mt-1 text-muted-foreground">
+              No-answer calls will sound like voicemail until {SITE_NAME} finishes linking your voice assistant. Tap{" "}
+              <span className="font-medium text-foreground">Save call flow</span> below, or toggle fallback off and choose{" "}
+              <span className="font-medium text-foreground">AI receptionist</span> again. If this persists, contact {SITE_NAME}
+              support — your deployment may need voice API credentials.
+            </p>
+          </div>
+          <StoryPopoverInfo
+            storyKey="ai-assistant-not-linked-banner"
+            label="Why assistant is not linked"
+            triggerClassName="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
+          />
         </div>
       )}
 
       {variant === "page" && (
         <div>
-          <div className="flex items-center gap-2">
-            <IconSurface tone="primary" className="h-10 w-10">
-              <Bot className="h-5 w-5 text-primary" />
-            </IconSurface>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">AI call flow</h1>
-              <p className="text-[11px] text-muted-foreground">
-                Set what the AI says and collects when nobody answers — all in {SITE_NAME}.
-              </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <IconSurface tone="primary" className="h-10 w-10">
+                <Bot className="h-5 w-5 text-primary" />
+              </IconSurface>
+              <div>
+                <h1 className="text-lg font-bold text-foreground">AI call flow</h1>
+                <p className="text-[11px] text-muted-foreground">
+                  Set what the AI says and collects when nobody answers — all in {SITE_NAME}.
+                </p>
+              </div>
             </div>
+            <StoryPopoverInfo storyKey="ai-flow-overview" label="About AI call flow" />
           </div>
         </div>
       )}
 
       {/* 1 — Opening line first (what callers hear) */}
       <section className="space-y-2 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {variant === "modal" ? "Opening line" : "What callers hear first"}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {variant === "modal" ? "Opening line" : "What callers hear first"}
+          </p>
+          <StoryPopoverInfo storyKey="ai-opening-line-section" label="About opening line" triggerClassName="h-7 w-7" />
+        </div>
         {variant === "modal" ? (
           <p className="text-[9px] text-muted-foreground">First thing the AI says. Tap Save when you change it.</p>
         ) : (
@@ -476,6 +495,9 @@ export function AiIntakeFlowPanel({
 
         {showLocksmithExtras && (
           <>
+            <div className="flex justify-end">
+              <StoryPopoverInfo storyKey="ai-locksmith-intake-extras" label="About locksmith extras" triggerClassName="h-7 w-7" />
+            </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold text-muted-foreground">Extra — car keys</label>
               <textarea
@@ -497,35 +519,42 @@ export function AiIntakeFlowPanel({
           </>
         )}
 
-        <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
           <label className="text-[11px] font-semibold text-muted-foreground">Extra notes — all scripts</label>
-          <textarea
-            value={aiIntake.otherNotes}
-            onChange={(e) => setAiIntake((p) => ({ ...p, otherNotes: e.target.value }))}
-            rows={variant === "modal" ? 2 : 2}
-            placeholder="Optional notes for the AI script"
-            className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm"
-          />
+          <StoryPopoverInfo storyKey="ai-extra-notes-section" label="About extra notes" triggerClassName="h-7 w-7" />
         </div>
+        <textarea
+          value={aiIntake.otherNotes}
+          onChange={(e) => setAiIntake((p) => ({ ...p, otherNotes: e.target.value }))}
+          rows={variant === "modal" ? 2 : 2}
+          placeholder="Optional notes for the AI script"
+          className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm"
+        />
 
         <div className="flex items-center justify-between rounded-xl border border-border/70 bg-secondary/35 px-3 py-2.5">
-          <div>
+          <div className="min-w-0 pr-2">
             <p className="text-xs font-semibold text-foreground">Text me new leads</p>
             <p className="text-[10px] text-muted-foreground">SMS when a lead is saved (if messaging is enabled).</p>
           </div>
-          <Switch
-            checked={aiIntake.smsNotify}
-            onCheckedChange={(v) => setAiIntake((p) => ({ ...p, smsNotify: v }))}
-            aria-label="SMS lead notifications"
-          />
+          <div className="flex shrink-0 items-center gap-1">
+            <StoryPopoverInfo storyKey="ai-sms-notify-toggle" label="About SMS lead notifications" triggerClassName="h-7 w-7" />
+            <Switch
+              checked={aiIntake.smsNotify}
+              onCheckedChange={(v) => setAiIntake((p) => ({ ...p, smsNotify: v }))}
+              aria-label="SMS lead notifications"
+            />
+          </div>
         </div>
       </section>
 
       {/* 2 — Industry / playbook */}
       <section className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {variant === "modal" ? "Industry script" : "Playbook (reference)"}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {variant === "modal" ? "Industry script" : "Playbook (reference)"}
+          </p>
+          <StoryPopoverInfo storyKey="ai-playbook-industry" label="About industry script" triggerClassName="h-7 w-7" />
+        </div>
         {variant !== "modal" ? (
           <p className="text-[10px] text-muted-foreground">
             We send this as instructions when you Save (plus your opening line above).
@@ -591,22 +620,25 @@ export function AiIntakeFlowPanel({
 
       {/* 3 — Optional voice/model */}
       <section className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowAdvancedAi((v) => !v)}
-          className="flex w-full items-start justify-between gap-2 text-left"
-        >
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Voice &amp; model {variant === "modal" ? "" : "(optional)"}
-            </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">Skip unless you need a specific AI model or voice.</p>
-          </div>
-          <ChevronDown
-            className={cn("mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform", showAdvancedAi && "rotate-180")}
-            aria-hidden
-          />
-        </button>
+        <div className="flex items-stretch gap-1">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedAi((v) => !v)}
+            className="flex min-w-0 flex-1 items-start justify-between gap-2 rounded-xl border border-transparent text-left transition-colors hover:bg-secondary/40"
+          >
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Voice &amp; model {variant === "modal" ? "" : "(optional)"}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Skip unless you need a specific AI model or voice.</p>
+            </div>
+            <ChevronDown
+              className={cn("mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform", showAdvancedAi && "rotate-180")}
+              aria-hidden
+            />
+          </button>
+          <StoryPopoverInfo storyKey="ai-voice-advanced-block" label="About voice and model" triggerClassName="h-9 w-9 shrink-0 self-start" />
+        </div>
         {showAdvancedAi && (
           <div className="space-y-3 border-t border-border/60 pt-3">
             {catalogLoading ? (
@@ -626,9 +658,12 @@ export function AiIntakeFlowPanel({
               </p>
             ) : null}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground" htmlFor={`${modelListId}-input`}>
-                LLM model
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[11px] font-semibold text-muted-foreground" htmlFor={`${modelListId}-input`}>
+                  LLM model
+                </label>
+                <StoryPopoverInfo storyKey="ai-llm-model-field" label="About LLM model" triggerClassName="h-7 w-7" />
+              </div>
               <input
                 id={`${modelListId}-input`}
                 type="text"
@@ -646,9 +681,12 @@ export function AiIntakeFlowPanel({
               </datalist>
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground" htmlFor={`${voiceListId}-input`}>
-                Speaking voice
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[11px] font-semibold text-muted-foreground" htmlFor={`${voiceListId}-input`}>
+                  Speaking voice
+                </label>
+                <StoryPopoverInfo storyKey="ai-tts-voice-field" label="About speaking voice" triggerClassName="h-7 w-7" />
+              </div>
               <input
                 id={`${voiceListId}-input`}
                 type="text"
@@ -712,7 +750,10 @@ export function AiIntakeFlowPanel({
               </p>
             ) : null}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground">Extra instructions</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[11px] font-semibold text-muted-foreground">Extra instructions</label>
+                <StoryPopoverInfo storyKey="ai-extra-instructions-field" label="About extra instructions" triggerClassName="h-7 w-7" />
+              </div>
               <textarea
                 value={aiAdvanced.extraAiInstructions}
                 onChange={(e) => setAiAdvanced((p) => ({ ...p, extraAiInstructions: e.target.value }))}
@@ -757,14 +798,18 @@ export function AiIntakeFlowPanel({
               {telnyxAssistantId.trim()}
             </span>
           ) : null}
+          <StoryPopoverInfo storyKey="ai-assistant-state-footer" label="About AI ready status" triggerClassName="h-7 w-7" />
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAdvancedAssistantId((v) => !v)}
-          className="text-[10px] font-medium text-primary underline-offset-2 hover:underline"
-        >
-          {showAdvancedAssistantId ? "Hide" : "Support — link a different assistant ID"}
-        </button>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedAssistantId((v) => !v)}
+            className="text-[10px] font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {showAdvancedAssistantId ? "Hide" : "Support — link a different assistant ID"}
+          </button>
+          <StoryPopoverInfo storyKey="ai-manual-assistant-id" label="About manual assistant ID" triggerClassName="h-7 w-7" />
+        </div>
         {showAdvancedAssistantId && (
           <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/40 p-2">
             <p className="text-[10px] leading-relaxed text-muted-foreground">

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import Link from "next/link"
+import { SITE_NAME } from "@/lib/brand"
 
 export type AppSheetStory = {
   eyebrow: string
@@ -781,6 +782,300 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
       <>
         <p>This wizard is a guided tour. Live routing always wins on the dashboard once you have real numbers from Settings.</p>
         <p className="mt-2">You can skip receptionists if you are solo — owner-first routing is valid.</p>
+      </>
+    ),
+  },
+
+  "ai-flow-overview": {
+    eyebrow: "Voice layer",
+    storyline: "This panel is what callers hear after routing sends them to AI — script, intake, voice, and Telnyx assistant sync.",
+    title: "AI call flow",
+    description: (
+      <>
+        <p>
+          <strong>Opening line</strong> is the first spoken words. <strong>Playbook</strong> shapes questions.{" "}
+          <strong>Voice &amp; model</strong> are optional power tweaks — defaults work for most shops.
+        </p>
+        <p className="mt-2">Save pushes config to your linked assistant; test with a real call after Telnyx sync succeeds.</p>
+      </>
+    ),
+  },
+  "ai-opening-line-section": {
+    eyebrow: "Caller experience",
+    storyline: "The greeting is also what preview plays — keep it short, branded, and honest about wait or intake.",
+    title: "Opening line",
+    description: (
+      <>
+        <p>When nobody answers the human leg first, the AI picks up with this line — or after ring-my-phone-first if you enabled that on the dashboard.</p>
+        <p className="mt-2">Preview uses cloud TTS when available; live calls use the saved assistant voice.</p>
+      </>
+    ),
+  },
+  "ai-assistant-not-linked-banner": {
+    eyebrow: "Provisioning",
+    storyline: "Fallback is set to AI but Telnyx has no assistant row yet — callers would hit voicemail tone instead of live AI.",
+    title: "Assistant not linked",
+    description: (
+      <>
+        <p>Tap <strong>Save call flow</strong> so the server can create or attach the assistant and sync Telnyx.</p>
+        <p className="mt-2">If this persists after save, check voice API keys and support — the UI cannot finish the link without the backend.</p>
+      </>
+    ),
+  },
+  "ai-locksmith-intake-extras": {
+    eyebrow: "Industry module",
+    storyline: "Locksmith profile adds car-key and lockout hints into the same assistant instructions bucket.",
+    title: "Locksmith extras",
+    description: (
+      <>
+        <p>These notes merge into the playbook the model sees — use them for dispatch rules, pricing tone, or safety phrases.</p>
+        <p className="mt-2">If you are not a locksmith, pick another profile or Auto from the playbook dropdown.</p>
+      </>
+    ),
+  },
+  "ai-extra-notes-section": {
+    eyebrow: "Prompt glue",
+    storyline: "Freeform hints appended to every script variant — keep evergreen, not one-off job addresses.",
+    title: "Extra notes (all scripts)",
+    description: (
+      <>
+        <p>Use for brand voice (&quot;we say customers not clients&quot;), languages offered, or escalation phrases.</p>
+        <p className="mt-2">Very long notes increase token cost per call — prefer bullets under 500 characters.</p>
+      </>
+    ),
+  },
+  "ai-sms-notify-toggle": {
+    eyebrow: "Leads",
+    storyline: "When intake saves a structured lead, we can text your cell if messaging is enabled on the account.",
+    title: "Text me new leads",
+    description: (
+      <>
+        <p>Turn off if you only want CRM/email or if your carrier blocks automated SMS from the assistant.</p>
+        <p className="mt-2">Does not change who answers voice first — that stays on Routing.</p>
+      </>
+    ),
+  },
+  "ai-playbook-industry": {
+    eyebrow: "Playbook",
+    storyline: "Auto follows Settings industry; explicit profiles override with a fixed question tree.",
+    title: "Industry script",
+    description: (
+      <>
+        <p>Each profile encodes intents (keys, lockouts, bookings). Auto maps your signup industry to the closest profile.</p>
+        <p className="mt-2">Expand <strong>Flow outline</strong> in the modal to see branches before you save.</p>
+      </>
+    ),
+  },
+  "ai-voice-advanced-block": {
+    eyebrow: "Power user",
+    storyline: "Model and voice IDs pass through to Telnyx — wrong values fail sync; empty means platform defaults.",
+    title: "Voice &amp; model",
+    description: (
+      <>
+        <p>Use catalog Sample to compare timbre fairly. LLM field accepts provider-style ids your deployment allows.</p>
+        <p className="mt-2">If you are not debugging, leave both empty and rely on {SITE_NAME} defaults.</p>
+      </>
+    ),
+  },
+  "ai-llm-model-field": {
+    eyebrow: "LLM",
+    storyline: "Controls reasoning model for the voice assistant pipeline — billing and latency follow this choice.",
+    title: "LLM model",
+    description: (
+      <>
+        <p>Type from the datalist or paste an id your Telnyx project supports. Invalid ids surface as save or sync errors.</p>
+        <p className="mt-2">Smaller models cost less per minute but may miss nuance on complex intakes.</p>
+      </>
+    ),
+  },
+  "ai-tts-voice-field": {
+    eyebrow: "TTS",
+    storyline: "Speaking voice is the timbre callers hear on live AI legs and on cloud previews when available.",
+    title: "Speaking voice",
+    description: (
+      <>
+        <p>Sample plays a fixed sentence so you compare apples to apples. Use copies the id into the field.</p>
+        <p className="mt-2">Browser fallback preview does not prove Telnyx will sound identical — it is a rough check only.</p>
+      </>
+    ),
+  },
+  "ai-extra-instructions-field": {
+    eyebrow: "Policies",
+    storyline: "Appended system instructions — highest leverage for tone, compliance, and what never to promise.",
+    title: "Extra instructions",
+    description: (
+      <>
+        <p>Good for &quot;never quote a price&quot;, &quot;always collect gate code&quot;, or bilingual handling.</p>
+        <p className="mt-2">Keep complementary to playbook — contradictions confuse the model mid-call.</p>
+      </>
+    ),
+  },
+  "ai-assistant-state-footer": {
+    eyebrow: "Linkage",
+    storyline: "Shows whether GET /api/ai-assistant sees a linked Telnyx assistant after your last save.",
+    title: "AI ready status",
+    description: (
+      <>
+        <p>Green means calls can reach Voice AI on the configured fallback path. Monospace id is for support tickets.</p>
+        <p className="mt-2">If you just toggled AI on the dashboard, save here once to provision and sync.</p>
+      </>
+    ),
+  },
+  "ai-manual-assistant-id": {
+    eyebrow: "Support / migration",
+    storyline: "Rare escape hatch when support pastes an existing Telnyx assistant id — not for normal setup.",
+    title: "Link a different assistant ID",
+    description: (
+      <>
+        <p>Leave empty for auto-provisioned assistants. Paste only when engineering confirms a migration or split project.</p>
+        <p className="mt-2">Wrong ids break inbound AI until removed and saved again.</p>
+      </>
+    ),
+  },
+
+  "admin-overview-fleet": {
+    eyebrow: "Operator",
+    storyline: "Fleet-wide aggregates — sanity check growth, balance pool, and call volume before drilling into users.",
+    title: "Fleet overview",
+    description: (
+      <>
+        <p>Counts come from live DB reads — refresh after migrations or bulk credits.</p>
+        <p className="mt-2">Talk seconds sum loaded users only; use analytics elsewhere for historical exports.</p>
+      </>
+    ),
+  },
+  "admin-metric-accounts": {
+    eyebrow: "Operator",
+    storyline: "Distinct user rows with login access — not DIDs and not receptionist profiles alone.",
+    title: "Accounts card",
+    description: (
+      <>
+        <p>Compare to Telnyx or billing when reconciling seat counts. Deactivated accounts may still exist until purged.</p>
+      </>
+    ),
+  },
+  "admin-metric-prepaid-balance": {
+    eyebrow: "Operator",
+    storyline: "Sum of prepaid credit balances across loaded accounts — not bank cash, not AR.",
+    title: "Total prepaid balance",
+    description: (
+      <>
+        <p>Useful for runway: large swings often mean a promo credit batch or a metering spike investigation.</p>
+      </>
+    ),
+  },
+  "admin-metric-calls-30d": {
+    eyebrow: "Operator",
+    storyline: "Sum of per-user call counts from the users table slice — proxy for fleet traffic.",
+    title: "Calls (30d) aggregate",
+    description: (
+      <>
+        <p>Matches the same 30-day window shown on each user row. Not unique callers — inbound + outbound attempts per logging rules.</p>
+      </>
+    ),
+  },
+  "admin-metric-talk-seconds": {
+    eyebrow: "Operator",
+    storyline: "Aggregate connected talk time — pairs with metering if you bill on minutes.",
+    title: "Talk seconds (30d)",
+    description: (
+      <>
+        <p>Long durations with low call counts can mean a few marathon conferences or stuck legs — worth spot-checking CDRs.</p>
+      </>
+    ),
+  },
+  "admin-open-feedback-queue": {
+    eyebrow: "Operator",
+    storyline: "Open feedback rows still awaiting triage — click Support to read bodies and change status.",
+    title: "Open feedback",
+    description: (
+      <>
+        <p>Requires feedback table migration. Count should trend down during business hours if SLAs are healthy.</p>
+      </>
+    ),
+  },
+  "admin-users-directory": {
+    eyebrow: "Operator",
+    storyline: "Ledger balances, 30d usage, and operator flag in one grid — Manage opens the drill sheet.",
+    title: "Users &amp; usage table",
+    description: (
+      <>
+        <p>Operator switch grants this console — use sparingly and audit who has access.</p>
+        <p className="mt-2">Manage loads recent call_logs for the account and credit tooling.</p>
+      </>
+    ),
+  },
+  "admin-user-sheet-snapshot": {
+    eyebrow: "Operator",
+    storyline: "Three tiles summarize money, traffic, and surface area (team + DIDs) for the opened account.",
+    title: "Account snapshot tiles",
+    description: (
+      <>
+        <p>Balance is prepaid ledger. Team / numbers counts help guess routing complexity before reading calls.</p>
+      </>
+    ),
+  },
+  "admin-user-sheet-operator": {
+    eyebrow: "Operator",
+    storyline: "Platform admin can open this console — separate from who answers phones.",
+    title: "Operator switch",
+    description: (
+      <>
+        <p>Toggle only for trusted staff. Removing admin does not sign them out immediately but hides operator routes on next load.</p>
+      </>
+    ),
+  },
+  "admin-user-sheet-call-log": {
+    eyebrow: "Operator",
+    storyline: "Latest call_logs for quick forensic when a member reports missed routing.",
+    title: "Recent calls",
+    description: (
+      <>
+        <p>Newest first — use timestamps with the member&apos;s timezone when comparing to their story.</p>
+        <p className="mt-2">Durations are seconds as stored; zero may mean abandoned before connect.</p>
+      </>
+    ),
+  },
+  "admin-user-sheet-credit": {
+    eyebrow: "Operator",
+    storyline: "Ledger credit or debit with reason string — auditable support action.",
+    title: "Adjust prepaid balance",
+    description: (
+      <>
+        <p>Positive adds goodwill or refunds; negative recovers mistaken credits. Reason shows in internal ledger views.</p>
+        <p className="mt-2">Double-check account email before Apply — mistakes are painful to unwind.</p>
+      </>
+    ),
+  },
+  "admin-feedback-triage": {
+    eyebrow: "Operator",
+    storyline: "Workflow state on feedback_submissions — not the same as Zendesk unless you wire export.",
+    title: "Feedback status",
+    description: (
+      <>
+        <p>Open → triaged → closed is the minimal loop. Status drives counts on Fleet overview.</p>
+        <p className="mt-2">Body may contain PII — treat like support mail when copying out.</p>
+      </>
+    ),
+  },
+  "admin-support-queue-intro": {
+    eyebrow: "Operator",
+    storyline: "Each card is one ticket — tap to open the full sheet for triage.",
+    title: "Support queue",
+    description: (
+      <>
+        <p>Newest first. Category hints routing to billing vs engineering.</p>
+      </>
+    ),
+  },
+  "admin-advanced-console": {
+    eyebrow: "Operator",
+    storyline: "Env vars and SQL migrations are intentionally outside this UI — pointers only.",
+    title: "Advanced",
+    description: (
+      <>
+        <p>ZING_ADMIN_EMAILS bootstraps first admins; thereafter use the Users table operator switch.</p>
+        <p className="mt-2">Schema changes belong in numbered scripts and Neon SQL editor — never from here.</p>
       </>
     ),
   },
