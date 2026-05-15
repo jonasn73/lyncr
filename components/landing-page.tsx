@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react"
+import { BrandWordmark } from "@/components/brand-wordmark"
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/brand"
 
 const features = [
@@ -168,7 +169,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Phone className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground">{SITE_NAME}</span>
+            <BrandWordmark size="md" />
           </div>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
@@ -207,10 +208,13 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 30%, oklch(0.72 0.17 175 / 0.08) 0%, transparent 60%)",
+              "radial-gradient(ellipse at 50% 28%, oklch(0.66 0.18 268 / 0.12) 0%, transparent 58%), radial-gradient(ellipse at 80% 10%, oklch(0.78 0.09 25 / 0.06) 0%, transparent 50%)",
           }}
         />
         <div className="relative mx-auto max-w-3xl animate-sigo-page-enter">
+          <div className="mb-5 flex justify-center">
+            <BrandWordmark size="lg" className="justify-center" />
+          </div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5">
             <Zap className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium text-primary">
@@ -508,7 +512,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
               <Phone className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
-            <span className="text-sm font-bold text-foreground">{SITE_NAME}</span>
+            <BrandWordmark size="sm" />
           </div>
           <div className="flex gap-6">
             <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy</a>

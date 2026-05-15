@@ -1,17 +1,17 @@
 /**
- * Hey Sigo mobile – design tokens for consistency and easier tweaks.
+ * HeySigo mobile — design tokens aligned with the web app (ink + indigo signal).
  * Use these in StyleSheet so colors and spacing stay aligned across screens.
  */
 
 // Backgrounds
 export const colors = {
-  background: "#0f172a",
-  card: "#1e293b",
-  cardBorder: "#334155",
-  primary: "#6366f1",
-  text: "#f8fafc",
-  textMuted: "#94a3b8",
-  textDim: "#64748b",
+  background: "#12101f",
+  card: "#1a1f33",
+  cardBorder: "#2d334d",
+  primary: "#5f6ef4",
+  text: "#f1f5f9",
+  textMuted: "#a8b3cf",
+  textDim: "#6b7694",
   error: "#fca5a5",
   errorBg: "rgba(239,68,68,0.15)",
   destructive: "rgba(239,68,68,0.15)",

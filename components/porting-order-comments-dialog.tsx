@@ -1,7 +1,7 @@
 "use client"
 
 // ============================================
-// Number transfer thread — read + reply (vendor-backed; messaging is on-brand for Hey Sigo).
+// Number transfer thread — read + reply (vendor-backed; on-brand for HeySigo).
 // ============================================
 
 import { useState, useEffect } from "react"

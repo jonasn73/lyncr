@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Activi
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
 import { apiMutate } from "../lib/api"
-import { SITE_NAME } from "@/lib/brand"
+import { BrandWordmark } from "@/components/BrandWordmark"
+import { colors } from "../lib/theme"
 
 export default function OnboardingScreen() {
   const router = useRouter()
@@ -40,7 +41,7 @@ export default function OnboardingScreen() {
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: Math.max(48, insets.top + 16), paddingBottom: insets.bottom + 48 }]}>
       <View style={styles.header}>
         <Text style={styles.logo}>📞</Text>
-        <Text style={styles.title}>{SITE_NAME}</Text>
+        <BrandWordmark size="lg" />
         <Text style={styles.steps}>Step {step} of 3</Text>
       </View>
 
@@ -101,23 +102,22 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 24, paddingBottom: 48 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 32, gap: 8 },
   logo: { fontSize: 24 },
-  title: { fontSize: 18, fontWeight: "700", color: "#f8fafc" },
-  steps: { marginLeft: "auto", fontSize: 12, color: "#94a3b8" },
-  heading: { fontSize: 22, fontWeight: "700", color: "#f8fafc", marginBottom: 8 },
-  subheading: { fontSize: 14, color: "#94a3b8", marginBottom: 24 },
-  primaryButton: { backgroundColor: "#6366f1", borderRadius: 12, paddingVertical: 14, minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 16 },
+  steps: { marginLeft: "auto", fontSize: 12, color: colors.textMuted },
+  heading: { fontSize: 22, fontWeight: "700", color: colors.text, marginBottom: 8 },
+  subheading: { fontSize: 14, color: colors.textMuted, marginBottom: 24 },
+  primaryButton: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 16 },
   primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   buttonDisabled: { opacity: 0.6 },
-  toggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#1e293b", padding: 16, minHeight: 44, borderRadius: 12, marginBottom: 16 },
-  toggleLabel: { fontSize: 14, fontWeight: "600", color: "#f8fafc" },
+  toggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.card, padding: 16, minHeight: 44, borderRadius: 12, marginBottom: 16 },
+  toggleLabel: { fontSize: 14, fontWeight: "600", color: colors.text },
   toggleTrack: { width: 48, height: 28, borderRadius: 14, backgroundColor: "#475569", padding: 2 },
-  toggleTrackOn: { backgroundColor: "#6366f1" },
-  toggleThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#f8fafc" },
+  toggleTrackOn: { backgroundColor: colors.primary },
+  toggleThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.text },
   toggleThumbOn: { alignSelf: "flex-end" },
-  textArea: { backgroundColor: "#1e293b", borderRadius: 12, padding: 14, fontSize: 14, color: "#f8fafc", minHeight: 100, textAlignVertical: "top", marginBottom: 16, borderWidth: 1, borderColor: "#334155" },
-  error: { backgroundColor: "rgba(239,68,68,0.15)", padding: 12, borderRadius: 12, color: "#fca5a5", fontSize: 12, marginBottom: 16 },
+  textArea: { backgroundColor: colors.card, borderRadius: 12, padding: 14, fontSize: 14, color: colors.text, minHeight: 100, textAlignVertical: "top", marginBottom: 16, borderWidth: 1, borderColor: colors.cardBorder },
+  error: { backgroundColor: colors.errorBg, padding: 12, borderRadius: 12, color: colors.error, fontSize: 12, marginBottom: 16 },
 })

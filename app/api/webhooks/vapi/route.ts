@@ -1,7 +1,7 @@
 // ============================================
 // POST /api/webhooks/vapi (deprecated)
 // ============================================
-// Legacy webhook removed — Hey Sigo voice AI uses the platform flow; lead capture is handled in-app.
+// Legacy webhook removed — HeySigo voice AI uses the platform flow; lead capture is handled in-app.
 
 import { NextResponse } from "next/server"
 import { SITE_NAME } from "@/lib/brand"

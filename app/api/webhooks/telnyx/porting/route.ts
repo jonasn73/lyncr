@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { insertPortingNotificationIfNew } from "@/lib/db"
+import { SITE_NAME } from "@/lib/brand"
 import {
   buildPortingNotificationText,
   buildPortingNotificationTitle,
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify({
         zing: "telnyx-porting-webhook-no-zing-ref",
         eventType: extractEventType(body),
-        hint: "Set customer_reference zing-<userId> on port orders (Sigo does this automatically; legacy prefix zing-).",
+        hint: `Set customer_reference zing-<userId> on port orders (${SITE_NAME} does this automatically; legacy prefix zing-).`,
       })
     )
     return NextResponse.json({ received: true, stored: false, reason: "no_zing_customer_reference" })

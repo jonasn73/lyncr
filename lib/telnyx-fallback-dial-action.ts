@@ -128,7 +128,7 @@ function mergeFallbackType(
  * Public business DID for routing — **not** the party we just dialed on a Dial `action` callback.
  * Telnyx/TwiML often sets `To` / `DialCalledNumber` to the **owner cell** on that webhook; treating that as the DID
  * makes `getIncomingRoutingByNumber` fail or mismatch, so `fallback_type` can fall back to the **default row** (e.g. voicemail)
- * even when the line they called is set to **AI** in Hey Sigo.
+ * even when the line they called is set to **AI** in HeySigo.
  */
 function resolveBusinessLineE164(bnFromQuery: string, formData: FormData): string {
   const q = bnFromQuery.trim()

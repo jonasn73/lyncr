@@ -1,7 +1,7 @@
 // ============================================
 // POST /api/numbers/configure
 // ============================================
-// Auto-configures ALL of a user's phone numbers with the Hey Sigo TeXML webhook.
+// Auto-configures ALL of a user's phone numbers with the HeySigo TeXML webhook.
 // This runs silently on every settings page load to ensure:
 //   1. Numbers purchased before auto-config was added still work
 //   2. Ported numbers that completed get wired up
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   try {
     const results: { number: string; action: string }[] = []
 
-    // Step 1: Find or create the Hey Sigo Call Router TeXML app (with outbound voice profile)
+    // Step 1: Find or create the HeySigo Call Router TeXML app (with outbound voice profile)
     const texmlAppId = await getOrCreateTexmlApp()
 
     // Step 2: Get all Telnyx phone numbers on this account

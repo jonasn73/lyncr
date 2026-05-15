@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { DEFAULT_BUSY_GENERIC } from "@/lib/ai-intake-defaults" // Default opening line for the voice AI (high-volume tone, not "we're closed")
 import { cn } from "@/lib/utils"
+import { BrandWordmark } from "@/components/brand-wordmark"
 import { SITE_NAME } from "@/lib/brand"
 import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
 import { StorySheetHeader } from "@/components/story-sheet-header"
@@ -83,7 +84,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
               <Phone className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
-            <span className="text-sm font-bold text-foreground">{SITE_NAME}</span>
+            <BrandWordmark size="sm" />
           </div>
           <div className="flex items-center gap-2">
             {Array.from({ length: totalSteps }, (_, i) => (

@@ -13,7 +13,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router"
 import { apiMutate } from "../lib/api"
-import { SITE_NAME } from "@/lib/brand"
+import { BrandWordmark } from "@/components/BrandWordmark"
+import { colors } from "../lib/theme"
 
 export default function LoginScreen() {
   const router = useRouter()
@@ -49,7 +50,7 @@ export default function LoginScreen() {
           <View style={styles.logo}>
             <Text style={styles.logoIcon}>📞</Text>
           </View>
-          <Text style={styles.title}>{SITE_NAME}</Text>
+          <BrandWordmark size="md" />
         </View>
 
         <Text style={styles.heading}>Welcome back</Text>
@@ -101,30 +102,29 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
+  container: { flex: 1, backgroundColor: colors.background },
   scroll: { flexGrow: 1, padding: 24, paddingBottom: 48, maxWidth: 400, alignSelf: "center", width: "100%" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 32 },
-  logo: { width: 32, height: 32, borderRadius: 8, backgroundColor: "#6366f1", alignItems: "center", justifyContent: "center" },
+  logo: { width: 32, height: 32, borderRadius: 8, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   logoIcon: { fontSize: 18 },
-  title: { fontSize: 18, fontWeight: "700", color: "#f8fafc" },
-  heading: { fontSize: 24, fontWeight: "700", color: "#f8fafc" },
-  subheading: { fontSize: 14, color: "#94a3b8", marginTop: 8, marginBottom: 24 },
-  label: { fontSize: 12, fontWeight: "600", color: "#94a3b8", marginBottom: 6 },
+  heading: { fontSize: 24, fontWeight: "700", color: colors.text },
+  subheading: { fontSize: 14, color: colors.textMuted, marginTop: 8, marginBottom: 24 },
+  label: { fontSize: 12, fontWeight: "600", color: colors.textMuted, marginBottom: 6 },
   input: {
-    backgroundColor: "#1e293b",
+    backgroundColor: colors.card,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#f8fafc",
+    color: colors.text,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: colors.cardBorder,
   },
-  error: { backgroundColor: "rgba(239,68,68,0.15)", padding: 12, borderRadius: 12, color: "#fca5a5", fontSize: 12, marginBottom: 16 },
-  button: { backgroundColor: "#6366f1", borderRadius: 12, paddingVertical: 14, minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 8 },
+  error: { backgroundColor: colors.errorBg, padding: 12, borderRadius: 12, color: colors.error, fontSize: 12, marginBottom: 16 },
+  button: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 8 },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   link: { marginTop: 24, alignItems: "center", minHeight: 44, justifyContent: "center" },
-  linkText: { color: "#6366f1", fontSize: 14, fontWeight: "500" },
+  linkText: { color: colors.primary, fontSize: 14, fontWeight: "500" },
 })

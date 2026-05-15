@@ -286,7 +286,7 @@ export type UpdateTelnyxAssistantParams = {
 }
 
 /**
- * POST /v2/ai/assistants/{id} — push new instructions/greeting after user edits intake in Hey Sigo.
+ * POST /v2/ai/assistants/{id} — push new instructions/greeting after user edits intake in HeySigo.
  */
 export async function telnyxUpdateAssistant(
   assistantId: string,

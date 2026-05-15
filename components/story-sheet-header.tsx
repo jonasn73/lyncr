@@ -27,7 +27,7 @@ export function StorySheetHeader({
     <SheetHeader
       className={cn(
         "relative shrink-0 space-y-0 border-b px-4 pb-4 pt-2 text-left",
-        variant === "member" && "border-primary/25 bg-gradient-to-br from-primary/[0.18] via-card to-card",
+        variant === "member" && "border-primary/25 bg-gradient-to-br from-primary/[0.14] via-card to-card",
         variant === "operator" && "border-violet-500/35 bg-gradient-to-br from-violet-950/90 via-slate-900 to-slate-950"
       )}
     >

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Zing",
+    "name": "HeySigo",
     "slug": "zing-mobile",
     "version": "1.0.0",
     "scheme": "zing",
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
+      "backgroundColor": "#12101f"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0f172a"
+        "backgroundColor": "#12101f"
       },
       "package": "com.zing.mobile"
     },

@@ -30,7 +30,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { SITE_NAME } from "@/lib/brand"
+import { BrandWordmark } from "@/components/brand-wordmark"
 import { displayPortingMessageBody } from "@/lib/porting-display"
 import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
@@ -2204,8 +2204,12 @@ export function SettingsPage() {
       />
 
       {/* Version */}
-      <p className="text-center text-xs text-muted-foreground">
-        {SITE_NAME} v1.0.0
+      <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+        <BrandWordmark size="xs" />
+        <span className="text-muted-foreground/80" aria-hidden>
+          ·
+        </span>
+        <span>v1.0.0</span>
       </p>
     </div>
   )

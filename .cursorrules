@@ -1,8 +1,8 @@
-# Sigo - Cursor Rules
-# Receptionist & dispatch call routing for small business (“Sigo” — calls follow you from desk to cell).
+# HeySigo - Cursor Rules
+# Receptionist & dispatch call routing for small business (HeySigo — say hey, your line follows you).
 
 ## Project Overview
-Sigo is a VoIP call routing app that lets small business owners manage who answers their business calls. Think Grasshopper/RingCentral but radically simpler. The UI is fully built in Next.js — wire it to real backend services and optionally port the frontend to React Native/Expo for mobile.
+HeySigo is a VoIP call routing app that lets small business owners manage who answers their business calls. Think Grasshopper/RingCentral but radically simpler. The UI is fully built in Next.js — wire it to real backend services and optionally port the frontend to React Native/Expo for mobile.
 
 ## Tech Stack
 - **Frontend**: Next.js 16, React 19, TailwindCSS v4, shadcn/ui
