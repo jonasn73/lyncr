@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import {
   Phone,
@@ -14,6 +14,7 @@ import {
   LogOut,
   Loader2,
   ChevronDown,
+  Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SITE_NAME } from "@/lib/brand"
@@ -28,18 +29,27 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 
-const navItems = [
-  { id: "dashboard", label: "Routing", icon: Zap },
-  { id: "activity", label: "Activity", icon: ClipboardList },
-  { id: "leads", label: "Leads", icon: Inbox },
-  { id: "contacts", label: "Team", icon: Users },
-  { id: "analytics", label: "Pay", icon: BarChart3 },
-  { id: "settings", label: "Settings", icon: Settings },
-  { id: "help", label: "Help", icon: LifeBuoy },
+/** All dashboard segments we recognize for highlighting and deep links (Help is not a bottom tab). */
+export type PageId =
+  | "dashboard"
+  | "activity"
+  | "leads"
+  | "contacts"
+  | "analytics"
+  | "settings"
+  | "help"
+
+/** Primary tabs only — fewer taps; Help stays in the account menu and ⌘K jump palette. */
+const bottomNavItems = [
+  { id: "dashboard" as const, label: "Routing", icon: Zap },
+  { id: "activity" as const, label: "Activity", icon: ClipboardList },
+  { id: "leads" as const, label: "Leads", icon: Inbox },
+  { id: "contacts" as const, label: "Team", icon: Users },
+  { id: "analytics" as const, label: "Pay", icon: BarChart3 },
+  { id: "settings" as const, label: "Settings", icon: Settings },
 ] as const
-
-export type PageId = (typeof navItems)[number]["id"]
 
 /** Session snapshot for the header account menu (dashboard only). */
 export type AccountHeaderState = { kind: "loading" } | { kind: "ready"; name: string; email: string }
@@ -142,11 +152,26 @@ export function AppShell({
 }) {
   const useLinks = Boolean(pathname)
   const mainRef = useRef<HTMLElement>(null)
+  /** Jump palette (⌘K / Ctrl+K) — only used on real dashboard URLs. */
+  const [commandOpen, setCommandOpen] = useState(false)
+
   useLayoutEffect(() => {
     if (!pathname) return
     const el = mainRef.current
     if (el) el.scrollTop = 0
   }, [pathname])
+
+  useEffect(() => {
+    if (!useLinks) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isK = e.key === "k" || e.key === "K"
+      if (!isK || !(e.metaKey || e.ctrlKey)) return
+      e.preventDefault()
+      setCommandOpen((prev) => !prev)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [useLinks])
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background">
@@ -179,6 +204,22 @@ export function AppShell({
         <div className="min-w-0 flex-1" />
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {useLinks && (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Jump to a page"
+                title="Jump to page — ⌘K or Ctrl+K"
+                onClick={() => setCommandOpen(true)}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+              <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={setCommandOpen} />
+            </>
+          )}
           {useLinks && accountHeader?.kind === "loading" && (
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
           )}
@@ -205,11 +246,11 @@ export function AppShell({
         aria-label="Main navigation"
       >
         <p className="sr-only">
-          Use the tabs below to switch sections. Account, sign out, help, and settings are also in the menu at the top
-          right.
+          Use the tabs below for the main sections. Press ⌘K or Ctrl+K to jump anywhere. Account menu at the top right
+          includes settings, help, and sign out.
         </p>
         <div className="mx-1 my-2 flex max-w-full items-center justify-around gap-0.5 overflow-x-auto rounded-2xl border border-border/60 bg-card/70 px-1 py-1.5 sm:mx-2 sm:gap-1 sm:px-2">
-          {navItems.map((item) => {
+          {bottomNavItems.map((item) => {
             const Icon = item.icon
             const isActive = activePage === item.id
             const className = cn(
