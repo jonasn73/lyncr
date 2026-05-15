@@ -87,11 +87,13 @@ export function SettingsPage() {
     industry: string
     business_name: string
     inbound_receptionist_whisper_enabled: boolean
+    answered_call_customer_popup_enabled: boolean
   } | null>(null)
   const [businessNameDraft, setBusinessNameDraft] = useState("")
   const [businessNameSaving, setBusinessNameSaving] = useState(false)
   const [businessNameSavedAt, setBusinessNameSavedAt] = useState<number | null>(null)
   const [whisperSaving, setWhisperSaving] = useState(false)
+  const [answeredCallPopupSaving, setAnsweredCallPopupSaving] = useState(false)
   const [settings, setSettings] = useState<SettingToggle[]>([
     {
       id: "dnd",
@@ -201,14 +203,16 @@ export function SettingsPage() {
 
   const pathname = usePathname()
 
-  // Deep link from dashboard Quick setup: /dashboard/settings#business-numbers
+  // Deep link: /dashboard/settings#business-numbers or #answered-call-customers
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (window.location.hash !== "#business-numbers") return
-    const id = window.setTimeout(() => {
-      document.getElementById("business-numbers")?.scrollIntoView({ behavior: "smooth", block: "start" })
+    const hash = window.location.hash
+    if (hash !== "#business-numbers" && hash !== "#answered-call-customers") return
+    const id = hash === "#business-numbers" ? "business-numbers" : "answered-call-customers"
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
     }, 120)
-    return () => window.clearTimeout(id)
+    return () => window.clearTimeout(t)
   }, [pathname])
 
   // Load current user so we can show main line (cell) in profile
@@ -226,6 +230,7 @@ export function SettingsPage() {
             industry: u.industry ?? "generic",
             business_name: u.business_name ?? "My Business",
             inbound_receptionist_whisper_enabled: u.inbound_receptionist_whisper_enabled !== false,
+            answered_call_customer_popup_enabled: u.answered_call_customer_popup_enabled !== false,
           })
           setIndustryDraft(u.industry ?? "generic")
           setBusinessNameDraft(String(u.business_name ?? "").trim() || "My Business")
@@ -808,6 +813,41 @@ export function SettingsPage() {
     }
   }
 
+  async function saveAnsweredCallPopupEnabled(next: boolean) {
+    setAnsweredCallPopupSaving(true)
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ answered_call_customer_popup_enabled: next }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({
+          title: "Could not update setting",
+          description: data.error || "Try again.",
+          variant: "destructive",
+        })
+        return
+      }
+      setUser((prev) => (prev ? { ...prev, answered_call_customer_popup_enabled: next } : prev))
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("zing-account-preferences-updated"))
+      }
+      toast({
+        title: next ? "Customer sheet on" : "Customer sheet off",
+        description: next
+          ? "After a call is answered, you can capture name and address into Customers."
+          : "The answered-call capture sheet will not open. You can still edit customers from the Customers tab.",
+      })
+    } catch {
+      toast({ title: "Error", description: "Could not update customer popup setting.", variant: "destructive" })
+    } finally {
+      setAnsweredCallPopupSaving(false)
+    }
+  }
+
   async function saveMainLine() {
     if (!mainLineEdit.trim()) return
     setMainLineError(null)
@@ -839,6 +879,7 @@ export function SettingsPage() {
             industry: su.industry ?? "generic",
             business_name: su.business_name ?? "My Business",
             inbound_receptionist_whisper_enabled: su.inbound_receptionist_whisper_enabled !== false,
+            answered_call_customer_popup_enabled: su.answered_call_customer_popup_enabled !== false,
           })
           setBusinessNameDraft(String(su.business_name ?? "").trim() || "My Business")
           toast({
@@ -1025,6 +1066,29 @@ export function SettingsPage() {
                 onCheckedChange={(v) => void saveWhisperEnabled(v)}
                 disabled={whisperSaving || !user}
                 aria-label="Toggle team whisper after answer"
+              />
+            </div>
+          </div>
+          <div
+            id="answered-call-customers"
+            className="mt-3 flex items-start justify-between gap-3 scroll-mt-20 rounded-xl border border-border/60 bg-secondary/20 p-3"
+          >
+            <div className="min-w-0 space-y-1">
+              <p className="text-[11px] font-semibold text-muted-foreground">Answered-call customer sheet</p>
+              <p className="text-[11px] text-muted-foreground">
+                When someone picks up an inbound call, show a quick form to save their name and address into{" "}
+                <Link href="/dashboard/customers" className="font-semibold text-primary underline-offset-2 hover:underline">
+                  Customers
+                </Link>
+                . Turn off if you do not want popups while working in the app.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Switch
+                checked={user?.answered_call_customer_popup_enabled !== false}
+                onCheckedChange={(v) => void saveAnsweredCallPopupEnabled(v)}
+                disabled={answeredCallPopupSaving || !user}
+                aria-label="Toggle answered-call customer capture sheet"
               />
             </div>
           </div>

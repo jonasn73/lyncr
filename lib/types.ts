@@ -22,6 +22,8 @@ export interface User {
   billing_plan: string
   /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */
   is_platform_admin: boolean
+  /** When false, do not show the answered-call customer sheet (requires `023-user-answered-call-popup-toggle.sql`). */
+  answered_call_customer_popup_enabled: boolean
 }
 
 export type FeedbackCategory = "issue" | "feature" | "billing" | "other"

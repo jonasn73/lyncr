@@ -28,6 +28,7 @@ export async function PATCH(req: NextRequest) {
       name?: string
       business_name?: string
       inbound_receptionist_whisper_enabled?: boolean
+      answered_call_customer_popup_enabled?: boolean
       industry?: string
     } = {}
     if (typeof body?.phone === "string" && body.phone.trim()) {
@@ -42,6 +43,9 @@ export async function PATCH(req: NextRequest) {
     if (typeof body?.inbound_receptionist_whisper_enabled === "boolean") {
       updates.inbound_receptionist_whisper_enabled = body.inbound_receptionist_whisper_enabled
     }
+    if (typeof body?.answered_call_customer_popup_enabled === "boolean") {
+      updates.answered_call_customer_popup_enabled = body.answered_call_customer_popup_enabled
+    }
     if (typeof body?.industry === "string") {
       const ind = body.industry.trim().toLowerCase()
       if (allowedIndustry.has(ind)) updates.industry = ind
@@ -50,7 +54,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Provide at least one of: phone, name, business_name, inbound_receptionist_whisper_enabled, industry",
+            "Provide at least one of: phone, name, business_name, inbound_receptionist_whisper_enabled, answered_call_customer_popup_enabled, industry",
         },
         { status: 400 }
       )

@@ -7,7 +7,7 @@
 // layout. Until the client has mounted, we use that for the active tab + Link
 // context so the shell never briefly disagrees with the real URL during hydration.
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
@@ -37,7 +37,7 @@ export function DashboardShell({
     setMounted(true)
   }, [])
 
-  useEffect(() => {
+  const refreshSession = useCallback(() => {
     fetch("/api/auth/session", { credentials: "include" })
       .then(async (res) => {
         if (res.status === 401 || !res.ok) {
@@ -51,6 +51,7 @@ export function DashboardShell({
             kind: "ready",
             name: String(u.name ?? "Account"),
             email: String(u.email),
+            answeredCallCustomerPopupEnabled: u.answered_call_customer_popup_enabled !== false,
           })
         } else {
           router.replace("/login")
@@ -58,6 +59,16 @@ export function DashboardShell({
       })
       .catch(() => router.replace("/login"))
   }, [router])
+
+  useEffect(() => {
+    void refreshSession()
+  }, [refreshSession])
+
+  useEffect(() => {
+    const onUpdated = () => void refreshSession()
+    window.addEventListener("zing-account-preferences-updated", onUpdated)
+    return () => window.removeEventListener("zing-account-preferences-updated", onUpdated)
+  }, [refreshSession])
 
   // Before mount: middleware `x-sigo-pathname` matches the real URL on first paint (good for refresh).
   // After mount: use Next’s `usePathname()` — it updates with the App Router as soon as the route
@@ -81,7 +92,11 @@ export function DashboardShell({
   return (
     <AppShell activePage={activePage} pathname={pathname} accountHeader={accountHeader}>
       <DashboardPageView pathname={pathname}>{children}</DashboardPageView>
-      <AnsweredCallCustomerPopup enabled={accountHeader.kind === "ready"} />
+      <AnsweredCallCustomerPopup
+        enabled={
+          accountHeader.kind === "ready" && accountHeader.answeredCallCustomerPopupEnabled
+        }
+      />
     </AppShell>
   )
 }

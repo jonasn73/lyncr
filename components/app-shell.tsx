@@ -53,7 +53,9 @@ const bottomNavItems = [
 ] as const
 
 /** Session snapshot for the header account menu (dashboard only). */
-export type AccountHeaderState = { kind: "loading" } | { kind: "ready"; name: string; email: string }
+export type AccountHeaderState =
+  | { kind: "loading" }
+  | { kind: "ready"; name: string; email: string; answeredCallCustomerPopupEnabled: boolean }
 
 /** Href for each tab — use Link (not router.push) so App Router always swaps the page under this client layout. */
 const PAGE_HREF: Record<PageId, string> = {

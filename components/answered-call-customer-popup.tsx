@@ -92,6 +92,10 @@ export function AnsweredCallCustomerPopup({ enabled }: { enabled: boolean }) {
   }, [enabled])
 
   useEffect(() => {
+    if (!enabled) setCurrent(null)
+  }, [enabled])
+
+  useEffect(() => {
     if (!current) return
     let cancel = false
     setMoreOpen(false)

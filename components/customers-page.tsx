@@ -3,15 +3,19 @@
 // ============================================
 // CustomersPage — searchable saved callers (CRM-lite)
 // ============================================
+// Tap a row to open an editable sheet; changes debounce-save to PUT /api/customers.
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { BookUser, Loader2, Search } from "lucide-react"
+import { BookUser, ChevronDown, Loader2, Search } from "lucide-react"
 import type { Customer } from "@/lib/types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { cn } from "@/lib/utils"
 
 export function CustomersPage() {
   const [q, setQ] = useState("")
@@ -20,6 +24,18 @@ export function CustomersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<Customer | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
+
+  const [displayName, setDisplayName] = useState("")
+  const [companyName, setCompanyName] = useState("")
+  const [addressLine1, setAddressLine1] = useState("")
+  const [addressLine2, setAddressLine2] = useState("")
+  const [city, setCity] = useState("")
+  const [region, setRegion] = useState("")
+  const [postalCode, setPostalCode] = useState("")
+  const [country, setCountry] = useState("US")
+  const [notes, setNotes] = useState("")
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 320)
@@ -50,6 +66,61 @@ export function CustomersPage() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (!detail) return
+    setMoreOpen(false)
+    setSaveState("idle")
+    setDisplayName(detail.display_name || "")
+    setCompanyName(detail.company_name || "")
+    setAddressLine1(detail.address_line1 || "")
+    setAddressLine2(detail.address_line2 || "")
+    setCity(detail.city || "")
+    setRegion(detail.region || "")
+    setPostalCode(detail.postal_code || "")
+    setCountry(detail.country || "US")
+    setNotes(detail.notes || "")
+  }, [detail])
+
+  useEffect(() => {
+    if (!detail) return
+    setSaveState("idle")
+    const t = window.setTimeout(() => {
+      setSaveState("saving")
+      fetch("/api/customers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          phone_e164: detail.phone_e164,
+          display_name: displayName,
+          company_name: companyName,
+          address_line1: addressLine1,
+          address_line2: addressLine2,
+          city,
+          region,
+          postal_code: postalCode,
+          country,
+          notes,
+        }),
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error("save")
+          return res.json() as Promise<{ data?: Customer }>
+        })
+        .then((out) => {
+          setSaveState("saved")
+          if (out.data) {
+            setDetail(out.data)
+            setRows((prev) => prev.map((r) => (r.id === out.data!.id ? out.data! : r)))
+          } else {
+            void load()
+          }
+        })
+        .catch(() => setSaveState("error"))
+    }, 900)
+    return () => window.clearTimeout(t)
+  }, [detail, displayName, companyName, addressLine1, addressLine2, city, region, postalCode, country, notes])
+
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-4 px-4 py-6">
       <div className="flex items-center gap-3">
@@ -59,7 +130,7 @@ export function CustomersPage() {
         <div>
           <h1 className="text-lg font-semibold text-foreground">Customers</h1>
           <p className="text-xs text-muted-foreground">
-            Saved when you answer calls (popup) or anytime via API. Search by name, phone, or address.
+            Search by name, phone, or address. Tap a row to edit — changes save automatically after you pause typing.
           </p>
         </div>
       </div>
@@ -84,8 +155,8 @@ export function CustomersPage() {
         <p className="text-sm text-destructive">{error}</p>
       ) : rows.length === 0 ? (
         <p className="rounded-2xl border border-border/70 bg-card/80 p-4 text-sm text-muted-foreground">
-          No customers yet. When you pick up an inbound call, a sheet will offer to save the caller here. Run{" "}
-          <span className="font-mono text-[11px]">022-customers.sql</span> in Neon if saves fail.
+          No customers yet. After you run <span className="font-mono text-[11px]">022-customers.sql</span> in Neon, use the
+          answered-call sheet or add records here once you have a saved profile.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -111,8 +182,12 @@ export function CustomersPage() {
       )}
 
       <p className="text-center text-[11px] text-muted-foreground">
+        <Link href="/dashboard/settings#answered-call-customers" className="font-semibold text-primary underline-offset-2 hover:underline">
+          Popup settings
+        </Link>
+        {" · "}
         <Link href="/dashboard" className="font-semibold text-primary underline-offset-2 hover:underline">
-          Back to routing
+          Routing
         </Link>
       </p>
 
@@ -121,34 +196,100 @@ export function CustomersPage() {
           {detail ? (
             <>
               <SheetHeader className="border-b border-border/60 px-4 pb-3 pt-2 text-left">
-                <SheetTitle className="text-left">{detail.display_name || "Customer"}</SheetTitle>
-                <p className="text-left text-xs text-muted-foreground">{formatPhoneDisplay(detail.phone_e164)}</p>
+                <SheetTitle className="text-left">Edit customer</SheetTitle>
+                <p className="text-left text-xs text-muted-foreground">
+                  {formatPhoneDisplay(detail.phone_e164)} · phone number is the record key
+                </p>
               </SheetHeader>
-              <div className="max-h-[min(60vh,400px)] space-y-2 overflow-y-auto px-4 py-3 text-sm">
-                {detail.company_name ? (
-                  <p>
-                    <span className="font-medium text-foreground">Company:</span> {detail.company_name}
-                  </p>
-                ) : null}
-                {(detail.address_line1 || detail.address_line2) && (
-                  <p className="whitespace-pre-line text-muted-foreground">
-                    {[detail.address_line1, detail.address_line2].filter(Boolean).join("\n")}
-                  </p>
-                )}
-                {(detail.city || detail.region || detail.postal_code) && (
-                  <p className="text-muted-foreground">
-                    {[detail.city, detail.region, detail.postal_code].filter(Boolean).join(", ")} {detail.country}
-                  </p>
-                )}
-                {detail.notes ? (
-                  <p>
-                    <span className="font-medium text-foreground">Notes:</span> {detail.notes}
-                  </p>
-                ) : null}
-                <p className="text-[11px] text-muted-foreground">Updated {new Date(detail.updated_at).toLocaleString()}</p>
+
+              <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cust-name" className="text-xs">
+                    Name
+                  </Label>
+                  <Input
+                    id="cust-name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="h-10"
+                    placeholder="Display name"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cust-co" className="text-xs">
+                    Company
+                  </Label>
+                  <Input
+                    id="cust-co"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="h-10"
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-left text-xs font-semibold text-foreground"
+                    >
+                      Address &amp; notes
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", moreOpen && "rotate-180")} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-3 data-[state=closed]:animate-none">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Street</Label>
+                      <Input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} className="h-10" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Apt / suite</Label>
+                      <Input value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} className="h-10" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">City</Label>
+                        <Input value={city} onChange={(e) => setCity(e.target.value)} className="h-10" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">State / region</Label>
+                        <Input value={region} onChange={(e) => setRegion(e.target.value)} className="h-10" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Postal code</Label>
+                        <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-10" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Country</Label>
+                        <Input value={country} onChange={(e) => setCountry(e.target.value)} className="h-10" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="cust-notes" className="text-xs">
+                        Notes
+                      </Label>
+                      <Input
+                        id="cust-notes"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Follow-ups, tags…"
+                        className="h-10"
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
-              <SheetFooter className="border-t border-border/70 px-4 py-3">
-                <p className="text-[11px] text-muted-foreground">Edit from the next answered-call popup for this number.</p>
+
+              <SheetFooter className="flex flex-col gap-1 border-t border-border/70 bg-secondary/15 px-4 py-3">
+                <p className="text-[11px] text-muted-foreground">
+                  {saveState === "saving" ? "Saving…" : null}
+                  {saveState === "saved" ? "Saved." : null}
+                  {saveState === "error" ? "Save failed — run 022-customers.sql if the table is missing." : null}
+                  {saveState === "idle" ? "Edits save automatically after a short pause." : null}
+                </p>
               </SheetFooter>
             </>
           ) : null}

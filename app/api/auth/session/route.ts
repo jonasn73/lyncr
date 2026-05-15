@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
         credit_balance_cents: 0,
         billing_plan: "trial",
         is_platform_admin: false,
+        answered_call_customer_popup_enabled: true,
       }
       const res = NextResponse.json({
         data: {

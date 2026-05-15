@@ -723,6 +723,10 @@ function parseUserRow(row: Record<string, unknown>): User {
     billing_plan: row.billing_plan != null && row.billing_plan !== undefined ? String(row.billing_plan) : "trial",
     is_platform_admin:
       row.is_platform_admin === null || row.is_platform_admin === undefined ? false : pgBool(row.is_platform_admin),
+    answered_call_customer_popup_enabled:
+      row.answered_call_customer_popup_enabled === null || row.answered_call_customer_popup_enabled === undefined
+        ? true
+        : pgBool(row.answered_call_customer_popup_enabled),
   }
 }
 
@@ -1028,11 +1032,27 @@ export async function getUser(userId: string): Promise<User | null> {
   try {
     const rows = await sql`
       SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
-        credit_balance_cents, billing_plan, is_platform_admin
+        credit_balance_cents, billing_plan, is_platform_admin,
+        answered_call_customer_popup_enabled
       FROM users WHERE id = ${userId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
   } catch (e) {
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("answered_call_customer_popup_enabled")) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        if (isMissingBillingColumnsError(e2)) {
+          return getUserWithoutBillingColumnsInSelect(userId)
+        }
+        throw e2
+      }
+    }
     if (isMissingBillingColumnsError(e)) {
       return getUserWithoutBillingColumnsInSelect(userId)
     }
@@ -1090,6 +1110,7 @@ export async function updateUser(
     name?: string
     business_name?: string
     inbound_receptionist_whisper_enabled?: boolean
+    answered_call_customer_popup_enabled?: boolean
     industry?: string
     telnyx_ai_assistant_id?: string | null
   }
@@ -1113,6 +1134,20 @@ export async function updateUser(
       if (code === "42703" && msg.includes("inbound_receptionist_whisper_enabled")) {
         throw new Error(
           "Could not save whisper setting: column inbound_receptionist_whisper_enabled is missing. In Neon → SQL Editor, run scripts/017-inbound-whisper-user-toggle.sql, then try again."
+        )
+      }
+      throw e
+    }
+  }
+  if (updates.answered_call_customer_popup_enabled !== undefined) {
+    try {
+      await sql`UPDATE users SET answered_call_customer_popup_enabled = ${updates.answered_call_customer_popup_enabled} WHERE id = ${userId}`
+    } catch (e) {
+      const code = pgErrorCode(e)
+      const msg = pgErrorMessage(e)
+      if (code === "42703" && msg.includes("answered_call_customer_popup_enabled")) {
+        throw new Error(
+          "Could not save customer popup setting: column answered_call_customer_popup_enabled is missing. In Neon → SQL Editor, run scripts/023-user-answered-call-popup-toggle.sql, then try again."
         )
       }
       throw e
