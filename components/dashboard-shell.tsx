@@ -7,7 +7,7 @@
 // layout. Until the client has mounted, we use that for the active tab + Link
 // context so the shell never briefly disagrees with the real URL during hydration.
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
@@ -62,14 +62,18 @@ export function DashboardShell({
   // After mount: use Next’s `usePathname()` — it updates with the App Router as soon as the route
   // commits. `window.location.pathname` often updates *later* on client navigations, so preferring
   // it made the highlight stay on the old tab while the new page was already showing.
-  const pathname =
-    !mounted && pathnameFromRequest != null && pathnameFromRequest.startsWith("/dashboard")
-      ? pathnameFromRequest
-      : clientPathname.startsWith("/dashboard")
-        ? clientPathname
-        : pathnameFromRequest && pathnameFromRequest.startsWith("/dashboard")
-          ? pathnameFromRequest
-          : "/dashboard"
+  const pathname = useMemo(() => {
+    if (!mounted && pathnameFromRequest != null && pathnameFromRequest.startsWith("/dashboard")) {
+      return pathnameFromRequest
+    }
+    if (clientPathname.startsWith("/dashboard")) {
+      return clientPathname
+    }
+    if (pathnameFromRequest && pathnameFromRequest.startsWith("/dashboard")) {
+      return pathnameFromRequest
+    }
+    return "/dashboard"
+  }, [mounted, pathnameFromRequest, clientPathname])
 
   const activePage = getActivePage(pathname)
 

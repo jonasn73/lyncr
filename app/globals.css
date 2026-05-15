@@ -100,7 +100,8 @@
     background-image:
       radial-gradient(1200px 500px at 50% -10%, oklch(0.70 0.19 278 / 0.10), transparent 58%),
       radial-gradient(700px 320px at 12% 0%, oklch(0.62 0.16 300 / 0.06), transparent 62%);
-    background-attachment: fixed;
+    /* Scroll with the page — `fixed` repaints the full viewport on every scroll and feels laggy on mobile. */
+    background-attachment: scroll;
   }
   /* Show pointer (finger) cursor on all clickable elements */
   a,
@@ -131,7 +132,8 @@
   }
 
   .sigo-card-interactive {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30;
+    /* Only animate transform and border — avoids `transition-all` repainting unrelated properties. */
+    @apply transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 motion-reduce:hover:translate-y-0;
   }
 
   .sigo-section-header {
@@ -152,5 +154,28 @@
 
   .sigo-btn-md {
     @apply rounded-xl px-4 py-2 text-sm font-semibold;
+  }
+}
+
+/* GPU-friendly route / panel enter — opacity + translate3d only. */
+@keyframes sigo-page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@layer utilities {
+  .animate-sigo-page-enter {
+    animation: sigo-page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-sigo-page-enter {
+      animation: none;
+    }
   }
 }

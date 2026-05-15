@@ -86,7 +86,7 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
 
       {/* Form */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 pb-16">
-        <div className="w-full max-w-sm">
+        <div key={mode} className="w-full max-w-sm animate-sigo-page-enter">
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-bold text-foreground">
               {isSignup ? "Create your account" : "Welcome back"}

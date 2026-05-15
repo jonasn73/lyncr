@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState, memo } from "react"
 import Link from "next/link"
 import {
   Phone,
@@ -72,7 +72,7 @@ function initialsFromName(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function HeaderAccountMenu({ name, email }: { name: string; email: string }) {
+const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { name: string; email: string }) {
   const [busy, setBusy] = useState(false)
   return (
     <DropdownMenu>
@@ -132,7 +132,7 @@ function HeaderAccountMenu({ name, email }: { name: string; email: string }) {
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
+})
 
 export function AppShell({
   activePage,
@@ -255,7 +255,7 @@ export function AppShell({
             const isActive = activePage === item.id
             const className = cn(
               "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 sm:min-w-[58px] sm:px-3",
-              "transition-all duration-200 ease-out motion-safe:active:scale-[0.96]",
+              "transition-[background-color,color,transform,box-shadow] duration-200 ease-out motion-safe:active:scale-[0.96]",
               isActive
                 ? "bg-primary/12 text-primary shadow-[0_0_20px_-8px_var(--primary)]"
                 : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"

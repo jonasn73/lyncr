@@ -209,7 +209,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
               "radial-gradient(ellipse at 50% 30%, oklch(0.72 0.17 175 / 0.08) 0%, transparent 60%)",
           }}
         />
-        <div className="relative mx-auto max-w-3xl">
+        <div className="relative mx-auto max-w-3xl animate-sigo-page-enter">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5">
             <Zap className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium text-primary">
@@ -226,14 +226,14 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
               href={appUrl}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-all hover:bg-primary/90 sm:w-auto"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-[background-color,transform,box-shadow] duration-200 ease-out hover:bg-primary/90 motion-safe:hover:scale-[1.02] sm:w-auto"
             >
               Start Free Trial
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href="#how-it-works"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-8 py-3.5 text-base font-semibold text-foreground transition-all hover:bg-secondary sm:w-auto"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-8 py-3.5 text-base font-semibold text-foreground transition-[background-color,border-color,transform] duration-200 ease-out hover:bg-secondary motion-safe:hover:scale-[1.01] sm:w-auto"
             >
               See How It Works
             </a>
@@ -285,7 +285,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
               return (
                 <div
                   key={feature.title}
-                  className="group rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/30 hover:bg-card/80"
+                  className="group rounded-2xl border border-border bg-card p-6 transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-1 hover:border-primary/30 hover:bg-card/80 motion-reduce:hover:translate-y-0"
                 >
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                     <Icon className="h-6 w-6 text-primary" />
@@ -492,7 +492,7 @@ export function LandingPage({ appUrl = "/app" }: LandingPageProps) {
           </p>
           <a
             href={appUrl}
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 motion-safe:hover:scale-[1.02]"
           >
             Start Your Free Trial
             <ArrowRight className="h-4 w-4" />

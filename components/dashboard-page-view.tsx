@@ -3,8 +3,8 @@
 // ============================================
 // Animated wrapper for each dashboard tab’s content
 // ============================================
-// `key={pathname}` remounts this subtree on navigation so enter motion runs every time.
-// `motion-reduce` users get an instant paint (no animation) for accessibility.
+// `key={pathname}` restarts the enter animation on each segment change. prefers-reduced-motion
+// disables the keyframes in `globals.css` (`.animate-sigo-page-enter`).
 
 import { type ReactNode } from "react"
 
@@ -16,7 +16,7 @@ export function DashboardPageView({
   children: ReactNode
 }) {
   return (
-    <div key={pathname} className="min-h-full bg-background">
+    <div key={pathname} className="min-h-full bg-background animate-sigo-page-enter">
       {children}
     </div>
   )

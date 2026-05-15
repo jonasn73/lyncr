@@ -47,7 +47,7 @@ function AdminSidebar() {
               type="button"
               onClick={() => setSection(item.id)}
               className={cn(
-                "flex min-w-[8.5rem] shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors lg:min-w-0 lg:w-full",
+                "flex min-w-[8.5rem] shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-[background-color,box-shadow,color] duration-200 ease-out lg:min-w-0 lg:w-full",
                 active
                   ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
                   : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
