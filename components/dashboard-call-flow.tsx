@@ -17,6 +17,7 @@ import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import {
   businessNumbersMatch,
   formatPhoneDisplay,
+  linePickerStatusLabel,
   type Contact,
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
@@ -149,12 +150,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             </div>
             {routingLineDetailLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading line" />
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/45 bg-primary/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary shadow-[var(--electric-glow)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" aria-hidden />
-                Live
-              </span>
-            )}
+            ) : null}
           </div>
 
           {businessNumbers.length > 0 ? (
@@ -229,6 +225,21 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   )
 })
 
+function LineStatusIndicator({ isSelected }: { isSelected: boolean }) {
+  const label = linePickerStatusLabel(isSelected)
+  return (
+    <span
+      className={cn(
+        "text-[11px] font-semibold",
+        isSelected ? "text-primary" : "text-primary/75"
+      )}
+    >
+      <span aria-hidden>• </span>
+      {label}
+    </span>
+  )
+}
+
 const ActiveLinePicker = memo(function ActiveLinePicker({
   businessNumbers,
   activeLine,
@@ -241,38 +252,46 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   const display = formatPhoneDisplay(activeLine)
   const multi = businessNumbers.length > 1
   const activeLineFieldClass =
-    "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-2.5 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
+    "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-primary/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
   if (!multi) {
     return (
       <div
         className={cn(
-          "flex w-full max-w-md items-center justify-center gap-2 px-4",
+          "flex w-full max-w-md flex-col items-center justify-center gap-1 px-4 py-3",
           activeLineFieldClass
         )}
       >
-        <span className="text-xs font-medium text-zinc-400">Active line:</span>
-        <span className="text-foreground">{display}</span>
+        <span className="text-xs font-medium text-zinc-400">Active line</span>
+        <span className="text-base text-foreground">{display}</span>
+        <LineStatusIndicator isSelected />
       </div>
     )
   }
 
   return (
-    <label className="relative w-full max-w-md">
+    <label className={cn("relative block w-full max-w-md", activeLineFieldClass)}>
       <span className="sr-only">Active business line</span>
-      <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-xs font-medium text-zinc-400">
-        Active line:
-      </span>
+      <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
+        <span className="text-xs font-medium text-zinc-400">Active line</span>
+        <span className="text-base font-semibold text-foreground">{display}</span>
+        <LineStatusIndicator isSelected />
+      </div>
       <select
         value={activeLine}
         onChange={(e) => onSelect(e.target.value)}
-        className={cn(activeLineFieldClass, "appearance-none pl-[5.5rem] pr-10 text-center")}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        aria-label="Select active business line"
       >
-        {businessNumbers.map((bn) => (
-          <option key={bn.number} value={bn.number}>
-            {formatPhoneDisplay(bn.number)}
-          </option>
-        ))}
+        {businessNumbers.map((bn) => {
+          const isSelected = businessNumbersMatch(bn.number, activeLine)
+          const status = linePickerStatusLabel(isSelected)
+          return (
+            <option key={bn.number} value={bn.number}>
+              {formatPhoneDisplay(bn.number)} — {status}
+            </option>
+          )
+        })}
       </select>
       <ChevronDown
         className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"

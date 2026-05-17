@@ -224,9 +224,13 @@ const AppShellHeader = memo(function AppShellHeader({
         {useLinks && accountHeader?.kind === "ready" && (
           <HeaderAccountMenu name={accountHeader.name} email={accountHeader.email} />
         )}
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/45 bg-primary/12 px-2 py-1 shadow-[var(--electric-glow)] sm:gap-2 sm:px-2.5">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" aria-hidden />
-          <span className="hidden text-[11px] font-semibold uppercase tracking-wide text-primary sm:inline">Live</span>
+        <div
+          className="inline-flex items-center gap-1.5 rounded-full border border-success/35 bg-success/10 px-2 py-1 sm:gap-2 sm:px-2.5"
+          role="status"
+          aria-label="System connected"
+        >
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success shadow-[0_0_6px_var(--success)]" aria-hidden />
+          <span className="hidden text-[11px] font-medium text-success sm:inline">System Connected</span>
         </div>
       </div>
     </header>

@@ -52,6 +52,11 @@ export function businessNumbersMatch(a: string | null | undefined, b: string | n
 }
 
 /** Format E.164 to display, e.g. +15025551234 -> (502) 555-1234 */
+/** Short line state for the Step 1 picker (selected line vs other routable lines). */
+export function linePickerStatusLabel(isSelectedLine: boolean): "Active" | "Routed" {
+  return isSelectedLine ? "Active" : "Routed"
+}
+
 export function formatPhoneDisplay(phone: string | undefined | null): string {
   if (phone == null || typeof phone !== "string") return "Your cell"
   const digits = phone.replace(/\D/g, "")
