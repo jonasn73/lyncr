@@ -76,7 +76,7 @@ function FlowStepCard({
         <p className="text-lg font-semibold leading-tight text-foreground sm:text-xl">{value}</p>
         <p className="text-xs leading-snug text-muted-foreground">{detail}</p>
       </div>
-      <span className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-md transition-colors group-hover:bg-primary/90">
+      <span className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-border/70 bg-transparent px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:text-primary">
         Configure
       </span>
     </button>
@@ -234,12 +234,19 @@ function ActiveLinePicker({
 }) {
   const display = formatPhoneDisplay(activeLine)
   const multi = businessNumbers.length > 1
+  const activeLineFieldClass =
+    "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-2.5 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
 
   if (!multi) {
     return (
-      <div className="flex w-full max-w-md items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/90 px-4 py-3 text-sm font-semibold text-foreground shadow-inner">
-        <span className="text-xs font-medium text-muted-foreground">Active line:</span>
-        <span className="text-primary">{display}</span>
+      <div
+        className={cn(
+          "flex w-full max-w-md items-center justify-center gap-2 px-4",
+          activeLineFieldClass
+        )}
+      >
+        <span className="text-xs font-medium text-zinc-400">Active line:</span>
+        <span className="text-foreground">{display}</span>
       </div>
     )
   }
@@ -247,13 +254,13 @@ function ActiveLinePicker({
   return (
     <label className="relative w-full max-w-md">
       <span className="sr-only">Active business line</span>
-      <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+      <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-xs font-medium text-zinc-400">
         Active line:
       </span>
       <select
         value={activeLine}
         onChange={(e) => onSelect(e.target.value)}
-        className="w-full appearance-none rounded-xl border border-border/70 bg-background/90 py-3 pl-[5.5rem] pr-10 text-center text-sm font-semibold text-foreground shadow-inner transition-colors hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
+        className={cn(activeLineFieldClass, "appearance-none pl-[5.5rem] pr-10 text-center")}
       >
         {businessNumbers.map((bn) => (
           <option key={bn.number} value={bn.number}>
@@ -262,7 +269,7 @@ function ActiveLinePicker({
         ))}
       </select>
       <ChevronDown
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
         aria-hidden
       />
     </label>

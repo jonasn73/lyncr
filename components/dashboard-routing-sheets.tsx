@@ -149,14 +149,14 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
             className="h-8 w-8 shrink-0"
           />
         </div>
-        <p className="mt-4 text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+        <p className="mt-4 max-w-3xl text-xs leading-relaxed text-zinc-500 sm:text-[13px]">
           Forwarded legs use your {SITE_NAME} business number. We also send your line label as the outbound display name when
           your carrier supports it, so the person answering may see a name instead of only digits. Labels like spam
           risk are added by the receiving carrier from their own analytics; improving reputation usually means setting
           CNAM on the number in Telnyx, registering it with services such as the Free Caller Registry, then carrying
           normal traffic for a few days.
         </p>
-        <p className="mt-3 text-xs text-muted-foreground sm:text-[13px]">
+        <p className="mt-3 max-w-3xl text-xs text-zinc-400 sm:text-[13px]">
           Give each number a clear line label in{" "}
           <Link href="/dashboard/settings#business-numbers" className="font-semibold text-primary underline underline-offset-2">
             Settings
