@@ -41,8 +41,8 @@ function SheetOverlay({
       className={cn(
         'fixed inset-0 z-[100]',
         variant === 'drawer'
-          ? 'sigo-sheet-drawer-overlay bg-black/70 transform-gpu will-change-[opacity] [backface-visibility:hidden]'
-          : 'bg-black/65 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          ? 'sigo-sheet-drawer-overlay bg-zinc-950/70 transform-gpu will-change-[opacity] backface-hidden'
+          : 'bg-black/60 transform-gpu will-change-[opacity] backface-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className,
       )}
       {...props}
@@ -73,7 +73,7 @@ function SheetContent({
           'bg-background fixed z-[110] flex flex-col',
           isDrawer
             ? cn(
-                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-lg transform-gpu will-change-transform [backface-visibility:hidden]',
+                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-lg transform-gpu will-change-transform backface-hidden',
                 side === 'right' && 'right-0 sm:max-w-md md:max-w-lg lg:max-w-xl',
                 side === 'left' && 'left-0 w-3/4 border-r border-l-0 sm:max-w-sm',
               )

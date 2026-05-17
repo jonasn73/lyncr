@@ -229,7 +229,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   )
 })
 
-function ActiveLinePicker({
+const ActiveLinePicker = memo(function ActiveLinePicker({
   businessNumbers,
   activeLine,
   onSelect,
@@ -280,4 +280,4 @@ function ActiveLinePicker({
       />
     </label>
   )
-}
+})

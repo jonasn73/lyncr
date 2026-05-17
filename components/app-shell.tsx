@@ -38,6 +38,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
+import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 
 /** All dashboard segments we recognize for highlighting and deep links (Help is not a bottom tab). */
 export type PageId =
@@ -295,18 +296,17 @@ const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { nam
 })
 
 function AppShellInner({
-  activePage,
   pathname,
   accountHeader,
   onNavigate,
   children,
 }: {
-  activePage: PageId
   pathname?: string
   accountHeader?: AccountHeaderState
   onNavigate?: (page: PageId) => void
   children: ReactNode
 }) {
+  const activePage = useDashboardActivePage()
   const useLinks = Boolean(pathname)
   const mainRef = useRef<HTMLElement>(null)
   const [commandOpen, setCommandOpen] = useState(false)

@@ -1,6 +1,6 @@
 /** GPU-friendly drawer motion — shared by workspace + routing slide-overs. */
 export const DRAWER_SHEET_GPU =
-  "transform-gpu will-change-transform [backface-visibility:hidden]"
+  "transform-gpu will-change-transform backface-hidden"
 
 /** Shared right-drawer width classes (decoupled from dashboard-call-flow to avoid import cycles). */
 export const WORKSPACE_SHEET_CLASS =

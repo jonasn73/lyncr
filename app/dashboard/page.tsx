@@ -1,10 +1,6 @@
-import { Suspense } from "react"
-import { DashboardPage } from "@/components/dashboard-page"
+import { DashboardTabView } from "@/components/dashboard-tab-views"
 
+/** Routing UI is mounted once in {@link DashboardPresenceHost}. */
 export default function DashboardRoute() {
-  return (
-    <Suspense fallback={null}>
-      <DashboardPage />
-    </Suspense>
-  )
+  return <DashboardTabView tab="dashboard" />
 }

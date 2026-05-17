@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, memo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
+import { DashboardChromeProvider } from "@/components/dashboard-shell-chrome-context"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
 
@@ -92,9 +93,11 @@ export function DashboardShell({
   )
 
   return (
-    <AppShell activePage={activePage} pathname={pathname} accountHeader={accountHeader}>
-      <DashboardMainContent activePage={activePage} routedChildren={children} />
-      <DashboardAnsweredCallPopup enabled={popupEnabled} />
-    </AppShell>
+    <DashboardChromeProvider activePage={activePage}>
+      <AppShell pathname={pathname} accountHeader={accountHeader}>
+        <DashboardMainContent activePage={activePage} routedChildren={children} />
+        <DashboardAnsweredCallPopup enabled={popupEnabled} />
+      </AppShell>
+    </DashboardChromeProvider>
   )
 }

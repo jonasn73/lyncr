@@ -3,10 +3,14 @@
 import { memo, type ReactNode } from "react"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
-import { DashboardTabHost, isWorkspaceTab } from "@/components/dashboard-tab-views"
+import {
+  DashboardPresenceHost,
+  isDashboardPresencePage,
+} from "@/components/dashboard-presence-host"
 
 /**
- * Isolated main column — re-renders when route changes, not when shell chrome state changes.
+ * Main column: presence host for primary tabs (no mount/unmount on navigation).
+ * Secondary routes (help, customers, …) still use server children.
  */
 export const DashboardMainContent = memo(function DashboardMainContent({
   activePage,
@@ -15,10 +19,10 @@ export const DashboardMainContent = memo(function DashboardMainContent({
   activePage: PageId
   routedChildren: ReactNode
 }) {
-  if (isWorkspaceTab(activePage)) {
+  if (isDashboardPresencePage(activePage)) {
     return (
       <DashboardPageView>
-        <DashboardTabHost activeTab={activePage} />
+        <DashboardPresenceHost activePage={activePage} />
       </DashboardPageView>
     )
   }
