@@ -19,12 +19,15 @@ import {
   type Contact,
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
+import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
-  "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5"
+  "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
+  DRAWER_SHEET_GPU
 
 export const VOICE_AI_DRAWER_SHEET_CLASS =
-  "gap-0 flex h-full flex-col p-0 sm:max-w-lg md:max-w-xl lg:max-w-2xl [&>button]:top-5 [&>button]:right-5"
+  "gap-0 flex h-full flex-col p-0 sm:max-w-lg md:max-w-xl lg:max-w-2xl [&>button]:top-5 [&>button]:right-5 " +
+  DRAWER_SHEET_GPU
 
 function FlowConnector() {
   return (

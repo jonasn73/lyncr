@@ -34,22 +34,26 @@ function formatPhoneDisplay(phone: string): string {
 
 function AddTeamMemberCard() {
   return (
-    <Link
-      href="/dashboard#dash-call-flow"
+    <WorkspacePanel
       className={cn(
-        "group flex min-h-[148px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800",
-        "bg-transparent p-5 text-center transition-all duration-200",
-        "opacity-90 hover:border-zinc-600 hover:bg-zinc-900/30 hover:opacity-100",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+        "flex min-h-[148px] flex-col items-center justify-center border-dashed border-zinc-800",
+        "bg-transparent p-5 shadow-none ring-0",
+        "opacity-90 transition-all duration-200",
+        "hover:border-zinc-600 hover:bg-zinc-900/30 hover:opacity-100"
       )}
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 text-zinc-400 transition-colors group-hover:border-zinc-500 group-hover:text-zinc-200">
-        <Plus className="h-5 w-5" strokeWidth={1.5} aria-hidden />
-      </span>
-      <p className="mt-3 text-sm font-medium text-zinc-500 transition-colors group-hover:text-zinc-300">
-        Add Team Member
-      </p>
-    </Link>
+      <Link
+        href="/dashboard#dash-call-flow"
+        className="group flex h-full w-full flex-col items-center justify-center text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 text-zinc-400 transition-colors group-hover:border-zinc-500 group-hover:text-zinc-200">
+          <Plus className="h-5 w-5" strokeWidth={1.5} aria-hidden />
+        </span>
+        <p className="mt-3 text-sm font-medium text-zinc-500 transition-colors group-hover:text-zinc-300">
+          Add Team Member
+        </p>
+      </Link>
+    </WorkspacePanel>
   )
 }
 

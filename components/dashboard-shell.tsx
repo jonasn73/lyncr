@@ -3,14 +3,12 @@
 // ============================================
 // Client chrome for /dashboard/* (nav + session check).
 // ============================================
-// `pathnameFromRequest` comes from middleware (x-sigo-pathname) via the server
-// layout. Until the client has mounted, we use that for the active tab + Link
-// context so the shell never briefly disagrees with the real URL during hydration.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
+import { DashboardTabHost, isWorkspaceTab } from "@/components/dashboard-tab-views"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "help"]
@@ -25,7 +23,6 @@ export function DashboardShell({
   pathnameFromRequest,
 }: {
   children: React.ReactNode
-  /** Set from middleware request header — authoritative on first paint */
   pathnameFromRequest: string | null
 }) {
   const clientPathname = usePathname()
@@ -70,10 +67,6 @@ export function DashboardShell({
     return () => window.removeEventListener("zing-account-preferences-updated", onUpdated)
   }, [refreshSession])
 
-  // Before mount: middleware `x-sigo-pathname` matches the real URL on first paint (good for refresh).
-  // After mount: use Next’s `usePathname()` — it updates with the App Router as soon as the route
-  // commits. `window.location.pathname` often updates *later* on client navigations, so preferring
-  // it made the highlight stay on the old tab while the new page was already showing.
   const pathname = useMemo(() => {
     if (!mounted && pathnameFromRequest != null && pathnameFromRequest.startsWith("/dashboard")) {
       return pathnameFromRequest
@@ -89,13 +82,31 @@ export function DashboardShell({
 
   const activePage = getActivePage(pathname)
 
+  const workspacePanel = useMemo(() => {
+    if (!isWorkspaceTab(activePage)) return null
+    return (
+      <DashboardPageView>
+        <DashboardTabHost activeTab={activePage} />
+      </DashboardPageView>
+    )
+  }, [activePage])
+
+  const routedPanel = useMemo(
+    () => (
+      <DashboardPageView pathname={pathname} animateEnter>
+        {children}
+      </DashboardPageView>
+    ),
+    [pathname, children]
+  )
+
+  const mainPanel = isWorkspaceTab(activePage) ? workspacePanel : routedPanel
+
   return (
     <AppShell activePage={activePage} pathname={pathname} accountHeader={accountHeader}>
-      <DashboardPageView pathname={pathname}>{children}</DashboardPageView>
+      {mainPanel}
       <AnsweredCallCustomerPopup
-        enabled={
-          accountHeader.kind === "ready" && accountHeader.answeredCallCustomerPopupEnabled
-        }
+        enabled={accountHeader.kind === "ready" && accountHeader.answeredCallCustomerPopupEnabled}
       />
     </AppShell>
   )

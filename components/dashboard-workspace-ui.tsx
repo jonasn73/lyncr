@@ -202,10 +202,23 @@ export function WorkspaceToggleCard({
 export const workspaceFieldClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
 
-export function WorkspaceTableWrap({ children }: { children: ReactNode }) {
+export function WorkspaceTableWrap({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-left text-sm">{children}</table>
+      <table
+        className={cn(
+          "w-full min-w-[640px] table-fixed border-collapse text-left text-sm",
+          className
+        )}
+      >
+        {children}
+      </table>
     </div>
   )
 }

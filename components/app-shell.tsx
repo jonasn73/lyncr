@@ -76,6 +76,154 @@ function initialsFromName(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+const AppShellBottomNav = memo(function AppShellBottomNav({
+  activePage,
+  useLinks,
+  onNavigate,
+}: {
+  activePage: PageId
+  useLinks: boolean
+  onNavigate?: (page: PageId) => void
+}) {
+  return (
+    <nav
+      className="sticky bottom-0 z-40 shrink-0 border-t border-border/70 bg-background pb-[max(env(safe-area-inset-bottom),0px)]"
+      role="navigation"
+      aria-label="Main navigation"
+    >
+      <p className="sr-only">
+        Use the tabs below for the main sections. Press ⌘K or Ctrl+K to jump anywhere. Account menu at the top right
+        includes settings, help, and sign out.
+      </p>
+      <div className="mx-2 my-3 flex max-w-full items-center justify-around gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card/85 px-1.5 py-2 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.25)] backdrop-blur-sm sm:mx-3 sm:mb-4 sm:gap-1 sm:px-2.5">
+        {bottomNavItems.map((item) => {
+          const Icon = item.icon
+          const isActive = activePage === item.id
+          const className = cn(
+            "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 sm:min-w-[58px] sm:px-3",
+            "transition-[background-color,color,transform,box-shadow] duration-200 ease-out motion-safe:active:scale-[0.96]",
+            isActive
+              ? "bg-primary/12 text-primary shadow-[0_0_20px_-8px_var(--primary)]"
+              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+          )
+          const inner = (
+            <>
+              <Icon
+                className={cn(
+                  "h-5 w-5 transition-transform duration-200 ease-out",
+                  isActive && "scale-105 drop-shadow-[0_0_6px_var(--primary)]"
+                )}
+              />
+              <span className="text-[11px] font-medium">{item.label}</span>
+            </>
+          )
+          if (useLinks) {
+            return (
+              <Link
+                key={item.id}
+                href={PAGE_HREF[item.id]}
+                prefetch
+                scroll={false}
+                className={className}
+                aria-current={isActive ? "page" : undefined}
+                title={item.label}
+              >
+                {inner}
+              </Link>
+            )
+          }
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onNavigate?.(item.id)}
+              className={className}
+              aria-current={isActive ? "page" : undefined}
+              title={item.label}
+            >
+              {inner}
+            </button>
+          )
+        })}
+      </div>
+    </nav>
+  )
+})
+
+const AppShellHeader = memo(function AppShellHeader({
+  useLinks,
+  accountHeader,
+  onNavigate,
+  commandOpen,
+  onCommandOpenChange,
+}: {
+  useLinks: boolean
+  accountHeader?: AccountHeaderState
+  onNavigate?: (page: PageId) => void
+  commandOpen: boolean
+  onCommandOpenChange: (open: boolean) => void
+}) {
+  return (
+    <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 sm:px-5 sm:py-3.5">
+      {useLinks ? (
+        <Link
+          href="/dashboard"
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+          aria-label="Go to home"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <BrandMark className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <BrandWordmark size="md" />
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onNavigate?.("dashboard")}
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+          aria-label="Go to routing"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <BrandMark className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <BrandWordmark size="md" />
+        </button>
+      )}
+
+      <div className="min-w-0 flex-1" />
+
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        {useLinks && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label="Jump to a page"
+              title="Jump to page — ⌘K or Ctrl+K"
+              onClick={() => onCommandOpenChange(true)}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={onCommandOpenChange} />
+          </>
+        )}
+        {useLinks && accountHeader?.kind === "loading" && (
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+        )}
+        {useLinks && accountHeader?.kind === "ready" && (
+          <HeaderAccountMenu name={accountHeader.name} email={accountHeader.email} />
+        )}
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2 py-1 sm:gap-2 sm:px-2.5">
+          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+          <span className="hidden text-[11px] font-medium text-success sm:inline">Live</span>
+        </div>
+      </div>
+    </header>
+  )
+})
+
 const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { name: string; email: string }) {
   const [busy, setBusy] = useState(false)
   return (
@@ -179,63 +327,13 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background">
-      <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 sm:px-5 sm:py-3.5">
-        {useLinks ? (
-          <Link
-            href="/dashboard"
-            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-            aria-label="Go to home"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <BrandMark className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <BrandWordmark size="md" />
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onNavigate?.("dashboard")}
-            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-            aria-label="Go to routing"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <BrandMark className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <BrandWordmark size="md" />
-          </button>
-        )}
-
-        <div className="min-w-0 flex-1" />
-
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {useLinks && (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                aria-label="Jump to a page"
-                title="Jump to page — ⌘K or Ctrl+K"
-                onClick={() => setCommandOpen(true)}
-              >
-                <Search className="h-5 w-5" />
-              </Button>
-              <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={setCommandOpen} />
-            </>
-          )}
-          {useLinks && accountHeader?.kind === "loading" && (
-            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-          )}
-          {useLinks && accountHeader?.kind === "ready" && (
-            <HeaderAccountMenu name={accountHeader.name} email={accountHeader.email} />
-          )}
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2 py-1 sm:gap-2 sm:px-2.5">
-            <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
-            <span className="hidden text-[11px] font-medium text-success sm:inline">Live</span>
-          </div>
-        </div>
-      </header>
+      <AppShellHeader
+        useLinks={useLinks}
+        accountHeader={accountHeader}
+        onNavigate={onNavigate}
+        commandOpen={commandOpen}
+        onCommandOpenChange={setCommandOpen}
+      />
 
       <main
         ref={mainRef}
@@ -244,67 +342,7 @@ export function AppShell({
         {children}
       </main>
 
-      <nav
-        className="sticky bottom-0 z-40 shrink-0 border-t border-border/70 bg-background pb-[max(env(safe-area-inset-bottom),0px)]"
-        role="navigation"
-        aria-label="Main navigation"
-      >
-        <p className="sr-only">
-          Use the tabs below for the main sections. Press ⌘K or Ctrl+K to jump anywhere. Account menu at the top right
-          includes settings, help, and sign out.
-        </p>
-        <div className="mx-2 my-3 flex max-w-full items-center justify-around gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card/85 px-1.5 py-2 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.25)] backdrop-blur-sm sm:mx-3 sm:mb-4 sm:gap-1 sm:px-2.5">
-          {bottomNavItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activePage === item.id
-            const className = cn(
-              "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 sm:min-w-[58px] sm:px-3",
-              "transition-[background-color,color,transform,box-shadow] duration-200 ease-out motion-safe:active:scale-[0.96]",
-              isActive
-                ? "bg-primary/12 text-primary shadow-[0_0_20px_-8px_var(--primary)]"
-                : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-            )
-            const inner = (
-              <>
-                <Icon
-                  className={cn(
-                    "h-5 w-5 transition-transform duration-200 ease-out",
-                    isActive && "scale-105 drop-shadow-[0_0_6px_var(--primary)]"
-                  )}
-                />
-                <span className="text-[11px] font-medium">{item.label}</span>
-              </>
-            )
-            if (useLinks) {
-              return (
-                <Link
-                  key={item.id}
-                  href={PAGE_HREF[item.id]}
-                  prefetch
-                  scroll={false}
-                  className={className}
-                  aria-current={isActive ? "page" : undefined}
-                  title={item.label}
-                >
-                  {inner}
-                </Link>
-              )
-            }
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onNavigate?.(item.id)}
-                className={className}
-                aria-current={isActive ? "page" : undefined}
-                title={item.label}
-              >
-                {inner}
-              </button>
-            )
-          })}
-        </div>
-      </nav>
+      <AppShellBottomNav activePage={activePage} useLinks={useLinks} onNavigate={onNavigate} />
     </div>
   )
 }

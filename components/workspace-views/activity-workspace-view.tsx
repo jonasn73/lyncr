@@ -128,8 +128,15 @@ export function ActivityWorkspaceView() {
       ) : loadError && calls.length === 0 ? (
         <p className="text-sm text-destructive">{loadError}</p>
       ) : (
-        <WorkspacePanel>
+        <WorkspacePanel className="min-h-[320px]">
           <WorkspaceTableWrap>
+            <colgroup>
+              <col className="w-[22%]" />
+              <col className="w-[30%]" />
+              <col className="w-[14%]" />
+              <col className="w-[24%]" />
+              <col className="w-[10%]" />
+            </colgroup>
             <thead>
               <tr>
                 <WorkspaceTh>Status</WorkspaceTh>
@@ -149,10 +156,7 @@ export function ActivityWorkspaceView() {
               ) : (
                 rows.map((call) => {
                   const st = classifyCall(call)
-                  const targetLabel = resolveBusinessLineLabel(
-                    call.targetLineE164 || call.routedTo,
-                    lineLabelMap
-                  )
+                  const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
                   return (
                     <tr key={call.id} className="transition-colors hover:bg-zinc-900/50">
                       <WorkspaceTd>
@@ -166,7 +170,9 @@ export function ActivityWorkspaceView() {
                         {formatDuration(call.durationSeconds)}
                       </WorkspaceTd>
                       <WorkspaceTd>
-                        <p className="font-medium text-zinc-200">{targetLabel}</p>
+                        <p className="truncate font-medium text-zinc-200" title={targetLabel}>
+                          {targetLabel}
+                        </p>
                       </WorkspaceTd>
                       <WorkspaceTd className="text-right">
                         <button

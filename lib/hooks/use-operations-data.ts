@@ -88,7 +88,10 @@ function readSessionOperationsCache(): OperationsCache | null {
       sessionStorage.removeItem(SESSION_STORAGE_KEY)
       return null
     }
-    return p
+    return {
+      ...p,
+      calls: p.calls.map((c) => normalizeUiCallRecord(c as UiCallRecord)),
+    }
   } catch {
     return null
   }
@@ -150,6 +153,15 @@ function normalizeCallType(value: unknown): UiCallType {
   return "incoming"
 }
 
+/** Backfill fields missing from older session-cache rows. */
+function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
+  return {
+    ...c,
+    targetLineE164: c.targetLineE164 ?? "",
+    routedToReceptionistId: c.routedToReceptionistId ?? null,
+  }
+}
+
 export type UseOperationsDataOptions = {
   /** When set (ms), refetches calls + quality on this interval, ignoring the 45s in-memory cache TTL. */
   refetchIntervalMs?: number
@@ -172,7 +184,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     const stored = readSessionOperationsCache()
     if (!stored) return
     operationsCache = stored
-    setCalls(stored.calls)
+    setCalls(stored.calls.map(normalizeUiCallRecord))
     setQuality(stored.quality)
     setInsights(stored.insights)
     setLoading(false)

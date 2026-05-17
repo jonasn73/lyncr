@@ -177,8 +177,14 @@ export function LeadsWorkspaceView() {
       ) : error && !usingDemo ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : (
-        <WorkspacePanel>
+        <WorkspacePanel className="min-h-[280px]">
           <WorkspaceTableWrap>
+            <colgroup>
+              <col className="w-[24%]" />
+              <col className="w-[24%]" />
+              <col className="w-[26%]" />
+              <col className="w-[26%]" />
+            </colgroup>
             <thead>
               <tr>
                 <WorkspaceTh>Lead name</WorkspaceTh>
