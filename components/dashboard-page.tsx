@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import {
   businessNumbersMatch,
@@ -16,6 +17,7 @@ import {
 
 export function DashboardPage() {
   const { toast } = useToast()
+  const { activeLine, setActiveLine, businessNumbers, setBusinessNumbers } = useDashboardWorkspace()
 
   const [mainLinePhone, setMainLinePhone] = useState<string | null>(null)
   const [receptionists, setReceptionists] = useState<Contact[]>([])
@@ -28,10 +30,7 @@ export function DashboardPage() {
 
   // AI assistant state
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
-  // Business numbers for showing which number routing applies to
-  const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>([])
-  // Which business line the dropdown + fallback controls edit (E.164); null = account default when you have no numbers yet
-  const [routingBusinessNumber, setRoutingBusinessNumber] = useState<string | null>(null)
+  // activeLine + businessNumbers live in DashboardWorkspaceProvider (line picker + cross-tab filters).
   // True while GET /api/routing for the tapped line is in flight (avoids showing the previous line’s target).
   const [routingLineDetailLoading, setRoutingLineDetailLoading] = useState(false)
   const routingFetchSeqRef = useRef(0)
@@ -91,7 +90,7 @@ export function DashboardPage() {
           }))
         setBusinessNumbers(active)
         // Keep the same selected line after refresh when possible; otherwise default to the first active number
-        setRoutingBusinessNumber((prev) => {
+        setActiveLine((prev) => {
           if (prev && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, prev))) return prev
           return active[0]?.number ?? null
         })
@@ -111,13 +110,40 @@ export function DashboardPage() {
     }
   }, [])
 
+  const refreshBusinessNumbers = useCallback(() => {
+    fetch("/api/numbers/mine", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { numbers: [] }))
+      .then((data) => {
+        if (!Array.isArray(data.numbers)) return
+        const active = data.numbers
+          .filter((n: { status: string }) => n.status === "active")
+          .map((n: Record<string, unknown>) => ({
+            number: String(n.number),
+            status: String(n.status),
+            routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
+          }))
+        setBusinessNumbers(active)
+        setActiveLine((prev) => {
+          if (prev && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, prev))) return prev
+          return active[0]?.number ?? null
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const onChanged = () => refreshBusinessNumbers()
+    window.addEventListener("zing-business-numbers-changed", onChanged)
+    return () => window.removeEventListener("zing-business-numbers-changed", onChanged)
+  }, [refreshBusinessNumbers, setBusinessNumbers, setActiveLine])
+
   // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
   useEffect(() => {
     if (!numbersRoutingFetchDone) return
     const seq = ++routingFetchSeqRef.current
     setRoutingLineDetailLoading(true)
     let cancelled = false
-    const num = routingBusinessNumber
+    const num = activeLine
     const routingUrl = num ? `/api/routing?number=${encodeURIComponent(num)}` : "/api/routing"
     fetch(routingUrl, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -141,18 +167,15 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [numbersRoutingFetchDone, routingBusinessNumber])
+  }, [numbersRoutingFetchDone, activeLine])
 
   // If the selected line disappears (released number), snap back to the first remaining line.
   useEffect(() => {
     if (businessNumbers.length === 0) return
-    if (
-      !routingBusinessNumber
-      || !businessNumbers.some((b) => businessNumbersMatch(b.number, routingBusinessNumber))
-    ) {
-      setRoutingBusinessNumber(businessNumbers[0].number)
+    if (!activeLine || !businessNumbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
+      setActiveLine(businessNumbers[0].number)
     }
-  }, [businessNumbers, routingBusinessNumber])
+  }, [businessNumbers, activeLine, setActiveLine])
 
   const ownerPhoneDisplay = formatPhoneDisplay(mainLinePhone)
   const selectedReceptionist = receptionists.find((c) => c.id === selectedReceptionistId) || null
@@ -170,7 +193,7 @@ export function DashboardPage() {
     (updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> => {
     const active = businessNumbers.filter((b) => b.status === "active")
     const lineE164 =
-      (routingBusinessNumber && routingBusinessNumber.trim()) ||
+      (activeLine && activeLine.trim()) ||
       (active.length === 1 ? active[0]?.number?.trim() || null : null)
     const touchesPerLine =
       updates.selected_receptionist_id !== undefined ||
@@ -208,7 +231,7 @@ export function DashboardPage() {
               variant: "destructive",
             })
           }
-          const refetchNum = lineE164 || routingBusinessNumber
+          const refetchNum = lineE164 || activeLine
           const routingUrl = refetchNum
             ? `/api/routing?number=${encodeURIComponent(refetchNum)}`
             : "/api/routing"
@@ -254,7 +277,7 @@ export function DashboardPage() {
               title: "Routing updated",
               description:
                 businessNumbers.length > 1
-                  ? `Line ${formatPhoneDisplay(lineE164 || routingBusinessNumber)} will use this ring target and fallback.`
+                  ? `Line ${formatPhoneDisplay(lineE164 || activeLine)} will use this ring target and fallback.`
                   : "Incoming calls will follow your new routing rule.",
             })
           }
@@ -285,13 +308,13 @@ export function DashboardPage() {
         }
       })
   },
-    [businessNumbers, routingBusinessNumber, toast]
+    [businessNumbers, activeLine, toast]
   )
 
   const selectReceptionist = useCallback(
     (id: string) => {
       const active = businessNumbers.filter((b) => b.status === "active")
-      if (active.length >= 2 && !routingBusinessNumber?.trim()) {
+      if (active.length >= 2 && !activeLine?.trim()) {
         toast({
           title: "Tap a business number first",
           description: "With two lines, tap the green number card for the line Sarah should answer, then tap Sarah again.",
@@ -305,12 +328,12 @@ export function DashboardPage() {
         if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
       })
     },
-    [businessNumbers, routingBusinessNumber, toast, saveRouting, selectedReceptionistId]
+    [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId]
   )
 
   const clearReceptionist = useCallback(() => {
     const active = businessNumbers.filter((b) => b.status === "active")
-    if (active.length >= 2 && !routingBusinessNumber?.trim()) {
+    if (active.length >= 2 && !activeLine?.trim()) {
       toast({
         title: "Tap a business number first",
         description: "Tap the line you want to route to your phone, then try again.",
@@ -323,7 +346,7 @@ export function DashboardPage() {
     void saveRouting({ selected_receptionist_id: null }).catch((e) => {
       if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
     })
-  }, [businessNumbers, routingBusinessNumber, toast, saveRouting, selectedReceptionistId])
+  }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 sm:gap-14">
@@ -333,8 +356,8 @@ export function DashboardPage() {
         hasBusinessNumbers={hasBusinessNumbers}
         hasReceptionists={hasReceptionists}
         businessNumbers={businessNumbers}
-        routingBusinessNumber={routingBusinessNumber}
-        setRoutingBusinessNumber={setRoutingBusinessNumber}
+        routingBusinessNumber={activeLine}
+        setRoutingBusinessNumber={setActiveLine}
         routingLineDetailLoading={routingLineDetailLoading}
         isRoutingToOwner={isRoutingToOwner}
         selectedReceptionist={selectedReceptionist}

@@ -286,6 +286,59 @@
     animation-name: sigo-sheet-slide-out-right;
   }
 
+  @keyframes sigo-marketplace-in {
+    from {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 12px), 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0);
+    }
+  }
+
+  @keyframes sigo-marketplace-out {
+    from {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 8px), 0);
+    }
+  }
+
+  [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-overlay"] {
+    background: oklch(0.1 0.02 268 / 0.78) !important;
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+  }
+
+  [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-overlay"][data-state="open"] {
+    animation-name: sigo-sheet-overlay-in;
+  }
+
+  [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-overlay"][data-state="closed"] {
+    animation-name: sigo-sheet-overlay-out;
+  }
+
+  [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-content"] {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+
+  [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-content"][data-state="open"] {
+    animation-name: sigo-marketplace-in;
+  }
+
+  [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-content"][data-state="closed"] {
+    animation-name: sigo-marketplace-out;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .sigo-bloom-in,
     .sigo-bloom-in-stagger > *,
@@ -299,6 +352,13 @@
 
     .sigo-sheet-drawer-panel[data-state="open"] {
       transform: translate3d(0, 0, 0);
+    }
+
+    [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-overlay"],
+    [data-slot="dialog-portal"]:has(.sigo-marketplace-dialog) [data-slot="dialog-content"] {
+      animation: none !important;
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0);
     }
   }
 }

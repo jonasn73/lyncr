@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Loader2, Volume2, Play } from "lucide-react"
-import { DrawerStickyFooter } from "@/components/dashboard-routing-drawer-shared"
+import { DrawerAutoGrowTextarea, DrawerStickyFooter } from "@/components/dashboard-routing-drawer-shared"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
@@ -98,6 +98,7 @@ export type DashboardVoiceAiDrawerProps = {
   setAiRingOwnerFirst: (v: boolean) => void
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
   onClose: () => void
+  onRegisterDiscard?: (discard: () => void) => void
   onHasAssistantChange: (active: boolean) => void
   isRoutingToOwner: boolean
   selectedReceptionist: Contact | null
@@ -111,6 +112,7 @@ export function DashboardVoiceAiDrawer({
   setAiRingOwnerFirst,
   saveRouting,
   onClose,
+  onRegisterDiscard,
   onHasAssistantChange,
   isRoutingToOwner,
   selectedReceptionist,
@@ -123,9 +125,9 @@ export function DashboardVoiceAiDrawer({
   const [voiceCatalog, setVoiceCatalog] = useState<{ id: string }[]>([])
 
   const [aiEnabled, setAiEnabled] = useState(fallback === "ai")
-  const [systemPrompt, setSystemPrompt] = useState("")
+  const [bufferedScript, setBufferedScript] = useState("")
   const [openingLine, setOpeningLine] = useState("")
-  const [persona, setPersona] = useState<PersonaId>("nova")
+  const [bufferedVoice, setBufferedVoice] = useState<PersonaId>("nova")
   const [postAiRoute, setPostAiRoute] = useState<PostAiRoute>("owner_phone")
   const [userIndustry, setUserIndustry] = useState("generic")
   const [scriptChoice, setScriptChoice] = useState<"auto" | AiIntakeProfileId>("auto")
@@ -141,14 +143,14 @@ export function DashboardVoiceAiDrawer({
     () =>
       JSON.stringify({
         aiEnabled,
-        systemPrompt,
+        bufferedScript,
         openingLine,
-        persona,
+        bufferedVoice,
         postAiRoute,
         fallback,
         aiRingOwnerFirst,
       }),
-    [aiEnabled, systemPrompt, openingLine, persona, postAiRoute, fallback, aiRingOwnerFirst]
+    [aiEnabled, bufferedScript, openingLine, bufferedVoice, postAiRoute, fallback, aiRingOwnerFirst]
   )
 
   const dirty = snapshot() !== baselineRef.current
@@ -179,9 +181,9 @@ export function DashboardVoiceAiDrawer({
         const greeting = typeof ic?.busyGreeting === "string" && ic.busyGreeting.trim() ? ic.busyGreeting : ""
         const voice = typeof ic?.telnyxVoice === "string" ? ic.telnyxVoice : ""
 
-        setSystemPrompt(prompt)
+        setBufferedScript(prompt)
         setOpeningLine(greeting || DEFAULT_BUSY_GREETING_LOCKSMITH)
-        setPersona(personaFromVoiceId(voice))
+        setBufferedVoice(personaFromVoiceId(voice))
         setIntakeNotes({
           carKeyNotes: typeof ic?.carKeyNotes === "string" ? ic.carKeyNotes : "",
           lockoutNotes: typeof ic?.lockoutNotes === "string" ? ic.lockoutNotes : "",
@@ -198,9 +200,9 @@ export function DashboardVoiceAiDrawer({
 
         baselineRef.current = JSON.stringify({
           aiEnabled: enabled,
-          systemPrompt: prompt,
+          bufferedScript: prompt,
           openingLine: greeting || DEFAULT_BUSY_GREETING_LOCKSMITH,
-          persona: personaFromVoiceId(voice),
+          bufferedVoice: personaFromVoiceId(voice),
           postAiRoute:
             fallback === "voicemail"
               ? "voicemail"
@@ -221,7 +223,34 @@ export function DashboardVoiceAiDrawer({
     }
   }, [fallback, aiRingOwnerFirst, isRoutingToOwner, selectedReceptionist])
 
-  const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(systemPrompt.length / 4)), [systemPrompt])
+  const tokenEstimate = useMemo(() => Math.max(1, Math.ceil(bufferedScript.length / 4)), [bufferedScript])
+
+  const discardEdits = useCallback(() => {
+    try {
+      const saved = JSON.parse(baselineRef.current) as {
+        aiEnabled: boolean
+        bufferedScript: string
+        openingLine: string
+        bufferedVoice: PersonaId
+        postAiRoute: PostAiRoute
+        fallback: FallbackOption
+        aiRingOwnerFirst: boolean
+      }
+      setAiEnabled(saved.aiEnabled)
+      setBufferedScript(saved.bufferedScript)
+      setOpeningLine(saved.openingLine)
+      setBufferedVoice(saved.bufferedVoice)
+      setPostAiRoute(saved.postAiRoute)
+      setFallback(saved.fallback)
+      setAiRingOwnerFirst(saved.aiRingOwnerFirst)
+    } catch {
+      /* keep current buffer if parse fails */
+    }
+  }, [setFallback, setAiRingOwnerFirst])
+
+  useEffect(() => {
+    onRegisterDiscard?.(discardEdits)
+  }, [onRegisterDiscard, discardEdits])
 
   async function runVoicePreview(text: string, voiceId?: string) {
     setPreviewLoading(true)
@@ -289,7 +318,7 @@ export function DashboardVoiceAiDrawer({
     setSaving(true)
     try {
       const greeting = openingLine.trim() || undefined
-      const telnyxVoice = voiceIdForPersona(persona, voiceCatalog)
+      const telnyxVoice = voiceIdForPersona(bufferedVoice, voiceCatalog)
 
       if (aiEnabled) {
         setFallback("ai")
@@ -321,7 +350,7 @@ export function DashboardVoiceAiDrawer({
             smsNotify: intakeNotes.smsNotify,
             telnyxVoice,
             telnyxModel: "",
-            extraAiInstructions: systemPrompt.trim(),
+            extraAiInstructions: bufferedScript.trim(),
           },
           greeting,
         }),
@@ -404,22 +433,27 @@ export function DashboardVoiceAiDrawer({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">
         <VoiceAiDrawerBody
-          systemPrompt={systemPrompt}
-          setSystemPrompt={setSystemPrompt}
+          bufferedScript={bufferedScript}
+          setBufferedScript={setBufferedScript}
           tokenEstimate={tokenEstimate}
           previewLoading={previewLoading}
           onTestScript={() =>
             void runVoicePreview(
-              systemPrompt.trim().slice(0, 280) || openingLine.trim() || DEFAULT_BUSY_GREETING_LOCKSMITH,
-              voiceIdForPersona(persona, voiceCatalog)
+              bufferedScript.trim().slice(0, 280) || openingLine.trim() || DEFAULT_BUSY_GREETING_LOCKSMITH,
+              voiceIdForPersona(bufferedVoice, voiceCatalog)
             )
           }
-          persona={persona}
-          setPersona={setPersona}
+          bufferedVoice={bufferedVoice}
+          setBufferedVoice={setBufferedVoice}
           openingLine={openingLine}
           setOpeningLine={setOpeningLine}
           previewActive={Boolean(openingLine.trim()) || previewLoading}
-          onPreviewOpening={() => void runVoicePreview(openingLine.trim() || DEFAULT_BUSY_GREETING_LOCKSMITH, voiceIdForPersona(persona, voiceCatalog))}
+          onPreviewOpening={() =>
+            void runVoicePreview(
+              openingLine.trim() || DEFAULT_BUSY_GREETING_LOCKSMITH,
+              voiceIdForPersona(bufferedVoice, voiceCatalog)
+            )
+          }
           postAiRoute={postAiRoute}
           applyPostAiRoute={applyPostAiRoute}
           aiEnabled={aiEnabled}
@@ -431,7 +465,10 @@ export function DashboardVoiceAiDrawer({
         dirty={dirty}
         saving={saving}
         onSave={() => void handleSave()}
-        onCancel={onClose}
+        onCancel={() => {
+          discardEdits()
+          onClose()
+        }}
         saveLabel="Save & Deploy"
       />
     </>
@@ -439,13 +476,13 @@ export function DashboardVoiceAiDrawer({
 }
 
 function VoiceAiDrawerBody({
-  systemPrompt,
-  setSystemPrompt,
+  bufferedScript,
+  setBufferedScript,
   tokenEstimate,
   previewLoading,
   onTestScript,
-  persona,
-  setPersona,
+  bufferedVoice,
+  setBufferedVoice,
   openingLine,
   setOpeningLine,
   previewActive,
@@ -455,13 +492,13 @@ function VoiceAiDrawerBody({
   aiEnabled,
   selectedReceptionist,
 }: {
-  systemPrompt: string
-  setSystemPrompt: (v: string) => void
+  bufferedScript: string
+  setBufferedScript: (v: string) => void
   tokenEstimate: number
   previewLoading: boolean
   onTestScript: () => void
-  persona: PersonaId
-  setPersona: (p: PersonaId) => void
+  bufferedVoice: PersonaId
+  setBufferedVoice: (p: PersonaId) => void
   openingLine: string
   setOpeningLine: (v: string) => void
   previewActive: boolean
@@ -480,13 +517,11 @@ function VoiceAiDrawerBody({
           </label>
           <PromptMetaActions tokenEstimate={tokenEstimate} previewLoading={previewLoading} onTestScript={onTestScript} />
         </div>
-        <textarea
+        <DrawerAutoGrowTextarea
           id="dash-ai-prompt"
-          rows={7}
-          value={systemPrompt}
-          onChange={(e) => setSystemPrompt(e.target.value)}
+          value={bufferedScript}
+          onChange={(e) => setBufferedScript(e.target.value)}
           placeholder={PROMPT_PLACEHOLDER}
-          className={cn(fieldClass, "min-h-[9rem] resize-y px-4 py-3 leading-relaxed")}
         />
       </section>
 
@@ -494,12 +529,12 @@ function VoiceAiDrawerBody({
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Voice Personality</p>
         <div className="grid gap-3 sm:grid-cols-3">
           {VOICE_PERSONAS.map((v) => {
-            const active = persona === v.id
+            const active = bufferedVoice === v.id
             return (
               <button
                 key={v.id}
                 type="button"
-                onClick={() => setPersona(v.id)}
+                onClick={() => setBufferedVoice(v.id)}
                 className={cn(
                   "relative rounded-xl border px-3 py-3.5 text-left transition-[border-color,background-color] duration-200",
                   active

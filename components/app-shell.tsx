@@ -96,7 +96,7 @@ const AppShellBottomNav = memo(function AppShellBottomNav({
 }) {
   return (
     <nav
-      className="sticky bottom-0 z-40 shrink-0 border-t border-border/70 bg-background pb-[max(env(safe-area-inset-bottom),0px)]"
+      className="sticky bottom-0 z-40 shrink-0 border-t border-border/70 bg-background pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
       role="navigation"
       aria-label="Main navigation"
     >
@@ -104,12 +104,12 @@ const AppShellBottomNav = memo(function AppShellBottomNav({
         Use the tabs below for the main sections. Press ⌘K or Ctrl+K to jump anywhere. Account menu at the top right
         includes settings, help, and sign out.
       </p>
-      <div className="mx-2 my-3 flex max-w-full items-center justify-around gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card px-1.5 py-2 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.25)] sm:mx-3 sm:mb-4 sm:gap-1 sm:px-2.5">
+      <div className="mx-2 flex max-w-full items-center justify-around gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card px-1.5 py-2 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.25)] sm:mx-3 sm:gap-1 sm:px-2.5">
         {bottomNavItems.map((item) => {
           const Icon = item.icon
           const isActive = activePage === item.id
           const className = cn(
-            "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 sm:min-w-[58px] sm:px-3",
+            "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center sm:min-w-[58px] sm:px-3",
             "transition-[background-color,color,transform] duration-200 ease-out motion-safe:active:scale-[0.96]",
             isActive
               ? "bg-primary/15 text-primary shadow-[var(--electric-glow)] ring-1 ring-primary/40"
@@ -123,7 +123,7 @@ const AppShellBottomNav = memo(function AppShellBottomNav({
                   isActive && "scale-105"
                 )}
               />
-              <span className="text-[11px] font-medium">{item.label}</span>
+              <span className="w-full text-center text-[11px] font-medium leading-tight">{item.label}</span>
             </>
           )
           if (useLinks) {

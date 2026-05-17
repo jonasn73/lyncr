@@ -74,6 +74,7 @@ export type DashboardRingBackupDrawerProps = {
   setFallback: (f: FallbackOption) => void
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
   onClose: () => void
+  onRegisterDiscard?: (discard: () => void) => void
   onOpenVoiceAi: () => void
   routingBusinessNumber: string | null
   routingLineDetailLoading?: boolean
@@ -86,6 +87,7 @@ export function DashboardRingBackupDrawer({
   setFallback,
   saveRouting,
   onClose,
+  onRegisterDiscard,
   onOpenVoiceAi,
   routingBusinessNumber,
   routingLineDetailLoading,
@@ -120,6 +122,26 @@ export function DashboardRingBackupDrawer({
     }
     return snapDashboardRingTimeoutSec(best)
   }, [])
+
+  const discardEdits = useCallback(() => {
+    try {
+      const parsed = JSON.parse(baselineRef.current) as { seconds: number; strategy: BackupStrategy }
+      setDraftSeconds(parsed.seconds)
+      setDraftStrategy(parsed.strategy)
+    } catch {
+      setDraftSeconds(snapDashboardRingTimeoutSec(ringTimeoutSec))
+      setDraftStrategy(strategyFromFallback(fallback))
+    }
+  }, [ringTimeoutSec, fallback])
+
+  useEffect(() => {
+    onRegisterDiscard?.(discardEdits)
+  }, [onRegisterDiscard, discardEdits])
+
+  const handleCancel = useCallback(() => {
+    discardEdits()
+    onClose()
+  }, [discardEdits, onClose])
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -238,7 +260,7 @@ export function DashboardRingBackupDrawer({
           ) : null}
         </section>
       </DrawerScrollBody>
-      <DrawerStickyFooter dirty={dirty} saving={saving} onSave={() => void handleSave()} onCancel={onClose} />
+      <DrawerStickyFooter dirty={dirty} saving={saving} onSave={() => void handleSave()} onCancel={handleCancel} />
     </>
   )
 }

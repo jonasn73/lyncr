@@ -1,7 +1,6 @@
 "use client"
 
 import { memo } from "react"
-import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import {
   PhoneForwarded,
@@ -27,6 +26,7 @@ import {
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
 import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
+import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -130,6 +130,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   setRingBackupOpen,
   setShowFallbackSettings,
 }: DashboardCallFlowProps) {
+  const { openBuyModal } = useDashboardNumbersModal()
   const activeLine =
     routingBusinessNumber && businessNumbers.some((b) => businessNumbersMatch(b.number, routingBusinessNumber))
       ? routingBusinessNumber
@@ -168,13 +169,14 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               onSelect={setRoutingBusinessNumber}
             />
           ) : quickSetupDecided ? (
-            <Link
-              href="/dashboard#dash-call-flow"
+            <button
+              type="button"
+              onClick={openBuyModal}
               className="inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/15"
             >
               <Settings2 className="h-4 w-4" aria-hidden />
-              Add a business line
-            </Link>
+              + Add business number
+            </button>
           ) : null}
         </div>
       </header>
@@ -186,12 +188,13 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">
             <div>
               <p className="text-sm font-medium text-foreground">No business line yet</p>
-              <Link
-                href="/dashboard#dash-call-flow"
+              <button
+                type="button"
+                onClick={openBuyModal}
                 className="mt-4 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               >
-                Add number in Settings
-              </Link>
+                + Add business number
+              </button>
             </div>
           </div>
         ) : (

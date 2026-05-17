@@ -52,6 +52,7 @@ export type DashboardWhoAnswersDrawerProps = {
   ownerPhoneDisplay: string
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
   onClose: () => void
+  onRegisterDiscard?: (discard: () => void) => void
   routingBusinessNumber: string | null
   routingLineDetailLoading?: boolean
 }
@@ -62,6 +63,7 @@ export function DashboardWhoAnswersDrawer({
   ownerPhoneDisplay,
   saveRouting,
   onClose,
+  onRegisterDiscard,
   routingBusinessNumber,
   routingLineDetailLoading,
 }: DashboardWhoAnswersDrawerProps) {
@@ -99,6 +101,19 @@ export function DashboardWhoAnswersDrawer({
   }, [receptionists, ownerPhoneDisplay, primaryId])
 
   const lineLabel = routingBusinessNumber ? `Line ${formatPhoneDisplay(routingBusinessNumber)}` : null
+
+  const discardEdits = useCallback(() => {
+    setPrimaryId(baselineRef.current)
+  }, [])
+
+  useEffect(() => {
+    onRegisterDiscard?.(discardEdits)
+  }, [onRegisterDiscard, discardEdits])
+
+  const handleCancel = useCallback(() => {
+    discardEdits()
+    onClose()
+  }, [discardEdits, onClose])
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -188,7 +203,7 @@ export function DashboardWhoAnswersDrawer({
           </p>
         ) : null}
       </DrawerScrollBody>
-      <DrawerStickyFooter dirty={dirty} saving={saving} onSave={() => void handleSave()} onCancel={onClose} />
+      <DrawerStickyFooter dirty={dirty} saving={saving} onSave={() => void handleSave()} onCancel={handleCancel} />
     </>
   )
 }

@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react"
 import { Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -177,7 +178,15 @@ function LeadDetailSheet({
   )
 }
 
-const LeadsTable = memo(function LeadsTable({ rows }: { rows: DisplayLead[] }) {
+const LeadsTable = memo(function LeadsTable({
+  rows,
+  selectedLead,
+  onSelectLead,
+}: {
+  rows: DisplayLead[]
+  selectedLead: DisplayLead | null
+  onSelectLead: (lead: DisplayLead) => void
+}) {
   const openLead = useWorkspaceRightSheet<DisplayLead>()
 
   return (
@@ -201,8 +210,14 @@ const LeadsTable = memo(function LeadsTable({ rows }: { rows: DisplayLead[] }) {
           {rows.map((row) => (
             <tr
               key={row.id}
-              className="cursor-pointer transition-colors hover:bg-zinc-900/50"
-              onClick={() => openLead(row)}
+              className={cn(
+                "cursor-pointer transition-colors hover:bg-zinc-900/50",
+                selectedLead?.id === row.id && "bg-primary/5 ring-1 ring-inset ring-primary/30"
+              )}
+              onClick={() => {
+                onSelectLead(row)
+                openLead(row)
+              }}
             >
               <WorkspaceTd className="font-medium">{row.name}</WorkspaceTd>
               <WorkspaceTd className="text-zinc-400">{row.contact}</WorkspaceTd>
@@ -221,13 +236,17 @@ const LeadsTable = memo(function LeadsTable({ rows }: { rows: DisplayLead[] }) {
 const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   loading,
   error,
-  displayRows,
+  leads,
   usingDemo,
+  selectedLead,
+  onSelectLead,
 }: {
   loading: boolean
   error: string | null
-  displayRows: DisplayLead[]
+  leads: DisplayLead[]
   usingDemo: boolean
+  selectedLead: DisplayLead | null
+  onSelectLead: (lead: DisplayLead) => void
 }) {
   return (
     <WorkspacePage>
@@ -240,14 +259,16 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
       ) : error && !usingDemo ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : (
-        <LeadsTable rows={displayRows} />
+        <LeadsTable rows={leads} selectedLead={selectedLead} onSelectLead={onSelectLead} />
       )}
     </WorkspacePage>
   )
 })
 
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
-  const [leads, setLeads] = useState<LeadRow[]>([])
+  const [apiLeads, setApiLeads] = useState<LeadRow[]>([])
+  const [leads, setLeads] = useState<DisplayLead[]>(DEMO_LEADS)
+  const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -260,7 +281,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
       })
       .then((data) => {
         if (!cancelled) {
-          setLeads(Array.isArray(data.leads) ? data.leads : [])
+          setApiLeads(Array.isArray(data.leads) ? data.leads : [])
           setError(null)
         }
       })
@@ -275,24 +296,36 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
     }
   }, [])
 
-  const displayRows = useMemo(() => {
-    if (leads.length > 0) return leads.map(apiLeadToDisplay)
-    return DEMO_LEADS
-  }, [leads])
+  useEffect(() => {
+    if (apiLeads.length > 0) {
+      setLeads(apiLeads.map(apiLeadToDisplay))
+    } else {
+      setLeads(DEMO_LEADS)
+    }
+  }, [apiLeads])
 
-  const usingDemo = leads.length === 0
+  const usingDemo = apiLeads.length === 0
 
   return (
     <WorkspaceRightSheetGate<DisplayLead>
       render={(selected, close) => (
-        <LeadDetailSheet selected={selected} usingDemo={usingDemo} onClose={close} />
+        <LeadDetailSheet
+          selected={selected}
+          usingDemo={usingDemo}
+          onClose={() => {
+            close()
+            setSelectedLead(null)
+          }}
+        />
       )}
     >
       <LeadsWorkspaceBody
         loading={loading}
         error={error}
-        displayRows={displayRows}
+        leads={leads}
         usingDemo={usingDemo}
+        selectedLead={selectedLead}
+        onSelectLead={setSelectedLead}
       />
     </WorkspaceRightSheetGate>
   )

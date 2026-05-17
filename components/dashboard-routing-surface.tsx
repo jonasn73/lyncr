@@ -6,6 +6,8 @@ import { Check, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow } from "@/components/dashboard-call-flow"
+import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
+import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import type { Contact, DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 
 export type DashboardRoutingSurfaceProps = {
@@ -48,8 +50,13 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   setRingBackupOpen,
   setShowFallbackSettings,
 }: DashboardRoutingSurfaceProps) {
+  const { openBuyModal, openManageModal } = useDashboardNumbersModal()
+
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8 sm:space-y-10">
+    <div className="mx-auto w-full max-w-7xl">
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+        <DashboardRoutingSidebar lineCount={businessNumbers.length} className="lg:sticky lg:top-24" />
+        <div className="min-w-0 flex-1 space-y-8 sm:space-y-10">
       {quickSetupDecided && !isSetupComplete ? (
         <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
           <div className="flex items-start gap-3">
@@ -81,20 +88,22 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
                     ) : null}
                   </div>
                   {!hasBusinessNumbers ? (
-                    <Link
-                      href="/dashboard#dash-call-flow"
+                    <button
+                      type="button"
+                      onClick={openBuyModal}
                       className="inline-flex w-fit items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                     >
-                      Add number in Settings
-                    </Link>
+                      + Add business number
+                    </button>
                   ) : (
-                    <Link
-                      href="/dashboard#dash-call-flow"
+                    <button
+                      type="button"
+                      onClick={openManageModal}
                       className="inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
                     >
                       Manage numbers
                       <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                    </Link>
+                    </button>
                   )}
                 </div>
 
@@ -170,6 +179,8 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
           Settings
         </Link>
       </section>
+        </div>
+      </div>
     </div>
   )
 })

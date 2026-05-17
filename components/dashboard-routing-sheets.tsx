@@ -1,6 +1,6 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useCallback, useRef } from "react"
 import {
   Sheet,
   SheetContent,
@@ -73,9 +73,36 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   businessNumbers,
   routingBusinessNumber,
 }: DashboardRoutingSheetsProps) {
+  const whoAnswersDiscardRef = useRef<() => void>(() => {})
+  const ringBackupDiscardRef = useRef<() => void>(() => {})
+  const voiceAiDiscardRef = useRef<() => void>(() => {})
+
+  const handleWhoAnswersOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) whoAnswersDiscardRef.current()
+      setWhoAnswersOpen(open)
+    },
+    [setWhoAnswersOpen]
+  )
+
+  const handleRingBackupOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) ringBackupDiscardRef.current()
+      setRingBackupOpen(open)
+    },
+    [setRingBackupOpen]
+  )
+
+  const handleVoiceAiOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) voiceAiDiscardRef.current()
+      setShowFallbackSettings(open)
+    },
+    [setShowFallbackSettings]
+  )
+
   return (
     <>
-      {/* In-page follow-up after the call-flow cards (parent renders this block right under that section). */}
       <section
         id="routing-tips"
         className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/15 px-6 py-5 sm:px-7"
@@ -88,7 +115,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
         />
       </section>
 
-      <Sheet open={whoAnswersOpen} onOpenChange={setWhoAnswersOpen} modal>
+      <Sheet open={whoAnswersOpen} onOpenChange={handleWhoAnswersOpenChange} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <DashboardWhoAnswersDrawer
@@ -97,6 +124,9 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
               ownerPhoneDisplay={ownerPhoneDisplay}
               saveRouting={saveRouting}
               onClose={() => setWhoAnswersOpen(false)}
+              onRegisterDiscard={(fn) => {
+                whoAnswersDiscardRef.current = fn
+              }}
               routingBusinessNumber={routingBusinessNumber}
               routingLineDetailLoading={routingLineDetailLoading}
             />
@@ -104,7 +134,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
         </SheetContent>
       </Sheet>
 
-      <Sheet open={ringBackupOpen} onOpenChange={setRingBackupOpen} modal>
+      <Sheet open={ringBackupOpen} onOpenChange={handleRingBackupOpenChange} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <DashboardRingBackupDrawer
@@ -114,6 +144,9 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
               setFallback={setFallback}
               saveRouting={saveRouting}
               onClose={() => setRingBackupOpen(false)}
+              onRegisterDiscard={(fn) => {
+                ringBackupDiscardRef.current = fn
+              }}
               onOpenVoiceAi={() => {
                 setRingBackupOpen(false)
                 setShowFallbackSettings(true)
@@ -125,7 +158,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
         </SheetContent>
       </Sheet>
 
-      <Sheet open={showFallbackSettings} onOpenChange={setShowFallbackSettings} modal>
+      <Sheet open={showFallbackSettings} onOpenChange={handleVoiceAiOpenChange} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <DashboardVoiceAiDrawer
@@ -135,6 +168,9 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
               setAiRingOwnerFirst={setAiRingOwnerFirst}
               saveRouting={saveRouting}
               onClose={() => setShowFallbackSettings(false)}
+              onRegisterDiscard={(fn) => {
+                voiceAiDiscardRef.current = fn
+              }}
               onHasAssistantChange={(active) => setHasTelnyxAiAssistant(active)}
               isRoutingToOwner={isRoutingToOwner}
               selectedReceptionist={selectedReceptionist}

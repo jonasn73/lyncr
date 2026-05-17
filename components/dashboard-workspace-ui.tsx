@@ -77,6 +77,60 @@ export function WorkspaceStatCard({
   )
 }
 
+export function WorkspaceUsageStatCard({
+  label,
+  used,
+  included,
+  hint,
+}: {
+  label: string
+  used: number
+  included: number
+  hint?: string
+}) {
+  const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
+  return (
+    <div className="min-h-[5.75rem] rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+        {used.toLocaleString()} / {included.toLocaleString()} mins used
+      </p>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-amber-500/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
+          style={{ width: `${pct}%` }}
+          role="progressbar"
+          aria-valuenow={used}
+          aria-valuemin={0}
+          aria-valuemax={included}
+        />
+      </div>
+      {hint ? <p className="mt-2 text-xs text-zinc-500">{hint}</p> : null}
+    </div>
+  )
+}
+
+export function WorkspaceTokenStatCard({
+  label,
+  tokens,
+  hint,
+}: {
+  label: string
+  tokens: number
+  hint?: string
+}) {
+  return (
+    <div className="min-h-[5.75rem] rounded-2xl border border-success/30 bg-success/5 p-5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+        {tokens.toLocaleString()}
+        <span className="ml-1.5 text-base font-medium text-zinc-400">tokens</span>
+      </p>
+      {hint ? <p className="mt-1 text-xs text-zinc-500">{hint}</p> : null}
+    </div>
+  )
+}
+
 export type StatusTone = "success" | "primary" | "destructive" | "warning" | "muted"
 
 export function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {

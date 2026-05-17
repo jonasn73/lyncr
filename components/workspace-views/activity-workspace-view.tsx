@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
+import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -26,6 +27,7 @@ import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import {
   buildBusinessLineLabelMap,
@@ -97,6 +99,7 @@ type ActivityTableProps = {
 
 const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap }: ActivityTableProps) {
   const openLog = useWorkspaceRightSheet<UiCallRecord>()
+  const { setSelectedActivityLog } = useDashboardWorkspace()
 
   return (
     <WorkspacePanel className="min-h-[380px]">
@@ -148,7 +151,10 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                   <WorkspaceTd className="text-right">
                     <button
                       type="button"
-                      onClick={() => openLog(call)}
+                      onClick={() => {
+                        setSelectedActivityLog(call)
+                        openLog(call)
+                      }}
                       className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
                     >
                       View log
@@ -165,7 +171,6 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
 })
 
 type ActivityBodyProps = {
-  calls: UiCallRecord[]
   loading: boolean
   loadError: string | null
   refreshing: boolean
@@ -173,26 +178,41 @@ type ActivityBodyProps = {
 }
 
 const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
-  calls,
   loading,
   loadError,
   refreshing,
   lineLabelMap,
 }: ActivityBodyProps) {
-  const rows = useMemo(
-    () => [...calls].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)),
-    [calls]
-  )
+  const { activityLogs, activeLine } = useDashboardWorkspace()
+
+  const rows = useMemo(() => {
+    let list = activityLogs
+    if (activeLine) {
+      list = list.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
+    }
+    return [...list].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
+  }, [activityLogs, activeLine])
 
   return (
     <WorkspacePage>
-      <WorkspacePageHeader eyebrow="Live" title="Activity" />
+      <WorkspacePageHeader
+        eyebrow="Live"
+        title="Activity"
+        action={
+          activeLine ? (
+            <p className="text-xs text-zinc-500">
+              Filtered to active line ·{" "}
+              <span className="font-medium text-zinc-300">{resolveBusinessLineLabel(activeLine, lineLabelMap)}</span>
+            </p>
+          ) : null
+        }
+      />
 
       {refreshing ? <p className="text-xs text-zinc-600">Refreshing…</p> : null}
 
-      {loading && calls.length === 0 ? (
+      {loading && activityLogs.length === 0 ? (
         <ActivityTableSkeleton />
-      ) : loadError && calls.length === 0 ? (
+      ) : loadError && activityLogs.length === 0 ? (
         <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
       ) : (
         <WorkspaceBloom>
@@ -204,9 +224,18 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
 })
 
 function useLineLabelMap(): Map<string, string> {
-  const [lineLabelMap, setLineLabelMap] = useState<Map<string, string>>(() => new Map())
+  const { businessNumbers } = useDashboardWorkspace()
+  const [fetched, setFetched] = useState<Map<string, string>>(() => new Map())
 
   useEffect(() => {
+    if (businessNumbers.length > 0) {
+      const entries: LineLabelEntry[] = businessNumbers.map((n) => ({
+        number: n.number,
+        label: "Business Line",
+      }))
+      setFetched(buildBusinessLineLabelMap(entries))
+      return
+    }
     let cancelled = false
     fetch("/api/numbers/mine", { credentials: "include" })
       .then(async (res) => (res.ok ? res.json() : { numbers: [] }))
@@ -217,29 +246,41 @@ function useLineLabelMap(): Map<string, string> {
           number: String(n.number ?? ""),
           label: String(n.label ?? "Business Line"),
         }))
-        setLineLabelMap(buildBusinessLineLabelMap(entries))
+        setFetched(buildBusinessLineLabelMap(entries))
       })
       .catch(() => {
-        if (!cancelled) setLineLabelMap(new Map())
+        if (!cancelled) setFetched(new Map())
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [businessNumbers])
 
-  return lineLabelMap
+  return fetched
 }
 
 export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   const { calls, loading, loadError, refreshing } = useOperationsData()
+  const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()
+
+  useEffect(() => {
+    setActivityLogs(calls)
+  }, [calls, setActivityLogs])
 
   return (
     <WorkspaceRightSheetGate<UiCallRecord>
-      render={(call, close) => <CallLogSheet call={call} onClose={close} />}
+      render={(call, close) => (
+        <CallLogSheet
+          call={call}
+          onClose={() => {
+            close()
+            closeActivityLog()
+          }}
+        />
+      )}
     >
       <ActivityWorkspaceBody
-        calls={calls}
         loading={loading}
         loadError={loadError}
         refreshing={refreshing}

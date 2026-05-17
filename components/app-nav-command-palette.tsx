@@ -19,6 +19,10 @@ import {
   ExternalLink,
 } from "lucide-react"
 import {
+  requestOpenBuyNumberModal,
+  requestOpenManageNumbersModal,
+} from "@/components/dashboard-numbers-modal-context"
+import {
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -79,9 +83,27 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
           ))}
         </CommandGroup>
         <CommandGroup heading="Quick actions">
-          <CommandItem value="numbers phone add business" onSelect={() => go("/dashboard#dash-call-flow")}>
+          <CommandItem
+            value="buy number add business phone"
+            onSelect={() => {
+              go("/dashboard")
+              requestOpenBuyNumberModal()
+              onOpenChange(false)
+            }}
+          >
             <Hash className="size-4 shrink-0" aria-hidden />
-            <span>Business numbers</span>
+            <span>Buy a business number</span>
+          </CommandItem>
+          <CommandItem
+            value="lines numbers manage phone"
+            onSelect={() => {
+              go("/dashboard")
+              requestOpenManageNumbersModal()
+              onOpenChange(false)
+            }}
+          >
+            <Hash className="size-4 shrink-0" aria-hidden />
+            <span>Lines & numbers</span>
           </CommandItem>
           <CommandItem value="support website" onSelect={() => go("/support")}>
             <ExternalLink className="size-4 shrink-0" aria-hidden />
