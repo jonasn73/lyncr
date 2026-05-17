@@ -1,0 +1,175 @@
+"use client"
+
+import { memo } from "react"
+import Link from "next/link"
+import { Check, ChevronRight } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
+import { DashboardCallFlow } from "@/components/dashboard-call-flow"
+import type { Contact, DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+
+export type DashboardRoutingSurfaceProps = {
+  quickSetupDecided: boolean
+  isSetupComplete: boolean
+  hasBusinessNumbers: boolean
+  hasReceptionists: boolean
+  businessNumbers: DashboardBusinessNumber[]
+  routingBusinessNumber: string | null
+  setRoutingBusinessNumber: (n: string | null) => void
+  routingLineDetailLoading: boolean
+  isRoutingToOwner: boolean
+  selectedReceptionist: Contact | null
+  ownerPhoneDisplay: string
+  ringTimeoutSec: number
+  activeFallbackLabel: string
+  setDashboardStoryKey: (key: string | null) => void
+  setWhoAnswersOpen: (open: boolean) => void
+  setRingBackupOpen: (open: boolean) => void
+  setShowFallbackSettings: (open: boolean) => void
+}
+
+/** Call flow + setup checklist — isolated from sheet open state so drawers do not re-render this tree. */
+export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
+  quickSetupDecided,
+  isSetupComplete,
+  hasBusinessNumbers,
+  hasReceptionists,
+  businessNumbers,
+  routingBusinessNumber,
+  setRoutingBusinessNumber,
+  routingLineDetailLoading,
+  isRoutingToOwner,
+  selectedReceptionist,
+  ownerPhoneDisplay,
+  ringTimeoutSec,
+  activeFallbackLabel,
+  setDashboardStoryKey,
+  setWhoAnswersOpen,
+  setRingBackupOpen,
+  setShowFallbackSettings,
+}: DashboardRoutingSurfaceProps) {
+  return (
+    <div className="mx-auto w-full max-w-7xl space-y-8 sm:space-y-10">
+      {quickSetupDecided && !isSetupComplete ? (
+        <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12">
+              <Check className="h-4 w-4 text-primary" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">Finish setup first</p>
+                <SheetInfoTrigger
+                  onPress={() => setDashboardStoryKey("dashboard-quick-setup")}
+                  label="About setup checklist"
+                  className="h-8 w-8 shrink-0"
+                />
+              </div>
+              <div className="mt-5 flex flex-col gap-4 sm:gap-5">
+                <div
+                  className={cn(
+                    "flex flex-col gap-2 rounded-xl border bg-background/60 px-3 py-2.5",
+                    hasBusinessNumbers ? "border-border/70" : "border-primary/40 ring-1 ring-primary/15"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">1 · Business number</span>
+                    {hasBusinessNumbers ? (
+                      <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        Done
+                      </span>
+                    ) : null}
+                  </div>
+                  {!hasBusinessNumbers ? (
+                    <Link
+                      href="/dashboard#dash-call-flow"
+                      className="inline-flex w-fit items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Add number in Settings
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/dashboard#dash-call-flow"
+                      className="inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                    >
+                      Manage numbers
+                      <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                  )}
+                </div>
+
+                <div
+                  className={cn(
+                    "flex flex-col gap-1.5 rounded-xl border border-border/70 bg-background/60 px-3 py-2",
+                    !hasBusinessNumbers && "opacity-55"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">2 · Who answers</span>
+                    {hasBusinessNumbers ? (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        Next
+                      </span>
+                    ) : null}
+                  </div>
+                  {hasBusinessNumbers ? (
+                    <a href="#dash-call-flow" className="w-fit text-[11px] font-semibold text-primary hover:underline">
+                      Call flow
+                    </a>
+                  ) : null}
+                </div>
+
+                <div
+                  className={cn(
+                    "flex items-center justify-between rounded-xl border border-border/70 bg-background/60 px-3 py-2",
+                    !hasBusinessNumbers && "opacity-55"
+                  )}
+                >
+                  <span className="text-xs font-medium text-foreground">3 · Team</span>
+                  {hasReceptionists ? (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      Added
+                    </span>
+                  ) : hasBusinessNumbers ? (
+                    <Link href="/dashboard/contacts" className="text-[11px] font-semibold text-primary hover:underline">
+                      Team
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <DashboardCallFlow
+        businessNumbers={businessNumbers}
+        routingBusinessNumber={routingBusinessNumber}
+        setRoutingBusinessNumber={setRoutingBusinessNumber}
+        quickSetupDecided={quickSetupDecided}
+        routingLineDetailLoading={routingLineDetailLoading}
+        isRoutingToOwner={isRoutingToOwner}
+        selectedReceptionist={selectedReceptionist}
+        ownerPhoneDisplay={ownerPhoneDisplay}
+        ringTimeoutSec={ringTimeoutSec}
+        activeFallbackLabel={activeFallbackLabel}
+        setDashboardStoryKey={setDashboardStoryKey}
+        setWhoAnswersOpen={setWhoAnswersOpen}
+        setRingBackupOpen={setRingBackupOpen}
+        setShowFallbackSettings={setShowFallbackSettings}
+      />
+
+      <section className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-2xl border border-border/70 bg-muted/10 px-5 py-4 text-xs font-semibold sm:text-sm">
+        <Link href="/dashboard/activity" className="text-primary underline-offset-2 hover:underline">
+          Activity
+        </Link>
+        <Link href="/dashboard/contacts" className="text-primary underline-offset-2 hover:underline">
+          Team
+        </Link>
+        <Link href="/dashboard/settings" className="text-primary underline-offset-2 hover:underline">
+          Settings
+        </Link>
+      </section>
+    </div>
+  )
+})

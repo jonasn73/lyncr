@@ -4,40 +4,41 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* lyncr — deep ink base, indigo–violet signal + soft warmth */
+  /* lyncr — deep ink base + electric cyan signal (#00F5D4) */
   --background: oklch(0.13 0.022 268);
   --foreground: oklch(0.96 0.01 275);
   --card: oklch(0.175 0.022 268);
   --card-foreground: oklch(0.96 0.01 275);
   --popover: oklch(0.175 0.022 268);
   --popover-foreground: oklch(0.96 0.01 275);
-  --primary: oklch(0.66 0.18 268);
-  --primary-foreground: oklch(0.14 0.03 268);
+  --primary: oklch(0.87 0.14 181);
+  --primary-foreground: oklch(0.12 0.04 181);
   --secondary: oklch(0.23 0.022 268);
   --secondary-foreground: oklch(0.92 0.01 275);
   --muted: oklch(0.23 0.022 268);
   --muted-foreground: oklch(0.62 0.02 275);
-  --accent: oklch(0.66 0.18 268);
-  --accent-foreground: oklch(0.14 0.03 268);
+  --accent: oklch(0.87 0.14 181);
+  --accent-foreground: oklch(0.12 0.04 181);
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.95 0 0);
   --border: oklch(0.30 0.022 268);
   --input: oklch(0.23 0.022 268);
-  --ring: oklch(0.66 0.18 268);
-  --chart-1: oklch(0.66 0.18 268);
-  --chart-2: oklch(0.64 0.15 240);
-  --chart-3: oklch(0.58 0.14 210);
+  --ring: oklch(0.87 0.14 181);
+  --chart-1: oklch(0.87 0.14 181);
+  --chart-2: oklch(0.72 0.12 200);
+  --chart-3: oklch(0.68 0.11 220);
   --chart-4: oklch(0.72 0.14 310);
   --chart-5: oklch(0.66 0.17 200);
   --radius: 0.75rem;
   --sidebar: oklch(0.155 0.022 268);
   --sidebar-foreground: oklch(0.96 0.01 275);
-  --sidebar-primary: oklch(0.66 0.18 268);
-  --sidebar-primary-foreground: oklch(0.14 0.03 268);
+  --sidebar-primary: oklch(0.87 0.14 181);
+  --sidebar-primary-foreground: oklch(0.12 0.04 181);
   --sidebar-accent: oklch(0.23 0.022 268);
   --sidebar-accent-foreground: oklch(0.96 0.01 275);
   --sidebar-border: oklch(0.30 0.022 268);
-  --sidebar-ring: oklch(0.66 0.18 268);
+  --sidebar-ring: oklch(0.87 0.14 181);
+  --electric-glow: 0 0 18px -4px oklch(0.87 0.14 181 / 0.75);
   --success: oklch(0.72 0.19 155);
   --success-foreground: oklch(0.14 0.03 155);
   --warning: oklch(0.80 0.16 85);

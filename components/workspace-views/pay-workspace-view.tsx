@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import { Download } from "lucide-react"
 import {
   WorkspacePage,
@@ -30,7 +30,7 @@ function formatUsd(cents: number): string {
   return (Math.round(cents) / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })
 }
 
-export function PayWorkspaceView() {
+export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const [billing, setBilling] = useState<BillingSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -98,6 +98,11 @@ export function PayWorkspaceView() {
           <h2 className="text-sm font-semibold text-foreground">Invoice ledger</h2>
         </div>
         <WorkspaceTableWrap>
+          <colgroup>
+            <col className="w-[40%]" />
+            <col className="w-[35%]" />
+            <col className="w-[25%]" />
+          </colgroup>
           <thead>
             <tr>
               <WorkspaceTh>Date</WorkspaceTh>
@@ -114,7 +119,7 @@ export function PayWorkspaceView() {
                   <button
                     type="button"
                     aria-label={`Download ${row.id}`}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 text-zinc-500 hover:text-cyan-400"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 text-zinc-500 transition-colors hover:border-primary/40 hover:text-primary"
                   >
                     <Download className="h-4 w-4" />
                   </button>
@@ -126,4 +131,4 @@ export function PayWorkspaceView() {
       </WorkspacePanel>
     </WorkspacePage>
   )
-}
+})

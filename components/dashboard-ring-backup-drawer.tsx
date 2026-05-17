@@ -49,7 +49,7 @@ const BACKUP_OPTIONS: {
 }[] = [
   {
     value: "ai",
-    label: "Route to Step 4 AI Receptionist / Greetings Playbook",
+    label: "AI receptionist",
     description: "Hands off to your Voice & AI settings after the ring timer expires.",
     icon: Bot,
   },

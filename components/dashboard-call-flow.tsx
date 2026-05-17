@@ -37,8 +37,8 @@ function FlowConnector() {
       aria-hidden
     >
       <div className="relative flex w-full max-w-[4rem] items-center">
-        <div className="h-[2px] w-full rounded-full bg-gradient-to-r from-primary/20 via-primary to-primary/20 shadow-[0_0_12px_-2px_var(--primary)]" />
-        <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-r-2 border-t-2 border-primary" />
+        <div className="h-[2px] w-full rounded-full bg-gradient-to-r from-primary/15 via-primary to-primary/15 shadow-[var(--electric-glow)]" />
+        <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-r-2 border-t-2 border-primary shadow-[0_0_10px_var(--primary)]" />
       </div>
     </div>
   )
@@ -57,7 +57,7 @@ function FlowStepCard({
   title: string
   icon: LucideIcon
   value: string
-  detail: string
+  detail?: string
   onOpen: () => void
   loading?: boolean
 }) {
@@ -81,7 +81,7 @@ function FlowStepCard({
       <div className="mt-4 flex flex-1 flex-col gap-1">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
         <p className="text-lg font-semibold leading-tight text-foreground sm:text-xl">{value}</p>
-        <p className="text-xs leading-snug text-muted-foreground">{detail}</p>
+        {detail ? <p className="text-xs tabular-nums text-zinc-500">{detail}</p> : null}
       </div>
       <span className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-border/70 bg-transparent px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-[border-color,background-color,color] duration-200 group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:text-primary">
         Configure
@@ -150,8 +150,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             {routingLineDetailLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading line" />
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-success">
-                <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_var(--success)]" aria-hidden />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/45 bg-primary/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary shadow-[var(--electric-glow)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" aria-hidden />
                 Live
               </span>
             )}
@@ -209,7 +209,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               title="Ring & backup"
               icon={Hourglass}
               value={`${ringTimeoutSec}s`}
-              detail={`Then ${activeFallbackLabel}`}
+              detail={activeFallbackLabel}
               onOpen={() => setRingBackupOpen(true)}
               loading={routingLineDetailLoading}
             />
@@ -219,7 +219,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               title="Voice & AI"
               icon={AudioWaveform}
               value="Greetings"
-              detail="AI script · voicemail · opening line"
               onOpen={() => setShowFallbackSettings(true)}
               loading={routingLineDetailLoading}
             />

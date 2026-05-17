@@ -246,7 +246,7 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   )
 })
 
-export function LeadsWorkspaceView() {
+export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -296,4 +296,4 @@ export function LeadsWorkspaceView() {
       />
     </WorkspaceRightSheetGate>
   )
-}
+})

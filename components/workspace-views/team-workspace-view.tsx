@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Loader2, Plus } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -44,7 +44,7 @@ function AddTeamMemberCard() {
     >
       <Link
         href="/dashboard#dash-call-flow"
-        className="group flex h-full w-full flex-col items-center justify-center text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+        className="group flex h-full w-full flex-col items-center justify-center text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
       >
         <span className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 text-zinc-400 transition-colors group-hover:border-zinc-500 group-hover:text-zinc-200">
           <Plus className="h-5 w-5" strokeWidth={1.5} aria-hidden />
@@ -57,7 +57,7 @@ function AddTeamMemberCard() {
   )
 }
 
-export function TeamWorkspaceView() {
+export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   const [members, setMembers] = useState<Receptionist[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -168,4 +168,4 @@ export function TeamWorkspaceView() {
       )}
     </WorkspacePage>
   )
-}
+})

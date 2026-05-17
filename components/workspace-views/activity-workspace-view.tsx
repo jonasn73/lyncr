@@ -226,7 +226,7 @@ function useLineLabelMap(): Map<string, string> {
   return lineLabelMap
 }
 
-export function ActivityWorkspaceView() {
+export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   const { calls, loading, loadError, refreshing } = useOperationsData()
   const lineLabelMap = useLineLabelMap()
 
@@ -243,4 +243,4 @@ export function ActivityWorkspaceView() {
       />
     </WorkspaceRightSheetGate>
   )
-}
+})

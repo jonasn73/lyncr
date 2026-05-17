@@ -1,10 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import { Bell, Clock, Loader2, LogOut, MessageSquare, Shield, Volume2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -17,8 +16,11 @@ import {
   WorkspacePanel,
   WorkspaceDisclosureRow,
   workspaceFieldClass,
-  WORKSPACE_SHEET_CLASS,
 } from "@/components/dashboard-workspace-ui"
+import {
+  WorkspaceRightSheetGate,
+  useWorkspaceRightSheet,
+} from "@/components/workspace-right-sheet-gate"
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 type DayHours = { open: string; close: string; enabled: boolean }
@@ -32,12 +34,197 @@ const DEFAULT_HOURS: Record<(typeof WEEKDAYS)[number], DayHours> = {
   Sun: { open: "10:00", close: "14:00", enabled: false },
 }
 
-export function SettingsWorkspaceView() {
+const HOURS_SHEET_KEY = true as const
+
+function SettingsHoursSheet() {
+  const [hours, setHours] = useState(DEFAULT_HOURS)
+
+  return (
+    <>
+      <DrawerStepHeader step="Schedule" title="Business Hours" subtitle="" />
+      <DrawerScrollBody>
+        <ul className="flex flex-col gap-2">
+          {WEEKDAYS.map((day) => {
+            const row = hours[day]
+            return (
+              <li
+                key={day}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2.5"
+              >
+                <label className="flex w-12 items-center gap-2 text-xs font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) =>
+                      setHours((prev) => ({ ...prev, [day]: { ...prev[day], enabled: e.target.checked } }))
+                    }
+                  />
+                  {day}
+                </label>
+                <input
+                  type="time"
+                  disabled={!row.enabled}
+                  value={row.open}
+                  onChange={(e) =>
+                    setHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))
+                  }
+                  className={workspaceFieldClass + " max-w-[7rem] py-1.5 text-xs disabled:opacity-40"}
+                />
+                <span className="text-xs text-zinc-600">–</span>
+                <input
+                  type="time"
+                  disabled={!row.enabled}
+                  value={row.close}
+                  onChange={(e) =>
+                    setHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))
+                  }
+                  className={workspaceFieldClass + " max-w-[7rem] py-1.5 text-xs disabled:opacity-40"}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      </DrawerScrollBody>
+    </>
+  )
+}
+
+const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
+  loading,
+  name,
+  email,
+  businessName,
+  setBusinessName,
+  businessNameSaving,
+  onSaveBusinessName,
+  pushEnabled,
+  setPushEnabled,
+  smsEnabled,
+  setSmsEnabled,
+  whisperEnabled,
+  whisperSaving,
+  onSaveWhisper,
+  signingOut,
+  onSignOut,
+}: {
+  loading: boolean
+  name: string
+  email: string
+  businessName: string
+  setBusinessName: (v: string) => void
+  businessNameSaving: boolean
+  onSaveBusinessName: () => void
+  pushEnabled: boolean
+  setPushEnabled: (v: boolean) => void
+  smsEnabled: boolean
+  setSmsEnabled: (v: boolean) => void
+  whisperEnabled: boolean
+  whisperSaving: boolean
+  onSaveWhisper: (v: boolean) => void
+  signingOut: boolean
+  onSignOut: () => void
+}) {
+  const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+
+  return (
+    <WorkspacePage className="gap-10 pb-8">
+      <WorkspacePageHeader eyebrow="Account" title="Settings" />
+
+      <WorkspacePanel className="p-6 sm:p-8">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Loading…
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
+            <Avatar className="h-14 w-14 shrink-0">
+              <AvatarFallback className="bg-primary text-lg font-semibold text-primary-foreground">
+                {initials || "ME"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 space-y-5">
+              <div>
+                <p className="text-lg font-semibold text-foreground">{name || "Account"}</p>
+                <p className="text-sm text-zinc-500">{email}</p>
+              </div>
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Business name
+                </span>
+                <input
+                  className={workspaceFieldClass}
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  maxLength={120}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={onSaveBusinessName}
+                disabled={businessNameSaving || !businessName.trim()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {businessNameSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        )}
+      </WorkspacePanel>
+
+      <section className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <ToggleRow label="Push" icon={Bell} checked={pushEnabled} onChange={setPushEnabled} />
+          <ToggleRow label="SMS" icon={MessageSquare} checked={smsEnabled} onChange={setSmsEnabled} />
+          <ToggleRow
+            label="Whisper"
+            icon={Volume2}
+            checked={whisperEnabled}
+            disabled={whisperSaving}
+            onChange={(v) => onSaveWhisper(v)}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
+        <div className="flex flex-col gap-3">
+          <WorkspaceDisclosureRow
+            icon={<Clock className="h-5 w-5" />}
+            label="Business Hours"
+            onClick={() => openHours(HOURS_SHEET_KEY)}
+          />
+          <WorkspaceDisclosureRow
+            icon={<Shield className="h-5 w-5" />}
+            label="Privacy"
+            onClick={() => {
+              const url = process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL || "/privacy"
+              window.open(url, process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL ? "_blank" : "_self")
+            }}
+          />
+          <WorkspaceDisclosureRow
+            icon={<LogOut className="h-5 w-5" />}
+            label={signingOut ? "Signing out…" : "Sign Out"}
+            destructive
+            onClick={onSignOut}
+          />
+        </div>
+      </section>
+    </WorkspacePage>
+  )
+})
+
+export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
-  const [hoursOpen, setHoursOpen] = useState(false)
-  const [hours, setHours] = useState(DEFAULT_HOURS)
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -101,154 +288,34 @@ export function SettingsWorkspaceView() {
     }
   }
 
-  const initials = name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-
   return (
-    <WorkspacePage className="gap-10 pb-8">
-      <WorkspacePageHeader eyebrow="Account" title="Settings" />
-
-      <WorkspacePanel className="p-6 sm:p-8">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            Loading…
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-            <Avatar className="h-14 w-14 shrink-0">
-              <AvatarFallback className="bg-primary text-lg font-semibold text-primary-foreground">
-                {initials || "ME"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 space-y-5">
-              <div>
-                <p className="text-lg font-semibold text-foreground">{name || "Account"}</p>
-                <p className="text-sm text-zinc-500">{email}</p>
-              </div>
-              <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Account business name
-                </span>
-                <input
-                  className={workspaceFieldClass}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Key Squad 502"
-                  maxLength={120}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => void saveBusinessName()}
-                disabled={businessNameSaving || !businessName.trim()}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {businessNameSaving ? "Saving…" : "Save"}
-              </button>
-            </div>
-          </div>
-        )}
-      </WorkspacePanel>
-
-      <section className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <ToggleRow label="Push Notifications" icon={Bell} checked={pushEnabled} onChange={setPushEnabled} />
-          <ToggleRow label="SMS Forwarding" icon={MessageSquare} checked={smsEnabled} onChange={setSmsEnabled} />
-          <ToggleRow
-            label="Team whisper after answer"
-            icon={Volume2}
-            checked={whisperEnabled}
-            disabled={whisperSaving}
-            onChange={(v) => void saveWhisper(v)}
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
-        <div className="flex flex-col gap-3">
-          <WorkspaceDisclosureRow
-            icon={<Clock className="h-5 w-5" />}
-            label="Business Hours"
-            onClick={() => setHoursOpen(true)}
-          />
-          <WorkspaceDisclosureRow
-            icon={<Shield className="h-5 w-5" />}
-            label="Security & Privacy"
-            onClick={() => {
-              const url = process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL || "/privacy"
-              window.open(url, process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL ? "_blank" : "_self")
-            }}
-          />
-          <WorkspaceDisclosureRow
-            icon={<LogOut className="h-5 w-5" />}
-            label={signingOut ? "Signing out…" : "Sign Out"}
-            destructive
-            onClick={() => {
-              setSigningOut(true)
-              void signOutAndGoToLogin().finally(() => setSigningOut(false))
-            }}
-          />
-        </div>
-      </section>
-
-      <Sheet open={hoursOpen} onOpenChange={setHoursOpen} modal>
-        <SheetContent side="right" className={WORKSPACE_SHEET_CLASS}>
-          <DrawerStepHeader step="Schedule" title="Business Hours" subtitle="Weekly window" />
-          <DrawerScrollBody>
-            <ul className="flex flex-col gap-2">
-              {WEEKDAYS.map((day) => {
-                const row = hours[day]
-                return (
-                  <li
-                    key={day}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2.5"
-                  >
-                    <label className="flex w-12 items-center gap-2 text-xs font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={row.enabled}
-                        onChange={(e) =>
-                          setHours((prev) => ({ ...prev, [day]: { ...prev[day], enabled: e.target.checked } }))
-                        }
-                      />
-                      {day}
-                    </label>
-                    <input
-                      type="time"
-                      disabled={!row.enabled}
-                      value={row.open}
-                      onChange={(e) =>
-                        setHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))
-                      }
-                      className={workspaceFieldClass + " max-w-[7rem] py-1.5 text-xs disabled:opacity-40"}
-                    />
-                    <span className="text-xs text-zinc-600">–</span>
-                    <input
-                      type="time"
-                      disabled={!row.enabled}
-                      value={row.close}
-                      onChange={(e) =>
-                        setHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))
-                      }
-                      className={workspaceFieldClass + " max-w-[7rem] py-1.5 text-xs disabled:opacity-40"}
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-          </DrawerScrollBody>
-        </SheetContent>
-      </Sheet>
-    </WorkspacePage>
+    <WorkspaceRightSheetGate<typeof HOURS_SHEET_KEY>
+      render={() => <SettingsHoursSheet />}
+    >
+      <SettingsWorkspaceBody
+        loading={loading}
+        name={name}
+        email={email}
+        businessName={businessName}
+        setBusinessName={setBusinessName}
+        businessNameSaving={businessNameSaving}
+        onSaveBusinessName={() => void saveBusinessName()}
+        pushEnabled={pushEnabled}
+        setPushEnabled={setPushEnabled}
+        smsEnabled={smsEnabled}
+        setSmsEnabled={setSmsEnabled}
+        whisperEnabled={whisperEnabled}
+        whisperSaving={whisperSaving}
+        onSaveWhisper={(v) => void saveWhisper(v)}
+        signingOut={signingOut}
+        onSignOut={() => {
+          setSigningOut(true)
+          void signOutAndGoToLogin().finally(() => setSigningOut(false))
+        }}
+      />
+    </WorkspaceRightSheetGate>
   )
-}
+})
 
 function ToggleRow({
   label,

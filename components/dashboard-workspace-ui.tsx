@@ -200,7 +200,7 @@ export function WorkspaceToggleCard({
 }
 
 export const workspaceFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 export function WorkspaceTableWrap({
   children,

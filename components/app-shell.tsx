@@ -111,7 +111,7 @@ const AppShellBottomNav = memo(function AppShellBottomNav({
             "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 sm:min-w-[58px] sm:px-3",
             "transition-[background-color,color,transform] duration-200 ease-out motion-safe:active:scale-[0.96]",
             isActive
-              ? "bg-primary/12 text-primary"
+              ? "bg-primary/15 text-primary shadow-[var(--electric-glow)] ring-1 ring-primary/40"
               : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
           )
           const inner = (
@@ -223,9 +223,9 @@ const AppShellHeader = memo(function AppShellHeader({
         {useLinks && accountHeader?.kind === "ready" && (
           <HeaderAccountMenu name={accountHeader.name} email={accountHeader.email} />
         )}
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2 py-1 sm:gap-2 sm:px-2.5">
-          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
-          <span className="hidden text-[11px] font-medium text-success sm:inline">Live</span>
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/45 bg-primary/12 px-2 py-1 shadow-[var(--electric-glow)] sm:gap-2 sm:px-2.5">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" aria-hidden />
+          <span className="hidden text-[11px] font-semibold uppercase tracking-wide text-primary sm:inline">Live</span>
         </div>
       </div>
     </header>

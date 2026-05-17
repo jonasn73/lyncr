@@ -1,20 +1,9 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import Link from "next/link"
-import {
-  Check,
-  Loader2,
-  Settings2,
-  ChevronRight,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
-import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
-import { DashboardRoutingSheets } from "@/components/dashboard-routing-sheets"
-import { DashboardCallFlow } from "@/components/dashboard-call-flow"
+import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import {
   businessNumbersMatch,
@@ -26,8 +15,6 @@ import {
 } from "@/lib/dashboard-routing-utils"
 
 export function DashboardPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
   const { toast } = useToast()
 
   const [mainLinePhone, setMainLinePhone] = useState<string | null>(null)
@@ -36,11 +23,6 @@ export function DashboardPage() {
   const [fallback, setFallback] = useState<FallbackOption>("owner")
   /** AI fallback + no receptionist: ring owner cell before Voice AI (see Fallback Settings). */
   const [aiRingOwnerFirst, setAiRingOwnerFirst] = useState(false)
-  const [showFallbackSettings, setShowFallbackSettings] = useState(false)
-  const [whoAnswersOpen, setWhoAnswersOpen] = useState(false)
-  const [ringBackupOpen, setRingBackupOpen] = useState(false)
-  /** Extra story sheet from Call console page-level (i) icons — stacks above routing sheets (z-[110]). */
-  const [dashboardStoryKey, setDashboardStoryKey] = useState<string | null>(null)
   /** Ring duration for the first leg before no-answer fallback (from GET /api/routing). */
   const [ringTimeoutSec, setRingTimeoutSec] = useState(30)
 
@@ -128,13 +110,6 @@ export function DashboardPage() {
       cancelled = true
     }
   }, [])
-
-  // Bookmark / Settings link: /dashboard?ai=1 opens fallback sheet (playbook lives here now).
-  useEffect(() => {
-    if (searchParams.get("ai") !== "1") return
-    setShowFallbackSettings(true)
-    router.replace("/dashboard", { scroll: false })
-  }, [searchParams, router])
 
   // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
   useEffect(() => {
@@ -352,177 +327,33 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 sm:gap-14">
-
-      {quickSetupDecided && !isSetupComplete && (
-        <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12">
-              <Check className="h-4 w-4 text-primary" aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">Finish setup first</p>
-                <SheetInfoTrigger
-                  onPress={() => setDashboardStoryKey("dashboard-quick-setup")}
-                  label="About setup checklist"
-                  className="h-8 w-8 shrink-0"
-                />
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Complete these in order. When your line is in place, use the call flow card below to choose who answers and
-                what happens if nobody picks up.
-              </p>
-              <div className="mt-5 flex flex-col gap-4 sm:gap-5">
-                <div
-                  className={cn(
-                    "flex flex-col gap-2 rounded-xl border bg-background/60 px-3 py-2.5",
-                    hasBusinessNumbers ? "border-border/70" : "border-primary/40 ring-1 ring-primary/15"
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-foreground">1 · Business number</span>
-                    {hasBusinessNumbers ? (
-                      <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
-                        Done
-                      </span>
-                    ) : null}
-                  </div>
-                  {!hasBusinessNumbers ? (
-                    <p className="text-[11px] leading-snug text-muted-foreground">
-                      Buy or port the number customers dial — routing applies to this line.
-                    </p>
-                  ) : null}
-                  {!hasBusinessNumbers ? (
-                    <Link
-                      href="/dashboard#dash-call-flow"
-                      className="inline-flex w-fit items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                    >
-                      Add number in Settings
-                    </Link>
-                  ) : (
-                    <Link
-                      href="/dashboard#dash-call-flow"
-                      className="w-fit text-[11px] font-semibold text-primary hover:underline"
-                    >
-                      Manage numbers
-                    </Link>
-                  )}
-                </div>
-
-                <div
-                  className={cn(
-                    "flex flex-col gap-1.5 rounded-xl border border-border/70 bg-background/60 px-3 py-2",
-                    !hasBusinessNumbers && "opacity-55"
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-foreground">2 · Who answers</span>
-                    {hasBusinessNumbers ? (
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                        Next — below
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[10px] text-muted-foreground">After step 1</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    Ring your cell or a teammate first, then set voicemail, AI, or owner backup in the call flow card.
-                  </p>
-                  {hasBusinessNumbers ? (
-                    <a href="#dash-call-flow" className="w-fit text-[11px] font-semibold text-primary hover:underline">
-                      Go to call flow
-                    </a>
-                  ) : null}
-                </div>
-
-                <div
-                  className={cn(
-                    "flex items-center justify-between rounded-xl border border-border/70 bg-background/60 px-3 py-2",
-                    !hasBusinessNumbers && "opacity-55"
-                  )}
-                >
-                  <span className="text-xs font-medium text-foreground">3 · Team (optional)</span>
-                  {hasReceptionists ? (
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">Added</span>
-                  ) : hasBusinessNumbers ? (
-                    <Link href="/dashboard/contacts" className="text-[11px] font-semibold text-primary hover:underline">
-                      Open Team
-                    </Link>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">After step 1</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <div className="mx-auto w-full max-w-7xl space-y-8 sm:space-y-10">
-        <DashboardCallFlow
-          businessNumbers={businessNumbers}
-          routingBusinessNumber={routingBusinessNumber}
-          setRoutingBusinessNumber={setRoutingBusinessNumber}
-          quickSetupDecided={quickSetupDecided}
-          routingLineDetailLoading={routingLineDetailLoading}
-          isRoutingToOwner={isRoutingToOwner}
-          selectedReceptionist={selectedReceptionist}
-          ownerPhoneDisplay={ownerPhoneDisplay}
-          ringTimeoutSec={ringTimeoutSec}
-          activeFallbackLabel={activeFallbackMeta?.label ?? "Backup"}
-          setDashboardStoryKey={setDashboardStoryKey}
-          setWhoAnswersOpen={setWhoAnswersOpen}
-          setRingBackupOpen={setRingBackupOpen}
-          setShowFallbackSettings={setShowFallbackSettings}
-        />
-
-        {/* Sheets + caller-ID tips: tips render in document order first so they sit directly under call flow. */}
-        <DashboardRoutingSheets
-          whoAnswersOpen={whoAnswersOpen}
-          setWhoAnswersOpen={setWhoAnswersOpen}
-          ringBackupOpen={ringBackupOpen}
-          setRingBackupOpen={setRingBackupOpen}
-          showFallbackSettings={showFallbackSettings}
-          setShowFallbackSettings={setShowFallbackSettings}
-          dashboardStoryKey={dashboardStoryKey}
-          setDashboardStoryKey={setDashboardStoryKey}
-          receptionists={receptionists}
-          selectedReceptionistId={selectedReceptionistId}
-          isRoutingToOwner={isRoutingToOwner}
-          ownerPhoneDisplay={ownerPhoneDisplay}
-          selectedReceptionist={selectedReceptionist}
-          clearReceptionist={clearReceptionist}
-          selectReceptionist={selectReceptionist}
-          routingLineDetailLoading={routingLineDetailLoading}
-          ringTimeoutSec={ringTimeoutSec}
-          setRingTimeoutSec={setRingTimeoutSec}
-          saveRouting={saveRouting}
-          fallback={fallback}
-          setFallback={setFallback}
-          aiRingOwnerFirst={aiRingOwnerFirst}
-          setAiRingOwnerFirst={setAiRingOwnerFirst}
-          hasTelnyxAiAssistant={hasTelnyxAiAssistant}
-          setHasTelnyxAiAssistant={setHasTelnyxAiAssistant}
-          businessNumbers={businessNumbers}
-          routingBusinessNumber={routingBusinessNumber}
-        />
-
-        <section className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-5 py-6 text-center text-xs leading-relaxed text-muted-foreground sm:px-6 sm:py-7 sm:text-sm">
-          <span className="font-medium text-foreground">Next elsewhere in the app:</span>{" "}
-          <Link href="/dashboard/activity" className="font-semibold text-primary underline-offset-2 hover:underline">
-            Activity &amp; recordings
-          </Link>
-          <span className="text-border"> · </span>
-          <Link href="/dashboard/contacts" className="font-semibold text-primary underline-offset-2 hover:underline">
-            Team
-          </Link>
-          <span className="text-border"> · </span>
-          <Link href="/dashboard/settings" className="font-semibold text-primary underline-offset-2 hover:underline">
-            Settings
-          </Link>
-        </section>
-      </div>
-
+      <DashboardRoutingWithSheets
+        quickSetupDecided={quickSetupDecided}
+        isSetupComplete={isSetupComplete}
+        hasBusinessNumbers={hasBusinessNumbers}
+        hasReceptionists={hasReceptionists}
+        businessNumbers={businessNumbers}
+        routingBusinessNumber={routingBusinessNumber}
+        setRoutingBusinessNumber={setRoutingBusinessNumber}
+        routingLineDetailLoading={routingLineDetailLoading}
+        isRoutingToOwner={isRoutingToOwner}
+        selectedReceptionist={selectedReceptionist}
+        ownerPhoneDisplay={ownerPhoneDisplay}
+        ringTimeoutSec={ringTimeoutSec}
+        activeFallbackLabel={activeFallbackMeta?.label ?? "Backup"}
+        receptionists={receptionists}
+        selectedReceptionistId={selectedReceptionistId}
+        clearReceptionist={clearReceptionist}
+        selectReceptionist={selectReceptionist}
+        setRingTimeoutSec={setRingTimeoutSec}
+        saveRouting={saveRouting}
+        fallback={fallback}
+        setFallback={setFallback}
+        aiRingOwnerFirst={aiRingOwnerFirst}
+        setAiRingOwnerFirst={setAiRingOwnerFirst}
+        hasTelnyxAiAssistant={hasTelnyxAiAssistant}
+        setHasTelnyxAiAssistant={setHasTelnyxAiAssistant}
+      />
     </div>
   )
 }
