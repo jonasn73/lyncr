@@ -170,13 +170,86 @@
   }
 }
 
+/* Right drawer — translate3d only (no width/left/right animation). */
+@keyframes sigo-sheet-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sigo-sheet-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sigo-sheet-slide-in-right {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sigo-sheet-slide-out-right {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
 @layer utilities {
   .animate-sigo-page-enter {
     animation: sigo-page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+
+  .sigo-sheet-drawer-overlay {
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+  }
+
+  .sigo-sheet-drawer-overlay[data-state="open"] {
+    animation-name: sigo-sheet-overlay-in;
+  }
+
+  .sigo-sheet-drawer-overlay[data-state="closed"] {
+    animation-name: sigo-sheet-overlay-out;
+  }
+
+  .sigo-sheet-drawer-panel {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+    transform: translate3d(100%, 0, 0);
+  }
+
+  .sigo-sheet-drawer-panel[data-state="open"] {
+    animation-name: sigo-sheet-slide-in-right;
+  }
+
+  .sigo-sheet-drawer-panel[data-state="closed"] {
+    animation-name: sigo-sheet-slide-out-right;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .animate-sigo-page-enter {
-      animation: none;
+    .animate-sigo-page-enter,
+    .sigo-sheet-drawer-overlay,
+    .sigo-sheet-drawer-panel {
+      animation: none !important;
+    }
+
+    .sigo-sheet-drawer-panel[data-state="open"] {
+      transform: translate3d(0, 0, 0);
     }
   }
 }

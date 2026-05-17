@@ -45,7 +45,7 @@ export function DrawerStickyFooter({
   saveLabel?: string
 }) {
   return (
-    <footer className="sticky bottom-0 shrink-0 border-t border-zinc-800/80 bg-zinc-950/95 px-6 py-4 backdrop-blur-md">
+    <footer className="sticky bottom-0 shrink-0 border-t border-zinc-800/80 bg-zinc-950 px-6 py-4">
       <div className="flex gap-3">
         <button
           type="button"
@@ -53,7 +53,7 @@ export function DrawerStickyFooter({
           disabled={saving}
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:opacity-60",
-            dirty && "shadow-[0_0_28px_-4px_var(--primary)] ring-1 ring-primary/50"
+            dirty && "ring-1 ring-primary/50"
           )}
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}

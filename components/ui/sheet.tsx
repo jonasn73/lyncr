@@ -30,13 +30,19 @@ function SheetPortal({
 
 function SheetOverlay({
   className,
+  variant = 'default',
   ...props
-}: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
+}: React.ComponentProps<typeof SheetPrimitive.Overlay> & {
+  variant?: 'default' | 'drawer'
+}) {
   return (
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[100] bg-black/65 backdrop-blur-md',
+        'fixed inset-0 z-[100]',
+        variant === 'drawer'
+          ? 'sigo-sheet-drawer-overlay bg-black/70 transform-gpu will-change-[opacity] [backface-visibility:hidden]'
+          : 'bg-black/65 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className,
       )}
       {...props}
@@ -48,25 +54,40 @@ function SheetContent({
   className,
   children,
   side = 'right',
+  variant,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
+  /** `drawer` = GPU translate3d slide, no backdrop blur, lighter shadow */
+  variant?: 'default' | 'drawer'
 }) {
+  const motionVariant = variant ?? (side === 'right' ? 'drawer' : 'default')
+  const isDrawer = motionVariant === 'drawer'
+
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay variant={motionVariant} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-[110] flex flex-col shadow-2xl transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
-          side === 'right' &&
-            'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-full border-l border-border/60 transform-gpu will-change-transform [backface-visibility:hidden] sm:max-w-md md:max-w-lg lg:max-w-xl',
-          side === 'left' &&
-            'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
-          side === 'top' &&
-            'data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
-          side === 'bottom' &&
-            'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex h-[min(88dvh,800px)] max-h-[94dvh] flex-col rounded-t-3xl border-x border-t border-border/70',
+          'bg-background fixed z-[110] flex flex-col',
+          isDrawer
+            ? cn(
+                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-lg transform-gpu will-change-transform [backface-visibility:hidden]',
+                side === 'right' && 'right-0 sm:max-w-md md:max-w-lg lg:max-w-xl',
+                side === 'left' && 'left-0 w-3/4 border-r border-l-0 sm:max-w-sm',
+              )
+            : cn(
+                'shadow-2xl transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
+                side === 'right' &&
+                  'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-full border-l border-border/60 sm:max-w-md md:max-w-lg lg:max-w-xl',
+                side === 'left' &&
+                  'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+                side === 'top' &&
+                  'data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
+                side === 'bottom' &&
+                  'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex h-[min(88dvh,800px)] max-h-[94dvh] flex-col rounded-t-3xl border-x border-t border-border/70',
+              ),
           className,
         )}
         {...props}

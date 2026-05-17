@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { Loader2 } from "lucide-react"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -16,9 +15,12 @@ import {
   WorkspaceTh,
   WorkspaceTd,
   LeadIntentPill,
-  WORKSPACE_SHEET_CLASS,
   type LeadIntentVariant,
 } from "@/components/dashboard-workspace-ui"
+import {
+  WorkspaceRightSheetGate,
+  useWorkspaceRightSheet,
+} from "@/components/workspace-right-sheet-gate"
 
 interface LeadRow {
   id: string
@@ -129,11 +131,125 @@ function apiLeadToDisplay(lead: LeadRow): DisplayLead {
   }
 }
 
+function LeadDetailSheet({
+  selected,
+  usingDemo,
+  onClose,
+}: {
+  selected: DisplayLead
+  usingDemo: boolean
+  onClose: () => void
+}) {
+  return (
+    <>
+      <DrawerStepHeader step="Lead" title={selected.name} subtitle={selected.contact} />
+      <DrawerScrollBody>
+        <LeadIntentPill label={selected.intentLabel} variant={selected.intentVariant} />
+        {selected.raw?.summary ? (
+          <p className="mt-4 text-sm text-zinc-300">{selected.raw.summary}</p>
+        ) : usingDemo ? (
+          <p className="mt-4 text-sm text-zinc-500">
+            Sample lead for preview. Live AI captures will appear here when calls route to your assistant.
+          </p>
+        ) : null}
+        {selected.raw ? (
+          <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 text-xs text-zinc-400">
+            {JSON.stringify(selected.raw.collected, null, 2)}
+          </pre>
+        ) : null}
+      </DrawerScrollBody>
+      <DrawerStickyFooter
+        dirty={false}
+        saving={false}
+        onSave={() => {
+          const raw = selected.raw?.caller_e164?.trim()
+          if (raw) {
+            window.location.href = `tel:${raw}`
+            return
+          }
+          const digits = selected.contact.replace(/\D/g, "")
+          if (digits.length >= 10) window.location.href = `tel:+1${digits.slice(-10)}`
+        }}
+        onCancel={onClose}
+        saveLabel="Follow up"
+      />
+    </>
+  )
+}
+
+const LeadsTable = memo(function LeadsTable({ rows }: { rows: DisplayLead[] }) {
+  const openLead = useWorkspaceRightSheet<DisplayLead>()
+
+  return (
+    <WorkspacePanel className="min-h-[280px]">
+      <WorkspaceTableWrap>
+        <colgroup>
+          <col className="w-[24%]" />
+          <col className="w-[24%]" />
+          <col className="w-[26%]" />
+          <col className="w-[26%]" />
+        </colgroup>
+        <thead>
+          <tr>
+            <WorkspaceTh>Lead name</WorkspaceTh>
+            <WorkspaceTh>Contact info</WorkspaceTh>
+            <WorkspaceTh>Date captured</WorkspaceTh>
+            <WorkspaceTh>AI intent target</WorkspaceTh>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.id}
+              className="cursor-pointer transition-colors hover:bg-zinc-900/50"
+              onClick={() => openLead(row)}
+            >
+              <WorkspaceTd className="font-medium">{row.name}</WorkspaceTd>
+              <WorkspaceTd className="text-zinc-400">{row.contact}</WorkspaceTd>
+              <WorkspaceTd className="text-zinc-400">{row.dateLabel}</WorkspaceTd>
+              <WorkspaceTd>
+                <LeadIntentPill label={row.intentLabel} variant={row.intentVariant} />
+              </WorkspaceTd>
+            </tr>
+          ))}
+        </tbody>
+      </WorkspaceTableWrap>
+    </WorkspacePanel>
+  )
+})
+
+const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
+  loading,
+  error,
+  displayRows,
+  usingDemo,
+}: {
+  loading: boolean
+  error: string | null
+  displayRows: DisplayLead[]
+  usingDemo: boolean
+}) {
+  return (
+    <WorkspacePage>
+      <WorkspacePageHeader eyebrow="CRM" title="Leads" />
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : error && !usingDemo ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : (
+        <LeadsTable rows={displayRows} />
+      )}
+    </WorkspacePage>
+  )
+})
+
 export function LeadsWorkspaceView() {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<DisplayLead | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -167,95 +283,17 @@ export function LeadsWorkspaceView() {
   const usingDemo = leads.length === 0
 
   return (
-    <WorkspacePage>
-      <WorkspacePageHeader eyebrow="CRM" title="Leads" />
-
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : error && !usingDemo ? (
-        <p className="text-sm text-destructive">{error}</p>
-      ) : (
-        <WorkspacePanel className="min-h-[280px]">
-          <WorkspaceTableWrap>
-            <colgroup>
-              <col className="w-[24%]" />
-              <col className="w-[24%]" />
-              <col className="w-[26%]" />
-              <col className="w-[26%]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <WorkspaceTh>Lead name</WorkspaceTh>
-                <WorkspaceTh>Contact info</WorkspaceTh>
-                <WorkspaceTh>Date captured</WorkspaceTh>
-                <WorkspaceTh>AI intent target</WorkspaceTh>
-              </tr>
-            </thead>
-            <tbody>
-              {displayRows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="cursor-pointer transition-colors hover:bg-zinc-900/50"
-                  onClick={() => setSelected(row)}
-                >
-                  <WorkspaceTd className="font-medium">{row.name}</WorkspaceTd>
-                  <WorkspaceTd className="text-zinc-400">{row.contact}</WorkspaceTd>
-                  <WorkspaceTd className="text-zinc-400">{row.dateLabel}</WorkspaceTd>
-                  <WorkspaceTd>
-                    <LeadIntentPill label={row.intentLabel} variant={row.intentVariant} />
-                  </WorkspaceTd>
-                </tr>
-              ))}
-            </tbody>
-          </WorkspaceTableWrap>
-        </WorkspacePanel>
+    <WorkspaceRightSheetGate<DisplayLead>
+      render={(selected, close) => (
+        <LeadDetailSheet selected={selected} usingDemo={usingDemo} onClose={close} />
       )}
-
-      <Sheet open={selected != null} onOpenChange={(o) => !o && setSelected(null)} modal>
-        <SheetContent side="right" className={WORKSPACE_SHEET_CLASS}>
-          {selected ? (
-            <>
-              <DrawerStepHeader
-                step="Lead"
-                title={selected.name}
-                subtitle={selected.contact}
-              />
-              <DrawerScrollBody>
-                <LeadIntentPill label={selected.intentLabel} variant={selected.intentVariant} />
-                {selected.raw?.summary ? (
-                  <p className="mt-4 text-sm text-zinc-300">{selected.raw.summary}</p>
-                ) : usingDemo ? (
-                  <p className="mt-4 text-sm text-zinc-500">
-                    Sample lead for preview. Live AI captures will appear here when calls route to your assistant.
-                  </p>
-                ) : null}
-                {selected.raw ? (
-                  <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 text-xs text-zinc-400">
-                    {JSON.stringify(selected.raw.collected, null, 2)}
-                  </pre>
-                ) : null}
-              </DrawerScrollBody>
-              <DrawerStickyFooter
-                dirty={false}
-                saving={false}
-                onSave={() => {
-                  const raw = selected.raw?.caller_e164?.trim()
-                  if (raw) {
-                    window.location.href = `tel:${raw}`
-                    return
-                  }
-                  const digits = selected.contact.replace(/\D/g, "")
-                  if (digits.length >= 10) window.location.href = `tel:+1${digits.slice(-10)}`
-                }}
-                onCancel={() => setSelected(null)}
-                saveLabel="Follow up"
-              />
-            </>
-          ) : null}
-        </SheetContent>
-      </Sheet>
-    </WorkspacePage>
+    >
+      <LeadsWorkspaceBody
+        loading={loading}
+        error={error}
+        displayRows={displayRows}
+        usingDemo={usingDemo}
+      />
+    </WorkspaceRightSheetGate>
   )
 }

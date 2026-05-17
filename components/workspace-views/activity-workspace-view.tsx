@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -17,9 +16,12 @@ import {
   WorkspaceTh,
   WorkspaceTd,
   ActivityStatusPill,
-  WORKSPACE_SHEET_CLASS,
   type ActivityCallStatus,
 } from "@/components/dashboard-workspace-ui"
+import {
+  WorkspaceRightSheetGate,
+  useWorkspaceRightSheet,
+} from "@/components/workspace-right-sheet-gate"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import {
   buildBusinessLineLabelMap,
@@ -84,9 +86,120 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
   )
 }
 
-export function ActivityWorkspaceView() {
-  const { calls, loading, loadError, refreshing } = useOperationsData()
-  const [logCall, setLogCall] = useState<UiCallRecord | null>(null)
+type ActivityTableProps = {
+  rows: UiCallRecord[]
+  lineLabelMap: Map<string, string>
+}
+
+const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap }: ActivityTableProps) {
+  const openLog = useWorkspaceRightSheet<UiCallRecord>()
+
+  return (
+    <WorkspacePanel className="min-h-[320px]">
+      <WorkspaceTableWrap>
+        <colgroup>
+          <col className="w-[22%]" />
+          <col className="w-[30%]" />
+          <col className="w-[14%]" />
+          <col className="w-[24%]" />
+          <col className="w-[10%]" />
+        </colgroup>
+        <thead>
+          <tr>
+            <WorkspaceTh>Status</WorkspaceTh>
+            <WorkspaceTh>Caller</WorkspaceTh>
+            <WorkspaceTh>Duration</WorkspaceTh>
+            <WorkspaceTh>Target line</WorkspaceTh>
+            <WorkspaceTh />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <WorkspaceTd colSpan={5} className="py-12 text-center text-zinc-600">
+                No calls yet
+              </WorkspaceTd>
+            </tr>
+          ) : (
+            rows.map((call) => {
+              const st = classifyCall(call)
+              const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
+              return (
+                <tr key={call.id} className="transition-colors hover:bg-zinc-900/50">
+                  <WorkspaceTd>
+                    <ActivityStatusPill status={st} />
+                  </WorkspaceTd>
+                  <WorkspaceTd>
+                    <p className="font-medium">{call.callerName}</p>
+                    <p className="text-xs text-zinc-500">{call.callerNumber}</p>
+                  </WorkspaceTd>
+                  <WorkspaceTd className="tabular-nums text-zinc-400">
+                    {formatDuration(call.durationSeconds)}
+                  </WorkspaceTd>
+                  <WorkspaceTd>
+                    <p className="truncate font-medium text-zinc-200" title={targetLabel}>
+                      {targetLabel}
+                    </p>
+                  </WorkspaceTd>
+                  <WorkspaceTd className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => openLog(call)}
+                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
+                    >
+                      View log
+                    </button>
+                  </WorkspaceTd>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </WorkspaceTableWrap>
+    </WorkspacePanel>
+  )
+})
+
+type ActivityBodyProps = {
+  calls: UiCallRecord[]
+  loading: boolean
+  loadError: string | null
+  refreshing: boolean
+  lineLabelMap: Map<string, string>
+}
+
+const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
+  calls,
+  loading,
+  loadError,
+  refreshing,
+  lineLabelMap,
+}: ActivityBodyProps) {
+  const rows = useMemo(
+    () => [...calls].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)),
+    [calls]
+  )
+
+  return (
+    <WorkspacePage>
+      <WorkspacePageHeader eyebrow="Live" title="Activity" />
+
+      {refreshing ? <p className="text-xs text-zinc-600">Refreshing…</p> : null}
+
+      {loading && calls.length === 0 ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : loadError && calls.length === 0 ? (
+        <p className="text-sm text-destructive">{loadError}</p>
+      ) : (
+        <ActivityCallsTable rows={rows} lineLabelMap={lineLabelMap} />
+      )}
+    </WorkspacePage>
+  )
+})
+
+function useLineLabelMap(): Map<string, string> {
   const [lineLabelMap, setLineLabelMap] = useState<Map<string, string>>(() => new Map())
 
   useEffect(() => {
@@ -110,93 +223,24 @@ export function ActivityWorkspaceView() {
     }
   }, [])
 
-  const rows = useMemo(
-    () => [...calls].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)),
-    [calls]
-  )
+  return lineLabelMap
+}
+
+export function ActivityWorkspaceView() {
+  const { calls, loading, loadError, refreshing } = useOperationsData()
+  const lineLabelMap = useLineLabelMap()
 
   return (
-    <WorkspacePage>
-      <WorkspacePageHeader eyebrow="Live" title="Activity" />
-
-      {refreshing ? <p className="text-xs text-zinc-600">Refreshing…</p> : null}
-
-      {loading && calls.length === 0 ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : loadError && calls.length === 0 ? (
-        <p className="text-sm text-destructive">{loadError}</p>
-      ) : (
-        <WorkspacePanel className="min-h-[320px]">
-          <WorkspaceTableWrap>
-            <colgroup>
-              <col className="w-[22%]" />
-              <col className="w-[30%]" />
-              <col className="w-[14%]" />
-              <col className="w-[24%]" />
-              <col className="w-[10%]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <WorkspaceTh>Status</WorkspaceTh>
-                <WorkspaceTh>Caller</WorkspaceTh>
-                <WorkspaceTh>Duration</WorkspaceTh>
-                <WorkspaceTh>Target line</WorkspaceTh>
-                <WorkspaceTh />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <WorkspaceTd colSpan={5} className="py-12 text-center text-zinc-600">
-                    No calls yet
-                  </WorkspaceTd>
-                </tr>
-              ) : (
-                rows.map((call) => {
-                  const st = classifyCall(call)
-                  const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-                  return (
-                    <tr key={call.id} className="transition-colors hover:bg-zinc-900/50">
-                      <WorkspaceTd>
-                        <ActivityStatusPill status={st} />
-                      </WorkspaceTd>
-                      <WorkspaceTd>
-                        <p className="font-medium">{call.callerName}</p>
-                        <p className="text-xs text-zinc-500">{call.callerNumber}</p>
-                      </WorkspaceTd>
-                      <WorkspaceTd className="tabular-nums text-zinc-400">
-                        {formatDuration(call.durationSeconds)}
-                      </WorkspaceTd>
-                      <WorkspaceTd>
-                        <p className="truncate font-medium text-zinc-200" title={targetLabel}>
-                          {targetLabel}
-                        </p>
-                      </WorkspaceTd>
-                      <WorkspaceTd className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => setLogCall(call)}
-                          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
-                        >
-                          View log
-                        </button>
-                      </WorkspaceTd>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </WorkspaceTableWrap>
-        </WorkspacePanel>
-      )}
-
-      <Sheet open={logCall != null} onOpenChange={(o) => !o && setLogCall(null)} modal>
-        <SheetContent side="right" className={WORKSPACE_SHEET_CLASS}>
-          {logCall ? <CallLogSheet call={logCall} onClose={() => setLogCall(null)} /> : null}
-        </SheetContent>
-      </Sheet>
-    </WorkspacePage>
+    <WorkspaceRightSheetGate<UiCallRecord>
+      render={(call, close) => <CallLogSheet call={call} onClose={close} />}
+    >
+      <ActivityWorkspaceBody
+        calls={calls}
+        loading={loading}
+        loadError={loadError}
+        refreshing={refreshing}
+        lineLabelMap={lineLabelMap}
+      />
+    </WorkspaceRightSheetGate>
   )
 }
