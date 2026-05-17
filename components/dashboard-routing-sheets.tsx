@@ -29,6 +29,7 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import { SITE_NAME } from "@/lib/brand"
+import { ROUTING_DRAWER_SHEET_CLASS } from "@/components/dashboard-call-flow"
 
 const AiIntakeFlowPanelLazy = dynamic(
   () => import("@/components/ai-intake-flow-panel").then((mod) => mod.AiIntakeFlowPanel),
@@ -52,17 +53,10 @@ const RoutingCallPathSheetHeader = memo(function RoutingCallPathSheetHeader({
   title: string
   description: ReactNode
 }) {
-  const lines: Record<1 | 2 | 3, string> = {
-    1: "First ring — who picks up your business line.",
-    2: "Still ringing — how long we wait before plan B.",
-    3: "No answer — what the caller experiences next.",
-  }
   return (
-    <SheetHeader className="relative shrink-0 space-y-0 overflow-hidden border-b border-primary/25 bg-gradient-to-br from-primary/[0.18] via-card to-card px-4 pb-4 pt-2 text-left">
-      <div className="mx-auto mb-2 h-1.5 w-11 shrink-0 rounded-full bg-foreground/25" aria-hidden />
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Incoming call path</p>
-      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{lines[step]}</p>
-      <div className="mt-2 flex gap-1" aria-hidden>
+    <SheetHeader className="relative shrink-0 space-y-0 border-b border-primary/25 bg-gradient-to-br from-primary/[0.14] via-card to-card px-6 pb-5 pt-6 text-left">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Step {step} of 3</p>
+      <div className="mt-3 flex gap-1" aria-hidden>
         {([1, 2, 3] as const).map((n) => (
           <span
             key={n}
@@ -73,8 +67,8 @@ const RoutingCallPathSheetHeader = memo(function RoutingCallPathSheetHeader({
           />
         ))}
       </div>
-      <SheetTitle className="mt-3 text-left text-lg font-semibold tracking-tight text-foreground">{title}</SheetTitle>
-      <SheetDescription className="mt-2 text-left text-xs leading-relaxed text-muted-foreground">
+      <SheetTitle className="mt-4 text-left text-xl font-semibold tracking-tight text-foreground">{title}</SheetTitle>
+      <SheetDescription className="mt-2 text-left text-sm leading-relaxed text-muted-foreground">
         {description}
       </SheetDescription>
     </SheetHeader>
@@ -172,7 +166,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
       </section>
 
       <Sheet open={whoAnswersOpen} onOpenChange={setWhoAnswersOpen} modal>
-        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+        <SheetContent side="right" className={ROUTING_DRAWER_SHEET_CLASS}>
           <RoutingCallPathSheetHeader
             step={1}
             title="Who answers first?"
@@ -302,7 +296,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
       </Sheet>
 
       <Sheet open={ringBackupOpen} onOpenChange={setRingBackupOpen} modal>
-        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+        <SheetContent side="right" className={ROUTING_DRAWER_SHEET_CLASS}>
           <RoutingCallPathSheetHeader
             step={2}
             title="Ring time & backup"
@@ -421,8 +415,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
 
       <Sheet open={showFallbackSettings} onOpenChange={setShowFallbackSettings} modal>
         <SheetContent
-          side="bottom"
-          className={cn("gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3", fallback === "ai" && "sm:max-w-xl")}
+          side="right"
+          className={cn(ROUTING_DRAWER_SHEET_CLASS, fallback === "ai" && "lg:max-w-2xl")}
         >
           <RoutingCallPathSheetHeader
             step={3}
@@ -568,7 +562,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
       </Sheet>
 
       <Sheet open={dashboardStoryKey != null} onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
-        <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+        <SheetContent side="right" className={ROUTING_DRAWER_SHEET_CLASS}>
           {dashboardStoryKey ? (
             (() => {
               const story = getAppSheetStory(dashboardStoryKey)

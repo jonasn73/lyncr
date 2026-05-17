@@ -643,6 +643,12 @@ export async function createUser(params: {
 }
 
 /** Sets login hash and platform admin flag (019 columns optional). Used by bootstrap repair API. */
+/** Update login password only (does not change platform admin flag). */
+export async function setUserPasswordHash(userId: string, passwordHash: string): Promise<void> {
+  const sql = getSql()
+  await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${userId}`
+}
+
 export async function setUserPasswordHashAndPlatformAdmin(userId: string, passwordHash: string): Promise<void> {
   const sql = getSql()
   try {

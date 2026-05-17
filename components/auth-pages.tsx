@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
@@ -217,12 +218,9 @@ export function AuthPage({ mode, onNavigate, onAuth }: AuthPageProps) {
                 </button>
               </div>
               {!isSignup && (
-                <button
-                  type="button"
-                  className="self-end text-xs text-primary hover:underline"
-                >
+                <Link href="/forgot-password" className="self-end text-xs text-primary hover:underline">
                   Forgot password?
-                </button>
+                </Link>
               )}
             </div>
 
