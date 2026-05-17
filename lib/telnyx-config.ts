@@ -9,10 +9,11 @@ import { SITE_NAME } from "@/lib/brand"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
-/** Telnyx TeXML app friendly names: newest uses SITE_NAME; legacy includes spaced Hey Sigo and older Sigo/Zing. */
+/** Telnyx TeXML app friendly names: newest uses SITE_NAME; legacy names kept for existing Telnyx apps. */
 const TEXML_ROUTER_FRIENDLY_NAME = `${SITE_NAME} Call Router` as const
 export const TEXML_ROUTER_NAMES = [
   TEXML_ROUTER_FRIENDLY_NAME,
+  "HeySigo Call Router",
   "Hey Sigo Call Router",
   "Sigo Call Router",
   "Zing Call Router",
@@ -22,6 +23,7 @@ export const TEXML_ROUTER_NAMES = [
 const OUTBOUND_VOICE_PROFILE_NAME = `${SITE_NAME} Outbound` as const
 const OUTBOUND_PROFILE_NAMES = [
   OUTBOUND_VOICE_PROFILE_NAME,
+  "HeySigo Outbound",
   "Hey Sigo Outbound",
   "Sigo Outbound",
   "Zing Outbound",
@@ -83,7 +85,7 @@ async function getOrCreateOutboundVoiceProfile(): Promise<string> {
   return String(profileId)
 }
 
-// Find or create the HeySigo Call Router TeXML application with outbound calling enabled
+// Find or create the lyncr Call Router TeXML application with outbound calling enabled
 export async function getOrCreateTexmlApp(): Promise<string> {
   const appUrl = getAppUrl()
 

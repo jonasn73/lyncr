@@ -1,5 +1,5 @@
 // ============================================
-// HeySigo — AI phone intake (industry-aware fallback)
+// lyncr — AI phone intake (industry-aware fallback)
 // ============================================
 // user_ai_intake.config holds overrides; users.industry picks the default playbook
 // when profileId is not stored (follow industry).
@@ -123,7 +123,7 @@ export function buildFullTelnyxInstructions(
   return `${base}\n\n## Additional instructions (from ${SITE_NAME})\n${extra}`
 }
 
-/** Full system instructions for Telnyx Voice AI (HeySigo syncs this when users activate or save AI call flow). */
+/** Full system instructions for Telnyx Voice AI (lyncr syncs this when users activate or save AI call flow). */
 export function buildIntakeSystemExtension(
   businessName: string,
   ownerPhone: string,

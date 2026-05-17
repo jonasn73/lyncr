@@ -1,7 +1,7 @@
 "use client"
 
 // ============================================
-// Number transfer thread — read + reply (vendor-backed; on-brand for HeySigo).
+// Number transfer thread — read + reply (vendor-backed; on-brand for lyncr).
 // ============================================
 
 import { useState, useEffect } from "react"

@@ -78,7 +78,7 @@ export function AiIntakeFlowPanel({
   const [saving, setSaving] = useState(false)
   const [hasAssistant, setHasAssistant] = useState(false)
   const [userIndustry, setUserIndustry] = useState<string>("generic")
-  /** Optional override — HeySigo normally creates the voice assistant for you (see Advanced). */
+  /** Optional override — lyncr normally creates the voice assistant for you (see Advanced). */
   const [telnyxAssistantId, setTelnyxAssistantId] = useState("")
   /** Show the rare “paste an existing assistant id” field (support / migrations). */
   const [showAdvancedAssistantId, setShowAdvancedAssistantId] = useState(false)

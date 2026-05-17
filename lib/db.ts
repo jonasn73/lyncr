@@ -1,5 +1,5 @@
 // ============================================
-// HeySigo - Database Client
+// lyncr - Database Client
 // ============================================
 // Uses Neon serverless when DATABASE_URL is set (production / live app).
 // Set DATABASE_URL in Vercel → Settings → Environment Variables, then run

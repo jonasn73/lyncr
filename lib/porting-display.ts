@@ -1,9 +1,9 @@
 /**
- * User-facing copy helpers. Vendor APIs still store original text; this only changes *display* in HeySigo.
+ * User-facing copy helpers. Vendor APIs still store original text; this only changes *display* in lyncr.
  */
 
 /**
- * Neutralizes vendor names in toasts, help text, and port threads so the product reads primarily as HeySigo.
+ * Neutralizes vendor names in toasts, help text, and port threads so the product reads primarily as lyncr.
  * Skips hostnames (e.g. *.telnyx.com) so links stay valid.
  */
 export function displayUserFacingMessage(raw: string): string {

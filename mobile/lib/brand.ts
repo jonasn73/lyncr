@@ -1,4 +1,5 @@
 /**
- * Product name shown in the Expo app — keep `SITE_NAME` in the root `lib/brand.ts` identical.
+ * Product name shown in the Expo app — keep in sync with root `lib/brand.ts`.
  */
-export const SITE_NAME = "HeySigo"
+export const SITE_NAME = "lyncr"
+export const SITE_WORDMARK = "lyncr"

@@ -1,5 +1,5 @@
 /**
- * HeySigo mobile — design tokens aligned with the web app (ink + indigo signal).
+ * lyncr mobile — design tokens aligned with the web app (ink + indigo signal).
  * Use these in StyleSheet so colors and spacing stay aligned across screens.
  */
 

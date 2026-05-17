@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* HeySigo — deep ink base, indigo–violet signal + soft warmth (hello / follow-through) */
+  /* lyncr — deep ink base, indigo–violet signal + soft warmth */
   --background: oklch(0.13 0.022 268);
   --foreground: oklch(0.96 0.01 275);
   --card: oklch(0.175 0.022 268);
