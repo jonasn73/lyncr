@@ -23,6 +23,9 @@ import {
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5"
 
+export const VOICE_AI_DRAWER_SHEET_CLASS =
+  "gap-0 flex h-full flex-col p-0 sm:max-w-lg md:max-w-xl lg:max-w-2xl [&>button]:top-5 [&>button]:right-5"
+
 function FlowConnector() {
   return (
     <div
