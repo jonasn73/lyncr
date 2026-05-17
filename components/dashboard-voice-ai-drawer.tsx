@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { Loader2, Sparkles, Volume2, Play } from "lucide-react"
+import { Loader2, Volume2, Play } from "lucide-react"
+import { DrawerStickyFooter } from "@/components/dashboard-routing-drawer-shared"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
@@ -426,14 +427,13 @@ export function DashboardVoiceAiDrawer({
         />
       </div>
 
-      <footer className="sticky bottom-0 shrink-0 border-t border-zinc-800/80 bg-zinc-950/95 px-6 py-4 backdrop-blur-md">
-        <DrawerFooterActions
-          dirty={dirty}
-          saving={saving}
-          onSave={() => void handleSave()}
-          onCancel={onClose}
-        />
-      </footer>
+      <DrawerStickyFooter
+        dirty={dirty}
+        saving={saving}
+        onSave={() => void handleSave()}
+        onCancel={onClose}
+        saveLabel="Save & Deploy"
+      />
     </>
   )
 }
@@ -608,38 +608,3 @@ function PromptMetaActions({
   )
 }
 
-function DrawerFooterActions({
-  dirty,
-  saving,
-  onSave,
-  onCancel,
-}: {
-  dirty: boolean
-  saving: boolean
-  onSave: () => void
-  onCancel: () => void
-}) {
-  return (
-    <div className="flex gap-3">
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={saving}
-        className={cn(
-          "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:opacity-60",
-          dirty && "shadow-[0_0_28px_-4px_var(--primary)] ring-1 ring-primary/50"
-        )}
-      >
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-        Save &amp; Deploy
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-800 bg-transparent px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:border-zinc-600 hover:bg-zinc-900/50 hover:text-foreground"
-      >
-        Cancel
-      </button>
-    </div>
-  )
-}
