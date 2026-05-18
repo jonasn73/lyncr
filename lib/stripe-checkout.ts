@@ -1,17 +1,13 @@
 import { getAppUrl } from "@/lib/telnyx"
 import { getOnboardingProfile, getUser } from "@/lib/db"
-import {
-  getStripeClient,
-  getStripeCorePriceId,
-  LYNCR_CORE_PLAN_MONTHLY_CENTS,
-} from "@/lib/stripe-config"
+import { getStripeClient, getStripeCorePriceId } from "@/lib/stripe-config"
 
 export type StripeCheckoutSessionResult = {
   url: string
   sessionId: string
 }
 
-/** Creates a Stripe Checkout subscription session for the Lyncr core plan ($29/mo default). */
+/** Creates a Stripe Checkout subscription session using STRIPE_CORE_PRICE_ID ($1 test plan). */
 export async function createLyncrCoreSubscriptionCheckout(userId: string): Promise<StripeCheckoutSessionResult> {
   const profile = await getOnboardingProfile(userId)
   if (!profile?.reserved_number?.trim()) {
@@ -31,22 +27,7 @@ export async function createLyncrCoreSubscriptionCheckout(userId: string): Promi
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: user?.email?.trim() || undefined,
-    line_items: priceId
-      ? [{ price: priceId, quantity: 1 }]
-      : [
-          {
-            price_data: {
-              currency: "usd",
-              unit_amount: LYNCR_CORE_PLAN_MONTHLY_CENTS,
-              recurring: { interval: "month" },
-              product_data: {
-                name: "Lyncr Business Line",
-                description: `Live phone routing for ${display}`,
-              },
-            },
-            quantity: 1,
-          },
-        ],
+    line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
       metadata: {
         user_id: userId,
@@ -56,6 +37,7 @@ export async function createLyncrCoreSubscriptionCheckout(userId: string): Promi
     metadata: {
       user_id: userId,
       reserved_number: profile.reserved_number,
+      line_display: display,
     },
     success_url: `${appUrl}/dashboard?stripe_checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/dashboard?stripe_checkout=cancelled`,

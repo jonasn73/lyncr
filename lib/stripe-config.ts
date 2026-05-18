@@ -1,7 +1,7 @@
 import Stripe from "stripe"
 
-/** Core SaaS plan — $29/month unless overridden in env. */
-export const LYNCR_CORE_PLAN_MONTHLY_CENTS = Number(process.env.STRIPE_CORE_PLAN_AMOUNT_CENTS || 2900)
+/** Fallback amount (cents) when creating inline prices — production should use STRIPE_CORE_PRICE_ID. */
+export const LYNCR_CORE_PLAN_MONTHLY_CENTS = Number(process.env.STRIPE_CORE_PLAN_AMOUNT_CENTS || 100)
 
 export function getStripeSecretKey(): string {
   const key = process.env.STRIPE_SECRET_KEY?.trim()
@@ -34,7 +34,14 @@ export function getStripeClient(): Stripe {
   return stripeSingleton
 }
 
-export function getStripeCorePriceId(): string | null {
-  const id = process.env.STRIPE_CORE_PRICE_ID?.trim()
-  return id || null
+/** Live/test subscription price — set STRIPE_CORE_PRICE_ID to your $1.00 test price in Vercel. */
+export function getStripeCorePriceId(): string {
+  const id =
+    process.env.STRIPE_CORE_PRICE_ID?.trim() || process.env.STRIPE_TEST_PRICE_ID?.trim() || ""
+  if (!id) {
+    throw new Error(
+      "Missing STRIPE_CORE_PRICE_ID — add your live $1.00 test price id (price_…) in Vercel env."
+    )
+  }
+  return id
 }

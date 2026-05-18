@@ -84,7 +84,6 @@ export async function syncStripeSubscriptionToNeon(
 
   await updateOnboardingProfile(userId, {
     has_active_subscription: true,
-    has_billing_method: true,
     billing_cycle_start: periodStart,
     billing_cycle_end: periodEnd,
     stripe_customer_id: customerId,

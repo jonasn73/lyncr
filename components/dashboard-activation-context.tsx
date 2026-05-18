@@ -9,7 +9,6 @@ import {
   type OnboardingProvisionMode,
 } from "@/lib/onboarding-profile-client"
 import type { OnboardingProfile } from "@/lib/types"
-import { ActivateLineModal } from "@/components/activate-line-modal"
 import { useToast } from "@/hooks/use-toast"
 
 export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
@@ -19,7 +18,6 @@ type DashboardActivationContextValue = {
   loading: boolean
   activating: boolean
   subscriptionActive: boolean
-  hasBillingMethod: boolean
   showTrialBanner: boolean
   lineCarrierLive: boolean
   billingCycleEnd: string | null
@@ -27,6 +25,7 @@ type DashboardActivationContextValue = {
   simulationMode: boolean
   refreshProfile: (opts?: { silent?: boolean }) => Promise<void>
   applyActivatedProfile: (profile: OnboardingProfile) => void
+  /** Opens live Stripe Checkout when subscription is not active. */
   requestLineActivation: () => Promise<void>
 }
 
@@ -39,7 +38,6 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
   const [carrierLive, setCarrierLive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activating, setActivating] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
   const [provisionMode, setProvisionMode] = useState<OnboardingProvisionMode>({
     simulation_mode: true,
     notice: null,
@@ -66,26 +64,20 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
     setProfile(activated)
   }, [])
 
-  const redirectToStripeCheckout = useCallback(async () => {
-    const { checkoutUrl } = await startStripeSubscriptionCheckout()
-    window.location.href = checkoutUrl
-  }, [])
-
   const requestLineActivation = useCallback(async () => {
     if (activating) return
-    if (profile?.has_billing_method) {
-      setActivating(true)
-      try {
-        await redirectToStripeCheckout()
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Could not start checkout"
-        toast({ variant: "destructive", title: "Checkout failed", description: msg })
-        setActivating(false)
-      }
-      return
+    if (profile?.has_active_subscription === true) return
+
+    setActivating(true)
+    try {
+      const { checkoutUrl } = await startStripeSubscriptionCheckout()
+      window.location.href = checkoutUrl
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not start checkout"
+      toast({ variant: "destructive", title: "Checkout failed", description: msg })
+      setActivating(false)
     }
-    setModalOpen(true)
-  }, [activating, profile?.has_billing_method, redirectToStripeCheckout, toast])
+  }, [activating, profile?.has_active_subscription, toast])
 
   useEffect(() => {
     void refreshProfile()
@@ -119,7 +111,6 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
     profile?.reserved_number_display?.trim() || profile?.reserved_number?.trim() || null
 
   const subscriptionActive = profile?.has_active_subscription === true
-  const hasBillingMethod = profile?.has_billing_method === true
   const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
@@ -129,7 +120,6 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       loading,
       activating,
       subscriptionActive,
-      hasBillingMethod,
       showTrialBanner,
       lineCarrierLive: carrierLive,
       billingCycleEnd,
@@ -144,7 +134,6 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       loading,
       activating,
       subscriptionActive,
-      hasBillingMethod,
       showTrialBanner,
       carrierLive,
       billingCycleEnd,
@@ -157,15 +146,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
   )
 
   return (
-    <DashboardActivationContext.Provider value={value}>
-      {children}
-      <ActivateLineModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        reservedDisplay={reservedDisplay}
-        onContinueToCheckout={redirectToStripeCheckout}
-      />
-    </DashboardActivationContext.Provider>
+    <DashboardActivationContext.Provider value={value}>{children}</DashboardActivationContext.Provider>
   )
 }
 

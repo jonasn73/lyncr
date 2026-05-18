@@ -61,6 +61,18 @@ function onboardingProfilesMigrationHint(): string {
   return "Run scripts/025-onboarding-profiles-table.sql in Neon (see scripts/MIGRATE-ALL.md step 25)."
 }
 
+/** Missing optional onboarding_profiles column (e.g. before scripts/027). */
+function isMissingOnboardingProfileColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return (
+    msg.includes("billing_cycle") ||
+    msg.includes("stripe_customer") ||
+    msg.includes("stripe_subscription") ||
+    msg.includes("has_billing_method")
+  )
+}
+
 export function isUndefinedRelationError(e: unknown, relationName?: string): boolean {
   const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
   if (code !== "42P01") return false
@@ -2906,7 +2918,6 @@ function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfil
     trade_category: row.trade_category != null ? String(row.trade_category) : null,
     opening_line: row.opening_line != null ? String(row.opening_line) : null,
     has_active_subscription: pgBool(row.has_active_subscription),
-    has_billing_method: pgBool(row.has_billing_method),
     billing_cycle_start: row.billing_cycle_start != null ? String(row.billing_cycle_start) : null,
     billing_cycle_end: row.billing_cycle_end != null ? String(row.billing_cycle_end) : null,
     stripe_customer_id: row.stripe_customer_id != null ? String(row.stripe_customer_id) : null,
@@ -2937,7 +2948,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
     const rows = await sql`
       SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
              port_carrier, fallback_type, trade_category, opening_line,
-             has_active_subscription, has_billing_method,
+             has_active_subscription,
              billing_cycle_start, billing_cycle_end,
              stripe_customer_id, stripe_subscription_id,
              updated_at
@@ -2949,6 +2960,26 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
     if (!row) return null
     return mapOnboardingProfileRow(row)
   } catch (e) {
+    if (isMissingOnboardingProfileColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
+                 port_carrier, fallback_type, trade_category, opening_line,
+                 has_active_subscription, updated_at
+          FROM onboarding_profiles
+          WHERE user_id = ${userId}
+          LIMIT 1
+        `
+        const row = rows[0] as Record<string, unknown> | undefined
+        if (!row) return null
+        return mapOnboardingProfileRow(row)
+      } catch (inner) {
+        if (isMissingOnboardingProfilesTableError(inner) || isWrongLegacyProfilesTableError(inner)) {
+          return null
+        }
+        throw inner
+      }
+    }
     if (isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) return null
     throw e
   }
@@ -2983,10 +3014,6 @@ export async function updateOnboardingProfile(
     updates.has_active_subscription !== undefined
       ? updates.has_active_subscription
       : existing?.has_active_subscription ?? false
-  const has_billing_method =
-    updates.has_billing_method !== undefined
-      ? updates.has_billing_method
-      : existing?.has_billing_method ?? false
   const billing_cycle_start =
     updates.billing_cycle_start !== undefined
       ? updates.billing_cycle_start
@@ -3009,7 +3036,7 @@ export async function updateOnboardingProfile(
       INSERT INTO onboarding_profiles (
         user_id, reserved_number, reserved_number_display, reserved_number_method,
         port_carrier, fallback_type, trade_category, opening_line,
-        has_active_subscription, has_billing_method,
+        has_active_subscription,
         billing_cycle_start, billing_cycle_end,
         stripe_customer_id, stripe_subscription_id,
         updated_at
@@ -3017,7 +3044,7 @@ export async function updateOnboardingProfile(
       VALUES (
         ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
         ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
-        ${has_active_subscription}, ${has_billing_method},
+        ${has_active_subscription},
         ${billing_cycle_start}, ${billing_cycle_end},
         ${stripe_customer_id}, ${stripe_subscription_id},
         now()
@@ -3031,7 +3058,6 @@ export async function updateOnboardingProfile(
         trade_category = EXCLUDED.trade_category,
         opening_line = EXCLUDED.opening_line,
         has_active_subscription = EXCLUDED.has_active_subscription,
-        has_billing_method = EXCLUDED.has_billing_method,
         billing_cycle_start = EXCLUDED.billing_cycle_start,
         billing_cycle_end = EXCLUDED.billing_cycle_end,
         stripe_customer_id = EXCLUDED.stripe_customer_id,
@@ -3039,13 +3065,41 @@ export async function updateOnboardingProfile(
         updated_at = now()
       RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
                 port_carrier, fallback_type, trade_category, opening_line,
-                has_active_subscription, has_billing_method,
+                has_active_subscription,
                 billing_cycle_start, billing_cycle_end,
                 stripe_customer_id, stripe_subscription_id,
                 updated_at
     `
     return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
   } catch (e) {
+    if (isMissingOnboardingProfileColumnError(e)) {
+      const rows = await sql`
+        INSERT INTO onboarding_profiles (
+          user_id, reserved_number, reserved_number_display, reserved_number_method,
+          port_carrier, fallback_type, trade_category, opening_line,
+          has_active_subscription, updated_at
+        )
+        VALUES (
+          ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
+          ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
+          ${has_active_subscription}, now()
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+          reserved_number = EXCLUDED.reserved_number,
+          reserved_number_display = EXCLUDED.reserved_number_display,
+          reserved_number_method = EXCLUDED.reserved_number_method,
+          port_carrier = EXCLUDED.port_carrier,
+          fallback_type = EXCLUDED.fallback_type,
+          trade_category = EXCLUDED.trade_category,
+          opening_line = EXCLUDED.opening_line,
+          has_active_subscription = EXCLUDED.has_active_subscription,
+          updated_at = now()
+        RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
+                  port_carrier, fallback_type, trade_category, opening_line,
+                  has_active_subscription, updated_at
+      `
+      return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
+    }
     if (isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) {
       throw new Error(`Onboarding profiles table missing. ${onboardingProfilesMigrationHint()}`)
     }
@@ -3237,7 +3291,6 @@ export async function completeOnboardingCheckout(
   const { opening_line, fallback_type, ...profileFields } = opts ?? {}
   const profile = await updateOnboardingProfile(userId, {
     ...profileFields,
-    has_billing_method: profileFields.has_billing_method ?? true,
     ...(opening_line !== undefined ? { opening_line } : {}),
     ...(fallback_type !== undefined ? { fallback_type } : {}),
   })
