@@ -103,6 +103,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [aiGreeting, setAiGreeting] = useState(() => getOnboardingOpeningLine(ONBOARDING_TRADE_DEFAULT))
   const [voicemailGreeting, setVoicemailGreeting] = useState(ONBOARDING_DEFAULT_VOICEMAIL_GREETING)
   const [profileReady, setProfileReady] = useState(false)
+  const [launchError, setLaunchError] = useState<string | null>(null)
 
   function handleAiTradeCategoryChange(category: OnboardingTradeCategory) {
     setAiTradeCategory(category)
@@ -235,16 +236,37 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   }
 
   async function handleLaunchAfterBilling() {
-    try {
-      await completeOnboardingCheckoutClient({
-        opening_line: fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting,
-        fallback_type: fallbackStrategy,
-      })
-    } catch {
-      /* allow dashboard entry when DB migration pending */
+    setLaunchError(null)
+    if (!bufferedLine?.e164?.trim()) {
+      setLaunchError("Choose a business number in step 1 before launching.")
+      return
     }
-    clearOnboardingReservation()
-    onComplete()
+    try {
+      const profile = await completeOnboardingCheckoutClient({
+        reserved_number: bufferedLine.e164,
+        reserved_number_display: bufferedLine.display,
+        reserved_number_method: bufferedLine.method,
+        port_carrier: bufferedLine.portCarrier ?? null,
+        fallback_type: fallbackStrategy,
+        trade_category: aiTradeCategory,
+        opening_line: fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting,
+      })
+      if (!profile.has_active_subscription || !profile.reserved_number?.trim()) {
+        setLaunchError("Activation did not finish. Please try again.")
+        return
+      }
+      clearOnboardingReservation()
+      onComplete()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not activate your account"
+      if (msg.includes("024-onboarding-profiles")) {
+        setLaunchError(
+          "Database update needed: in Neon SQL Editor, run scripts/024-onboarding-profiles.sql (see scripts/MIGRATE-ALL.md step 24), then try Launch again."
+        )
+      } else {
+        setLaunchError(msg)
+      }
+    }
   }
 
   return (
@@ -727,7 +749,11 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
           )}
 
           {step === 4 && (
-            <OnboardingBillingStep reservedLine={bufferedLine} onLaunch={handleLaunchAfterBilling} />
+            <OnboardingBillingStep
+              reservedLine={bufferedLine}
+              launchError={launchError}
+              onLaunch={handleLaunchAfterBilling}
+            />
           )}
         </div>
       </main>

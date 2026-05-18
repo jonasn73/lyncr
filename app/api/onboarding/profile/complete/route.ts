@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { completeOnboardingCheckout } from "@/lib/db"
+import { parsePatchBody } from "@/app/api/onboarding/profile/route"
 
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -10,13 +11,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}))
-    const opening_line =
-      typeof body?.opening_line === "string" ? body.opening_line : undefined
-    const fallback_type =
-      body?.fallback_type === "ai" || body?.fallback_type === "voicemail"
-        ? body.fallback_type
-        : undefined
-    const profile = await completeOnboardingCheckout(userId, { opening_line, fallback_type })
+    const patch = parsePatchBody(body)
+    const profile = await completeOnboardingCheckout(userId, patch)
     return NextResponse.json({ data: profile })
   } catch (e) {
     console.error("[onboarding/profile/complete POST]", e)

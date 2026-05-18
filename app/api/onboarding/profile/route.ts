@@ -3,7 +3,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { getOnboardingProfile, updateOnboardingProfile } from "@/lib/db"
 import type { UpdateOnboardingProfileRequest } from "@/lib/types"
 
-function parsePatchBody(body: unknown): UpdateOnboardingProfileRequest {
+export function parsePatchBody(body: unknown): UpdateOnboardingProfileRequest {
   const o = body && typeof body === "object" ? (body as Record<string, unknown>) : {}
   const out: UpdateOnboardingProfileRequest = {}
 

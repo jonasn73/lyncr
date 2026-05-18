@@ -1,7 +1,6 @@
 "use client"
 
-// Next.js segment error boundary: shows when an error occurs in this segment or a child
-export default function Error({
+export default function DashboardError({
   error,
   reset,
 }: {
@@ -10,11 +9,11 @@ export default function Error({
 }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
-      <p className="text-center text-foreground">Something went wrong.</p>
+      <p className="text-center text-foreground">Something went wrong loading your dashboard.</p>
       {error.message ? (
         <p className="max-w-md text-center text-xs text-muted-foreground">{error.message}</p>
       ) : null}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
         <button
           type="button"
           onClick={() => reset()}
@@ -23,7 +22,13 @@ export default function Error({
           Try again
         </button>
         <a
-          href="/"
+          href="/onboarding"
+          className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Back to setup
+        </a>
+        <a
+          href="/login"
           className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
         >
           Go to login

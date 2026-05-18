@@ -31,5 +31,10 @@ export async function getSessionUser(): Promise<User | null> {
       is_platform_admin: false,
     }
   }
-  return getUser(userId)
+  try {
+    return await getUser(userId)
+  } catch (e) {
+    console.error("[getSessionUser] getUser failed:", e)
+    return null
+  }
 }

@@ -46,7 +46,6 @@ const PresencePane = memo(function PresencePane({
       role="tabpanel"
       aria-label={label}
       aria-hidden={!active}
-      inert={active ? undefined : true}
       className={cn(active ? PRESENCE_ACTIVE : PRESENCE_INACTIVE)}
     >
       {children}

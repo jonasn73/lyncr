@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils"
 
 type OnboardingBillingStepProps = {
   reservedLine: OnboardingLineReservation | null
-  onLaunch: () => void
+  launchError?: string | null
+  onLaunch: () => void | Promise<void>
 }
 
 const CARD_INPUT_CLASS = cn(
@@ -32,7 +33,7 @@ function cardFieldsReady(cardNumber: string, expiry: string, cvc: string): boole
  * 2) Executes Telnyx line purchase or port webhook for `reservedLine.e164`
  * in one atomic sequence — no carrier provision before this step.
  */
-export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBillingStepProps) {
+export function OnboardingBillingStep({ reservedLine, launchError, onLaunch }: OnboardingBillingStepProps) {
   const [cardNumber, setCardNumber] = useState("")
   const [expiry, setExpiry] = useState("")
   const [cvc, setCvc] = useState("")
@@ -45,7 +46,7 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
     setIsLaunching(true)
     try {
       await new Promise((resolve) => window.setTimeout(resolve, 450))
-      onLaunch()
+      await onLaunch()
     } finally {
       setIsLaunching(false)
     }
@@ -149,6 +150,12 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
           After Stripe confirms, one backend call provisions your line and activates your plan.
         </p>
       </div>
+
+      {launchError ? (
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+          {launchError}
+        </p>
+      ) : null}
 
       <button
         type="submit"

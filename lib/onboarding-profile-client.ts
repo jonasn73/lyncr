@@ -26,10 +26,9 @@ export async function patchOnboardingProfile(
   return json.data
 }
 
-export async function completeOnboardingCheckoutClient(opts?: {
-  opening_line?: string
-  fallback_type?: "ai" | "voicemail"
-}): Promise<OnboardingProfile> {
+export async function completeOnboardingCheckoutClient(
+  opts?: UpdateOnboardingProfileRequest
+): Promise<OnboardingProfile> {
   const res = await fetch("/api/onboarding/profile/complete", {
     method: "POST",
     credentials: "include",

@@ -27,7 +27,12 @@ export default async function DashboardLayout({
     redirect("/admin")
   }
 
-  const dashboardReady = await userMayAccessDashboard(user)
+  let dashboardReady = false
+  try {
+    dashboardReady = await userMayAccessDashboard(user)
+  } catch (e) {
+    console.error("[dashboard/layout] onboarding guard", e)
+  }
   if (!dashboardReady) {
     redirect("/onboarding")
   }

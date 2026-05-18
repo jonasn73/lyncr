@@ -6,7 +6,12 @@ export async function userMayAccessDashboard(user: User): Promise<boolean> {
   if (process.env.NODE_ENV === "development" && user.id === "dev-user") {
     return true
   }
-  const profile = await getOnboardingProfile(user.id)
-  if (!profile) return false
-  return profile.has_active_subscription === true && Boolean(profile.reserved_number?.trim())
+  try {
+    const profile = await getOnboardingProfile(user.id)
+    if (!profile) return false
+    return profile.has_active_subscription === true && Boolean(profile.reserved_number?.trim())
+  } catch (e) {
+    console.error("[userMayAccessDashboard]", e)
+    return false
+  }
 }

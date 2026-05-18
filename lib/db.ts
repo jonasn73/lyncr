@@ -3001,11 +3001,20 @@ export async function updateOnboardingProfile(
 /** After mock/real checkout — also sync greeting into default routing_config when present. */
 export async function completeOnboardingCheckout(
   userId: string,
-  opts?: { opening_line?: string; fallback_type?: "ai" | "voicemail" }
+  opts?: UpdateOnboardingProfileRequest & {
+    opening_line?: string
+    fallback_type?: "ai" | "voicemail"
+  }
 ): Promise<OnboardingProfile> {
-  const profile = await updateOnboardingProfile(userId, { has_active_subscription: true })
-  const greeting = opts?.opening_line?.trim()
-  const fb = opts?.fallback_type
+  const { opening_line, fallback_type, ...profileFields } = opts ?? {}
+  const profile = await updateOnboardingProfile(userId, {
+    ...profileFields,
+    has_active_subscription: true,
+    ...(opening_line !== undefined ? { opening_line } : {}),
+    ...(fallback_type !== undefined ? { fallback_type } : {}),
+  })
+  const greeting = opening_line?.trim()
+  const fb = fallback_type
   if (greeting || fb) {
     try {
       await updateRoutingConfig(userId, {
