@@ -24,7 +24,8 @@ import type {
   UpdateOnboardingProfileRequest,
 } from "./types"
 import { defaultProfileFromUserIndustry } from "./business-industries"
-import { purchaseAndConfigureTelnyxLine } from "./telnyx-purchase-line"
+import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
+import { runOnboardingTelnyxProvisionPlaceholder } from "./onboarding-telnyx-provision-placeholder"
 
 /** True when Postgres/Neon rejects SELECT/INSERT because `users.industry` was not migrated yet (011-user-industry.sql). */
 function isMissingIndustryColumnError(e: unknown): boolean {
@@ -3086,9 +3087,20 @@ export async function provisionOnboardingBuyLine(
     return row
   }
 
-  const purchase = await purchaseAndConfigureTelnyxLine(normalized)
-  if (!purchase.ok) {
-    throw new Error(purchase.error)
+  if (isOnboardingTelnyxSimulationMode()) {
+    const synced = await syncOnboardingLineToPhoneNumbers(userId, profile)
+    if (!synced) throw new Error("Could not save reserved line for dashboard preview.")
+    return synced
+  }
+
+  const purchase = await runOnboardingTelnyxProvisionPlaceholder(normalized)
+  if (!purchase.purchased) {
+    if (purchase.mode === "simulation") {
+      const synced = await syncOnboardingLineToPhoneNumbers(userId, profile)
+      if (!synced) throw new Error("Could not save reserved line.")
+      return synced
+    }
+    throw new Error("error" in purchase ? purchase.error : "Telnyx purchase failed.")
   }
 
   const user = await getUser(userId)
@@ -3123,6 +3135,7 @@ export async function provisionOnboardingBuyLine(
 
 /** If checkout saved a buy line but Telnyx purchase never ran, try once (non-fatal for GET). */
 export async function retryProvisionOnboardingBuyLine(userId: string): Promise<void> {
+  if (isOnboardingTelnyxSimulationMode()) return
   const profile = await getOnboardingProfile(userId)
   if (!profile?.has_active_subscription || !profile.reserved_number?.trim()) return
   if (profile.reserved_number_method === "port") return

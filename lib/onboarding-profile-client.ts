@@ -35,8 +35,54 @@ export async function completeOnboardingCheckoutClient(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(opts ?? {}),
   })
-  const json = (await res.json().catch(() => ({}))) as { data?: OnboardingProfile; error?: string }
+  const json = (await res.json().catch(() => ({}))) as {
+    data?: OnboardingProfile
+    error?: string
+    simulation_mode?: boolean
+  }
   if (!res.ok) throw new Error(json.error || "Could not complete checkout")
   if (!json.data) throw new Error("No profile returned")
   return json.data
+}
+
+export type OnboardingProvisionMode = {
+  simulation_mode: boolean
+  notice: string | null
+}
+
+export async function fetchOnboardingProvisionMode(): Promise<OnboardingProvisionMode> {
+  const res = await fetch("/api/onboarding/provision-mode", { credentials: "include" })
+  const json = (await res.json().catch(() => ({}))) as {
+    data?: OnboardingProvisionMode
+  }
+  return (
+    json.data ?? {
+      simulation_mode: true,
+      notice:
+        "Development Mode: Number reserved in Neon DB. Live Telnyx webhooks require production API key mapping.",
+    }
+  )
+}
+
+/** Step 1 — reserve chosen DID in Neon (simulation skips live Telnyx). */
+export async function reserveOnboardingNumberClient(payload: {
+  reserved_number: string
+  reserved_number_display: string | null
+  reserved_number_method: "buy" | "port"
+  port_carrier?: string | null
+}): Promise<{ profile: OnboardingProfile; simulation_mode: boolean }> {
+  const res = await fetch("/api/onboarding/profile/reserve-number", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  const json = (await res.json().catch(() => ({}))) as {
+    data?: OnboardingProfile
+    simulation_mode?: boolean
+    error?: string
+  }
+  if (!res.ok) throw new Error(json.error || "Could not reserve number")
+  if (!json.data) throw new Error("No profile returned")
+  return { profile: json.data, simulation_mode: json.simulation_mode !== false }
 }

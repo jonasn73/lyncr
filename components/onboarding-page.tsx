@@ -30,7 +30,9 @@ import {
 import {
   completeOnboardingCheckoutClient,
   fetchOnboardingProfile,
+  fetchOnboardingProvisionMode,
   patchOnboardingProfile,
+  reserveOnboardingNumberClient,
 } from "@/lib/onboarding-profile-client"
 import { OnboardingBillingStep } from "@/components/onboarding-billing-step"
 import { submitFormEvent } from "@/lib/form-keyboard"
@@ -103,11 +105,21 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [voicemailGreeting, setVoicemailGreeting] = useState(ONBOARDING_DEFAULT_VOICEMAIL_GREETING)
   const [profileReady, setProfileReady] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
+  const [simulationMode, setSimulationMode] = useState(true)
+  const [devModeNotice, setDevModeNotice] = useState<string | null>(null)
+  const [step1Saving, setStep1Saving] = useState(false)
 
   function handleAiTradeCategoryChange(category: OnboardingTradeCategory) {
     setAiTradeCategory(category)
     setAiGreeting(getOnboardingOpeningLine(category))
   }
+
+  useEffect(() => {
+    void fetchOnboardingProvisionMode().then((mode) => {
+      setSimulationMode(mode.simulation_mode)
+      setDevModeNotice(mode.notice)
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -224,10 +236,11 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       reservation = buildPortReservation(portNumber, portCarrier)
     }
     if (!reservation) return
+    setStep1Saving(true)
     setBufferedLine(reservation)
     writeOnboardingReservation(reservation)
     try {
-      await patchOnboardingProfile({
+      await reserveOnboardingNumberClient({
         reserved_number: reservation.e164,
         reserved_number_display: reservation.display,
         reserved_number_method: reservation.method,
@@ -235,6 +248,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       })
     } catch {
       /* still advance — sessionStorage holds reservation until billing */
+    } finally {
+      setStep1Saving(false)
     }
     const params = reservationToSearchParams(reservation)
     router.replace(`/onboarding?${params.toString()}`, { scroll: false })
@@ -247,7 +262,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setLaunchError("Choose a business number in step 1 before launching.")
       return
     }
-    if (bufferedLine.method === "buy" && bufferedLine.fromTelnyx === false) {
+    if (!simulationMode && bufferedLine.method === "buy" && bufferedLine.fromTelnyx === false) {
       setLaunchError(
         "That number was only a preview. Search your area code again, pick a line from Telnyx inventory, then launch."
       )
@@ -313,6 +328,17 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
           </span>
         </div>
       </header>
+
+      {simulationMode && devModeNotice ? (
+        <div
+          className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5"
+          role="status"
+        >
+          <p className="mx-auto max-w-lg text-center text-[11px] leading-relaxed text-amber-200/90">
+            {devModeNotice}
+          </p>
+        </div>
+      ) : null}
 
       {/* Content */}
       <main className="flex flex-1 flex-col items-center px-6 py-8">
@@ -534,11 +560,20 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               <button
                 type="button"
                 onClick={handleContinueFromNumberStep}
-                disabled={!canProceedStep1}
+                disabled={!canProceedStep1 || step1Saving}
                 className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
               >
-                Continue
-                <ArrowRight className="h-4 w-4" />
+                {step1Saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Reserving…
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           )}
