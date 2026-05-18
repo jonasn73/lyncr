@@ -1,5 +1,10 @@
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 
+/** Lines shown in routing UI (includes trial checkout before Telnyx provision completes). */
+export function isDashboardVisibleLineStatus(status: string): boolean {
+  return status === "active" || status === "pending" || status === "porting"
+}
+
 /** Teammate row shape used on the routing dashboard. */
 export interface Contact {
   id: string

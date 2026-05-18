@@ -9,6 +9,7 @@ import { fallbackOptions } from "@/components/dashboard-routing-fallback-options
 import {
   businessNumbersMatch,
   formatPhoneDisplay,
+  isDashboardVisibleLineStatus,
   snapDashboardRingTimeoutSec,
   type Contact,
   type DashboardBusinessNumber,
@@ -82,7 +83,7 @@ export function DashboardPage() {
           return Promise.resolve()
         }
         const active = data.numbers
-          .filter((n: { status: string }) => n.status === "active")
+          .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
           .map((n: Record<string, unknown>) => ({
             number: String(n.number),
             status: String(n.status),
@@ -116,7 +117,7 @@ export function DashboardPage() {
       .then((data) => {
         if (!Array.isArray(data.numbers)) return
         const active = data.numbers
-          .filter((n: { status: string }) => n.status === "active")
+          .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
           .map((n: Record<string, unknown>) => ({
             number: String(n.number),
             status: String(n.status),
@@ -191,7 +192,7 @@ export function DashboardPage() {
   // account default row and left the tapped line’s `routing_config` unchanged (calls still rang the wrong person).
   const saveRouting = useCallback(
     (updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> => {
-    const active = businessNumbers.filter((b) => b.status === "active")
+    const active = businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
     const lineE164 =
       (activeLine && activeLine.trim()) ||
       (active.length === 1 ? active[0]?.number?.trim() || null : null)
@@ -288,7 +289,7 @@ export function DashboardPage() {
           .then((mine) => {
             if (!mine?.numbers || !Array.isArray(mine.numbers)) return
             const next = mine.numbers
-              .filter((n: { status: string }) => n.status === "active")
+              .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
               .map((n: Record<string, unknown>) => ({
                 number: String(n.number),
                 status: String(n.status),
@@ -313,7 +314,7 @@ export function DashboardPage() {
 
   const selectReceptionist = useCallback(
     (id: string) => {
-      const active = businessNumbers.filter((b) => b.status === "active")
+      const active = businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
       if (active.length >= 2 && !activeLine?.trim()) {
         toast({
           title: "Tap a business number first",
@@ -332,7 +333,7 @@ export function DashboardPage() {
   )
 
   const clearReceptionist = useCallback(() => {
-    const active = businessNumbers.filter((b) => b.status === "active")
+    const active = businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
     if (active.length >= 2 && !activeLine?.trim()) {
       toast({
         title: "Tap a business number first",

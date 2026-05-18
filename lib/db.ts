@@ -3009,6 +3009,51 @@ export async function updateOnboardingProfile(
   }
 }
 
+function inferOnboardingLineType(e164: string): "local" | "toll-free" {
+  const digits = e164.replace(/\D/g, "")
+  const area = digits.length >= 10 ? digits.slice(-10, -7) : ""
+  if (/^8[08]/.test(area)) return "toll-free"
+  return "local"
+}
+
+/** Create a `phone_numbers` row from onboarding checkout so the dashboard shows the reserved line. */
+export async function syncOnboardingLineToPhoneNumbers(
+  userId: string,
+  profile: Pick<
+    OnboardingProfile,
+    "reserved_number" | "reserved_number_display" | "reserved_number_method" | "has_active_subscription"
+  >
+): Promise<PhoneNumber | null> {
+  if (!profile.has_active_subscription) return null
+  const e164 = profile.reserved_number?.trim()
+  if (!e164) return null
+
+  const normalized = normalizePhoneNumberE164(e164)
+  const existing = await getPhoneNumbers(userId)
+  const match = existing.find((row) => normalizePhoneNumberE164(row.number) === normalized)
+  if (match) return match
+
+  const friendly = profile.reserved_number_display?.trim() || e164
+  const lineType = inferOnboardingLineType(normalized)
+  const status: "active" | "porting" = profile.reserved_number_method === "port" ? "porting" : "active"
+
+  return insertPhoneNumber({
+    user_id: userId,
+    number: normalized,
+    friendly_name: friendly,
+    label: "Business Line",
+    type: lineType,
+    status,
+  })
+}
+
+/** Backfill `phone_numbers` when checkout finished but the line row was never created (older deploys). */
+export async function ensureOnboardingLineFromProfile(userId: string): Promise<PhoneNumber | null> {
+  const profile = await getOnboardingProfile(userId)
+  if (!profile?.has_active_subscription || !profile.reserved_number?.trim()) return null
+  return syncOnboardingLineToPhoneNumbers(userId, profile)
+}
+
 /** After mock/real checkout — also sync greeting into default routing_config when present. */
 export async function completeOnboardingCheckout(
   userId: string,
@@ -3024,6 +3069,11 @@ export async function completeOnboardingCheckout(
     ...(opening_line !== undefined ? { opening_line } : {}),
     ...(fallback_type !== undefined ? { fallback_type } : {}),
   })
+  try {
+    await syncOnboardingLineToPhoneNumbers(userId, profile)
+  } catch (e) {
+    console.error("[completeOnboardingCheckout] sync phone_numbers:", e)
+  }
   const greeting = opening_line?.trim()
   const fb = fallback_type
   if (greeting || fb) {
