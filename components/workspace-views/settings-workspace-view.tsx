@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
+import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
 import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
@@ -294,8 +295,8 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
       .finally(() => setLoading(false))
 
     void fetchOnboardingProfile()
-      .then(({ profile }) => {
-        setSubscriptionActive(profile?.has_active_subscription === true)
+      .then(({ profile, carrierLive }) => {
+        setSubscriptionActive(isVerifiedActiveSubscription(profile, carrierLive))
         setBillingCycleEnd(profile?.billing_cycle_end?.trim() || null)
       })
       .catch(() => {

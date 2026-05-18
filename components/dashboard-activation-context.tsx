@@ -9,6 +9,7 @@ import {
   type OnboardingProvisionMode,
 } from "@/lib/onboarding-profile-client"
 import type { OnboardingProfile } from "@/lib/types"
+import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
 import { useToast } from "@/hooks/use-toast"
 
 export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
@@ -66,7 +67,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
 
   const requestLineActivation = useCallback(async () => {
     if (activating) return
-    if (profile?.has_active_subscription === true) return
+    if (isVerifiedActiveSubscription(profile, carrierLive)) return
 
     setActivating(true)
     try {
@@ -77,7 +78,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       toast({ variant: "destructive", title: "Checkout failed", description: msg })
       setActivating(false)
     }
-  }, [activating, profile?.has_active_subscription, toast])
+  }, [activating, profile, carrierLive, toast])
 
   useEffect(() => {
     void refreshProfile()
@@ -110,7 +111,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
   const reservedDisplay =
     profile?.reserved_number_display?.trim() || profile?.reserved_number?.trim() || null
 
-  const subscriptionActive = profile?.has_active_subscription === true
+  const subscriptionActive = isVerifiedActiveSubscription(profile, carrierLive)
   const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
