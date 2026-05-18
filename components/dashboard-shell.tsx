@@ -7,7 +7,8 @@ import { DashboardChromeProvider } from "@/components/dashboard-shell-chrome-con
 import { DashboardNumbersModalProvider } from "@/components/dashboard-numbers-modal-context"
 import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-context"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
-import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
+import { DashboardActivationProvider } from "@/components/dashboard-activation-context"
+import { DashboardActivationBanner } from "@/components/dashboard-activation-banner"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "help"]
 
@@ -95,15 +96,18 @@ export function DashboardShell({
   )
 
   return (
-    <DashboardChromeProvider activePage={activePage}>
-      <DashboardWorkspaceProvider>
-        <DashboardNumbersModalProvider>
-          <AppShell pathname={pathname} accountHeader={accountHeader}>
-            <DashboardMainContent activePage={activePage} routedChildren={children} />
-            <DashboardAnsweredCallPopup enabled={popupEnabled} />
-          </AppShell>
-        </DashboardNumbersModalProvider>
-      </DashboardWorkspaceProvider>
-    </DashboardChromeProvider>
+    <DashboardActivationProvider>
+      <DashboardChromeProvider activePage={activePage}>
+        <DashboardWorkspaceProvider>
+          <DashboardNumbersModalProvider>
+            <AppShell pathname={pathname} accountHeader={accountHeader}>
+              <DashboardActivationBanner />
+              <DashboardMainContent activePage={activePage} routedChildren={children} />
+              <DashboardAnsweredCallPopup enabled={popupEnabled} />
+            </AppShell>
+          </DashboardNumbersModalProvider>
+        </DashboardWorkspaceProvider>
+      </DashboardChromeProvider>
+    </DashboardActivationProvider>
   )
 }

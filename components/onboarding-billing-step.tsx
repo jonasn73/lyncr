@@ -61,9 +61,9 @@ export function OnboardingBillingStep({ reservedLine, launchError, onLaunch }: O
       }}
     >
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Start your trial</h1>
+        <h1 className="text-2xl font-bold text-foreground">Almost there</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Add a card to activate your line. You are not charged for the number until the trial ends.
+          Review your line and open your dashboard. Activate live Telnyx routing anytime from the dashboard banner.
         </p>
       </div>
 
@@ -171,7 +171,7 @@ export function OnboardingBillingStep({ reservedLine, launchError, onLaunch }: O
             Activating…
           </>
         ) : (
-          "Launch My Business Line"
+          "Open Dashboard"
         )}
       </button>
     </form>

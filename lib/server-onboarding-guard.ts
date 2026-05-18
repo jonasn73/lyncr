@@ -1,7 +1,7 @@
 import { getOnboardingProfile } from "@/lib/db"
 import type { User } from "@/lib/types"
 
-/** True when the account finished onboarding checkout (Neon `onboarding_profiles` row). */
+/** Dashboard access once a line is reserved (subscription may still be sandbox until Activate Line). */
 export async function userMayAccessDashboard(user: User): Promise<boolean> {
   if (process.env.NODE_ENV === "development" && user.id === "dev-user") {
     return true
@@ -9,9 +9,19 @@ export async function userMayAccessDashboard(user: User): Promise<boolean> {
   try {
     const profile = await getOnboardingProfile(user.id)
     if (!profile) return false
-    return profile.has_active_subscription === true && Boolean(profile.reserved_number?.trim())
+    return Boolean(profile.reserved_number?.trim())
   } catch (e) {
     console.error("[userMayAccessDashboard]", e)
+    return false
+  }
+}
+
+/** True when live Telnyx routing is unlocked (paid / activated). */
+export async function userHasActiveLineSubscription(userId: string): Promise<boolean> {
+  try {
+    const profile = await getOnboardingProfile(userId)
+    return profile?.has_active_subscription === true
+  } catch {
     return false
   }
 }

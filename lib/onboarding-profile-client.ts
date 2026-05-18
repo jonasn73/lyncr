@@ -86,3 +86,25 @@ export async function reserveOnboardingNumberClient(payload: {
   if (!json.data) throw new Error("No profile returned")
   return { profile: json.data, simulation_mode: json.simulation_mode !== false }
 }
+
+export async function activateSubscriptionClient(): Promise<{ message: string; profile: OnboardingProfile }> {
+  const res = await fetch("/api/onboarding/profile/activate", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  })
+  const json = (await res.json().catch(() => ({}))) as {
+    data?: OnboardingProfile
+    message?: string
+    error?: string
+  }
+  if (!res.ok) throw new Error(json.error || "Could not activate subscription")
+  if (!json.data) throw new Error("No profile returned")
+  return {
+    profile: json.data,
+    message:
+      json.message ||
+      `Subscription activated! Telnyx carrier routing provisioning successfully initiated for ${json.data.reserved_number_display ?? json.data.reserved_number ?? "your line"}.`,
+  }
+}

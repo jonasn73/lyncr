@@ -278,8 +278,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
         trade_category: aiTradeCategory,
         opening_line: fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting,
       })
-      if (!profile.has_active_subscription || !profile.reserved_number?.trim()) {
-        setLaunchError("Activation did not finish. Please try again.")
+      if (!profile.reserved_number?.trim()) {
+        setLaunchError("Setup did not finish. Please try again.")
         return
       }
       clearOnboardingReservation()

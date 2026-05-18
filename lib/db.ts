@@ -3026,7 +3026,6 @@ export async function syncOnboardingLineToPhoneNumbers(
     "reserved_number" | "reserved_number_display" | "reserved_number_method" | "has_active_subscription"
   >
 ): Promise<PhoneNumber | null> {
-  if (!profile.has_active_subscription) return null
   const e164 = profile.reserved_number?.trim()
   if (!e164) return null
 
@@ -3157,7 +3156,7 @@ export async function retryProvisionOnboardingBuyLine(userId: string): Promise<v
 /** Backfill `phone_numbers` when checkout finished but the line row was never created (older deploys). */
 export async function ensureOnboardingLineFromProfile(userId: string): Promise<PhoneNumber | null> {
   const profile = await getOnboardingProfile(userId)
-  if (!profile?.has_active_subscription || !profile.reserved_number?.trim()) return null
+  if (!profile?.reserved_number?.trim()) return null
 
   const normalized = normalizePhoneNumberE164(profile.reserved_number)
   const existing = await getPhoneNumbers(userId)
@@ -3196,17 +3195,15 @@ export async function completeOnboardingCheckout(
   const { opening_line, fallback_type, ...profileFields } = opts ?? {}
   const profile = await updateOnboardingProfile(userId, {
     ...profileFields,
-    has_active_subscription: true,
     ...(opening_line !== undefined ? { opening_line } : {}),
     ...(fallback_type !== undefined ? { fallback_type } : {}),
   })
   try {
     if (profile.reserved_number?.trim()) {
-      await provisionOnboardingBuyLine(userId, profile)
+      await syncOnboardingLineToPhoneNumbers(userId, profile)
     }
   } catch (e) {
-    console.error("[completeOnboardingCheckout] provision line:", e)
-    throw e instanceof Error ? e : new Error("Could not provision your business line on Telnyx.")
+    console.error("[completeOnboardingCheckout] sync sandbox line:", e)
   }
   const greeting = opening_line?.trim()
   const fb = fallback_type
