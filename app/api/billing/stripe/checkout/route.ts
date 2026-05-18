@@ -12,7 +12,10 @@ export async function POST(req: NextRequest) {
 
   if (!isStripeConfigured()) {
     return NextResponse.json(
-      { error: "Stripe is not configured. Set STRIPE_SECRET_KEY in Vercel." },
+      {
+        error:
+          "Stripe secret key not found on the server. In Vercel → Settings → Environment Variables, add STRIPE_SECRET_KEY (exact name) for Production, then redeploy.",
+      },
       { status: 503 }
     )
   }

@@ -3,8 +3,21 @@ import Stripe from "stripe"
 /** Fallback amount (cents) when creating inline prices — production should use STRIPE_CORE_PRICE_ID. */
 export const LYNCR_CORE_PLAN_MONTHLY_CENTS = Number(process.env.STRIPE_CORE_PLAN_AMOUNT_CENTS || 100)
 
+/** Reads Stripe secret — supports common Vercel typo `KeyValueSTRIPE_SECRET_KEY`. */
+function readStripeSecretKeyFromEnv(): string | undefined {
+  const candidates = [
+    process.env.STRIPE_SECRET_KEY,
+    process.env.KeyValueSTRIPE_SECRET_KEY,
+  ]
+  for (const raw of candidates) {
+    const trimmed = raw?.trim()
+    if (trimmed) return trimmed
+  }
+  return undefined
+}
+
 export function getStripeSecretKey(): string {
-  const key = process.env.STRIPE_SECRET_KEY?.trim()
+  const key = readStripeSecretKeyFromEnv()
   if (!key) {
     throw new Error("Missing STRIPE_SECRET_KEY")
   }
@@ -20,7 +33,7 @@ export function getStripeWebhookSecret(): string {
 }
 
 export function isStripeConfigured(): boolean {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim())
+  return Boolean(readStripeSecretKeyFromEnv())
 }
 
 let stripeSingleton: Stripe | null = null
