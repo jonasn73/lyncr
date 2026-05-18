@@ -5,7 +5,7 @@ export async function fetchOnboardingProfile(): Promise<OnboardingProfile | null
   if (res.status === 401) return null
   const json = (await res.json().catch(() => ({}))) as { data?: OnboardingProfile; error?: string }
   if (!res.ok) {
-    if (json.error?.includes("024-onboarding-profiles")) return null
+    if (json.error?.includes("025-onboarding-profiles")) return null
     throw new Error(json.error || "Could not load onboarding profile")
   }
   return json.data ?? null

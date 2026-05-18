@@ -259,9 +259,9 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       onComplete()
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not activate your account"
-      if (msg.includes("024-onboarding-profiles")) {
+      if (msg.includes("025-onboarding-profiles") || msg.includes('relation "profiles"')) {
         setLaunchError(
-          "Database update needed: in Neon SQL Editor, run scripts/024-onboarding-profiles.sql (see scripts/MIGRATE-ALL.md step 24), then try Launch again."
+          "Database update needed: in Neon SQL Editor, run scripts/025-onboarding-profiles-table.sql (see scripts/MIGRATE-ALL.md step 25), then try Launch again."
         )
       } else {
         setLaunchError(msg)

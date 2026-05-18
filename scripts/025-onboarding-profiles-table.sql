@@ -1,6 +1,6 @@
--- Onboarding wizard state per user (reserved line, fallback script, billing gate).
--- Table name is onboarding_profiles (NOT profiles — Neon may already have a different profiles table).
--- Run in Neon after prior migrations.
+-- Fix: Neon already had a different `profiles` table (no user_id column).
+-- Run this if Launch shows: column "user_id" of relation "profiles" does not exist
+-- Safe to run even if you never ran 024 — creates onboarding_profiles only.
 
 CREATE TABLE IF NOT EXISTS onboarding_profiles (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -18,5 +18,3 @@ CREATE TABLE IF NOT EXISTS onboarding_profiles (
 CREATE INDEX IF NOT EXISTS idx_onboarding_profiles_subscription ON onboarding_profiles(has_active_subscription);
 
 COMMENT ON TABLE onboarding_profiles IS 'Onboarding + checkout progress; gates /dashboard until subscription + reserved_number are set.';
-COMMENT ON COLUMN onboarding_profiles.reserved_number IS 'E.164 line reserved at checkout (provisioned after billing).';
-COMMENT ON COLUMN onboarding_profiles.opening_line IS 'AI or voicemail greeting script from onboarding step 3.';

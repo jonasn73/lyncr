@@ -40,8 +40,23 @@ function isMissingIndustryColumnError(e: unknown): boolean {
 }
 
 /** True when Postgres reports a missing table/view (42P01), e.g. before scripts/010-ai-leads-intake.sql is run in Neon. */
-function isMissingProfilesTableError(e: unknown): boolean {
-  return isUndefinedRelationError(e, "profiles")
+function isMissingOnboardingProfilesTableError(e: unknown): boolean {
+  return isUndefinedRelationError(e, "onboarding_profiles")
+}
+
+/** True when an old/wrong `profiles` table exists without our onboarding columns. */
+function isWrongLegacyProfilesTableError(e: unknown): boolean {
+  const msg = pgErrorMessage(e).toLowerCase()
+  return (
+    pgErrorCode(e) === "42703" &&
+    msg.includes("user_id") &&
+    msg.includes("profiles") &&
+    !msg.includes("onboarding_profiles")
+  )
+}
+
+function onboardingProfilesMigrationHint(): string {
+  return "Run scripts/025-onboarding-profiles-table.sql in Neon (see scripts/MIGRATE-ALL.md step 25)."
 }
 
 export function isUndefinedRelationError(e: unknown, relationName?: string): boolean {
@@ -634,12 +649,12 @@ export async function createUser(params: {
   `
   try {
     await sql`
-      INSERT INTO profiles (user_id, updated_at)
+      INSERT INTO onboarding_profiles (user_id, updated_at)
       VALUES (${id}, now())
       ON CONFLICT (user_id) DO NOTHING
     `
   } catch (e) {
-    if (!isMissingProfilesTableError(e)) throw e
+    if (!isMissingOnboardingProfilesTableError(e) && !isWrongLegacyProfilesTableError(e)) throw e
   }
   return {
     id,
@@ -2897,15 +2912,13 @@ export async function ensureOnboardingProfile(userId: string): Promise<void> {
   const sql = getSql()
   try {
     await sql`
-      INSERT INTO profiles (user_id, updated_at)
+      INSERT INTO onboarding_profiles (user_id, updated_at)
       VALUES (${userId}, now())
       ON CONFLICT (user_id) DO NOTHING
     `
   } catch (e) {
-    if (isMissingProfilesTableError(e)) {
-      throw new Error(
-        "Onboarding profiles table missing. Run scripts/024-onboarding-profiles.sql in Neon (see scripts/MIGRATE-ALL.md)."
-      )
+    if (isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) {
+      throw new Error(`Onboarding profiles table missing. ${onboardingProfilesMigrationHint()}`)
     }
     throw e
   }
@@ -2918,7 +2931,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
       SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
              port_carrier, fallback_type, trade_category, opening_line,
              has_active_subscription, updated_at
-      FROM profiles
+      FROM onboarding_profiles
       WHERE user_id = ${userId}
       LIMIT 1
     `
@@ -2926,7 +2939,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
     if (!row) return null
     return mapOnboardingProfileRow(row)
   } catch (e) {
-    if (isMissingProfilesTableError(e)) return null
+    if (isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) return null
     throw e
   }
 }
@@ -2963,7 +2976,7 @@ export async function updateOnboardingProfile(
 
   try {
     const rows = await sql`
-      INSERT INTO profiles (
+      INSERT INTO onboarding_profiles (
         user_id, reserved_number, reserved_number_display, reserved_number_method,
         port_carrier, fallback_type, trade_category, opening_line,
         has_active_subscription, updated_at
@@ -2989,10 +3002,8 @@ export async function updateOnboardingProfile(
     `
     return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
   } catch (e) {
-    if (isMissingProfilesTableError(e)) {
-      throw new Error(
-        "Onboarding profiles table missing. Run scripts/024-onboarding-profiles.sql in Neon (see scripts/MIGRATE-ALL.md)."
-      )
+    if (isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) {
+      throw new Error(`Onboarding profiles table missing. ${onboardingProfilesMigrationHint()}`)
     }
     throw e
   }

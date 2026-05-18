@@ -1,7 +1,7 @@
 import { getOnboardingProfile } from "@/lib/db"
 import type { User } from "@/lib/types"
 
-/** True when the account finished onboarding checkout (Neon `profiles` row). */
+/** True when the account finished onboarding checkout (Neon `onboarding_profiles` row). */
 export async function userMayAccessDashboard(user: User): Promise<boolean> {
   if (process.env.NODE_ENV === "development" && user.id === "dev-user") {
     return true

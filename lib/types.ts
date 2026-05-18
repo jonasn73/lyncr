@@ -26,7 +26,7 @@ export interface User {
   answered_call_customer_popup_enabled: boolean
 }
 
-/** Onboarding wizard row (`profiles` table — scripts/024-onboarding-profiles.sql). */
+/** Onboarding wizard row (`onboarding_profiles` — scripts/025-onboarding-profiles-table.sql). */
 export interface OnboardingProfile {
   user_id: string
   reserved_number: string | null

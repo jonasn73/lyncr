@@ -4,7 +4,7 @@ import { userMayAccessDashboard } from "@/lib/server-onboarding-guard"
 
 export const dynamic = "force-dynamic"
 
-/** Skip the wizard when checkout already finished (Neon `profiles` row). */
+/** Skip the wizard when checkout already finished (Neon `onboarding_profiles` row). */
 export default async function OnboardingLayout({
   children,
 }: {
