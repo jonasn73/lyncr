@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
+import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
 
 type OwnedLine = {
   number: string
@@ -29,9 +31,13 @@ export function ManageNumbersModal({
 }) {
   const [lines, setLines] = useState<OwnedLine[]>([])
   const [loading, setLoading] = useState(false)
+  const [billingCycleEnd, setBillingCycleEnd] = useState<string | null>(null)
 
   const loadLines = useCallback(() => {
     setLoading(true)
+    void fetchOnboardingProfile()
+      .then(({ profile }) => setBillingCycleEnd(profile?.billing_cycle_end?.trim() || null))
+      .catch(() => setBillingCycleEnd(null))
     fetch("/api/numbers/mine", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
       .then((data: { numbers?: OwnedLine[] }) => {
@@ -61,6 +67,13 @@ export function ManageNumbersModal({
             Published business numbers on your account.
           </DialogDescription>
         </DialogHeader>
+
+        {billingCycleEnd ? (
+          <p className="border-b border-border/60 px-6 py-3 text-xs text-muted-foreground">
+            Next billing date:{" "}
+            <span className="font-medium text-foreground">{formatBillingCycleDate(billingCycleEnd)}</span>
+          </p>
+        ) : null}
 
         <div className="max-h-[min(55vh,24rem)] overflow-y-auto overscroll-contain px-6 py-5">
           {loading ? (

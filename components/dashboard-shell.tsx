@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, memo } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState, memo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
 import { DashboardChromeProvider } from "@/components/dashboard-shell-chrome-context"
@@ -97,21 +97,23 @@ export function DashboardShell({
   )
 
   return (
-    <DashboardActivationProvider>
-      <DashboardChromeProvider activePage={activePage}>
-        <DashboardWorkspaceProvider>
-          <DashboardNumbersModalProvider>
-            <AppShell
-              pathname={pathname}
-              accountHeader={accountHeader}
-              topBanner={<DashboardActivationBanner />}
-            >
-              <DashboardMainContent activePage={activePage} routedChildren={children} />
-              <DashboardAnsweredCallPopup enabled={popupEnabled} />
-            </AppShell>
-          </DashboardNumbersModalProvider>
-        </DashboardWorkspaceProvider>
-      </DashboardChromeProvider>
-    </DashboardActivationProvider>
+    <Suspense fallback={null}>
+      <DashboardActivationProvider>
+        <DashboardChromeProvider activePage={activePage}>
+          <DashboardWorkspaceProvider>
+            <DashboardNumbersModalProvider>
+              <AppShell
+                pathname={pathname}
+                accountHeader={accountHeader}
+                topBanner={<DashboardActivationBanner />}
+              >
+                <DashboardMainContent activePage={activePage} routedChildren={children} />
+                <DashboardAnsweredCallPopup enabled={popupEnabled} />
+              </AppShell>
+            </DashboardNumbersModalProvider>
+          </DashboardWorkspaceProvider>
+        </DashboardChromeProvider>
+      </DashboardActivationProvider>
+    </Suspense>
   )
 }

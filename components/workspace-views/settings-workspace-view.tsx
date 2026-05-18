@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { Bell, Clock, Loader2, LogOut, MessageSquare, Shield, Volume2 } from "lucide-react"
+import { Bell, Clock, CreditCard, Loader2, LogOut, MessageSquare, Shield, Volume2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -18,6 +18,8 @@ import {
   WorkspaceDisclosureRow,
   workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
+import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
+import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
 import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
@@ -105,6 +107,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   whisperEnabled,
   whisperSaving,
   onSaveWhisper,
+  billingCycleEnd,
+  subscriptionActive,
   signingOut,
   onSignOut,
 }: {
@@ -122,6 +126,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   whisperEnabled: boolean
   whisperSaving: boolean
   onSaveWhisper: (v: boolean) => void
+  billingCycleEnd: string | null
+  subscriptionActive: boolean
   signingOut: boolean
   onSignOut: () => void
 }) {
@@ -186,6 +192,34 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         )}
       </WorkspacePanel>
 
+      <WorkspacePanel className="p-6 sm:p-8">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
+            <CreditCard className="h-5 w-5 text-primary" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-sm font-semibold text-foreground">Billing & subscription</p>
+            {subscriptionActive ? (
+              <>
+                <p className="text-xs text-zinc-500">Your Lyncr core plan is active.</p>
+                {billingCycleEnd ? (
+                  <p className="text-sm text-foreground">
+                    Next billing date:{" "}
+                    <span className="font-medium tabular-nums">{formatBillingCycleDate(billingCycleEnd)}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-zinc-500">Renewal date will appear after Stripe syncs.</p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-zinc-500">
+                Trial mode — activate your line from the dashboard banner to start billing.
+              </p>
+            )}
+          </div>
+        </div>
+      </WorkspacePanel>
+
       <section className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -243,6 +277,8 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
   const [smsEnabled, setSmsEnabled] = useState(true)
   const [whisperEnabled, setWhisperEnabled] = useState(true)
   const [whisperSaving, setWhisperSaving] = useState(false)
+  const [billingCycleEnd, setBillingCycleEnd] = useState<string | null>(null)
+  const [subscriptionActive, setSubscriptionActive] = useState(false)
 
   useEffect(() => {
     fetch("/api/auth/session", { credentials: "include" })
@@ -256,6 +292,15 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
         setWhisperEnabled(u.inbound_receptionist_whisper_enabled !== false)
       })
       .finally(() => setLoading(false))
+
+    void fetchOnboardingProfile()
+      .then(({ profile }) => {
+        setSubscriptionActive(profile?.has_active_subscription === true)
+        setBillingCycleEnd(profile?.billing_cycle_end?.trim() || null)
+      })
+      .catch(() => {
+        /* optional until migration 027 */
+      })
   }, [])
 
   async function saveBusinessName() {
@@ -315,6 +360,8 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
         whisperEnabled={whisperEnabled}
         whisperSaving={whisperSaving}
         onSaveWhisper={(v) => void saveWhisper(v)}
+        billingCycleEnd={billingCycleEnd}
+        subscriptionActive={subscriptionActive}
         signingOut={signingOut}
         onSignOut={() => {
           setSigningOut(true)

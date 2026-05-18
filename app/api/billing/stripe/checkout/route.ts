@@ -3,7 +3,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { createLyncrCoreSubscriptionCheckout } from "@/lib/stripe-checkout"
 import { isStripeConfigured } from "@/lib/stripe-config"
 
-/** Starts Stripe Checkout subscription — webhook completes Neon + Telnyx provision. */
+/** Creates Stripe Checkout for the $29/mo core plan; metadata includes user_id + reserved_number. */
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) {
@@ -18,18 +18,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json().catch(() => ({}))
-    const saveBillingMethod =
-      body && typeof body === "object" && (body as Record<string, unknown>).save_billing_method === true
-    void saveBillingMethod
+    await req.json().catch(() => ({}))
     const { url, sessionId } = await createLyncrCoreSubscriptionCheckout(userId)
-    return NextResponse.json({
-      data: { checkout_url: url, session_id: sessionId },
-      message: "Redirecting to secure Stripe checkout…",
-    })
+    return NextResponse.json({ data: { url, session_id: sessionId } })
   } catch (e) {
-    console.error("[onboarding/profile/activate POST]", e)
-    const msg = e instanceof Error ? e.message : "Activation failed"
+    console.error("[billing/stripe/checkout POST]", e)
+    const msg = e instanceof Error ? e.message : "Could not start checkout"
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

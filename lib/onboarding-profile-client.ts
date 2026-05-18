@@ -100,35 +100,28 @@ export async function reserveOnboardingNumberClient(payload: {
   return { profile: json.data, simulation_mode: json.simulation_mode !== false }
 }
 
-export async function activateSubscriptionClient(opts?: {
-  saveBillingMethod?: boolean
-}): Promise<{
-  message: string
-  profile: OnboardingProfile
-  carrierLive: boolean
-}> {
-  const res = await fetch("/api/onboarding/profile/activate", {
+export async function startStripeSubscriptionCheckout(): Promise<{ checkoutUrl: string; sessionId: string }> {
+  const res = await fetch("/api/billing/stripe/checkout", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ save_billing_method: opts?.saveBillingMethod === true }),
+    body: JSON.stringify({}),
   })
   const json = (await res.json().catch(() => ({}))) as {
-    data?: OnboardingProfile
-    carrier_live?: boolean
-    message?: string
+    data?: { url?: string; session_id?: string }
     error?: string
   }
-  if (!res.ok) throw new Error(json.error || "Could not activate subscription")
-  if (!json.data) throw new Error("No profile returned")
-  const display = json.data.reserved_number_display ?? json.data.reserved_number ?? "your line"
-  return {
-    profile: json.data,
-    carrierLive: json.carrier_live === true,
-    message:
-      json.message ||
-      (json.carrier_live
-        ? `Live production enabled for ${display}.`
-        : `Payment saved for ${display}. Line remains in sandbox until Telnyx provisioning completes.`),
-  }
+  if (!res.ok) throw new Error(json.error || "Could not start Stripe checkout")
+  if (!json.data?.url) throw new Error("Stripe checkout URL missing")
+  return { checkoutUrl: json.data.url, sessionId: json.data.session_id ?? "" }
+}
+
+/** @deprecated Use startStripeSubscriptionCheckout — activation completes via Stripe webhook. */
+export async function activateSubscriptionClient(opts?: {
+  saveBillingMethod?: boolean
+}): Promise<never> {
+  void opts
+  const { checkoutUrl } = await startStripeSubscriptionCheckout()
+  window.location.href = checkoutUrl
+  throw new Error("Redirecting to Stripe checkout")
 }

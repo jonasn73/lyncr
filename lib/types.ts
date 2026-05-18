@@ -39,6 +39,10 @@ export interface OnboardingProfile {
   has_active_subscription: boolean
   /** Payment details collected during onboarding or dashboard activate modal. */
   has_billing_method: boolean
+  billing_cycle_start: string | null
+  billing_cycle_end: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
   updated_at: string
 }
 
@@ -52,6 +56,10 @@ export type UpdateOnboardingProfileRequest = {
   opening_line?: string | null
   has_active_subscription?: boolean
   has_billing_method?: boolean
+  billing_cycle_start?: string | null
+  billing_cycle_end?: string | null
+  stripe_customer_id?: string | null
+  stripe_subscription_id?: string | null
 }
 
 export type FeedbackCategory = "issue" | "feature" | "billing" | "other"

@@ -132,7 +132,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const activation = useDashboardActivationOptional()
-  const lineCarrierLive = activation?.lineCarrierLive === true
   const subscriptionActive = activation?.subscriptionActive === true
   const activeLine =
     routingBusinessNumber && businessNumbers.some((b) => businessNumbersMatch(b.number, routingBusinessNumber))
@@ -170,7 +169,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               businessNumbers={businessNumbers}
               activeLine={activeLine}
               onSelect={setRoutingBusinessNumber}
-              lineCarrierLive={lineCarrierLive}
               subscriptionActive={subscriptionActive}
             />
           ) : quickSetupDecided ? (
@@ -289,16 +287,10 @@ function LineConnectionState({ subscriptionActive }: { subscriptionActive: boole
   )
 }
 
-function LineStatusIndicator({
-  lineCarrierLive,
-  subscriptionActive,
-}: {
-  lineCarrierLive: boolean
-  subscriptionActive: boolean
-}) {
+function LineStatusIndicator({ subscriptionActive }: { subscriptionActive: boolean }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <LineConnectionBadge live={lineCarrierLive} />
+      <LineConnectionBadge live={subscriptionActive} />
       <LineConnectionState subscriptionActive={subscriptionActive} />
     </div>
   )
@@ -308,13 +300,11 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   businessNumbers,
   activeLine,
   onSelect,
-  lineCarrierLive,
   subscriptionActive,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   activeLine: string
   onSelect: (n: string) => void
-  lineCarrierLive: boolean
   subscriptionActive: boolean
 }) {
   const display = formatPhoneDisplay(activeLine)
@@ -332,7 +322,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       >
         <span className="text-xs font-medium text-zinc-400">Active line</span>
         <span className="text-base text-foreground">{display}</span>
-        <LineStatusIndicator lineCarrierLive={lineCarrierLive} subscriptionActive={subscriptionActive} />
+        <LineStatusIndicator subscriptionActive={subscriptionActive} />
       </div>
     )
   }
@@ -343,7 +333,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
         <span className="text-xs font-medium text-zinc-400">Active line</span>
         <span className="text-base font-semibold text-foreground">{display}</span>
-        <LineStatusIndicator lineCarrierLive={lineCarrierLive} subscriptionActive={subscriptionActive} />
+        <LineStatusIndicator subscriptionActive={subscriptionActive} />
       </div>
       <select
         value={activeLine}
@@ -352,7 +342,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         aria-label="Select active business line"
       >
         {businessNumbers.map((bn) => {
-          const conn = lineCarrierLive ? "Live Production" : "Trial Mode"
+          const conn = subscriptionActive ? "Live Production" : "Trial Mode"
           const link = subscriptionActive ? "• Live & Connected" : "• Inactive (Pending Payment)"
           return (
             <option key={bn.number} value={bn.number}>

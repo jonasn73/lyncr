@@ -1,10 +1,11 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useSearchParams } from "next/navigation"
 import {
-  activateSubscriptionClient,
   fetchOnboardingProfile,
   fetchOnboardingProvisionMode,
+  startStripeSubscriptionCheckout,
   type OnboardingProvisionMode,
 } from "@/lib/onboarding-profile-client"
 import type { OnboardingProfile } from "@/lib/types"
@@ -21,11 +22,11 @@ type DashboardActivationContextValue = {
   hasBillingMethod: boolean
   showTrialBanner: boolean
   lineCarrierLive: boolean
+  billingCycleEnd: string | null
   reservedDisplay: string | null
   simulationMode: boolean
   refreshProfile: (opts?: { silent?: boolean }) => Promise<void>
   applyActivatedProfile: (profile: OnboardingProfile) => void
-  /** One-click activate when billing on file; otherwise opens card modal. */
   requestLineActivation: () => Promise<void>
 }
 
@@ -33,6 +34,7 @@ const DashboardActivationContext = createContext<DashboardActivationContextValue
 
 export function DashboardActivationProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast()
+  const searchParams = useSearchParams()
   const [profile, setProfile] = useState<OnboardingProfile | null>(null)
   const [carrierLive, setCarrierLive] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -64,37 +66,26 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
     setProfile(activated)
   }, [])
 
-  const completeActivation = useCallback(
-    async (saveBillingMethod: boolean) => {
-      const result = await activateSubscriptionClient({ saveBillingMethod })
-      applyActivatedProfile(result.profile)
-      toast({
-        title: result.profile.has_active_subscription ? "Line activated" : "Activation incomplete",
-        description: result.message,
-      })
-      await refreshProfile({ silent: true })
-      window.dispatchEvent(new Event(SUBSCRIPTION_ACTIVATED_EVENT))
-      return result
-    },
-    [applyActivatedProfile, refreshProfile, toast]
-  )
+  const redirectToStripeCheckout = useCallback(async () => {
+    const { checkoutUrl } = await startStripeSubscriptionCheckout()
+    window.location.href = checkoutUrl
+  }, [])
 
   const requestLineActivation = useCallback(async () => {
     if (activating) return
     if (profile?.has_billing_method) {
       setActivating(true)
       try {
-        await completeActivation(false)
+        await redirectToStripeCheckout()
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Activation failed"
-        toast({ variant: "destructive", title: "Could not activate line", description: msg })
-      } finally {
+        const msg = e instanceof Error ? e.message : "Could not start checkout"
+        toast({ variant: "destructive", title: "Checkout failed", description: msg })
         setActivating(false)
       }
       return
     }
     setModalOpen(true)
-  }, [activating, completeActivation, profile?.has_billing_method, toast])
+  }, [activating, profile?.has_billing_method, redirectToStripeCheckout, toast])
 
   useEffect(() => {
     void refreshProfile()
@@ -106,12 +97,31 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
     return () => window.removeEventListener(SUBSCRIPTION_ACTIVATED_EVENT, onActivated)
   }, [refreshProfile])
 
+  useEffect(() => {
+    const checkout = searchParams.get("stripe_checkout")
+    if (checkout === "success") {
+      toast({
+        title: "Payment received",
+        description: "Your subscription is activating. This may take a moment while we provision your line.",
+      })
+      void refreshProfile({ silent: true })
+      window.history.replaceState({}, "", "/dashboard")
+    } else if (checkout === "cancelled") {
+      toast({
+        title: "Checkout cancelled",
+        description: "Your line is still in trial mode until you complete payment.",
+      })
+      window.history.replaceState({}, "", "/dashboard")
+    }
+  }, [searchParams, refreshProfile, toast])
+
   const reservedDisplay =
     profile?.reserved_number_display?.trim() || profile?.reserved_number?.trim() || null
 
   const subscriptionActive = profile?.has_active_subscription === true
   const hasBillingMethod = profile?.has_billing_method === true
   const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
+  const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
   const value = useMemo(
     (): DashboardActivationContextValue => ({
@@ -122,6 +132,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       hasBillingMethod,
       showTrialBanner,
       lineCarrierLive: carrierLive,
+      billingCycleEnd,
       reservedDisplay,
       simulationMode: provisionMode.simulation_mode,
       refreshProfile,
@@ -136,6 +147,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       hasBillingMethod,
       showTrialBanner,
       carrierLive,
+      billingCycleEnd,
       reservedDisplay,
       provisionMode.simulation_mode,
       refreshProfile,
@@ -151,12 +163,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
         open={modalOpen}
         onOpenChange={setModalOpen}
         reservedDisplay={reservedDisplay}
-        onActivated={async (activatedProfile) => {
-          applyActivatedProfile(activatedProfile)
-          await refreshProfile({ silent: true })
-          window.dispatchEvent(new Event(SUBSCRIPTION_ACTIVATED_EVENT))
-        }}
-        onSubmitActivation={async () => completeActivation(true)}
+        onContinueToCheckout={redirectToStripeCheckout}
       />
     </DashboardActivationContext.Provider>
   )
