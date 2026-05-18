@@ -2906,6 +2906,7 @@ function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfil
     trade_category: row.trade_category != null ? String(row.trade_category) : null,
     opening_line: row.opening_line != null ? String(row.opening_line) : null,
     has_active_subscription: pgBool(row.has_active_subscription),
+    has_billing_method: pgBool(row.has_billing_method),
     updated_at: row.updated_at != null ? String(row.updated_at) : new Date().toISOString(),
   }
 }
@@ -2932,7 +2933,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
     const rows = await sql`
       SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
              port_carrier, fallback_type, trade_category, opening_line,
-             has_active_subscription, updated_at
+             has_active_subscription, has_billing_method, updated_at
       FROM onboarding_profiles
       WHERE user_id = ${userId}
       LIMIT 1
@@ -2975,18 +2976,22 @@ export async function updateOnboardingProfile(
     updates.has_active_subscription !== undefined
       ? updates.has_active_subscription
       : existing?.has_active_subscription ?? false
+  const has_billing_method =
+    updates.has_billing_method !== undefined
+      ? updates.has_billing_method
+      : existing?.has_billing_method ?? false
 
   try {
     const rows = await sql`
       INSERT INTO onboarding_profiles (
         user_id, reserved_number, reserved_number_display, reserved_number_method,
         port_carrier, fallback_type, trade_category, opening_line,
-        has_active_subscription, updated_at
+        has_active_subscription, has_billing_method, updated_at
       )
       VALUES (
         ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
         ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
-        ${has_active_subscription}, now()
+        ${has_active_subscription}, ${has_billing_method}, now()
       )
       ON CONFLICT (user_id) DO UPDATE SET
         reserved_number = EXCLUDED.reserved_number,
@@ -2997,10 +3002,11 @@ export async function updateOnboardingProfile(
         trade_category = EXCLUDED.trade_category,
         opening_line = EXCLUDED.opening_line,
         has_active_subscription = EXCLUDED.has_active_subscription,
+        has_billing_method = EXCLUDED.has_billing_method,
         updated_at = now()
       RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
                 port_carrier, fallback_type, trade_category, opening_line,
-                has_active_subscription, updated_at
+                has_active_subscription, has_billing_method, updated_at
     `
     return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
   } catch (e) {
@@ -3195,6 +3201,7 @@ export async function completeOnboardingCheckout(
   const { opening_line, fallback_type, ...profileFields } = opts ?? {}
   const profile = await updateOnboardingProfile(userId, {
     ...profileFields,
+    has_billing_method: profileFields.has_billing_method ?? true,
     ...(opening_line !== undefined ? { opening_line } : {}),
     ...(fallback_type !== undefined ? { fallback_type } : {}),
   })

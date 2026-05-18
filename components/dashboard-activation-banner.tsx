@@ -1,6 +1,7 @@
 "use client"
 
 import { memo } from "react"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 
@@ -29,13 +30,21 @@ export const DashboardActivationBanner = memo(function DashboardActivationBanner
         your line is fully verified.{" "}
         <button
           type="button"
-          onClick={activation.openActivateModal}
+          disabled={activation.activating}
+          onClick={() => void activation.requestLineActivation()}
           className={cn(
             "inline font-semibold text-amber-200/95 underline decoration-amber-400/60 underline-offset-2",
-            "transition-colors hover:text-amber-100 hover:decoration-amber-300"
+            "transition-colors hover:text-amber-100 hover:decoration-amber-300 disabled:opacity-60"
           )}
         >
-          Activate Line Now →
+          {activation.activating ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Activating…
+            </span>
+          ) : (
+            "Activate Line Now →"
+          )}
         </button>
       </p>
     </div>

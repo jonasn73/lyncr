@@ -3,20 +3,32 @@ import {
   getOnboardingProfile,
   provisionOnboardingBuyLine,
 } from "@/lib/db"
-import { isReservedLineCarrierLive } from "@/lib/onboarding-line-carrier-status"
 import type { OnboardingProfile } from "@/lib/types"
 
+type ActivateSubscriptionOpts = {
+  /** First-time card entry from dashboard modal — persist billing method + activate. */
+  saveBillingMethod?: boolean
+}
+
 /**
- * Checkout activation — attempts Telnyx provision first.
- * `has_active_subscription` is set true only when the carrier owns the DID (SID on file).
+ * Completes line activation after billing is on file.
+ * Sets `has_active_subscription` when billing was collected at onboarding or via modal.
  */
-export async function activateOnboardingSubscription(userId: string): Promise<OnboardingProfile> {
+export async function activateOnboardingSubscription(
+  userId: string,
+  opts?: ActivateSubscriptionOpts
+): Promise<OnboardingProfile> {
   const existing = await getOnboardingProfile(userId)
   if (!existing?.reserved_number?.trim()) {
     throw new Error("Reserve a business line before activating.")
   }
   if (existing.has_active_subscription) {
     return existing
+  }
+
+  const billingReady = existing.has_billing_method || opts?.saveBillingMethod === true
+  if (!billingReady) {
+    throw new Error("Add a payment method to activate your line.")
   }
 
   try {
@@ -26,10 +38,8 @@ export async function activateOnboardingSubscription(userId: string): Promise<On
     throw e instanceof Error ? e : new Error("Could not start Telnyx provisioning.")
   }
 
-  const carrierLive = await isReservedLineCarrierLive(userId, existing.reserved_number)
-  if (!carrierLive) {
-    return existing
-  }
-
-  return updateOnboardingProfile(userId, { has_active_subscription: true })
+  return updateOnboardingProfile(userId, {
+    has_active_subscription: true,
+    ...(opts?.saveBillingMethod ? { has_billing_method: true } : {}),
+  })
 }

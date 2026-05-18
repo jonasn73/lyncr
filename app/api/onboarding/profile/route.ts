@@ -39,6 +39,9 @@ export function parsePatchBody(body: unknown): UpdateOnboardingProfileRequest {
   if ("has_active_subscription" in o) {
     out.has_active_subscription = Boolean(o.has_active_subscription)
   }
+  if ("has_billing_method" in o) {
+    out.has_billing_method = Boolean(o.has_billing_method)
+  }
 
   return out
 }

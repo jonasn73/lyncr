@@ -4,7 +4,7 @@ import { activateOnboardingSubscription } from "@/lib/onboarding-activate-subscr
 import { isReservedLineCarrierLive } from "@/lib/onboarding-line-carrier-status"
 import { isOnboardingTelnyxSimulationMode } from "@/lib/onboarding-telnyx-provision-mode"
 
-/** Mock Stripe checkout — provisions on Telnyx when enabled; subscription active only after carrier SID exists. */
+/** Activates subscription when billing is on file; optional save_billing_method from dashboard card modal. */
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) {
@@ -12,17 +12,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await req.json().catch(() => ({}))
-    const profile = await activateOnboardingSubscription(userId)
+    const body = await req.json().catch(() => ({}))
+    const saveBillingMethod =
+      body && typeof body === "object" && (body as Record<string, unknown>).save_billing_method === true
+    const profile = await activateOnboardingSubscription(userId, { saveBillingMethod })
     const display =
       profile.reserved_number_display?.trim() || profile.reserved_number?.trim() || "your line"
     const carrier_live = await isReservedLineCarrierLive(userId, profile.reserved_number)
     const simulation = isOnboardingTelnyxSimulationMode()
-    const message = carrier_live
-      ? `Live production enabled for ${display}. Inbound calls will route to your configured phones.`
-      : simulation
-        ? `Payment details saved for ${display}. Your line stays in trial until Telnyx purchases and provisions the number.`
-        : `Provisioning started for ${display}. Live routing will begin once Telnyx confirms the number.`
+    const message = profile.has_active_subscription
+      ? carrier_live
+        ? `Live production enabled for ${display}. Inbound calls will route to your configured phones.`
+        : `Subscription activated for ${display}. Carrier provisioning will complete when Telnyx confirms your number.`
+      : `Could not activate ${display}. Add a payment method and try again.`
     return NextResponse.json({
       data: profile,
       carrier_live,

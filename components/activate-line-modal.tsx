@@ -4,8 +4,6 @@ import { useState } from "react"
 import { CreditCard, Loader2, Lock } from "lucide-react"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
-import { activateSubscriptionClient } from "@/lib/onboarding-profile-client"
-import { useToast } from "@/hooks/use-toast"
 import type { OnboardingProfile } from "@/lib/types"
 import {
   Dialog,
@@ -34,6 +32,7 @@ type ActivateLineModalProps = {
   onOpenChange: (open: boolean) => void
   reservedDisplay: string | null
   onActivated: (profile: OnboardingProfile) => void | Promise<void>
+  onSubmitActivation: () => Promise<{ profile: OnboardingProfile }>
 }
 
 export function ActivateLineModal({
@@ -41,8 +40,8 @@ export function ActivateLineModal({
   onOpenChange,
   reservedDisplay,
   onActivated,
+  onSubmitActivation,
 }: ActivateLineModalProps) {
-  const { toast } = useToast()
   const [cardNumber, setCardNumber] = useState("")
   const [expiry, setExpiry] = useState("")
   const [cvc, setCvc] = useState("")
@@ -57,13 +56,7 @@ export function ActivateLineModal({
     setError(null)
     try {
       await new Promise((resolve) => window.setTimeout(resolve, 450))
-      const result = await activateSubscriptionClient()
-      toast({
-        title: result.profile.has_active_subscription
-          ? "Live line activated"
-          : "Still in trial — number not on Telnyx yet",
-        description: result.message,
-      })
+      const result = await onSubmitActivation()
       onOpenChange(false)
       setCardNumber("")
       setExpiry("")
@@ -83,7 +76,7 @@ export function ActivateLineModal({
         <DialogHeader>
           <DialogTitle>Activate Your Live Business Line</DialogTitle>
           <DialogDescription>
-            Confirm your checkout method to transition your active routing matrix from Sandbox to Live Production.
+            Add a payment method to activate your line. Card details from onboarding are not on file for this account.
             {reservedDisplay ? (
               <>
                 {" "}
@@ -158,7 +151,7 @@ export function ActivateLineModal({
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <Lock className="h-3 w-3 shrink-0" aria-hidden />
-              Test mode — any card details activate your line in Neon (no real charge).
+              Test mode — any card details save billing and activate your subscription (no real charge).
             </p>
           </div>
 

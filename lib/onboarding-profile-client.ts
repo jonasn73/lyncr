@@ -100,7 +100,9 @@ export async function reserveOnboardingNumberClient(payload: {
   return { profile: json.data, simulation_mode: json.simulation_mode !== false }
 }
 
-export async function activateSubscriptionClient(): Promise<{
+export async function activateSubscriptionClient(opts?: {
+  saveBillingMethod?: boolean
+}): Promise<{
   message: string
   profile: OnboardingProfile
   carrierLive: boolean
@@ -109,7 +111,7 @@ export async function activateSubscriptionClient(): Promise<{
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ save_billing_method: opts?.saveBillingMethod === true }),
   })
   const json = (await res.json().catch(() => ({}))) as {
     data?: OnboardingProfile

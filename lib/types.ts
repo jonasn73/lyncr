@@ -37,6 +37,8 @@ export interface OnboardingProfile {
   trade_category: string | null
   opening_line: string | null
   has_active_subscription: boolean
+  /** Payment details collected during onboarding or dashboard activate modal. */
+  has_billing_method: boolean
   updated_at: string
 }
 
@@ -49,6 +51,7 @@ export type UpdateOnboardingProfileRequest = {
   trade_category?: string | null
   opening_line?: string | null
   has_active_subscription?: boolean
+  has_billing_method?: boolean
 }
 
 export type FeedbackCategory = "issue" | "feature" | "billing" | "other"
