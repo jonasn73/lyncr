@@ -9,6 +9,7 @@ import { Bot, ChevronDown, Loader2, Save, Volume2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { IconSurface } from "@/components/ui/icon-surface"
 import { Switch } from "@/components/ui/switch"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { SITE_NAME } from "@/lib/brand"
 import { displayUserFacingMessage } from "@/lib/porting-display"
@@ -772,9 +773,8 @@ export function AiIntakeFlowPanel({
       {variant === "modal" ? (
         <div className="border-t border-border pt-3">
           <button
-            type="button"
+            type="submit"
             disabled={saving}
-            onClick={() => void handleSave()}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -840,22 +840,27 @@ export function AiIntakeFlowPanel({
 
   if (variant === "page") {
     return (
-      <div className="mx-auto max-w-lg space-y-5 px-4 py-6 pb-28">
+      <form
+        className="mx-auto max-w-lg space-y-5 px-4 py-6 pb-28"
+        onSubmit={(e) => {
+          submitFormEvent(e)
+          if (!saving) void handleSave()
+        }}
+      >
         {inner}
         <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md">
           <button
-            type="button"
+            type="submit"
             disabled={saving}
-            onClick={() => void handleSave()}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? "Saving…" : "Save call flow"}
           </button>
         </div>
-      </div>
+      </form>
     )
   }
 
-  return <div className="space-y-4">{inner}</div>
+  return <form className="space-y-4" onSubmit={(e) => { submitFormEvent(e); if (!saving) void handleSave() }}>{inner}</form>
 }

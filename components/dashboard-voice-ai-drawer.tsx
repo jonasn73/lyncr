@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Loader2, Volume2, Play } from "lucide-react"
 import { DrawerAutoGrowTextarea, DrawerStickyFooter } from "@/components/dashboard-routing-drawer-shared"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
@@ -389,7 +390,13 @@ export function DashboardVoiceAiDrawer({
   }
 
   return (
-    <>
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => {
+        submitFormEvent(e)
+        if (!saving) void handleSave()
+      }}
+    >
       <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-5 pt-6">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Step 4 · Voice &amp; AI</p>
         <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Voice &amp; AI Settings</h2>
@@ -470,8 +477,9 @@ export function DashboardVoiceAiDrawer({
           onClose()
         }}
         saveLabel="Save & Deploy"
+        saveAsSubmit
       />
-    </>
+    </form>
   )
 }
 

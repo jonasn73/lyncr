@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard-routing-drawer-shared"
 import { useToast } from "@/hooks/use-toast"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import {
   WorkspacePage,
   WorkspacePageHeader,
@@ -154,25 +155,32 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
                 <p className="text-lg font-semibold text-foreground">{name || "Account"}</p>
                 <p className="text-sm text-zinc-500">{email}</p>
               </div>
-              <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Business name
-                </span>
-                <input
-                  className={workspaceFieldClass}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  maxLength={120}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={onSaveBusinessName}
-                disabled={businessNameSaving || !businessName.trim()}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              <form
+                className="space-y-5"
+                onSubmit={(e) => {
+                  submitFormEvent(e)
+                  if (!businessNameSaving && businessName.trim()) onSaveBusinessName()
+                }}
               >
-                {businessNameSaving ? "Saving…" : "Save"}
-              </button>
+                <label className="block">
+                  <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Business name
+                  </span>
+                  <input
+                    className={workspaceFieldClass}
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    maxLength={120}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={businessNameSaving || !businessName.trim()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {businessNameSaving ? "Saving…" : "Save"}
+                </button>
+              </form>
             </div>
           </div>
         )}

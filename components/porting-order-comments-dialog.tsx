@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Loader2, MessageSquare } from "lucide-react"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { displayPortingMessageBody } from "@/lib/porting-display"
 import { SITE_NAME } from "@/lib/brand"
@@ -150,7 +151,13 @@ export function PortingOrderCommentsDialog({
           {error ? <p className="mt-2 text-center text-xs text-destructive">{error}</p> : null}
         </div>
         {allowReply ? (
-          <div className="border-t border-border/70 p-4">
+          <form
+            className="border-t border-border/70 p-4"
+            onSubmit={(e) => {
+              submitFormEvent(e)
+              if (!sending && reply.trim()) void send()
+            }}
+          >
             <label className="sr-only" htmlFor="porting-reply">
               Reply to porting team
             </label>
@@ -162,7 +169,7 @@ export function PortingOrderCommentsDialog({
               rows={3}
               className="mb-2 w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
             />
-            <Button type="button" className="w-full" disabled={sending || !reply.trim()} onClick={() => void send()}>
+            <Button type="submit" className="w-full" disabled={sending || !reply.trim()}>
               {sending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -172,7 +179,7 @@ export function PortingOrderCommentsDialog({
                 "Send reply"
               )}
             </Button>
-          </div>
+          </form>
         ) : (
           <p className="border-t border-border/70 px-4 py-3 text-center text-xs text-muted-foreground">
             No reply box because this transfer is <span className="font-medium text-foreground">finished or cancelled</span>. You can

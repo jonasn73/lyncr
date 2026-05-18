@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { CreditCard, Loader2, Lock, Phone } from "lucide-react"
 import type { OnboardingLineReservation } from "@/lib/onboarding-reservation"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 
 type OnboardingBillingStepProps = {
@@ -51,7 +52,13 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <form
+      className="flex flex-col gap-6"
+      onSubmit={(e) => {
+        submitFormEvent(e)
+        void handleLaunch()
+      }}
+    >
       <div>
         <h1 className="text-2xl font-bold text-foreground">Start your trial</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -144,8 +151,7 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
       </div>
 
       <button
-        type="button"
-        onClick={handleLaunch}
+        type="submit"
         disabled={!canLaunch || isLaunching}
         className={cn(
           "flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground",
@@ -161,6 +167,6 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
           "Launch My Business Line"
         )}
       </button>
-    </div>
+    </form>
   )
 }

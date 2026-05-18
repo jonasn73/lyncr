@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Bot, Phone, Users, Voicemail } from "lucide-react"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -166,7 +167,13 @@ export function DashboardRingBackupDrawer({
   }, [draftSeconds, draftStrategy, saveRouting, setRingTimeoutSec, setFallback, onClose, onOpenVoiceAi, toast])
 
   return (
-    <>
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => {
+        submitFormEvent(e)
+        if (!saving) void handleSave()
+      }}
+    >
       <DrawerStepHeader
         step="Step 3 · Timing & backup"
         title="Ring & Backup Config"
@@ -260,8 +267,14 @@ export function DashboardRingBackupDrawer({
           ) : null}
         </section>
       </DrawerScrollBody>
-      <DrawerStickyFooter dirty={dirty} saving={saving} onSave={() => void handleSave()} onCancel={handleCancel} />
-    </>
+      <DrawerStickyFooter
+        dirty={dirty}
+        saving={saving}
+        onSave={() => void handleSave()}
+        onCancel={handleCancel}
+        saveAsSubmit
+      />
+    </form>
   )
 }
 

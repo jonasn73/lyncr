@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Hash, Loader2, RefreshCw, Zap } from "lucide-react"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -264,7 +265,13 @@ export function BuyNumberMarketplaceModal({
               />
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <form
+              className="flex flex-col gap-2 sm:flex-row sm:items-end"
+              onSubmit={(e) => {
+                submitFormEvent(e)
+                if (normalizeAreaCode(areaCode).length === 3 && !searching) void runSearch()
+              }}
+            >
               <label className="min-w-0 flex-1">
                 <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                   Area code
@@ -278,25 +285,18 @@ export function BuyNumberMarketplaceModal({
                     placeholder="502"
                     value={areaCode}
                     onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ""))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && normalizeAreaCode(areaCode).length === 3) {
-                        e.preventDefault()
-                        void runSearch()
-                      }
-                    }}
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-2.5 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-2.5 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </label>
               <button
-                type="button"
+                type="submit"
                 disabled={normalizeAreaCode(areaCode).length < 3 || searching}
-                onClick={() => void runSearch()}
                 className="inline-flex h-[42px] shrink-0 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90 disabled:opacity-40"
               >
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search Available Lines"}
               </button>
-            </div>
+            </form>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col px-6 pb-4">

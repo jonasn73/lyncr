@@ -27,6 +27,7 @@ import {
   type OnboardingLineReservation,
 } from "@/lib/onboarding-reservation"
 import { OnboardingBillingStep } from "@/components/onboarding-billing-step"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
@@ -256,27 +257,37 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                 <div className="flex flex-col gap-4">
                   {!showResults ? (
                     <div className="flex flex-col gap-3">
-                      <label className="text-xs font-semibold text-muted-foreground">Search by Area Code</label>
-                      <div className="flex gap-2">
+                      <label htmlFor="onboarding-area-code" className="text-xs font-semibold text-muted-foreground">
+                        Search by Area Code
+                      </label>
+                      <form
+                        className="flex gap-2"
+                        onSubmit={(e) => {
+                          submitFormEvent(e)
+                          if (areaCode.length >= 3 && !searching) handleSearch()
+                        }}
+                      >
                         <div className="relative flex-1">
                           <Hash className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                           <input
+                            id="onboarding-area-code"
                             type="text"
+                            inputMode="numeric"
                             placeholder="e.g. 305, 212, 415"
                             maxLength={3}
                             value={areaCode}
                             onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                            className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/35"
                           />
                         </div>
                         <button
-                          onClick={handleSearch}
-                          disabled={areaCode.length < 3}
+                          type="submit"
+                          disabled={areaCode.length < 3 || searching}
                           className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
                         >
                           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
                         </button>
-                      </div>
+                      </form>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
@@ -419,7 +430,13 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               </div>
 
               {!addedReceptionist ? (
-                <div className="flex flex-col gap-4">
+                <form
+                  className="flex flex-col gap-4"
+                  onSubmit={(e) => {
+                    submitFormEvent(e)
+                    if (receptionistName && receptionistPhone) handleAddReceptionist()
+                  }}
+                >
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-muted-foreground">Name</label>
                     <input
@@ -451,14 +468,14 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     />
                   </div>
                   <button
-                    onClick={handleAddReceptionist}
+                    type="submit"
                     disabled={!receptionistName || !receptionistPhone}
                     className="flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
                   >
                     <Plus className="h-4 w-4" />
                     Add Receptionist
                   </button>
-                </div>
+                </form>
               ) : (
                 <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4">
                   <div className="flex items-center gap-3">

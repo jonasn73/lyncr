@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Plus, User } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -132,7 +133,13 @@ export function DashboardWhoAnswersDrawer({
   }, [primaryId, saveRouting, onClose, toast])
 
   return (
-    <>
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => {
+        submitFormEvent(e)
+        if (!saving) void handleSave()
+      }}
+    >
       <DrawerStepHeader
         step="Step 2 · Call destination"
         title="Who Answers"
@@ -203,7 +210,13 @@ export function DashboardWhoAnswersDrawer({
           </p>
         ) : null}
       </DrawerScrollBody>
-      <DrawerStickyFooter dirty={dirty} saving={saving} onSave={() => void handleSave()} onCancel={handleCancel} />
-    </>
+      <DrawerStickyFooter
+        dirty={dirty}
+        saving={saving}
+        onSave={() => void handleSave()}
+        onCancel={handleCancel}
+        saveAsSubmit
+      />
+    </form>
   )
 }

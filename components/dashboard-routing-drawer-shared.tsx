@@ -68,19 +68,21 @@ export function DrawerStickyFooter({
   onSave,
   onCancel,
   saveLabel = "Save Changes",
+  saveAsSubmit = false,
 }: {
   dirty: boolean
   saving: boolean
   onSave: () => void
   onCancel: () => void
   saveLabel?: string
+  saveAsSubmit?: boolean
 }) {
   return (
     <footer className="sticky bottom-0 shrink-0 border-t border-zinc-800/80 bg-zinc-950 px-6 py-4">
       <div className="flex gap-3">
         <button
-          type="button"
-          onClick={onSave}
+          type={saveAsSubmit ? "submit" : "button"}
+          onClick={saveAsSubmit ? undefined : onSave}
           disabled={saving}
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:opacity-60",

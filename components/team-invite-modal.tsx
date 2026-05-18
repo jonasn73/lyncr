@@ -1,5 +1,6 @@
 "use client"
 
+import { submitFormEvent } from "@/lib/form-keyboard"
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,13 @@ export function TeamInviteModal({
             the flow.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <form
+          className="space-y-4 pt-2"
+          onSubmit={(e) => {
+            submitFormEvent(e)
+            onOpenChange(false)
+          }}
+        >
           <label className="block space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Name</span>
             <input
@@ -43,13 +50,12 @@ export function TeamInviteModal({
             />
           </label>
           <button
-            type="button"
-            onClick={() => onOpenChange(false)}
+            type="submit"
             className="inline-flex w-full items-center justify-center rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] hover:bg-primary/90"
           >
             Send invite (preview)
           </button>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   )
