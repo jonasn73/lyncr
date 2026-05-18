@@ -3051,6 +3051,30 @@ export async function syncOnboardingLineToPhoneNumbers(
 export async function ensureOnboardingLineFromProfile(userId: string): Promise<PhoneNumber | null> {
   const profile = await getOnboardingProfile(userId)
   if (!profile?.has_active_subscription || !profile.reserved_number?.trim()) return null
+
+  const normalized = normalizePhoneNumberE164(profile.reserved_number)
+  const existing = await getPhoneNumbers(userId)
+  const match = existing.find((row) => normalizePhoneNumberE164(row.number) === normalized)
+  if (match) return match
+
+  // One unprovisioned placeholder from an older sync — update to match onboarding profile.
+  const unprovisioned = existing.filter((row) => !row.provider_number_sid?.trim())
+  if (unprovisioned.length === 1 && existing.length === 1) {
+    const row = unprovisioned[0]!
+    if (normalizePhoneNumberE164(row.number) !== normalized) {
+      const sql = getSql()
+      const friendly = profile.reserved_number_display?.trim() || normalized
+      await sql`
+        UPDATE phone_numbers
+        SET number = ${normalized}, friendly_name = ${friendly}, type = ${inferOnboardingLineType(normalized)}
+        WHERE id = ${row.id} AND user_id = ${userId}
+      `
+      const updated = await getPhoneNumbers(userId)
+      return updated.find((r) => r.id === row.id) ?? null
+    }
+    return row
+  }
+
   return syncOnboardingLineToPhoneNumbers(userId, profile)
 }
 

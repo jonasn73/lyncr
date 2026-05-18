@@ -34,7 +34,7 @@ export function buildBuyReservation(row: OnboardingNumberOption): OnboardingLine
   return {
     method: "buy",
     display: row.number,
-    e164: displayToE164(row.number),
+    e164: row.e164?.trim() || displayToE164(row.number),
     lineType: row.type,
     trialNote: row.trialNote,
     afterTrialPrice: row.afterTrialPrice,

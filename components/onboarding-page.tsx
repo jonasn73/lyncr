@@ -14,7 +14,7 @@ import {
   type OnboardingTradeCategory,
 } from "@/lib/onboarding-ai-trade-scripts"
 import {
-  buildOnboardingNumberInventory,
+  fetchOnboardingNumberInventory,
   type OnboardingNumberOption,
 } from "@/lib/onboarding-number-inventory"
 import {
@@ -62,8 +62,7 @@ import {
   CassetteTape,
 } from "lucide-react"
 
-const INVENTORY_REFRESH_MS = 300
-/** Locks list height so Continue row does not jump when numbers refresh (4 × ~3.5rem rows + gaps). */
+
 const ONBOARDING_NUMBER_LIST_MIN_H = "min-h-[20.5rem]"
 
 interface OnboardingPageProps {
@@ -84,9 +83,9 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [selectedNumber, setSelectedNumber] = useState("")
   /** Deferred checkout — provisioned only after billing (step 4), not on Continue. */
   const [bufferedLine, setBufferedLine] = useState<OnboardingLineReservation | null>(null)
-  const [inventoryNumbers, setInventoryNumbers] = useState<OnboardingNumberOption[]>(() =>
-    buildOnboardingNumberInventory("502")
-  )
+  const [inventoryNumbers, setInventoryNumbers] = useState<OnboardingNumberOption[]>([])
+  const [inventorySource, setInventorySource] = useState<"telnyx" | "demo" | null>(null)
+  const [inventoryError, setInventoryError] = useState<string | null>(null)
   const [refreshingInventory, setRefreshingInventory] = useState(false)
   const [portNumber, setPortNumber] = useState("")
   const [portCarrier, setPortCarrier] = useState("")
@@ -178,12 +177,15 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const refreshInventory = useCallback(() => {
     if (refreshingInventory || areaCode.length < 3) return
     setRefreshingInventory(true)
-    window.setTimeout(() => {
-      const next = buildOnboardingNumberInventory(areaCode)
-      setInventoryNumbers(next)
-      setSelectedNumber((prev) => (next.some((n) => n.number === prev) ? prev : ""))
-      setRefreshingInventory(false)
-    }, INVENTORY_REFRESH_MS)
+    setInventoryError(null)
+    void fetchOnboardingNumberInventory(areaCode)
+      .then(({ numbers, source }) => {
+        setInventoryNumbers(numbers)
+        setInventorySource(source)
+        setSelectedNumber((prev) => (numbers.some((n) => n.number === prev) ? prev : ""))
+      })
+      .catch(() => setInventoryError("Could not load numbers. Try again."))
+      .finally(() => setRefreshingInventory(false))
   }, [areaCode, refreshingInventory])
 
   function handleSearch() {
@@ -191,11 +193,15 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     if (ac.length < 3) return
     setSearching(true)
     setSelectedNumber("")
-    window.setTimeout(() => {
-      setInventoryNumbers(buildOnboardingNumberInventory(ac))
-      setSearching(false)
-      setShowResults(true)
-    }, 800)
+    setInventoryError(null)
+    void fetchOnboardingNumberInventory(ac)
+      .then(({ numbers, source }) => {
+        setInventoryNumbers(numbers)
+        setInventorySource(source)
+        setShowResults(true)
+      })
+      .catch(() => setInventoryError("Could not load numbers. Try again."))
+      .finally(() => setSearching(false))
   }
 
   function handleAddReceptionist() {
@@ -390,7 +396,11 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   ) : (
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs text-muted-foreground">Available in ({areaCode})</p>
+                        <p className="text-xs text-muted-foreground">
+                          {inventorySource === "telnyx"
+                            ? `Available in (${areaCode}) — real numbers from Telnyx`
+                            : `Preview numbers in (${areaCode})`}
+                        </p>
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
@@ -468,6 +478,16 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                           </div>
                         ) : null}
                       </div>
+                      {inventorySource === "demo" ? (
+                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+                          Live inventory unavailable — showing previews only. Search again or contact support if this persists.
+                        </p>
+                      ) : null}
+                      {inventoryError ? (
+                        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+                          {inventoryError}
+                        </p>
+                      ) : null}
                     </div>
                   )}
                 </div>
