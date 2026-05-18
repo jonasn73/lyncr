@@ -46,3 +46,7 @@ export function getOnboardingOpeningLine(category: OnboardingTradeCategory): str
 export function onboardingTradeLabel(category: OnboardingTradeCategory): string {
   return ONBOARDING_TRADE_OPTIONS.find((o) => o.id === category)?.label ?? "General / Other Trades"
 }
+
+export function isOnboardingTradeCategory(value: string | null | undefined): value is OnboardingTradeCategory {
+  return value === "automotive" || value === "trades_mep" || value === "general"
+}

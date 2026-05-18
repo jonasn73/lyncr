@@ -20,6 +20,8 @@ import type {
   AdminUserDetail,
   FeedbackCategory,
   Customer,
+  OnboardingProfile,
+  UpdateOnboardingProfileRequest,
 } from "./types"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 
@@ -38,6 +40,10 @@ function isMissingIndustryColumnError(e: unknown): boolean {
 }
 
 /** True when Postgres reports a missing table/view (42P01), e.g. before scripts/010-ai-leads-intake.sql is run in Neon. */
+function isMissingProfilesTableError(e: unknown): boolean {
+  return isUndefinedRelationError(e, "profiles")
+}
+
 export function isUndefinedRelationError(e: unknown, relationName?: string): boolean {
   const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
   if (code !== "42P01") return false
@@ -626,6 +632,15 @@ export async function createUser(params: {
     INSERT INTO routing_config (id, user_id, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, updated_at)
     VALUES (${crypto.randomUUID()}, ${id}, NULL, 'owner', '', 30, now())
   `
+  try {
+    await sql`
+      INSERT INTO profiles (user_id, updated_at)
+      VALUES (${id}, now())
+      ON CONFLICT (user_id) DO NOTHING
+    `
+  } catch (e) {
+    if (!isMissingProfilesTableError(e)) throw e
+  }
   return {
     id,
     email: params.email,
@@ -2857,6 +2872,151 @@ export async function adminSetUserPlatformAdminFlag(targetUserId: string, is_pla
     }
     throw e
   }
+}
+
+function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfile {
+  const method = row.reserved_number_method
+  const fallback = row.fallback_type
+  return {
+    user_id: String(row.user_id),
+    reserved_number: row.reserved_number != null ? String(row.reserved_number) : null,
+    reserved_number_display:
+      row.reserved_number_display != null ? String(row.reserved_number_display) : null,
+    reserved_number_method:
+      method === "buy" || method === "port" ? method : null,
+    port_carrier: row.port_carrier != null ? String(row.port_carrier) : null,
+    fallback_type: fallback === "ai" || fallback === "voicemail" ? fallback : null,
+    trade_category: row.trade_category != null ? String(row.trade_category) : null,
+    opening_line: row.opening_line != null ? String(row.opening_line) : null,
+    has_active_subscription: pgBool(row.has_active_subscription),
+    updated_at: row.updated_at != null ? String(row.updated_at) : new Date().toISOString(),
+  }
+}
+
+export async function ensureOnboardingProfile(userId: string): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      INSERT INTO profiles (user_id, updated_at)
+      VALUES (${userId}, now())
+      ON CONFLICT (user_id) DO NOTHING
+    `
+  } catch (e) {
+    if (isMissingProfilesTableError(e)) {
+      throw new Error(
+        "Onboarding profiles table missing. Run scripts/024-onboarding-profiles.sql in Neon (see scripts/MIGRATE-ALL.md)."
+      )
+    }
+    throw e
+  }
+}
+
+export async function getOnboardingProfile(userId: string): Promise<OnboardingProfile | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
+             port_carrier, fallback_type, trade_category, opening_line,
+             has_active_subscription, updated_at
+      FROM profiles
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return mapOnboardingProfileRow(row)
+  } catch (e) {
+    if (isMissingProfilesTableError(e)) return null
+    throw e
+  }
+}
+
+export async function updateOnboardingProfile(
+  userId: string,
+  updates: UpdateOnboardingProfileRequest
+): Promise<OnboardingProfile> {
+  await ensureOnboardingProfile(userId)
+  const sql = getSql()
+  const existing = await getOnboardingProfile(userId)
+  const reserved_number =
+    updates.reserved_number !== undefined ? updates.reserved_number : existing?.reserved_number ?? null
+  const reserved_number_display =
+    updates.reserved_number_display !== undefined
+      ? updates.reserved_number_display
+      : existing?.reserved_number_display ?? null
+  const reserved_number_method =
+    updates.reserved_number_method !== undefined
+      ? updates.reserved_number_method
+      : existing?.reserved_number_method ?? null
+  const port_carrier =
+    updates.port_carrier !== undefined ? updates.port_carrier : existing?.port_carrier ?? null
+  const fallback_type =
+    updates.fallback_type !== undefined ? updates.fallback_type : existing?.fallback_type ?? null
+  const trade_category =
+    updates.trade_category !== undefined ? updates.trade_category : existing?.trade_category ?? null
+  const opening_line =
+    updates.opening_line !== undefined ? updates.opening_line : existing?.opening_line ?? null
+  const has_active_subscription =
+    updates.has_active_subscription !== undefined
+      ? updates.has_active_subscription
+      : existing?.has_active_subscription ?? false
+
+  try {
+    const rows = await sql`
+      INSERT INTO profiles (
+        user_id, reserved_number, reserved_number_display, reserved_number_method,
+        port_carrier, fallback_type, trade_category, opening_line,
+        has_active_subscription, updated_at
+      )
+      VALUES (
+        ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
+        ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
+        ${has_active_subscription}, now()
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        reserved_number = EXCLUDED.reserved_number,
+        reserved_number_display = EXCLUDED.reserved_number_display,
+        reserved_number_method = EXCLUDED.reserved_number_method,
+        port_carrier = EXCLUDED.port_carrier,
+        fallback_type = EXCLUDED.fallback_type,
+        trade_category = EXCLUDED.trade_category,
+        opening_line = EXCLUDED.opening_line,
+        has_active_subscription = EXCLUDED.has_active_subscription,
+        updated_at = now()
+      RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
+                port_carrier, fallback_type, trade_category, opening_line,
+                has_active_subscription, updated_at
+    `
+    return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
+  } catch (e) {
+    if (isMissingProfilesTableError(e)) {
+      throw new Error(
+        "Onboarding profiles table missing. Run scripts/024-onboarding-profiles.sql in Neon (see scripts/MIGRATE-ALL.md)."
+      )
+    }
+    throw e
+  }
+}
+
+/** After mock/real checkout — also sync greeting into default routing_config when present. */
+export async function completeOnboardingCheckout(
+  userId: string,
+  opts?: { opening_line?: string; fallback_type?: "ai" | "voicemail" }
+): Promise<OnboardingProfile> {
+  const profile = await updateOnboardingProfile(userId, { has_active_subscription: true })
+  const greeting = opts?.opening_line?.trim()
+  const fb = opts?.fallback_type
+  if (greeting || fb) {
+    try {
+      await updateRoutingConfig(userId, {
+        ...(greeting ? { ai_greeting: greeting } : {}),
+        ...(fb ? { fallback_type: fb } : {}),
+      })
+    } catch {
+      /* routing_config may not exist yet — non-fatal */
+    }
+  }
+  return profile
 }
 
 // Get talk time analytics for a date range

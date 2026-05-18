@@ -27,6 +27,7 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 | 19 | `019-billing-admin-feedback.sql` | **`users`**: `credit_balance_cents`, `billing_plan`, `is_platform_admin` — **`billing_ledger`**, **`feedback_submissions`** (Help tab + `/admin` + credit adjustments) |
 | 22 | `022-customers.sql` | **`customers`** — saved caller profiles (name, address, notes) keyed by phone per account; answered-call popup + `/dashboard/customers` search |
 | 23 | `023-user-answered-call-popup-toggle.sql` | **`users.answered_call_customer_popup_enabled`** — turn off the answered-call customer sheet in Settings |
+| 24 | `024-onboarding-profiles.sql` | **`profiles`** — onboarding reserved number, fallback script, trade category, `has_active_subscription` (gates `/dashboard`) |
 
 ## Optional: first platform admin (`admin@getzingapp.com` / `admin`)
 

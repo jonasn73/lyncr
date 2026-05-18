@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   getOnboardingOpeningLine,
+  isOnboardingTradeCategory,
   ONBOARDING_DEFAULT_VOICEMAIL_GREETING,
   ONBOARDING_FALLBACK_DEFAULT,
   ONBOARDING_TRADE_DEFAULT,
@@ -26,6 +27,11 @@ import {
   clearOnboardingReservation,
   type OnboardingLineReservation,
 } from "@/lib/onboarding-reservation"
+import {
+  completeOnboardingCheckoutClient,
+  fetchOnboardingProfile,
+  patchOnboardingProfile,
+} from "@/lib/onboarding-profile-client"
 import { OnboardingBillingStep } from "@/components/onboarding-billing-step"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
@@ -96,6 +102,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [aiTradeCategory, setAiTradeCategory] = useState<OnboardingTradeCategory>(ONBOARDING_TRADE_DEFAULT)
   const [aiGreeting, setAiGreeting] = useState(() => getOnboardingOpeningLine(ONBOARDING_TRADE_DEFAULT))
   const [voicemailGreeting, setVoicemailGreeting] = useState(ONBOARDING_DEFAULT_VOICEMAIL_GREETING)
+  const [profileReady, setProfileReady] = useState(false)
 
   function handleAiTradeCategoryChange(category: OnboardingTradeCategory) {
     setAiTradeCategory(category)
@@ -103,18 +110,69 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   }
 
   useEffect(() => {
-    const fromStorage = readOnboardingReservation()
-    if (fromStorage) {
-      setBufferedLine(fromStorage)
-      return
-    }
-    if (typeof window === "undefined") return
-    const fromUrl = parseReservationFromSearchParams(new URLSearchParams(window.location.search))
-    if (fromUrl) {
-      setBufferedLine(fromUrl)
-      writeOnboardingReservation(fromUrl)
+    let cancelled = false
+    void (async () => {
+      let hydratedLine: OnboardingLineReservation | null = null
+      try {
+        const profile = await fetchOnboardingProfile()
+        if (cancelled) return
+        if (profile?.reserved_number) {
+          hydratedLine = {
+            method: profile.reserved_number_method === "port" ? "port" : "buy",
+            display: profile.reserved_number_display ?? profile.reserved_number,
+            e164: profile.reserved_number,
+            trialNote: "Included in trial",
+            portCarrier: profile.port_carrier ?? undefined,
+          }
+        }
+        if (profile?.fallback_type === "ai" || profile?.fallback_type === "voicemail") {
+          setFallbackStrategy(profile.fallback_type)
+        }
+        if (isOnboardingTradeCategory(profile?.trade_category)) {
+          setAiTradeCategory(profile.trade_category)
+        }
+        if (profile?.opening_line?.trim()) {
+          if (profile.fallback_type === "voicemail") {
+            setVoicemailGreeting(profile.opening_line)
+          } else {
+            setAiGreeting(profile.opening_line)
+          }
+        }
+      } catch {
+        /* Neon profile optional until migration 024 is applied */
+      }
+
+      if (!hydratedLine) {
+        hydratedLine = readOnboardingReservation()
+      }
+      if (!hydratedLine && typeof window !== "undefined") {
+        hydratedLine = parseReservationFromSearchParams(new URLSearchParams(window.location.search))
+      }
+      if (hydratedLine) {
+        setBufferedLine(hydratedLine)
+        writeOnboardingReservation(hydratedLine)
+      }
+
+      if (!cancelled) setProfileReady(true)
+    })()
+
+    return () => {
+      cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!profileReady) return
+    const opening_line = fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting
+    const timer = window.setTimeout(() => {
+      void patchOnboardingProfile({
+        fallback_type: fallbackStrategy,
+        trade_category: aiTradeCategory,
+        opening_line,
+      }).catch(() => {})
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [profileReady, fallbackStrategy, aiTradeCategory, aiGreeting, voicemailGreeting])
 
   const refreshInventory = useCallback(() => {
     if (refreshingInventory || areaCode.length < 3) return
@@ -149,7 +207,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   const canProceedStep2 = true // optional step
 
-  function handleContinueFromNumberStep() {
+  async function handleContinueFromNumberStep() {
     let reservation: OnboardingLineReservation | null = null
     if (numberMethod === "buy") {
       const row = inventoryNumbers.find((n) => n.number === selectedNumber)
@@ -161,12 +219,30 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     if (!reservation) return
     setBufferedLine(reservation)
     writeOnboardingReservation(reservation)
+    try {
+      await patchOnboardingProfile({
+        reserved_number: reservation.e164,
+        reserved_number_display: reservation.display,
+        reserved_number_method: reservation.method,
+        port_carrier: reservation.portCarrier ?? null,
+      })
+    } catch {
+      /* still advance — sessionStorage holds reservation until billing */
+    }
     const params = reservationToSearchParams(reservation)
     router.replace(`/onboarding?${params.toString()}`, { scroll: false })
     setStep(2)
   }
 
-  function handleLaunchAfterBilling() {
+  async function handleLaunchAfterBilling() {
+    try {
+      await completeOnboardingCheckoutClient({
+        opening_line: fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting,
+        fallback_type: fallbackStrategy,
+      })
+    } catch {
+      /* allow dashboard entry when DB migration pending */
+    }
     clearOnboardingReservation()
     onComplete()
   }

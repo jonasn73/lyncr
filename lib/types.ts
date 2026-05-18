@@ -26,6 +26,31 @@ export interface User {
   answered_call_customer_popup_enabled: boolean
 }
 
+/** Onboarding wizard row (`profiles` table — scripts/024-onboarding-profiles.sql). */
+export interface OnboardingProfile {
+  user_id: string
+  reserved_number: string | null
+  reserved_number_display: string | null
+  reserved_number_method: "buy" | "port" | null
+  port_carrier: string | null
+  fallback_type: "ai" | "voicemail" | null
+  trade_category: string | null
+  opening_line: string | null
+  has_active_subscription: boolean
+  updated_at: string
+}
+
+export type UpdateOnboardingProfileRequest = {
+  reserved_number?: string | null
+  reserved_number_display?: string | null
+  reserved_number_method?: "buy" | "port" | null
+  port_carrier?: string | null
+  fallback_type?: "ai" | "voicemail" | null
+  trade_category?: string | null
+  opening_line?: string | null
+  has_active_subscription?: boolean
+}
+
 export type FeedbackCategory = "issue" | "feature" | "billing" | "other"
 export type FeedbackStatus = "open" | "triaged" | "closed"
 
