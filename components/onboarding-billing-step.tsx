@@ -1,12 +1,27 @@
 "use client"
 
-import { CreditCard, Lock, Phone } from "lucide-react"
+import { useState } from "react"
+import { CreditCard, Loader2, Lock, Phone } from "lucide-react"
 import type { OnboardingLineReservation } from "@/lib/onboarding-reservation"
 import { cn } from "@/lib/utils"
 
 type OnboardingBillingStepProps = {
   reservedLine: OnboardingLineReservation | null
   onLaunch: () => void
+}
+
+const CARD_INPUT_CLASS = cn(
+  "h-10 w-full rounded-xl border border-border/80 bg-secondary/90 px-3.5 text-sm text-foreground",
+  "placeholder:text-muted-foreground/50",
+  "transition-[border-color,box-shadow] duration-150",
+  "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/35"
+)
+
+function cardFieldsReady(cardNumber: string, expiry: string, cvc: string): boolean {
+  const digits = cardNumber.replace(/\D/g, "")
+  const expDigits = expiry.replace(/\D/g, "")
+  const cvcDigits = cvc.replace(/\D/g, "")
+  return digits.length >= 4 && expDigits.length >= 4 && cvcDigits.length >= 3
 }
 
 /**
@@ -17,6 +32,24 @@ type OnboardingBillingStepProps = {
  * in one atomic sequence — no carrier provision before this step.
  */
 export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBillingStepProps) {
+  const [cardNumber, setCardNumber] = useState("")
+  const [expiry, setExpiry] = useState("")
+  const [cvc, setCvc] = useState("")
+  const [isLaunching, setIsLaunching] = useState(false)
+
+  const canLaunch = cardFieldsReady(cardNumber, expiry, cvc)
+
+  async function handleLaunch() {
+    if (!canLaunch || isLaunching) return
+    setIsLaunching(true)
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 450))
+      onLaunch()
+    } finally {
+      setIsLaunching(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -43,7 +76,7 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
         </div>
       ) : (
         <p className="rounded-xl border border-dashed border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground">
-          No line reserved in this session. Go back to pick a number before checkout.
+          No line reserved in this session. You can still complete checkout to open your dashboard.
         </p>
       )}
 
@@ -53,12 +86,54 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
           Payment method
         </div>
         <div className="space-y-3">
-          <div className="h-10 rounded-lg border border-dashed border-border bg-muted/30 px-3 text-xs leading-10 text-muted-foreground">
-            Stripe Elements — card number (placeholder)
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="onboarding-card-number" className="sr-only">
+              Card number
+            </label>
+            <input
+              id="onboarding-card-number"
+              type="text"
+              inputMode="numeric"
+              autoComplete="cc-number"
+              placeholder="4242 •••• •••• ••••"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(e.target.value)}
+              className={CARD_INPUT_CLASS}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="h-10 rounded-lg border border-dashed border-border bg-muted/30" />
-            <div className="h-10 rounded-lg border border-dashed border-border bg-muted/30" />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="onboarding-card-expiry" className="sr-only">
+                Expiry
+              </label>
+              <input
+                id="onboarding-card-expiry"
+                type="text"
+                inputMode="numeric"
+                autoComplete="cc-exp"
+                placeholder="MM / YY"
+                maxLength={7}
+                value={expiry}
+                onChange={(e) => setExpiry(e.target.value)}
+                className={CARD_INPUT_CLASS}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="onboarding-card-cvc" className="sr-only">
+                CVC
+              </label>
+              <input
+                id="onboarding-card-cvc"
+                type="text"
+                inputMode="numeric"
+                autoComplete="cc-csc"
+                placeholder="CVC"
+                maxLength={4}
+                value={cvc}
+                onChange={(e) => setCvc(e.target.value)}
+                className={CARD_INPUT_CLASS}
+              />
+            </div>
           </div>
         </div>
         <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -70,14 +145,21 @@ export function OnboardingBillingStep({ reservedLine, onLaunch }: OnboardingBill
 
       <button
         type="button"
-        onClick={onLaunch}
-        disabled={!reservedLine}
+        onClick={handleLaunch}
+        disabled={!canLaunch || isLaunching}
         className={cn(
           "flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground",
           "shadow-[var(--electric-glow)] transition-colors hover:bg-primary/90 disabled:opacity-40"
         )}
       >
-        Launch My Business Line
+        {isLaunching ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Activating…
+          </>
+        ) : (
+          "Launch My Business Line"
+        )}
       </button>
     </div>
   )
