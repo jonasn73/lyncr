@@ -4,7 +4,7 @@ import { activateOnboardingSubscription } from "@/lib/onboarding-activate-subscr
 import { isReservedLineCarrierLive } from "@/lib/onboarding-line-carrier-status"
 import { isOnboardingTelnyxSimulationMode } from "@/lib/onboarding-telnyx-provision-mode"
 
-/** Mock Stripe checkout — sets has_active_subscription and starts Telnyx provision. */
+/** Mock Stripe checkout — provisions on Telnyx when enabled; subscription active only after carrier SID exists. */
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) {
@@ -21,11 +21,12 @@ export async function POST(req: NextRequest) {
     const message = carrier_live
       ? `Live production enabled for ${display}. Inbound calls will route to your configured phones.`
       : simulation
-        ? `Payment saved for ${display}. Your line stays in sandbox until Telnyx carrier provisioning completes.`
+        ? `Payment details saved for ${display}. Your line stays in trial until Telnyx purchases and provisions the number.`
         : `Provisioning started for ${display}. Live routing will begin once Telnyx confirms the number.`
     return NextResponse.json({
       data: profile,
       carrier_live,
+      subscription_active: profile.has_active_subscription === true,
       simulation_mode: simulation,
       message,
     })

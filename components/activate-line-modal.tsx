@@ -59,7 +59,9 @@ export function ActivateLineModal({
       await new Promise((resolve) => window.setTimeout(resolve, 450))
       const result = await activateSubscriptionClient()
       toast({
-        title: result.profile.has_active_subscription ? "Subscription activated" : "Activation incomplete",
+        title: result.profile.has_active_subscription
+          ? "Live line activated"
+          : "Still in trial — number not on Telnyx yet",
         description: result.message,
       })
       onOpenChange(false)

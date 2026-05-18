@@ -1,7 +1,15 @@
-import { updateOnboardingProfile, getOnboardingProfile, provisionOnboardingBuyLine } from "@/lib/db"
+import {
+  updateOnboardingProfile,
+  getOnboardingProfile,
+  provisionOnboardingBuyLine,
+} from "@/lib/db"
+import { isReservedLineCarrierLive } from "@/lib/onboarding-line-carrier-status"
 import type { OnboardingProfile } from "@/lib/types"
 
-/** Mock Stripe success — sets subscription active and starts Telnyx provision (or simulation sync). */
+/**
+ * Checkout activation — attempts Telnyx provision first.
+ * `has_active_subscription` is set true only when the carrier owns the DID (SID on file).
+ */
 export async function activateOnboardingSubscription(userId: string): Promise<OnboardingProfile> {
   const existing = await getOnboardingProfile(userId)
   if (!existing?.reserved_number?.trim()) {
@@ -11,12 +19,17 @@ export async function activateOnboardingSubscription(userId: string): Promise<On
     return existing
   }
 
-  const profile = await updateOnboardingProfile(userId, { has_active_subscription: true })
   try {
-    await provisionOnboardingBuyLine(userId, profile)
+    await provisionOnboardingBuyLine(userId, existing)
   } catch (e) {
     console.error("[activateOnboardingSubscription] provision:", e)
     throw e instanceof Error ? e : new Error("Could not start Telnyx provisioning.")
   }
-  return profile
+
+  const carrierLive = await isReservedLineCarrierLive(userId, existing.reserved_number)
+  if (!carrierLive) {
+    return existing
+  }
+
+  return updateOnboardingProfile(userId, { has_active_subscription: true })
 }
