@@ -248,8 +248,16 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 function LineConnectionBadge({ live }: { live: boolean }) {
   if (live) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-success/45 bg-success/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success shadow-[0_0_14px_-3px_var(--success)]">
-        Live Connection
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-emerald-400/55 bg-emerald-500/15 px-2.5 py-0.5",
+          "text-[10px] font-semibold uppercase tracking-wide text-emerald-300",
+          "shadow-[0_0_18px_-2px_rgba(52,211,153,0.65),inset_0_0_12px_-4px_rgba(52,211,153,0.35)]",
+          "ring-1 ring-emerald-400/25"
+        )}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" aria-hidden />
+        Live Production
       </span>
     )
   }
@@ -303,7 +311,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       >
         <span className="text-xs font-medium text-zinc-400">Active line</span>
         <span className="text-base text-foreground">{display}</span>
-        <LineStatusIndicator isSelected subscriptionLive={subscriptionLive} />
+        <LineStatusIndicator isSelected live={subscriptionLive} />
       </div>
     )
   }
@@ -314,7 +322,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
         <span className="text-xs font-medium text-zinc-400">Active line</span>
         <span className="text-base font-semibold text-foreground">{display}</span>
-        <LineStatusIndicator isSelected subscriptionLive={subscriptionLive} />
+        <LineStatusIndicator isSelected live={subscriptionLive} />
       </div>
       <select
         value={activeLine}
@@ -325,7 +333,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         {businessNumbers.map((bn) => {
           const isSelected = businessNumbersMatch(bn.number, activeLine)
           const status = linePickerStatusLabel(isSelected)
-          const conn = subscriptionLive ? "Live" : "Sandbox"
+          const conn = subscriptionLive ? "Live Production" : "Sandbox"
           return (
             <option key={bn.number} value={bn.number}>
               {formatPhoneDisplay(bn.number)} — {conn} · {status}

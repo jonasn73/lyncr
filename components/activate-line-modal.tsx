@@ -58,7 +58,7 @@ export function ActivateLineModal({
       await new Promise((resolve) => window.setTimeout(resolve, 450))
       const result = await activateSubscriptionClient()
       toast({
-        title: "Line activated",
+        title: "Live production enabled",
         description: result.message,
       })
       onOpenChange(false)
@@ -76,13 +76,17 @@ export function ActivateLineModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="border-border/80 bg-card/95 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Activate your business line</DialogTitle>
+          <DialogTitle>Activate Your Live Business Line</DialogTitle>
           <DialogDescription>
-            {reservedDisplay
-              ? `Unlock live Telnyx routing for ${reservedDisplay}. Test mode simulates Stripe — no real charge.`
-              : "Add a card to unlock live inbound calling."}
+            Confirm your checkout method to transition your active routing matrix from Sandbox to Live Production.
+            {reservedDisplay ? (
+              <>
+                {" "}
+                Line: <span className="font-medium text-foreground">{reservedDisplay}</span>
+              </>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
@@ -99,46 +103,67 @@ export function ActivateLineModal({
               Payment method
             </div>
             <div className="space-y-3">
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="cc-number"
-                placeholder="4242 •••• •••• ••••"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-                className={CARD_INPUT_CLASS}
-              />
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="activate-card-number" className="text-xs font-medium text-muted-foreground">
+                  Card number
+                </label>
+                <input
+                  id="activate-card-number"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  placeholder="4242 •••• •••• ••••"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                  className={CARD_INPUT_CLASS}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-exp"
-                  placeholder="MM / YY"
-                  maxLength={7}
-                  value={expiry}
-                  onChange={(e) => setExpiry(e.target.value)}
-                  className={CARD_INPUT_CLASS}
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-csc"
-                  placeholder="CVC"
-                  maxLength={4}
-                  value={cvc}
-                  onChange={(e) => setCvc(e.target.value)}
-                  className={CARD_INPUT_CLASS}
-                />
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="activate-card-expiry" className="text-xs font-medium text-muted-foreground">
+                    Expiry
+                  </label>
+                  <input
+                    id="activate-card-expiry"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    placeholder="MM / YY"
+                    maxLength={7}
+                    value={expiry}
+                    onChange={(e) => setExpiry(e.target.value)}
+                    className={CARD_INPUT_CLASS}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="activate-card-cvc" className="text-xs font-medium text-muted-foreground">
+                    CVC
+                  </label>
+                  <input
+                    id="activate-card-cvc"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    placeholder="CVC"
+                    maxLength={4}
+                    value={cvc}
+                    onChange={(e) => setCvc(e.target.value)}
+                    className={CARD_INPUT_CLASS}
+                  />
+                </div>
               </div>
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <Lock className="h-3 w-3 shrink-0" aria-hidden />
-              Simulated Stripe success for testing — sets has_active_subscription in Neon.
+              Test mode — any card details activate your line in Neon (no real charge).
             </p>
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+            <p
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}
@@ -154,10 +179,10 @@ export function ActivateLineModal({
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Activating…
+                Confirming…
               </>
             ) : (
-              "Activate Line"
+              "Confirm Activation"
             )}
           </button>
         </form>

@@ -101,8 +101,11 @@ export function DashboardShell({
       <DashboardChromeProvider activePage={activePage}>
         <DashboardWorkspaceProvider>
           <DashboardNumbersModalProvider>
-            <AppShell pathname={pathname} accountHeader={accountHeader}>
-              <DashboardActivationBanner />
+            <AppShell
+              pathname={pathname}
+              accountHeader={accountHeader}
+              topBanner={<DashboardActivationBanner />}
+            >
               <DashboardMainContent activePage={activePage} routedChildren={children} />
               <DashboardAnsweredCallPopup enabled={popupEnabled} />
             </AppShell>

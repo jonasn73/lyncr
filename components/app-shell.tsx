@@ -303,11 +303,14 @@ function AppShellInner({
   pathname,
   accountHeader,
   onNavigate,
+  topBanner,
   children,
 }: {
   pathname?: string
   accountHeader?: AccountHeaderState
   onNavigate?: (page: PageId) => void
+  /** Renders above the sticky Lyncr header (e.g. sandbox trial alert). */
+  topBanner?: ReactNode
   children: ReactNode
 }) {
   const activePage = useDashboardActivePage()
@@ -336,6 +339,7 @@ function AppShellInner({
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background">
+      {topBanner}
       <AppShellHeader
         useLinks={useLinks}
         accountHeader={accountHeader}
