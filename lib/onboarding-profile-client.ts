@@ -7,7 +7,10 @@ export type OnboardingProfileSnapshot = {
 }
 
 export async function fetchOnboardingProfile(): Promise<OnboardingProfileSnapshot> {
-  const res = await fetch("/api/onboarding/profile", { credentials: "include" })
+  const res = await fetch(`/api/onboarding/profile?t=${Date.now()}`, {
+    credentials: "include",
+    cache: "no-store",
+  })
   if (res.status === 401) return { profile: null, carrierLive: false }
   const json = (await res.json().catch(() => ({}))) as {
     data?: OnboardingProfile
