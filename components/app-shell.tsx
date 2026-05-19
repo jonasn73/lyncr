@@ -39,6 +39,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
+import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 
 /** All dashboard segments we recognize for highlighting and deep links (Help is not a bottom tab). */
 export type PageId =
@@ -159,6 +160,31 @@ const AppShellBottomNav = memo(function AppShellBottomNav({
   )
 })
 
+const HeaderPlanBadge = memo(function HeaderPlanBadge({
+  live,
+}: {
+  live: boolean
+}) {
+  if (live) {
+    return (
+      <span
+        className="hidden rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-300/95 sm:inline"
+        role="status"
+      >
+        Live Production
+      </span>
+    )
+  }
+  return (
+    <span
+      className="hidden rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-200/90 sm:inline"
+      role="status"
+    >
+      Trial Mode
+    </span>
+  )
+})
+
 const AppShellHeader = memo(function AppShellHeader({
   useLinks,
   accountHeader,
@@ -172,6 +198,9 @@ const AppShellHeader = memo(function AppShellHeader({
   commandOpen: boolean
   onCommandOpenChange: (open: boolean) => void
 }) {
+  const activation = useDashboardActivationOptional()
+  const showPlanBadge = Boolean(activation && !activation.loading && activation.reservedDisplay)
+
   return (
     <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background px-3 py-3 sm:px-5 sm:py-3.5">
       {useLinks ? (
@@ -224,6 +253,9 @@ const AppShellHeader = memo(function AppShellHeader({
         {useLinks && accountHeader?.kind === "ready" && (
           <HeaderAccountMenu name={accountHeader.name} email={accountHeader.email} />
         )}
+        {showPlanBadge && activation ? (
+          <HeaderPlanBadge live={activation.subscriptionActive} />
+        ) : null}
         <div
           className="inline-flex items-center gap-1.5 rounded-full border border-success/35 bg-success/10 px-2 py-1 sm:gap-2 sm:px-2.5"
           role="status"

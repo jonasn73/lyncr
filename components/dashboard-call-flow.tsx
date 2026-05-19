@@ -244,29 +244,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   )
 })
 
-function LineConnectionBadge({ live }: { live: boolean }) {
-  if (live) {
-    return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-full border border-emerald-400/55 bg-emerald-500/15 px-2.5 py-0.5",
-          "text-[10px] font-semibold uppercase tracking-wide text-emerald-300",
-          "shadow-[0_0_18px_-2px_rgba(52,211,153,0.65),inset_0_0_12px_-4px_rgba(52,211,153,0.35)]",
-          "ring-1 ring-emerald-400/25"
-        )}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" aria-hidden />
-        Live Production
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/45 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200/95">
-      Trial Mode
-    </span>
-  )
-}
-
 function LineConnectionState({ subscriptionActive }: { subscriptionActive: boolean }) {
   if (subscriptionActive) {
     return (
@@ -288,12 +265,7 @@ function LineConnectionState({ subscriptionActive }: { subscriptionActive: boole
 }
 
 function LineStatusIndicator({ subscriptionActive }: { subscriptionActive: boolean }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <LineConnectionBadge live={subscriptionActive} />
-      <LineConnectionState subscriptionActive={subscriptionActive} />
-    </div>
-  )
+  return <LineConnectionState subscriptionActive={subscriptionActive} />
 }
 
 const ActiveLinePicker = memo(function ActiveLinePicker({
@@ -342,11 +314,10 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         aria-label="Select active business line"
       >
         {businessNumbers.map((bn) => {
-          const conn = subscriptionActive ? "Live Production" : "Trial Mode"
-          const link = subscriptionActive ? "• Live & Connected" : "• Inactive (Pending Payment)"
+          const link = subscriptionActive ? "Live & Connected" : "Inactive (Pending Payment)"
           return (
             <option key={bn.number} value={bn.number}>
-              {formatPhoneDisplay(bn.number)} — {conn} · {link}
+              {formatPhoneDisplay(bn.number)} — {link}
             </option>
           )
         })}
