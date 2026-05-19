@@ -1,6 +1,5 @@
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
-import { escapeXmlAttr } from "@/lib/telnyx-inbound-media-quality"
 
 const TEST_ECHO_GREETING =
   "Welcome to the Lyncr audio test line. After the tone, speak for up to five seconds. We will play your recording back so you can verify call quality."
@@ -21,18 +20,16 @@ export function buildTestEchoIntroTexml(): string {
   return texml.toString()
 }
 
-/** Second hop — playback loop, then restart the test cycle. */
+/** Second hop — play recording twice, then hang up. */
 export function buildTestEchoPlaybackTexml(recordingUrl: string): string {
-  const appUrl = getAppUrl()
-  const safeUrl = escapeXmlAttr(recordingUrl.trim())
   const texml = new VoiceResponse()
-  if (safeUrl) {
-    texml.play({ loop: 2 }, recordingUrl.trim())
+  const url = recordingUrl.trim()
+  if (url) {
+    texml.play({ loop: 2 }, url)
+    texmlSayNatural(texml, "Thank you for testing the Lyncr audio line. Goodbye.")
+  } else {
+    texmlSayNatural(texml, "We could not retrieve your recording. Please try again later. Goodbye.")
   }
-  texmlSayNatural(
-    texml,
-    "That was your recording played twice. Starting another test cycle now. Hang up anytime to end."
-  )
-  texml.redirect({ method: "POST" }, `${appUrl}/api/voice/test-echo`)
+  texml.hangup()
   return texml.toString()
 }

@@ -1,13 +1,6 @@
-import { getUser } from "@/lib/db"
 import { getStripeClient } from "@/lib/stripe-config"
 import { handleStripeCheckoutSessionCompleted } from "@/lib/stripe-billing-sync"
-import { setUserBillingPlan } from "@/lib/stripe-billing-sync"
-import { syncStripeSubscriptionToNeon } from "@/lib/stripe-webhook-sync"
-import type Stripe from "stripe"
-
-function sessionUserId(session: Stripe.Checkout.Session): string | null {
-  return session.metadata?.user_id?.trim() || session.client_reference_id?.trim() || null
-}
+import { resolveUserIdFromStripeCheckoutSession } from "@/lib/stripe-user-resolve"
 
 /** After subscription Checkout redirect — verify session and sync Neon + Telnyx. */
 export async function confirmStripeCheckoutSession(
@@ -19,7 +12,7 @@ export async function confirmStripeCheckoutSession(
     expand: ["subscription"],
   })
 
-  const ownerId = sessionUserId(session)
+  const ownerId = resolveUserIdFromStripeCheckoutSession(session)
   if (ownerId && ownerId !== userId) {
     throw new Error("This checkout session belongs to a different account.")
   }
@@ -31,30 +24,4 @@ export async function confirmStripeCheckoutSession(
   await handleStripeCheckoutSessionCompleted(session)
 }
 
-/** Fallback when webhook missed — find active Stripe sub for this user's email. */
-export async function recoverStripeSubscriptionForUser(userId: string): Promise<boolean> {
-  const user = await getUser(userId)
-  const email = user?.email?.trim().toLowerCase()
-  if (!email) return false
-
-  const stripe = getStripeClient()
-  const customers = await stripe.customers.list({ email, limit: 20 })
-
-  for (const customer of customers.data) {
-    const subs = await stripe.subscriptions.list({
-      customer: customer.id,
-      status: "active",
-      limit: 20,
-    })
-
-    for (const subscription of subs.data) {
-      const metaUserId = subscription.metadata?.user_id?.trim()
-      if (metaUserId && metaUserId !== userId) continue
-      await syncStripeSubscriptionToNeon(userId, subscription, { customerId: customer.id })
-      await setUserBillingPlan(userId, "starter")
-      return true
-    }
-  }
-
-  return false
-}
+export { recoverStripeSubscriptionForUser } from "@/lib/stripe-user-resolve"

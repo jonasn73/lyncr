@@ -3096,6 +3096,26 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
     return mapOnboardingProfileRow(row)
   } catch (e) {
     if (isMissingOnboardingProfileColumnError(e)) {
+      // Tier 028 — subscription_tier + carrier_credit when scripts/029 not applied yet.
+      try {
+        const rows = await sql`
+          SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
+                 port_carrier, fallback_type, trade_category, opening_line,
+                 has_active_subscription,
+                 subscription_tier, carrier_credit,
+                 billing_cycle_start, billing_cycle_end,
+                 stripe_customer_id, stripe_subscription_id,
+                 updated_at
+          FROM onboarding_profiles
+          WHERE user_id = ${userId}
+          LIMIT 1
+        `
+        const row = rows[0] as Record<string, unknown> | undefined
+        if (!row) return null
+        return mapOnboardingProfileRow(row)
+      } catch (tier028Error) {
+        if (!isMissingOnboardingProfileColumnError(tier028Error)) throw tier028Error
+      }
       try {
         const rows = await sql`
           SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
@@ -3246,6 +3266,54 @@ export async function updateOnboardingProfile(
     return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
   } catch (e) {
     if (isMissingOnboardingProfileColumnError(e)) {
+      try {
+        const rows = await sql`
+          INSERT INTO onboarding_profiles (
+            user_id, reserved_number, reserved_number_display, reserved_number_method,
+            port_carrier, fallback_type, trade_category, opening_line,
+            has_active_subscription,
+            subscription_tier, carrier_credit,
+            billing_cycle_start, billing_cycle_end,
+            stripe_customer_id, stripe_subscription_id,
+            updated_at
+          )
+          VALUES (
+            ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
+            ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
+            ${has_active_subscription},
+            ${subscription_tier}, ${carrier_credit},
+            ${billing_cycle_start}, ${billing_cycle_end},
+            ${stripe_customer_id}, ${stripe_subscription_id},
+            now()
+          )
+          ON CONFLICT (user_id) DO UPDATE SET
+            reserved_number = EXCLUDED.reserved_number,
+            reserved_number_display = EXCLUDED.reserved_number_display,
+            reserved_number_method = EXCLUDED.reserved_number_method,
+            port_carrier = EXCLUDED.port_carrier,
+            fallback_type = EXCLUDED.fallback_type,
+            trade_category = EXCLUDED.trade_category,
+            opening_line = EXCLUDED.opening_line,
+            has_active_subscription = EXCLUDED.has_active_subscription,
+            subscription_tier = EXCLUDED.subscription_tier,
+            carrier_credit = EXCLUDED.carrier_credit,
+            billing_cycle_start = EXCLUDED.billing_cycle_start,
+            billing_cycle_end = EXCLUDED.billing_cycle_end,
+            stripe_customer_id = EXCLUDED.stripe_customer_id,
+            stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+            updated_at = now()
+          RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
+                    port_carrier, fallback_type, trade_category, opening_line,
+                    has_active_subscription,
+                    subscription_tier, carrier_credit,
+                    billing_cycle_start, billing_cycle_end,
+                    stripe_customer_id, stripe_subscription_id,
+                    updated_at
+        `
+        return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)
+      } catch (tier028Error) {
+        if (!isMissingOnboardingProfileColumnError(tier028Error)) throw tier028Error
+      }
       const rows = await sql`
         INSERT INTO onboarding_profiles (
           user_id, reserved_number, reserved_number_display, reserved_number_method,

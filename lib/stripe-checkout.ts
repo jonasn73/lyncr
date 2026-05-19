@@ -40,6 +40,7 @@ export async function createLyncrSubscriptionCheckout(
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
+    client_reference_id: userId,
     customer_email: user?.email?.trim() || undefined,
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
@@ -89,6 +90,7 @@ export async function createLyncrCreditPackCheckout(
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    client_reference_id: userId,
     customer_email: user?.email?.trim() || undefined,
     line_items: [
       {

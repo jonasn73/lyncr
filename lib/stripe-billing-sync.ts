@@ -1,4 +1,5 @@
 import type Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe-config"
 import {
   adminAdjustUserCreditBalance,
   billingLedgerHasEntry,
@@ -8,7 +9,7 @@ import {
 import { type BillingPlanKey, TELNYX_NUMBER_PURCHASE_CENTS } from "@/lib/billing-pricing"
 import { billingPlanKeyFromSubscriptionTier, type SubscriptionTier } from "@/lib/subscription-tier"
 import { syncTelnyxCarrierWalletAfterCreditPurchase } from "@/lib/telnyx-billing"
-import { getStripeClient } from "@/lib/stripe-config"
+import { resolveUserIdFromStripeCheckoutSession } from "@/lib/stripe-user-resolve"
 import {
   syncStripeSubscriptionToNeon,
   provisionReservedLineAfterStripePayment,
@@ -64,8 +65,11 @@ export async function applyStripeCreditPackPayment(
 
 /** Route completed checkout sessions — subscription or one-time credit pack. */
 export async function handleStripeCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  const userId = session.metadata?.user_id?.trim()
-  if (!userId) return
+  const userId = resolveUserIdFromStripeCheckoutSession(session)
+  if (!userId) {
+    console.error("[stripe] checkout.session.completed missing user_id / client_reference_id", session.id)
+    return
+  }
 
   const checkoutType = session.metadata?.checkout_type?.trim() || "subscription"
 

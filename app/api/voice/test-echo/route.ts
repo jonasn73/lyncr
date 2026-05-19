@@ -1,7 +1,7 @@
 // ============================================
 // GET/POST /api/voice/test-echo
 // ============================================
-// Self-service audio quality line: greeting → 5s record → playback loop → repeat.
+// Self-service audio quality line: greeting → 5s record → playback twice → hang up.
 // Point a Telnyx TeXML app or debug DID at this URL to verify call clarity end-to-end.
 
 import { NextRequest, NextResponse } from "next/server"

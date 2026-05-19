@@ -23,6 +23,7 @@ import {
   extractUsAreaCode,
   type ProvisionLineResult,
 } from "@/lib/provision-line-types"
+import { resolveUserIdFromStripeObject } from "@/lib/stripe-user-resolve"
 
 export type { ProvisionLineResult } from "@/lib/provision-line-types"
 
@@ -48,15 +49,7 @@ function stripePeriodToIso(unixSec: number | null | undefined): string | null {
   return new Date(unixSec * 1000).toISOString()
 }
 
-function resolveUserIdFromStripeObject(obj: {
-  metadata?: Stripe.Metadata | null
-  client_reference_id?: string | null
-}): string | null {
-  const fromMeta = obj.metadata?.user_id?.trim()
-  if (fromMeta) return fromMeta
-  const ref = obj.client_reference_id?.trim()
-  return ref || null
-}
+export { resolveUserIdFromStripeObject } from "@/lib/stripe-user-resolve"
 
 function mapPurchaseFailure(
   requestedE164: string,

@@ -3,6 +3,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { getStripeClient } from "@/lib/stripe-config"
 import { applyStripeCreditPackPayment } from "@/lib/stripe-billing-sync"
 import { provisionReservedLineAfterStripePayment } from "@/lib/stripe-webhook-sync"
+import { resolveUserIdFromStripeCheckoutSession } from "@/lib/stripe-user-resolve"
 
 /** Confirms a credit-pack checkout and optionally provisions the line if subscribed. */
 export async function POST(req: NextRequest) {
@@ -20,7 +21,8 @@ export async function POST(req: NextRequest) {
 
     const stripe = getStripeClient()
     const session = await stripe.checkout.sessions.retrieve(sessionId)
-    if (session.metadata?.user_id?.trim() !== userId) {
+    const ownerId = resolveUserIdFromStripeCheckoutSession(session)
+    if (!ownerId || ownerId !== userId) {
       return NextResponse.json({ error: "Checkout session does not belong to this account." }, { status: 403 })
     }
     if (session.metadata?.checkout_type !== "credit_pack") {
