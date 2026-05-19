@@ -1,4 +1,4 @@
-import { getOnboardingProfile } from "@/lib/db"
+import { getOnboardingProfile, getPhoneNumbers } from "@/lib/db"
 import type { User } from "@/lib/types"
 
 /** Dashboard access once a line is reserved (subscription may still be sandbox until Activate Line). */
@@ -8,8 +8,14 @@ export async function userMayAccessDashboard(user: User): Promise<boolean> {
   }
   try {
     const profile = await getOnboardingProfile(user.id)
-    if (!profile) return false
-    return Boolean(profile.reserved_number?.trim())
+    if (profile?.reserved_number?.trim()) return true
+
+    // Legacy/test accounts may have phone_numbers rows but a cleared onboarding profile.
+    const numbers = await getPhoneNumbers(user.id)
+    if (numbers.some((row) => row.status === "active" || row.status === "porting")) {
+      return true
+    }
+    return false
   } catch (e) {
     console.error("[userMayAccessDashboard]", e)
     return false
