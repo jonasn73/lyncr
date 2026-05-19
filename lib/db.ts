@@ -73,7 +73,8 @@ function isMissingOnboardingProfileColumnError(e: unknown): boolean {
     msg.includes("has_billing_method") ||
     msg.includes("subscription_tier") ||
     msg.includes("carrier_credit") ||
-    msg.includes("low_balance_notified")
+    msg.includes("low_balance_notified") ||
+    msg.includes("forwarding_phone")
   )
 }
 
@@ -3056,6 +3057,8 @@ function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfil
     billing_cycle_end: pgTimestamptzToIso(row.billing_cycle_end),
     stripe_customer_id: row.stripe_customer_id != null ? String(row.stripe_customer_id) : null,
     stripe_subscription_id: row.stripe_subscription_id != null ? String(row.stripe_subscription_id) : null,
+    forwarding_phone_number:
+      row.forwarding_phone_number != null ? String(row.forwarding_phone_number) : null,
     updated_at: pgTimestamptzToIso(row.updated_at) ?? new Date().toISOString(),
   }
 }
@@ -3086,6 +3089,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
              subscription_tier, carrier_credit, low_balance_notified,
              billing_cycle_start, billing_cycle_end,
              stripe_customer_id, stripe_subscription_id,
+             forwarding_phone_number,
              updated_at
       FROM onboarding_profiles
       WHERE user_id = ${userId}
@@ -3158,6 +3162,28 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
   }
 }
 
+/** Personal cell for audio diagnostics — profile column first, then users.phone. */
+export async function getForwardingPhoneNumberForUser(userId: string): Promise<string | null> {
+  const profile = await getOnboardingProfile(userId)
+  const fromProfile = profile?.forwarding_phone_number?.trim()
+  if (fromProfile) return normalizePhoneNumberE164(fromProfile)
+  const user = await getUser(userId)
+  const fromUser = user?.phone?.trim()
+  return fromUser ? normalizePhoneNumberE164(fromUser) : null
+}
+
+/** Keep onboarding_profiles.forwarding_phone_number aligned with Settings mobile updates. */
+export async function syncForwardingPhoneNumber(userId: string, phoneE164: string): Promise<void> {
+  const normalized = normalizePhoneNumberE164(phoneE164.trim())
+  if (!normalized) return
+  try {
+    await updateOnboardingProfile(userId, { forwarding_phone_number: normalized })
+  } catch (e) {
+    if (isMissingOnboardingProfileColumnError(e)) return
+    throw e
+  }
+}
+
 export async function updateOnboardingProfile(
   userId: string,
   updates: UpdateOnboardingProfileRequest
@@ -3217,6 +3243,10 @@ export async function updateOnboardingProfile(
     updates.stripe_subscription_id !== undefined
       ? updates.stripe_subscription_id
       : existing?.stripe_subscription_id ?? null
+  const forwarding_phone_number =
+    updates.forwarding_phone_number !== undefined
+      ? updates.forwarding_phone_number
+      : existing?.forwarding_phone_number ?? null
 
   try {
     const rows = await sql`
@@ -3227,6 +3257,7 @@ export async function updateOnboardingProfile(
         subscription_tier, carrier_credit, low_balance_notified,
         billing_cycle_start, billing_cycle_end,
         stripe_customer_id, stripe_subscription_id,
+        forwarding_phone_number,
         updated_at
       )
       VALUES (
@@ -3236,6 +3267,7 @@ export async function updateOnboardingProfile(
         ${subscription_tier}, ${carrier_credit}, ${low_balance_notified},
         ${billing_cycle_start}, ${billing_cycle_end},
         ${stripe_customer_id}, ${stripe_subscription_id},
+        ${forwarding_phone_number},
         now()
       )
       ON CONFLICT (user_id) DO UPDATE SET
@@ -3254,6 +3286,7 @@ export async function updateOnboardingProfile(
         billing_cycle_end = EXCLUDED.billing_cycle_end,
         stripe_customer_id = EXCLUDED.stripe_customer_id,
         stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+        forwarding_phone_number = EXCLUDED.forwarding_phone_number,
         updated_at = now()
       RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
                 port_carrier, fallback_type, trade_category, opening_line,
@@ -3261,6 +3294,7 @@ export async function updateOnboardingProfile(
                 subscription_tier, carrier_credit, low_balance_notified,
                 billing_cycle_start, billing_cycle_end,
                 stripe_customer_id, stripe_subscription_id,
+                forwarding_phone_number,
                 updated_at
     `
     return mapOnboardingProfileRow(rows[0] as Record<string, unknown>)

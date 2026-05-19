@@ -1,11 +1,13 @@
 // ============================================
 // GET/POST /api/voice/test-echo
 // ============================================
-// Self-service audio quality line: greeting → 5s record → playback twice → hang up.
-// Point a Telnyx TeXML app or debug DID at this URL to verify call clarity end-to-end.
+// a) POST + JSON + session → outbound Telnyx dial to forwarding_phone_number
+// b) GET/POST from Telnyx → TeXML intro → record 5s → playback twice → hangup
 
 import { NextRequest, NextResponse } from "next/server"
+import { getUserIdFromRequest } from "@/lib/auth"
 import { buildTestEchoIntroTexml, buildTestEchoPlaybackTexml } from "@/lib/telnyx-test-echo-texml"
+import { initiateTestEchoForUser } from "@/lib/test-echo-initiate"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -19,7 +21,7 @@ function pickRecordingUrl(fields: Record<string, string>): string {
   )
 }
 
-async function readFields(req: NextRequest): Promise<Record<string, string>> {
+async function readWebhookFields(req: NextRequest): Promise<Record<string, string>> {
   if (req.method === "GET") {
     const out: Record<string, string> = {}
     req.nextUrl.searchParams.forEach((v, k) => {
@@ -27,6 +29,7 @@ async function readFields(req: NextRequest): Promise<Record<string, string>> {
     })
     return out
   }
+
   const contentType = (req.headers.get("content-type") || "").toLowerCase()
   if (contentType.includes("application/json")) {
     try {
@@ -40,6 +43,7 @@ async function readFields(req: NextRequest): Promise<Record<string, string>> {
       return {}
     }
   }
+
   try {
     const formData = await req.formData()
     const out: Record<string, string> = {}
@@ -52,8 +56,8 @@ async function readFields(req: NextRequest): Promise<Record<string, string>> {
   }
 }
 
-async function handleTestEcho(req: NextRequest): Promise<NextResponse> {
-  const fields = await readFields(req)
+async function handleTestEchoTexml(req: NextRequest): Promise<NextResponse> {
+  const fields = await readWebhookFields(req)
   const phase = (req.nextUrl.searchParams.get("phase") || fields.phase || "").trim().toLowerCase()
 
   if (phase === "playback") {
@@ -66,10 +70,33 @@ async function handleTestEcho(req: NextRequest): Promise<NextResponse> {
   return new NextResponse(body, { headers: { "Content-Type": "text/xml" } })
 }
 
+async function handleDashboardInitiate(req: NextRequest, userId: string): Promise<NextResponse> {
+  try {
+    const body = (await req.json().catch(() => ({}))) as { business_number?: string }
+    const result = await initiateTestEchoForUser(userId, body.business_number)
+    return NextResponse.json({ data: result })
+  } catch (e) {
+    console.error("[voice/test-echo] dashboard initiate", e)
+    const msg = e instanceof Error ? e.message : "Could not start audio diagnostics call"
+    const status = msg.includes("Settings") || msg.includes("Activate") ? 400 : 500
+    return NextResponse.json({ error: msg }, { status })
+  }
+}
+
 export async function GET(req: NextRequest) {
-  return handleTestEcho(req)
+  return handleTestEchoTexml(req)
 }
 
 export async function POST(req: NextRequest) {
-  return handleTestEcho(req)
+  const contentType = (req.headers.get("content-type") || "").toLowerCase()
+
+  if (contentType.includes("application/json")) {
+    const userId = getUserIdFromRequest(req.headers.get("cookie"))
+    if (!userId) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+    return handleDashboardInitiate(req, userId)
+  }
+
+  return handleTestEchoTexml(req)
 }

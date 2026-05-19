@@ -2,7 +2,7 @@ import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
 
 const TEST_ECHO_GREETING =
-  "Welcome to the Lyncr audio test line. After the tone, speak for up to five seconds. We will play your recording back so you can verify call quality."
+  "Welcome to the Lyncr global routing network call quality test. Please record a short message after the beep to test your connection."
 
 /** First hop — greeting + 5 second record window. */
 export function buildTestEchoIntroTexml(): string {
@@ -26,7 +26,7 @@ export function buildTestEchoPlaybackTexml(recordingUrl: string): string {
   const url = recordingUrl.trim()
   if (url) {
     texml.play({ loop: 2 }, url)
-    texmlSayNatural(texml, "Thank you for testing the Lyncr audio line. Goodbye.")
+    texmlSayNatural(texml, "Thank you for completing the Lyncr audio diagnostics check. Goodbye.")
   } else {
     texmlSayNatural(texml, "We could not retrieve your recording. Please try again later. Goodbye.")
   }
