@@ -21,9 +21,23 @@ export function getTelnyxClient(): Telnyx {
   return new Telnyx(apiKey)
 }
 
-// --- App URL used for Telnyx webhook URLs ---
+import { SITE_CANONICAL_URL } from "@/lib/brand"
+
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/$/, "")
+}
+
+// --- App URL used for Telnyx webhook URLs and Stripe return URLs ---
 export function getAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || "https://www.getzingapp.com"
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (fromEnv) {
+    const url = stripTrailingSlash(fromEnv)
+    if (/getzingapp\.com/i.test(url)) return SITE_CANONICAL_URL
+    return url
+  }
+  const vercelHost = process.env.VERCEL_URL?.trim()
+  if (vercelHost) return stripTrailingSlash(`https://${vercelHost}`)
+  return SITE_CANONICAL_URL
 }
 
 // --- TeXML: use TwiML builder; Telnyx accepts TwiML-compatible XML ---

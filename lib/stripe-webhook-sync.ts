@@ -110,15 +110,16 @@ export async function handleStripeInvoicePaymentSucceeded(invoice: Stripe.Invoic
   const subscriptionId = typeof subRef === "string" ? subRef : subRef?.id
   if (!subscriptionId) return
 
-  const userId = resolveUserIdFromStripeObject(invoice)
+  const { getStripeClient } = await import("@/lib/stripe-config")
+  const stripe = getStripeClient()
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+
+  let userId = resolveUserIdFromStripeObject(invoice)
+  if (!userId) userId = resolveUserIdFromStripeObject(subscription)
   if (!userId) {
     console.error("[stripe] invoice.payment_succeeded missing user_id metadata", invoice.id)
     return
   }
-
-  const { getStripeClient } = await import("@/lib/stripe-config")
-  const stripe = getStripeClient()
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
   await syncStripeSubscriptionToNeon(userId, subscription, {
     customerId: typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id,
   })

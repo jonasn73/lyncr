@@ -5,6 +5,7 @@ import {
   handleStripeInvoicePaymentSucceeded,
   handleStripeSubscriptionCreated,
 } from "@/lib/stripe-webhook-sync"
+import { confirmStripeCheckoutSession } from "@/lib/stripe-confirm-checkout"
 
 export const runtime = "nodejs"
 
@@ -33,6 +34,18 @@ export async function POST(req: NextRequest) {
       case "invoice.payment_succeeded":
         await handleStripeInvoicePaymentSucceeded(event.data.object as Stripe.Invoice)
         break
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session
+        if (session.mode !== "subscription") break
+        const userId = session.metadata?.user_id?.trim()
+        if (!userId || !session.id) break
+        try {
+          await confirmStripeCheckoutSession(userId, session.id)
+        } catch (e) {
+          console.error("[webhooks/stripe] checkout.session.completed sync failed", e)
+        }
+        break
+      }
       default:
         break
     }

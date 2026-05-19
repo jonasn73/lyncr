@@ -119,6 +119,20 @@ export async function startStripeSubscriptionCheckout(): Promise<{ checkoutUrl: 
   return { checkoutUrl: json.data.url, sessionId: json.data.session_id ?? "" }
 }
 
+/** Sync subscription from Stripe after checkout (session id optional — falls back to email lookup). */
+export async function confirmStripeSubscriptionAfterCheckout(
+  sessionId?: string | null
+): Promise<void> {
+  const res = await fetch("/api/billing/stripe/confirm", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId?.trim() || undefined }),
+  })
+  const json = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(json.error || "Could not sync subscription")
+}
+
 /** @deprecated Use startStripeSubscriptionCheckout — activation completes via Stripe webhook. */
 export async function activateSubscriptionClient(opts?: {
   saveBillingMethod?: boolean

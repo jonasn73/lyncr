@@ -1,6 +1,6 @@
 import { getAppUrl } from "@/lib/telnyx"
 import { getOnboardingProfile, getUser } from "@/lib/db"
-import { getStripeClient, getStripeCorePriceId } from "@/lib/stripe-config"
+import { getStripeClient, resolveStripeCorePriceId } from "@/lib/stripe-config"
 
 export type StripeCheckoutSessionResult = {
   url: string
@@ -20,7 +20,7 @@ export async function createLyncrCoreSubscriptionCheckout(userId: string): Promi
   const user = await getUser(userId)
   const appUrl = getAppUrl().replace(/\/$/, "")
   const stripe = getStripeClient()
-  const priceId = getStripeCorePriceId()
+  const priceId = await resolveStripeCorePriceId(stripe)
   const display =
     profile.reserved_number_display?.trim() || profile.reserved_number?.trim() || "Business line"
 

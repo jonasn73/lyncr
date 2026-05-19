@@ -58,3 +58,37 @@ export function getStripeCorePriceId(): string {
   }
   return id
 }
+
+/** Turns STRIPE_CORE_PRICE_ID into a Checkout-ready price id (handles prod_… misconfiguration). */
+export async function resolveStripeCorePriceId(stripe: Stripe): Promise<string> {
+  const id = getStripeCorePriceId()
+  if (id.startsWith("price_")) {
+    return id
+  }
+  if (id.startsWith("prod_")) {
+    const product = await stripe.products.retrieve(id, { expand: ["default_price"] })
+    const defaultPrice = product.default_price
+    if (typeof defaultPrice === "string") {
+      return defaultPrice
+    }
+    if (defaultPrice && typeof defaultPrice === "object" && "id" in defaultPrice) {
+      return defaultPrice.id
+    }
+    const prices = await stripe.prices.list({
+      product: id,
+      active: true,
+      type: "recurring",
+      limit: 1,
+    })
+    const fallback = prices.data[0]?.id
+    if (fallback) {
+      return fallback
+    }
+    throw new Error(
+      `STRIPE_CORE_PRICE_ID is a product (${id}) with no price. In Stripe Dashboard → Products → add a recurring price, then set STRIPE_CORE_PRICE_ID to the price id (price_…).`
+    )
+  }
+  throw new Error(
+    `STRIPE_CORE_PRICE_ID must start with price_ (not "${id.slice(0, 8)}…"). In Stripe Dashboard open your product and copy the Price id.`
+  )
+}

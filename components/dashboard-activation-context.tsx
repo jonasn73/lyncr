@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import {
   fetchOnboardingProfile,
   fetchOnboardingProvisionMode,
+  confirmStripeSubscriptionAfterCheckout,
   startStripeSubscriptionCheckout,
   type OnboardingProvisionMode,
 } from "@/lib/onboarding-profile-client"
@@ -80,6 +81,13 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
     }
   }, [activating, profile, carrierLive, toast])
 
+  const reservedDisplay =
+    profile?.reserved_number_display?.trim() || profile?.reserved_number?.trim() || null
+
+  const subscriptionActive = isVerifiedActiveSubscription(profile, carrierLive)
+  const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
+  const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
+
   useEffect(() => {
     void refreshProfile()
   }, [refreshProfile])
@@ -91,14 +99,49 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
   }, [refreshProfile])
 
   useEffect(() => {
+    if (loading || subscriptionActive || !profile?.reserved_number) return
+    if (sessionStorage.getItem("lyncr-stripe-recover")) return
+    sessionStorage.setItem("lyncr-stripe-recover", "1")
+    void (async () => {
+      try {
+        await confirmStripeSubscriptionAfterCheckout()
+        await refreshProfile({ silent: true })
+      } catch {
+        sessionStorage.removeItem("lyncr-stripe-recover")
+      }
+    })()
+  }, [loading, subscriptionActive, profile?.reserved_number, refreshProfile])
+
+  useEffect(() => {
     const checkout = searchParams.get("stripe_checkout")
+    const sessionId = searchParams.get("session_id")
     if (checkout === "success") {
-      toast({
-        title: "Payment received",
-        description: "Your subscription is activating. This may take a moment while we provision your line.",
-      })
-      void refreshProfile({ silent: true })
-      window.history.replaceState({}, "", "/dashboard")
+      void (async () => {
+        try {
+          await confirmStripeSubscriptionAfterCheckout(sessionId)
+          toast({
+            title: "Payment received",
+            description: "Your subscription is active. Provisioning your line may take a moment.",
+          })
+          await refreshProfile({ silent: true })
+        } catch {
+          try {
+            await confirmStripeSubscriptionAfterCheckout()
+            toast({
+              title: "Payment received",
+              description: "Your subscription is now linked to your account.",
+            })
+            await refreshProfile({ silent: true })
+          } catch {
+            toast({
+              title: "Payment received",
+              description:
+                "We could not sync automatically yet. Refresh in a minute or contact support if trial mode persists.",
+            })
+          }
+        }
+        window.history.replaceState({}, "", "/dashboard")
+      })()
     } else if (checkout === "cancelled") {
       toast({
         title: "Checkout cancelled",
@@ -107,13 +150,6 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       window.history.replaceState({}, "", "/dashboard")
     }
   }, [searchParams, refreshProfile, toast])
-
-  const reservedDisplay =
-    profile?.reserved_number_display?.trim() || profile?.reserved_number?.trim() || null
-
-  const subscriptionActive = isVerifiedActiveSubscription(profile, carrierLive)
-  const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
-  const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
   const value = useMemo(
     (): DashboardActivationContextValue => ({

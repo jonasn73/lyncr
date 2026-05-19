@@ -22,8 +22,8 @@ export const SITE_BRAND_STORY =
 export const SITE_DESCRIPTION =
   "lyncr helps you buy or port a business number, route calls to your team or cell, and set voicemail, AI, or owner fallback—clear, calm, and always on."
 
-/** Canonical site URL (update when the domain moves off getzingapp.com). */
-export const SITE_CANONICAL_URL = "https://www.getzingapp.com"
+/** Canonical site URL — used when NEXT_PUBLIC_APP_URL is unset. */
+export const SITE_CANONICAL_URL = "https://lyncr.app"
 
 /** Browser tab title template segment (after page title). */
 export const SITE_TITLE_TEMPLATE_SUFFIX = SITE_NAME
