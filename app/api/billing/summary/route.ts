@@ -14,6 +14,9 @@ import {
 } from "@/lib/billing-pricing"
 import { hasEnoughCarrierCredit } from "@/lib/subscription-tier"
 import {
+  LOW_CARRIER_CREDIT_THRESHOLD_USD,
+} from "@/lib/carrier-credit-threshold"
+import {
   CARRIER_PROVISIONING_FEE_USD,
   TIER_DISPLAY_NAME,
   normalizeSubscriptionTier,
@@ -45,6 +48,9 @@ export async function GET(req: Request) {
     const carrierCreditUsd = Number(profile?.carrier_credit ?? balanceCents / 100)
     const needsCarrierCredit =
       hasPaidSubscription && !hasEnoughCarrierCredit(carrierCreditUsd > 0 ? carrierCreditUsd : balanceCents / 100)
+    const lowBalanceNotified = profile?.low_balance_notified === true
+    const lowCarrierCreditWarning =
+      lowBalanceNotified && carrierCreditUsd < LOW_CARRIER_CREDIT_THRESHOLD_USD
 
     let telnyx_carrier_balance_label: string | null = null
     let telnyx_available_credit_label: string | null = null
@@ -69,6 +75,9 @@ export async function GET(req: Request) {
         subscription_active: hasPaidSubscription,
         stripe_subscription_id: profile?.stripe_subscription_id?.trim() || null,
         needs_carrier_credit: needsCarrierCredit,
+        low_balance_notified: lowBalanceNotified,
+        low_carrier_credit_warning: lowCarrierCreditWarning,
+        low_carrier_credit_threshold_usd: LOW_CARRIER_CREDIT_THRESHOLD_USD,
         active_number_limit: tierActiveNumberLimit(subscriptionTier),
         telnyx_carrier_balance_label,
         telnyx_available_credit_label,

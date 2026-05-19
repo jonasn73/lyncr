@@ -16,6 +16,52 @@ export function readInboundDialRtpSymmetric(): boolean {
   return true
 }
 
+/**
+ * Comfort Noise Generation (CNG) on bridged PSTN legs — prevents dead-air during handoffs.
+ * Disable with `ZING_INBOUND_COMFORT_NOISE=0`.
+ */
+export function readInboundComfortNoiseEnabled(): boolean {
+  const raw = (process.env.ZING_INBOUND_COMFORT_NOISE || "").trim().toLowerCase()
+  if (raw === "0" || raw === "false" || raw === "no") return false
+  return true
+}
+
+/** Adaptive jitter buffer for cellular callers (Telnyx extended media attributes). */
+export function readInboundJitterBufferConfig(): {
+  enabled: boolean
+  mode: "adaptive"
+  minMs: number
+  maxMs: number
+} {
+  const raw = (process.env.ZING_INBOUND_JITTER_BUFFER || "").trim().toLowerCase()
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") {
+    return { enabled: false, mode: "adaptive", minMs: 40, maxMs: 200 }
+  }
+  const minMs = Math.max(40, Math.min(400, parseInt(process.env.ZING_INBOUND_JITTER_BUFFER_MIN_MS || "40", 10) || 40))
+  const maxMs = Math.max(
+    minMs,
+    Math.min(400, parseInt(process.env.ZING_INBOUND_JITTER_BUFFER_MAX_MS || "200", 10) || 200)
+  )
+  return { enabled: true, mode: "adaptive", minMs, maxMs }
+}
+
+/** Extra Telnyx media attributes shared by `<Dial>` and `<Number>` on forwarded legs. */
+export function buildBridgedLegMediaAttributes(): Record<string, string | boolean | number> {
+  const out: Record<string, string | boolean | number> = {}
+  if (readInboundComfortNoiseEnabled()) {
+    out.comfort_noise_generation = true
+    out.enable_cng = true
+  }
+  const jitter = readInboundJitterBufferConfig()
+  if (jitter.enabled) {
+    out.enable_jitter_buffer = true
+    out.jitter_buffer_mode = jitter.mode
+    out.jitterbuffer_msec_min = jitter.minMs
+    out.jitterbuffer_msec_max = jitter.maxMs
+  }
+  return out
+}
+
 /** US ringback while the B-leg is ringing (`answerOnBridge` preserves caller-side ringing). */
 export function readInboundDialRingTone(): string {
   const raw = (process.env.ZING_INBOUND_DIAL_RING_TONE || "us").trim()
@@ -87,6 +133,7 @@ export function buildInboundPstnDialAttributes(opts: {
     timeout: opts.timeout,
     action: opts.action,
     method: opts.method ?? "POST",
+    ...buildBridgedLegMediaAttributes(),
   }
   if (opts.callerId) out.callerId = opts.callerId
   if (opts.fromDisplayName) out.fromDisplayName = opts.fromDisplayName
@@ -94,9 +141,10 @@ export function buildInboundPstnDialAttributes(opts: {
 }
 
 /** Telnyx-extended `<Number>` attributes for codec + symmetric RTP on the forwarded leg. */
-export function buildInboundPstnNumberAttributes(): Record<string, string | boolean> {
-  const out: Record<string, string | boolean> = {
+export function buildInboundPstnNumberAttributes(): Record<string, string | boolean | number> {
+  const out: Record<string, string | boolean | number> = {
     preferred_codecs: readInboundDialPreferredCodecs(),
+    ...buildBridgedLegMediaAttributes(),
   }
   if (readInboundDialRtpSymmetric()) {
     out.rtp_symmetric = true
@@ -104,23 +152,45 @@ export function buildInboundPstnNumberAttributes(): Record<string, string | bool
   return out
 }
 
-/** Inject Telnyx media attributes onto `<Number>` tags in generated TeXML. */
+/** Inject Telnyx media attributes onto `<Dial>` and `<Number>` tags in generated TeXML. */
 export function finalizeInboundTexmlXml(xml: string): string {
   const codecs = readInboundDialPreferredCodecs()
   const symmetric = readInboundDialRtpSymmetric()
-  if (!codecs && !symmetric) return xml
+  const comfort = readInboundComfortNoiseEnabled()
+  const jitter = readInboundJitterBufferConfig()
 
-  return xml.replace(/<Number(\s[^>]*>|>)/g, (match) => {
-    let extra = ""
-    if (codecs && !/preferred_codecs=/.test(match)) {
-      extra += ` preferred_codecs="${escapeXmlAttr(codecs)}"`
-    }
-    if (symmetric && !/rtp_symmetric=/.test(match)) {
-      extra += ` rtp_symmetric="true"`
-    }
-    if (!extra) return match
-    return match.replace("<Number", `<Number${extra}`)
-  })
+  let out = xml.replace(/<Dial(\s[^>]*>|>)/g, (match) => injectMediaAttrsOnTag(match, "Dial", { comfort, jitter }))
+  out = out.replace(/<Number(\s[^>]*>|>)/g, (match) =>
+    injectMediaAttrsOnTag(match, "Number", { codecs, symmetric, comfort, jitter })
+  )
+  return out
+}
+
+function injectMediaAttrsOnTag(
+  match: string,
+  tag: "Dial" | "Number",
+  opts: {
+    codecs?: string
+    symmetric?: boolean
+    comfort: boolean
+    jitter: ReturnType<typeof readInboundJitterBufferConfig>
+  }
+): string {
+  let extra = ""
+  if (tag === "Number" && opts.codecs && !/preferred_codecs=/.test(match)) {
+    extra += ` preferred_codecs="${escapeXmlAttr(opts.codecs)}"`
+  }
+  if (tag === "Number" && opts.symmetric && !/rtp_symmetric=/.test(match)) {
+    extra += ` rtp_symmetric="true"`
+  }
+  if (opts.comfort && !/comfort_noise_generation=/.test(match) && !/enable_cng=/.test(match)) {
+    extra += ` comfort_noise_generation="true" enable_cng="true"`
+  }
+  if (opts.jitter.enabled && !/enable_jitter_buffer=/.test(match)) {
+    extra += ` enable_jitter_buffer="true" jitter_buffer_mode="${opts.jitter.mode}" jitterbuffer_msec_min="${opts.jitter.minMs}" jitterbuffer_msec_max="${opts.jitter.maxMs}"`
+  }
+  if (!extra) return match
+  return match.replace(`<${tag}`, `<${tag}${extra}`)
 }
 
 /** Log-friendly app base URL (used when building early-media continue links). */

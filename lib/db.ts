@@ -72,7 +72,8 @@ function isMissingOnboardingProfileColumnError(e: unknown): boolean {
     msg.includes("stripe_subscription") ||
     msg.includes("has_billing_method") ||
     msg.includes("subscription_tier") ||
-    msg.includes("carrier_credit")
+    msg.includes("carrier_credit") ||
+    msg.includes("low_balance_notified")
   )
 }
 
@@ -1398,6 +1399,19 @@ export async function updateCallLog(
   if (updates.post_dial_delay_ms !== undefined) {
     await sql`UPDATE call_logs SET post_dial_delay_ms = ${updates.post_dial_delay_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
   }
+}
+
+/** Resolve account owner from a Telnyx/Twilio call SID (for usage billing side-effects). */
+export async function getCallLogUserIdByProviderSid(providerCallSid: string): Promise<string | null> {
+  const sid = providerCallSid.trim()
+  if (!sid) return null
+  const sql = getSql()
+  const rows = await sql`
+    SELECT user_id FROM call_logs
+    WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+    LIMIT 1
+  `
+  return rows[0]?.user_id != null ? String(rows[0].user_id) : null
 }
 
 // Record a provider status event and derive setup timing metrics.
@@ -2943,6 +2957,17 @@ export async function adminAdjustUserCreditBalance(params: {
         SET carrier_credit = ROUND((${balanceAfter}::numeric / 100.0), 2), updated_at = now()
         WHERE user_id = ${params.target_user_id}
       `
+      if (balanceAfter / 100 >= 3) {
+        try {
+          await sql`
+            UPDATE onboarding_profiles
+            SET low_balance_notified = false, updated_at = now()
+            WHERE user_id = ${params.target_user_id}
+          `
+        } catch {
+          // low_balance_notified column may be missing before scripts/029
+        }
+      }
     } catch {
       // carrier_credit column may be missing before scripts/028
     }
@@ -3026,6 +3051,7 @@ function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfil
     has_active_subscription: pgBool(row.has_active_subscription),
     subscription_tier: row.subscription_tier != null ? String(row.subscription_tier) : "free_trial",
     carrier_credit: row.carrier_credit != null ? Number(row.carrier_credit) : 0,
+    low_balance_notified: pgBool(row.low_balance_notified),
     billing_cycle_start: pgTimestamptzToIso(row.billing_cycle_start),
     billing_cycle_end: pgTimestamptzToIso(row.billing_cycle_end),
     stripe_customer_id: row.stripe_customer_id != null ? String(row.stripe_customer_id) : null,
@@ -3057,7 +3083,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
       SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
              port_carrier, fallback_type, trade_category, opening_line,
              has_active_subscription,
-             subscription_tier, carrier_credit,
+             subscription_tier, carrier_credit, low_balance_notified,
              billing_cycle_start, billing_cycle_end,
              stripe_customer_id, stripe_subscription_id,
              updated_at
@@ -3149,6 +3175,10 @@ export async function updateOnboardingProfile(
     updates.carrier_credit !== undefined
       ? updates.carrier_credit
       : existing?.carrier_credit ?? 0
+  const low_balance_notified =
+    updates.low_balance_notified !== undefined
+      ? updates.low_balance_notified
+      : existing?.low_balance_notified ?? false
   const billing_cycle_start = pgTimestamptzToIso(
     updates.billing_cycle_start !== undefined
       ? updates.billing_cycle_start
@@ -3174,7 +3204,7 @@ export async function updateOnboardingProfile(
         user_id, reserved_number, reserved_number_display, reserved_number_method,
         port_carrier, fallback_type, trade_category, opening_line,
         has_active_subscription,
-        subscription_tier, carrier_credit,
+        subscription_tier, carrier_credit, low_balance_notified,
         billing_cycle_start, billing_cycle_end,
         stripe_customer_id, stripe_subscription_id,
         updated_at
@@ -3183,7 +3213,7 @@ export async function updateOnboardingProfile(
         ${userId}, ${reserved_number}, ${reserved_number_display}, ${reserved_number_method},
         ${port_carrier}, ${fallback_type}, ${trade_category}, ${opening_line},
         ${has_active_subscription},
-        ${subscription_tier}, ${carrier_credit},
+        ${subscription_tier}, ${carrier_credit}, ${low_balance_notified},
         ${billing_cycle_start}, ${billing_cycle_end},
         ${stripe_customer_id}, ${stripe_subscription_id},
         now()
@@ -3199,6 +3229,7 @@ export async function updateOnboardingProfile(
         has_active_subscription = EXCLUDED.has_active_subscription,
         subscription_tier = EXCLUDED.subscription_tier,
         carrier_credit = EXCLUDED.carrier_credit,
+        low_balance_notified = EXCLUDED.low_balance_notified,
         billing_cycle_start = EXCLUDED.billing_cycle_start,
         billing_cycle_end = EXCLUDED.billing_cycle_end,
         stripe_customer_id = EXCLUDED.stripe_customer_id,
@@ -3207,7 +3238,7 @@ export async function updateOnboardingProfile(
       RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
                 port_carrier, fallback_type, trade_category, opening_line,
                 has_active_subscription,
-                subscription_tier, carrier_credit,
+                subscription_tier, carrier_credit, low_balance_notified,
                 billing_cycle_start, billing_cycle_end,
                 stripe_customer_id, stripe_subscription_id,
                 updated_at

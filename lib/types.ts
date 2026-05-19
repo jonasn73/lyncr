@@ -41,6 +41,8 @@ export interface OnboardingProfile {
   subscription_tier: string
   /** Prepaid USD balance for number provisioning (scripts/028). */
   carrier_credit: number
+  /** Pay-tab low wallet warning after usage drops below threshold (scripts/029). */
+  low_balance_notified: boolean
   billing_cycle_start: string | null
   billing_cycle_end: string | null
   stripe_customer_id: string | null
@@ -59,6 +61,7 @@ export type UpdateOnboardingProfileRequest = {
   has_active_subscription?: boolean
   subscription_tier?: string
   carrier_credit?: number
+  low_balance_notified?: boolean
   billing_cycle_start?: string | null
   billing_cycle_end?: string | null
   stripe_customer_id?: string | null

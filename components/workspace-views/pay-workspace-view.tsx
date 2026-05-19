@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatUsdFromCents } from "@/lib/billing-pricing"
 import { confirmCreditPackCheckout, startCreditPackCheckout, startStripeSubscriptionCheckout } from "@/lib/onboarding-profile-client"
+import { LOW_CARRIER_CREDIT_THRESHOLD_USD } from "@/lib/carrier-credit-threshold"
 import { CHECKOUT_TIER_OPTIONS, type CheckoutSubscriptionTier } from "@/lib/subscription-checkout"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -33,6 +34,9 @@ type BillingSummary = {
   subscription_tier?: string
   subscription_tier_label?: string
   needs_carrier_credit?: boolean
+  low_balance_notified?: boolean
+  low_carrier_credit_warning?: boolean
+  low_carrier_credit_threshold_usd?: number
   plans?: { key: string; monthly_price_label: string; included_minutes_per_month: number }[]
 }
 
@@ -112,6 +116,8 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const planKey = billing?.current_plan ?? "starter"
   const subscriptionActive = billing?.subscription_active === true
   const needsCarrierCredit = billing?.needs_carrier_credit === true
+  const lowCarrierCreditWarning = billing?.low_carrier_credit_warning === true
+  const lowCreditThreshold = billing?.low_carrier_credit_threshold_usd ?? LOW_CARRIER_CREDIT_THRESHOLD_USD
   const includedMinutes = useMemo(() => {
     const fromPlan = billing?.plans?.find((p) => p.key === planKey)?.included_minutes_per_month
     return fromPlan && fromPlan > 0 ? fromPlan : 300
@@ -180,6 +186,13 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
           Your subscription is active, but your line is not live yet. Add at least{" "}
           {billing?.telnyx_number_purchase_label ?? "$2.00"} carrier credit below — then we will purchase and wire
           your number on Telnyx automatically.
+        </p>
+      ) : null}
+
+      {lowCarrierCreditWarning ? (
+        <p className="rounded-xl border border-rose-500/35 bg-rose-950/30 px-4 py-3 text-sm text-foreground/90">
+          Your carrier credit is below ${lowCreditThreshold.toFixed(2)} ({balanceLabel} remaining). Add credit below
+          soon so calls keep routing without interruption.
         </p>
       ) : null}
 

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { recordCallStatusEvent, updateCallLog } from "@/lib/db"
+import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -42,6 +43,15 @@ export async function POST(req: NextRequest) {
     }
 
     await updateCallLog(callSid, { call_type: callType, status: callStatus, duration_seconds: duration })
+
+    const terminal = ["completed", "busy", "failed", "no-answer", "canceled"].includes(
+      callStatus.trim().toLowerCase()
+    )
+    if (terminal) {
+      void evaluateLowCarrierCreditFromCallUsage(callSid).catch((walletErr) => {
+        console.error("[Telnyx] Low carrier credit evaluation failed:", walletErr)
+      })
+    }
   } catch (error) {
     console.error("[Telnyx] Error in status callback:", error)
   }
