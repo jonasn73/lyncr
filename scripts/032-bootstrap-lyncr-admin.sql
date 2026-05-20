@@ -4,8 +4,8 @@
 DO $$
 DECLARE
   v_id uuid;
-  -- bcrypt hash for literal password: admin (bcryptjs, 10 rounds)
-  v_hash text := '$2a$10$mU5OAacSA28h1434ybixXeZVyzSWL79TSOsgM3i46TaZdONv1X/R6';
+  -- bcrypt hash for literal password: admin (bcryptjs, 10 rounds) — verified with bcrypt.compare
+  v_hash text := '$2a$10$hxrv3oLdHlP9z28RwUemLOI/NWcix99WMEgGMKNAU2PYJXqJz85hq';
 BEGIN
   SELECT id INTO v_id FROM users WHERE lower(trim(email)) = lower('admin@lyncr.app');
   IF v_id IS NULL THEN

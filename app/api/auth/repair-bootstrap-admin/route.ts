@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const email = (process.env.ZING_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase() || "admin@getzingapp.com").toLowerCase()
+  const email = (process.env.ZING_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase() || "admin@lyncr.app").toLowerCase()
   const passwordPlain = process.env.ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD?.trim() || "admin"
 
   try {

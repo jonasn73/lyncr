@@ -7,7 +7,7 @@
 -- DATABASE_URL), then try logging in again.
 
 UPDATE users
-SET password_hash = '$2a$10$mU5OAacSA28h1434ybixXeZVyzSWL79TSOsgM3i46TaZdONv1X/R6',
+SET password_hash = '$2a$10$hxrv3oLdHlP9z28RwUemLOI/NWcix99WMEgGMKNAU2PYJXqJz85hq',
     is_platform_admin = true
 WHERE lower(email) = lower('admin@getzingapp.com');
 
