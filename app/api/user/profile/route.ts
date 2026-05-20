@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { updateUser, syncForwardingPhoneNumber } from "@/lib/db"
+import { updateUser } from "@/lib/db"
 import { AI_INTAKE_PROFILE_IDS } from "@/lib/business-industries"
 
 function normalizePhone(phone: string): string {
@@ -60,9 +60,6 @@ export async function PATCH(req: NextRequest) {
       )
     }
     await updateUser(userId, updates)
-    if (updates.phone) {
-      await syncForwardingPhoneNumber(userId, updates.phone)
-    }
     return NextResponse.json({ data: { ok: true } })
   } catch (error) {
     console.error("[Sigo] Update profile error:", error)

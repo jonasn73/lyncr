@@ -33,7 +33,6 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 | 27 | `027-stripe-billing-cycle.sql` | **`billing_cycle_start` / `billing_cycle_end`**, Stripe customer + subscription ids |
 | 28 | `028-subscription-tier-carrier-credit.sql` | **`subscription_tier`**, **`carrier_credit`** on `onboarding_profiles` — line limits + prepaid provisioning wallet |
 | 29 | `029-low-balance-notified.sql` | **`low_balance_notified`** on `onboarding_profiles` — Pay tab warning when carrier credit drops below $3 after call usage |
-| 30 | `030-forwarding-phone-number.sql` | **`forwarding_phone_number`** on `onboarding_profiles` — personal cell target for audio diagnostics dial-out |
 
 ## Optional: first platform admin (`admin@getzingapp.com` / `admin`)
 

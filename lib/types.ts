@@ -47,8 +47,6 @@ export interface OnboardingProfile {
   billing_cycle_end: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
-  /** Personal cell for audio diagnostics dial-out (scripts/030). */
-  forwarding_phone_number: string | null
   updated_at: string
 }
 
@@ -68,7 +66,6 @@ export type UpdateOnboardingProfileRequest = {
   billing_cycle_end?: string | null
   stripe_customer_id?: string | null
   stripe_subscription_id?: string | null
-  forwarding_phone_number?: string | null
 }
 
 export type FeedbackCategory = "issue" | "feature" | "billing" | "other"
