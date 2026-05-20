@@ -10,13 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import {
   Sheet,
   SheetContent,
@@ -133,19 +127,30 @@ export function AdminUserManageDrawer({
           >
             <div className="space-y-2">
               <Label className="text-slate-300">Account status</Label>
-              <Select value={targetStatus} onValueChange={setTargetStatus}>
-                <SelectTrigger className="border-slate-700 bg-slate-950 text-slate-100">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Account status">
+                {ACCOUNT_STATUSES.map((s) => {
+                  const selected = targetStatus === s
+                  return (
+                    <Button
+                      key={s}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-pressed={selected}
+                      className={cn(
+                        "border-slate-700",
+                        selected && s === "active" && "border-emerald-600 bg-emerald-600/20 text-emerald-200",
+                        selected && s === "suspended" && "border-red-600 bg-red-600/20 text-red-200",
+                        selected && s === "flagged" && "border-amber-600 bg-amber-600/20 text-amber-200",
+                        !selected && "bg-slate-950 text-slate-300 hover:bg-slate-900"
+                      )}
+                      onClick={() => setTargetStatus(s)}
+                    >
                       {accountStatusLabel(s)}
-                      {s === "suspended" ? " — blocks Telnyx routing" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </Button>
+                  )
+                })}
+              </div>
               <p className="text-xs text-slate-500">
                 Suspended accounts cannot receive or route calls until reactivated.
               </p>
