@@ -2810,14 +2810,65 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
   }
 }
 
-/** Flip subscription flag for billing overrides. */
+/** Atomically adjust onboarding_profiles.carrier_credit (admin override). */
+export async function adminAdjustProfileCarrierCredit(params: {
+  userId: string
+  amountUsd: number
+}): Promise<{ user_id: string; carrier_credit_after: number }> {
+  const sql = getSql()
+  const delta = Number(params.amountUsd)
+  if (!Number.isFinite(delta) || delta === 0) {
+    throw new Error("amount must be a non-zero finite number")
+  }
+  await ensureOnboardingProfile(params.userId)
+  try {
+    const rows = await sql`
+      WITH updated AS (
+        UPDATE onboarding_profiles
+        SET
+          carrier_credit = ROUND((coalesce(carrier_credit, 0)::numeric + ${delta}::numeric), 2),
+          updated_at = now()
+        WHERE user_id = ${params.userId}
+        RETURNING user_id, carrier_credit
+      )
+      UPDATE users u
+      SET credit_balance_cents = GREATEST(0, ROUND((updated.carrier_credit * 100)::numeric)::int)
+      FROM updated
+      WHERE u.id = updated.user_id
+      RETURNING updated.user_id, updated.carrier_credit
+    `
+    const row = rows[0] as { user_id?: string; carrier_credit?: number | string } | undefined
+    if (!row?.user_id) {
+      throw new Error("User profile not found")
+    }
+    return {
+      user_id: String(row.user_id),
+      carrier_credit_after: Number(row.carrier_credit ?? 0),
+    }
+  } catch (e) {
+    if (isMissingOnboardingProfileColumnError(e)) {
+      throw new Error("carrier_credit column missing — run scripts/028-subscription-tier-carrier-credit.sql in Neon.")
+    }
+    throw e
+  }
+}
+
+/** Set subscription override + tier (business when active, free_trial when inactive). */
 export async function adminToggleUserSubscription(
   userId: string,
   hasActive: boolean
-): Promise<{ user_id: string; has_active_subscription: boolean }> {
+): Promise<{ user_id: string; has_active_subscription: boolean; subscription_tier: string }> {
   await ensureOnboardingProfile(userId)
-  const profile = await updateOnboardingProfile(userId, { has_active_subscription: hasActive })
-  return { user_id: userId, has_active_subscription: profile.has_active_subscription }
+  const subscription_tier = hasActive ? "business" : "free_trial"
+  const profile = await updateOnboardingProfile(userId, {
+    has_active_subscription: hasActive,
+    subscription_tier,
+  })
+  return {
+    user_id: userId,
+    has_active_subscription: profile.has_active_subscription,
+    subscription_tier: profile.subscription_tier,
+  }
 }
 
 export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {

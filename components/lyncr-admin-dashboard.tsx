@@ -2,7 +2,7 @@
 
 // Lyncr platform operator dashboard — KPIs, user directory, credit + subscription overrides.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   Activity,
   CreditCard,
@@ -37,7 +37,11 @@ function formatUsd(amount: number): string {
 
 function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
   const color =
-    status === "ok" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" : status === "unconfigured" ? "bg-amber-400" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+    status === "ok"
+      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+      : status === "unconfigured"
+        ? "bg-amber-400"
+        : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]"
   const label = status === "ok" ? "Connected" : status === "unconfigured" ? "Not configured" : "Error"
   return (
     <span className="inline-flex items-center gap-2">
@@ -79,15 +83,16 @@ function UserRowActions({
   onUpdated,
 }: {
   row: LyncrAdminDirectoryRow
-  onUpdated: () => void
+  onUpdated: () => Promise<void>
 }) {
   const [creditDelta, setCreditDelta] = useState("")
   const [creditBusy, setCreditBusy] = useState(false)
   const [toggleBusy, setToggleBusy] = useState(false)
 
-  async function adjustCredit() {
-    const delta = Number(creditDelta)
-    if (!Number.isFinite(delta) || delta === 0) {
+  async function handleAdjustCredit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const amount = Number(creditDelta)
+    if (!Number.isFinite(amount) || amount === 0) {
       toast.error("Enter a non-zero dollar amount (e.g. 10 or -5)")
       return
     }
@@ -97,36 +102,43 @@ function UserRowActions({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: row.user_id, delta_usd: delta }),
+        body: JSON.stringify({ userId: row.user_id, amount }),
       })
       const json = (await res.json()) as { error?: string; data?: { carrier_credit_after?: number } }
       if (!res.ok) throw new Error(json.error ?? "Adjust credit failed")
       toast.success(`Credit updated — new balance ${formatUsd(json.data?.carrier_credit_after ?? 0)}`)
       setCreditDelta("")
-      onUpdated()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Adjust credit failed")
+      await onUpdated()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Adjust credit failed")
     } finally {
       setCreditBusy(false)
     }
   }
 
-  async function toggleSubscription() {
+  async function handleSubscriptionChange(activeStatus: boolean) {
     setToggleBusy(true)
     try {
       const res = await fetch("/api/admin/toggle-subscription", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: row.user_id }),
+        body: JSON.stringify({ userId: row.user_id, activeStatus }),
       })
-      const json = (await res.json()) as { error?: string; data?: { has_active_subscription?: boolean } }
-      if (!res.ok) throw new Error(json.error ?? "Toggle failed")
-      const active = json.data?.has_active_subscription
-      toast.success(active ? "Subscription activated" : "Subscription deactivated")
-      onUpdated()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Toggle subscription failed")
+      const json = (await res.json()) as {
+        error?: string
+        data?: { has_active_subscription?: boolean; subscription_tier?: string }
+      }
+      if (!res.ok) throw new Error(json.error ?? "Subscription update failed")
+      const active = json.data?.has_active_subscription ?? activeStatus
+      toast.success(
+        active
+          ? `Subscription activated (${json.data?.subscription_tier ?? "business"})`
+          : `Subscription deactivated (${json.data?.subscription_tier ?? "free_trial"})`
+      )
+      await onUpdated()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Subscription update failed")
     } finally {
       setToggleBusy(false)
     }
@@ -134,7 +146,7 @@ function UserRowActions({
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <div className="flex min-w-0 items-center gap-2">
+      <form className="flex min-w-0 items-center gap-2" onSubmit={(e) => void handleAdjustCredit(e)}>
         <Input
           type="number"
           step="0.01"
@@ -143,76 +155,59 @@ function UserRowActions({
           onChange={(e) => setCreditDelta(e.target.value)}
           className="h-8 w-24 border-slate-700 bg-slate-950/80 text-slate-100"
           disabled={creditBusy}
+          aria-label={`Credit adjustment for ${row.email}`}
         />
         <Button
-          type="button"
+          type="submit"
           size="sm"
           variant="secondary"
           className="h-8 bg-violet-600/80 text-white hover:bg-violet-600"
           disabled={creditBusy}
-          onClick={() => void adjustCredit()}
         >
           {creditBusy ? <Spinner className="h-3.5 w-3.5" /> : "Adjust credit"}
         </Button>
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className={cn(
-          "h-8 border-slate-600",
-          row.has_active_subscription
-            ? "text-amber-200 hover:bg-amber-950/40"
-            : "text-emerald-200 hover:bg-emerald-950/40"
-        )}
-        disabled={toggleBusy}
-        onClick={() => void toggleSubscription()}
-      >
-        {toggleBusy ? (
-          <Spinner className="h-3.5 w-3.5" />
-        ) : row.has_active_subscription ? (
-          "Deactivate subscription"
-        ) : (
-          "Activate subscription"
-        )}
-      </Button>
+      </form>
+      {row.has_active_subscription ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 border-slate-600 text-amber-200 hover:bg-amber-950/40"
+          disabled={toggleBusy}
+          onClick={() => void handleSubscriptionChange(false)}
+        >
+          {toggleBusy ? <Spinner className="h-3.5 w-3.5" /> : "Deactivate subscription"}
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 border-slate-600 text-emerald-200 hover:bg-emerald-950/40"
+          disabled={toggleBusy}
+          onClick={() => void handleSubscriptionChange(true)}
+        >
+          {toggleBusy ? <Spinner className="h-3.5 w-3.5" /> : "Activate subscription"}
+        </Button>
+      )}
     </div>
   )
 }
 
-export function LyncrAdminDashboard() {
-  const [metrics, setMetrics] = useState<LyncrAdminMetrics | null>(null)
-  const [users, setUsers] = useState<LyncrAdminDirectoryRow[]>([])
+export function LyncrAdminDashboard({
+  metrics,
+  users,
+  loading,
+  refreshing,
+  refreshAdminData,
+}: {
+  metrics: LyncrAdminMetrics | null
+  users: LyncrAdminDirectoryRow[]
+  loading: boolean
+  refreshing: boolean
+  refreshAdminData: (silent?: boolean) => Promise<void>
+}) {
   const [filter, setFilter] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
-    else setRefreshing(true)
-    try {
-      const [metricsRes, directoryRes] = await Promise.all([
-        fetch("/api/admin/metrics", { credentials: "include" }),
-        fetch("/api/admin/directory", { credentials: "include" }),
-      ])
-      if (!metricsRes.ok || !directoryRes.ok) {
-        throw new Error("Failed to load admin data")
-      }
-      const metricsJson = (await metricsRes.json()) as { data?: LyncrAdminMetrics }
-      const directoryJson = (await directoryRes.json()) as { data?: { users?: LyncrAdminDirectoryRow[] } }
-      setMetrics(metricsJson.data ?? null)
-      setUsers(directoryJson.data?.users ?? [])
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load dashboard")
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   const filteredUsers = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -249,7 +244,7 @@ export function LyncrAdminDashboard() {
           size="sm"
           className="border-slate-700 text-slate-200"
           disabled={refreshing}
-          onClick={() => void load(true)}
+          onClick={() => void refreshAdminData(true)}
         >
           <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} aria-hidden />
           Refresh
@@ -353,7 +348,7 @@ export function LyncrAdminDashboard() {
                       <TableCell className="font-mono text-sm text-slate-300">{row.phone_number ?? "—"}</TableCell>
                       <TableCell className="font-medium text-slate-100">{formatUsd(row.carrier_credit)}</TableCell>
                       <TableCell>
-                        <UserRowActions row={row} onUpdated={() => void load(true)} />
+                        <UserRowActions row={row} onUpdated={() => refreshAdminData(true)} />
                       </TableCell>
                     </TableRow>
                   ))
