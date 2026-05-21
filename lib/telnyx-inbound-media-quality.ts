@@ -139,11 +139,14 @@ export function buildInboundPstnDialAttributes(opts: {
 }): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {
     answerOnBridge: opts.answerOnBridge,
-    ringTone: readInboundDialRingTone(),
     timeout: opts.timeout,
     action: opts.action,
     method: opts.method ?? "POST",
     ...buildBridgedLegMediaAttributes(),
+  }
+  // Ringback to the caller only when we deliberately defer answering (answerOnBridge=true).
+  if (opts.answerOnBridge) {
+    out.ringTone = readInboundDialRingTone()
   }
   if (opts.callerId) out.callerId = opts.callerId
   if (opts.fromDisplayName) out.fromDisplayName = opts.fromDisplayName

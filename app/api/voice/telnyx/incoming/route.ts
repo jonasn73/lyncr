@@ -238,6 +238,121 @@ type TwimlInstance = InstanceType<typeof VoiceResponse>
 /** Normal `<Response>` from the Twilio builder, or raw XML (e.g. `<Connect><AIAssistant>`). */
 type IncomingCallResult = { kind: "twiml"; texml: TwimlInstance } | { kind: "raw"; xml: string }
 
+type IncomingRoutingRowNonNull = NonNullable<Awaited<ReturnType<typeof getIncomingRoutingByNumber>>>
+
+/** PSTN `<Dial callerId>` for the business line (multi-DID accounts use primary DID when needed). */
+function resolveInboundOutboundCallerId(
+  routing: IncomingRoutingRowNonNull,
+  businessLineE164: string
+): string {
+  const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
+    (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
+  )
+  const primaryE164 = routing.primary_phone_number?.trim()
+    ? normalizePhoneNumberE164(routing.primary_phone_number)
+    : ""
+  const multiLine = routing.active_phone_count >= 2
+  let outboundCallerId = businessLineE164
+  if (preferPrimaryCallerId) {
+    if (primaryE164 && isReasonablePstnDialString(primaryE164)) outboundCallerId = primaryE164
+  } else if (
+    multiLine &&
+    primaryE164 &&
+    isReasonablePstnDialString(primaryE164) &&
+    isReasonablePstnDialString(businessLineE164)
+  ) {
+    const dialed10 = businessLineE164.replace(/\D/g, "").slice(-10)
+    const primary10 = primaryE164.replace(/\D/g, "").slice(-10)
+    if (dialed10.length >= 10 && primary10.length >= 10 && dialed10 !== primary10) {
+      outboundCallerId = primaryE164
+    }
+  }
+  if (!isReasonablePstnDialString(outboundCallerId) && primaryE164 && isReasonablePstnDialString(primaryE164)) {
+    outboundCallerId = primaryE164
+  }
+  return outboundCallerId
+}
+
+/**
+ * Hot path: one routing row already has receptionist E.164 — return `<Dial>` immediately (no extra DB).
+ * Skips the gap where US ringback plays to the caller before Telnyx starts the PSTN B-leg.
+ */
+function tryFastReceptionistDial(params: {
+  routing: IncomingRoutingRowNonNull
+  businessLineE164: string
+  calledNumber: string
+  callerNumber: string
+  callSid: string
+  callerName: string | null
+  appUrl: string
+}): IncomingCallResult | null {
+  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl } = params
+  const recPhone = resolveReceptionistDialE164(routing.receptionist_phone || "")
+  if (!recPhone || !routing.selected_receptionist_id?.trim()) return null
+
+  const wantsAiAfterNoAnswer = String(routing.fallback_type ?? "").toLowerCase() === "ai"
+  const effectiveRingTimeout = Number(routing.ring_timeout_seconds ?? 30) || 30
+  const receptionistRingSec = wantsAiAfterNoAnswer
+    ? Math.min(effectiveRingTimeout, 22)
+    : effectiveRingTimeout
+
+  const didDigits = businessLineE164.replace(/\D/g, "")
+  const fallbackMode = wantsAiAfterNoAnswer ? "recv-ai" : "recv"
+  const fallbackPathBase =
+    didDigits.length >= 10
+      ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}/n/${didDigits}/${fallbackMode}`
+      : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}`
+  const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
+  const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
+  const origFromQuery = origFromQuerySuffixFromRaw(callerNumber)
+  const outboundCallerId = resolveInboundOutboundCallerId(routing, businessLineE164)
+  const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
+    inboundFromRaw: callerNumber,
+    businessOutboundE164: outboundCallerId,
+  })
+  const answerOnBridge = readTelnyxDialAnswerOnBridge()
+
+  const texml = new VoiceResponse()
+  const dial = texml.dial(
+    buildInboundPstnDialAttributes({
+      ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
+      answerOnBridge,
+      timeout: receptionistRingSec,
+      action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${origFromQuery}`,
+      method: "POST",
+    }) as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0]
+  )
+  dial.number(buildInboundPstnNumberAttributes(), recPhone)
+
+  void insertCallLog({
+    user_id: routing.user_id,
+    provider_call_sid: callSid,
+    from_number: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : "Unknown",
+    to_number: businessLineE164 || normalizePhoneNumberE164(calledNumber),
+    caller_name: callerName,
+    call_type: "incoming",
+    status: "ringing",
+    duration_seconds: 0,
+    routed_to_receptionist_id: routing.selected_receptionist_id,
+    routed_to_name: routing.receptionist_name,
+    has_recording: false,
+    recording_url: null,
+    recording_duration_seconds: null,
+  }).catch((logErr) => {
+    console.error("[Sigo] Call log insert failed (fast path):", logErr)
+  })
+
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-incoming-fast-recv-dial",
+      userId: routing.user_id,
+      callSid,
+      answerOnBridge,
+    })
+  )
+  return { kind: "twiml", texml }
+}
+
 // Shared logic for routing a call (used by both POST and GET handlers)
 async function handleIncomingCall(
   calledNumber: string,
@@ -290,11 +405,25 @@ async function handleIncomingCall(
       return { kind: "raw", xml: buildSuspendedInboundRejectTexml() }
     }
 
+    const mightRepeatLeg = inboundWebhookLooksLikeDialRepeat(webhookFields)
+    const overlayEnabled = readInboundRoutingCfgOverlayEnabled()
+
+    if (!mightRepeatLeg && !overlayEnabled && routing.receptionist_phone?.trim()) {
+      const fast = tryFastReceptionistDial({
+        routing,
+        businessLineE164,
+        calledNumber,
+        callerNumber,
+        callSid,
+        callerName,
+        appUrl,
+      })
+      if (fast) return fast
+    }
+
     const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
     const routingRecId = routing.selected_receptionist_id?.trim() || ""
     const routingHasRecvPhone = Boolean(routingRecId && routing.receptionist_phone?.trim())
-    const overlayEnabled = readInboundRoutingCfgOverlayEnabled()
-    const mightRepeatLeg = inboundWebhookLooksLikeDialRepeat(webhookFields)
 
     const [accountStatus, firstLegDone, routingCfgResult, prefetchedRoutingRec] = await Promise.all([
       statusFromJoin != null ? Promise.resolve(statusFromJoin) : getUserAccountStatus(routing.user_id),
@@ -658,65 +787,45 @@ async function handleIncomingCall(
     const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
       (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
     )
+    const outboundCallerId = resolveInboundOutboundCallerId(routing, businessLineE164)
     const primaryE164 = routing.primary_phone_number?.trim()
       ? normalizePhoneNumberE164(routing.primary_phone_number)
       : ""
     const multiLine = routing.active_phone_count >= 2
 
-    let outboundCallerId = businessLineE164
-    if (preferPrimaryCallerId) {
-      if (primaryE164 && isReasonablePstnDialString(primaryE164)) {
-        outboundCallerId = primaryE164
-        if (shouldEmitVoiceHotPathDebugLogs()) {
-          console.log(
-            JSON.stringify({
-              zing: "telnyx-incoming-callerid-forced-primary-env",
-              callSid,
-              userId: routing.user_id,
-              dialedLine: businessLineE164 || null,
-              callerIdUsed: outboundCallerId,
-            })
-          )
-        }
-      }
+    if (preferPrimaryCallerId && primaryE164 && isReasonablePstnDialString(primaryE164) && shouldEmitVoiceHotPathDebugLogs()) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-incoming-callerid-forced-primary-env",
+          callSid,
+          userId: routing.user_id,
+          dialedLine: businessLineE164 || null,
+          callerIdUsed: outboundCallerId,
+        })
+      )
     } else if (
       multiLine &&
       primaryE164 &&
       isReasonablePstnDialString(primaryE164) &&
-      isReasonablePstnDialString(businessLineE164)
+      isReasonablePstnDialString(businessLineE164) &&
+      outboundCallerId === primaryE164 &&
+      shouldEmitVoiceHotPathDebugLogs()
     ) {
       const dialed10 = businessLineE164.replace(/\D/g, "").slice(-10)
       const primary10 = primaryE164.replace(/\D/g, "").slice(-10)
       if (dialed10.length >= 10 && primary10.length >= 10 && dialed10 !== primary10) {
-        outboundCallerId = primaryE164
-        if (shouldEmitVoiceHotPathDebugLogs()) {
-          console.log(
-            JSON.stringify({
-              zing: "telnyx-incoming-callerid-auto-primary-multi-did",
-              callSid,
-              userId: routing.user_id,
-              dialedLine: businessLineE164,
-              callerIdUsed: outboundCallerId,
-            })
-          )
-        }
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-incoming-callerid-auto-primary-multi-did",
+            callSid,
+            userId: routing.user_id,
+            dialedLine: businessLineE164,
+            callerIdUsed: outboundCallerId,
+          })
+        )
       }
     }
 
-    if (!isReasonablePstnDialString(outboundCallerId)) {
-      if (primaryE164 && isReasonablePstnDialString(primaryE164)) {
-        outboundCallerId = primaryE164
-        if (shouldEmitVoiceHotPathDebugLogs()) {
-          console.log(
-            JSON.stringify({
-              zing: "telnyx-incoming-callerid-fallback-primary",
-              callSid,
-              userId: routing.user_id,
-            })
-          )
-        }
-      }
-    }
     if (!isReasonablePstnDialString(outboundCallerId)) {
       console.error(
         JSON.stringify({

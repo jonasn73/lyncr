@@ -50,12 +50,13 @@ export function origFromQuerySuffixFromRaw(inboundFromRaw: string): string {
 
 /**
  * Twilio/Telnyx `<Dial answerOnBridge>`.
- * **Default `true`:** preserve caller-side ringing (US ringback via `ringTone`) until the teammate answers.
- * **Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=0`:** answer the inbound leg immediately when `<Dial>` runs (legacy behavior).
+ * **Default `false`:** answer inbound immediately and start the PSTN B-leg — avoids US ringback
+ * playing to the caller before the receptionist phone actually rings.
+ * Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1` for classic ringback-until-answer.
  */
 export function readTelnyxDialAnswerOnBridge(): boolean {
   const raw = (process.env.ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE || "").trim().toLowerCase()
   if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false
   if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
-  return true
+  return false
 }
