@@ -50,13 +50,12 @@ export function origFromQuerySuffixFromRaw(inboundFromRaw: string): string {
 
 /**
  * Twilio/Telnyx `<Dial answerOnBridge>`.
- * **Default `false`:** answer inbound immediately and start the PSTN B-leg — avoids US ringback
- * playing to the caller before the receptionist phone actually rings.
- * Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1` for classic ringback-until-answer.
+ * **Default `true`:** US `ringTone` stays in sync with the receptionist PSTN ring (consistent caller audio).
+ * Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer inbound immediately (can sound like a tone change when B-leg starts).
  */
 export function readTelnyxDialAnswerOnBridge(): boolean {
   const raw = (process.env.ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE || "").trim().toLowerCase()
   if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false
   if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
-  return false
+  return true
 }

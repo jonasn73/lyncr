@@ -242,6 +242,24 @@ export function clearIncomingRoutingCache(): void {
   incomingRoutingCache.clear()
 }
 
+/** Sync peek — blocked DIDs rejected on pass 1 without a DB round trip. */
+export function peekBlockedInboundStatusForNumber(toNumber: string): string | null {
+  const key = phoneDigitsKey(toNumber)
+  if (key.length < 10) return null
+  const hit = blockedInboundStatusCache.get(key)
+  if (hit && hit.expiresAt > Date.now()) return hit.account_status
+  return null
+}
+
+/** Sync peek — warm routing cache (used to skip pass-2 redirect when fresh). */
+export function peekIncomingRoutingCache(toNumber: string): IncomingRoutingRow | null {
+  const normalized = normalizePhoneNumberE164(toNumber)
+  if (!normalized) return null
+  const cached = incomingRoutingCache.get(normalized)
+  if (cached && cached.expiresAt > Date.now() && cached.value) return cached.value
+  return null
+}
+
 // Normalize toward E.164 so values match `phone_numbers.number` and Telnyx `<Number>` dialing.
 // Returns "" when there are no digits (avoids a lone "+" that would make `hasReceptionist` truthy but nothing dials).
 export function normalizePhoneNumberE164(phone: string): string {

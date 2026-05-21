@@ -18,12 +18,13 @@ export function readInboundDialRtpSymmetric(): boolean {
 
 /**
  * Comfort Noise Generation (CNG) on bridged PSTN legs — prevents dead-air during handoffs.
- * Disable with `ZING_INBOUND_COMFORT_NOISE=0`.
+ * Default off on inbound — CNG can sound like an audible “tone change” when the B-leg starts ringing.
+ * Enable with `ZING_INBOUND_COMFORT_NOISE=1`.
  */
 export function readInboundComfortNoiseEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_COMFORT_NOISE || "").trim().toLowerCase()
-  if (raw === "0" || raw === "false" || raw === "no") return false
-  return true
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
+  return false
 }
 
 /** Adaptive jitter buffer for cellular callers (Telnyx extended media attributes). */
@@ -78,21 +79,21 @@ export function readInboundRoutingCfgOverlayEnabled(): boolean {
 }
 
 /**
- * Two-phase inbound: optional redirect before DB routing (pass 2 adds `<Dial>`).
- * **Default off** — the extra webhook hop adds ~300–800ms and an audible ring-tone switch before `<Dial>`.
- * Enable with `ZING_INBOUND_EARLY_MEDIA=1` only if pass-1 ringback while DB loads is worth the delay.
+ * Two-phase inbound: instant `<Play>` ringback on pass 1 while pass 2 loads routing + `<Dial>`.
+ * Default **on** — avoids carrier “pre-ring” then tone switch when `<Dial>` finally runs.
+ * Disable with `ZING_INBOUND_EARLY_MEDIA=0`.
  */
 export function readInboundEarlyMediaEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_EARLY_MEDIA || "").trim().toLowerCase()
-  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
-  return false
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false
+  return true
 }
 
-/** Optional hosted ringback MP3/WAV played on pass 1 while pass 2 loads routing (see `ZING_INBOUND_EARLY_MEDIA_RING_URL`). */
-export function readInboundEarlyMediaRingUrl(): string | null {
+/** Ringback audio for pass 1 (must match `<Dial ringTone="us">` on pass 2 for seamless handoff). */
+export function readInboundEarlyMediaRingUrl(): string {
   const custom = process.env.ZING_INBOUND_EARLY_MEDIA_RING_URL?.trim()
   if (custom) return custom
-  return null
+  return `${getAppUrl()}/inbound-us-ringback.ogg`
 }
 
 export function escapeXmlAttr(value: string): string {
@@ -103,20 +104,14 @@ export function escapeXmlAttr(value: string): string {
     .replace(/>/g, "&gt;")
 }
 
-/** Pass 1 — return immediately so Telnyx can keep the caller in ringing / early-media while we load routing. */
+/** Pass 1 — immediate US ringback while pass 2 loads routing (no DB on this hop). */
 export function buildInboundEarlyMediaTexml(continueUrl: string): string {
   const ringUrl = readInboundEarlyMediaRingUrl()
   const safeUrl = escapeXmlAttr(continueUrl)
-  if (ringUrl) {
-    const safeRing = escapeXmlAttr(ringUrl)
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Play loop="999">${safeRing}</Play>
-  <Redirect method="POST">${safeUrl}</Redirect>
-</Response>`
-  }
+  const safeRing = escapeXmlAttr(ringUrl)
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Play loop="999">${safeRing}</Play>
   <Redirect method="POST">${safeUrl}</Redirect>
 </Response>`
 }

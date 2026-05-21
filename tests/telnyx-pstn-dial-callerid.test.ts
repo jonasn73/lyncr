@@ -58,9 +58,9 @@ describe("readTelnyxDialAnswerOnBridge", () => {
     vi.unstubAllEnvs()
   })
 
-  it("is false when env is unset", () => {
+  it("is true when env is unset (sync ringback with B-leg)", () => {
     vi.stubEnv("ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE", "")
-    expect(readTelnyxDialAnswerOnBridge()).toBe(false)
+    expect(readTelnyxDialAnswerOnBridge()).toBe(true)
   })
 
   it("is true when env is 1", () => {

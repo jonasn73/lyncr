@@ -17,6 +17,8 @@ import { buildInboundLineWhisperPhrase } from "@/lib/inbound-line-whisper"
 import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
   getIncomingRoutingByNumber,
+  peekBlockedInboundStatusForNumber,
+  peekIncomingRoutingCache,
   getReceptionist,
   getRoutingConfigForNumber,
   getUser,
@@ -922,15 +924,51 @@ function texmlResponseBody(out: IncomingCallResult): string {
   return out.kind === "raw" ? raw : finalizeInboundTexmlXml(raw)
 }
 
-export async function POST(req: NextRequest) {
-  const fields = await readWebhookFields(req)
-  const reqUrl = new URL(req.url)
-  if (shouldServeEarlyMediaPass(reqUrl, fields)) {
-    const continueUrl = buildInboundRoutingContinueUrl(req.url)
-    return new NextResponse(buildInboundEarlyMediaTexml(continueUrl), {
+/** Pass 1: reject suspended DIDs from cache, or `<Dial>` immediately on warm cache, else ringback + redirect. */
+async function serveInboundPassOne(req: NextRequest, fields: Record<string, string>): Promise<NextResponse | null> {
+  if (!shouldServeEarlyMediaPass(new URL(req.url), fields)) return null
+
+  const calledNumberRaw = resolveCalledParty(fields)
+  const blockedStatus = calledNumberRaw.trim() ? peekBlockedInboundStatusForNumber(calledNumberRaw) : null
+  if (blockedStatus && isAccountRoutingBlocked(blockedStatus)) {
+    return new NextResponse(buildSuspendedInboundRejectTexml(), {
       headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
     })
   }
+
+  const cachedRouting = calledNumberRaw.trim() ? peekIncomingRoutingCache(calledNumberRaw) : null
+  if (cachedRouting?.receptionist_phone?.trim()) {
+    const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
+    const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
+    const callerNumber = pickField(fields, ["From", "from", "Caller", "caller", "RemoteParty"])
+    const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
+    const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
+    const fast = tryFastReceptionistDial({
+      routing: cachedRouting,
+      businessLineE164,
+      calledNumber: calledNumberRaw,
+      callerNumber,
+      callSid,
+      callerName,
+      appUrl: getAppUrl(),
+    })
+    if (fast) {
+      return new NextResponse(texmlResponseBody(fast), {
+        headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
+      })
+    }
+  }
+
+  const continueUrl = buildInboundRoutingContinueUrl(req.url)
+  return new NextResponse(buildInboundEarlyMediaTexml(continueUrl), {
+    headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
+  })
+}
+
+export async function POST(req: NextRequest) {
+  const fields = await readWebhookFields(req)
+  const passOne = await serveInboundPassOne(req, fields)
+  if (passOne) return passOne
   if (process.env.NODE_ENV !== "production") {
     console.log("[Sigo] Telnyx webhook fields:", JSON.stringify(fields))
   }
@@ -967,12 +1005,8 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const fields = searchParamsToFields(url)
-  if (shouldServeEarlyMediaPass(url, fields)) {
-    const continueUrl = buildInboundRoutingContinueUrl(req.url)
-    return new NextResponse(buildInboundEarlyMediaTexml(continueUrl), {
-      headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
-    })
-  }
+  const passOne = await serveInboundPassOne(req, fields)
+  if (passOne) return passOne
   const calledNumberRaw = resolveCalledParty(fields)
   if (!pickField(fields, ["To", "to", "Called"]).trim() && calledNumberRaw) {
     console.log(
