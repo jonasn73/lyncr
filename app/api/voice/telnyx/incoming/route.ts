@@ -217,10 +217,12 @@ async function readWebhookFields(req: NextRequest): Promise<Record<string, strin
     }
   }
   try {
-    const formData = await req.formData()
+    const raw = await req.text()
+    if (!raw.trim()) return {}
+    // URLSearchParams is faster than formData() for Telnyx x-www-form-urlencoded webhooks.
     const out: Record<string, string> = {}
-    formData.forEach((v, k) => {
-      out[k] = String(v)
+    new URLSearchParams(raw).forEach((v, k) => {
+      out[k] = v
     })
     return out
   } catch {

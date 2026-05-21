@@ -266,15 +266,11 @@ function storeIncomingRoutingInMemory(normalized: string, value: IncomingRouting
 
 /** Warm inbound routing cache after dashboard saves (fire-and-forget). */
 export async function primeIncomingRoutingCache(toNumber: string): Promise<void> {
-  const normalized = normalizePhoneNumberE164(toNumber)
-  if (!normalized) return
-  await getIncomingRoutingByNumber(toNumber, { bypassCache: true })
+  await syncInboundDialSnapshotForNumber(toNumber)
 }
 
 export async function primeIncomingRoutingCacheForUser(userId: string): Promise<void> {
-  const numbers = await getPhoneNumbers(userId)
-  const active = numbers.filter((n) => n.status === "active")
-  await Promise.all(active.map((n) => getIncomingRoutingByNumber(n.number, { bypassCache: true })))
+  await syncInboundDialSnapshotForUser(userId)
 }
 
 /** Sync peek — blocked DIDs rejected on pass 1 without a DB round trip. */
@@ -619,12 +615,16 @@ export async function updateReceptionist(
   if (updates.rate_per_minute !== undefined) {
     await sql`UPDATE receptionists SET rate_per_minute = ${updates.rate_per_minute} WHERE id = ${receptionistId} AND user_id = ${userId}`
   }
+  clearIncomingRoutingCache()
+  void syncInboundDialSnapshotForUser(userId).catch(() => {})
 }
 
 // Delete a receptionist
 export async function deleteReceptionist(receptionistId: string, userId: string): Promise<void> {
   const sql = getSql()
   await sql`DELETE FROM receptionists WHERE id = ${receptionistId} AND user_id = ${userId}`
+  clearIncomingRoutingCache()
+  void syncInboundDialSnapshotForUser(userId).catch(() => {})
 }
 
 /** Auth login row fetch before `019-billing-admin-feedback.sql` (no billing columns in SELECT). */
@@ -956,13 +956,147 @@ function inboundWhisperEnabledFromRoutingRow(row: Record<string, unknown>): bool
   return pgBool(row.inbound_receptionist_whisper_enabled)
 }
 
-// Fast routing lookup for incoming voice webhooks.
-// Returns user + resolved routing + receptionist in one query to reduce latency.
-//
-// Per-number `routing_config` rows are often sparse: if a row exists for the DID but
-// `selected_receptionist_id` is NULL, we still inherit the account default receptionist
-// from `rc_def` so inbound `<Dial>` matches what the dashboard shows when only the default row was edited.
-async function fetchIncomingRoutingByNumberFromDb(
+// Fast routing lookup for incoming voice webhooks (snapshot row first, full joins as fallback).
+/** Missing optional phone_numbers inbound snapshot columns (scripts/036). */
+function isMissingInboundDialSnapshotColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return msg.includes("inbound_dial_e164") || msg.includes("inbound_routing_updated_at")
+}
+
+function mapIncomingRoutingRowFromDb(row: Record<string, unknown>): IncomingRoutingRow {
+  return {
+    user_id: String(row.user_id),
+    user_name: String(row.user_name),
+    business_name: row.business_name != null ? String(row.business_name) : "My Business",
+    inbound_receptionist_whisper_enabled: inboundWhisperEnabledFromRoutingRow(row),
+    owner_phone: String(row.owner_phone),
+    selected_receptionist_id: row.selected_receptionist_id ? String(row.selected_receptionist_id) : null,
+    fallback_type: (row.fallback_type as RoutingConfig["fallback_type"]) || "owner",
+    ring_timeout_seconds: Number(row.ring_timeout_seconds ?? 30),
+    ai_ring_owner_first: pgBool(row.ai_ring_owner_first),
+    receptionist_name: row.receptionist_name ? String(row.receptionist_name) : null,
+    receptionist_phone: row.receptionist_phone ? String(row.receptionist_phone) : null,
+    phone_line_label: row.phone_line_label != null ? String(row.phone_line_label) : "Main Line",
+    phone_line_friendly_name: row.phone_line_friendly_name != null ? String(row.phone_line_friendly_name) : "",
+    account_status: row.account_status != null ? String(row.account_status) : "active",
+    active_phone_count: 1,
+    primary_phone_number: row.primary_phone_number != null ? String(row.primary_phone_number) : "",
+  }
+}
+
+/** One indexed row read — precomputed on dashboard save (scripts/036). */
+async function tryFetchInboundRoutingSnapshot(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingByNumber | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT
+        u.id AS user_id,
+        u.name AS user_name,
+        COALESCE(NULLIF(trim(u.business_name), ''), 'My Business') AS business_name,
+        COALESCE(u.inbound_receptionist_whisper_enabled, true) AS inbound_receptionist_whisper_enabled,
+        u.phone AS owner_phone,
+        pn.inbound_receptionist_id AS selected_receptionist_id,
+        COALESCE(pn.inbound_fallback_type, 'owner') AS fallback_type,
+        COALESCE(pn.inbound_ring_timeout_seconds, 30) AS ring_timeout_seconds,
+        COALESCE(pn.inbound_ai_ring_owner_first, false) AS ai_ring_owner_first,
+        pn.inbound_receptionist_name AS receptionist_name,
+        pn.inbound_dial_e164 AS receptionist_phone,
+        COALESCE(NULLIF(trim(pn.label), ''), 'Main Line') AS phone_line_label,
+        COALESCE(pn.friendly_name, '') AS phone_line_friendly_name,
+        COALESCE(pn.inbound_account_status, 'active') AS account_status,
+        pn.number AS primary_phone_number
+      FROM phone_numbers pn
+      JOIN users u ON u.id = pn.user_id
+      WHERE pn.status = 'active'
+        AND pn.inbound_routing_updated_at IS NOT NULL
+        AND (
+          pn.number = ${normalized}
+          OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+        )
+      LIMIT 1
+    `
+    if (!rows[0]) return null
+    return mapIncomingRoutingRowFromDb(rows[0] as Record<string, unknown>)
+  } catch (e) {
+    if (isMissingInboundDialSnapshotColumnError(e) || isMissingInboundReceptionistWhisperColumnError(e)) {
+      return null
+    }
+    throw e
+  }
+}
+
+async function writeInboundRoutingSnapshot(
+  normalized: string,
+  digitKey: string,
+  row: IncomingRoutingByNumber
+): Promise<void> {
+  const sql = getSql()
+  try {
+    if (!row) {
+      await sql`
+        UPDATE phone_numbers
+        SET
+          inbound_routing_updated_at = now(),
+          inbound_dial_e164 = NULL,
+          inbound_receptionist_id = NULL,
+          inbound_receptionist_name = NULL,
+          inbound_fallback_type = 'owner',
+          inbound_ring_timeout_seconds = 30,
+          inbound_account_status = 'active',
+          inbound_ai_ring_owner_first = false
+        WHERE status = 'active'
+          AND (
+            number = ${normalized}
+            OR regexp_replace(number, '\\D', '', 'g') = ${digitKey}
+          )
+      `
+      return
+    }
+    await sql`
+      UPDATE phone_numbers
+      SET
+        inbound_dial_e164 = ${row.receptionist_phone},
+        inbound_receptionist_id = ${row.selected_receptionist_id},
+        inbound_receptionist_name = ${row.receptionist_name},
+        inbound_fallback_type = ${row.fallback_type},
+        inbound_ring_timeout_seconds = ${row.ring_timeout_seconds},
+        inbound_account_status = ${row.account_status},
+        inbound_ai_ring_owner_first = ${row.ai_ring_owner_first},
+        inbound_routing_updated_at = now()
+      WHERE status = 'active'
+        AND (
+          number = ${normalized}
+          OR regexp_replace(number, '\\D', '', 'g') = ${digitKey}
+        )
+    `
+  } catch (e) {
+    if (isMissingInboundDialSnapshotColumnError(e)) return
+    throw e
+  }
+}
+
+/** Recompute snapshot from full routing joins (dashboard save / backfill). */
+export async function syncInboundDialSnapshotForNumber(toNumber: string): Promise<void> {
+  const normalized = normalizePhoneNumberE164(toNumber)
+  if (!normalized) return
+  const digitKey = phoneDigitsKey(toNumber)
+  const full = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
+  await writeInboundRoutingSnapshot(normalized, digitKey, full)
+  storeIncomingRoutingInMemory(normalized, full)
+}
+
+export async function syncInboundDialSnapshotForUser(userId: string): Promise<void> {
+  const numbers = await getPhoneNumbers(userId)
+  const active = numbers.filter((n) => n.status === "active")
+  await Promise.all(active.map((n) => syncInboundDialSnapshotForNumber(n.number)))
+}
+
+// Full routing lookup (joins routing_config + receptionists). Used to build snapshots and fallbacks.
+async function fetchIncomingRoutingFullFromDb(
   normalized: string,
   digitKey: string
 ): Promise<IncomingRoutingByNumber> {
@@ -1118,27 +1252,24 @@ async function fetchIncomingRoutingByNumberFromDb(
     return null
   }
 
-  const value: IncomingRoutingRow = {
-    user_id: String(row.user_id),
-    user_name: String(row.user_name),
-    business_name: row.business_name != null ? String(row.business_name) : "My Business",
-    inbound_receptionist_whisper_enabled: inboundWhisperEnabledFromRoutingRow(row as Record<string, unknown>),
-    owner_phone: String(row.owner_phone),
-    selected_receptionist_id: row.selected_receptionist_id ? String(row.selected_receptionist_id) : null,
-    fallback_type: (row.fallback_type as RoutingConfig["fallback_type"]) || "owner",
-    ring_timeout_seconds: Number(row.ring_timeout_seconds ?? 30),
-    ai_ring_owner_first: pgBool(row.ai_ring_owner_first),
-    receptionist_name: row.receptionist_name ? String(row.receptionist_name) : null,
-    receptionist_phone: row.receptionist_phone ? String(row.receptionist_phone) : null,
-    phone_line_label: row.phone_line_label != null ? String(row.phone_line_label) : "Main Line",
-    phone_line_friendly_name: row.phone_line_friendly_name != null ? String(row.phone_line_friendly_name) : "",
-    account_status: row.account_status != null ? String(row.account_status) : "active",
-    active_phone_count: 1,
-    primary_phone_number: row.primary_phone_number != null ? String(row.primary_phone_number) : "",
-  }
-
+  const value = mapIncomingRoutingRowFromDb(row as Record<string, unknown>)
   storeIncomingRoutingInMemory(normalized, value)
   return value
+}
+
+/** Snapshot first (fast), then full joins; writes snapshot after a full read. */
+async function fetchIncomingRoutingByNumberFromDb(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingByNumber> {
+  const snap = await tryFetchInboundRoutingSnapshot(normalized, digitKey)
+  if (snap) {
+    storeIncomingRoutingInMemory(normalized, snap)
+    return snap
+  }
+  const full = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
+  void writeInboundRoutingSnapshot(normalized, digitKey, full).catch(() => {})
+  return full
 }
 
 function getIncomingRoutingFromDataCache(
@@ -1147,7 +1278,7 @@ function getIncomingRoutingFromDataCache(
 ): Promise<IncomingRoutingByNumber> {
   const run = unstable_cache(
     async () => fetchIncomingRoutingByNumberFromDb(normalized, digitKey),
-    ["incoming-routing-v3", normalized],
+    ["incoming-routing-v4", normalized],
     {
       revalidate: 120,
       tags: [INCOMING_ROUTING_DATA_TAG, `incoming-routing-${normalized}`],
@@ -3229,6 +3360,7 @@ export async function adminApplyUserOverride(params: {
         const nums = await getPhoneNumbers(userId)
         primeBlockedInboundStatusForUser(userId, nextStatus, nums.map((p) => p.number))
       }
+      void syncInboundDialSnapshotForUser(userId).catch(() => {})
     }
   }
 
