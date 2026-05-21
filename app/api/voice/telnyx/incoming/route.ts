@@ -64,6 +64,9 @@ import {
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 
+/** Resolved once per warm instance — avoids re-reading env on every inbound POST. */
+const VOICE_WEBHOOK_APP_URL = getAppUrl()
+
 // Warm Neon pool on cold start so the first real inbound call skips connection setup latency.
 void warmDatabasePool()
 
@@ -220,16 +223,45 @@ async function readWebhookFields(req: NextRequest): Promise<Record<string, strin
   }
   try {
     const raw = await req.text()
-    if (!raw.trim()) return {}
-    // URLSearchParams is faster than formData() for Telnyx x-www-form-urlencoded webhooks.
-    const out: Record<string, string> = {}
-    new URLSearchParams(raw).forEach((v, k) => {
-      out[k] = v
-    })
-    return out
+    return parseTelnyxFormBody(raw)
   } catch {
     return {}
   }
+}
+
+/** Parse only the fields the inbound hot path needs (faster than building a full field map). */
+function parseTelnyxFormBodyFast(raw: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  const params = new URLSearchParams(raw)
+  for (const key of [
+    "To",
+    "to",
+    "Called",
+    "called",
+    "From",
+    "from",
+    "Caller",
+    "CallSid",
+    "CallControlId",
+    "call_control_id",
+    "DialCallStatus",
+    "DialStatus",
+    "DialCallLegStatus",
+    "DialCallLegState",
+    "dial_call_status",
+  ]) {
+    const v = params.get(key)
+    if (v) out[key] = v
+  }
+  return out
+}
+
+function parseTelnyxFormBody(raw: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  new URLSearchParams(raw).forEach((v, k) => {
+    out[k] = v
+  })
+  return out
 }
 
 function searchParamsToFields(url: URL): Record<string, string> {
@@ -376,7 +408,7 @@ async function handleIncomingCall(
   webhookFields: Record<string, string>
 ): Promise<IncomingCallResult> {
   const texml = new VoiceResponse()
-  const appUrl = getAppUrl()
+  const appUrl = VOICE_WEBHOOK_APP_URL
   const debug = process.env.NODE_ENV !== "production"
 
   if (debug) console.log(`[Sigo] Incoming call: To=${calledNumber} From=${callerNumber} CallSid=${callSid}`)
@@ -974,7 +1006,7 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
     callerNumber,
     callSid,
     callerName,
-    appUrl: getAppUrl(),
+    appUrl: VOICE_WEBHOOK_APP_URL,
   })
   if (!fast) return null
 
@@ -985,6 +1017,7 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
       callSid,
       lookupMs,
       routingSource: memHit ? "memory" : "db",
+      dialTail4: (routing.receptionist_phone || routing.owner_phone || "").replace(/\D/g, "").slice(-4) || null,
     })
   )
 
@@ -1019,7 +1052,7 @@ async function serveInboundPassOne(req: NextRequest, fields: Record<string, stri
       callerNumber,
       callSid,
       callerName,
-      appUrl: getAppUrl(),
+      appUrl: VOICE_WEBHOOK_APP_URL,
     })
     if (fast) {
       return new NextResponse(texmlResponseBody(fast), {
@@ -1035,12 +1068,32 @@ async function serveInboundPassOne(req: NextRequest, fields: Record<string, stri
 }
 
 export async function POST(req: NextRequest) {
-  const fields = await readWebhookFields(req)
+  const handlerT0 = Date.now()
+  const contentType = (req.headers.get("content-type") || "").toLowerCase()
+  let fields: Record<string, string>
+
+  if (contentType.includes("application/json")) {
+    fields = await readWebhookFields(req)
+  } else {
+    const raw = await req.text()
+    fields = parseTelnyxFormBodyFast(raw)
+    const passOne = await serveInboundPassOne(req, fields)
+    if (passOne) return passOne
+    const hot = await tryFastInboundReceptionistResponse(fields)
+    if (hot) {
+      console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
+      return hot
+    }
+    fields = parseTelnyxFormBody(raw)
+  }
+
   const passOne = await serveInboundPassOne(req, fields)
   if (passOne) return passOne
-
   const hot = await tryFastInboundReceptionistResponse(fields)
-  if (hot) return hot
+  if (hot) {
+    console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
+    return hot
+  }
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[Sigo] Telnyx webhook fields:", JSON.stringify(fields))

@@ -220,6 +220,8 @@ const incomingRoutingCache = new Map<string, { expiresAt: number; value: Incomin
 const INCOMING_ROUTING_CACHE_TTL_MS = 3_600_000
 /** Vercel Data Cache tag — shared across serverless instances (unlike the in-memory Map below). */
 const INCOMING_ROUTING_DATA_TAG = "incoming-routing"
+/** Snapshot-only cache tag (voice hot path). */
+const INBOUND_SNAPSHOT_DATA_TAG = "inbound-snapshot"
 
 /** Hot-path cache: suspended DIDs reject instantly on this instance (admin override primes it). */
 const blockedInboundStatusCache = new Map<
@@ -243,6 +245,7 @@ export function clearIncomingRoutingCache(): void {
   incomingRoutingCache.clear()
   try {
     revalidateTag(INCOMING_ROUTING_DATA_TAG)
+    revalidateTag(INBOUND_SNAPSHOT_DATA_TAG)
   } catch {
     // revalidateTag requires a server request context — safe to ignore during tests
   }
@@ -252,6 +255,8 @@ function revalidateIncomingRoutingDataCache(normalized: string): void {
   try {
     revalidateTag(INCOMING_ROUTING_DATA_TAG)
     revalidateTag(`incoming-routing-${normalized}`)
+    revalidateTag(INBOUND_SNAPSHOT_DATA_TAG)
+    revalidateTag(`inbound-snapshot-${normalized}`)
   } catch {
     // ignore outside request context
   }
@@ -291,11 +296,8 @@ export function peekIncomingRoutingCache(toNumber: string): IncomingRoutingRow |
   return null
 }
 
-/** Minimal snapshot read — phone_numbers only (no routing_config joins). */
-async function fetchInboundDialSnapshotSql(
-  normalized: string,
-  digitKey: string
-): Promise<IncomingRoutingRow | null> {
+/** Minimal snapshot read — indexed exact match on business DID (no joins). */
+async function fetchInboundDialSnapshotSql(normalized: string): Promise<IncomingRoutingRow | null> {
   const sql = getSql()
   try {
     const rows = await sql`
@@ -310,12 +312,9 @@ async function fetchInboundDialSnapshotSql(
         COALESCE(pn.inbound_account_status, 'active') AS account_status
       FROM phone_numbers pn
       WHERE pn.status = 'active'
+        AND pn.number = ${normalized}
         AND pn.inbound_routing_updated_at IS NOT NULL
         AND NULLIF(trim(pn.inbound_dial_e164), '') IS NOT NULL
-        AND (
-          pn.number = ${normalized}
-          OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
-        )
       LIMIT 1
     `
     if (!rows[0]) return null
@@ -346,9 +345,20 @@ async function fetchInboundDialSnapshotSql(
   }
 }
 
+function getInboundSnapshotFromDataCache(normalized: string): Promise<IncomingRoutingRow | null> {
+  const run = unstable_cache(
+    async () => fetchInboundDialSnapshotSql(normalized),
+    ["inbound-snapshot-v2", normalized],
+    {
+      revalidate: 300,
+      tags: [INBOUND_SNAPSHOT_DATA_TAG, `inbound-snapshot-${normalized}`],
+    }
+  )
+  return run()
+}
+
 /**
- * Voice webhook routing — memory → one-row snapshot SQL → full joins.
- * Skips Vercel Data Cache to avoid extra latency on the Telnyx hot path.
+ * Voice webhook routing — memory → shared snapshot cache → one-row SQL → full joins.
  */
 export async function getIncomingRoutingForVoiceWebhook(
   toNumber: string
@@ -360,7 +370,7 @@ export async function getIncomingRoutingForVoiceWebhook(
   const mem = incomingRoutingCache.get(normalized)
   if (mem && mem.expiresAt > Date.now()) return mem.value
 
-  const snap = await fetchInboundDialSnapshotSql(normalized, digitKey)
+  const snap = await getInboundSnapshotFromDataCache(normalized)
   if (snap) {
     storeIncomingRoutingInMemory(normalized, snap)
     return snap
@@ -1331,7 +1341,7 @@ async function fetchIncomingRoutingByNumberFromDb(
   normalized: string,
   digitKey: string
 ): Promise<IncomingRoutingByNumber> {
-  const snap = await fetchInboundDialSnapshotSql(normalized, digitKey)
+  const snap = await fetchInboundDialSnapshotSql(normalized)
   if (snap) {
     storeIncomingRoutingInMemory(normalized, snap)
     return snap
