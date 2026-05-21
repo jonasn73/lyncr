@@ -27,7 +27,7 @@ export function readInboundComfortNoiseEnabled(): boolean {
   return false
 }
 
-/** Adaptive jitter buffer for cellular callers (Telnyx extended media attributes). */
+/** Adaptive jitter buffer for cellular callers (Telnyx extended media attributes). Default off — can cause garbled audio on some carriers. */
 export function readInboundJitterBufferConfig(): {
   enabled: boolean
   mode: "adaptive"
@@ -35,7 +35,7 @@ export function readInboundJitterBufferConfig(): {
   maxMs: number
 } {
   const raw = (process.env.ZING_INBOUND_JITTER_BUFFER || "").trim().toLowerCase()
-  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") {
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off" || raw === "") {
     return { enabled: false, mode: "adaptive", minMs: 40, maxMs: 200 }
   }
   const minMs = Math.max(40, Math.min(400, parseInt(process.env.ZING_INBOUND_JITTER_BUFFER_MIN_MS || "40", 10) || 40))
@@ -79,21 +79,20 @@ export function readInboundRoutingCfgOverlayEnabled(): boolean {
 }
 
 /**
- * Two-phase inbound: instant `<Play>` ringback on pass 1 while pass 2 loads routing + `<Dial>`.
- * Default **on** — avoids carrier “pre-ring” then tone switch when `<Dial>` finally runs.
- * Disable with `ZING_INBOUND_EARLY_MEDIA=0`.
+ * Two-phase inbound: optional instant `<Redirect>` before DB routing (pass 2 adds `<Dial>`).
+ * Default **off** — `<Play loop>` before `<Redirect>` blocks pass 2 forever on Telnyx (call never forwards).
+ * Enable with `ZING_INBOUND_EARLY_MEDIA=1` for redirect-only pass 1 (no `<Play>`).
  */
 export function readInboundEarlyMediaEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_EARLY_MEDIA || "").trim().toLowerCase()
-  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false
-  return true
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
+  return false
 }
 
-/** Ringback audio for pass 1 (must match `<Dial ringTone="us">` on pass 2 for seamless handoff). */
-export function readInboundEarlyMediaRingUrl(): string {
+/** Optional pass-1 ring URL — only used when explicitly set (never loop; blocks Redirect if misconfigured). */
+export function readInboundEarlyMediaRingUrl(): string | null {
   const custom = process.env.ZING_INBOUND_EARLY_MEDIA_RING_URL?.trim()
-  if (custom) return custom
-  return `${getAppUrl()}/inbound-us-ringback.ogg`
+  return custom || null
 }
 
 export function escapeXmlAttr(value: string): string {
@@ -104,14 +103,21 @@ export function escapeXmlAttr(value: string): string {
     .replace(/>/g, "&gt;")
 }
 
-/** Pass 1 — immediate US ringback while pass 2 loads routing (no DB on this hop). */
+/** Pass 1 — instant redirect to pass 2 (never `<Play loop>` before redirect; that blocks forwarding). */
 export function buildInboundEarlyMediaTexml(continueUrl: string): string {
-  const ringUrl = readInboundEarlyMediaRingUrl()
   const safeUrl = escapeXmlAttr(continueUrl)
-  const safeRing = escapeXmlAttr(ringUrl)
+  const ringUrl = readInboundEarlyMediaRingUrl()
+  if (ringUrl) {
+    const safeRing = escapeXmlAttr(ringUrl)
+    // Single play once, then redirect — loop must not be used (blocks Redirect on Telnyx).
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play loop="1">${safeRing}</Play>
+  <Redirect method="POST">${safeUrl}</Redirect>
+</Response>`
+  }
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play loop="999">${safeRing}</Play>
   <Redirect method="POST">${safeUrl}</Redirect>
 </Response>`
 }

@@ -924,7 +924,7 @@ function texmlResponseBody(out: IncomingCallResult): string {
   return out.kind === "raw" ? raw : finalizeInboundTexmlXml(raw)
 }
 
-/** Pass 1: reject suspended DIDs from cache, or `<Dial>` immediately on warm cache, else ringback + redirect. */
+/** Pass 1 (optional): reject suspended DIDs from cache, warm-cache Dial, or redirect-only to pass 2. */
 async function serveInboundPassOne(req: NextRequest, fields: Record<string, string>): Promise<NextResponse | null> {
   if (!shouldServeEarlyMediaPass(new URL(req.url), fields)) return null
 
