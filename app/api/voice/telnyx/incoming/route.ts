@@ -58,11 +58,14 @@ import {
   buildFastReceptionistDialTexml,
   finalizeInboundTexmlXml,
   readInboundEarlyMediaEnabled,
+  readInboundFastDialAnswerOnBridge,
   readInboundRoutingCfgOverlayEnabled,
+  resolveInboundFastDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
+export const dynamic = "force-dynamic"
 
 /** Resolved once per warm instance — avoids re-reading env on every inbound POST. */
 const VOICE_WEBHOOK_APP_URL = getAppUrl()
@@ -332,6 +335,7 @@ function tryFastInboundPstnDial(params: {
   const wantsAiAfterNoAnswer = String(routing.fallback_type ?? "").toLowerCase() === "ai"
   const effectiveRingTimeout = Number(routing.ring_timeout_seconds ?? 30) || 30
   const ringSec = wantsAiAfterNoAnswer ? Math.min(effectiveRingTimeout, 22) : effectiveRingTimeout
+  const dialTimeoutSec = resolveInboundFastDialTimeoutSeconds(ringSec)
 
   const didDigits = businessLineE164.replace(/\D/g, "")
   const fallbackMode = wantsAiAfterNoAnswer
@@ -354,14 +358,14 @@ function tryFastInboundPstnDial(params: {
     inboundFromRaw: callerNumber,
     businessOutboundE164: outboundCallerId,
   })
-  const answerOnBridge = readTelnyxDialAnswerOnBridge()
+  const answerOnBridge = readInboundFastDialAnswerOnBridge()
   const ownerLegQuery = hasReceptionist ? "" : "&primary=owner&leg=owner-first"
   const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}${ownerLegQuery}${origFromQuery}`
 
   const xml = buildFastReceptionistDialTexml({
     ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
     answerOnBridge,
-    timeout: ringSec,
+    timeout: dialTimeoutSec,
     action,
     receptionistE164: dialE164,
   })
@@ -392,6 +396,7 @@ function tryFastInboundPstnDial(params: {
       userId: routing.user_id,
       callSid,
       answerOnBridge,
+      dialTimeoutSec,
       hotPath: "raw-texml",
     })
   )

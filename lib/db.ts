@@ -358,7 +358,8 @@ function getInboundSnapshotFromDataCache(normalized: string): Promise<IncomingRo
 }
 
 /**
- * Voice webhook routing — memory → shared snapshot cache → one-row SQL → full joins.
+ * Voice webhook routing — in-memory (0ms) → direct indexed snapshot on pooled Neon → full joins.
+ * Skips unstable_cache here so Telnyx webhooks never wait on Next.js Data Cache I/O.
  */
 export async function getIncomingRoutingForVoiceWebhook(
   toNumber: string
@@ -370,7 +371,7 @@ export async function getIncomingRoutingForVoiceWebhook(
   const mem = incomingRoutingCache.get(normalized)
   if (mem && mem.expiresAt > Date.now()) return mem.value
 
-  const snap = await getInboundSnapshotFromDataCache(normalized)
+  const snap = await fetchInboundDialSnapshotSql(normalized)
   if (snap) {
     storeIncomingRoutingInMemory(normalized, snap)
     return snap

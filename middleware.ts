@@ -41,5 +41,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Voice webhooks (/api/voice/*) are intentionally excluded — Telnyx needs raw TeXML with zero cookie/session work.
   matcher: ["/dashboard", "/dashboard/:path*", "/admin", "/admin/:path*", "/onboarding", "/onboarding/:path*"],
 }

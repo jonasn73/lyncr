@@ -70,6 +70,25 @@ export function readInboundDialRingTone(): string {
 }
 
 /**
+ * Ring seconds on the fast inbound `<Dial>` (Telnyx `timeout` attribute, 5–120).
+ * Uses routing snapshot first; override with `ZING_INBOUND_FAST_DIAL_TIMEOUT=20` if needed.
+ */
+export function resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting: number): number {
+  const raw = (process.env.ZING_INBOUND_FAST_DIAL_TIMEOUT || "").trim()
+  if (raw) {
+    const n = parseInt(raw, 10)
+    if (Number.isFinite(n) && n >= 5 && n <= 120) return n
+  }
+  const ring = Number(ringTimeoutFromRouting) || 30
+  return Math.max(5, Math.min(120, ring))
+}
+
+/** Fast inbound PSTN forward always bridges with US ringback — no dead air before B-leg rings. */
+export function readInboundFastDialAnswerOnBridge(): boolean {
+  return true
+}
+
+/**
  * Optional second routing_config read on `/incoming` (can add 80–200ms before `<Dial>`).
  * Default off — `getIncomingRoutingByNumber` already merges per-DID + default rows in one query.
  */
@@ -145,6 +164,7 @@ export function buildInboundPstnDialAttributes(opts: {
     method: opts.method ?? "POST",
     ...buildBridgedLegMediaAttributes(),
   }
+  // Telnyx has no `fork` attribute — multiple `<Number>` nouns dial simultaneously by default.
   // Ringback to the caller only when we deliberately defer answering (answerOnBridge=true).
   if (opts.answerOnBridge) {
     out.ringTone = readInboundDialRingTone()
