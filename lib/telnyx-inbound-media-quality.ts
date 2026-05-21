@@ -69,13 +69,14 @@ export function readInboundDialRingTone(): string {
 }
 
 /**
- * Two-phase inbound: instant TeXML redirect before DB routing (pass 2 adds `<Dial>`).
- * Disable with `ZING_INBOUND_EARLY_MEDIA=0` if you need single-hop debugging.
+ * Two-phase inbound: optional redirect before DB routing (pass 2 adds `<Dial>`).
+ * **Default off** — the extra webhook hop adds ~300–800ms and an audible ring-tone switch before `<Dial>`.
+ * Enable with `ZING_INBOUND_EARLY_MEDIA=1` only if pass-1 ringback while DB loads is worth the delay.
  */
 export function readInboundEarlyMediaEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_EARLY_MEDIA || "").trim().toLowerCase()
-  if (raw === "0" || raw === "false" || raw === "no") return false
-  return true
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
+  return false
 }
 
 /** Optional hosted ringback MP3/WAV played on pass 1 while pass 2 loads routing (see `ZING_INBOUND_EARLY_MEDIA_RING_URL`). */

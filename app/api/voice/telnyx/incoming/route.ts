@@ -41,7 +41,7 @@ import {
 import { buildTelnyxAiAssistantTexml } from "@/lib/telnyx-ai-texml"
 import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycle"
 import { flattenJsonWebhookToStringMap } from "@/lib/telnyx-incoming-webhook-flatten"
-import { isAccountRoutingBlocked, buildSuspendedInboundRejectTexml } from "@/lib/account-status"
+import { isAccountRoutingBlocked, buildSuspendedInboundRejectTexml, parseAccountStatus } from "@/lib/account-status"
 import {
   origFromQuerySuffixFromRaw,
   readTelnyxDialAnswerOnBridge,
@@ -264,8 +264,24 @@ async function handleIncomingCall(
       return { kind: "twiml", texml }
     }
 
-    // 2. Suspension guardrail — must run before any routing, AI, or forwarding legs.
-    const accountStatus = await getUserAccountStatus(routing.user_id)
+    // 2–3. Parallel hot-path reads (status, repeat-leg guard, dashboard routing overlay, receptionist prefetch).
+    const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
+    const routingRecId = routing.selected_receptionist_id?.trim() || ""
+    const statusFromJoin = parseAccountStatus(routing.account_status)
+
+    const [accountStatus, firstLegDone, routingCfgResult, phoneList, prefetchedRoutingRec] = await Promise.all([
+      statusFromJoin != null ? Promise.resolve(statusFromJoin) : getUserAccountStatus(routing.user_id),
+      isTelnyxInboundDialCallerLegDone(callSid),
+      getRoutingConfigForNumber(routing.user_id, cfgDid).catch((cfgErr) => {
+        console.error("[Sigo] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
+        return null
+      }),
+      getPhoneNumbers(routing.user_id),
+      routingRecId
+        ? getReceptionist(routingRecId).catch(() => null)
+        : Promise.resolve(null),
+    ])
+
     if (isAccountRoutingBlocked(accountStatus)) {
       console.warn(
         JSON.stringify({
@@ -277,8 +293,6 @@ async function handleIncomingCall(
       )
       return { kind: "raw", xml: buildSuspendedInboundRejectTexml() }
     }
-
-    const firstLegDone = await isTelnyxInboundDialCallerLegDone(callSid)
 
     if (debug) console.log(`[Sigo] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
     if (debug) console.log(`[Sigo] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
@@ -344,16 +358,7 @@ async function handleIncomingCall(
       )
     }
 
-    // 3. Per-DID routing must match the dashboard (GET /api/routing?number=…): one `getRoutingConfigForNumber` read drives
-    // selected receptionist, fallback (AI vs not), and ring timeout — the SQL join row can disagree after edits.
-    const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
-    const [routingCfgResult, phoneList] = await Promise.all([
-      getRoutingConfigForNumber(routing.user_id, cfgDid).catch((cfgErr) => {
-        console.error("[Sigo] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
-        return null
-      }),
-      getPhoneNumbers(routing.user_id),
-    ])
+    // 4. Per-DID routing overlay (already fetched in parallel above).
     const routingCfg: RoutingConfig | null = routingCfgResult
 
     const wantsAiAfterNoAnswer =
@@ -390,7 +395,13 @@ async function handleIncomingCall(
         }
       }
       if (!receptionistDialE164) {
-        const rec = await getReceptionist(selectedReceptionistId)
+        let rec =
+          routingStillMatches &&
+          prefetchedRoutingRec &&
+          String(prefetchedRoutingRec.id) === selectedReceptionistId
+            ? prefetchedRoutingRec
+            : null
+        if (!rec) rec = await getReceptionist(selectedReceptionistId)
         const recOk = Boolean(rec && String(rec.user_id) === String(routing.user_id))
         if (recOk && rec) {
           receptionistDisplayName = rec.name ?? receptionistDisplayName
