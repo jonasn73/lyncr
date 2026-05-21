@@ -39,6 +39,7 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 | 34 | `034-admin-profile-metrics.sql` | **`onboarding_profiles`**: `total_calls_routed`, `total_minutes_used`, `account_status`, `custom_routing_note` — admin console usage + overrides |
 | 35 | `035-inbound-phone-lookup-index.sql` | **Indexes on `phone_numbers`** — faster inbound DID lookup for Telnyx voice webhooks |
 | 36 | `036-inbound-dial-snapshot.sql` | **Precomputed dial columns on `phone_numbers`** — one-row inbound routing (fastest path); open Routing tab once after running to backfill |
+| 37 | `037-backfill-inbound-dial-snapshot.sql` | **Fill `inbound_dial_e164`** when timestamp is set but receptionist phone column is empty |
 
 ## Platform admin (`admin@lyncr.app`)
 

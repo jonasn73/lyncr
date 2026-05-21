@@ -311,6 +311,8 @@ async function fetchInboundDialSnapshotSql(
       FROM phone_numbers pn
       WHERE pn.status = 'active'
         AND pn.inbound_routing_updated_at IS NOT NULL
+        AND pn.inbound_receptionist_id IS NOT NULL
+        AND NULLIF(trim(pn.inbound_dial_e164), '') IS NOT NULL
         AND (
           pn.number = ${normalized}
           OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
@@ -1115,7 +1117,24 @@ export async function syncInboundDialSnapshotForNumber(toNumber: string): Promis
   const normalized = normalizePhoneNumberE164(toNumber)
   if (!normalized) return
   const digitKey = phoneDigitsKey(toNumber)
-  const full = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
+  let full = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
+  if (full?.selected_receptionist_id?.trim() && !full.receptionist_phone?.trim()) {
+    const rec = await getReceptionist(full.selected_receptionist_id)
+    if (rec?.phone?.trim() && String(rec.user_id) === String(full.user_id)) {
+      const dial = normalizePhoneNumberE164(rec.phone)
+      full = {
+        ...full,
+        receptionist_phone: isReasonablePstnDialString(dial) ? dial : rec.phone.trim(),
+        receptionist_name: rec.name ?? full.receptionist_name,
+      }
+    }
+  }
+  if (full?.receptionist_phone?.trim()) {
+    const dial = normalizePhoneNumberE164(full.receptionist_phone)
+    if (isReasonablePstnDialString(dial)) {
+      full = { ...full, receptionist_phone: dial }
+    }
+  }
   await writeInboundRoutingSnapshot(normalized, digitKey, full)
   storeIncomingRoutingInMemory(normalized, full)
 }
