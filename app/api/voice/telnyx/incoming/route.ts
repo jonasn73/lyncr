@@ -41,7 +41,7 @@ import {
 import { buildTelnyxAiAssistantTexml } from "@/lib/telnyx-ai-texml"
 import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycle"
 import { flattenJsonWebhookToStringMap } from "@/lib/telnyx-incoming-webhook-flatten"
-import { isAccountRoutingBlocked, SUSPENDED_LINE_TEXML_MESSAGE } from "@/lib/account-status"
+import { isAccountRoutingBlocked, buildSuspendedInboundRejectTexml } from "@/lib/account-status"
 import {
   origFromQuerySuffixFromRaw,
   readTelnyxDialAnswerOnBridge,
@@ -275,9 +275,7 @@ async function handleIncomingCall(
           callSid,
         })
       )
-      texmlSayNatural(texml, SUSPENDED_LINE_TEXML_MESSAGE)
-      texml.hangup()
-      return { kind: "twiml", texml }
+      return { kind: "raw", xml: buildSuspendedInboundRejectTexml() }
     }
 
     const firstLegDone = await isTelnyxInboundDialCallerLegDone(callSid)
@@ -775,16 +773,13 @@ function texmlResponseBody(out: IncomingCallResult): string {
   return out.kind === "raw" ? raw : finalizeInboundTexmlXml(raw)
 }
 
-/** Block suspended accounts before early-media or any dial legs (direct DB read, not profile cache). */
+/** Block suspended accounts before early-media or any dial legs (fast DID lookup + instant Reject). */
 async function suspendedInboundTexmlResponse(calledNumberRaw: string): Promise<NextResponse | null> {
   const calledNumber = calledNumberRaw.trim()
   if (!calledNumber) return null
   const { account_status } = await getAccountStatusForInboundNumber(calledNumber)
   if (!isAccountRoutingBlocked(account_status)) return null
-  const texml = new VoiceResponse()
-  texmlSayNatural(texml, SUSPENDED_LINE_TEXML_MESSAGE)
-  texml.hangup()
-  return new NextResponse(finalizeInboundTexmlXml(texml.toString()), {
+  return new NextResponse(buildSuspendedInboundRejectTexml(), {
     headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
   })
 }

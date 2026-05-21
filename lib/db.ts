@@ -27,7 +27,7 @@ import type {
   LyncrAdminMetrics,
   AdminUserOverrideResult,
 } from "./types"
-import { parseAccountStatus } from "./account-status"
+import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
 import { runOnboardingTelnyxProvisionPlaceholder } from "./onboarding-telnyx-provision-placeholder"
@@ -216,6 +216,23 @@ type IncomingRoutingByNumber = IncomingRoutingRow | null
 
 const incomingRoutingCache = new Map<string, { expiresAt: number; value: IncomingRoutingByNumber }>()
 const INCOMING_ROUTING_CACHE_TTL_MS = 30_000
+
+/** Hot-path cache: suspended DIDs reject instantly on this instance (admin override primes it). */
+const blockedInboundStatusCache = new Map<
+  string,
+  { expiresAt: number; account_status: string; user_id: string }
+>()
+const BLOCKED_INBOUND_STATUS_CACHE_TTL_MS = 120_000
+
+function primeBlockedInboundStatusForUser(userId: string, accountStatus: string, phoneNumbers: string[]): void {
+  const expiresAt = Date.now() + BLOCKED_INBOUND_STATUS_CACHE_TTL_MS
+  for (const num of phoneNumbers) {
+    const key = phoneDigitsKey(num)
+    if (key.length >= 10) {
+      blockedInboundStatusCache.set(key, { expiresAt, account_status: accountStatus, user_id: userId })
+    }
+  }
+}
 
 /** Clear cached routing so voice webhooks see updated fallback_type immediately after dashboard saves. */
 export function clearIncomingRoutingCache(): void {
@@ -2931,21 +2948,80 @@ export async function getUserAccountStatus(userId: string): Promise<string> {
   }
 }
 
+/** Fast DID → account_status lookup (no routing_config joins — for suspension guard hot path). */
+async function lookupAccountStatusByInboundDid(toNumber: string): Promise<{
+  user_id: string
+  account_status: string
+} | null> {
+  const digitKey = phoneDigitsKey(toNumber)
+  if (digitKey.length < 10) return null
+
+  const cached = blockedInboundStatusCache.get(digitKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return { user_id: cached.user_id, account_status: cached.account_status }
+  }
+
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT u.id AS user_id, COALESCE(op.account_status, 'active') AS account_status
+      FROM phone_numbers pn
+      JOIN users u ON u.id = pn.user_id
+      LEFT JOIN onboarding_profiles op ON op.user_id = u.id
+      WHERE pn.status = 'active'
+        AND (
+          regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+          OR (
+            length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
+            AND length(${digitKey}) >= 10
+            AND right(regexp_replace(pn.number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+          )
+        )
+      LIMIT 1
+    `
+    const row = rows[0] as { user_id?: string; account_status?: string | null } | undefined
+    if (!row?.user_id) return null
+    const account_status = parseAccountStatus(row.account_status) ?? "active"
+    if (isAccountRoutingBlocked(account_status)) {
+      blockedInboundStatusCache.set(digitKey, {
+        expiresAt: Date.now() + BLOCKED_INBOUND_STATUS_CACHE_TTL_MS,
+        account_status,
+        user_id: String(row.user_id),
+      })
+    }
+    return { user_id: String(row.user_id), account_status }
+  } catch (e) {
+    if (!isMissingOnboardingProfileColumnError(e)) throw e
+    const rows = await sql`
+      SELECT u.id AS user_id
+      FROM phone_numbers pn
+      JOIN users u ON u.id = pn.user_id
+      WHERE pn.status = 'active'
+        AND (
+          regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+          OR (
+            length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
+            AND length(${digitKey}) >= 10
+            AND right(regexp_replace(pn.number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+          )
+        )
+      LIMIT 1
+    `
+    const row = rows[0] as { user_id?: string } | undefined
+    if (!row?.user_id) return null
+    const account_status = await getUserAccountStatus(String(row.user_id))
+    return { user_id: String(row.user_id), account_status }
+  }
+}
+
 /** Resolve account owner from inbound DID and return suspension status (for webhook guard). */
 export async function getAccountStatusForInboundNumber(toNumber: string): Promise<{
   user_id: string | null
   account_status: string
 }> {
-  const routing = await getIncomingRoutingByNumber(toNumber, { bypassCache: true })
-  if (!routing?.user_id) {
-    return { user_id: null, account_status: "active" }
-  }
-  const fromRouting = parseAccountStatus(routing.account_status)
-  if (fromRouting) {
-    return { user_id: routing.user_id, account_status: fromRouting }
-  }
-  const account_status = await getUserAccountStatus(routing.user_id)
-  return { user_id: routing.user_id, account_status }
+  const lookup = await lookupAccountStatusByInboundDid(toNumber)
+  if (!lookup) return { user_id: null, account_status: "active" }
+  return lookup
 }
 
 /** Operator overrides: status, notes, manual DID, hard reset lines. */
@@ -3062,6 +3138,10 @@ export async function adminApplyUserOverride(params: {
         throw e
       }
       clearIncomingRoutingCache()
+      if (shouldWriteStatus) {
+        const nums = await getPhoneNumbers(userId)
+        primeBlockedInboundStatusForUser(userId, nextStatus, nums.map((p) => p.number))
+      }
     }
   }
 

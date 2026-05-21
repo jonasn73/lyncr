@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
 import { getUser, getUserAccountStatus } from "@/lib/db"
-import { isAccountRoutingBlocked, SUSPENDED_LINE_TEXML_MESSAGE } from "@/lib/account-status"
+import { isAccountRoutingBlocked, buildSuspendedInboundRejectTexml } from "@/lib/account-status"
 import { ensureTelnyxVoiceAiAssistant } from "@/lib/telnyx-ai-assistant-lifecycle"
 import { buildTelnyxAiAssistantTexml, normalizeTelnyxAssistantIdForTexml } from "@/lib/telnyx-ai-texml"
 
@@ -56,10 +56,7 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
 
   const accountStatus = await getUserAccountStatus(userId)
   if (isAccountRoutingBlocked(accountStatus)) {
-    const vr = new VoiceResponse()
-    texmlSayNatural(vr, SUSPENDED_LINE_TEXML_MESSAGE)
-    vr.hangup()
-    return new NextResponse(vr.toString(), {
+    return new NextResponse(buildSuspendedInboundRejectTexml(), {
       headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
     })
   }
