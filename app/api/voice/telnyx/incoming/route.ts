@@ -281,10 +281,9 @@ function resolveInboundOutboundCallerId(
 }
 
 /**
- * Hot path: one routing row already has receptionist E.164 — return `<Dial>` immediately (no extra DB).
- * Skips the gap where US ringback plays to the caller before Telnyx starts the PSTN B-leg.
+ * Hot path: return `<Dial>` immediately when routing row already has a PSTN target (receptionist or owner).
  */
-function tryFastReceptionistDial(params: {
+function tryFastInboundPstnDial(params: {
   routing: IncomingRoutingRowNonNull
   businessLineE164: string
   calledNumber: string
@@ -294,21 +293,27 @@ function tryFastReceptionistDial(params: {
   appUrl: string
 }): IncomingCallResult | null {
   const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl } = params
-  const recPhone = resolveReceptionistDialE164(routing.receptionist_phone || "")
-  if (!recPhone || !routing.selected_receptionist_id?.trim()) return null
+  const hasReceptionist = Boolean(routing.selected_receptionist_id?.trim())
+  const dialE164 = resolveReceptionistDialE164(routing.receptionist_phone || routing.owner_phone || "")
+  if (!dialE164) return null
 
   const wantsAiAfterNoAnswer = String(routing.fallback_type ?? "").toLowerCase() === "ai"
   const effectiveRingTimeout = Number(routing.ring_timeout_seconds ?? 30) || 30
-  const receptionistRingSec = wantsAiAfterNoAnswer
-    ? Math.min(effectiveRingTimeout, 22)
-    : effectiveRingTimeout
+  const ringSec = wantsAiAfterNoAnswer ? Math.min(effectiveRingTimeout, 22) : effectiveRingTimeout
 
   const didDigits = businessLineE164.replace(/\D/g, "")
-  const fallbackMode = wantsAiAfterNoAnswer ? "recv-ai" : "recv"
+  const fallbackMode = wantsAiAfterNoAnswer
+    ? hasReceptionist
+      ? "recv-ai"
+      : "owner-ai"
+    : hasReceptionist
+      ? "recv"
+      : "owner"
   const fallbackPathBase =
     didDigits.length >= 10
       ? `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}/n/${didDigits}/${fallbackMode}`
       : `${appUrl}/api/voice/telnyx/fallback/u/${encodeURIComponent(routing.user_id)}`
+  const modeQuery = didDigits.length < 10 ? `&zingFbMode=${encodeURIComponent(fallbackMode)}` : ""
   const fbQuery = wantsAiAfterNoAnswer ? "&fb=ai" : ""
   const bnQuery = `&bn=${encodeURIComponent(businessLineE164)}`
   const origFromQuery = origFromQuerySuffixFromRaw(callerNumber)
@@ -318,13 +323,15 @@ function tryFastReceptionistDial(params: {
     businessOutboundE164: outboundCallerId,
   })
   const answerOnBridge = readTelnyxDialAnswerOnBridge()
+  const ownerLegQuery = hasReceptionist ? "" : "&primary=owner&leg=owner-first"
+  const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}${ownerLegQuery}${origFromQuery}`
 
   const xml = buildFastReceptionistDialTexml({
     ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
     answerOnBridge,
-    timeout: receptionistRingSec,
-    action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${origFromQuery}`,
-    receptionistE164: recPhone,
+    timeout: ringSec,
+    action,
+    receptionistE164: dialE164,
   })
 
   after(() => {
@@ -337,8 +344,8 @@ function tryFastReceptionistDial(params: {
       call_type: "incoming",
       status: "ringing",
       duration_seconds: 0,
-      routed_to_receptionist_id: routing.selected_receptionist_id,
-      routed_to_name: routing.receptionist_name,
+      routed_to_receptionist_id: hasReceptionist ? routing.selected_receptionist_id : null,
+      routed_to_name: hasReceptionist ? routing.receptionist_name : null,
       has_recording: false,
       recording_url: null,
       recording_duration_seconds: null,
@@ -349,7 +356,7 @@ function tryFastReceptionistDial(params: {
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-incoming-fast-recv-dial",
+      zing: hasReceptionist ? "telnyx-incoming-fast-recv-dial" : "telnyx-incoming-fast-owner-dial",
       userId: routing.user_id,
       callSid,
       answerOnBridge,
@@ -414,8 +421,8 @@ async function handleIncomingCall(
     const mightRepeatLeg = inboundWebhookLooksLikeDialRepeat(webhookFields)
     const overlayEnabled = readInboundRoutingCfgOverlayEnabled()
 
-    if (!mightRepeatLeg && !overlayEnabled && routing.receptionist_phone?.trim()) {
-      const fast = tryFastReceptionistDial({
+    if (!mightRepeatLeg && !overlayEnabled && (routing.receptionist_phone?.trim() || routing.owner_phone?.trim())) {
+      const fast = tryFastInboundPstnDial({
         routing,
         businessLineE164,
         calledNumber,
@@ -950,7 +957,7 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
     })
   }
 
-  if (!routing.receptionist_phone?.trim() || !routing.selected_receptionist_id?.trim()) {
+  if (!resolveReceptionistDialE164(routing.receptionist_phone || routing.owner_phone || "")) {
     return null
   }
 
@@ -960,7 +967,7 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
   const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
 
-  const fast = tryFastReceptionistDial({
+  const fast = tryFastInboundPstnDial({
     routing,
     businessLineE164,
     calledNumber: calledNumberRaw,
@@ -999,13 +1006,13 @@ async function serveInboundPassOne(req: NextRequest, fields: Record<string, stri
   }
 
   const cachedRouting = calledNumberRaw.trim() ? peekIncomingRoutingCache(calledNumberRaw) : null
-  if (cachedRouting?.receptionist_phone?.trim()) {
+  if (cachedRouting && (cachedRouting.receptionist_phone?.trim() || cachedRouting.owner_phone?.trim())) {
     const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
     const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
     const callerNumber = pickField(fields, ["From", "from", "Caller", "caller", "RemoteParty"])
     const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
     const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
-    const fast = tryFastReceptionistDial({
+    const fast = tryFastInboundPstnDial({
       routing: cachedRouting,
       businessLineE164,
       calledNumber: calledNumberRaw,

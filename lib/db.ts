@@ -311,7 +311,6 @@ async function fetchInboundDialSnapshotSql(
       FROM phone_numbers pn
       WHERE pn.status = 'active'
         AND pn.inbound_routing_updated_at IS NOT NULL
-        AND pn.inbound_receptionist_id IS NOT NULL
         AND NULLIF(trim(pn.inbound_dial_e164), '') IS NOT NULL
         AND (
           pn.number = ${normalized}
@@ -321,18 +320,20 @@ async function fetchInboundDialSnapshotSql(
     `
     if (!rows[0]) return null
     const row = rows[0] as Record<string, unknown>
+    const dialE164 = row.receptionist_phone ? String(row.receptionist_phone).trim() : ""
+    const recvId = row.selected_receptionist_id ? String(row.selected_receptionist_id) : null
     return {
       user_id: String(row.user_id),
       user_name: "",
       business_name: "My Business",
       inbound_receptionist_whisper_enabled: true,
-      owner_phone: "",
-      selected_receptionist_id: row.selected_receptionist_id ? String(row.selected_receptionist_id) : null,
+      owner_phone: recvId ? "" : dialE164,
+      selected_receptionist_id: recvId,
       fallback_type: (row.fallback_type as RoutingConfig["fallback_type"]) || "owner",
       ring_timeout_seconds: Number(row.ring_timeout_seconds ?? 30),
       ai_ring_owner_first: false,
       receptionist_name: row.receptionist_name ? String(row.receptionist_name) : null,
-      receptionist_phone: row.receptionist_phone ? String(row.receptionist_phone) : null,
+      receptionist_phone: recvId ? dialE164 : dialE164,
       phone_line_label: "Main Line",
       phone_line_friendly_name: "",
       account_status: row.account_status != null ? String(row.account_status) : "active",
@@ -1062,6 +1063,19 @@ function mapIncomingRoutingRowFromDb(row: Record<string, unknown>): IncomingRout
   }
 }
 
+/** PSTN leg to ring on inbound — receptionist when assigned, otherwise owner cell. */
+function resolveInboundSnapshotDialE164(row: IncomingRoutingRow): string | null {
+  if (row.receptionist_phone?.trim()) {
+    const dial = normalizePhoneNumberE164(row.receptionist_phone)
+    if (isReasonablePstnDialString(dial)) return dial
+  }
+  if (!row.selected_receptionist_id?.trim() && row.owner_phone?.trim()) {
+    const dial = normalizePhoneNumberE164(row.owner_phone)
+    if (isReasonablePstnDialString(dial)) return dial
+  }
+  return null
+}
+
 async function writeInboundRoutingSnapshot(
   normalized: string,
   digitKey: string,
@@ -1092,7 +1106,7 @@ async function writeInboundRoutingSnapshot(
     await sql`
       UPDATE phone_numbers
       SET
-        inbound_dial_e164 = ${row.receptionist_phone},
+        inbound_dial_e164 = ${resolveInboundSnapshotDialE164(row)},
         inbound_receptionist_id = ${row.selected_receptionist_id},
         inbound_receptionist_name = ${row.receptionist_name},
         inbound_fallback_type = ${row.fallback_type},
@@ -1133,6 +1147,11 @@ export async function syncInboundDialSnapshotForNumber(toNumber: string): Promis
     const dial = normalizePhoneNumberE164(full.receptionist_phone)
     if (isReasonablePstnDialString(dial)) {
       full = { ...full, receptionist_phone: dial }
+    }
+  } else if (full?.owner_phone?.trim()) {
+    const dial = normalizePhoneNumberE164(full.owner_phone)
+    if (isReasonablePstnDialString(dial)) {
+      full = { ...full, owner_phone: dial }
     }
   }
   await writeInboundRoutingSnapshot(normalized, digitKey, full)

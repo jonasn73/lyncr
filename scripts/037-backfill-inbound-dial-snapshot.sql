@@ -4,7 +4,7 @@
 UPDATE phone_numbers pn
 SET
   inbound_receptionist_id = resolved.selected_receptionist_id,
-  inbound_dial_e164 = NULLIF(trim(resolved.receptionist_phone), ''),
+  inbound_dial_e164 = NULLIF(trim(COALESCE(resolved.receptionist_phone, resolved.owner_phone)), ''),
   inbound_receptionist_name = resolved.receptionist_name,
   inbound_fallback_type = resolved.fallback_type,
   inbound_ring_timeout_seconds = resolved.ring_timeout_seconds,
@@ -22,6 +22,7 @@ FROM (
     ) AS selected_receptionist_id,
     reff.phone AS receptionist_phone,
     reff.name AS receptionist_name,
+    u.phone AS owner_phone,
     COALESCE(
       CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.fallback_type ELSE rc_def.fallback_type END,
       'owner'
