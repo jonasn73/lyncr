@@ -6,6 +6,7 @@
 // scripts/001-create-schema.sql and scripts/002-add-password-hash.sql in your Neon SQL Editor.
 
 import { neon } from "@neondatabase/serverless"
+import { unstable_cache, revalidateTag } from "next/cache"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { SITE_NAME } from "@/lib/brand"
 import type {
@@ -212,13 +213,13 @@ export type IncomingRoutingRow = {
   primary_phone_number: string
 }
 
-// Cache for incoming voice routing to reduce per-request DB latency on the **same** instance.
-// Dashboard saves call `clearIncomingRoutingCache()` on the writer instance; other serverless instances
-// may serve cached routing for up to INCOMING_ROUTING_CACHE_TTL_MS (fallback webhooks use bypassCache).
+// L1: in-memory per serverless instance. L2: Vercel Data Cache (unstable_cache) shared across instances.
 type IncomingRoutingByNumber = IncomingRoutingRow | null
 
 const incomingRoutingCache = new Map<string, { expiresAt: number; value: IncomingRoutingByNumber }>()
 const INCOMING_ROUTING_CACHE_TTL_MS = 120_000
+/** Vercel Data Cache tag — shared across serverless instances (unlike the in-memory Map below). */
+const INCOMING_ROUTING_DATA_TAG = "incoming-routing"
 
 /** Hot-path cache: suspended DIDs reject instantly on this instance (admin override primes it). */
 const blockedInboundStatusCache = new Map<
@@ -240,6 +241,27 @@ function primeBlockedInboundStatusForUser(userId: string, accountStatus: string,
 /** Clear cached routing so voice webhooks see updated fallback_type immediately after dashboard saves. */
 export function clearIncomingRoutingCache(): void {
   incomingRoutingCache.clear()
+  try {
+    revalidateTag(INCOMING_ROUTING_DATA_TAG)
+  } catch {
+    // revalidateTag requires a server request context — safe to ignore during tests
+  }
+}
+
+function revalidateIncomingRoutingDataCache(normalized: string): void {
+  try {
+    revalidateTag(INCOMING_ROUTING_DATA_TAG)
+    revalidateTag(`incoming-routing-${normalized}`)
+  } catch {
+    // ignore outside request context
+  }
+}
+
+function storeIncomingRoutingInMemory(normalized: string, value: IncomingRoutingByNumber): void {
+  incomingRoutingCache.set(normalized, {
+    expiresAt: Date.now() + INCOMING_ROUTING_CACHE_TTL_MS,
+    value,
+  })
 }
 
 /** Warm inbound routing cache after dashboard saves (fire-and-forget). */
@@ -940,21 +962,11 @@ function inboundWhisperEnabledFromRoutingRow(row: Record<string, unknown>): bool
 // Per-number `routing_config` rows are often sparse: if a row exists for the DID but
 // `selected_receptionist_id` is NULL, we still inherit the account default receptionist
 // from `rc_def` so inbound `<Dial>` matches what the dashboard shows when only the default row was edited.
-export async function getIncomingRoutingByNumber(
-  toNumber: string,
-  options?: { bypassCache?: boolean; lite?: boolean }
+async function fetchIncomingRoutingByNumberFromDb(
+  normalized: string,
+  digitKey: string
 ): Promise<IncomingRoutingByNumber> {
-  const normalized = normalizePhoneNumberE164(toNumber)
-  const digitKey = phoneDigitsKey(toNumber)
-
-  // Return cached result if it is still fresh (skip when forcing fresh read, e.g. Telnyx fallback webhook).
-  if (!options?.bypassCache) {
-    const cached = incomingRoutingCache.get(normalized)
-    if (cached && cached.expiresAt > Date.now()) return cached.value
-  }
-
   const sql = getSql()
-  // Match Telnyx "To" (+1…) to rows stored as 10-digit, 11-digit, or E.164 (avoids silent no-match → no call_logs).
   let rows: Record<string, unknown>[]
   try {
     rows = await sql`
@@ -1017,10 +1029,11 @@ export async function getIncomingRoutingByNumber(
     )
     WHERE pn.status = 'active'
       AND (
-        regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+        pn.number = ${normalized}
+        OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
         OR (
-          length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
-          AND length(${digitKey}) >= 10
+          length(${digitKey}) >= 10
+          AND length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
           AND right(regexp_replace(pn.number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
         )
       )
@@ -1087,10 +1100,11 @@ export async function getIncomingRoutingByNumber(
     )
     WHERE pn.status = 'active'
       AND (
-        regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+        pn.number = ${normalized}
+        OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
         OR (
-          length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
-          AND length(${digitKey}) >= 10
+          length(${digitKey}) >= 10
+          AND length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
           AND right(regexp_replace(pn.number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
         )
       )
@@ -1100,7 +1114,7 @@ export async function getIncomingRoutingByNumber(
 
   const row = rows[0]
   if (!row) {
-    incomingRoutingCache.set(normalized, { expiresAt: Date.now() + INCOMING_ROUTING_CACHE_TTL_MS, value: null })
+    storeIncomingRoutingInMemory(normalized, null)
     return null
   }
 
@@ -1123,8 +1137,41 @@ export async function getIncomingRoutingByNumber(
     primary_phone_number: row.primary_phone_number != null ? String(row.primary_phone_number) : "",
   }
 
-  incomingRoutingCache.set(normalized, { expiresAt: Date.now() + INCOMING_ROUTING_CACHE_TTL_MS, value })
+  storeIncomingRoutingInMemory(normalized, value)
   return value
+}
+
+function getIncomingRoutingFromDataCache(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingByNumber> {
+  const run = unstable_cache(
+    async () => fetchIncomingRoutingByNumberFromDb(normalized, digitKey),
+    ["incoming-routing-v3", normalized],
+    {
+      revalidate: 120,
+      tags: [INCOMING_ROUTING_DATA_TAG, `incoming-routing-${normalized}`],
+    }
+  )
+  return run()
+}
+
+export async function getIncomingRoutingByNumber(
+  toNumber: string,
+  options?: { bypassCache?: boolean; lite?: boolean }
+): Promise<IncomingRoutingByNumber> {
+  const normalized = normalizePhoneNumberE164(toNumber)
+  if (!normalized) return null
+  const digitKey = phoneDigitsKey(toNumber)
+
+  if (!options?.bypassCache) {
+    const cached = incomingRoutingCache.get(normalized)
+    if (cached && cached.expiresAt > Date.now()) return cached.value
+    return getIncomingRoutingFromDataCache(normalized, digitKey)
+  }
+
+  revalidateIncomingRoutingDataCache(normalized)
+  return fetchIncomingRoutingByNumberFromDb(normalized, digitKey)
 }
 
 /** `getUser` when `users` has no billing columns yet (pre-019 migration). */

@@ -922,23 +922,28 @@ function texmlResponseBody(out: IncomingCallResult): string {
   return out.kind === "raw" ? raw : finalizeInboundTexmlXml(raw)
 }
 
-/** Cache-first single-hop: return `<Dial>` before any DB when routing was warmed (dashboard save or recent call). */
-function tryHotInboundReceptionistResponse(fields: Record<string, string>): NextResponse | null {
+/** DB-backed fast path: resolve routing then return raw `<Dial>` before heavy handleIncomingCall. */
+async function tryFastInboundReceptionistResponse(fields: Record<string, string>): Promise<NextResponse | null> {
   if (inboundWebhookLooksLikeDialRepeat(fields)) return null
   if (readInboundRoutingCfgOverlayEnabled()) return null
 
   const calledNumberRaw = resolveCalledParty(fields)
   if (!calledNumberRaw.trim()) return null
 
-  const blockedStatus = peekBlockedInboundStatusForNumber(calledNumberRaw)
-  if (blockedStatus && isAccountRoutingBlocked(blockedStatus)) {
+  const t0 = Date.now()
+  const routing = await getIncomingRoutingByNumber(calledNumberRaw)
+  const lookupMs = Date.now() - t0
+
+  if (!routing) return null
+
+  const statusFromJoin = parseAccountStatus(routing.account_status)
+  if (statusFromJoin && isAccountRoutingBlocked(statusFromJoin)) {
     return new NextResponse(buildSuspendedInboundRejectTexml(), {
       headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
     })
   }
 
-  const cachedRouting = peekIncomingRoutingCache(calledNumberRaw)
-  if (!cachedRouting?.receptionist_phone?.trim() || !cachedRouting.selected_receptionist_id?.trim()) {
+  if (!routing.receptionist_phone?.trim() || !routing.selected_receptionist_id?.trim()) {
     return null
   }
 
@@ -949,7 +954,7 @@ function tryHotInboundReceptionistResponse(fields: Record<string, string>): Next
   const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
 
   const fast = tryFastReceptionistDial({
-    routing: cachedRouting,
+    routing,
     businessLineE164,
     calledNumber: calledNumberRaw,
     callerNumber,
@@ -961,9 +966,10 @@ function tryHotInboundReceptionistResponse(fields: Record<string, string>): Next
 
   console.log(
     JSON.stringify({
-      zing: "telnyx-incoming-hot-cache-dial",
-      userId: cachedRouting.user_id,
+      zing: "telnyx-incoming-fast-recv-path",
+      userId: routing.user_id,
       callSid,
+      lookupMs,
     })
   )
 
@@ -1018,7 +1024,7 @@ export async function POST(req: NextRequest) {
   const passOne = await serveInboundPassOne(req, fields)
   if (passOne) return passOne
 
-  const hot = tryHotInboundReceptionistResponse(fields)
+  const hot = await tryFastInboundReceptionistResponse(fields)
   if (hot) return hot
 
   if (process.env.NODE_ENV !== "production") {
@@ -1060,7 +1066,7 @@ export async function GET(req: NextRequest) {
   const passOne = await serveInboundPassOne(req, fields)
   if (passOne) return passOne
 
-  const hot = tryHotInboundReceptionistResponse(fields)
+  const hot = await tryFastInboundReceptionistResponse(fields)
   if (hot) return hot
 
   const calledNumberRaw = resolveCalledParty(fields)
