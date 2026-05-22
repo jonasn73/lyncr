@@ -70,6 +70,22 @@ export function readInboundDialRingTone(): string {
 }
 
 /**
+ * Optional custom ringback WAV/MP3 URL on `<Dial>` (Telnyx `audioUrl` — overrides `ringTone` when set).
+ * Example: `ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL=https://lyncr.app/audio/us-ringback.wav`
+ */
+export function readInboundDialRingbackAudioUrl(): string | null {
+  const raw = (process.env.ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL || "").trim()
+  return raw || null
+}
+
+/** Telnyx TeXML ringback attrs — native `ringTone` or custom `audioUrl` (no `ringbackTone` in schema). */
+export function buildInboundDialRingbackAttributes(): Record<string, string> {
+  const audioUrl = readInboundDialRingbackAudioUrl()
+  if (audioUrl) return { audioUrl }
+  return { ringTone: readInboundDialRingTone() }
+}
+
+/**
  * Ring seconds on the fast inbound `<Dial>` (Telnyx `timeout` attribute, 5–120).
  * Uses routing snapshot first; override with `ZING_INBOUND_FAST_DIAL_TIMEOUT=20` if needed.
  */
@@ -164,10 +180,9 @@ export function buildInboundPstnDialAttributes(opts: {
     method: opts.method ?? "POST",
     ...buildBridgedLegMediaAttributes(),
   }
-  // Telnyx has no `fork` attribute — multiple `<Number>` nouns dial simultaneously by default.
-  // Ringback to the caller only when we deliberately defer answering (answerOnBridge=true).
+  // Telnyx has no `ringbackTone` — use native `ringTone="us"` or optional `audioUrl` during B-leg setup.
   if (opts.answerOnBridge) {
-    out.ringTone = readInboundDialRingTone()
+    Object.assign(out, buildInboundDialRingbackAttributes())
   }
   if (opts.callerId) out.callerId = opts.callerId
   if (opts.fromDisplayName) out.fromDisplayName = opts.fromDisplayName

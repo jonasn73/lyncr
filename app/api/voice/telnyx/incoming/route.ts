@@ -317,6 +317,7 @@ function resolveInboundOutboundCallerId(
 
 /**
  * Hot path: return `<Dial>` immediately when routing row already has a PSTN target (receptionist or owner).
+ * Ringback during setup: Telnyx `ringTone="us"` (or `audioUrl` via ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL) + answerOnBridge.
  */
 function tryFastInboundPstnDial(params: {
   routing: IncomingRoutingRowNonNull

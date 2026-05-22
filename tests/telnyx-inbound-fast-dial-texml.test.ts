@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach, vi } from "vitest"
 import {
   buildFastReceptionistDialTexml,
+  buildInboundDialRingbackAttributes,
   readInboundFastDialAnswerOnBridge,
   resolveInboundFastDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
@@ -24,6 +25,27 @@ describe("resolveInboundFastDialTimeoutSeconds", () => {
   it("honors ZING_INBOUND_FAST_DIAL_TIMEOUT=20", () => {
     vi.stubEnv("ZING_INBOUND_FAST_DIAL_TIMEOUT", "20")
     expect(resolveInboundFastDialTimeoutSeconds(30)).toBe(20)
+  })
+})
+
+describe("buildInboundDialRingbackAttributes", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("defaults to native US ringTone", () => {
+    vi.stubEnv("ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL", "")
+    expect(buildInboundDialRingbackAttributes()).toEqual({ ringTone: "us" })
+  })
+
+  it("uses audioUrl when ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL is set", () => {
+    vi.stubEnv(
+      "ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL",
+      "https://lyncr.app/audio/us-ringback.wav"
+    )
+    expect(buildInboundDialRingbackAttributes()).toEqual({
+      audioUrl: "https://lyncr.app/audio/us-ringback.wav",
+    })
   })
 })
 
