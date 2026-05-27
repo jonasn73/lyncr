@@ -6,6 +6,7 @@ import { AppShell, type AccountHeaderState, type PageId } from "@/components/app
 import { DashboardChromeProvider } from "@/components/dashboard-shell-chrome-context"
 import { DashboardNumbersModalProvider } from "@/components/dashboard-numbers-modal-context"
 import { UpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
+import { AddCarrierCreditModal } from "@/components/add-carrier-credit-modal"
 import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-context"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
@@ -104,6 +105,7 @@ export function DashboardShell({
           <DashboardWorkspaceProvider>
             <DashboardNumbersModalProvider>
               <UpgradeSubscriptionModal />
+              <AddCarrierCreditModal />
               <AppShell
                 pathname={pathname}
                 accountHeader={accountHeader}

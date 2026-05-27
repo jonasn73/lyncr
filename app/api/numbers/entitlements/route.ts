@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { evaluateNumberPurchaseGate } from "@/lib/number-allocation"
+import { getOnboardingProfile } from "@/lib/db"
 import {
   CARRIER_PROVISIONING_FEE_USD,
   TIER_DISPLAY_NAME,
   tierUpgradeTarget,
 } from "@/lib/subscription-tier"
+import { hasPaidStripeSubscription } from "@/lib/onboarding-subscription-status"
 
 /** GET /api/numbers/entitlements — tier limits + carrier credit before buying a line. */
 export async function GET(req: NextRequest) {
@@ -17,6 +19,7 @@ export async function GET(req: NextRequest) {
   try {
     const gate = await evaluateNumberPurchaseGate(userId)
     const upgradeTarget = tierUpgradeTarget(gate.tier)
+    const profile = await getOnboardingProfile(userId)
 
     return NextResponse.json({
       data: {
@@ -26,6 +29,7 @@ export async function GET(req: NextRequest) {
         upgrade_message: gate.allowed ? null : gate.upgrade_message,
         subscription_tier: gate.tier,
         subscription_tier_label: TIER_DISPLAY_NAME[gate.tier],
+        subscription_active: hasPaidStripeSubscription(profile),
         upgrade_target_tier: upgradeTarget,
         upgrade_target_label: upgradeTarget ? TIER_DISPLAY_NAME[upgradeTarget] : null,
         active_number_count: gate.active_count,

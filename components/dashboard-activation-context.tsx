@@ -209,8 +209,15 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
         return
       }
 
-      const { checkoutUrl } = await startStripeSubscriptionCheckout(tier)
-      window.location.href = checkoutUrl
+      const result = await startStripeSubscriptionCheckout(tier)
+      if (result.kind === "upgraded") {
+        toast({
+          title: `Upgraded to ${result.tierLabel}`,
+          description: "Your plan was updated.",
+        })
+        return
+      }
+      window.location.href = result.checkoutUrl
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not start checkout"
       const needsCredit = /carrier credit/i.test(msg)

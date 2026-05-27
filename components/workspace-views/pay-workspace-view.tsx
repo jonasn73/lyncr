@@ -132,19 +132,19 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
 
   async function handleSubscribe(tier: CheckoutSubscriptionTier) {
     if (checkoutTier != null) return
-    if (subscriptionActive) {
-      toast({
-        title: "Subscription already active",
-        description: needsCarrierCredit
-          ? "Add carrier credit below to activate your business line on Telnyx."
-          : "Your plan is already active. Manage billing in Stripe if you need to change tiers.",
-      })
-      return
-    }
     setCheckoutTier(tier)
     try {
-      const { checkoutUrl } = await startStripeSubscriptionCheckout(tier)
-      window.location.href = checkoutUrl
+      const result = await startStripeSubscriptionCheckout(tier)
+      if (result.kind === "upgraded") {
+        toast({
+          title: `Upgraded to ${result.tierLabel}`,
+          description: "Your plan was updated.",
+        })
+        await refreshBilling()
+        setCheckoutTier(null)
+        return
+      }
+      window.location.href = result.checkoutUrl
     } catch (e) {
       toast({
         variant: "destructive",

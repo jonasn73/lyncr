@@ -13,6 +13,7 @@ import { BuyNumberMarketplaceModal } from "@/components/buy-number-marketplace-m
 import { ManageNumbersModal } from "@/components/manage-numbers-modal"
 import { fetchNumberEntitlements } from "@/lib/number-entitlements-client"
 import { showUpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
+import { showAddCarrierCreditModal } from "@/components/add-carrier-credit-modal"
 import { useToast } from "@/hooks/use-toast"
 
 export type NumbersModalView = "none" | "buy" | "manage"
@@ -51,6 +52,14 @@ export function DashboardNumbersModalProvider({ children }: { children: ReactNod
     try {
       const entitlements = await fetchNumberEntitlements()
       if (!entitlements.allowed) {
+        if (entitlements.reason === "insufficient_credit") {
+          showAddCarrierCreditModal({
+            message: entitlements.message ?? undefined,
+            carrierCredit: entitlements.carrier_credit,
+            provisioningFeeUsd: entitlements.provisioning_fee_usd,
+          })
+          return
+        }
         if (entitlements.reason === "tier_limit") {
           showUpgradeSubscriptionModal({
             message: entitlements.message ?? undefined,
@@ -58,11 +67,12 @@ export function DashboardNumbersModalProvider({ children }: { children: ReactNod
             suggestedTier:
               (entitlements.upgrade_target_tier as import("@/lib/subscription-checkout").CheckoutSubscriptionTier | null) ??
               undefined,
+            subscriptionActive: entitlements.subscription_active,
           })
           return
         }
         toast({
-          title: entitlements.reason === "insufficient_credit" ? "Add carrier credit" : "Upgrade required",
+          title: "Cannot add number",
           description: entitlements.message ?? "You cannot add another business number on your current plan.",
           variant: "destructive",
         })

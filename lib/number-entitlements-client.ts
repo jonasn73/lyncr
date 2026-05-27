@@ -5,6 +5,7 @@ export type NumberEntitlements = {
   upgrade_message: string | null
   subscription_tier: string
   subscription_tier_label: string
+  subscription_active: boolean
   upgrade_target_tier: string | null
   upgrade_target_label: string | null
   active_number_count: number

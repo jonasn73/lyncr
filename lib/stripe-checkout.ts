@@ -7,7 +7,14 @@ import {
   normalizeCheckoutSubscriptionTier,
   type CheckoutSubscriptionTier,
 } from "@/lib/subscription-checkout"
+import {
+  SUBSCRIPTION_TIER_ORDER,
+  TIER_DISPLAY_NAME,
+  normalizeSubscriptionTier,
+  type SubscriptionTier,
+} from "@/lib/subscription-tier"
 import { getStripeClient, resolveStripePriceIdForTier } from "@/lib/stripe-config"
+import { syncStripeSubscriptionToNeon } from "@/lib/stripe-webhook-sync"
 
 export type StripeCheckoutSessionResult = {
   url: string
@@ -26,7 +33,7 @@ export async function createLyncrSubscriptionCheckout(
   }
   if (profile.stripe_subscription_id?.trim()) {
     throw new Error(
-      "Your subscription is already active. Add carrier credit on the Pay tab if your line is still provisioning."
+      "You already have an active subscription. Use plan upgrade to add more lines, or add carrier credit on the Pay tab if your number is still provisioning."
     )
   }
 
@@ -119,4 +126,75 @@ export async function createLyncrCreditPackCheckout(
   }
 
   return { url: session.url, sessionId: session.id }
+}
+
+export type SubscriptionUpgradeResult = {
+  tier: SubscriptionTier
+  tier_label: string
+}
+
+/** Change an existing Stripe subscription to a higher tier (prorated). */
+export async function upgradeLyncrSubscription(
+  userId: string,
+  tierInput: CheckoutSubscriptionTier | string
+): Promise<SubscriptionUpgradeResult> {
+  const tier = normalizeCheckoutSubscriptionTier(tierInput)
+  const profile = await getOnboardingProfile(userId)
+  const subId = profile?.stripe_subscription_id?.trim()
+  if (!subId) {
+    throw new Error("No active subscription yet. Choose a plan to activate first.")
+  }
+
+  const currentTier = normalizeSubscriptionTier(profile?.subscription_tier)
+  const targetTier = checkoutTierToSubscriptionTier(tier)
+  const currentIdx = SUBSCRIPTION_TIER_ORDER.indexOf(currentTier)
+  const targetIdx = SUBSCRIPTION_TIER_ORDER.indexOf(targetTier)
+  if (targetIdx <= currentIdx) {
+    throw new Error(
+      `You're already on ${TIER_DISPLAY_NAME[currentTier]}. Pick a higher plan to add more business numbers.`
+    )
+  }
+
+  const stripe = getStripeClient()
+  const newPriceId = await resolveStripePriceIdForTier(stripe, tier)
+  const subscription = await stripe.subscriptions.retrieve(subId)
+  const itemId = subscription.items.data[0]?.id
+  if (!itemId) {
+    throw new Error("Could not update your plan in Stripe. Contact support if this keeps happening.")
+  }
+
+  const updated = await stripe.subscriptions.update(subId, {
+    items: [{ id: itemId, price: newPriceId }],
+    proration_behavior: "create_prorations",
+    metadata: {
+      ...subscription.metadata,
+      user_id: userId,
+      subscription_tier: targetTier,
+      plan: tier,
+    },
+  })
+
+  await syncStripeSubscriptionToNeon(userId, updated)
+
+  return {
+    tier: targetTier,
+    tier_label: TIER_DISPLAY_NAME[targetTier],
+  }
+}
+
+/** New subscription checkout, or in-place upgrade when the user already pays monthly. */
+export async function createOrUpgradeLyncrSubscription(
+  userId: string,
+  tierInput: CheckoutSubscriptionTier | string
+): Promise<
+  | { mode: "checkout"; url: string; sessionId: string }
+  | { mode: "upgraded"; tier: SubscriptionTier; tier_label: string }
+> {
+  const profile = await getOnboardingProfile(userId)
+  if (profile?.stripe_subscription_id?.trim()) {
+    const upgraded = await upgradeLyncrSubscription(userId, tierInput)
+    return { mode: "upgraded", ...upgraded }
+  }
+  const { url, sessionId } = await createLyncrSubscriptionCheckout(userId, tierInput)
+  return { mode: "checkout", url, sessionId }
 }

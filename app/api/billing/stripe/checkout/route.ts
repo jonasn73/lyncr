@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { createLyncrSubscriptionCheckout } from "@/lib/stripe-checkout"
+import { createOrUpgradeLyncrSubscription } from "@/lib/stripe-checkout"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import { normalizeCheckoutSubscriptionTier } from "@/lib/subscription-checkout"
 
@@ -26,8 +26,17 @@ export async function POST(req: NextRequest) {
     const tier = normalizeCheckoutSubscriptionTier(
       body && typeof body === "object" ? String((body as Record<string, unknown>).tier ?? "starter") : "starter"
     )
-    const { url, sessionId } = await createLyncrSubscriptionCheckout(userId, tier)
-    return NextResponse.json({ data: { url, session_id: sessionId, tier } })
+    const result = await createOrUpgradeLyncrSubscription(userId, tier)
+    if (result.mode === "upgraded") {
+      return NextResponse.json({
+        data: {
+          upgraded: true,
+          tier: result.tier,
+          tier_label: result.tier_label,
+        },
+      })
+    }
+    return NextResponse.json({ data: { url: result.url, session_id: result.sessionId, tier } })
   } catch (e) {
     console.error("[billing/stripe/checkout POST]", e)
     const msg = e instanceof Error ? e.message : "Could not start checkout"

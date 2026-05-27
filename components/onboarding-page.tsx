@@ -317,8 +317,12 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
         return
       }
 
-      const { checkoutUrl } = await startStripeSubscriptionCheckout(tier)
-      window.location.href = checkoutUrl
+      const result = await startStripeSubscriptionCheckout(tier)
+      if (result.kind === "upgraded") {
+        onComplete()
+        return
+      }
+      window.location.href = result.checkoutUrl
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not activate your account"
       if (msg.includes("025-onboarding-profiles") || msg.includes('relation "profiles"')) {

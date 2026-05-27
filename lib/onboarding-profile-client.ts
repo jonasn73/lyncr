@@ -112,9 +112,13 @@ export async function reserveOnboardingNumberClient(payload: {
   return { profile: json.data, simulation_mode: json.simulation_mode !== false }
 }
 
+export type SubscriptionCheckoutClientResult =
+  | { kind: "checkout"; checkoutUrl: string; sessionId: string }
+  | { kind: "upgraded"; tier: string; tierLabel: string }
+
 export async function startStripeSubscriptionCheckout(
   tier: CheckoutSubscriptionTier | string = "starter"
-): Promise<{ checkoutUrl: string; sessionId: string }> {
+): Promise<SubscriptionCheckoutClientResult> {
   const normalizedTier = normalizeCheckoutSubscriptionTier(tier)
   const res = await fetch("/api/billing/stripe/checkout", {
     method: "POST",
@@ -123,12 +127,25 @@ export async function startStripeSubscriptionCheckout(
     body: JSON.stringify({ tier: normalizedTier }),
   })
   const json = (await res.json().catch(() => ({}))) as {
-    data?: { url?: string; session_id?: string }
+    data?: {
+      url?: string
+      session_id?: string
+      upgraded?: boolean
+      tier?: string
+      tier_label?: string
+    }
     error?: string
   }
   if (!res.ok) throw new Error(json.error || "Could not start Stripe checkout")
+  if (json.data?.upgraded) {
+    return {
+      kind: "upgraded",
+      tier: json.data.tier ?? normalizedTier,
+      tierLabel: json.data.tier_label ?? normalizedTier,
+    }
+  }
   if (!json.data?.url) throw new Error("Stripe checkout URL missing")
-  return { checkoutUrl: json.data.url, sessionId: json.data.session_id ?? "" }
+  return { kind: "checkout", checkoutUrl: json.data.url, sessionId: json.data.session_id ?? "" }
 }
 
 /** Sync subscription from Stripe after checkout (session id optional — falls back to email lookup). */
@@ -256,7 +273,10 @@ export async function activateSubscriptionClient(opts?: {
   saveBillingMethod?: boolean
 }): Promise<never> {
   void opts
-  const { checkoutUrl } = await startStripeSubscriptionCheckout()
-  window.location.href = checkoutUrl
+  const result = await startStripeSubscriptionCheckout()
+  if (result.kind === "upgraded") {
+    throw new Error(`Already subscribed — upgraded to ${result.tierLabel}.`)
+  }
+  window.location.href = result.checkoutUrl
   throw new Error("Redirecting to Stripe checkout")
 }
