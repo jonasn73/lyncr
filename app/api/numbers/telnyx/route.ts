@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const areaCode = searchParams.get("area_code") || "212"
     const type = searchParams.get("type") || "local"
+    const contains = (searchParams.get("contains") || "").replace(/\D/g, "").slice(-4)
+    const endsWith = (searchParams.get("ends_with") || "").replace(/\D/g, "").slice(-4)
+    const startsWith = (searchParams.get("starts_with") || "").replace(/\D/g, "")
 
     // Build Telnyx query params
     const params = new URLSearchParams({
@@ -26,8 +29,18 @@ export async function GET(req: NextRequest) {
       "filter[national_destination_code]": areaCode,
       "filter[phone_number_type]": type === "toll_free" ? "toll_free" : "local",
       "filter[features][]": "voice",
-      "filter[limit]": "25",
+      "filter[limit]": contains || endsWith || startsWith ? "50" : "25",
+      "filter[best_effort]": "false",
     })
+    if (contains.length >= 2) {
+      params.set("filter[phone_number][contains]", contains)
+    }
+    if (endsWith.length >= 2) {
+      params.set("filter[phone_number][ends_with]", endsWith)
+    }
+    if (startsWith.length >= 2) {
+      params.set("filter[phone_number][starts_with]", startsWith)
+    }
 
     const res = await fetch(`${TELNYX_BASE}/available_phone_numbers?${params.toString()}`, {
       headers: {

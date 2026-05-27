@@ -33,8 +33,17 @@ function normalizeAreaCode(raw: string): string {
 }
 
 /** Live Telnyx inventory only — never pad with fake numbers. */
-async function fetchTelnyxLines(areaCode: string): Promise<AvailableLine[]> {
-  const res = await fetch(`/api/numbers/telnyx?area_code=${areaCode}&type=local`, { credentials: "include" })
+async function fetchTelnyxLines(
+  areaCode: string,
+  opts?: { endsWith?: string; contains?: string }
+): Promise<AvailableLine[]> {
+  const qs = new URLSearchParams({ area_code: areaCode, type: "local" })
+  const ends = (opts?.endsWith || "").replace(/\D/g, "").slice(-4)
+  const contains = (opts?.contains || "").replace(/\D/g, "").slice(-4)
+  if (ends.length >= 2) qs.set("ends_with", ends)
+  else if (contains.length >= 2) qs.set("contains", contains)
+
+  const res = await fetch(`/api/numbers/telnyx?${qs.toString()}`, { credentials: "include" })
   const data = (await res.json().catch(() => ({}))) as {
     numbers?: { number: string; type?: string }[]
     error?: string
@@ -111,6 +120,7 @@ export function BuyNumberMarketplaceModal({
   const [searchError, setSearchError] = useState<string | null>(null)
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [lineLabel, setLineLabel] = useState("Main Line")
+  const [lastFourDigits, setLastFourDigits] = useState("")
   const [entitlementsBlocked, setEntitlementsBlocked] = useState<string | null>(null)
   const searchSeqRef = useRef(0)
 
@@ -128,6 +138,7 @@ export function BuyNumberMarketplaceModal({
     setLoadingMore(false)
     setPurchasing(null)
     setLineLabel("Main Line")
+    setLastFourDigits("")
     setEntitlementsBlocked(null)
     void fetchNumberEntitlements()
       .then((data) => {
@@ -156,7 +167,10 @@ export function BuyNumberMarketplaceModal({
     if (seq !== searchSeqRef.current) return
 
     try {
-      const fromApi = await fetchTelnyxLines(ac)
+      const pattern = lastFourDigits.replace(/\D/g, "").slice(-4)
+      const fromApi = await fetchTelnyxLines(ac, {
+        endsWith: pattern.length >= 2 ? pattern : undefined,
+      })
       if (seq !== searchSeqRef.current) return
       setInventoryPool(fromApi)
       setVisibleCount(Math.min(INITIAL_BATCH, fromApi.length))
@@ -168,7 +182,7 @@ export function BuyNumberMarketplaceModal({
     } finally {
       if (seq === searchSeqRef.current) setSearching(false)
     }
-  }, [areaCode])
+  }, [areaCode, lastFourDigits])
 
   const loadMoreNumbers = useCallback(async () => {
     const ac = activeAreaCode ?? normalizeAreaCode(areaCode)
@@ -181,7 +195,10 @@ export function BuyNumberMarketplaceModal({
 
     setLoadingMore(true)
     try {
-      const fresh = await fetchTelnyxLines(ac)
+      const pattern = lastFourDigits.replace(/\D/g, "").slice(-4)
+      const fresh = await fetchTelnyxLines(ac, {
+        endsWith: pattern.length >= 2 ? pattern : undefined,
+      })
       setInventoryPool(fresh)
       setVisibleCount(Math.min(INITIAL_BATCH + LOAD_MORE_BATCH, fresh.length))
       setSearchError(null)
@@ -194,7 +211,7 @@ export function BuyNumberMarketplaceModal({
     } finally {
       setLoadingMore(false)
     }
-  }, [activeAreaCode, areaCode, searching, loadingMore, visibleCount, inventoryPool.length, toast])
+  }, [activeAreaCode, areaCode, searching, loadingMore, visibleCount, inventoryPool.length, lastFourDigits, toast])
 
   async function purchaseLine(line: AvailableLine) {
     setPurchasing(line.number)
@@ -317,6 +334,29 @@ export function BuyNumberMarketplaceModal({
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search Available Lines"}
               </button>
             </form>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Last 4 digits (optional)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="0194"
+                value={lastFourDigits}
+                onChange={(e) => setLastFourDigits(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              />
+              <p className="text-xs leading-relaxed text-zinc-500">
+                Match numbers ending in these digits within the area code.{" "}
+                <span className="text-zinc-400">
+                  (502) 555-0194 is a reserved movie/TV number — real carriers cannot sell 555-01xx lines.
+                </span>{" "}
+                Try last four <span className="font-medium text-zinc-300">0194</span> in area code{" "}
+                <span className="font-medium text-zinc-300">502</span> instead.
+              </p>
+            </div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col px-6 pb-4">
@@ -346,8 +386,9 @@ export function BuyNumberMarketplaceModal({
                 </p>
               ) : results.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
-                  No lines available in {activeAreaCode ?? normalizeAreaCode(areaCode)} right now. Try a nearby area
-                  code (859, 606, 270) or search again in a few minutes.
+                  {lastFourDigits.replace(/\D/g, "").length >= 2
+                    ? `No 502 lines ending in ${lastFourDigits.replace(/\D/g, "").slice(-4)} right now. Clear the last-4 filter and search again, or try 859 / 606 / 270.`
+                    : `No lines available in ${activeAreaCode ?? normalizeAreaCode(areaCode)} right now. Try a nearby area code (859, 606, 270) or search again in a few minutes.`}
                 </p>
               ) : (
                 <div className="p-3">
