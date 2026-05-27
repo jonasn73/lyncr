@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { fetchNumberEntitlements } from "@/lib/number-entitlements-client"
 import { dispatchBusinessNumbersChanged } from "@/components/dashboard-numbers-modal-context"
 import { useToast } from "@/hooks/use-toast"
 import { showUpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
