@@ -25,8 +25,6 @@ type BillingSummary = {
   current_plan: string
   credit_balance_cents: number
   credit_balance_label: string
-  telnyx_carrier_balance_label: string | null
-  telnyx_available_credit_label: string | null
   telnyx_number_purchase_label: string
   metered_voice_cents_per_minute: number
   suggested_credit_packs_cents: number[]
@@ -84,7 +82,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
         const result = await confirmCreditPackCheckout(sessionId)
         toast({
           title: "Carrier credit added",
-          description: `New balance: ${formatUsdFromCents(result.balance_after_cents)}. Your balance syncs with the Lyncr global routing network.`,
+          description: `New balance: ${formatUsdFromCents(result.balance_after_cents)}.`,
         })
         if (result.provisioned) {
           toast({
@@ -197,13 +195,8 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
       ) : null}
 
       <div className="flex flex-col gap-8">
-        <div className="grid min-h-[5.75rem] gap-4 sm:grid-cols-3">
-          <WorkspaceStatCard label="Your carrier credit" value={balanceLabel} accent="primary" />
-          <WorkspaceStatCard
-            label="Lyncr routing pool"
-            value={billing?.telnyx_available_credit_label ?? "—"}
-            accent="default"
-          />
+        <div className="grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
+          <WorkspaceStatCard label="Prepaid balance" value={balanceLabel} accent="primary" />
           <WorkspaceUsageStatCard
             label="Current month usage"
             used={0}
@@ -267,8 +260,8 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
               {needsCarrierCredit
                 ? "Required next step: prepaid balance activates your reserved number on Telnyx."
                 : "Prepaid balance funds your phone number"}{" "}
-              ({billing?.telnyx_number_purchase_label ?? "$2.00"} per line) and call usage. After payment, your balance
-              syncs with the Lyncr global routing network automatically.
+              ({billing?.telnyx_number_purchase_label ?? "$2.00"} per line) and call usage. After payment, your prepaid
+              balance updates automatically.
             </p>
           </div>
           <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">

@@ -159,6 +159,11 @@ export interface LyncrAdminMetrics {
   total_users: number
   active_subscriptions: number
   total_carrier_credit: number
+  /** Master Telnyx platform wallet — admin-only, never shown on client Pay tab. */
+  telnyx_routing_pool: {
+    balance_label: string
+    available_credit_label: string
+  } | null
   health: {
     neon: LyncrAdminHealthStatus
     telnyx: LyncrAdminHealthStatus

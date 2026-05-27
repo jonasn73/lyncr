@@ -307,6 +307,32 @@ export function LyncrAdminDashboard({
         </Button>
       </div>
 
+      <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90 shadow-[0_12px_40px_-16px_rgba(139,92,246,0.45)]">
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-base font-semibold text-violet-100">Lyncr routing pool</CardTitle>
+            <p className="mt-1 text-xs text-slate-500">Master Telnyx developer balance — platform monitoring only</p>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/25 ring-1 ring-violet-400/40">
+            <Wallet className="h-5 w-5 text-violet-200" aria-hidden />
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Available credit</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
+              {metrics?.telnyx_routing_pool?.available_credit_label ?? "—"}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Account balance</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-slate-300">
+              {metrics?.telnyx_routing_pool?.balance_label ?? "—"}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Total users" value={String(metrics?.total_users ?? 0)} icon={Users} subtitle="onboarding_profiles rows" />
         <MetricCard

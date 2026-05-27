@@ -22,7 +22,6 @@ import {
   normalizeSubscriptionTier,
   tierActiveNumberLimit,
 } from "@/lib/subscription-tier"
-import { getTelnyxAccountBalance } from "@/lib/telnyx-billing"
 
 export async function GET(req: Request) {
   try {
@@ -52,16 +51,6 @@ export async function GET(req: Request) {
     const lowCarrierCreditWarning =
       lowBalanceNotified && carrierCreditUsd < LOW_CARRIER_CREDIT_THRESHOLD_USD
 
-    let telnyx_carrier_balance_label: string | null = null
-    let telnyx_available_credit_label: string | null = null
-    try {
-      const telnyx = await getTelnyxAccountBalance()
-      telnyx_carrier_balance_label = formatUsdFromCents(Math.round(telnyx.balance_usd * 100))
-      telnyx_available_credit_label = formatUsdFromCents(Math.round(telnyx.available_credit_usd * 100))
-    } catch {
-      telnyx_carrier_balance_label = null
-    }
-
     return NextResponse.json({
       data: {
         current_plan: safePlan,
@@ -79,8 +68,6 @@ export async function GET(req: Request) {
         low_carrier_credit_warning: lowCarrierCreditWarning,
         low_carrier_credit_threshold_usd: LOW_CARRIER_CREDIT_THRESHOLD_USD,
         active_number_limit: tierActiveNumberLimit(subscriptionTier),
-        telnyx_carrier_balance_label,
-        telnyx_available_credit_label,
         telnyx_number_purchase_label: formatUsdFromCents(Math.round(CARRIER_PROVISIONING_FEE_USD * 100)),
         metered_voice_cents_per_minute: METERED_VOICE_CENTS_PER_MINUTE,
         suggested_credit_packs_cents: [...CREDIT_PACK_CENTS_USD],

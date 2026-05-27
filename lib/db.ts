@@ -3099,7 +3099,7 @@ export async function pingNeonDatabase(): Promise<boolean> {
 }
 
 /** Operator KPI strip — onboarding_profiles counts + carrier credit sum. */
-export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "health">> {
+export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "health" | "telnyx_routing_pool">> {
   const sql = getSql()
   try {
     const rows = await sql`
