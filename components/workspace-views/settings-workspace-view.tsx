@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { Bell, Clock, CreditCard, Loader2, LogOut, MessageSquare, Shield, Volume2 } from "lucide-react"
+import { Bell, Clock, CreditCard, Hash, Loader2, LogOut, MessageSquare, Plus, Shield, Volume2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -25,6 +25,7 @@ import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
+import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 type DayHours = { open: string; close: string; enabled: boolean }
@@ -133,6 +134,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   onSignOut: () => void
 }) {
   const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
+  const { openBuyModal, openManageModal } = useDashboardNumbersModal()
   const initials = name
     .split(/\s+/)
     .map((w) => w[0])
@@ -220,6 +222,26 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           </div>
         </div>
       </WorkspacePanel>
+
+      <section className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Phone lines</p>
+        <div className="flex flex-col gap-3">
+          <WorkspaceDisclosureRow
+            icon={<Hash className="h-5 w-5" />}
+            label="Lines & numbers"
+            onClick={openManageModal}
+          />
+          <WorkspaceDisclosureRow
+            icon={<Plus className="h-5 w-5" />}
+            label="+ Add business number"
+            onClick={() => void openBuyModal()}
+          />
+        </div>
+        <p className="text-xs leading-relaxed text-zinc-500">
+          Open <span className="font-medium text-zinc-400">Lines & numbers</span> to release a line you no longer
+          want. You need at least two active lines before you can release one.
+        </p>
+      </section>
 
       <section className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
