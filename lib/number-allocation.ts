@@ -154,7 +154,7 @@ export async function evaluateNumberPurchaseGate(userId: string): Promise<Number
 
 export type PurchasePhoneNumberResult =
   | { ok: true; phone_number: string; order_id: string }
-  | { ok: false; error: string; reason?: NumberPurchaseBlockReason }
+  | { ok: false; error: string; reason?: NumberPurchaseBlockReason | "number_unavailable" | "area_empty" | "carrier_error" }
 
 /** Purchase a line on the carrier, deduct $2 carrier credit, save to phone_numbers. */
 export async function purchasePhoneNumberForUser(
@@ -170,7 +170,7 @@ export async function purchasePhoneNumberForUser(
 
   const purchase = await purchaseAndConfigureTelnyxLine(phoneNumberE164)
   if (!purchase.ok) {
-    return { ok: false, error: purchase.error }
+    return { ok: false, error: purchase.error, reason: purchase.reason }
   }
 
   await adjustUserCarrierCredit({

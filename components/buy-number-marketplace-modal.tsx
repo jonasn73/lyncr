@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Hash, Loader2, RefreshCw, Zap } from "lucide-react"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
@@ -26,67 +26,28 @@ type AvailableLine = {
 const INITIAL_BATCH = 4
 const LOAD_MORE_BATCH = 3
 const SEARCH_PULSE_MS = 480
+const TELNYX_SEARCH_LIMIT = 25
 
 function normalizeAreaCode(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 3)
 }
 
-function randomSubscriber(): string {
-  return String(Math.floor(1000 + Math.random() * 9000))
-}
-
-/** Build one demo/local line for the given area code, avoiding duplicates in `used`. */
-function synthesizeLine(areaCode: string, used: Set<string>): AvailableLine {
-  for (let attempt = 0; attempt < 64; attempt++) {
-    const exchange = String(Math.floor(200 + Math.random() * 800))
-    const last4 = randomSubscriber()
-    const number = `+1${areaCode}${exchange}${last4}`
-    if (used.has(number)) continue
-    used.add(number)
-    return {
-      number,
-      display: `(${areaCode}) ${exchange}-${last4}`,
-      type: "local",
-    }
-  }
-  const fallback = `+1${areaCode}555${Date.now().toString().slice(-7)}`
-  used.add(fallback)
-  return {
-    number: fallback,
-    display: formatPhoneDisplay(fallback),
-    type: "local",
-  }
-}
-
-function synthesizeLines(areaCode: string, count: number, existing: AvailableLine[] = []): AvailableLine[] {
-  const used = new Set(existing.map((l) => l.number))
-  const out: AvailableLine[] = []
-  for (let i = 0; i < count; i++) {
-    out.push(synthesizeLine(areaCode, used))
-  }
-  return out
-}
-
-async function fetchTelnyxLines(areaCode: string, limit: number): Promise<AvailableLine[]> {
+/** Live Telnyx inventory only — never pad with fake numbers. */
+async function fetchTelnyxLines(areaCode: string): Promise<AvailableLine[]> {
   const res = await fetch(`/api/numbers/telnyx?area_code=${areaCode}&type=local`, { credentials: "include" })
   const data = (await res.json().catch(() => ({}))) as {
     numbers?: { number: string; type?: string }[]
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(data.error || "Could not search Telnyx inventory")
   }
   if (!Array.isArray(data.numbers)) return []
-  return data.numbers.slice(0, limit).map((n) => ({
+  return data.numbers.slice(0, TELNYX_SEARCH_LIMIT).map((n) => ({
     number: String(n.number),
     display: formatPhoneDisplay(String(n.number)),
     type: String(n.type ?? "local"),
   }))
-}
-
-function mergeToCount(apiLines: AvailableLine[], areaCode: string, target: number): AvailableLine[] {
-  const used = new Set(apiLines.map((l) => l.number))
-  const merged = [...apiLines]
-  while (merged.length < target) {
-    merged.push(synthesizeLine(areaCode, used))
-  }
-  return merged.slice(0, target)
 }
 
 function InventoryRow({
@@ -108,7 +69,7 @@ function InventoryRow({
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
               <Zap className="h-3 w-3" aria-hidden />
-              Instant Activation
+              Live Telnyx inventory
             </span>
             <span className="text-xs font-medium text-zinc-400">$2.00 / mo</span>
           </div>
@@ -144,19 +105,25 @@ export function BuyNumberMarketplaceModal({
   const [activeAreaCode, setActiveAreaCode] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [results, setResults] = useState<AvailableLine[]>([])
+  const [inventoryPool, setInventoryPool] = useState<AvailableLine[]>([])
+  const [visibleCount, setVisibleCount] = useState(0)
   const [hasSearched, setHasSearched] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [lineLabel, setLineLabel] = useState("Main Line")
   const [entitlementsBlocked, setEntitlementsBlocked] = useState<string | null>(null)
   const searchSeqRef = useRef(0)
 
+  const results = useMemo(() => inventoryPool.slice(0, visibleCount), [inventoryPool, visibleCount])
+
   useEffect(() => {
     if (!open) return
     setAreaCode("502")
     setActiveAreaCode(null)
-    setResults([])
+    setInventoryPool([])
+    setVisibleCount(0)
     setHasSearched(false)
+    setSearchError(null)
     setSearching(false)
     setLoadingMore(false)
     setPurchasing(null)
@@ -178,8 +145,10 @@ export function BuyNumberMarketplaceModal({
     if (ac.length < 3) return
 
     const seq = ++searchSeqRef.current
-    setResults([])
+    setInventoryPool([])
+    setVisibleCount(0)
     setHasSearched(true)
+    setSearchError(null)
     setSearching(true)
     setActiveAreaCode(null)
 
@@ -187,30 +156,45 @@ export function BuyNumberMarketplaceModal({
     if (seq !== searchSeqRef.current) return
 
     try {
-      const fromApi = await fetchTelnyxLines(ac, INITIAL_BATCH + LOAD_MORE_BATCH)
+      const fromApi = await fetchTelnyxLines(ac)
       if (seq !== searchSeqRef.current) return
-      setResults(mergeToCount(fromApi, ac, INITIAL_BATCH))
+      setInventoryPool(fromApi)
+      setVisibleCount(Math.min(INITIAL_BATCH, fromApi.length))
       setActiveAreaCode(ac)
-    } catch {
+    } catch (e) {
       if (seq !== searchSeqRef.current) return
-      setResults(synthesizeLines(ac, INITIAL_BATCH))
+      setSearchError(e instanceof Error ? e.message : "Search failed")
       setActiveAreaCode(ac)
     } finally {
       if (seq === searchSeqRef.current) setSearching(false)
     }
   }, [areaCode])
 
-  const loadMoreNumbers = useCallback(() => {
+  const loadMoreNumbers = useCallback(async () => {
     const ac = activeAreaCode ?? normalizeAreaCode(areaCode)
     if (ac.length < 3 || searching || loadingMore) return
 
+    if (visibleCount < inventoryPool.length) {
+      setVisibleCount((n) => Math.min(n + LOAD_MORE_BATCH, inventoryPool.length))
+      return
+    }
+
     setLoadingMore(true)
-    window.setTimeout(() => {
-      setResults((prev) => [...prev, ...synthesizeLines(ac, LOAD_MORE_BATCH, prev)])
-      setActiveAreaCode(ac)
+    try {
+      const fresh = await fetchTelnyxLines(ac)
+      setInventoryPool(fresh)
+      setVisibleCount(Math.min(INITIAL_BATCH + LOAD_MORE_BATCH, fresh.length))
+      setSearchError(null)
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Refresh failed",
+        description: e instanceof Error ? e.message : "Try again in a moment.",
+      })
+    } finally {
       setLoadingMore(false)
-    }, 320)
-  }, [activeAreaCode, areaCode, searching, loadingMore])
+    }
+  }, [activeAreaCode, areaCode, searching, loadingMore, visibleCount, inventoryPool.length, toast])
 
   async function purchaseLine(line: AvailableLine) {
     setPurchasing(line.number)
@@ -228,6 +212,14 @@ export function BuyNumberMarketplaceModal({
       if (!res.ok) {
         if (res.status === 403 && data.reason === "tier_limit") {
           showUpgradeSubscriptionModal({ message: data.error })
+        }
+        if (
+          data.reason === "number_unavailable" ||
+          data.reason === "area_empty" ||
+          /no longer available|not available/i.test(data.error || "")
+        ) {
+          setInventoryPool((prev) => prev.filter((row) => row.number !== line.number))
+          setVisibleCount((n) => Math.max(0, Math.min(n, inventoryPool.length - 1)))
         }
         throw new Error(data.error || "Purchase failed")
       }
@@ -249,7 +241,12 @@ export function BuyNumberMarketplaceModal({
   }
 
   const showInventory = hasSearched
-  const canLoadMore = showInventory && !searching && results.length > 0 && activeAreaCode != null
+  const canLoadMore =
+    showInventory &&
+    !searching &&
+    !searchError &&
+    inventoryPool.length > 0 &&
+    activeAreaCode != null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -263,7 +260,7 @@ export function BuyNumberMarketplaceModal({
         <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-5 text-left">
           <DialogTitle className="text-xl font-semibold tracking-tight">Buy a number</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Search inventory by area code and activate a line instantly.
+            Search live Telnyx inventory by area code — only real, purchasable lines are shown.
           </DialogDescription>
         </DialogHeader>
 
@@ -343,6 +340,15 @@ export function BuyNumberMarketplaceModal({
                     Searching {normalizeAreaCode(areaCode)} inventory…
                   </p>
                 </div>
+              ) : searchError ? (
+                <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-8 text-center text-sm text-destructive">
+                  {searchError}
+                </p>
+              ) : results.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
+                  No lines available in {activeAreaCode ?? normalizeAreaCode(areaCode)} right now. Try a nearby area
+                  code (859, 606, 270) or search again in a few minutes.
+                </p>
               ) : (
                 <div className="p-3">
                   <ul className="space-y-3">
@@ -362,7 +368,7 @@ export function BuyNumberMarketplaceModal({
                       <button
                         type="button"
                         disabled={loadingMore}
-                        onClick={loadMoreNumbers}
+                        onClick={() => void loadMoreNumbers()}
                         className={cn(
                           "inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-xs font-semibold text-zinc-400",
                           "transition-[opacity,transform,border-color,color] duration-200",
@@ -375,7 +381,7 @@ export function BuyNumberMarketplaceModal({
                         ) : (
                           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
                         )}
-                        ↻ Refresh Options
+                        {visibleCount < inventoryPool.length ? "Show more lines" : "Refresh inventory"}
                       </button>
                     </div>
                   ) : null}
