@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react"
 import {
   Activity,
+  Copy,
   CreditCard,
   Database,
   Phone,
@@ -39,8 +40,70 @@ import {
 } from "@/components/ui/select"
 import { accountStatusLabel } from "@/lib/account-status"
 
+const ROUTING_POOL_LOW_BALANCE_USD = 15
+
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
+}
+
+/** Shorten UUIDs for dense table cells — e.g. 18cf...c5af */
+function truncateUuid(id: string): string {
+  const s = id.trim()
+  if (s.length <= 12) return s
+  return `${s.slice(0, 4)}...${s.slice(-4)}`
+}
+
+function UserIdCell({ userId }: { userId: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(userId)
+      setCopied(true)
+      toast.success("User ID copied")
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error("Could not copy to clipboard")
+    }
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <code
+        className="truncate font-mono text-xs text-slate-400"
+        title={userId}
+      >
+        {truncateUuid(userId)}
+      </code>
+      <button
+        type="button"
+        onClick={() => void handleCopy()}
+        className={cn(
+          "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/80 bg-slate-950/60 text-slate-400 transition-colors",
+          "hover:border-violet-500/40 hover:bg-violet-950/40 hover:text-violet-200",
+          copied && "border-emerald-500/40 text-emerald-300"
+        )}
+        aria-label={`Copy user ID ${userId}`}
+        title="Copy full user ID"
+      >
+        <Copy className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
+function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd: number; balanceLabel: string }) {
+  if (!Number.isFinite(balanceUsd) || balanceUsd >= ROUTING_POOL_LOW_BALANCE_USD) return null
+  const display = balanceLabel || formatUsd(balanceUsd)
+  return (
+    <div
+      role="alert"
+      className="rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-950/70 via-red-950/50 to-amber-950/70 px-4 py-3 text-sm leading-relaxed text-amber-100 shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)] ring-1 ring-amber-500/30"
+    >
+      ⚠️ CRITICAL: Platform wholesale routing pool is running low ({display}). Top up via Telnyx immediately to
+      prevent call drops.
+    </div>
+  )
 }
 
 function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
@@ -179,27 +242,41 @@ function UserRowActions({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 items-center gap-2">
-        <Input
-          type="number"
-          step="0.01"
-          placeholder="± USD"
-          value={creditAmount}
-          onChange={(e) => onCreditAmountChange(e.target.value)}
-          className="h-8 w-24 border-slate-700 bg-slate-950/80 text-slate-100"
-          disabled={creditBusy}
-          aria-label={`Credit adjustment for ${row.email}`}
-        />
+          <Input
+            type="number"
+            step="0.01"
+            placeholder="± USD"
+            value={creditAmount}
+            onChange={(e) => onCreditAmountChange(e.target.value)}
+            className="h-8 w-24 border-slate-700 bg-slate-950/80 text-slate-100"
+            disabled={creditBusy}
+            aria-label={`Credit adjustment for ${row.email}`}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 bg-violet-600/80 text-white hover:bg-violet-600"
+            disabled={creditBusy}
+            onClick={() => void handleAdjustCreditClick()}
+          >
+            {creditBusy ? "Saving..." : "Adjust credit"}
+          </Button>
+        </div>
         <Button
           type="button"
           size="sm"
-          variant="secondary"
-          className="h-8 bg-violet-600/80 text-white hover:bg-violet-600"
-          disabled={creditBusy}
-          onClick={() => void handleAdjustCreditClick()}
+          variant="outline"
+          className="h-8 border-slate-600 text-slate-200 hover:bg-slate-800"
+          onClick={() =>
+            toast.info("Impersonate workspace", {
+              description: `Placeholder — sign in as ${row.email} will ship in a future release.`,
+            })
+          }
         >
-          {creditBusy ? "Saving..." : "Adjust credit"}
+          Impersonate workspace
         </Button>
       </div>
       {row.has_active_subscription ? (
@@ -225,7 +302,6 @@ function UserRowActions({
           {toggleBusy ? "Saving..." : "Activate subscription"}
         </Button>
       )}
-      </div>
       <Button
         type="button"
         size="sm"
@@ -275,6 +351,9 @@ export function LyncrAdminDashboard({
     })
   }, [users, filter, tierFilter, statusFilter])
 
+  const routingPoolAvailableUsd = metrics?.telnyx_routing_pool?.available_credit_usd ?? NaN
+  const routingPoolAvailableLabel = metrics?.telnyx_routing_pool?.available_credit_label ?? ""
+
   if (loading && !metrics) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -307,6 +386,8 @@ export function LyncrAdminDashboard({
         </Button>
       </div>
 
+      <RoutingPoolLowBalanceBanner balanceUsd={routingPoolAvailableUsd} balanceLabel={routingPoolAvailableLabel} />
+
       <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90 shadow-[0_12px_40px_-16px_rgba(139,92,246,0.45)]">
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
           <div>
@@ -321,7 +402,7 @@ export function LyncrAdminDashboard({
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Available credit</p>
             <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
-              {metrics?.telnyx_routing_pool?.available_credit_label ?? "—"}
+              {routingPoolAvailableLabel || "—"}
             </p>
           </div>
           <div className="text-right">
@@ -437,8 +518,8 @@ export function LyncrAdminDashboard({
                 ) : (
                   filteredUsers.map((row) => (
                     <TableRow key={row.user_id} className="border-slate-800 hover:bg-slate-800/30">
-                      <TableCell className="max-w-[8rem] truncate font-mono text-xs text-slate-400" title={row.user_id}>
-                        {row.user_id}
+                      <TableCell>
+                        <UserIdCell userId={row.user_id} />
                       </TableCell>
                       <TableCell className="text-slate-200">{row.email}</TableCell>
                       <TableCell>

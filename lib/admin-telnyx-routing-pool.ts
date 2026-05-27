@@ -9,6 +9,8 @@ export async function fetchTelnyxRoutingPoolForAdmin(): Promise<LyncrAdminMetric
     return {
       balance_label: formatUsdFromCents(Math.round(telnyx.balance_usd * 100)),
       available_credit_label: formatUsdFromCents(Math.round(telnyx.available_credit_usd * 100)),
+      balance_usd: telnyx.balance_usd,
+      available_credit_usd: telnyx.available_credit_usd,
     }
   } catch (e) {
     console.error("[lyncr-admin] Telnyx routing pool balance:", e)

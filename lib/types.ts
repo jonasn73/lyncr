@@ -163,6 +163,8 @@ export interface LyncrAdminMetrics {
   telnyx_routing_pool: {
     balance_label: string
     available_credit_label: string
+    balance_usd: number
+    available_credit_usd: number
   } | null
   health: {
     neon: LyncrAdminHealthStatus
