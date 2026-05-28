@@ -3,6 +3,7 @@
 // Server actions for the receptionist training portal.
 
 import { revalidatePath } from "next/cache"
+import { getReceptionistPortalContext, isReceptionistPortalUser } from "@/lib/receptionist-portal-auth"
 import { getSessionUser } from "@/lib/server-session-user"
 import { gradeAndAwardCertification, setCertificationFieldActive } from "@/lib/training-engine"
 
@@ -26,8 +27,11 @@ async function assertPortalUserMatches(userId: string): Promise<{ ok: true; user
   if (!targetId || targetId !== sessionUser.id) {
     return { ok: false, error: "Unauthorized" }
   }
-  if (sessionUser.account_role !== "receptionist") {
-    return { ok: false, error: "Training portal is for receptionist accounts only" }
+  if (!isReceptionistPortalUser(sessionUser)) {
+    const ctx = await getReceptionistPortalContext(sessionUser.id)
+    if (!ctx) {
+      return { ok: false, error: "Training portal is for receptionist accounts only" }
+    }
   }
   return { ok: true, userId: sessionUser.id }
 }

@@ -71,7 +71,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           passed: false,
           message: result.error,
           score: 0,
-          total: questions.length,
+          total: 0,
           percent: 0,
         })
         return
@@ -228,7 +228,9 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
                 <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/15 ring-2 ring-amber-400/40">
                   <RotateCcw className="h-8 w-8 text-amber-300" aria-hidden />
                 </div>
-                <DialogTitle className="text-2xl text-amber-100">Keep studying</DialogTitle>
+                <DialogTitle className="text-2xl text-amber-100">
+                  {resultModal.total > 0 ? "Keep studying" : "Could not grade quiz"}
+                </DialogTitle>
                 <DialogDescription className="text-base text-zinc-300">{resultModal.message}</DialogDescription>
               </DialogHeader>
               {resultModal.total > 0 ? (
