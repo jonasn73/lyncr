@@ -6,6 +6,7 @@ import {
   listCertifications,
   listReceptionistBadgesForUser,
   setReceptionistBadgeActiveToggle,
+  upsertCertificationModule,
   upsertReceptionistBadge,
 } from "@/lib/db"
 import {
@@ -32,7 +33,7 @@ export type PublicTrainingCertificationCard = Omit<TrainingCertificationCard, "c
 
 function staticConfigToModuleData(entry: CertificationConfig): CertificationModuleData {
   return {
-    description: "",
+    description: entry.title,
     lessons: [],
     quiz: entry.questions.map((q) => ({
       id: q.id,
@@ -41,6 +42,20 @@ function staticConfigToModuleData(entry: CertificationConfig): CertificationModu
       correctAnswer: q.correct_answer,
     })),
   }
+}
+
+async function ensureCertificationRegistered(entry: CertificationConfig) {
+  let dbCertification = await getCertificationByCode(entry.certification_code)
+  if (dbCertification) return dbCertification
+
+  const upserted = await upsertCertificationModule({
+    code_identifier: entry.certification_code,
+    name: entry.title,
+    module_data: staticConfigToModuleData(entry),
+  })
+  if (upserted) return upserted
+
+  return getCertificationByCode(entry.certification_code)
 }
 
 function staticConfigToCertification(entry: CertificationConfig, dbCert: Certification | undefined): Certification {
@@ -112,12 +127,12 @@ export async function gradeAndAwardCertification(params: {
 
   const { score, total, percent, passed } = gradeCertificationAnswers(datasetEntry, params.answers)
 
-  const dbCertification = await getCertificationByCode(datasetEntry.certification_code)
+  const dbCertification = await ensureCertificationRegistered(datasetEntry)
   if (!dbCertification) {
     return {
       ok: false,
       error:
-        "Certification is not registered in the database yet. Ask your operator to run scripts/043-certifications-training.sql in Neon.",
+        "Certification tables are missing in Neon. Run scripts/043-certifications-training.sql in the Neon SQL Editor (see scripts/MIGRATE-ALL.md).",
     }
   }
 
