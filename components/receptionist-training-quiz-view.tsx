@@ -46,6 +46,9 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
   const router = useRouter()
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
+  // Certified users land on a confirmation panel; they can opt into a retake.
+  const [retaking, setRetaking] = useState(false)
+  const showQuiz = !alreadyCertified || retaking
   const [resultModal, setResultModal] = useState<{
     passed: boolean
     message: string
@@ -115,6 +118,40 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
 
       <WorkspacePageHeader title={certification.title} />
 
+      {!showQuiz ? (
+        <WorkspacePanel className="space-y-4 p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 ring-2 ring-emerald-400/40">
+              <CheckCircle2 className="h-6 w-6 text-emerald-300" aria-hidden />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-emerald-100">You&apos;re already certified</h2>
+              <p className="text-sm text-zinc-400">
+                You passed {certification.title} and are in the live routing pool. No need to retake the quiz.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild>
+              <Link href="/receptionist/training">
+                <ChevronLeft className="mr-1 h-4 w-4" aria-hidden />
+                Back to certifications
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={() => setRetaking(true)}>
+              <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
+              Retake quiz anyway
+            </Button>
+          </div>
+          <p className="text-xs text-zinc-500">
+            Testing a call? Use the violet <span className="font-medium text-zinc-400">Return to Admin Sandbox</span>{" "}
+            bar at the top, then click <span className="font-medium text-zinc-400">Simulate inbound call</span>.
+          </p>
+        </WorkspacePanel>
+      ) : null}
+
+      {showQuiz ? (
+      <>
       <WorkspacePanel className="space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-zinc-400">
@@ -197,6 +234,8 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           )}
         </Button>
       </form>
+      </>
+      ) : null}
 
       <Dialog open={resultModal != null} onOpenChange={(open) => !open && closeResultModal()}>
         <DialogContent className="border-border bg-card sm:max-w-md">
