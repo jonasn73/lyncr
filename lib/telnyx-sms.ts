@@ -4,6 +4,7 @@ import { getProviderLinkedActiveNumber } from "@/lib/db"
 import {
   configureNumberMessaging,
   getOrCreateMessagingProfile,
+  isTelnyxOwnedNumber,
 } from "@/lib/telnyx-messaging-config"
 
 type TelnyxErrorBody = {
@@ -16,7 +17,7 @@ function formatTelnyxSmsError(raw: string, fromE164: string | null): string {
     const err = parsed.errors?.[0]
     if (!err) return raw.slice(0, 240)
     if (err.code === "40305") {
-      return `SMS sender ${fromE164 ?? "unknown"} is not on your Telnyx messaging profile — click Repair SMS on the admin sandbox or assign the number in Telnyx Mission Control`
+      return `SMS sender ${fromE164 ?? "unknown"} is not on your Telnyx messaging profile — click Repair SMS on the admin sandbox`
     }
     if (err.title && err.detail) return `${err.title}: ${err.detail}`
     if (err.detail) return err.detail
@@ -31,11 +32,25 @@ function isInvalidFromAddressError(raw: string): boolean {
   return raw.includes("40305") || raw.toLowerCase().includes("invalid 'from' address")
 }
 
-/** Resolve the E.164 sender for outbound SMS (env override → account line → any platform line). */
+/**
+ * Resolve outbound SMS sender.
+ * Ignores TELNYX_MESSAGING_FROM_E164 when that number is not on the Telnyx account
+ * (common typo in Vercel env) and falls back to the first purchased line in Neon.
+ */
 export async function resolveTelnyxMessagingFromE164(userId?: string): Promise<string | null> {
   const envFrom = process.env.TELNYX_MESSAGING_FROM_E164?.trim()
-  if (envFrom) return envFrom
-  return getProviderLinkedActiveNumber(userId)
+  const dbFrom =
+    (await getProviderLinkedActiveNumber(userId)) ?? (await getProviderLinkedActiveNumber())
+
+  if (envFrom) {
+    const envValid = await isTelnyxOwnedNumber(envFrom)
+    if (envValid) return envFrom
+    console.warn(
+      `[Telnyx SMS] TELNYX_MESSAGING_FROM_E164=${envFrom} not found on Telnyx — using ${dbFrom ?? "no fallback"}`
+    )
+  }
+
+  return dbFrom
 }
 
 /**
@@ -49,15 +64,20 @@ export async function sendTelnyxSms(params: {
   fromE164?: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = process.env.TELNYX_API_KEY?.trim()
-  const from =
+  let from =
     params.fromE164?.trim() || (await resolveTelnyxMessagingFromE164(params.userId))
   if (!apiKey) return { ok: false, error: "TELNYX_API_KEY missing" }
   if (!from) {
     return {
       ok: false,
       error:
-        "No Telnyx SMS sender — set TELNYX_MESSAGING_FROM_E164 in Vercel or buy a Telnyx number with SMS enabled",
+        "No Telnyx SMS sender — buy a Telnyx number with SMS or fix TELNYX_MESSAGING_FROM_E164 in Vercel",
     }
+  }
+
+  if (!(await isTelnyxOwnedNumber(from))) {
+    const fallback = await resolveTelnyxMessagingFromE164(params.userId)
+    if (fallback && fallback !== from) from = fallback
   }
 
   const sendOnce = async (messagingProfileId: string | null) => {
@@ -81,8 +101,9 @@ export async function sendTelnyxSms(params: {
   let messagingProfileId: string | null = null
   try {
     messagingProfileId = await getOrCreateMessagingProfile()
+    await configureNumberMessaging(from)
   } catch (e) {
-    console.error("[Telnyx SMS] messaging profile:", e)
+    console.error("[Telnyx SMS] pre-send messaging setup:", e)
   }
 
   let res = await sendOnce(messagingProfileId)
@@ -98,7 +119,11 @@ export async function sendTelnyxSms(params: {
         if (res.ok) return { ok: true }
         errText = await res.text().catch(() => res.statusText)
       } catch (repairErr) {
-        console.error("[Telnyx SMS] auto-repair failed:", repairErr)
+        const repairMsg = repairErr instanceof Error ? repairErr.message : String(repairErr)
+        return {
+          ok: false,
+          error: `${formatTelnyxSmsError(errText, from)} (${repairMsg})`,
+        }
       }
     }
     return { ok: false, error: formatTelnyxSmsError(errText, from) }

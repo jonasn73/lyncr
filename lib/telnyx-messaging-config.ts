@@ -1,8 +1,9 @@
 // Telnyx messaging profile + assign purchased numbers for outbound SMS lead alerts.
 
+import { normalizePhoneNumberE164 } from "@/lib/db"
 import { getAppUrl } from "@/lib/telnyx"
 import { SITE_NAME } from "@/lib/brand"
-import { getTelnyxApiKey, telnyxHeaders } from "@/lib/telnyx-config"
+import { findTelnyxPhoneNumberId, getTelnyxApiKey, telnyxHeaders } from "@/lib/telnyx-config"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
@@ -15,6 +16,11 @@ const MESSAGING_PROFILE_NAMES = [
 
 function messagingProfileWebhookUrl(): string {
   return `${getAppUrl().replace(/\/$/, "")}/api/webhooks/telnyx/messaging`
+}
+
+function telnyxErrorMessage(body: unknown, fallback: string): string {
+  const errors = (body as { errors?: { detail?: string; title?: string }[] })?.errors
+  return errors?.[0]?.detail || errors?.[0]?.title || fallback
 }
 
 /** Optional explicit profile id from Vercel — skips list/create. */
@@ -52,17 +58,10 @@ export async function getOrCreateMessagingProfile(): Promise<string> {
       enabled: true,
     }),
   })
-  const createBody = (await createRes.json().catch(() => ({}))) as {
-    data?: { id?: string }
-    errors?: { detail?: string; title?: string }[]
-  }
-  const profileId = createBody.data?.id
+  const createBody = await createRes.json().catch(() => ({}))
+  const profileId = (createBody as { data?: { id?: string } })?.data?.id
   if (!profileId) {
-    const msg =
-      createBody.errors?.[0]?.detail ||
-      createBody.errors?.[0]?.title ||
-      "Could not create Telnyx messaging profile"
-    throw new Error(msg)
+    throw new Error(telnyxErrorMessage(createBody, "Could not create Telnyx messaging profile"))
   }
   console.log(`[Telnyx] Created messaging profile ${profileId}`)
   return String(profileId)
@@ -70,46 +69,77 @@ export async function getOrCreateMessagingProfile(): Promise<string> {
 
 /** Assign one E.164 line to the platform messaging profile (idempotent). */
 export async function configureNumberMessaging(phoneNumberE164: string): Promise<void> {
-  const target = phoneNumberE164.trim()
+  const target = normalizePhoneNumberE164(phoneNumberE164.trim())
   if (!target) return
 
   getTelnyxApiKey()
   const profileId = await getOrCreateMessagingProfile()
-
-  const encoded = encodeURIComponent(target)
-  let patchRes = await fetch(`${TELNYX_BASE}/messaging_phone_numbers/${encoded}`, {
-    method: "PATCH",
-    headers: telnyxHeaders(),
-    body: JSON.stringify({ messaging_profile_id: profileId }),
-  })
-
-  if (!patchRes.ok && patchRes.status === 404) {
-    patchRes = await fetch(`${TELNYX_BASE}/phone_numbers/${encoded}/messaging`, {
-      method: "PATCH",
-      headers: telnyxHeaders(),
-      body: JSON.stringify({ messaging_profile_id: profileId }),
-    })
+  const telnyxId = await findTelnyxPhoneNumberId(target)
+  if (!telnyxId) {
+    throw new Error(
+      `${target} is not on your Telnyx account — remove bad TELNYX_MESSAGING_FROM_E164 in Vercel or buy the number first`
+    )
   }
 
-  if (patchRes.ok) {
+  const bulkRes = await fetch(`${TELNYX_BASE}/messaging_numbers/bulk_updates`, {
+    method: "POST",
+    headers: telnyxHeaders(),
+    body: JSON.stringify({
+      messaging_profile_id: profileId,
+      numbers: [target],
+    }),
+  })
+  if (bulkRes.ok) {
+    console.log(`[Telnyx] Messaging profile ${profileId} bulk-assigned to ${target}`)
+    return
+  }
+
+  const assignRes = await fetch(`${TELNYX_BASE}/messaging_profiles/${profileId}/phone_numbers`, {
+    method: "POST",
+    headers: telnyxHeaders(),
+    body: JSON.stringify({ phone_number_id: telnyxId }),
+  })
+  if (assignRes.ok) {
     console.log(`[Telnyx] Messaging profile ${profileId} assigned to ${target}`)
     return
   }
 
-  const patchBody = (await patchRes.json().catch(() => ({}))) as {
-    errors?: { detail?: string; title?: string; code?: string }[]
+  const patchRes = await fetch(`${TELNYX_BASE}/phone_numbers/${telnyxId}/messaging`, {
+    method: "PATCH",
+    headers: telnyxHeaders(),
+    body: JSON.stringify({ messaging_profile_id: profileId }),
+  })
+  if (patchRes.ok) {
+    console.log(`[Telnyx] Messaging profile ${profileId} patched onto ${target}`)
+    return
   }
-  const errMsg =
-    patchBody.errors?.[0]?.detail ||
-    patchBody.errors?.[0]?.title ||
-    `HTTP ${patchRes.status}`
-  throw new Error(`Could not assign ${target} to messaging profile: ${errMsg}`)
+
+  const bulkBody = await bulkRes.json().catch(() => ({}))
+  const assignBody = await assignRes.json().catch(() => ({}))
+  const patchBody = await patchRes.json().catch(() => ({}))
+  throw new Error(
+    `Could not assign ${target} to messaging profile: ${telnyxErrorMessage(
+      patchBody,
+      telnyxErrorMessage(assignBody, telnyxErrorMessage(bulkBody, `HTTP ${patchRes.status}`))
+    )}`
+  )
+}
+
+/** True when this E.164 exists on the linked Telnyx account. */
+export async function isTelnyxOwnedNumber(e164: string): Promise<boolean> {
+  try {
+    getTelnyxApiKey()
+  } catch {
+    return false
+  }
+  const id = await findTelnyxPhoneNumberId(normalizePhoneNumberE164(e164.trim()))
+  return Boolean(id)
 }
 
 /** Assign every purchased Telnyx line we know about (best-effort). */
 export async function ensureProviderNumbersMessagingReady(numbers: string[]): Promise<string[]> {
   const warnings: string[] = []
-  const unique = [...new Set(numbers.map((n) => n.trim()).filter(Boolean))]
+  const unique = [...new Set(numbers.map((n) => normalizePhoneNumberE164(n.trim())).filter(Boolean))]
   for (const number of unique) {
     try {
       await configureNumberMessaging(number)

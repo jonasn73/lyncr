@@ -90,7 +90,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         setLastAction(result.message)
         setSeedWarnings(result.warnings ?? [])
         if (result.warnings.length > 0) {
-          toast.warning("Sandbox seeded with migration warnings — see yellow banner below.")
+          toast.warning("Sandbox seeded — see notes banner below.")
         } else {
           toast.success("Sandbox environment seeded")
         }
@@ -242,7 +242,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
 
       {seedWarnings.length > 0 ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <p className="font-medium text-amber-50">Migration warnings</p>
+          <p className="font-medium text-amber-50">Seed notes</p>
           <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-amber-100/90">
             {seedWarnings.map((warning) => (
               <li key={warning}>{warning}</li>

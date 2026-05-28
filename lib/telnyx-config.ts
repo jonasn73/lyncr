@@ -174,3 +174,15 @@ export async function configureNumberVoice(phoneNumber: string, texmlAppId: stri
     console.log(`[Sigo] Voice configured for ${phoneNumber} → TeXML app ${texmlAppId}`)
   }
 }
+
+/** Look up Telnyx inventory record id for an E.164 DID (used for voice/messaging patches). */
+export async function findTelnyxPhoneNumberId(e164: string): Promise<string | null> {
+  const res = await fetch(
+    `${TELNYX_BASE}/phone_numbers?filter[phone_number]=${encodeURIComponent(e164.trim())}&page[size]=1`,
+    { headers: telnyxHeaders() }
+  )
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) return null
+  const id = (body as { data?: { id?: string }[] })?.data?.[0]?.id
+  return id ? String(id) : null
+}
