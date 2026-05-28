@@ -18,14 +18,12 @@ import {
   SANDBOX_IMPERSONATION_RETURN_PATH,
 } from "@/lib/admin-impersonation"
 import { AdminAuthError, requireLyncrAdminSession } from "@/lib/admin-server-auth"
-import { getAuthUserByEmail } from "@/lib/db"
-import { isLyncrAdminUser } from "@/lib/lyncr-admin"
 import {
   getSandboxEnvironment,
   listSandboxIntakeLogs,
+  resolveSandboxTestReceptionistForSwitch,
   seedSandboxData,
   triggerMockCall,
-  SANDBOX_TEST_RECEPTIONIST_EMAIL,
   SANDBOX_TEST_RECEPTIONIST_TRAINING_PATH,
   type SandboxEnvironment,
   type SandboxIntakeLogRow,
@@ -86,22 +84,15 @@ export async function runTriggerMockCall(businessLineId: string): Promise<Trigge
 export async function runSwitchToSandboxTestReceptionist(): Promise<SwitchToTestReceptionistResult | void> {
   try {
     const { userId: adminUserId } = await requireLyncrAdminSession()
-
-    let target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
-    if (!target) {
-      const seeded = await seedSandboxData()
-      if (!seeded.ok) return seeded
-      target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
-    }
-    if (!target) {
-      return { ok: false, error: "Test receptionist account missing — run DB Environment Seed first." }
-    }
-    if (isLyncrAdminUser(target)) {
-      return { ok: false, error: "Test receptionist account is misconfigured as an operator login." }
-    }
+    const resolved = await resolveSandboxTestReceptionistForSwitch()
+    if (!resolved.ok) return resolved
 
     const cookieStore = await cookies()
-    cookieStore.set(getSessionCookieName(), createSessionCookie(target.id), getSessionCookieOptions())
+    cookieStore.set(
+      getSessionCookieName(),
+      createSessionCookie(resolved.target_user_id),
+      getSessionCookieOptions()
+    )
     cookieStore.set(
       IMPERSONATION_ADMIN_COOKIE,
       createImpersonationAdminCookie(adminUserId),

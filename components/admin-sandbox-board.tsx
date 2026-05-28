@@ -18,7 +18,6 @@ import { toast } from "sonner"
 import {
   fetchSandboxIntakeLogs,
   runSeedSandboxData,
-  runSwitchToSandboxTestReceptionist,
   runTriggerMockCall,
   type SandboxEnvironment,
   type SandboxIntakeLogRow,
@@ -43,6 +42,8 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
   const [environment, setEnvironment] = useState(initialEnvironment)
   const [intakeLogs, setIntakeLogs] = useState(initialIntakeLogs)
   const [pending, startTransition] = useTransition()
+  const [quickSwitchBusy, setQuickSwitchBusy] = useState(false)
+  const [quickSwitchError, setQuickSwitchError] = useState<string | null>(null)
   const [lastAction, setLastAction] = useState<string | null>(null)
 
   const refreshLogs = useCallback(() => {
@@ -74,17 +75,32 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
     })
   }
 
-  function handleQuickSwitch() {
-    startTransition(async () => {
-      try {
-        const result = await runSwitchToSandboxTestReceptionist()
-        if (result && !result.ok) {
-          toast.error(result.error)
-        }
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Quick-switch failed unexpectedly")
+  async function handleQuickSwitch() {
+    setQuickSwitchBusy(true)
+    setQuickSwitchError(null)
+    try {
+      const res = await fetch("/api/admin/sandbox/quick-switch", {
+        method: "POST",
+        credentials: "include",
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { redirect?: string }
       }
-    })
+      if (!res.ok) {
+        const message = json.error || "Quick-switch failed"
+        setQuickSwitchError(message)
+        toast.error(message)
+        return
+      }
+      window.location.href = json.data?.redirect ?? "/receptionist/training/automotive_core"
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Quick-switch failed unexpectedly"
+      setQuickSwitchError(message)
+      toast.error(message)
+    } finally {
+      setQuickSwitchBusy(false)
+    }
   }
 
   function handleMockCall() {
@@ -192,10 +208,10 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           <Button
             type="button"
             className="mt-3 w-full shrink-0 bg-violet-600 hover:bg-violet-500 sm:mt-0 sm:w-auto"
-            disabled={pending}
-            onClick={handleQuickSwitch}
+            disabled={quickSwitchBusy}
+            onClick={() => void handleQuickSwitch()}
           >
-            {pending ? (
+            {quickSwitchBusy ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
             ) : (
               <KeyRound className="mr-2 h-4 w-4" aria-hidden />
@@ -203,6 +219,11 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             Quick-Switch to Test Receptionist Session
           </Button>
         </div>
+        {quickSwitchError ? (
+          <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            {quickSwitchError}
+          </p>
+        ) : null}
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

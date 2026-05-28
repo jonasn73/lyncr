@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics as VercelWebAnalytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner"
 import {
   SITE_CANONICAL_URL,
   SITE_DESCRIPTION,
@@ -67,6 +68,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
         {children}
         <Toaster />
+        <SonnerToaster richColors position="top-center" closeButton />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

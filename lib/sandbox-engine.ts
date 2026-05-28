@@ -23,6 +23,7 @@ import {
   getPhoneNumberLineById,
 } from "@/lib/db"
 import { saveCallIntake } from "@/lib/intake-engine"
+import { isLyncrAdminUser } from "@/lib/lyncr-admin"
 import { getAvailableReceptionistsForLine } from "@/lib/routing-pool"
 import type { CertificationModuleData } from "@/lib/types"
 
@@ -202,6 +203,31 @@ export async function getSandboxTestReceptionistUserId(): Promise<string | null>
     return await resolveTestReceptionistUserId()
   } catch {
     return null
+  }
+}
+
+export type ResolveSandboxTestReceptionistResult =
+  | { ok: true; target_user_id: string; target_email: string }
+  | { ok: false; error: string }
+
+/** Ensure test_receptionist@lyncr.app exists (auto-seeds sandbox when missing). */
+export async function resolveSandboxTestReceptionistForSwitch(): Promise<ResolveSandboxTestReceptionistResult> {
+  let target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
+  if (!target) {
+    const seeded = await seedSandboxData()
+    if (!seeded.ok) return seeded
+    target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
+  }
+  if (!target) {
+    return { ok: false, error: "Test receptionist account missing — run DB Environment Seed first." }
+  }
+  if (isLyncrAdminUser(target)) {
+    return { ok: false, error: "Test receptionist account is misconfigured as an operator login." }
+  }
+  return {
+    ok: true,
+    target_user_id: target.id,
+    target_email: target.email,
   }
 }
 
