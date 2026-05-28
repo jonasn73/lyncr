@@ -146,7 +146,7 @@ async function resolveTestReceptionistUserId(): Promise<string | null> {
 }
 
 /** Provision test_receptionist@lyncr.app linked to the sandbox owner (empty skills — quiz-first). */
-async function provisionSandboxTestReceptionist(ownerUserId: string): Promise<{
+export async function provisionSandboxTestReceptionist(ownerUserId: string): Promise<{
   portal_user_id: string
   receptionist_id: string
   created: boolean
@@ -154,8 +154,6 @@ async function provisionSandboxTestReceptionist(ownerUserId: string): Promise<{
   const password_hash = await bcrypt.hash("SandboxDev123!", 10)
   const result = await ensureSandboxTestReceptionistAccount({
     owner_user_id: ownerUserId,
-    user_id: SANDBOX_TEST_RECEPTIONIST_USER_ID,
-    receptionist_id: SANDBOX_TEST_RECEPTIONIST_ROW_ID,
     email: SANDBOX_TEST_RECEPTIONIST_EMAIL,
     name: "Test Receptionist",
     phone: "+15552223333",
@@ -213,22 +211,46 @@ export type ResolveSandboxTestReceptionistResult =
 /** Ensure test_receptionist@lyncr.app exists (auto-seeds sandbox when missing). */
 export async function resolveSandboxTestReceptionistForSwitch(): Promise<ResolveSandboxTestReceptionistResult> {
   let target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
-  if (!target) {
+  if (target) {
+    if (isLyncrAdminUser(target)) {
+      return { ok: false, error: "Test receptionist account is misconfigured as an operator login." }
+    }
+    return { ok: true, target_user_id: target.id, target_email: target.email }
+  }
+
+  let owner = await getAuthUserByEmail(SANDBOX_OWNER_EMAIL)
+  if (!owner) {
     const seeded = await seedSandboxData()
     if (!seeded.ok) return seeded
+    owner = await getAuthUserByEmail(SANDBOX_OWNER_EMAIL)
     target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
+    if (target) {
+      return { ok: true, target_user_id: target.id, target_email: target.email }
+    }
   }
+
+  if (!owner) {
+    return { ok: false, error: "Sandbox owner missing — click Seed sandbox data first." }
+  }
+
+  try {
+    await provisionSandboxTestReceptionist(owner.id)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Could not provision test receptionist"
+    return { ok: false, error: msg }
+  }
+
+  target = await getAuthUserByEmail(SANDBOX_TEST_RECEPTIONIST_EMAIL)
   if (!target) {
-    return { ok: false, error: "Test receptionist account missing — run DB Environment Seed first." }
+    return {
+      ok: false,
+      error: "Test receptionist login could not be created. Check Neon logs and run scripts/MIGRATE-ALL.md migrations 040+.",
+    }
   }
   if (isLyncrAdminUser(target)) {
     return { ok: false, error: "Test receptionist account is misconfigured as an operator login." }
   }
-  return {
-    ok: true,
-    target_user_id: target.id,
-    target_email: target.email,
-  }
+  return { ok: true, target_user_id: target.id, target_email: target.email }
 }
 
 export async function listSandboxIntakeLogs(limit = 25): Promise<SandboxIntakeLogRow[]> {
@@ -306,7 +328,10 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
     await patchRoutingConfigIndustryTag(owner.id, SANDBOX_INDUSTRY_TAG)
 
     try {
-      await provisionSandboxTestReceptionist(owner.id)
+      const receptionist = await provisionSandboxTestReceptionist(owner.id)
+      if (receptionist.created) {
+        warnings.push(`Provisioned test receptionist (${SANDBOX_TEST_RECEPTIONIST_EMAIL}).`)
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not provision test receptionist"
       warnings.push(`Test receptionist skipped: ${msg}`)
