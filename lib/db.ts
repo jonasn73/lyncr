@@ -682,6 +682,19 @@ function isMissingEndedAtColumnError(e: unknown): boolean {
   return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("ended_at")
 }
 
+/** True when a query failed only because a scripts/007 timing column is missing. */
+function isMissing007TimingColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return (
+    msg.includes("answered_at") ||
+    msg.includes("ended_at") ||
+    msg.includes("first_ring_at") ||
+    msg.includes("setup_duration_ms") ||
+    msg.includes("post_dial_delay_ms")
+  )
+}
+
 function isMissingReceptionistSkillsColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   return pgErrorMessage(e).includes("skills")
@@ -2188,17 +2201,35 @@ export async function updateCallLog(
   if (updates.has_recording !== undefined) {
     await sql`UPDATE call_logs SET has_recording = ${updates.has_recording}, recording_url = ${updates.recording_url ?? null}, recording_duration_seconds = ${updates.recording_duration_seconds ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
   }
+  // Timing columns come from scripts/007-call-quality-metrics.sql. Ignore writes
+  // when that migration hasn't run yet so call routing/sandbox still works.
   if (updates.answered_at !== undefined) {
-    await sql`UPDATE call_logs SET answered_at = ${updates.answered_at ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    try {
+      await sql`UPDATE call_logs SET answered_at = ${updates.answered_at ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    } catch (e) {
+      if (!isMissing007TimingColumnError(e)) throw e
+    }
   }
   if (updates.ended_at !== undefined) {
-    await sql`UPDATE call_logs SET ended_at = ${updates.ended_at ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    try {
+      await sql`UPDATE call_logs SET ended_at = ${updates.ended_at ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    } catch (e) {
+      if (!isMissing007TimingColumnError(e)) throw e
+    }
   }
   if (updates.setup_duration_ms !== undefined) {
-    await sql`UPDATE call_logs SET setup_duration_ms = ${updates.setup_duration_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    try {
+      await sql`UPDATE call_logs SET setup_duration_ms = ${updates.setup_duration_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    } catch (e) {
+      if (!isMissing007TimingColumnError(e)) throw e
+    }
   }
   if (updates.post_dial_delay_ms !== undefined) {
-    await sql`UPDATE call_logs SET post_dial_delay_ms = ${updates.post_dial_delay_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    try {
+      await sql`UPDATE call_logs SET post_dial_delay_ms = ${updates.post_dial_delay_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    } catch (e) {
+      if (!isMissing007TimingColumnError(e)) throw e
+    }
   }
   if (updates.routed_to_name !== undefined) {
     await sql`UPDATE call_logs SET routed_to_name = ${updates.routed_to_name ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
@@ -2227,39 +2258,49 @@ export async function recordCallStatusEvent(
 ): Promise<void> {
   const sql = getSql()
   const occurredAt = occurredAtIso ? new Date(occurredAtIso) : new Date()
-  await sql`
-    UPDATE call_logs
-    SET
-      status = ${callStatus},
-      duration_seconds = CASE
-        WHEN ${callStatus} IN ('completed', 'busy', 'failed', 'no-answer', 'canceled')
-          AND answered_at IS NOT NULL THEN
-          GREATEST(
-            ${durationSeconds},
-            EXTRACT(EPOCH FROM (${occurredAt} - answered_at))::int
-          )
-        ELSE ${durationSeconds}
-      END,
-      answered_at = CASE
-        WHEN ${callStatus} IN ('answered', 'in-progress', 'completed') AND answered_at IS NULL THEN ${occurredAt}
-        ELSE answered_at
-      END,
-      ended_at = CASE
-        WHEN ${callStatus} IN ('completed', 'busy', 'failed', 'no-answer', 'canceled') THEN ${occurredAt}
-        ELSE ended_at
-      END,
-      setup_duration_ms = CASE
-        WHEN ${callStatus} IN ('answered', 'in-progress', 'completed') AND first_ring_at IS NOT NULL THEN
-          EXTRACT(EPOCH FROM (${occurredAt} - first_ring_at))::int * 1000
-        ELSE setup_duration_ms
-      END,
-      post_dial_delay_ms = CASE
-        WHEN ${callStatus} IN ('answered', 'in-progress', 'completed') AND first_ring_at IS NOT NULL THEN
-          EXTRACT(EPOCH FROM (${occurredAt} - first_ring_at))::int * 1000
-        ELSE post_dial_delay_ms
-      END
-    WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}
-  `
+  try {
+    await sql`
+      UPDATE call_logs
+      SET
+        status = ${callStatus},
+        duration_seconds = CASE
+          WHEN ${callStatus} IN ('completed', 'busy', 'failed', 'no-answer', 'canceled')
+            AND answered_at IS NOT NULL THEN
+            GREATEST(
+              ${durationSeconds},
+              EXTRACT(EPOCH FROM (${occurredAt} - answered_at))::int
+            )
+          ELSE ${durationSeconds}
+        END,
+        answered_at = CASE
+          WHEN ${callStatus} IN ('answered', 'in-progress', 'completed') AND answered_at IS NULL THEN ${occurredAt}
+          ELSE answered_at
+        END,
+        ended_at = CASE
+          WHEN ${callStatus} IN ('completed', 'busy', 'failed', 'no-answer', 'canceled') THEN ${occurredAt}
+          ELSE ended_at
+        END,
+        setup_duration_ms = CASE
+          WHEN ${callStatus} IN ('answered', 'in-progress', 'completed') AND first_ring_at IS NOT NULL THEN
+            EXTRACT(EPOCH FROM (${occurredAt} - first_ring_at))::int * 1000
+          ELSE setup_duration_ms
+        END,
+        post_dial_delay_ms = CASE
+          WHEN ${callStatus} IN ('answered', 'in-progress', 'completed') AND first_ring_at IS NOT NULL THEN
+            EXTRACT(EPOCH FROM (${occurredAt} - first_ring_at))::int * 1000
+          ELSE post_dial_delay_ms
+        END
+      WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}
+    `
+  } catch (e) {
+    // scripts/007 timing columns not migrated yet — fall back to status + duration only.
+    if (!isMissing007TimingColumnError(e)) throw e
+    await sql`
+      UPDATE call_logs
+      SET status = ${callStatus}, duration_seconds = ${durationSeconds}
+      WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}
+    `
+  }
 }
 
 export async function getCallQualitySummary(userId: string, days = 7): Promise<{
