@@ -2,7 +2,6 @@
 
 // Admin-only server actions for the internal dev sandbox board.
 
-import { revalidatePath } from "next/cache"
 import { AdminAuthError, requireLyncrAdminSession } from "@/lib/admin-server-auth"
 import {
   getSandboxEnvironment,
@@ -28,32 +27,35 @@ async function guardAdmin(): Promise<{ ok: true } | { ok: false; error: string }
     return { ok: true }
   } catch (e) {
     if (e instanceof AdminAuthError) return { ok: false, error: e.message }
-    return { ok: false, error: "Forbidden" }
+    const msg = e instanceof Error ? e.message : "Forbidden"
+    return { ok: false, error: msg }
   }
 }
 
 /** Operator-only: seed Test Locksmith Co. workspace + automotive_core certification. */
 export async function runSeedSandboxData(): Promise<SeedSandboxDataResult> {
-  const auth = await guardAdmin()
-  if (!auth.ok) return auth
-
-  const result = await seedSandboxData()
-  if (result.ok) {
-    revalidatePath("/admin/sandbox")
+  try {
+    const auth = await guardAdmin()
+    if (!auth.ok) return auth
+    return await seedSandboxData()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Sandbox seed failed unexpectedly"
+    console.error("[sandbox-engine action] runSeedSandboxData:", e)
+    return { ok: false, error: msg }
   }
-  return result
 }
 
 /** Operator-only: fire a simulated inbound call to online receptionists on a business line. */
 export async function runTriggerMockCall(businessLineId: string): Promise<TriggerMockCallResult> {
-  const auth = await guardAdmin()
-  if (!auth.ok) return auth
-
-  const result = await triggerMockCall(businessLineId)
-  if (result.ok) {
-    revalidatePath("/admin/sandbox")
+  try {
+    const auth = await guardAdmin()
+    if (!auth.ok) return auth
+    return await triggerMockCall(businessLineId)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Mock call failed unexpectedly"
+    console.error("[sandbox-engine action] runTriggerMockCall:", e)
+    return { ok: false, error: msg }
   }
-  return result
 }
 
 /** Operator-only: load sandbox workspace snapshot for the admin board. */

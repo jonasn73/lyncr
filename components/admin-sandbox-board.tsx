@@ -52,15 +52,23 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
 
   function handleSeed() {
     startTransition(async () => {
-      const result = await runSeedSandboxData()
-      if (!result.ok) {
-        toast.error(result.error)
-        return
+      try {
+        const result = await runSeedSandboxData()
+        if (!result.ok) {
+          toast.error(result.error)
+          return
+        }
+        setEnvironment(result.environment)
+        setLastAction(result.message)
+        if (result.warnings.length > 0) {
+          toast.warning("Sandbox seeded with migration warnings — see banner on this page.")
+        } else {
+          toast.success("Sandbox environment seeded")
+        }
+        refreshLogs()
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Sandbox seed failed unexpectedly")
       }
-      setEnvironment(result.environment)
-      setLastAction(result.message)
-      toast.success("Sandbox environment seeded")
-      refreshLogs()
     })
   }
 

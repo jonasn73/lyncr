@@ -2916,20 +2916,25 @@ export async function upsertCertificationModule(params: {
   code_identifier: string
   name: string
   module_data: CertificationModuleData
-}): Promise<Certification> {
+}): Promise<Certification | null> {
   const sql = getSql()
   const moduleJson = JSON.stringify(params.module_data)
-  const rows = await sql`
-    INSERT INTO certifications (name, code_identifier, module_data)
-    VALUES (${params.name}, ${params.code_identifier}, ${moduleJson}::jsonb)
-    ON CONFLICT (code_identifier) DO UPDATE SET
-      name = EXCLUDED.name,
-      module_data = EXCLUDED.module_data
-    RETURNING id, name, code_identifier, module_data, created_at
-  `
-  const row = rows[0]
-  if (!row) throw new Error("upsertCertificationModule: no row returned")
-  return parseCertificationRow(row as Record<string, unknown>)
+  try {
+    const rows = await sql`
+      INSERT INTO certifications (name, code_identifier, module_data)
+      VALUES (${params.name}, ${params.code_identifier}, ${moduleJson}::jsonb)
+      ON CONFLICT (code_identifier) DO UPDATE SET
+        name = EXCLUDED.name,
+        module_data = EXCLUDED.module_data
+      RETURNING id, name, code_identifier, module_data, created_at
+    `
+    const row = rows[0]
+    if (!row) throw new Error("upsertCertificationModule: no row returned")
+    return parseCertificationRow(row as Record<string, unknown>)
+  } catch (e) {
+    if (isMissingCertificationsTableError(e)) return null
+    throw e
+  }
 }
 
 /**
@@ -3201,15 +3206,19 @@ export async function updateNotificationPreferencesDb(params: {
   userId: string
   sms_leads_enabled: boolean
   dispatch_sms_phone: string | null
+  notification_phone?: string | null
 }): Promise<OnboardingProfile> {
   await ensureOnboardingProfile(params.userId)
   const sql = getSql()
+  const notificationPhone =
+    params.notification_phone !== undefined ? params.notification_phone : null
   try {
     const rows = await sql`
       UPDATE onboarding_profiles
       SET
         sms_leads_enabled = ${params.sms_leads_enabled},
         dispatch_sms_phone = ${params.dispatch_sms_phone},
+        notification_phone = coalesce(${notificationPhone}, notification_phone),
         updated_at = now()
       WHERE user_id = ${params.userId}
       RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,

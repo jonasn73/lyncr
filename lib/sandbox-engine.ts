@@ -4,19 +4,21 @@ import bcrypt from "bcryptjs"
 import { certificationsData } from "@/lib/data/certifications"
 import {
   createUser,
+  getActivePhoneNumberByE164,
   getAuthUserByEmail,
   getOnboardingProfile,
   getPhoneNumbers,
   getUser,
   insertCallLog,
+  insertPhoneNumber,
   listAiLeadsForUser,
   patchPhoneNumberPoolSettings,
   patchRoutingConfigIndustryTag,
   updateCallLog,
+  updateNotificationPreferencesDb,
   updateOnboardingProfile,
   updateUser,
   upsertCertificationModule,
-  insertPhoneNumber,
   getPhoneNumberLineById,
 } from "@/lib/db"
 import { saveCallIntake } from "@/lib/intake-engine"
@@ -67,8 +69,9 @@ export type SeedSandboxDataResult =
   | {
       ok: true
       environment: SandboxEnvironment
-      certification_id: string
+      certification_id: string | null
       sample_intake_id: string | null
+      warnings: string[]
       message: string
     }
   | { ok: false; error: string }
@@ -98,46 +101,74 @@ function staticCertificationModule(): CertificationModuleData {
   }
 }
 
-/** Load current sandbox workspace snapshot (null when never seeded). */
-export async function getSandboxEnvironment(): Promise<SandboxEnvironment | null> {
-  const auth = await getAuthUserByEmail(SANDBOX_OWNER_EMAIL)
-  if (!auth) return null
-
-  const [profile, numbers] = await Promise.all([
-    getOnboardingProfile(auth.id),
-    getPhoneNumbers(auth.id),
-  ])
-
-  const line = numbers.find((n) => n.status === "active") ?? null
-
+function buildEnvironmentFromParts(params: {
+  userId: string
+  email: string
+  businessName: string
+  lineId: string | null
+  lineE164: string | null
+  profile: Awaited<ReturnType<typeof getOnboardingProfile>>
+}): SandboxEnvironment {
   return {
-    user_id: auth.id,
-    email: auth.email,
-    business_name: auth.business_name,
-    business_line_id: line?.id ?? null,
-    business_line_e164: line?.number ?? null,
-    sms_leads_enabled: profile?.sms_leads_enabled ?? false,
-    dispatch_sms_phone: profile?.dispatch_sms_phone ?? null,
+    user_id: params.userId,
+    email: params.email,
+    business_name: params.businessName,
+    business_line_id: params.lineId,
+    business_line_e164: params.lineE164,
+    sms_leads_enabled: params.profile?.sms_leads_enabled ?? false,
+    dispatch_sms_phone: params.profile?.dispatch_sms_phone ?? null,
     certification_code: "automotive_core",
   }
 }
 
-/** Latest AI intake rows for the sandbox business (collected JSON shown as intake_payload). */
-export async function listSandboxIntakeLogs(limit = 25): Promise<SandboxIntakeLogRow[]> {
-  const env = await getSandboxEnvironment()
-  if (!env) return []
+/** Load current sandbox workspace snapshot (null when never seeded). Never throws. */
+export async function getSandboxEnvironment(): Promise<SandboxEnvironment | null> {
+  try {
+    const auth = await getAuthUserByEmail(SANDBOX_OWNER_EMAIL)
+    if (!auth) return null
 
-  const rows = await listAiLeadsForUser(env.user_id, limit)
-  return rows.map((row) => ({
-    id: row.id,
-    created_at: row.created_at,
-    caller_e164: row.caller_e164,
-    intent_slug: row.intent_slug,
-    intake_payload: row.collected,
-    summary: row.summary,
-    sms_sent: row.sms_sent,
-    sms_error: row.sms_error,
-  }))
+    const [profile, numbers] = await Promise.all([
+      getOnboardingProfile(auth.id),
+      getPhoneNumbers(auth.id),
+    ])
+
+    const line = numbers.find((n) => n.status === "active") ?? null
+
+    return buildEnvironmentFromParts({
+      userId: auth.id,
+      email: auth.email,
+      businessName: auth.business_name,
+      lineId: line?.id ?? null,
+      lineE164: line?.number ?? null,
+      profile,
+    })
+  } catch (e) {
+    console.error("[sandbox-engine] getSandboxEnvironment:", e)
+    return null
+  }
+}
+
+/** Latest AI intake rows for the sandbox business (collected JSON shown as intake_payload). Never throws. */
+export async function listSandboxIntakeLogs(limit = 25): Promise<SandboxIntakeLogRow[]> {
+  try {
+    const env = await getSandboxEnvironment()
+    if (!env) return []
+
+    const rows = await listAiLeadsForUser(env.user_id, limit)
+    return rows.map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      caller_e164: row.caller_e164,
+      intent_slug: row.intent_slug,
+      intake_payload: row.collected,
+      summary: row.summary,
+      sms_sent: row.sms_sent,
+      sms_error: row.sms_error,
+    }))
+  } catch (e) {
+    console.error("[sandbox-engine] listSandboxIntakeLogs:", e)
+    return []
+  }
 }
 
 /**
@@ -145,6 +176,8 @@ export async function listSandboxIntakeLogs(limit = 25): Promise<SandboxIntakeLo
  * automotive_core certification, and a sample intake lead.
  */
 export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
+  const warnings: string[] = []
+
   try {
     let owner = await getAuthUserByEmail(SANDBOX_OWNER_EMAIL)
     if (!owner) {
@@ -168,9 +201,6 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
 
     await updateOnboardingProfile(owner.id, {
       has_active_subscription: true,
-      sms_leads_enabled: true,
-      dispatch_sms_phone: SANDBOX_DISPATCH_SMS_E164,
-      notification_phone: SANDBOX_DISPATCH_SMS_E164,
       reserved_number: SANDBOX_BUSINESS_LINE_E164,
       reserved_number_display: "(555) 765-4321",
       reserved_number_method: "buy",
@@ -179,32 +209,63 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
       account_status: "active",
     })
 
-    await patchRoutingConfigIndustryTag(owner.id, SANDBOX_INDUSTRY_TAG)
-
-    let numbers = await getPhoneNumbers(owner.id)
-    let line = numbers.find((n) => n.number === SANDBOX_BUSINESS_LINE_E164 && n.status === "active")
-
-    if (!line) {
-      line = await insertPhoneNumber({
-        user_id: owner.id,
-        number: SANDBOX_BUSINESS_LINE_E164,
-        friendly_name: "Sandbox Locksmith Line",
-        label: "Dev Sandbox",
-        type: "local",
-        status: "active",
+    try {
+      await updateNotificationPreferencesDb({
+        userId: owner.id,
+        sms_leads_enabled: true,
+        dispatch_sms_phone: SANDBOX_DISPATCH_SMS_E164,
+        notification_phone: SANDBOX_DISPATCH_SMS_E164,
       })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "SMS preferences could not be saved"
+      warnings.push(msg)
     }
 
-    await patchPhoneNumberPoolSettings(line.id, owner.id, {
+    await patchRoutingConfigIndustryTag(owner.id, SANDBOX_INDUSTRY_TAG)
+
+    let line =
+      (await getPhoneNumbers(owner.id)).find(
+        (n) => n.number === SANDBOX_BUSINESS_LINE_E164 && n.status === "active"
+      ) ?? null
+
+    if (!line) {
+      const existingGlobal = await getActivePhoneNumberByE164(SANDBOX_BUSINESS_LINE_E164)
+      if (existingGlobal && existingGlobal.user_id !== owner.id) {
+        return {
+          ok: false,
+          error: `Sandbox line ${SANDBOX_BUSINESS_LINE_E164} is already assigned to another account.`,
+        }
+      }
+      if (existingGlobal && existingGlobal.user_id === owner.id) {
+        line = existingGlobal
+      } else {
+        line = await insertPhoneNumber({
+          user_id: owner.id,
+          number: SANDBOX_BUSINESS_LINE_E164,
+          friendly_name: "Sandbox Locksmith Line",
+          label: "Dev Sandbox",
+          type: "local",
+          status: "active",
+        })
+      }
+    }
+
+    const poolPatched = await patchPhoneNumberPoolSettings(line.id, owner.id, {
       industry_tag: SANDBOX_INDUSTRY_TAG,
       routing_pool_mode: "simultaneous",
     })
+    if (!poolPatched) {
+      warnings.push("Run scripts/042-skill-routing-pool.sql in Neon to enable routing-pool tags on phone_numbers.")
+    }
 
     const cert = await upsertCertificationModule({
       code_identifier: "automotive_core",
       name: "Automotive & Locksmithing Intake Certification",
       module_data: staticCertificationModule(),
     })
+    if (!cert) {
+      warnings.push("Run scripts/043-certifications-training.sql in Neon to seed automotive_core in the certifications table.")
+    }
 
     let sampleIntakeId: string | null = null
     try {
@@ -226,27 +287,29 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
       })
       sampleIntakeId = intake.id
     } catch (e) {
-      console.warn("[sandbox-engine] sample intake insert skipped:", e)
+      const msg = e instanceof Error ? e.message : "Sample intake could not be saved"
+      warnings.push(`Sample intake skipped: ${msg}`)
     }
 
-    const environment = await getSandboxEnvironment()
+    const profile = await getOnboardingProfile(owner.id)
+    const environment = buildEnvironmentFromParts({
+      userId: owner.id,
+      email: owner.email,
+      businessName: SANDBOX_BUSINESS_NAME,
+      lineId: line.id,
+      lineE164: line.number,
+      profile,
+    })
+
+    const warningSuffix = warnings.length ? ` Notes: ${warnings.join(" ")}` : ""
 
     return {
       ok: true,
-      environment: environment ?? {
-        user_id: owner.id,
-        email: owner.email,
-        business_name: SANDBOX_BUSINESS_NAME,
-        business_line_id: line.id,
-        business_line_e164: line.number,
-        sms_leads_enabled: true,
-        dispatch_sms_phone: SANDBOX_DISPATCH_SMS_E164,
-        certification_code: "automotive_core",
-      },
-      certification_id: cert.id,
+      environment,
+      certification_id: cert?.id ?? null,
       sample_intake_id: sampleIntakeId,
-      message:
-        "Sandbox workspace ready — Test Locksmith Co. line, SMS dispatch, automotive_core quiz, and sample intake seeded.",
+      warnings,
+      message: `Sandbox workspace ready — Test Locksmith Co. line, SMS dispatch, and sample intake seeded.${warningSuffix}`,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Sandbox seed failed"
@@ -260,64 +323,70 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
  * Writes in-progress call_logs so the receptionist portal HUD shows an active call.
  */
 export async function triggerMockCall(businessLineId: string): Promise<TriggerMockCallResult> {
-  const lineId = businessLineId.trim()
-  if (!lineId) return { ok: false, error: "businessLineId is required" }
+  try {
+    const lineId = businessLineId.trim()
+    if (!lineId) return { ok: false, error: "businessLineId is required" }
 
-  const line = await getPhoneNumberLineById(lineId)
-  if (!line) return { ok: false, error: "Active business line not found" }
+    const line = await getPhoneNumberLineById(lineId)
+    if (!line) return { ok: false, error: "Active business line not found" }
 
-  const owner = await getUser(line.user_id)
-  const businessName = owner?.business_name?.trim() || SANDBOX_BUSINESS_NAME
+    const owner = await getUser(line.user_id)
+    const businessName = owner?.business_name?.trim() || SANDBOX_BUSINESS_NAME
 
-  const match = await getAvailableReceptionistsForLine(lineId)
-  if (!match || match.receptionists.length === 0) {
-    return {
-      ok: false,
-      error:
-        "No online receptionists matched this line. Open /receptionist, toggle Online, and certify automotive_core first.",
+    const match = await getAvailableReceptionistsForLine(lineId)
+    if (!match || match.receptionists.length === 0) {
+      return {
+        ok: false,
+        error:
+          "No online receptionists matched this line. Open /receptionist, toggle Online, and certify automotive_core first.",
+      }
     }
-  }
 
-  const callSid = `sandbox-mock-${crypto.randomUUID()}`
-  const callerNumber = "+15551234567"
-  const callerName = "Sandbox Caller"
-  const nowIso = new Date().toISOString()
+    const callSid = `sandbox-mock-${crypto.randomUUID()}`
+    const callerNumber = "+15551234567"
+    const callerName = "Sandbox Caller"
+    const nowIso = new Date().toISOString()
 
-  const notified: { id: string; name: string }[] = []
+    const notified: { id: string; name: string }[] = []
 
-  for (const receptionist of match.receptionists) {
-    const sid = match.receptionists.length === 1 ? callSid : `${callSid}-${receptionist.id.slice(0, 8)}`
+    for (const receptionist of match.receptionists) {
+      const sid = match.receptionists.length === 1 ? callSid : `${callSid}-${receptionist.id.slice(0, 8)}`
 
-    await insertCallLog({
-      user_id: line.user_id,
-      provider_call_sid: sid,
-      from_number: callerNumber,
-      to_number: line.number,
-      caller_name: callerName,
-      call_type: "incoming",
-      status: "in-progress",
-      duration_seconds: 0,
-      routed_to_receptionist_id: receptionist.id,
-      routed_to_name: receptionist.name,
-      has_recording: false,
-      recording_url: null,
-      recording_duration_seconds: null,
-    })
+      await insertCallLog({
+        user_id: line.user_id,
+        provider_call_sid: sid,
+        from_number: callerNumber,
+        to_number: line.number,
+        caller_name: callerName,
+        call_type: "incoming",
+        status: "in-progress",
+        duration_seconds: 0,
+        routed_to_receptionist_id: receptionist.id,
+        routed_to_name: receptionist.name,
+        has_recording: false,
+        recording_url: null,
+        recording_duration_seconds: null,
+      })
 
-    await updateCallLog(sid, {
-      status: "in-progress",
-      answered_at: nowIso,
-      routed_to_name: `${receptionist.name} · ${businessName}`,
-    })
+      await updateCallLog(sid, {
+        status: "in-progress",
+        answered_at: nowIso,
+        routed_to_name: `${receptionist.name} · ${businessName}`,
+      })
 
-    notified.push({ id: receptionist.id, name: receptionist.name })
-  }
+      notified.push({ id: receptionist.id, name: receptionist.name })
+    }
 
-  return {
-    ok: true,
-    call_sid: callSid,
-    business_name: businessName,
-    notified_receptionists: notified,
-    message: `Simulated inbound call to ${notified.length} online receptionist(s) for ${businessName}.`,
+    return {
+      ok: true,
+      call_sid: callSid,
+      business_name: businessName,
+      notified_receptionists: notified,
+      message: `Simulated inbound call to ${notified.length} online receptionist(s) for ${businessName}.`,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Mock call failed"
+    console.error("[sandbox-engine] triggerMockCall:", e)
+    return { ok: false, error: msg }
   }
 }
