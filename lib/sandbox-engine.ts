@@ -325,7 +325,12 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
       warnings.push(msg)
     }
 
-    await patchRoutingConfigIndustryTag(owner.id, SANDBOX_INDUSTRY_TAG)
+    try {
+      await patchRoutingConfigIndustryTag(owner.id, SANDBOX_INDUSTRY_TAG)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not set routing industry tag"
+      warnings.push(`Routing tag skipped: ${msg}`)
+    }
 
     try {
       const receptionist = await provisionSandboxTestReceptionist(owner.id)

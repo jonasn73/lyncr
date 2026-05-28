@@ -17,8 +17,6 @@ import {
 import { toast } from "sonner"
 import {
   fetchSandboxIntakeLogs,
-  runSeedSandboxData,
-  runTriggerMockCall,
   type SandboxEnvironment,
   type SandboxIntakeLogRow,
 } from "@/app/actions/sandbox-engine"
@@ -44,6 +42,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
   const [pending, startTransition] = useTransition()
   const [quickSwitchBusy, setQuickSwitchBusy] = useState(false)
   const [quickSwitchError, setQuickSwitchError] = useState<string | null>(null)
+  const [seedWarnings, setSeedWarnings] = useState<string[]>([])
   const [lastAction, setLastAction] = useState<string | null>(null)
 
   const refreshLogs = useCallback(() => {
@@ -56,15 +55,32 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
   function handleSeed() {
     startTransition(async () => {
       try {
-        const result = await runSeedSandboxData()
-        if (!result.ok) {
-          toast.error(result.error)
+        const res = await fetch("/api/admin/sandbox/seed", {
+          method: "POST",
+          credentials: "include",
+        })
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string
+          data?: {
+            environment: SandboxEnvironment
+            message: string
+            warnings: string[]
+          }
+        }
+        if (!res.ok) {
+          toast.error(json.error || "Sandbox seed failed")
+          return
+        }
+        const result = json.data
+        if (!result) {
+          toast.error("Sandbox seed returned no data")
           return
         }
         setEnvironment(result.environment)
         setLastAction(result.message)
+        setSeedWarnings(result.warnings ?? [])
         if (result.warnings.length > 0) {
-          toast.warning("Sandbox seeded with migration warnings — see banner on this page.")
+          toast.warning("Sandbox seeded with migration warnings — see yellow banner below.")
         } else {
           toast.success("Sandbox environment seeded")
         }
@@ -110,13 +126,31 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       return
     }
     startTransition(async () => {
-      const result = await runTriggerMockCall(lineId)
-      if (!result.ok) {
-        toast.error(result.error)
-        return
+      try {
+        const res = await fetch("/api/admin/sandbox/mock-call", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessLineId: lineId }),
+        })
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string
+          data?: { message: string; notified_receptionists: { id: string; name: string }[] }
+        }
+        if (!res.ok) {
+          toast.error(json.error || "Mock call failed")
+          return
+        }
+        const result = json.data
+        if (!result) {
+          toast.error("Mock call returned no data")
+          return
+        }
+        setLastAction(result.message)
+        toast.success(`HUD updated for ${result.notified_receptionists.length} receptionist(s)`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Mock call failed unexpectedly")
       }
-      setLastAction(result.message)
-      toast.success(`HUD updated for ${result.notified_receptionists.length} receptionist(s)`)
     })
   }
 
@@ -146,6 +180,17 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
           {lastAction}
         </p>
+      ) : null}
+
+      {seedWarnings.length > 0 ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <p className="font-medium text-amber-50">Migration warnings</p>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-amber-100/90">
+            {seedWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <section className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-5 sm:p-6">
