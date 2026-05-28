@@ -10,6 +10,14 @@ import { buildLeadAlertSmsText } from "@/lib/lead-sms-alert"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
+/** US 555-01xx numbers are reserved for fiction — Telnyx cannot deliver SMS to them. */
+function isLikelyFictionalUs555Number(e164: string): boolean {
+  const digits = e164.replace(/\D/g, "")
+  if (digits.length < 11) return false
+  const national = digits.startsWith("1") ? digits.slice(1) : digits
+  return national.length === 10 && national.slice(3, 6) === "555"
+}
+
 export type SaveCallIntakeParams = {
   user_id: string
   caller_e164: string | null
@@ -47,6 +55,14 @@ async function maybeDispatchLeadSmsAlert(params: {
     return { sms_sent: false, sms_error: "No dispatch or profile phone configured for SMS alerts" }
   }
 
+  if (isLikelyFictionalUs555Number(targetSmsNumber)) {
+    return {
+      sms_sent: false,
+      sms_error:
+        "Dispatch number is a sandbox 555 line — set SANDBOX_SMS_DISPATCH_E164 in Vercel to your real cell, then re-seed",
+    }
+  }
+
   const text = buildLeadAlertSmsText({
     businessName: user?.business_name?.trim() || user?.name?.trim() || "Your business",
     callerE164: params.caller_e164,
@@ -55,7 +71,7 @@ async function maybeDispatchLeadSmsAlert(params: {
     summary: params.summary,
   })
 
-  const sent = await sendTelnyxSms({ toE164: targetSmsNumber, text })
+  const sent = await sendTelnyxSms({ toE164: targetSmsNumber, text, userId: params.userId })
   if (sent.ok) {
     return { sms_sent: true, sms_error: null }
   }

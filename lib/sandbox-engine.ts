@@ -36,8 +36,15 @@ export const SANDBOX_BUSINESS_NAME = "Test Locksmith Co."
 /** Sandbox DID used for routing-pool tests (Neon-only — no Telnyx purchase). */
 export const SANDBOX_BUSINESS_LINE_E164 = "+15557654321"
 
-/** Dispatch SMS target for lead-alert E2E tests. */
+/** Dispatch SMS target for lead-alert E2E tests (fake 555 when no env override). */
 export const SANDBOX_DISPATCH_SMS_E164 = "+15559876543"
+
+/** Real cell for sandbox SMS — set SANDBOX_SMS_DISPATCH_E164 in Vercel (E.164). */
+export function resolveSandboxDispatchSmsE164(): string {
+  const override = process.env.SANDBOX_SMS_DISPATCH_E164?.trim()
+  if (override) return override
+  return SANDBOX_DISPATCH_SMS_E164
+}
 
 /** Marker stored on onboarding_profiles.custom_routing_note. */
 export const SANDBOX_PROFILE_MARKER = "lyncr-dev-sandbox:v1"
@@ -317,8 +324,8 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
       await updateNotificationPreferencesDb({
         userId: owner.id,
         sms_leads_enabled: true,
-        dispatch_sms_phone: SANDBOX_DISPATCH_SMS_E164,
-        notification_phone: SANDBOX_DISPATCH_SMS_E164,
+        dispatch_sms_phone: resolveSandboxDispatchSmsE164(),
+        notification_phone: resolveSandboxDispatchSmsE164(),
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : "SMS preferences could not be saved"

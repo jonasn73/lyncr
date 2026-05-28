@@ -2704,6 +2704,38 @@ function parsePhoneNumberRow(row: Record<string, unknown>): PhoneNumber {
   }
 }
 
+/** First active line linked to Telnyx (has provider SID) — usable as outbound SMS "from". */
+export async function getProviderLinkedActiveNumber(userId?: string): Promise<string | null> {
+  const sql = getSql()
+  const pick = (rows: Record<string, unknown>[]) => {
+    const row = rows[0] as { number?: string } | undefined
+    const number = row?.number?.trim()
+    return number || null
+  }
+  if (userId) {
+    const rows = await sql`
+      SELECT number
+      FROM phone_numbers
+      WHERE user_id = ${userId}
+        AND status = 'active'
+        AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+      ORDER BY created_at ASC
+      LIMIT 1
+    `
+    const fromAccount = pick(rows as Record<string, unknown>[])
+    if (fromAccount) return fromAccount
+  }
+  const rows = await sql`
+    SELECT number
+    FROM phone_numbers
+    WHERE status = 'active'
+      AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+    ORDER BY created_at ASC
+    LIMIT 1
+  `
+  return pick(rows as Record<string, unknown>[])
+}
+
 // Get phone numbers for a user
 export async function getPhoneNumbers(userId: string): Promise<PhoneNumber[]> {
   const sql = getSql()

@@ -452,6 +452,12 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         {" · "}
         Dev password (both): <span className="font-mono text-slate-500">SandboxDev123!</span>
       </p>
+      <p className="text-xs leading-relaxed text-slate-600">
+        Live SMS tests: add{" "}
+        <span className="font-mono text-slate-500">SANDBOX_SMS_DISPATCH_E164</span> in Vercel (your real cell,
+        E.164). Outbound sender auto-uses your Telnyx line, or set{" "}
+        <span className="font-mono text-slate-500">TELNYX_MESSAGING_FROM_E164</span> explicitly — then re-seed.
+      </p>
     </div>
   )
 }
