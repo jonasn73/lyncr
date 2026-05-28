@@ -99,6 +99,17 @@ function isMissingOnboardingProfileColumnError(e: unknown): boolean {
   )
 }
 
+/** Missing SMS alert columns (scripts/044–045). */
+function isMissingSmsNotificationColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return (
+    msg.includes("sms_leads_enabled") ||
+    msg.includes("notification_phone") ||
+    msg.includes("dispatch_sms_phone")
+  )
+}
+
 export function isUndefinedRelationError(e: unknown, relationName?: string): boolean {
   const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
   if (code !== "42P01") return false
@@ -3213,7 +3224,7 @@ export async function updateNotificationPreferencesDb(params: {
   const notificationPhone =
     params.notification_phone !== undefined ? params.notification_phone : null
   try {
-    const rows = await sql`
+    await sql`
       UPDATE onboarding_profiles
       SET
         sms_leads_enabled = ${params.sms_leads_enabled},
@@ -3221,21 +3232,12 @@ export async function updateNotificationPreferencesDb(params: {
         notification_phone = coalesce(${notificationPhone}, notification_phone),
         updated_at = now()
       WHERE user_id = ${params.userId}
-      RETURNING user_id, reserved_number, reserved_number_display, reserved_number_method,
-                port_carrier, fallback_type, trade_category, opening_line,
-                has_active_subscription,
-                subscription_tier, carrier_credit, low_balance_notified,
-                total_calls_routed, total_minutes_used, account_status, custom_routing_note,
-                sms_leads_enabled, notification_phone, dispatch_sms_phone,
-                billing_cycle_start, billing_cycle_end,
-                stripe_customer_id, stripe_subscription_id,
-                updated_at
     `
-    const row = rows[0] as Record<string, unknown> | undefined
-    if (!row) throw new Error("Profile not found")
-    return mapOnboardingProfileRow(row)
+    const profile = await getOnboardingProfile(params.userId)
+    if (!profile) throw new Error("Profile not found")
+    return profile
   } catch (e) {
-    if (isMissingOnboardingProfileColumnError(e)) {
+    if (isMissingSmsNotificationColumnError(e)) {
       throw new Error(
         "SMS notification settings require migrations 044-sms-lead-notifications.sql and 045-dispatch-sms-phone.sql in Neon."
       )
