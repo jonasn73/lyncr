@@ -93,6 +93,59 @@ export type UpdateOnboardingProfileRequest = {
   dispatch_sms_phone?: string | null
 }
 
+// --- 10DLC SMS compliance registration (scripts/047-messaging-10dlc.sql) ---
+
+export type TenDlcStatus =
+  | "draft"
+  | "pending_payment"
+  | "paid"
+  | "submitted"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "failed"
+
+export type TenDlcEntityType =
+  | "SOLE_PROPRIETOR"
+  | "PRIVATE_PROFIT"
+  | "NON_PROFIT"
+  | "PUBLIC_PROFIT"
+
+/** A business's own A2P 10DLC brand + campaign registration. */
+export interface Messaging10DlcRegistration {
+  user_id: string
+  entity_type: TenDlcEntityType | null
+  legal_company_name: string | null
+  display_name: string | null
+  ein: string | null
+  vertical: string | null
+  website: string | null
+  contact_first_name: string | null
+  contact_last_name: string | null
+  email: string | null
+  phone: string | null
+  street: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  country: string | null
+  use_case: string | null
+  campaign_description: string | null
+  sample_message_1: string | null
+  sample_message_2: string | null
+  message_flow: string | null
+  brand_id: string | null
+  campaign_id: string | null
+  assigned_number: string | null
+  status: TenDlcStatus
+  status_detail: string | null
+  fee_cents: number
+  fee_paid: boolean
+  stripe_session_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type FeedbackCategory = "issue" | "feature" | "billing" | "other"
 export type FeedbackStatus = "open" | "triaged" | "closed"
 

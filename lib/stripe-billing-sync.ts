@@ -73,6 +73,13 @@ export async function handleStripeCheckoutSessionCompleted(session: Stripe.Check
 
   const checkoutType = session.metadata?.checkout_type?.trim() || "subscription"
 
+  if (checkoutType === "tendlc_registration") {
+    if (session.payment_status !== "paid" && session.status !== "complete") return
+    const { handleMessaging10DlcPaid } = await import("@/lib/messaging-10dlc")
+    await handleMessaging10DlcPaid(userId, session.id)
+    return
+  }
+
   if (checkoutType === "credit_pack") {
     if (session.payment_status !== "paid" && session.status !== "complete") return
     await applyStripeCreditPackPayment(userId, session)

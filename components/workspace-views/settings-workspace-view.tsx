@@ -19,6 +19,7 @@ import {
   WorkspaceDisclosureRow,
   workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
+import { Messaging10DlcCard } from "@/components/messaging-10dlc-card"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
@@ -294,6 +295,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           </div>
         </div>
       </WorkspacePanel>
+
+      <Messaging10DlcCard />
 
       <section className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>

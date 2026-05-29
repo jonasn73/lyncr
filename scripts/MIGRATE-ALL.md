@@ -49,6 +49,7 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 | 44 | `044-sms-lead-notifications.sql` | **`onboarding_profiles.sms_leads_enabled`** + **`notification_phone`** — instant SMS lead alerts |
 | 45 | `045-dispatch-sms-phone.sql` | **`onboarding_profiles.dispatch_sms_phone`** — dedicated dispatch SMS target (falls back to profile phone) |
 | 46 | `046-automotive-core-locksmith-quiz.sql` | **Updates `automotive_core`** certification — AKL, proximity, YMM, and structural key quiz matrix |
+| 47 | `047-messaging-10dlc.sql` | **`messaging_10dlc_registrations`** — each business registers its own A2P 10DLC brand + campaign (Settings → SMS lead-alert registration) so lead-alert texts deliver on US carriers |
 
 ## Platform admin (`admin@lyncr.app`)
 
