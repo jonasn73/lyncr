@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
+import { Sms10DlcNudgeBanner } from "@/components/sms-10dlc-nudge-banner"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import {
@@ -351,6 +352,7 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 sm:gap-14">
+      <Sms10DlcNudgeBanner />
       <DashboardRoutingWithSheets
         quickSetupDecided={quickSetupDecided}
         isSetupComplete={isSetupComplete}
