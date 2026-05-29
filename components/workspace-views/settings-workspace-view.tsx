@@ -20,6 +20,7 @@ import {
   workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
 import { Messaging10DlcCard } from "@/components/messaging-10dlc-card"
+import { RoutingStrategyCard } from "@/components/routing-strategy-card"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
@@ -295,6 +296,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           </div>
         </div>
       </WorkspacePanel>
+
+      <RoutingStrategyCard />
 
       <Messaging10DlcCard />
 

@@ -437,6 +437,8 @@ export interface RoutingConfig {
   routing_strategy: RoutingStrategy
   /** Allow drop-back to shared Lyncr network agents when no private staff are online (`048`). */
   allow_lyncr_network_fallback: boolean
+  /** Seconds to ring private staff before falling back to the Lyncr network (`049`). Defaults to 15. */
+  private_ring_timeout_seconds: number
   updated_at: string
 }
 
@@ -552,6 +554,12 @@ export interface UpdateRoutingRequest {
   ai_greeting?: string
   ring_timeout_seconds?: number
   ai_ring_owner_first?: boolean
+  /** Hybrid network routing strategy (`048`). */
+  routing_strategy?: RoutingStrategy
+  /** Allow drop-back to shared Lyncr network agents (`048`). */
+  allow_lyncr_network_fallback?: boolean
+  /** Seconds to ring private staff before Lyncr network fallback (`049`). */
+  private_ring_timeout_seconds?: number
   business_number?: string | null // E.164 number for per-number routing; omit or null for the default config
 }
 

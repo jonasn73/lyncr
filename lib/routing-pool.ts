@@ -4,6 +4,7 @@ import {
   getLineHybridRoutingStrategy,
   getPhoneNumberLineById,
   isReasonablePstnDialString,
+  listAvailableNetworkReceptionistsForIndustryTag,
   listAvailablePlatformReceptionistsForIndustryTag,
   normalizePhoneNumberE164,
   resolveIndustryTagForLine,
@@ -56,8 +57,8 @@ export async function getAvailableReceptionistsForLine(lineId: string): Promise<
   let matched_scope: "private" | "network" = "private"
 
   if (routing_strategy === "lyncr_only") {
-    // Bypass private staff entirely — shared Lyncr network agents only.
-    receptionists = await listAvailablePlatformReceptionistsForIndustryTag(industryTag, { scope: "network" })
+    // Bypass private staff entirely — shared Lyncr network agents only (user_id IS NULL).
+    receptionists = await listAvailableNetworkReceptionistsForIndustryTag(industryTag)
     matched_scope = "network"
   } else {
     // private_only or hybrid_fallback → this business's own online staff first.
@@ -70,7 +71,7 @@ export async function getAvailableReceptionistsForLine(lineId: string): Promise<
     // Drop back to the shared network pool when no private staff are online and fallback is allowed.
     const networkFallbackAllowed = routing_strategy === "hybrid_fallback" || allow_lyncr_network_fallback === true
     if (receptionists.length === 0 && networkFallbackAllowed) {
-      receptionists = await listAvailablePlatformReceptionistsForIndustryTag(industryTag, { scope: "network" })
+      receptionists = await listAvailableNetworkReceptionistsForIndustryTag(industryTag)
       matched_scope = "network"
     }
   }

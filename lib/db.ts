@@ -211,9 +211,10 @@ function parseRoutingRow(row: Record<string, unknown>): RoutingConfig {
     ring_timeout_seconds: Number(row.ring_timeout_seconds ?? 30),
     ai_ring_owner_first: pgBool(row.ai_ring_owner_first),
     industry_tag: row.industry_tag != null && String(row.industry_tag).trim() !== "" ? String(row.industry_tag).trim() : null,
-    // `048` columns — default safely when the SELECT omits them or the migration hasn't run.
+    // `048`/`049` columns — default safely when the SELECT omits them or the migration hasn't run.
     routing_strategy: normalizeRoutingStrategy(row.routing_strategy),
     allow_lyncr_network_fallback: pgBool(row.allow_lyncr_network_fallback),
+    private_ring_timeout_seconds: Number(row.private_ring_timeout_seconds ?? 15),
     updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
   }
 }
@@ -481,13 +482,13 @@ export async function getRoutingConfig(userId: string): Promise<RoutingConfig | 
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy, allow_lyncr_network_fallback, updated_at
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy, allow_lyncr_network_fallback, private_ring_timeout_seconds, updated_at
       FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
     `
     return rows[0] ? parseRoutingRow(rows[0]) : null
   } catch (e) {
     if (!isMissingHybridNetworkColumnError(e)) throw e
-    // Pre-048 schema: read without the hybrid columns (parseRoutingRow defaults them).
+    // Pre-048/049 schema: read without the hybrid columns (parseRoutingRow defaults them).
     const rows = await sql`
       SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
       FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
@@ -555,10 +556,11 @@ export async function getRoutingConfigForNumber(userId: string, businessNumber: 
 export async function getLineHybridRoutingStrategy(
   userId: string,
   businessNumber: string | null | undefined
-): Promise<{ routing_strategy: RoutingStrategy; allow_lyncr_network_fallback: boolean }> {
+): Promise<{ routing_strategy: RoutingStrategy; allow_lyncr_network_fallback: boolean; private_ring_timeout_seconds: number }> {
   const fallback = {
     routing_strategy: "private_only" as RoutingStrategy,
     allow_lyncr_network_fallback: false,
+    private_ring_timeout_seconds: 15,
   }
   if (!userId?.trim()) return fallback
   const sql = getSql()
@@ -566,7 +568,7 @@ export async function getLineHybridRoutingStrategy(
     const bn = businessNumber ? normalizePhoneNumberE164(businessNumber) : ""
     if (bn) {
       const perNumber = await sql`
-        SELECT routing_strategy, allow_lyncr_network_fallback
+        SELECT routing_strategy, allow_lyncr_network_fallback, private_ring_timeout_seconds
         FROM routing_config
         WHERE user_id = ${userId} AND business_number = ${bn}
         ORDER BY updated_at DESC NULLS LAST
@@ -576,11 +578,12 @@ export async function getLineHybridRoutingStrategy(
         return {
           routing_strategy: normalizeRoutingStrategy(perNumber[0].routing_strategy),
           allow_lyncr_network_fallback: pgBool(perNumber[0].allow_lyncr_network_fallback),
+          private_ring_timeout_seconds: Number(perNumber[0].private_ring_timeout_seconds ?? 15),
         }
       }
     }
     const def = await sql`
-      SELECT routing_strategy, allow_lyncr_network_fallback
+      SELECT routing_strategy, allow_lyncr_network_fallback, private_ring_timeout_seconds
       FROM routing_config
       WHERE user_id = ${userId} AND business_number IS NULL
       LIMIT 1
@@ -589,6 +592,7 @@ export async function getLineHybridRoutingStrategy(
       return {
         routing_strategy: normalizeRoutingStrategy(def[0].routing_strategy),
         allow_lyncr_network_fallback: pgBool(def[0].allow_lyncr_network_fallback),
+        private_ring_timeout_seconds: Number(def[0].private_ring_timeout_seconds ?? 15),
       }
     }
     return fallback
@@ -620,12 +624,51 @@ export async function getAllRoutingConfigs(userId: string): Promise<RoutingConfi
 export async function updateRoutingConfig(
   userId: string,
   updates: Partial<
-    Pick<RoutingConfig, "selected_receptionist_id" | "fallback_type" | "ai_greeting" | "ring_timeout_seconds" | "ai_ring_owner_first">
+    Pick<
+      RoutingConfig,
+      | "selected_receptionist_id"
+      | "fallback_type"
+      | "ai_greeting"
+      | "ring_timeout_seconds"
+      | "ai_ring_owner_first"
+      | "routing_strategy"
+      | "allow_lyncr_network_fallback"
+      | "private_ring_timeout_seconds"
+    >
   >,
   businessNumber?: string | null
 ): Promise<void> {
   const sql = getSql()
   const bn = businessNumber ?? null
+
+  // `048`/`049` hybrid-network fields — applied via guarded UPDATEs so a pre-migration schema
+  // (missing columns) never breaks the rest of the save. `where` is a sql fragment.
+  const applyHybridFields = async (where: ReturnType<typeof sql>): Promise<void> => {
+    if (
+      updates.routing_strategy === undefined &&
+      updates.allow_lyncr_network_fallback === undefined &&
+      updates.private_ring_timeout_seconds === undefined
+    ) {
+      return
+    }
+    try {
+      if (updates.routing_strategy !== undefined) {
+        await sql`UPDATE routing_config SET routing_strategy = ${updates.routing_strategy}, updated_at = now() WHERE ${where}`
+      }
+      if (updates.allow_lyncr_network_fallback !== undefined) {
+        await sql`UPDATE routing_config SET allow_lyncr_network_fallback = ${updates.allow_lyncr_network_fallback}, updated_at = now() WHERE ${where}`
+      }
+      if (updates.private_ring_timeout_seconds !== undefined) {
+        await sql`UPDATE routing_config SET private_ring_timeout_seconds = ${updates.private_ring_timeout_seconds}, updated_at = now() WHERE ${where}`
+      }
+    } catch (e) {
+      if (!isMissingHybridNetworkColumnError(e)) throw e
+      console.warn(
+        "[db] updateRoutingConfig: hybrid-network fields skipped — run scripts/048 + 049 in Neon.",
+        pgErrorMessage(e)
+      )
+    }
+  }
 
   // Ring-first is account-wide: always stored on the default row (`business_number IS NULL`) so inbound
   // `getIncomingRoutingByNumber` (which may resolve a per-number row) still sees the same flag.
@@ -663,6 +706,7 @@ export async function updateRoutingConfig(
         INSERT INTO routing_config (id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at)
         VALUES (${crypto.randomUUID()}, ${userId}, ${normalizedBn}, ${selected_receptionist_id}, ${fallback_type}, ${ai_greeting}, ${ring_timeout_seconds}, ${ai_ring_owner_first_insert}, now())
       `
+      await applyHybridFields(sql`user_id = ${userId} AND business_number = ${normalizedBn}`)
       clearIncomingRoutingCache()
       void primeIncomingRoutingCache(normalizedBn).catch(() => {})
       return
@@ -682,6 +726,7 @@ export async function updateRoutingConfig(
     if (updates.ring_timeout_seconds !== undefined) {
       await sql`UPDATE routing_config SET ring_timeout_seconds = ${updates.ring_timeout_seconds}, updated_at = now() WHERE ${whereClause}`
     }
+    await applyHybridFields(whereClause)
 
     clearIncomingRoutingCache()
     void primeIncomingRoutingCache(normalizedBn).catch(() => {})
@@ -703,6 +748,7 @@ export async function updateRoutingConfig(
   if (updates.ring_timeout_seconds !== undefined) {
     await sql`UPDATE routing_config SET ring_timeout_seconds = ${updates.ring_timeout_seconds}, updated_at = now() WHERE ${whereClause}`
   }
+  await applyHybridFields(whereClause)
 
   clearIncomingRoutingCache()
   void primeIncomingRoutingCacheForUser(userId).catch(() => {})
@@ -782,11 +828,15 @@ function isMissingIndustryTagColumnError(e: unknown): boolean {
   return msg.includes("industry_tag") || msg.includes("routing_pool_mode")
 }
 
-/** 42703 thrown until scripts/048-hybrid-network-fields.sql runs in Neon. */
+/** 42703 thrown until scripts/048-hybrid-network-fields.sql (and 049) run in Neon. */
 function isMissingHybridNetworkColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   const msg = pgErrorMessage(e)
-  return msg.includes("routing_strategy") || msg.includes("allow_lyncr_network_fallback")
+  return (
+    msg.includes("routing_strategy") ||
+    msg.includes("allow_lyncr_network_fallback") ||
+    msg.includes("private_ring_timeout_seconds")
+  )
 }
 
 function isMissingCertificationsTableError(e: unknown): boolean {
@@ -1154,6 +1204,144 @@ export async function insertReceptionist(params: {
     is_active: true,
     skills: [],
     created_at: new Date().toISOString(),
+  }
+}
+
+// ============================================
+// Global Lyncr network agents (`048`/`049`) — receptionists.user_id IS NULL.
+// Shared, platform-managed agents that any business can route to via the hybrid pool.
+// ============================================
+
+/** A shared Lyncr network agent (no owning business). `user_id` is intentionally NULL. */
+export type GlobalNetworkReceptionist = {
+  id: string
+  name: string
+  phone: string
+  skills: string[]
+  is_active: boolean
+  created_at: string
+}
+
+/** Insert a shared global Lyncr network agent (receptionists.user_id = NULL). Requires migration 048. */
+export async function insertGlobalNetworkReceptionist(params: {
+  name: string
+  phone: string
+  skills?: string[]
+}): Promise<GlobalNetworkReceptionist> {
+  const sql = getSql()
+  const id = crypto.randomUUID()
+  const phone = normalizePhoneNumberE164(params.phone)
+  const nameParts = params.name.trim().split(/\s+/)
+  const initials =
+    nameParts.length >= 2
+      ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+      : params.name.slice(0, 2).toUpperCase()
+  const colors = ["bg-primary", "bg-chart-2", "bg-chart-5", "bg-chart-3", "bg-chart-4"]
+  const color = colors[Math.floor(Math.random() * colors.length)]
+  // Dedupe + drop blanks so the skill tags stored are clean.
+  const skills = Array.from(
+    new Set((params.skills ?? []).map((s) => String(s).trim().toLowerCase()).filter(Boolean))
+  )
+
+  // user_id NULL requires the 048 ALTER (DROP NOT NULL). If it hasn't run this INSERT throws (23502).
+  await sql`
+    INSERT INTO receptionists (id, user_id, name, phone, initials, color, rate_per_minute, is_active, created_at)
+    VALUES (${id}, ${null}, ${params.name.trim()}, ${phone}, ${initials}, ${color}, 0.25, true, now())
+  `
+
+  if (skills.length > 0) {
+    try {
+      await sql`UPDATE receptionists SET skills = ${skills}::text[] WHERE id = ${id}`
+    } catch (e) {
+      if (!isMissingReceptionistSkillsColumnError(e)) throw e
+    }
+  }
+
+  return {
+    id,
+    name: params.name.trim(),
+    phone,
+    skills,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  }
+}
+
+/** List every shared global Lyncr network agent (receptionists.user_id IS NULL), newest first. */
+export async function listGlobalNetworkReceptionists(): Promise<GlobalNetworkReceptionist[]> {
+  const sql = getSql()
+  const mapRow = (row: Record<string, unknown>): GlobalNetworkReceptionist => ({
+    id: String(row.id),
+    name: String(row.name),
+    phone: String(row.phone),
+    skills: parseSkillsArray(row.skills),
+    is_active: row.is_active !== false,
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  })
+  try {
+    const rows = await sql`
+      SELECT id, name, phone, skills, is_active, created_at
+      FROM receptionists
+      WHERE user_id IS NULL
+      ORDER BY created_at DESC
+    `
+    return (rows as Record<string, unknown>[]).map(mapRow)
+  } catch (e) {
+    // Pre-042 schema has no skills column — read without it.
+    if (!isMissingReceptionistSkillsColumnError(e)) throw e
+    const rows = await sql`
+      SELECT id, name, phone, is_active, created_at
+      FROM receptionists
+      WHERE user_id IS NULL
+      ORDER BY created_at DESC
+    `
+    return (rows as Record<string, unknown>[]).map(mapRow)
+  }
+}
+
+/**
+ * Shared Lyncr network agents (user_id IS NULL) available for a skill tag — active and not on a live call.
+ * Network agents are platform-vetted and may not have a portal login, so this query deliberately skips
+ * the portal_user_id / certification gating used for private staff and matches on skills only.
+ */
+export async function listAvailableNetworkReceptionistsForIndustryTag(
+  industryTag: string
+): Promise<PlatformRoutingPoolReceptionist[]> {
+  const sql = getSql()
+  const tag = normalizeRoutingPoolSkillTag(industryTag)
+  if (!tag) return []
+  const mapRow = (row: Record<string, unknown>): PlatformRoutingPoolReceptionist => ({
+    id: String(row.id),
+    name: String(row.name),
+    phone: String(row.phone),
+    skills: parseSkillsArray(row.skills),
+    is_active: row.is_active !== false,
+  })
+  try {
+    const rows = await sql`
+      SELECT r.id, r.name, r.phone, r.skills, r.is_active
+      FROM receptionists r
+      WHERE r.user_id IS NULL
+        AND r.is_active = true
+        AND (
+          ${tag} = ANY(r.skills)
+          OR EXISTS (
+            SELECT 1 FROM unnest(r.skills) AS skill_slug
+            WHERE split_part(replace(skill_slug, '-', '_'), '_', 1) = ${tag}
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM call_logs cl
+          WHERE cl.routed_to_receptionist_id = r.id
+            AND lower(cl.status) IN ('answered', 'in-progress', 'ringing')
+            AND cl.created_at > (now() - interval '2 hours')
+        )
+      ORDER BY r.name ASC
+    `
+    return (rows as Record<string, unknown>[]).map(mapRow)
+  } catch (e) {
+    if (isMissingReceptionistSkillsColumnError(e)) return []
+    throw e
   }
 }
 

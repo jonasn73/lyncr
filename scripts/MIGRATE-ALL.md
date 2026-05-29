@@ -51,6 +51,7 @@ Zing cannot update your Neon database from Git or Vercel automatically. After pu
 | 46 | `046-automotive-core-locksmith-quiz.sql` | **Updates `automotive_core`** certification — AKL, proximity, YMM, and structural key quiz matrix |
 | 47 | `047-messaging-10dlc.sql` | **`messaging_10dlc_registrations`** — each business registers its own A2P 10DLC brand + campaign (Settings → SMS lead-alert registration) so lead-alert texts deliver on US carriers |
 | 48 | `048-hybrid-network-fields.sql` | **`routing_config.routing_strategy`** (`private_only`/`lyncr_only`/`hybrid_fallback`, default `private_only`) + **`allow_lyncr_network_fallback`**, and **`receptionists.user_id` made NULLABLE** (NULL = shared global Lyncr network agent). Powers private-staff vs shared-pool routing with fallback. App reads these defensively, so routing keeps working before this runs. |
+| 49 | `049-private-ring-timeout.sql` | **`routing_config.private_ring_timeout_seconds`** (default 15) — how long a hybrid line rings its private staff before falling back to the shared Lyncr network. Exposed in Settings → Call routing strategy. Read defensively (defaults to 15s) until applied. |
 
 ## Platform admin (`admin@lyncr.app`)
 
