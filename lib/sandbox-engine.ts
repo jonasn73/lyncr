@@ -120,6 +120,12 @@ export type TriggerMockCallResult =
       call_sid: string
       business_name: string
       notified_receptionists: { id: string; name: string }[]
+      duration_seconds: number
+      intake_id: string | null
+      sms_sent: boolean
+      sms_error: string | null
+      sms_from: string | null
+      sms_to: string | null
       message: string
     }
   | { ok: false; error: string }
@@ -502,8 +508,9 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
 }
 
 /**
- * Simulate an inbound routing event for online receptionists on the given business line.
- * Writes in-progress call_logs so the receptionist portal HUD shows an active call.
+ * Simulate a full inbound call for online receptionists on the given business line.
+ * Records a completed call (so the HUD doesn't get stuck "live") and files an intake
+ * lead so the call surfaces in the sandbox table and exercises SMS dispatch.
  */
 export async function triggerMockCall(businessLineId: string): Promise<TriggerMockCallResult> {
   try {
@@ -516,7 +523,7 @@ export async function triggerMockCall(businessLineId: string): Promise<TriggerMo
     const owner = await getUser(line.user_id)
     const businessName = owner?.business_name?.trim() || SANDBOX_BUSINESS_NAME
 
-    // Clear any phantom in-progress sandbox calls so receptionists aren't stuck "busy".
+    // Clear any phantom in-progress sandbox calls so receptionists aren't stuck "busy" / "live".
     await closeStaleSandboxMockCalls(line.user_id)
 
     const match = await getAvailableReceptionistsForLine(lineId)
@@ -531,7 +538,10 @@ export async function triggerMockCall(businessLineId: string): Promise<TriggerMo
     const callSid = `sandbox-mock-${crypto.randomUUID()}`
     const callerNumber = "+15551234567"
     const callerName = "Sandbox Caller"
-    const nowIso = new Date().toISOString()
+    // Simulate a short answered conversation so the call ledger shows duration + payout.
+    const durationSeconds = 42
+    const endedAt = new Date()
+    const answeredAt = new Date(endedAt.getTime() - durationSeconds * 1000)
 
     const notified: { id: string; name: string }[] = []
 
@@ -545,8 +555,8 @@ export async function triggerMockCall(businessLineId: string): Promise<TriggerMo
         to_number: line.number,
         caller_name: callerName,
         call_type: "incoming",
-        status: "in-progress",
-        duration_seconds: 0,
+        status: "completed",
+        duration_seconds: durationSeconds,
         routed_to_receptionist_id: receptionist.id,
         routed_to_name: receptionist.name,
         has_recording: false,
@@ -554,21 +564,70 @@ export async function triggerMockCall(businessLineId: string): Promise<TriggerMo
         recording_duration_seconds: null,
       })
 
+      // Mark the full lifecycle as completed so the live HUD clears itself.
       await updateCallLog(sid, {
-        status: "in-progress",
-        answered_at: nowIso,
+        status: "completed",
+        answered_at: answeredAt.toISOString(),
+        ended_at: endedAt.toISOString(),
+        duration_seconds: durationSeconds,
         routed_to_name: `${receptionist.name} · ${businessName}`,
       })
 
       notified.push({ id: receptionist.id, name: receptionist.name })
     }
 
+    // File an intake lead for the simulated call so it shows in the sandbox table
+    // and runs the SMS lead-alert dispatch (subject to Telnyx 10DLC delivery).
+    let intakeId: string | null = null
+    let smsSent = false
+    let smsError: string | null = null
+    let smsFrom: string | null = null
+    let smsTo: string | null = null
+    try {
+      const intake = await saveCallIntake({
+        user_id: line.user_id,
+        caller_e164: callerNumber,
+        intent_slug: "automotive_akl",
+        collected: {
+          year: "2019",
+          make: "Toyota",
+          model: "Camry",
+          akl: true,
+          key_type: "transponder",
+          source: "sandbox_simulated_call",
+        },
+        summary: `Simulated inbound call routed to ${notified.map((n) => n.name).join(", ")} for ${businessName}.`,
+        vapi_call_id: `${callSid}-intake`,
+      })
+      intakeId = intake.id
+      smsSent = intake.sms_sent
+      smsError = intake.sms_error
+      smsFrom = intake.sms_from
+      smsTo = intake.sms_to
+    } catch (e) {
+      smsError = e instanceof Error ? e.message : "Intake lead could not be saved"
+    }
+
+    const smsNote = smsSent
+      ? smsError
+        ? ` Lead SMS accepted by Telnyx (${smsFrom ?? "?"} → ${smsTo ?? "?"}) but delivery may be blocked: ${smsError}`
+        : ` Lead SMS queued (${smsFrom ?? "?"} → ${smsTo ?? "?"}).`
+      : smsError
+        ? ` Lead SMS not sent: ${smsError}`
+        : ""
+
     return {
       ok: true,
       call_sid: callSid,
       business_name: businessName,
       notified_receptionists: notified,
-      message: `Simulated inbound call to ${notified.length} online receptionist(s) for ${businessName}.`,
+      duration_seconds: durationSeconds,
+      intake_id: intakeId,
+      sms_sent: smsSent,
+      sms_error: smsError,
+      sms_from: smsFrom,
+      sms_to: smsTo,
+      message: `Simulated a completed ${durationSeconds}s call to ${notified.length} receptionist(s) for ${businessName}.${smsNote}`,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Mock call failed"

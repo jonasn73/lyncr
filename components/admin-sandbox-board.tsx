@@ -163,7 +163,15 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         })
         const json = (await res.json().catch(() => ({}))) as {
           error?: string
-          data?: { message: string; notified_receptionists: { id: string; name: string }[] }
+          data?: {
+            message: string
+            notified_receptionists: { id: string; name: string }[]
+            duration_seconds: number
+            sms_sent: boolean
+            sms_error: string | null
+            sms_from: string | null
+            sms_to: string | null
+          }
         }
         if (!res.ok) {
           toast.error(json.error || "Mock call failed")
@@ -175,7 +183,19 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           return
         }
         setLastAction(result.message)
-        toast.success(`HUD updated for ${result.notified_receptionists.length} receptionist(s)`)
+        const count = result.notified_receptionists.length
+        if (result.sms_sent && result.sms_error) {
+          toast.warning(
+            `Logged a ${result.duration_seconds}s call to ${count} receptionist(s). Lead SMS accepted by Telnyx but delivery may be blocked.`
+          )
+        } else if (result.sms_sent) {
+          toast.success(
+            `Logged a ${result.duration_seconds}s call to ${count} receptionist(s) — lead SMS queued.`
+          )
+        } else {
+          toast.success(`Logged a ${result.duration_seconds}s call to ${count} receptionist(s).`)
+        }
+        refreshLogs()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Mock call failed unexpectedly")
       }
