@@ -12,6 +12,7 @@ import { SITE_NAME } from "@/lib/brand"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
 import type {
   RoutingConfig,
+  RoutingStrategy,
   Receptionist,
   User,
   CallLog,
@@ -210,8 +211,18 @@ function parseRoutingRow(row: Record<string, unknown>): RoutingConfig {
     ring_timeout_seconds: Number(row.ring_timeout_seconds ?? 30),
     ai_ring_owner_first: pgBool(row.ai_ring_owner_first),
     industry_tag: row.industry_tag != null && String(row.industry_tag).trim() !== "" ? String(row.industry_tag).trim() : null,
+    // `048` columns — default safely when the SELECT omits them or the migration hasn't run.
+    routing_strategy: normalizeRoutingStrategy(row.routing_strategy),
+    allow_lyncr_network_fallback: pgBool(row.allow_lyncr_network_fallback),
     updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
   }
+}
+
+/** Coerce a raw routing_strategy value to a known enum; defaults to `private_only` to protect existing routes. */
+function normalizeRoutingStrategy(raw: unknown): RoutingStrategy {
+  const s = raw != null ? String(raw).trim().toLowerCase() : ""
+  if (s === "lyncr_only" || s === "hybrid_fallback" || s === "private_only") return s
+  return "private_only"
 }
 
 export type IncomingRoutingRow = {
@@ -468,11 +479,21 @@ async function findPerNumberRoutingConfigId(userId: string, businessNumber: stri
 // Get the default (global) routing config for a user (business_number IS NULL)
 export async function getRoutingConfig(userId: string): Promise<RoutingConfig | null> {
   const sql = getSql()
-  const rows = await sql`
-    SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
-    FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
-  `
-  return rows[0] ? parseRoutingRow(rows[0]) : null
+  try {
+    const rows = await sql`
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy, allow_lyncr_network_fallback, updated_at
+      FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
+    `
+    return rows[0] ? parseRoutingRow(rows[0]) : null
+  } catch (e) {
+    if (!isMissingHybridNetworkColumnError(e)) throw e
+    // Pre-048 schema: read without the hybrid columns (parseRoutingRow defaults them).
+    const rows = await sql`
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
+      FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
+    `
+    return rows[0] ? parseRoutingRow(rows[0]) : null
+  }
 }
 
 // Overlay account defaults onto a per-number routing row when sparse (matches `getIncomingRoutingByNumber` semantics).
@@ -524,6 +545,59 @@ export async function getRoutingConfigForNumber(userId: string, businessNumber: 
   `
   if (specificLoose[0]) return mergePerNumberRoutingFromDefault(userId, parseRoutingRow(specificLoose[0]))
   return getRoutingConfig(userId)
+}
+
+/**
+ * Read just the `048` hybrid-network strategy for a line (per-number override, then account default).
+ * Fully defensive: returns `private_only` / `false` when the migration hasn't run or the row is missing,
+ * so the routing engine never throws on a pre-048 database.
+ */
+export async function getLineHybridRoutingStrategy(
+  userId: string,
+  businessNumber: string | null | undefined
+): Promise<{ routing_strategy: RoutingStrategy; allow_lyncr_network_fallback: boolean }> {
+  const fallback = {
+    routing_strategy: "private_only" as RoutingStrategy,
+    allow_lyncr_network_fallback: false,
+  }
+  if (!userId?.trim()) return fallback
+  const sql = getSql()
+  try {
+    const bn = businessNumber ? normalizePhoneNumberE164(businessNumber) : ""
+    if (bn) {
+      const perNumber = await sql`
+        SELECT routing_strategy, allow_lyncr_network_fallback
+        FROM routing_config
+        WHERE user_id = ${userId} AND business_number = ${bn}
+        ORDER BY updated_at DESC NULLS LAST
+        LIMIT 1
+      `
+      if (perNumber[0]) {
+        return {
+          routing_strategy: normalizeRoutingStrategy(perNumber[0].routing_strategy),
+          allow_lyncr_network_fallback: pgBool(perNumber[0].allow_lyncr_network_fallback),
+        }
+      }
+    }
+    const def = await sql`
+      SELECT routing_strategy, allow_lyncr_network_fallback
+      FROM routing_config
+      WHERE user_id = ${userId} AND business_number IS NULL
+      LIMIT 1
+    `
+    if (def[0]) {
+      return {
+        routing_strategy: normalizeRoutingStrategy(def[0].routing_strategy),
+        allow_lyncr_network_fallback: pgBool(def[0].allow_lyncr_network_fallback),
+      }
+    }
+    return fallback
+  } catch (e) {
+    if (!isMissingHybridNetworkColumnError(e)) {
+      console.warn("[db] getLineHybridRoutingStrategy:", pgErrorMessage(e))
+    }
+    return fallback
+  }
 }
 
 // Get all routing configs for a user (default + per-number)
@@ -708,6 +782,13 @@ function isMissingIndustryTagColumnError(e: unknown): boolean {
   return msg.includes("industry_tag") || msg.includes("routing_pool_mode")
 }
 
+/** 42703 thrown until scripts/048-hybrid-network-fields.sql runs in Neon. */
+function isMissingHybridNetworkColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return msg.includes("routing_strategy") || msg.includes("allow_lyncr_network_fallback")
+}
+
 function isMissingCertificationsTableError(e: unknown): boolean {
   if (pgErrorCode(e) === "42P01") return true
   const msg = pgErrorMessage(e)
@@ -829,15 +910,24 @@ export async function resolveIndustryTagForLine(line: PhoneNumber): Promise<stri
 
 export type PlatformRoutingPoolReceptionist = Pick<Receptionist, "id" | "name" | "phone" | "skills" | "is_active">
 
+/** `048` pool scope: any business, this business's own private staff, or shared Lyncr network agents (user_id NULL). */
+export type ReceptionistPoolScope = "any" | "private" | "network"
+
 /**
  * Platform-managed receptionists available for a skill tag — active, portal-linked, not on another live call.
+ * `opts.scope` ('private' | 'network') applies the `048` hybrid-network filter at the query level:
+ *   - private → r.user_id = opts.ownerUserId (the line's owning business)
+ *   - network → r.user_id IS NULL (shared global Lyncr pool)
  */
 export async function listAvailablePlatformReceptionistsForIndustryTag(
-  industryTag: string
+  industryTag: string,
+  opts?: { scope?: ReceptionistPoolScope; ownerUserId?: string | null }
 ): Promise<PlatformRoutingPoolReceptionist[]> {
   const sql = getSql()
   const tag = normalizeRoutingPoolSkillTag(industryTag)
   if (!tag) return []
+  const scope: ReceptionistPoolScope = opts?.scope ?? "any"
+  const ownerUserId = opts?.ownerUserId ?? null
   try {
     const rows = await sql`
       SELECT r.id, r.name, r.phone, r.skills, r.is_active
@@ -846,6 +936,11 @@ export async function listAvailablePlatformReceptionistsForIndustryTag(
       WHERE r.portal_user_id IS NOT NULL
         AND r.is_active = true
         AND coalesce(u.account_role, 'receptionist') = 'receptionist'
+        AND (
+          ${scope} = 'any'
+          OR (${scope} = 'private' AND r.user_id = ${ownerUserId})
+          OR (${scope} = 'network' AND r.user_id IS NULL)
+        )
         AND (
           ${tag} = ANY(r.skills)
           OR EXISTS (

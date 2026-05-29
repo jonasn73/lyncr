@@ -413,6 +413,14 @@ export interface Customer {
 // --- Routing Configuration ---
 export type FallbackType = "owner" | "ai" | "voicemail"
 
+/**
+ * Who answers a line (`048`):
+ * - `private_only`   → only this business's own staff (receptionists.user_id = line owner)
+ * - `lyncr_only`     → only shared global Lyncr network agents (receptionists.user_id IS NULL)
+ * - `hybrid_fallback`→ private staff first, drop back to the network pool when none are online
+ */
+export type RoutingStrategy = "private_only" | "lyncr_only" | "hybrid_fallback"
+
 export interface RoutingConfig {
   id: string
   user_id: string
@@ -425,6 +433,10 @@ export interface RoutingConfig {
   ai_ring_owner_first: boolean
   /** Skill-pool tag — when set, route to platform receptionists with matching skills (`042`). */
   industry_tag: string | null
+  /** Private vs shared Lyncr network routing (`048`). Defaults to `private_only`. */
+  routing_strategy: RoutingStrategy
+  /** Allow drop-back to shared Lyncr network agents when no private staff are online (`048`). */
+  allow_lyncr_network_fallback: boolean
   updated_at: string
 }
 
