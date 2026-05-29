@@ -2244,18 +2244,36 @@ export async function updateCallLog(
 export async function closeStaleSandboxMockCalls(userId: string): Promise<number> {
   const sql = getSql()
   try {
+    // Stamp ended_at so the live-status HUD (which filters ended_at IS NULL) clears the call.
     const rows = await sql`
       UPDATE call_logs
-      SET status = 'completed'
+      SET status = 'completed', ended_at = COALESCE(ended_at, now())
       WHERE user_id = ${userId}
         AND provider_call_sid LIKE 'sandbox-mock-%'
-        AND lower(status) IN ('answered', 'in-progress', 'ringing')
+        AND (ended_at IS NULL OR lower(status) IN ('answered', 'in-progress', 'ringing'))
       RETURNING id
     `
     return (rows as unknown[]).length
   } catch (e) {
-    console.warn("[db] closeStaleSandboxMockCalls:", pgErrorMessage(e))
-    return 0
+    if (!isMissing007TimingColumnError(e)) {
+      console.warn("[db] closeStaleSandboxMockCalls:", pgErrorMessage(e))
+      return 0
+    }
+    // No ended_at column — fall back to status only.
+    try {
+      const rows = await sql`
+        UPDATE call_logs
+        SET status = 'completed'
+        WHERE user_id = ${userId}
+          AND provider_call_sid LIKE 'sandbox-mock-%'
+          AND lower(status) IN ('answered', 'in-progress', 'ringing')
+        RETURNING id
+      `
+      return (rows as unknown[]).length
+    } catch (inner) {
+      console.warn("[db] closeStaleSandboxMockCalls fallback:", pgErrorMessage(inner))
+      return 0
+    }
   }
 }
 
@@ -5416,7 +5434,7 @@ export async function getActiveCallLogForReceptionist(receptionistId: string): P
       SELECT * FROM call_logs
       WHERE routed_to_receptionist_id = ${receptionistId}
         AND ended_at IS NULL
-        AND lower(status) IN ('answered', 'in-progress', 'ringing', 'completed')
+        AND lower(status) IN ('answered', 'in-progress', 'ringing')
         AND created_at > (now() - interval '2 hours')
       ORDER BY created_at DESC
       LIMIT 1
