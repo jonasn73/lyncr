@@ -491,7 +491,10 @@ async function tryRoutingPoolInboundDial(params: {
     inboundFromRaw: callerNumber,
     businessOutboundE164: outboundCallerId,
   })
-  const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}&pool=1${origFromQuery}`
+  // When the pool engine already skipped private staff and dialed global Lyncr network agents as the
+  // FIRST leg (matched_scope === "network"), flag it so /fallback never re-rings the network pool.
+  const networkAlreadyTriedQuery = match.matched_scope === "network" ? "&networkAlreadyTried=true" : ""
+  const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}&pool=1${networkAlreadyTriedQuery}${origFromQuery}`
 
   const xml = buildRoutingPoolDialResponse({
     match,

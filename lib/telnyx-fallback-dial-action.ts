@@ -920,8 +920,18 @@ export async function handleTelnyxFallbackDialEnded(
      * leg's own action returns here as `network` mode (→ `networkAlreadyTried`), so the next bounce falls
      * straight through to the owner cell. We only read the strategy on this private-fail → owner transition.
      */
+    const networkAlreadyTriedParam = (
+      url.searchParams.get("networkAlreadyTried") || String(formData.get("networkAlreadyTried") || "")
+    )
+      .trim()
+      .toLowerCase()
     const networkAlreadyTried =
-      pathFallbackMode === "network" || pathFallbackMode === "network-ai" || legHint === "network"
+      pathFallbackMode === "network" ||
+      pathFallbackMode === "network-ai" ||
+      legHint === "network" ||
+      // /incoming already dialed the global pool as the first leg (no private staff online).
+      networkAlreadyTriedParam === "true" ||
+      networkAlreadyTriedParam === "1"
     if (fallbackType === "owner" && !primaryWasOwner && !networkAlreadyTried) {
       try {
         const hybrid = await getLineHybridRoutingStrategy(userId, effectiveBusinessLine || businessLineE164)
