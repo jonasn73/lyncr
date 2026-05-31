@@ -150,7 +150,7 @@ export function RoutingStrategyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border/70 bg-background sm:max-w-lg">
+      <DialogContent className="z-[130] border-border/70 bg-background sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10">

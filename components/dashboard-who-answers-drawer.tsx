@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { Plus, User } from "lucide-react"
+import { Network, Plus, User } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
@@ -56,6 +56,8 @@ export type DashboardWhoAnswersDrawerProps = {
   onRegisterDiscard?: (discard: () => void) => void
   routingBusinessNumber: string | null
   routingLineDetailLoading?: boolean
+  // Opens the routing-strategy dialog on top of this drawer (private vs Lyncr network).
+  onChangeRoutingStrategy?: () => void
 }
 
 export function DashboardWhoAnswersDrawer({
@@ -67,6 +69,7 @@ export function DashboardWhoAnswersDrawer({
   onRegisterDiscard,
   routingBusinessNumber,
   routingLineDetailLoading,
+  onChangeRoutingStrategy,
 }: DashboardWhoAnswersDrawerProps) {
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
@@ -208,6 +211,22 @@ export function DashboardWhoAnswersDrawer({
           <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-500">
             No team members yet — add contacts on the Team tab, then pick who rings first here.
           </p>
+        ) : null}
+
+        {onChangeRoutingStrategy ? (
+          <div className="mt-5 border-t border-zinc-800/80 pt-4">
+            <button
+              type="button"
+              onClick={onChangeRoutingStrategy}
+              className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+            >
+              <Network className="h-3.5 w-3.5" aria-hidden />
+              Change Routing Strategy
+            </button>
+            <p className="mt-1.5 text-center text-[11px] leading-relaxed text-zinc-600">
+              Switch between your private team, the shared Lyncr network, or a hybrid fallback.
+            </p>
+          </div>
         ) : null}
       </DrawerScrollBody>
       <DrawerStickyFooter

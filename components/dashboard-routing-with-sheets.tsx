@@ -25,6 +25,7 @@ type Props = Omit<
     | "setShowFallbackSettings"
     | "dashboardStoryKey"
     | "setDashboardStoryKey"
+    | "onChangeRoutingStrategy"
   > & {
     // Setters so the strategy dialog can push fresh values back into the dashboard canvas.
     setRoutingStrategy: (s: RoutingStrategy) => void
@@ -112,6 +113,7 @@ export function DashboardRoutingWithSheets(props: Props) {
         setHasTelnyxAiAssistant={props.setHasTelnyxAiAssistant}
         businessNumbers={props.businessNumbers}
         routingBusinessNumber={props.routingBusinessNumber}
+        onChangeRoutingStrategy={() => setStrategyDialogOpen(true)}
       />
     </>
   )

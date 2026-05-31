@@ -42,6 +42,8 @@ export type DashboardRoutingSheetsProps = {
   setHasTelnyxAiAssistant: (v: boolean) => void
   businessNumbers: DashboardBusinessNumber[]
   routingBusinessNumber: string | null
+  // Opens the hybrid routing-strategy dialog from inside the Who answers drawer.
+  onChangeRoutingStrategy: () => void
 }
 
 export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
@@ -72,6 +74,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   setHasTelnyxAiAssistant,
   businessNumbers,
   routingBusinessNumber,
+  onChangeRoutingStrategy,
 }: DashboardRoutingSheetsProps) {
   const whoAnswersDiscardRef = useRef<() => void>(() => {})
   const ringBackupDiscardRef = useRef<() => void>(() => {})
@@ -129,6 +132,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
               }}
               routingBusinessNumber={routingBusinessNumber}
               routingLineDetailLoading={routingLineDetailLoading}
+              onChangeRoutingStrategy={onChangeRoutingStrategy}
             />
           </div>
         </SheetContent>
