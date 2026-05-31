@@ -13,13 +13,24 @@ import {
   getReceptionist,
   getPhoneNumbers,
 } from "@/lib/db"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { telnyxHeaders, TEXML_ROUTER_NAMES } from "@/lib/telnyx-config"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
+  // (1) PRODUCTION DISABLE GUARD — this debug route surfaces internal routing config and
+  // tenant PII, so it must be completely inactive in production. Behave as if it doesn't exist.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  // (2) ADMIN AUTHENTICATION — restrict execution to logged-in Lyncr admins only.
+  // requireLyncrAdmin returns a 401/403 NextResponse for anonymous/non-admin callers.
+  const ctx = await requireLyncrAdmin(req)
+  if (ctx instanceof NextResponse) return ctx
+  const userId = ctx.userId
+
   const url = new URL(req.url)
   const number = url.searchParams.get("number") || "+15025199741"
   const appUrl = getAppUrl()
@@ -140,9 +151,21 @@ export async function GET(req: NextRequest) {
     debug.telnyx_number_error = String(e)
   }
 
-  // 4. DB user lookup
+  // 4. DB user lookup (tenant PII)
+  const user = await getUserByPhoneNumber(number)
+
+  // (3) TENANT OWNERSHIP VALIDATION — before showing ANY PII (owner name/phone,
+  // receptionist name/phone, routing config), the looked-up number must belong to the
+  // requesting admin. A found user whose id doesn't match the session is a hard 403,
+  // which blocks cross-tenant PII scanning entirely.
+  if (user && String(user.id) !== String(userId)) {
+    return NextResponse.json(
+      { error: "Forbidden: this phone number belongs to another account." },
+      { status: 403 }
+    )
+  }
+
   try {
-    const user = await getUserByPhoneNumber(number)
     debug.db_user = user ? { id: user.id, name: user.name, phone: user.phone } : "NOT FOUND"
 
     if (user) {
@@ -158,6 +181,13 @@ export async function GET(req: NextRequest) {
 
       if (config?.selected_receptionist_id) {
         const rec = await getReceptionist(config.selected_receptionist_id)
+        // Defense-in-depth: only reveal receptionist PII when it belongs to the requester.
+        if (rec && String(rec.user_id) !== String(userId)) {
+          return NextResponse.json(
+            { error: "Forbidden: receptionist belongs to another account." },
+            { status: 403 }
+          )
+        }
         debug.receptionist = rec ? { id: rec.id, name: rec.name, phone: rec.phone } : "NOT FOUND"
       }
 
