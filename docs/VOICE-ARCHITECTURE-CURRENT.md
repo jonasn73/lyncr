@@ -39,7 +39,7 @@ Legacy routes under `/api/voice/*` are adapters and should not be used for new i
 - **Parallel DB on `/incoming`:** `getIncomingRoutingByNumber` + `isTelnyxInboundDialCallerLegDone`; then `getRoutingConfigForNumber` + `getPhoneNumbers` together before building TeXML.
 - **Parallel DB on `/fallback`:** `getRoutingConfigForNumber` (or default) + default routing + `getUser` in one `Promise.all`.
 - **JSON webhooks:** nested `data.payload` fields are flattened so we resolve the correct DID on the first hop (avoids wrong routing + retries).
-- **`answerOnBridge`:** defaults to **off** on `<Dial>` so the inbound caller leg can bridge sooner after the teammate answers (`ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=1` restores classic ringback-until-answer).
+- **`answerOnBridge`:** defaults to **on** for every outbound routing `<Dial>` so the inbound caller hears US ringback in sync with the teammate's PSTN ring (no dead air / tone change before the B-leg answers). Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer the inbound leg immediately instead.
 - **Production logs:** large structured `console.log(JSON.stringify(...))` lines on the hot path are **skipped** unless `ZING_VOICE_DEBUG_LOGS=1` (reduces CPU and log pipeline delay on every ring). **Errors** (`console.error`) are always emitted.
 - Voice routes use `nodejs` runtime and **`preferredRegion = iad1`** to stay close to Telnyx US-East voice.
 

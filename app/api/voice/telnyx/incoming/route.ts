@@ -1368,8 +1368,9 @@ export async function POST(req: NextRequest) {
     return await processInboundPost(req)
   } finally {
     // Runs right before the response is handed back to Next.js, no matter which branch returned it.
+    // ms value is logged FIRST so it stays visible even when log viewers truncate the message.
     const executionTime = performance.now() - perfStart
-    console.log(`[Voice Webhook Execution Time]: ${executionTime.toFixed(2)}ms`)
+    console.log(`${executionTime.toFixed(2)}ms - voice-webhook-exec - ${req.nextUrl.pathname}`)
   }
 }
 
