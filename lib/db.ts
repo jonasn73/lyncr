@@ -283,8 +283,10 @@ function primeBlockedInboundStatusForUser(userId: string, accountStatus: string,
 export function clearIncomingRoutingCache(): void {
   incomingRoutingCache.clear()
   try {
-    revalidateTag(INCOMING_ROUTING_DATA_TAG)
-    revalidateTag(INBOUND_SNAPSHOT_DATA_TAG)
+    // Next.js 16: revalidateTag requires a cache-life profile. { expire: 0 } forces immediate
+    // expiry so voice webhooks read fresh routing right away (read-your-own-writes after a save).
+    revalidateTag(INCOMING_ROUTING_DATA_TAG, { expire: 0 })
+    revalidateTag(INBOUND_SNAPSHOT_DATA_TAG, { expire: 0 })
   } catch {
     // revalidateTag requires a server request context — safe to ignore during tests
   }
@@ -292,10 +294,11 @@ export function clearIncomingRoutingCache(): void {
 
 function revalidateIncomingRoutingDataCache(normalized: string): void {
   try {
-    revalidateTag(INCOMING_ROUTING_DATA_TAG)
-    revalidateTag(`incoming-routing-${normalized}`)
-    revalidateTag(INBOUND_SNAPSHOT_DATA_TAG)
-    revalidateTag(`inbound-snapshot-${normalized}`)
+    // { expire: 0 } = immediate expiry (Next.js 16 requires the second argument).
+    revalidateTag(INCOMING_ROUTING_DATA_TAG, { expire: 0 })
+    revalidateTag(`incoming-routing-${normalized}`, { expire: 0 })
+    revalidateTag(INBOUND_SNAPSHOT_DATA_TAG, { expire: 0 })
+    revalidateTag(`inbound-snapshot-${normalized}`, { expire: 0 })
   } catch {
     // ignore outside request context
   }
