@@ -363,8 +363,9 @@ function tryFastInboundPstnDial(params: {
   callSid: string
   callerName: string | null
   appUrl: string
+  perfStartMs?: number
 }): IncomingCallResult | null {
-  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl } = params
+  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl, perfStartMs } = params
   const hasReceptionist = Boolean(routing.selected_receptionist_id?.trim())
   const dialE164 = resolveReceptionistDialE164(routing.receptionist_phone || routing.owner_phone || "")
   if (!dialE164) return null
@@ -443,6 +444,8 @@ function tryFastInboundPstnDial(params: {
 
   console.log(
     JSON.stringify({
+      // execMs first so the value survives log-viewer truncation (MCP shows the leading chars).
+      ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
       zing: hasReceptionist ? "telnyx-incoming-fast-recv-dial" : "telnyx-incoming-fast-owner-dial",
       userId: routing.user_id,
       callSid,
@@ -464,8 +467,9 @@ async function tryRoutingPoolInboundDial(params: {
   callSid: string
   callerName: string | null
   appUrl: string
+  perfStartMs?: number
 }): Promise<IncomingCallResult | null> {
-  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl } = params
+  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl, perfStartMs } = params
   const line = await getActivePhoneNumberByE164(businessLineE164 || calledNumber)
   if (!line) return null
 
@@ -533,6 +537,8 @@ async function tryRoutingPoolInboundDial(params: {
 
   console.log(
     JSON.stringify({
+      // execMs first so the value survives log-viewer truncation (MCP shows the leading chars).
+      ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
       zing: "telnyx-incoming-routing-pool-dial",
       userId: routing.user_id,
       callSid,
@@ -553,8 +559,9 @@ async function tryFastInboundDirectAiHandoff(params: {
   callerNumber: string
   callSid: string
   callerName: string | null
+  perfStartMs?: number
 }): Promise<NextResponse | null> {
-  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName } = params
+  const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, perfStartMs } = params
   if (!inboundWantsAiFallback(routing)) return null
   if (inboundHasReceptionistToDial(routing)) return null
   if (inboundRingOwnerFirst(routing)) return null
@@ -606,6 +613,8 @@ async function tryFastInboundDirectAiHandoff(params: {
 
   console.log(
     JSON.stringify({
+      // execMs first so the value survives log-viewer truncation (MCP shows the leading chars).
+      ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
       zing: "telnyx-incoming-fast-ai-direct",
       userId: routing.user_id,
       callSid,
@@ -1204,7 +1213,10 @@ function texmlResponseBody(out: IncomingCallResult): string {
 }
 
 /** DB-backed fast path: resolve routing then return raw `<Dial>` before heavy handleIncomingCall. */
-async function tryFastInboundReceptionistResponse(fields: Record<string, string>): Promise<NextResponse | null> {
+async function tryFastInboundReceptionistResponse(
+  fields: Record<string, string>,
+  perfStartMs?: number
+): Promise<NextResponse | null> {
   if (inboundWebhookLooksLikeDialRepeat(fields)) return null
   if (readInboundRoutingCfgOverlayEnabled()) return null
 
@@ -1243,10 +1255,12 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
       callerNumber,
       callSid,
       callerName,
+      perfStartMs,
     })
     if (directAi) {
       console.log(
         JSON.stringify({
+          ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
           zing: "telnyx-incoming-fast-ai-path",
           callSid,
           lookupMs,
@@ -1266,6 +1280,7 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
       callSid,
       callerName,
       appUrl: VOICE_WEBHOOK_APP_URL,
+      perfStartMs,
     })
     if (poolDial) {
       return new NextResponse(texmlResponseBody(poolDial), {
@@ -1283,6 +1298,7 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
     callSid,
     callerName,
     appUrl: VOICE_WEBHOOK_APP_URL,
+    perfStartMs,
   })
   if (poolDial) {
     return new NextResponse(texmlResponseBody(poolDial), {
@@ -1298,11 +1314,13 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
     callSid,
     callerName,
     appUrl: VOICE_WEBHOOK_APP_URL,
+    perfStartMs,
   })
   if (!fast) return null
 
   console.log(
     JSON.stringify({
+      ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
       zing: "telnyx-incoming-fast-recv-path",
       userId: routing.user_id,
       callSid,
@@ -1318,7 +1336,11 @@ async function tryFastInboundReceptionistResponse(fields: Record<string, string>
 }
 
 /** Pass 1 (optional): reject suspended DIDs from cache, warm-cache Dial, or redirect-only to pass 2. */
-async function serveInboundPassOne(req: NextRequest, fields: Record<string, string>): Promise<NextResponse | null> {
+async function serveInboundPassOne(
+  req: NextRequest,
+  fields: Record<string, string>,
+  perfStartMs?: number
+): Promise<NextResponse | null> {
   if (!shouldServeEarlyMediaPass(new URL(req.url), fields)) return null
 
   const calledNumberRaw = resolveCalledParty(fields)
@@ -1344,6 +1366,7 @@ async function serveInboundPassOne(req: NextRequest, fields: Record<string, stri
       callSid,
       callerName,
       appUrl: VOICE_WEBHOOK_APP_URL,
+      perfStartMs,
     })
     if (fast) {
       return new NextResponse(texmlResponseBody(fast), {
@@ -1363,9 +1386,8 @@ export async function POST(req: NextRequest) {
   // moment the call webhook lands to the moment the TeXML response object is fully constructed,
   // across EVERY return path below (fast paths, pass-one, and the full handleIncomingCall path).
   const perfStart = performance.now()
-  console.log(JSON.stringify({ zing: "telnyx-incoming-entry", at: new Date().toISOString() }))
   try {
-    return await processInboundPost(req)
+    return await processInboundPost(req, perfStart)
   } finally {
     // Runs right before the response is handed back to Next.js, no matter which branch returned it.
     // ms value is logged FIRST so it stays visible even when log viewers truncate the message.
@@ -1374,7 +1396,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function processInboundPost(req: NextRequest): Promise<NextResponse> {
+async function processInboundPost(req: NextRequest, perfStartMs: number): Promise<NextResponse> {
   const handlerT0 = Date.now()
   const contentType = (req.headers.get("content-type") || "").toLowerCase()
   let fields: Record<string, string>
@@ -1384,9 +1406,9 @@ async function processInboundPost(req: NextRequest): Promise<NextResponse> {
   } else {
     const raw = await req.text()
     fields = parseTelnyxFormBodyFast(raw)
-    const passOne = await serveInboundPassOne(req, fields)
+    const passOne = await serveInboundPassOne(req, fields, perfStartMs)
     if (passOne) return passOne
-    const hot = await tryFastInboundReceptionistResponse(fields)
+    const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs)
     if (hot) {
       console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
       return hot
@@ -1394,9 +1416,9 @@ async function processInboundPost(req: NextRequest): Promise<NextResponse> {
     fields = parseTelnyxFormBody(raw)
   }
 
-  const passOne = await serveInboundPassOne(req, fields)
+  const passOne = await serveInboundPassOne(req, fields, perfStartMs)
   if (passOne) return passOne
-  const hot = await tryFastInboundReceptionistResponse(fields)
+  const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs)
   if (hot) {
     console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
     return hot
