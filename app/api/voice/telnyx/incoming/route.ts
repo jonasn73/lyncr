@@ -19,7 +19,6 @@ import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
   getIncomingRoutingForVoiceWebhook,
   getIncomingRoutingByNumber,
-  peekBlockedInboundStatusForNumber,
   peekIncomingRoutingCache,
   getActivePhoneNumberByE164,
   getReceptionist,
@@ -52,13 +51,10 @@ import {
 } from "@/lib/telnyx-pstn-dial-callerid"
 import { shouldEmitVoiceHotPathDebugLogs } from "@/lib/voice-log-gate"
 import {
-  buildInboundEarlyMediaTexml,
   buildInboundPstnDialAttributes,
   buildInboundPstnNumberAttributes,
-  buildInboundRoutingContinueUrl,
   buildFastReceptionistDialTexml,
   finalizeInboundTexmlXml,
-  readInboundEarlyMediaEnabled,
   readInboundFastDialAnswerOnBridge,
   readInboundRoutingCfgOverlayEnabled,
   resolveInboundForwardDialTimeoutSeconds,
@@ -169,30 +165,6 @@ function resolveCalledParty(fields: Record<string, string>): string {
   const direct = pickField(fields, keys).trim()
   if (direct) return direct
   return inferE164FromFieldMap(fields)
-}
-
-/** Pass 1 only — instant TeXML before DB routing (pass 2 sets `zingRoute=1` on the URL). */
-function shouldServeEarlyMediaPass(url: URL, fields: Record<string, string>): boolean {
-  if (!readInboundEarlyMediaEnabled()) return false
-  if (url.searchParams.get("zingRoute") === "1") return false
-
-  const dialOutcome = pickField(fields, [
-    "DialCallStatus",
-    "DialStatus",
-    "DialCallLegStatus",
-    "DialCallLegState",
-    "dial_call_status",
-  ])
-    .trim()
-    .toLowerCase()
-    .replace(/_/g, "-")
-
-  const dialOutcomeIsNonLive = (s: string) =>
-    ["ringing", "ring", "queued", "init", "in-progress", "inprogress", "answered", "early-media", ""].includes(s)
-
-  if (dialOutcome && !dialOutcomeIsNonLive(dialOutcome)) return false
-  if (dialOutcome === "completed" && hasVoiceUrlDialCompletedEvidence(fields)) return false
-  return true
 }
 
 /** True when Telnyx re-posted after a `<Dial>` leg (skip repeat-leg DB on first ring). */
@@ -1335,56 +1307,10 @@ async function tryFastInboundReceptionistResponse(
   })
 }
 
-/** Pass 1 (optional): reject suspended DIDs from cache, warm-cache Dial, or redirect-only to pass 2. */
-async function serveInboundPassOne(
-  req: NextRequest,
-  fields: Record<string, string>,
-  perfStartMs?: number
-): Promise<NextResponse | null> {
-  if (!shouldServeEarlyMediaPass(new URL(req.url), fields)) return null
-
-  const calledNumberRaw = resolveCalledParty(fields)
-  const blockedStatus = calledNumberRaw.trim() ? peekBlockedInboundStatusForNumber(calledNumberRaw) : null
-  if (blockedStatus && isAccountRoutingBlocked(blockedStatus)) {
-    return new NextResponse(buildSuspendedInboundRejectTexml(), {
-      headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
-    })
-  }
-
-  const cachedRouting = calledNumberRaw.trim() ? peekIncomingRoutingCache(calledNumberRaw) : null
-  if (cachedRouting && (cachedRouting.receptionist_phone?.trim() || cachedRouting.owner_phone?.trim())) {
-    const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
-    const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
-    const callerNumber = pickField(fields, ["From", "from", "Caller", "caller", "RemoteParty"])
-    const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
-    const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
-    const fast = tryFastInboundPstnDial({
-      routing: cachedRouting,
-      businessLineE164,
-      calledNumber: calledNumberRaw,
-      callerNumber,
-      callSid,
-      callerName,
-      appUrl: VOICE_WEBHOOK_APP_URL,
-      perfStartMs,
-    })
-    if (fast) {
-      return new NextResponse(texmlResponseBody(fast), {
-        headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
-      })
-    }
-  }
-
-  const continueUrl = buildInboundRoutingContinueUrl(req.url)
-  return new NextResponse(buildInboundEarlyMediaTexml(continueUrl), {
-    headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
-  })
-}
-
 export async function POST(req: NextRequest) {
   // High-resolution wall clock (sub-millisecond). Captures total server-side execution from the
   // moment the call webhook lands to the moment the TeXML response object is fully constructed,
-  // across EVERY return path below (fast paths, pass-one, and the full handleIncomingCall path).
+  // across EVERY return path below (the single-pass fast path and the full handleIncomingCall path).
   const perfStart = performance.now()
   try {
     return await processInboundPost(req, perfStart)
@@ -1406,8 +1332,8 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
   } else {
     const raw = await req.text()
     fields = parseTelnyxFormBodyFast(raw)
-    const passOne = await serveInboundPassOne(req, fields, perfStartMs)
-    if (passOne) return passOne
+    // Single-pass: evaluate cache + routing matrix on the FIRST inbound POST and return the
+    // final <Dial> TeXML immediately (no early-media <Redirect> round-trip to a second pass).
     const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs)
     if (hot) {
       console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
@@ -1416,8 +1342,6 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
     fields = parseTelnyxFormBody(raw)
   }
 
-  const passOne = await serveInboundPassOne(req, fields, perfStartMs)
-  if (passOne) return passOne
   const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs)
   if (hot) {
     console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))
@@ -1460,9 +1384,6 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const fields = searchParamsToFields(url)
-  const passOne = await serveInboundPassOne(req, fields)
-  if (passOne) return passOne
-
   const hot = await tryFastInboundReceptionistResponse(fields)
   if (hot) return hot
 
