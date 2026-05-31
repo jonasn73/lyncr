@@ -1,4 +1,4 @@
-# Zing - Cursor Setup Guide
+# lyncr - Cursor Setup Guide
 
 ## Quick Start
 
@@ -34,7 +34,7 @@ Open `lib/db.ts` -- every function has the correct type signature and a TODO com
 ### 5. Configure Telnyx
 1. Create a Telnyx account.
 2. Buy a number in Telnyx (or use the app's Buy Number UI).
-3. Point voice routing to your Zing TeXML webhook: `https://your-app.vercel.app/api/voice/telnyx/incoming`.
+3. Point voice routing to your lyncr TeXML webhook: `https://your-app.vercel.app/api/voice/telnyx/incoming`.
 4. Ensure fallback/status callbacks resolve under `/api/voice/telnyx/*`.
 
 ### 6. Wire Up the Frontend

@@ -1,4 +1,4 @@
-# Test Zing Without Local Postgres
+# Test lyncr Without Local Postgres
 
 You can use a **free cloud Postgres** so you don't need to install anything.
 

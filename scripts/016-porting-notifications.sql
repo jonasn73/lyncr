@@ -1,7 +1,7 @@
 -- ============================================
--- Porting notifications (Telnyx webhook → Zing app)
+-- Porting notifications (Telnyx webhook → lyncr app)
 -- ============================================
--- Run in Neon after 001. Stores carrier/porting updates so users see them in Zing,
+-- Run in Neon after 001. Stores carrier/porting updates so users see them in lyncr,
 -- not only in the Telnyx dashboard inbox.
 
 CREATE TABLE IF NOT EXISTS porting_notifications (

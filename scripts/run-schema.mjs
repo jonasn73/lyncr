@@ -1,5 +1,5 @@
 /**
- * Run the Zing Postgres schema (creates tables).
+ * Run the lyncr Postgres schema (creates tables).
  * Loads DATABASE_URL from .env.local and runs scripts/001-create-schema.sql
  *
  * Usage: node scripts/run-schema.mjs

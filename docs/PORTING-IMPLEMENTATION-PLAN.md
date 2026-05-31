@@ -1,6 +1,6 @@
 # Full In-App Porting: Implementation Plan
 
-So Zing has **full control** over number porting (like other VoIP apps): customers start and complete the port entirely in the app. This doc is the roadmap.
+So lyncr has **full control** over number porting (like other VoIP apps): customers start and complete the port entirely in the app. This doc is the roadmap.
 
 ---
 
@@ -174,6 +174,6 @@ Add to `.env.local` (or your deploy env):
 
 - **Do we request the transfer?** Yes - by calling provider Port In API, provider requests the number from losing carrier.  
 - **Full control?** Yes—we collect LOA + document in the app, submit the port, and react to webhooks to activate the number and set the voice URL.  
-- **Where does the number live?** In your provider account, configured to route calls to Zing like any other bought or connected number.
+- **Where does the number live?** In your provider account, configured to route calls to lyncr like any other bought or connected number.
 
 This plan gets you to parity with other VoIP apps for in-app porting.

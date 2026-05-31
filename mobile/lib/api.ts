@@ -1,7 +1,7 @@
 /**
  * API base URL for the Next.js backend.
  * - Development: use your machine's IP (e.g. http://192.168.1.10:3000) or a tunnel (ngrok).
- * - Production: use your deployed Next.js URL (e.g. https://zing.vercel.app).
+ * - Production: use your deployed Next.js URL (e.g. https://lyncr.app).
  * Cookies from the API are sent with credentials: 'include'.
  */
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000"

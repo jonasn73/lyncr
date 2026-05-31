@@ -1,6 +1,6 @@
 # Voice Architecture (Current)
 
-This is the single source of truth for how voice currently works in Zing.
+This is the single source of truth for how voice currently works in lyncr.
 
 ## Provider model
 

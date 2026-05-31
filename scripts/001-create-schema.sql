@@ -1,5 +1,5 @@
 -- ============================================
--- Zing - Database Schema
+-- lyncr - Database Schema
 -- Run this against your Supabase/Neon database
 -- ============================================
 

@@ -1,6 +1,6 @@
 # Mobile app design and styles
 
-Short assessment of Zing’s mobile UI and what was improved for App Store–style quality.
+Short assessment of lyncr’s mobile UI and what was improved for App Store–style quality.
 
 ---
 

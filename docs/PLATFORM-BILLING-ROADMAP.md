@@ -1,6 +1,6 @@
 # Platform roadmap — billing, credits, admin, feedback
 
-This document is the **implementation plan** and **profitability model** for making Zing a sustainable product while staying easy to use.
+This document is the **implementation plan** and **profitability model** for making lyncr a sustainable product while staying easy to use.
 
 ## Guiding principles
 
@@ -18,7 +18,7 @@ This document is the **implementation plan** and **profitability model** for mak
 | **Subscription** | Recurring MRR | Starter / Growth / Enterprise monthly fee includes bundled minutes + numbers cap. |
 | **Metered overage** | Usage above bundle | Per-minute PSTN + per-minute AI at a **markup** over Telnyx + OpenAI landed cost (target **40–60% gross margin** on marginal usage after support). |
 | **Prepaid credits** | Cash up front | $20 / $50 / $100 packs at slight discount vs metered; balance stored as `credit_balance_cents`. |
-| **Numbers & porting** | Pass-through + fee | Telnyx number + regulatory fees + **flat Zing service fee** per number / port. |
+| **Numbers & porting** | Pass-through + fee | Telnyx number + regulatory fees + **flat lyncr service fee** per number / port. |
 
 **Implementation constants** (see `lib/billing-pricing.ts`): wholesale placeholders + suggested retail per minute — tune from real Telnyx/OpenAI bills.
 

@@ -1,6 +1,6 @@
-# Zing Mobile (Expo)
+# lyncr Mobile (Expo)
 
-React Native mobile app for Zing. It uses the **same Next.js backend** as the web app: all API routes stay in the parent project; the app just calls them over the network.
+React Native mobile app for lyncr. It uses the **same Next.js backend** as the web app: all API routes stay in the parent project; the app just calls them over the network.
 
 ## How it works
 

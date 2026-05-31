@@ -1,4 +1,4 @@
-# Zing - Local Postgres (no signup required)
+# lyncr - Local Postgres (no signup required)
 # Run: docker compose up -d
 # Then: pnpm db:schema
 

@@ -10,7 +10,7 @@
 
 So they usually sit on different systems than a single-provider stack - often carrier-backed platforms (e.g. Bandwidth) or their own telephony stack. CPaaS is a developer API layer; those products are UCaaS and often hide who their underlying carrier is.
 
-## What this means for Zing
+## What this means for lyncr
 
 - **Using Telnyx does not mean you lack total ability.**  
   Telnyx gives you full control over:

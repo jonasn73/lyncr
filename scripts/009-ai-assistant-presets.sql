@@ -1,5 +1,5 @@
 -- ============================================
--- Zing - Cloud-synced AI assistant presets
+-- lyncr - Cloud-synced AI assistant presets
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS ai_assistant_presets (

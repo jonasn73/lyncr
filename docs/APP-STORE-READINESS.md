@@ -1,6 +1,6 @@
 # App Store & Google Play Readiness
 
-Checklist to get Zing approved on the **Apple App Store** and **Google Play**. Use this before submitting.
+Checklist to get lyncr approved on the **Apple App Store** and **Google Play**. Use this before submitting.
 
 ---
 

@@ -1,4 +1,4 @@
-# Deploy Zing to the App Store (and Google Play)
+# Deploy lyncr to the App Store (and Google Play)
 
 You have two parts:
 
@@ -123,7 +123,7 @@ After the upload:
 
 1. Open [App Store Connect](https://appstoreconnect.apple.com).
 2. Select your app (or create it if EAS created a placeholder).
-3. Fill in **App Information**: name (Zing), subtitle, category (e.g. Business), privacy policy URL.
+3. Fill in **App Information**: name (lyncr), subtitle, category (e.g. Business), privacy policy URL.
 4. Add **Screenshots** (required): iPhone 6.7", 6.5", 5.5" (Expo has guides; you can use simulator or a device).
 5. Set **Pricing** (e.g. Free).
 6. Submit the version for **Review**.
