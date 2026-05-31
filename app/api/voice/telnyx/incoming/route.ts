@@ -1359,6 +1359,21 @@ async function serveInboundPassOne(req: NextRequest, fields: Record<string, stri
 }
 
 export async function POST(req: NextRequest) {
+  // High-resolution wall clock (sub-millisecond). Captures total server-side execution from the
+  // moment the call webhook lands to the moment the TeXML response object is fully constructed,
+  // across EVERY return path below (fast paths, pass-one, and the full handleIncomingCall path).
+  const perfStart = performance.now()
+  console.log(JSON.stringify({ zing: "telnyx-incoming-entry", at: new Date().toISOString() }))
+  try {
+    return await processInboundPost(req)
+  } finally {
+    // Runs right before the response is handed back to Next.js, no matter which branch returned it.
+    const executionTime = performance.now() - perfStart
+    console.log(`[Voice Webhook Execution Time]: ${executionTime.toFixed(2)}ms`)
+  }
+}
+
+async function processInboundPost(req: NextRequest): Promise<NextResponse> {
   const handlerT0 = Date.now()
   const contentType = (req.headers.get("content-type") || "").toLowerCase()
   let fields: Record<string, string>
