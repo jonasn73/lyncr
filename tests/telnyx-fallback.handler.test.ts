@@ -36,6 +36,20 @@ vi.mock("@/lib/db", () => {
     normalizePhoneNumberE164,
     markTelnyxInboundDialCallerLegDone: vi.fn(() => Promise.resolve()),
     isTelnyxInboundDialCallerLegDone: vi.fn(() => Promise.resolve(false)),
+    // Account-status guard: default to "active" so routing is never treated as suspended.
+    getUserAccountStatus: vi.fn(() => Promise.resolve("active")),
+    // Hybrid-network helpers (migrations 048/049): default to private-only with no
+    // shared-pool agents online, matching a brand-new account that hasn't opted in.
+    getActivePhoneNumberByE164: vi.fn(() => Promise.resolve(null)),
+    getLineHybridRoutingStrategy: vi.fn(() =>
+      Promise.resolve({
+        routing_strategy: "private_only",
+        allow_lyncr_network_fallback: false,
+        private_ring_timeout_seconds: 15,
+      })
+    ),
+    listAvailableNetworkReceptionistsForIndustryTag: vi.fn(() => Promise.resolve([])),
+    resolveIndustryTagForLine: vi.fn(() => Promise.resolve(null)),
   }
 })
 
