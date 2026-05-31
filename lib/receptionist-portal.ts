@@ -119,7 +119,10 @@ export async function buildReceptionistPortalDashboard(
       pay_mode: ctx.receptionist.pay_mode,
       rate_per_minute: ctx.receptionist.rate_per_minute,
       flat_rate_usd: ctx.receptionist.flat_rate_usd,
+      routing_endpoint: ctx.receptionist.routing_endpoint ?? "CELL",
     },
+    // WEB calling only carries audio once a SIP username is provisioned for this receptionist.
+    web_calling_available: Boolean(ctx.receptionist.sip_username?.trim()),
     business_name: ctx.business_name,
     live_status,
     metrics: {

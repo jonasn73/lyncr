@@ -258,6 +258,10 @@ export interface Receptionist {
   is_active: boolean
   /** Login user for the receptionist portal (`040-receptionist-portal-role.sql`). */
   portal_user_id?: string | null
+  /** Where this receptionist answers live calls (`050-receptionist-routing-endpoint.sql`). Defaults 'CELL'. */
+  routing_endpoint?: "WEB" | "CELL"
+  /** Telnyx SIP username the browser registers with for WEB routing. NULL = not provisioned. */
+  sip_username?: string | null
   /** Industry/specialty tags for skill-pool routing (`042-skill-routing-pool.sql`). */
   skills: string[]
   created_at: string
@@ -302,7 +306,12 @@ export type ReceptionistLiveStatus =
 
 /** GET /api/receptionist/dashboard payload. */
 export interface ReceptionistPortalDashboard {
-  receptionist: Pick<Receptionist, "id" | "name" | "is_active" | "pay_mode" | "rate_per_minute" | "flat_rate_usd">
+  receptionist: Pick<
+    Receptionist,
+    "id" | "name" | "is_active" | "pay_mode" | "rate_per_minute" | "flat_rate_usd" | "routing_endpoint"
+  >
+  /** True when a sip_username is provisioned, so the WEB toggle can actually carry browser audio. */
+  web_calling_available: boolean
   business_name: string
   live_status: ReceptionistLiveStatus
   metrics: {

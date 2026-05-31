@@ -792,6 +792,9 @@ function parseReceptionistRow(row: Record<string, unknown>): Receptionist {
     flat_rate_usd: Number(row.flat_rate_usd ?? 2.5),
     is_active: row.is_active !== false,
     portal_user_id: row.portal_user_id ? String(row.portal_user_id) : null,
+    // Endpoint (050): unknown/missing → safe 'CELL' default.
+    routing_endpoint: String(row.routing_endpoint ?? "").toUpperCase() === "WEB" ? "WEB" : "CELL",
+    sip_username: row.sip_username ? String(row.sip_username) : null,
     skills: parseSkillsArray(row.skills),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
@@ -1363,7 +1366,9 @@ export async function listAvailableNetworkReceptionistsForIndustryTag(
 export async function updateReceptionist(
   receptionistId: string,
   userId: string,
-  updates: Partial<Pick<Receptionist, "name" | "phone" | "is_active" | "rate_per_minute" | "pay_mode" | "flat_rate_usd">>
+  updates: Partial<
+    Pick<Receptionist, "name" | "phone" | "is_active" | "rate_per_minute" | "pay_mode" | "flat_rate_usd" | "routing_endpoint">
+  >
 ): Promise<void> {
   const sql = getSql()
   if (updates.name !== undefined) {
@@ -1395,7 +1400,17 @@ export async function updateReceptionist(
       if (!isMissingReceptionistPayColumnError(e)) throw e
     }
   }
+  if (updates.routing_endpoint !== undefined) {
+    // 050 column — tolerate it not existing yet (42703) so the rest of the update still applies.
+    const endpoint = updates.routing_endpoint === "WEB" ? "WEB" : "CELL"
+    try {
+      await sql`UPDATE receptionists SET routing_endpoint = ${endpoint} WHERE id = ${receptionistId} AND user_id = ${userId}`
+    } catch (e) {
+      if (pgErrorCode(e) !== "42703") throw e
+    }
+  }
   clearIncomingRoutingCache()
+  // Recompute inbound snapshots so the voice fast path picks up the new endpoint right away.
   void syncInboundDialSnapshotForUser(userId).catch(() => {})
 }
 
@@ -5711,7 +5726,10 @@ export async function getReceptionistByPortalUserId(portalUserId: string): Promi
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, portal_user_id, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, portal_user_id, created_at,
+        -- 050 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
+        to_jsonb(receptionists) ->> 'routing_endpoint' AS routing_endpoint,
+        to_jsonb(receptionists) ->> 'sip_username' AS sip_username
       FROM receptionists
       WHERE portal_user_id = ${portalUserId}
       LIMIT 1
