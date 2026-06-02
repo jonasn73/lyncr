@@ -795,6 +795,7 @@ function parseReceptionistRow(row: Record<string, unknown>): Receptionist {
     // Endpoint (050): unknown/missing → safe 'CELL' default.
     routing_endpoint: String(row.routing_endpoint ?? "").toUpperCase() === "WEB" ? "WEB" : "CELL",
     sip_username: row.sip_username ? String(row.sip_username) : null,
+    sip_credential_id: row.sip_credential_id ? String(row.sip_credential_id) : null,
     skills: parseSkillsArray(row.skills),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
@@ -1298,6 +1299,36 @@ export async function insertGlobalNetworkReceptionist(params: {
     is_active: true,
     created_at: new Date().toISOString(),
   }
+}
+
+/**
+ * Persist the Telnyx SIP credential a receptionist was provisioned with (`050`/`051`).
+ * Stores the auto-generated sip_username + the credential id used to mint WebRTC tokens.
+ * Tolerates a pre-migration DB: if `sip_credential_id` (051) is missing it still saves the
+ * username (050); if both are missing it no-ops. Clears the inbound routing cache so the
+ * WEB dial path can pick up the new username on the next call.
+ */
+export async function setReceptionistSipCredential(
+  receptionistId: string,
+  creds: { sipUsername: string; credentialId: string }
+): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE receptionists
+      SET sip_username = ${creds.sipUsername}, sip_credential_id = ${creds.credentialId}
+      WHERE id = ${receptionistId}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) !== "42703") throw e
+    // 051 (sip_credential_id) not applied yet — still save the username (050) so WEB dial resolves.
+    try {
+      await sql`UPDATE receptionists SET sip_username = ${creds.sipUsername} WHERE id = ${receptionistId}`
+    } catch (e2) {
+      if (pgErrorCode(e2) !== "42703") throw e2
+    }
+  }
+  clearIncomingRoutingCache()
 }
 
 /** List every shared global Lyncr network agent (receptionists.user_id IS NULL), newest first. */
@@ -5752,9 +5783,10 @@ export async function getReceptionistByPortalUserId(portalUserId: string): Promi
   try {
     const rows = await sql`
       SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, portal_user_id, created_at,
-        -- 050 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
+        -- 050/051 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
         to_jsonb(receptionists) ->> 'routing_endpoint' AS routing_endpoint,
-        to_jsonb(receptionists) ->> 'sip_username' AS sip_username
+        to_jsonb(receptionists) ->> 'sip_username' AS sip_username,
+        to_jsonb(receptionists) ->> 'sip_credential_id' AS sip_credential_id
       FROM receptionists
       WHERE portal_user_id = ${portalUserId}
       LIMIT 1

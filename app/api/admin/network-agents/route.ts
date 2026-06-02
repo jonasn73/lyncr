@@ -14,8 +14,10 @@ import {
   isReasonablePstnDialString,
   listGlobalNetworkReceptionists,
   normalizePhoneNumberE164,
+  setReceptionistSipCredential,
 } from "@/lib/db"
 import { normalizeRoutingPoolSkillTag } from "@/lib/routing-pool-skills"
+import { provisionTelnyxSipCredential } from "@/lib/telnyx-sip-provisioning"
 
 export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -67,7 +69,23 @@ export async function POST(req: NextRequest) {
     )
 
     const agent = await insertGlobalNetworkReceptionist({ name, phone, skills })
-    return NextResponse.json({ data: { agent } }, { status: 201 })
+
+    // Automatically provision a unique Telnyx SIP credential so this agent can answer in-browser
+    // (WebRTC) with zero manual setup. Best-effort: if Telnyx provisioning isn't configured yet,
+    // the agent is still created and simply answers on their cell (CELL) until it is.
+    let sip_username: string | null = null
+    const provision = await provisionTelnyxSipCredential({ label: `lyncr-agent-${agent.id}` })
+    if (provision.status === "provisioned") {
+      await setReceptionistSipCredential(agent.id, {
+        sipUsername: provision.sipUsername,
+        credentialId: provision.credentialId,
+      })
+      sip_username = provision.sipUsername
+    } else {
+      console.warn("[admin/network-agents] SIP provisioning skipped:", provision.reason)
+    }
+
+    return NextResponse.json({ data: { agent: { ...agent, sip_username } } }, { status: 201 })
   } catch (error) {
     // 23502 = NOT NULL violation → migration 048 (ALTER user_id DROP NOT NULL) hasn't run yet.
     const message = error instanceof Error ? error.message : String(error)

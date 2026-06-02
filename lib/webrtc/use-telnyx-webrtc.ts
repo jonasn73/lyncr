@@ -1,8 +1,9 @@
 "use client"
 
 // Receptionist browser-calling engine. Lazily loads the @telnyx/webrtc SDK (client-only),
-// fetches a short-lived login token from /api/receptionist/webrtc-token, registers the browser
-// as a SIP endpoint, and surfaces incoming-call state + answer/hangup controls.
+// fetches a short-lived login token from /api/receptionist/sip-token (which auto-provisions a
+// Telnyx SIP credential for the agent on first use), registers the browser as a SIP endpoint,
+// and surfaces incoming-call state + answer/hangup controls.
 //
 // Designed to be GRACEFULLY INERT: if WebRTC isn't provisioned yet (no token), it reports
 // "not_provisioned" and does nothing — the inbound route already falls back to the cell (PSTN),
@@ -97,7 +98,7 @@ export function useTelnyxWebRtc(opts: { enabled: boolean }): UseTelnyxWebRtc {
       // 1) Ask the server for a Telnyx login token (or learn that WebRTC isn't provisioned).
       let tokenData: TokenResponse
       try {
-        const res = await fetch("/api/receptionist/webrtc-token", { credentials: "include", cache: "no-store" })
+        const res = await fetch("/api/receptionist/sip-token", { credentials: "include", cache: "no-store" })
         const json = (await res.json()) as { data?: TokenResponse; error?: string }
         if (!res.ok) throw new Error(json.error ?? "Could not fetch WebRTC token")
         tokenData = json.data ?? { status: "not_provisioned" }

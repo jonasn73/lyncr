@@ -262,6 +262,8 @@ export interface Receptionist {
   routing_endpoint?: "WEB" | "CELL"
   /** Telnyx SIP username the browser registers with for WEB routing. NULL = not provisioned. */
   sip_username?: string | null
+  /** Telnyx Telephony Credential id (`051`) used to mint WebRTC login tokens. NULL = not provisioned. */
+  sip_credential_id?: string | null
   /** Industry/specialty tags for skill-pool routing (`042-skill-routing-pool.sql`). */
   skills: string[]
   created_at: string
