@@ -1,6 +1,6 @@
 "use client"
 
-import { memo } from "react"
+import { Fragment, memo } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   PhoneForwarded,
@@ -161,6 +161,99 @@ export function isLyncrNetworkStepActive(
   )
 }
 
+/** One node in the visual call-flow waterfall — rendered left→right in the exact order Telnyx executes. */
+type CallFlowNode = {
+  key: string
+  title: string
+  icon: LucideIcon
+  value: string
+  detail?: string
+  onOpen: () => void
+  accent: "primary" | "network"
+}
+
+/**
+ * Build the ordered waterfall the inbound webhook actually runs, so Step 2/3/… map to who really
+ * rings first. The shared Lyncr pool is shown as the *primary* node for `lyncr_only` (never beside
+ * "Your phone"), and only as an intermediate "if no answer" node for hybrid / private-with-fallback.
+ */
+export function buildCallFlowNodes(params: {
+  routingStrategy: RoutingStrategy
+  allowLyncrNetworkFallback: boolean
+  isRoutingToOwner: boolean
+  selectedReceptionistName: string | null
+  selectedReceptionistPhone: string | null
+  ownerPhoneDisplay: string
+  ringTimeoutSec: number
+  activeFallbackLabel: string
+  openWhoAnswers: () => void
+  openRingBackup: () => void
+  openVoiceAi: () => void
+  configureStrategy: () => void
+}): CallFlowNode[] {
+  const poolIsPrimary = params.routingStrategy === "lyncr_only"
+  const nodes: CallFlowNode[] = []
+
+  // Node 1 — Primary: whoever the webhook dials first on this line.
+  if (poolIsPrimary) {
+    nodes.push({
+      key: "primary",
+      title: "Primary · Who answers",
+      icon: Network,
+      value: "Lyncr Network Pool",
+      detail: "Certified shared agents answer in-browser",
+      onOpen: params.openWhoAnswers,
+      accent: "network",
+    })
+  } else {
+    nodes.push({
+      key: "primary",
+      title: "Primary · Who answers",
+      icon: Smartphone,
+      value: params.isRoutingToOwner ? "Your phone" : params.selectedReceptionistName ?? "—",
+      detail: params.isRoutingToOwner ? params.ownerPhoneDisplay : params.selectedReceptionistPhone ?? undefined,
+      onOpen: params.openWhoAnswers,
+      accent: "primary",
+    })
+  }
+
+  // Node 2 — Intermediate Lyncr network (hybrid / private+fallback only; for lyncr_only the pool is already primary).
+  if (!poolIsPrimary && isLyncrNetworkStepActive(params.routingStrategy, params.allowLyncrNetworkFallback)) {
+    nodes.push({
+      key: "network",
+      title: "If no answer · Lyncr Network",
+      icon: Network,
+      value: "Lyncr Network Pool",
+      detail: "Shared agents try next",
+      onOpen: params.configureStrategy,
+      accent: "network",
+    })
+  }
+
+  // Node 3 — Fallback: the configured no-answer destination (your cell / AI / voicemail).
+  nodes.push({
+    key: "fallback",
+    title: "Fallback · If no one answers",
+    icon: Hourglass,
+    value: params.activeFallbackLabel,
+    detail: `After ringing ${params.ringTimeoutSec}s`,
+    onOpen: params.openRingBackup,
+    accent: "primary",
+  })
+
+  // Node 4 — Voice & AI greetings (final voicemail / AI script).
+  nodes.push({
+    key: "voice",
+    title: "Voice & AI",
+    icon: AudioWaveform,
+    value: "Greetings",
+    onOpen: params.openVoiceAi,
+    accent: "primary",
+  })
+
+  return nodes
+}
+
 export const DashboardCallFlow = memo(function DashboardCallFlow({
   businessNumbers,
   routingBusinessNumber,
@@ -188,7 +281,22 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     routingBusinessNumber && businessNumbers.some((b) => businessNumbersMatch(b.number, routingBusinessNumber))
       ? routingBusinessNumber
       : businessNumbers[0]?.number ?? ""
-  const networkStepActive = isLyncrNetworkStepActive(routingStrategy, allowLyncrNetworkFallback)
+
+  // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
+  const flowNodes = buildCallFlowNodes({
+    routingStrategy,
+    allowLyncrNetworkFallback,
+    isRoutingToOwner,
+    selectedReceptionistName: selectedReceptionist?.name ?? null,
+    selectedReceptionistPhone: selectedReceptionist?.phone ? formatPhoneDisplay(selectedReceptionist.phone) : null,
+    ownerPhoneDisplay,
+    ringTimeoutSec,
+    activeFallbackLabel,
+    openWhoAnswers: () => setWhoAnswersOpen(true),
+    openRingBackup: () => setRingBackupOpen(true),
+    openVoiceAi: () => setShowFallbackSettings(true),
+    configureStrategy: onConfigureStrategy,
+  })
 
   return (
     <section
@@ -262,50 +370,21 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             )}
             aria-label="Call handling steps"
           >
-            <FlowStepCard
-              step="2"
-              title="Who answers"
-              icon={Smartphone}
-              value={isRoutingToOwner ? "Your phone" : selectedReceptionist?.name ?? "—"}
-              detail={isRoutingToOwner ? ownerPhoneDisplay : formatPhoneDisplay(selectedReceptionist?.phone)}
-              onOpen={() => setWhoAnswersOpen(true)}
-              loading={routingLineDetailLoading}
-            />
-            {/* Intermediary shared-pool step — only when the Lyncr network is in this line's flow. */}
-            {networkStepActive ? (
-              <>
-                <FlowConnector />
+            {flowNodes.map((node, i) => (
+              <Fragment key={node.key}>
+                {i > 0 ? <FlowConnector /> : null}
                 <FlowStepCard
-                  step="3"
-                  title="Lyncr Network Pool"
-                  icon={Network}
-                  value="Lyncr Network Pool"
-                  detail="Shared fallback network active"
-                  onOpen={onConfigureStrategy}
+                  step={String(i + 2)}
+                  title={node.title}
+                  icon={node.icon}
+                  value={node.value}
+                  detail={node.detail}
+                  onOpen={node.onOpen}
                   loading={routingLineDetailLoading}
-                  accent="network"
+                  accent={node.accent}
                 />
-              </>
-            ) : null}
-            <FlowConnector />
-            <FlowStepCard
-              step={networkStepActive ? "4" : "3"}
-              title="Ring & backup"
-              icon={Hourglass}
-              value={`${ringTimeoutSec}s`}
-              detail={activeFallbackLabel}
-              onOpen={() => setRingBackupOpen(true)}
-              loading={routingLineDetailLoading}
-            />
-            <FlowConnector />
-            <FlowStepCard
-              step={networkStepActive ? "5" : "4"}
-              title="Voice & AI"
-              icon={AudioWaveform}
-              value="Greetings"
-              onOpen={() => setShowFallbackSettings(true)}
-              loading={routingLineDetailLoading}
-            />
+              </Fragment>
+            ))}
           </div>
         )}
       </div>
