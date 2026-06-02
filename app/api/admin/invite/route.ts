@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { inviteReceptionist } from "@/app/actions/admin-actions"
 import { createInvitation, INVITATION_TTL_MS, type InviteType } from "@/lib/invitations"
+import { RECEPTIONIST_INVITE_TTL_MS, upsertReceptionistInviteStub } from "@/lib/receptionist-invite-stub"
 import { isReasonablePstnDialString, normalizePhoneNumberE164 } from "@/lib/db"
 import { getAppUrl } from "@/lib/telnyx"
 import { buildReceptionistInviteEmailPayload, sendReceptionistInviteEmail } from "@/lib/invite-email"
@@ -44,38 +45,63 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Secure unique token + 48h expiry.
+      const appUrl = getAppUrl().replace(/\/$/, "")
+
+      // ---- EMAIL invite: stub `users` row (token authority) + Lyncr-branded onboarding email ----
+      if (type === "EMAIL") {
+        const token = crypto.randomUUID()
+        const expiresAt = new Date(Date.now() + RECEPTIONIST_INVITE_TTL_MS).toISOString()
+
+        let stubUserId: string
+        try {
+          const stub = await upsertReceptionistInviteStub({ email: target, token, expiresAt })
+          stubUserId = stub.userId
+        } catch (e) {
+          return NextResponse.json(
+            { error: e instanceof Error ? e.message : "Could not create the invitation." },
+            { status: 400 }
+          )
+        }
+
+        const onboarding_url = `${appUrl}/onboarding?token=${encodeURIComponent(token)}`
+        const payload = buildReceptionistInviteEmailPayload({ toEmail: target, onboardingUrl: onboarding_url })
+        const result = await sendReceptionistInviteEmail(payload)
+
+        return NextResponse.json({
+          data: {
+            invite_id: stubUserId,
+            type,
+            target,
+            // `register_url` kept for the existing modal field; `onboarding_url` is the branded link.
+            register_url: onboarding_url,
+            onboarding_url,
+            sent: result.sent,
+            send_error: result.error,
+          },
+        })
+      }
+
+      // ---- SMS invite: legacy invitations table → /register?token=… -----------------------------
       const token = crypto.randomUUID()
       const expiresAt = new Date(Date.now() + INVITATION_TTL_MS).toISOString()
       const invitation = await createInvitation({ target, type, token, expiresAt })
+      const register_url = `${appUrl}/register?token=${encodeURIComponent(token)}`
 
-      const register_url = `${getAppUrl().replace(/\/$/, "")}/register?token=${encodeURIComponent(token)}`
-
-      // ---- Deliver the link over the chosen channel --------------------------------------
-      let sent = false
-      let send_error: string | undefined
-      if (type === "EMAIL") {
-        const payload = buildReceptionistInviteEmailPayload({
-          toEmail: target,
-          firstName: "there",
-          signupUrl: register_url,
-          payoutRateUsd: 2.5,
-        })
-        const result = await sendReceptionistInviteEmail(payload)
-        sent = result.sent
-        send_error = result.error
-      } else {
-        const result = await sendTelnyxSms({
-          toE164: target,
-          text: `You're invited to join Lyncr as a receptionist. Create your account (link expires in 48h): ${register_url}`,
-          userId: ctx.userId,
-        })
-        sent = result.ok
-        send_error = result.ok ? result.delivery_warning ?? undefined : result.error
-      }
+      const smsResult = await sendTelnyxSms({
+        toE164: target,
+        text: `You're invited to join the Lyncr Operator Network. Activate your account (link expires in 48h): ${register_url}`,
+        userId: ctx.userId,
+      })
 
       return NextResponse.json({
-        data: { invite_id: invitation.id, type, target, register_url, sent, send_error },
+        data: {
+          invite_id: invitation.id,
+          type,
+          target,
+          register_url,
+          sent: smsResult.ok,
+          send_error: smsResult.ok ? smsResult.delivery_warning ?? undefined : smsResult.error,
+        },
       })
     }
 

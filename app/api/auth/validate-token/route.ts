@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getRedeemableInvitation } from "@/lib/invitations"
+import { getReceptionistInviteStubByToken } from "@/lib/receptionist-invite-stub"
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token")?.trim()
@@ -13,6 +14,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Email invites live on a `users` stub (migration 054); SMS/legacy invites on the invitations table.
+    const stub = await getReceptionistInviteStubByToken(token)
+    if (stub) {
+      return NextResponse.json({ valid: true, target: stub.email, type: "EMAIL" })
+    }
+
     const invite = await getRedeemableInvitation(token)
     if (!invite) {
       return NextResponse.json(

@@ -20,10 +20,14 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-sigo-pathname", pathname)
 
+  // Receptionist invite links land on /onboarding?token=… — public (no session) so an invitee can
+  // activate before they have an account. The page redirects token visits to the activation form.
+  const hasInviteToken = Boolean(request.nextUrl.searchParams.get("token"))
+
   const needsSession =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/onboarding") ||
+    (pathname.startsWith("/onboarding") && !hasInviteToken) ||
     pathname.startsWith("/receptionist")
   if (!needsSession) {
     return NextResponse.next({

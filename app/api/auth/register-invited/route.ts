@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { registerInvitedReceptionist } from "@/lib/invitations"
+import { activateReceptionistInviteStub } from "@/lib/receptionist-invite-stub"
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +31,12 @@ export async function POST(req: NextRequest) {
     // Hash with bcrypt — same pattern as the rest of our auth (see /api/auth/register, login).
     const passwordHash = await bcrypt.hash(password, 10)
 
-    const { userId } = await registerInvitedReceptionist({ token, name, phone, passwordHash })
+    // Email invites activate an existing `users` stub (migration 054); SMS/legacy invites insert
+    // fresh rows via the invitations-table flow. Try the stub first, then fall back.
+    const stub = await activateReceptionistInviteStub({ token, name, phone, passwordHash })
+    const userId = stub
+      ? stub.userId
+      : (await registerInvitedReceptionist({ token, name, phone, passwordHash })).userId
 
     // Account created — send them to sign in with their new credentials.
     return NextResponse.json({ data: { user_id: userId, redirect: "/login" } })
