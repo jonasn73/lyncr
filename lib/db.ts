@@ -5930,48 +5930,92 @@ function isMissingTeamInvitesTableError(e: unknown): boolean {
 }
 
 function parseTeamInviteRow(row: Record<string, unknown>): TeamInvite {
+  const expires_at = pgTimestamptzToIso(row.expires_at) ?? new Date().toISOString()
+  const accepted_at = pgTimestamptzToIso(row.accepted_at)
+  // Derive status defensively so it's correct even on pre-052 rows (no status column).
+  let status: TeamInvite["status"]
+  if (accepted_at || String(row.status ?? "").toUpperCase() === "ACCEPTED") status = "ACCEPTED"
+  else if (Date.parse(expires_at) < Date.now() || String(row.status ?? "").toUpperCase() === "EXPIRED") status = "EXPIRED"
+  else status = "PENDING"
   return {
     id: String(row.id),
-    email: String(row.email),
-    first_name: String(row.first_name),
+    email: row.email != null ? String(row.email) : "",
+    first_name: row.first_name != null ? String(row.first_name) : "",
     role: "receptionist",
     token: String(row.token),
     payout_rate_usd: Number(row.payout_rate_usd ?? 2.5),
     invited_by_user_id: String(row.invited_by_user_id),
-    expires_at: pgTimestamptzToIso(row.expires_at) ?? new Date().toISOString(),
-    accepted_at: pgTimestamptzToIso(row.accepted_at),
+    expires_at,
+    accepted_at,
     accepted_user_id: row.accepted_user_id ? String(row.accepted_user_id) : null,
     created_at: pgTimestamptzToIso(row.created_at) ?? new Date().toISOString(),
+    channel: String(row.channel ?? "EMAIL").toUpperCase() === "SMS" ? "SMS" : "EMAIL",
+    phone: row.phone ? String(row.phone) : null,
+    status,
   }
 }
 
-/** Admin-created pending invite for a platform receptionist. */
+/**
+ * Admin-created pending invite for a platform receptionist.
+ * Supports EMAIL invites (email + name known up front) and SMS invites (phone only — the
+ * invitee fills in name/email at /register). Deploy-safe: if the 052 columns aren't present
+ * yet it falls back to the legacy email-only insert.
+ */
 export async function createTeamInvite(params: {
-  email: string
-  first_name: string
   token: string
   payout_rate_usd: number
   invited_by_user_id: string
   expires_at: string
+  channel?: "EMAIL" | "SMS"
+  email?: string | null
+  first_name?: string | null
+  phone?: string | null
 }): Promise<TeamInvite> {
   const sql = getSql()
-  const email = params.email.trim().toLowerCase()
-  const rows = await sql`
-    INSERT INTO team_invites (
-      email, first_name, role, token, payout_rate_usd, invited_by_user_id, expires_at
-    )
-    VALUES (
-      ${email},
-      ${params.first_name.trim()},
-      'receptionist',
-      ${params.token},
-      ${params.payout_rate_usd},
-      ${params.invited_by_user_id},
-      ${params.expires_at}::timestamptz
-    )
-    RETURNING *
-  `
-  return parseTeamInviteRow(rows[0] as Record<string, unknown>)
+  const channel: "EMAIL" | "SMS" = params.channel === "SMS" ? "SMS" : "EMAIL"
+  const email = params.email?.trim().toLowerCase() || null
+  const firstName = params.first_name?.trim() || null
+  const phone = params.phone?.trim() || null
+
+  try {
+    const rows = await sql`
+      INSERT INTO team_invites (
+        email, first_name, role, token, payout_rate_usd, invited_by_user_id, expires_at,
+        channel, phone, status
+      )
+      VALUES (
+        ${email},
+        ${firstName},
+        'receptionist',
+        ${params.token},
+        ${params.payout_rate_usd},
+        ${params.invited_by_user_id},
+        ${params.expires_at}::timestamptz,
+        ${channel},
+        ${phone},
+        'PENDING'
+      )
+      RETURNING *
+    `
+    return parseTeamInviteRow(rows[0] as Record<string, unknown>)
+  } catch (e) {
+    // 42703 = a 052 column is missing. Email invites can still use the legacy insert.
+    if (pgErrorCode(e) !== "42703") throw e
+    if (channel !== "EMAIL" || !email || !firstName) {
+      throw new Error("Run scripts/052-invite-sms-channel.sql in Neon to enable SMS / profile invites.")
+    }
+    const rows = await sql`
+      INSERT INTO team_invites (
+        email, first_name, role, token, payout_rate_usd, invited_by_user_id, expires_at
+      )
+      VALUES (
+        ${email}, ${firstName}, 'receptionist', ${params.token}, ${params.payout_rate_usd},
+        ${params.invited_by_user_id}, ${params.expires_at}::timestamptz
+      )
+      RETURNING *
+    `
+    return parseTeamInviteRow(rows[0] as Record<string, unknown>)
+  }
 }
 
 /** Lookup invite by token for signup redemption. */
@@ -6000,6 +6044,8 @@ export async function getTeamInvitePreview(token: string): Promise<TeamInvitePre
     payout_rate_usd: invite.payout_rate_usd,
     role: invite.role,
     expires_at: invite.expires_at,
+    channel: invite.channel,
+    phone: invite.phone,
   }
 }
 
@@ -6249,6 +6295,84 @@ export async function acceptTeamInviteSignup(params: {
   `
 
   return { user: { ...user, account_role: "receptionist" }, invite }
+}
+
+/**
+ * Redeem an invite from the /register profile-completion page. Unlike the /signup path, the
+ * invitee provides their own Full Name here (the invite may not carry one — e.g. SMS invites),
+ * and the email comes from the invite for EMAIL channel or from the form for SMS channel.
+ * Creates the users + receptionists rows, links them, sets a sip_username placeholder, and
+ * marks the invite ACCEPTED. (Sequential writes mirror acceptTeamInviteSignup — the Neon HTTP
+ * driver isn't a single interactive transaction.)
+ */
+export async function acceptReceptionistInviteRegistration(params: {
+  token: string
+  full_name: string
+  phone: string
+  password_hash: string
+  email?: string | null
+}): Promise<{ user: User }> {
+  const sql = getSql()
+  const invite = await getTeamInviteByToken(params.token)
+  if (!invite) throw new Error("Invite not found")
+  if (invite.status === "ACCEPTED" || invite.accepted_at) throw new Error("Invite already used")
+  if (Date.parse(invite.expires_at) < Date.now()) throw new Error("Invite expired")
+
+  const fullName = params.full_name.trim()
+  if (fullName.length < 2) throw new Error("Full name is required")
+
+  // EMAIL invites carry the address; SMS invites need one supplied so the account has a login.
+  const email =
+    invite.channel === "EMAIL" && invite.email
+      ? invite.email.trim().toLowerCase()
+      : (params.email ?? "").trim().toLowerCase()
+  if (!email.includes("@")) throw new Error("A valid email is required to create your login")
+
+  const phone = normalizePhoneNumberE164(params.phone)
+
+  const user = await createUser({
+    email,
+    name: fullName,
+    phone,
+    business_name: "Lyncr Receptionist",
+    industry: "generic",
+    password_hash: params.password_hash,
+    account_role: "receptionist",
+  })
+
+  const receptionist = await insertReceptionistPortal({
+    owner_user_id: invite.invited_by_user_id,
+    portal_user_id: user.id,
+    name: fullName,
+    phone,
+    flat_rate_usd: invite.payout_rate_usd,
+  })
+
+  // sip_username placeholder (050) — real Telnyx SIP credential is auto-provisioned on first WEB use.
+  try {
+    const placeholder = `lyncr_pending_${receptionist.id.replace(/-/g, "").slice(0, 12)}`
+    await sql`UPDATE receptionists SET sip_username = ${placeholder} WHERE id = ${receptionist.id}`
+  } catch (e) {
+    if (pgErrorCode(e) !== "42703") throw e
+  }
+
+  // Mark accepted (status column tolerated pre-052).
+  try {
+    await sql`
+      UPDATE team_invites
+      SET status = 'ACCEPTED', accepted_at = now(), accepted_user_id = ${user.id}
+      WHERE id = ${invite.id} AND accepted_at IS NULL
+    `
+  } catch (e) {
+    if (pgErrorCode(e) !== "42703") throw e
+    await sql`
+      UPDATE team_invites
+      SET accepted_at = now(), accepted_user_id = ${user.id}
+      WHERE id = ${invite.id} AND accepted_at IS NULL
+    `
+  }
+
+  return { user: { ...user, account_role: "receptionist" } }
 }
 
 function parseCertificationModuleData(raw: unknown): CertificationModuleData {

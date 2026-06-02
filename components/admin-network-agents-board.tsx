@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ROUTING_POOL_SKILL_TAGS, formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
+import { InviteModal } from "@/components/InviteModal"
 
 // One shared network agent (matches GET /api/admin/network-agents).
 type NetworkAgent = {
@@ -118,6 +119,7 @@ export function AdminNetworkAgentsBoard() {
             <span className="font-medium text-slate-300">Ring My Team, Fallback to Lyncr</span> route to these by skill.
           </p>
         </div>
+        <InviteModal />
       </header>
 
       {/* Onboarding form */}

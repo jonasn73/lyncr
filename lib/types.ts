@@ -327,9 +327,14 @@ export interface ReceptionistPortalDashboard {
 }
 
 /** Pending team invite (`041-team-invites.sql`). */
+export type InviteChannel = "EMAIL" | "SMS"
+export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED"
+
 export interface TeamInvite {
   id: string
+  /** Empty string for SMS invites until the invitee supplies one at registration. */
   email: string
+  /** Empty string until the invitee completes their profile at /register. */
   first_name: string
   role: "receptionist"
   token: string
@@ -339,6 +344,12 @@ export interface TeamInvite {
   accepted_at: string | null
   accepted_user_id: string | null
   created_at: string
+  /** How the invite was delivered (`052`). Defaults 'EMAIL' on pre-migration rows. */
+  channel: InviteChannel
+  /** Target cell number for SMS invites (pre-fills /register). NULL for email invites. */
+  phone: string | null
+  /** Derived lifecycle status: PENDING / ACCEPTED / EXPIRED. */
+  status: InviteStatus
 }
 
 /** Public invite preview for signup page (no raw token echoed back). */
@@ -348,6 +359,10 @@ export interface TeamInvitePreview {
   payout_rate_usd: number
   role: "receptionist"
   expires_at: string
+  /** Delivery channel so /register can pre-fill the phone (SMS) or lock the email (EMAIL). */
+  channel: InviteChannel
+  /** Target cell number for SMS invites (pre-fills the registration form). */
+  phone: string | null
 }
 
 /** One lesson inside a certification course module. */
