@@ -8,7 +8,12 @@ import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
-import type { Contact, DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import {
+  businessNumbersMatch,
+  formatPhoneDisplay,
+  type Contact,
+  type DashboardBusinessNumber,
+} from "@/lib/dashboard-routing-utils"
 import type { RoutingStrategy } from "@/lib/types"
 
 export type DashboardRoutingSurfaceProps = {
@@ -59,10 +64,23 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
 }: DashboardRoutingSurfaceProps) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
 
+  // Resolve the currently-selected line the same way the call-flow header does, so the sidebar's
+  // active-line card always mirrors what the chart on the right is configuring.
+  const activeLineRaw =
+    routingBusinessNumber && businessNumbers.some((b) => businessNumbersMatch(b.number, routingBusinessNumber))
+      ? routingBusinessNumber
+      : businessNumbers[0]?.number ?? ""
+  const activeLineDisplay = activeLineRaw ? formatPhoneDisplay(activeLineRaw) : null
+
   return (
     <div className="mx-auto w-full max-w-7xl">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
-        <DashboardRoutingSidebar lineCount={businessNumbers.length} className="lg:sticky lg:top-24" />
+        <DashboardRoutingSidebar
+          lineCount={businessNumbers.length}
+          activeLineDisplay={activeLineDisplay}
+          routingStrategy={routingStrategy}
+          className="lg:sticky lg:top-24"
+        />
         <div className="min-w-0 flex-1 space-y-8 sm:space-y-10">
       {quickSetupDecided && !isSetupComplete ? (
         <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">

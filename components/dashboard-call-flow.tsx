@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { RoutingStrategy } from "@/lib/types"
+import { LineRoutingStatus } from "@/components/line-routing-status"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import {
   businessNumbersMatch,
@@ -331,6 +332,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               onSelect={setRoutingBusinessNumber}
               subscriptionActive={subscriptionActive}
               lineCarrierLive={lineCarrierLive}
+              routingStrategy={routingStrategy}
             />
           ) : quickSetupDecided ? (
             <button
@@ -392,62 +394,20 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   )
 })
 
-function LineConnectionState({
-  subscriptionActive,
-  lineCarrierLive,
-}: {
-  subscriptionActive: boolean
-  lineCarrierLive: boolean
-}) {
-  if (lineCarrierLive) {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300/95">
-        <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
-          aria-hidden
-        />
-        • Live & Connected
-      </span>
-    )
-  }
-  if (subscriptionActive) {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-200/90">
-        <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400" aria-hidden />
-        • Activating line…
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#71717a]">
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d97706]" aria-hidden />
-      • Inactive (Pending Payment)
-    </span>
-  )
-}
-
-function LineStatusIndicator({
-  subscriptionActive,
-  lineCarrierLive,
-}: {
-  subscriptionActive: boolean
-  lineCarrierLive: boolean
-}) {
-  return <LineConnectionState subscriptionActive={subscriptionActive} lineCarrierLive={lineCarrierLive} />
-}
-
 const ActiveLinePicker = memo(function ActiveLinePicker({
   businessNumbers,
   activeLine,
   onSelect,
   subscriptionActive,
   lineCarrierLive,
+  routingStrategy,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   activeLine: string
   onSelect: (n: string) => void
   subscriptionActive: boolean
   lineCarrierLive: boolean
+  routingStrategy: RoutingStrategy
 }) {
   const display = formatPhoneDisplay(activeLine)
   const multi = businessNumbers.length > 1
@@ -464,7 +424,11 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       >
         <span className="text-xs font-medium text-zinc-400">Active line</span>
         <span className="text-base text-foreground">{display}</span>
-        <LineStatusIndicator subscriptionActive={subscriptionActive} lineCarrierLive={lineCarrierLive} />
+        <LineRoutingStatus
+          routingStrategy={routingStrategy}
+          subscriptionActive={subscriptionActive}
+          lineCarrierLive={lineCarrierLive}
+        />
       </div>
     )
   }
@@ -475,7 +439,11 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
           <span className="text-xs font-medium text-zinc-400">Active line</span>
           <span className="text-base font-semibold text-foreground">{display}</span>
-          <LineStatusIndicator subscriptionActive={subscriptionActive} lineCarrierLive={lineCarrierLive} />
+          <LineRoutingStatus
+            routingStrategy={routingStrategy}
+            subscriptionActive={subscriptionActive}
+            lineCarrierLive={lineCarrierLive}
+          />
         </div>
         <select
           value={activeLine}
