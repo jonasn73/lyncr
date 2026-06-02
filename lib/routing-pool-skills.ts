@@ -2,7 +2,9 @@
 
 /** Canonical skill tag slugs stored in `receptionists.skills` and routing `industry_tag`. */
 export const ROUTING_POOL_SKILL_TAGS = [
-  "automotive",
+  "auto_detailing",
+  "auto_repair",
+  "locksmith",
   "general_support",
   "real_estate",
   "medical",
@@ -14,6 +16,10 @@ export const ROUTING_POOL_SKILL_TAGS = [
 export type RoutingPoolSkillTag = (typeof ROUTING_POOL_SKILL_TAGS)[number]
 
 const SKILL_LABELS: Record<string, string> = {
+  auto_detailing: "Auto Detailing",
+  auto_repair: "Auto Repair",
+  locksmith: "Locksmith",
+  // Kept so any pre-existing agents still tagged "automotive" render with a friendly label.
   automotive: "Automotive",
   general_support: "General support",
   real_estate: "Real estate",
