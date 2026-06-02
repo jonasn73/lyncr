@@ -5,17 +5,20 @@
 import { useMemo, useState, useTransition } from "react"
 import {
   Activity,
+  Check,
   Copy,
   CreditCard,
   Database,
   Loader2,
   MoreVertical,
+  Pencil,
   Phone,
   RefreshCw,
   Search,
   Shield,
   Users,
   Wallet,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
@@ -132,6 +135,111 @@ function UserIdCell({ userId }: { userId: string }) {
         <Copy className="h-3.5 w-3.5" aria-hidden />
       </button>
     </div>
+  )
+}
+
+/**
+ * Inline-editable "Phone" cell. Renders a clickable value (or a clickable "—" placeholder when
+ * empty) that morphs into a compact input with save (✓) / cancel (✕) controls. On save it PATCHes
+ * /api/admin/users/update-phone and calls onSaved so the table updates instantly — no page refresh.
+ */
+function EditablePhoneCell({
+  userId,
+  value,
+  onSaved,
+}: {
+  userId: string
+  value: string | null
+  onSaved: (userId: string, phone: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  function startEdit() {
+    setDraft(value ?? "")
+    setEditing(true)
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+    setDraft("")
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/admin/users/update-phone", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, newPhone: draft }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { data?: { phone?: string }; error?: string }
+      if (!res.ok || !json.data?.phone) {
+        toast.error(json.error ?? "Couldn't update phone")
+        return
+      }
+      onSaved(userId, json.data.phone)
+      toast.success("Phone updated")
+      setEditing(false)
+      setDraft("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error — please try again")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          autoFocus
+          type="tel"
+          inputMode="tel"
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !saving) void save()
+            if (e.key === "Escape") cancelEdit()
+          }}
+          placeholder="(555) 123-4567"
+          className="w-36 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 font-mono text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:opacity-60"
+        />
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={saving}
+          aria-label="Save phone"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Check className="h-3.5 w-3.5" aria-hidden />}
+        </button>
+        <button
+          type="button"
+          onClick={cancelEdit}
+          disabled={saving}
+          aria-label="Cancel"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-600 text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-60"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      aria-label={`Edit phone for user ${userId}`}
+      className="group inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 font-mono text-sm transition-colors hover:bg-slate-800"
+    >
+      <span className={value ? "text-slate-300" : "text-slate-500"}>{value ?? "—"}</span>
+      <Pencil className="h-3 w-3 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+    </button>
   )
 }
 
@@ -436,6 +544,12 @@ export function LyncrAdminDashboard({
   const [filter, setFilter] = useState("")
   const [tierFilter, setTierFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  // Optimistic phone edits keyed by user_id so saves render instantly without a refetch.
+  const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({})
+
+  function handlePhoneSaved(userId: string, phone: string) {
+    setPhoneOverrides((prev) => ({ ...prev, [userId]: phone }))
+  }
 
   const filteredUsers = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -646,7 +760,13 @@ export function LyncrAdminDashboard({
                       <TableCell>
                         <AccountStatusBadge status={row.account_status} />
                       </TableCell>
-                      <TableCell className="font-mono text-sm text-slate-300">{row.phone_number ?? "—"}</TableCell>
+                      <TableCell>
+                        <EditablePhoneCell
+                          userId={row.user_id}
+                          value={phoneOverrides[row.user_id] ?? row.phone_number}
+                          onSaved={handlePhoneSaved}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium text-slate-100">{formatUsd(row.carrier_credit)}</TableCell>
                       <TableCell>
                         <SpecialtySkillsBadges skills={row.receptionist_skills} accountRole={row.account_role} />

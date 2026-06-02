@@ -4314,12 +4314,15 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
         coalesce(op.total_minutes_used, stats.minutes_used, 0)::numeric AS total_minutes_used,
         coalesce(op.account_status, 'active') AS account_status,
         op.custom_routing_note,
-        (
-          SELECT pn.number
-          FROM phone_numbers pn
-          WHERE pn.user_id = u.id AND pn.status = 'active'
-          ORDER BY pn.created_at ASC
-          LIMIT 1
+        coalesce(
+          nullif(trim(u.phone), ''),
+          (
+            SELECT pn.number
+            FROM phone_numbers pn
+            WHERE pn.user_id = u.id AND pn.status = 'active'
+            ORDER BY pn.created_at ASC
+            LIMIT 1
+          )
         ) AS phone_number
       FROM users u
       LEFT JOIN onboarding_profiles op ON op.user_id = u.id
@@ -4348,12 +4351,15 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
           coalesce(stats.minutes_used, 0)::numeric AS total_minutes_used,
           'active' AS account_status,
           NULL::text AS custom_routing_note,
-          (
-            SELECT pn.number
-            FROM phone_numbers pn
-            WHERE pn.user_id = u.id AND pn.status = 'active'
-            ORDER BY pn.created_at ASC
-            LIMIT 1
+          coalesce(
+            nullif(trim(u.phone), ''),
+            (
+              SELECT pn.number
+              FROM phone_numbers pn
+              WHERE pn.user_id = u.id AND pn.status = 'active'
+              ORDER BY pn.created_at ASC
+              LIMIT 1
+            )
           ) AS phone_number
         FROM users u
         LEFT JOIN onboarding_profiles op ON op.user_id = u.id
