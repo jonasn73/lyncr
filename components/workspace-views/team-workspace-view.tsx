@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useEffect, useState } from "react"
-import { Loader2, Plus } from "lucide-react"
+import { Check, Loader2, Network, Plus, Save } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -60,6 +60,136 @@ function AddTeamMemberCard({ onClick }: { onClick: () => void }) {
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
+}
+
+/**
+ * Owner-authored script shown to the live Lyncr operators answering this business's calls.
+ * Loads/saves onboarding_profiles.routing_instructions via /api/team/instructions.
+ */
+function NetworkInstructionsPanel() {
+  const [text, setText] = useState("")
+  const [baseline, setBaseline] = useState("")
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/team/instructions", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
+      .then((j: { data?: { routing_instructions?: string } }) => {
+        if (cancelled) return
+        const v = j.data?.routing_instructions ?? ""
+        setText(v)
+        setBaseline(v)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const dirty = text !== baseline
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/team/instructions", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routing_instructions: text }),
+      })
+      const j = (await res.json().catch(() => ({}))) as {
+        data?: { routing_instructions?: string }
+        error?: string
+      }
+      if (!res.ok) throw new Error(j.error || "Could not save instructions")
+      const v = j.data?.routing_instructions ?? text
+      setText(v)
+      setBaseline(v)
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 2500)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save instructions")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <WorkspacePanel className="mb-6 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-500/10">
+            <Network className="h-5 w-5 text-violet-300" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground sm:text-base">Lyncr Network Instructions</h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+              Notes for the live operators answering your calls — business hours, how to greet callers,
+              pricing scripts, and what details to collect. Saved to every operator on your lines.
+            </p>
+          </div>
+        </div>
+        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-300 sm:inline-flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-violet-400" aria-hidden />
+          Live operators
+        </span>
+      </div>
+
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setJustSaved(false)
+        }}
+        disabled={!loaded || saving}
+        rows={7}
+        placeholder={
+          "Business hours: Mon–Fri 8am–6pm, closed weekends\n" +
+          "Greeting: \"Thanks for calling Ace Mobile Detailing, how can I help?\"\n" +
+          "Pricing: Basic wash $40 · Full detail from $150 — quote ranges only, never commit a final price\n" +
+          "Always collect: caller name, callback number, vehicle, service needed, and ZIP"
+        }
+        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40 disabled:opacity-60"
+      />
+
+      {error ? (
+        <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-[11px] text-zinc-600">
+          {!loaded ? "Loading…" : `${text.length.toLocaleString()} characters`}
+        </span>
+        <div className="flex items-center gap-3">
+          {justSaved ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              Saved
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={!loaded || saving || !dirty}
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
+            {saving ? "Saving…" : "Save instructions"}
+          </button>
+        </div>
+      </div>
+    </WorkspacePanel>
+  )
 }
 
 function formatTalkMinutes(seconds: number): string {
@@ -154,6 +284,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   return (
     <WorkspacePage>
       <WorkspacePageHeader eyebrow="Routing" title="Team" />
+
+      <NetworkInstructionsPanel />
 
       {billingCycleLabel ? (
         <p className="mb-4 text-xs text-zinc-500">

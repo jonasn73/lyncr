@@ -17,7 +17,6 @@ import {
   WorkspaceTableWrap,
   WorkspaceTh,
   WorkspaceTd,
-  WorkspaceUsageStatCard,
   WORKSPACE_TABLE_ROW_CLASS,
 } from "@/components/dashboard-workspace-ui"
 
@@ -38,12 +37,25 @@ type BillingSummary = {
   plans?: { key: string; monthly_price_label: string; included_minutes_per_month: number }[]
 }
 
-const INVOICES = [
-  { id: "inv_04", date: "Apr 1, 2026", amount: "$49.00" },
-  { id: "inv_03", date: "Mar 1, 2026", amount: "$49.00" },
-  { id: "inv_02", date: "Feb 1, 2026", amount: "$49.00" },
-  { id: "inv_01", date: "Jan 15, 2026", amount: "$15.00" },
-]
+/** Minimal shape we read from /api/calls for the talk-time consumption ledger. */
+type TalkTimeCall = {
+  id: string
+  created_at: string
+  duration_seconds: number
+  routed_to_name: string | null
+  status: string
+}
+
+function formatLedgerDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+}
+
+/** Round seconds to a tenth of a minute for display. */
+function minutesFromSeconds(seconds: number): number {
+  return Math.round((seconds / 60) * 10) / 10
+}
 
 export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const { toast } = useToast()
@@ -52,6 +64,8 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [buyingPack, setBuyingPack] = useState<number | null>(null)
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier | null>(null)
+  const [calls, setCalls] = useState<TalkTimeCall[]>([])
+  const [callsLoaded, setCallsLoaded] = useState(false)
 
   const refreshBilling = useCallback(async () => {
     setLoadError(null)
@@ -71,6 +85,23 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
       setLoadError(e instanceof Error ? e.message : "Could not load billing")
     })
   }, [refreshBilling])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/calls?limit=50", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("calls"))))
+      .then((j: { calls?: TalkTimeCall[] }) => {
+        if (cancelled) return
+        setCalls(Array.isArray(j.calls) ? j.calls : [])
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCallsLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const checkout = searchParams.get("credit_checkout")
@@ -111,22 +142,46 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
   }, [searchParams, refreshBilling, toast])
 
   const balanceLabel = billing?.credit_balance_label ?? "$0.00"
-  const planKey = billing?.current_plan ?? "starter"
   const subscriptionActive = billing?.subscription_active === true
   const needsCarrierCredit = billing?.needs_carrier_credit === true
   const lowCarrierCreditWarning = billing?.low_carrier_credit_warning === true
   const lowCreditThreshold = billing?.low_carrier_credit_threshold_usd ?? LOW_CARRIER_CREDIT_THRESHOLD_USD
-  const includedMinutes = useMemo(() => {
-    const fromPlan = billing?.plans?.find((p) => p.key === planKey)?.included_minutes_per_month
-    return fromPlan && fromPlan > 0 ? fromPlan : 300
-  }, [billing?.plans, planKey])
 
-  const planLabel = billing?.plans?.find((p) => p.key === planKey)?.monthly_price_label ?? "$19/mo"
-  const usageHint = billing
-    ? subscriptionActive
-      ? `${billing.subscription_tier_label ?? "Starter"} · ${planLabel} · active`
-      : `${billing.current_plan} plan · ${planLabel}`
-    : "Loading plan…"
+  const meteredRate = billing?.metered_voice_cents_per_minute ?? 0
+  const balanceCents = billing?.credit_balance_cents ?? 0
+
+  // Reframe the prepaid balance as available talk-time at the metered per-minute rate.
+  const availableTalkMinutes = useMemo(() => {
+    if (meteredRate <= 0) return null
+    return Math.max(0, Math.floor(balanceCents / meteredRate))
+  }, [balanceCents, meteredRate])
+
+  // Build the consumption ledger from answered/talked calls: each call's billed cost = minutes × rate.
+  const ledger = useMemo(() => {
+    return calls
+      .filter((c) => Number(c.duration_seconds) > 0)
+      .map((c) => {
+        const seconds = Number(c.duration_seconds) || 0
+        const costCents = Math.round((seconds / 60) * meteredRate)
+        return {
+          id: c.id,
+          date: formatLedgerDate(c.created_at),
+          operator: c.routed_to_name?.trim() || "Unrouted",
+          minutes: minutesFromSeconds(seconds),
+          costCents,
+        }
+      })
+  }, [calls, meteredRate])
+
+  const consumedSeconds = useMemo(
+    () => calls.reduce((sum, c) => sum + (Number(c.duration_seconds) || 0), 0),
+    [calls]
+  )
+  const consumedCostCents = useMemo(
+    () => ledger.reduce((sum, row) => sum + row.costCents, 0),
+    [ledger]
+  )
+  const rateLabel = formatUsdFromCents(meteredRate)
 
   async function handleSubscribe(tier: CheckoutSubscriptionTier) {
     if (checkoutTier != null) return
@@ -196,12 +251,25 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
 
       <div className="flex flex-col gap-8">
         <div className="grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
-          <WorkspaceStatCard label="Prepaid balance" value={balanceLabel} accent="primary" />
-          <WorkspaceUsageStatCard
-            label="Current month usage"
-            used={0}
-            included={includedMinutes}
-            hint={usageHint}
+          <WorkspaceStatCard
+            label="Available talk-time credit"
+            value={balanceLabel}
+            hint={
+              availableTalkMinutes != null
+                ? `≈ ${availableTalkMinutes.toLocaleString()} min of live operator time at ${rateLabel}/min`
+                : "Add carrier credit below to start routing"
+            }
+            accent="primary"
+          />
+          <WorkspaceStatCard
+            label="Talk-time used (recent)"
+            value={`${minutesFromSeconds(consumedSeconds).toLocaleString()} min`}
+            hint={
+              callsLoaded
+                ? `${formatUsdFromCents(consumedCostCents)} across ${ledger.length} answered call${ledger.length === 1 ? "" : "s"}`
+                : "Loading usage…"
+            }
+            accent="success"
           />
         </div>
 
@@ -298,29 +366,54 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
 
         <WorkspacePanel className="min-h-[300px]">
           <div className="border-b border-zinc-800 px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Invoice ledger</h2>
+            <h2 className="text-sm font-semibold text-foreground">Talk-time consumption</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Live operator minutes deducted from your balance, billed at {rateLabel}/min.
+            </p>
           </div>
           <WorkspaceTableWrap>
             <colgroup>
-              <col className="w-[40%]" />
-              <col className="w-[35%]" />
-              <col className="w-[25%]" />
+              <col className="w-[28%]" />
+              <col className="w-[34%]" />
+              <col className="w-[18%]" />
+              <col className="w-[20%]" />
             </colgroup>
             <thead>
               <tr>
                 <WorkspaceTh>Date</WorkspaceTh>
-                <WorkspaceTh>Amount</WorkspaceTh>
-                <WorkspaceTh> </WorkspaceTh>
+                <WorkspaceTh>Active operator</WorkspaceTh>
+                <WorkspaceTh>Minutes used</WorkspaceTh>
+                <WorkspaceTh>Total cost</WorkspaceTh>
               </tr>
             </thead>
             <tbody className="min-h-[208px]">
-              {INVOICES.map((row) => (
-                <tr key={row.id} className={cn("hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
-                  <WorkspaceTd className="text-zinc-400">{row.date}</WorkspaceTd>
-                  <WorkspaceTd className="font-medium tabular-nums">{row.amount}</WorkspaceTd>
-                  <WorkspaceTd className="text-right text-xs text-muted-foreground">Sample</WorkspaceTd>
+              {!callsLoaded ? (
+                <tr className={WORKSPACE_TABLE_ROW_CLASS}>
+                  <WorkspaceTd colSpan={4} className="text-center text-sm text-zinc-500">
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+                      Loading talk-time…
+                    </span>
+                  </WorkspaceTd>
                 </tr>
-              ))}
+              ) : ledger.length === 0 ? (
+                <tr className={WORKSPACE_TABLE_ROW_CLASS}>
+                  <WorkspaceTd colSpan={4} className="text-center text-sm text-zinc-500">
+                    No operator talk-time recorded yet.
+                  </WorkspaceTd>
+                </tr>
+              ) : (
+                ledger.map((row) => (
+                  <tr key={row.id} className={cn("hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
+                    <WorkspaceTd className="text-zinc-400">{row.date}</WorkspaceTd>
+                    <WorkspaceTd className="font-medium text-foreground">{row.operator}</WorkspaceTd>
+                    <WorkspaceTd className="tabular-nums text-zinc-300">{row.minutes} min</WorkspaceTd>
+                    <WorkspaceTd className="font-medium tabular-nums text-foreground">
+                      {formatUsdFromCents(row.costCents)}
+                    </WorkspaceTd>
+                  </tr>
+                ))
+              )}
             </tbody>
           </WorkspaceTableWrap>
         </WorkspacePanel>

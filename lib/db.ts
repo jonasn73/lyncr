@@ -5107,6 +5107,53 @@ export async function ensureOnboardingProfile(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Owner-authored instructions shown to the live Lyncr operators answering this business's calls.
+ * Stored on onboarding_profiles.routing_instructions (scripts/055). Isolated from the main profile
+ * reader so a pre-migration deploy can't break profile loads — returns null until the column exists.
+ */
+export async function getRoutingInstructions(userId: string): Promise<string | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT routing_instructions FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row && row.routing_instructions != null ? String(row.routing_instructions) : null
+  } catch (e) {
+    if (
+      pgErrorCode(e) === "42703" ||
+      isMissingOnboardingProfilesTableError(e) ||
+      isWrongLegacyProfilesTableError(e)
+    ) {
+      return null
+    }
+    throw e
+  }
+}
+
+/** Save (or clear) the owner's live-operator instructions. Throws a friendly hint until 055 is applied. */
+export async function setRoutingInstructions(userId: string, text: string): Promise<string> {
+  await ensureOnboardingProfile(userId)
+  const sql = getSql()
+  const value = text.trim() === "" ? null : text
+  try {
+    await sql`
+      UPDATE onboarding_profiles
+      SET routing_instructions = ${value}, updated_at = now()
+      WHERE user_id = ${userId}
+    `
+    return value ?? ""
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      throw new Error(
+        "Operator instructions need migration 055 — run scripts/055-routing-instructions.sql in Neon."
+      )
+    }
+    throw e
+  }
+}
+
 export async function getOnboardingProfile(userId: string): Promise<OnboardingProfile | null> {
   const sql = getSql()
   try {
