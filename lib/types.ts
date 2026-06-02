@@ -203,6 +203,13 @@ export interface LyncrAdminDirectoryRow {
   email: string
   /** owner | receptionist — from users.account_role (040). */
   account_role: "owner" | "receptionist"
+  /**
+   * Computed classification for the directory tabs/badges:
+   *   RECEPTIONIST — linked to a receptionists row (portal_user_id)
+   *   OWNER        — has a business_name
+   *   ADMIN        — neither (platform/operator accounts)
+   */
+  role: "OWNER" | "RECEPTIONIST" | "ADMIN"
   /** users.business_name — shown inline on the Business Owner badge. */
   business_name: string
   /** Specialty tags for platform receptionists (receptionists.skills via portal_user_id). */

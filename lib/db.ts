@@ -4285,6 +4285,10 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
     account_role: (String(row.account_role ?? "owner") === "receptionist" ? "receptionist" : "owner") as
       | "owner"
       | "receptionist",
+    role: ((): "OWNER" | "RECEPTIONIST" | "ADMIN" => {
+      const r = String(row.role ?? "").toUpperCase()
+      return r === "RECEPTIONIST" || r === "OWNER" ? r : "ADMIN"
+    })(),
     business_name: String(row.business_name ?? ""),
     receptionist_skills: parseSkillsArray(row.receptionist_skills),
     has_active_subscription: pgBool(row.has_active_subscription),
@@ -4303,6 +4307,13 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
         u.email,
         coalesce(u.account_role, 'owner') AS account_role,
         coalesce(u.business_name, '') AS business_name,
+        CASE
+          WHEN coalesce(u.account_role, '') = 'receptionist'
+               OR EXISTS (SELECT 1 FROM receptionists rr WHERE rr.portal_user_id = u.id)
+            THEN 'RECEPTIONIST'
+          WHEN nullif(trim(u.business_name), '') IS NOT NULL THEN 'OWNER'
+          ELSE 'ADMIN'
+        END AS role,
         (
           SELECT r.skills
           FROM receptionists r
@@ -4346,6 +4357,11 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
           u.email,
           'owner' AS account_role,
           coalesce(u.business_name, '') AS business_name,
+          CASE
+            WHEN EXISTS (SELECT 1 FROM receptionists rr WHERE rr.portal_user_id = u.id) THEN 'RECEPTIONIST'
+            WHEN nullif(trim(u.business_name), '') IS NOT NULL THEN 'OWNER'
+            ELSE 'ADMIN'
+          END AS role,
           NULL::text[] AS receptionist_skills,
           coalesce(op.has_active_subscription, false) AS has_active_subscription,
           coalesce(op.subscription_tier, 'free_trial') AS subscription_tier,

@@ -305,26 +305,33 @@ function formatMinutes(minutes: number): string {
   return Number(minutes).toFixed(2)
 }
 
-/** Role classification badge: violet for receptionists, green (+ business name) for owners. */
+/** Role classification badge: violet for receptionists, green (+ business name) for owners, slate for admins. */
 function RoleBadge({ row }: { row: LyncrAdminDirectoryRow }) {
-  if (row.account_role === "receptionist") {
+  if (row.role === "RECEPTIONIST") {
     return (
       <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-violet-200">
         Receptionist
       </Badge>
     )
   }
+  if (row.role === "OWNER") {
+    return (
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <Badge variant="outline" className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
+          Business Owner
+        </Badge>
+        {row.business_name ? (
+          <span className="truncate text-xs text-slate-400" title={row.business_name}>
+            {row.business_name}
+          </span>
+        ) : null}
+      </div>
+    )
+  }
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <Badge variant="outline" className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
-        Business Owner
-      </Badge>
-      {row.business_name ? (
-        <span className="truncate text-xs text-slate-400" title={row.business_name}>
-          {row.business_name}
-        </span>
-      ) : null}
-    </div>
+    <Badge variant="outline" className="border-slate-500/40 bg-slate-500/15 text-slate-300">
+      Admin
+    </Badge>
   )
 }
 
@@ -586,7 +593,7 @@ export function LyncrAdminDashboard({
         (u.phone_number != null && u.phone_number.toLowerCase().includes(q))
       const matchesTier = tierFilter === "all" || u.subscription_tier === tierFilter
       const matchesStatus = statusFilter === "all" || u.account_status === statusFilter
-      const matchesRole = roleTab === "all" || u.account_role === roleTab
+      const matchesRole = roleTab === "all" || u.role === roleTab
       return matchesText && matchesTier && matchesStatus && matchesRole
     })
   }, [users, filter, tierFilter, statusFilter, roleTab])
@@ -596,8 +603,8 @@ export function LyncrAdminDashboard({
     let owners = 0
     let receptionists = 0
     for (const u of users) {
-      if (u.account_role === "receptionist") receptionists += 1
-      else owners += 1
+      if (u.role === "RECEPTIONIST") receptionists += 1
+      else if (u.role === "OWNER") owners += 1
     }
     return { all: users.length, owner: owners, receptionist: receptionists }
   }, [users])
@@ -755,13 +762,13 @@ export function LyncrAdminDashboard({
                   value="all"
                   className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
                 >
-                  All Users
+                  All Accounts
                   <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
                     {roleCounts.all}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="owner"
+                  value="OWNER"
                   className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
                 >
                   Business Owners
@@ -770,10 +777,10 @@ export function LyncrAdminDashboard({
                   </span>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="receptionist"
+                  value="RECEPTIONIST"
                   className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
                 >
-                  Active Receptionists
+                  Receptionists
                   <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
                     {roleCounts.receptionist}
                   </span>
