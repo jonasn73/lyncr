@@ -3,13 +3,12 @@
 // Body: { token, name, password, phone }
 // Re-validates the token, bcrypt-hashes the password, then runs ONE atomic SQL transaction that
 // (a) inserts the users row, (b) inserts the linked receptionists row (sip_username placeholder),
-// and (c) marks the invitation ACCEPTED — all-or-nothing. On success the new receptionist is
-// signed in (session cookie) and pointed at /receptionist.
+// and (c) marks the invitation ACCEPTED — all-or-nothing. On success the client is redirected to
+// /login to sign in with their new credentials.
 
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { registerInvitedReceptionist } from "@/lib/invitations"
-import { createSessionCookie, getSessionCookieName, getSessionCookieOptions } from "@/lib/auth"
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,9 +32,8 @@ export async function POST(req: NextRequest) {
 
     const { userId } = await registerInvitedReceptionist({ token, name, phone, passwordHash })
 
-    const res = NextResponse.json({ data: { user_id: userId, redirect: "/receptionist" } })
-    res.cookies.set(getSessionCookieName(), createSessionCookie(userId), getSessionCookieOptions())
-    return res
+    // Account created — send them to sign in with their new credentials.
+    return NextResponse.json({ data: { user_id: userId, redirect: "/login" } })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes("Invite")) return NextResponse.json({ error: msg }, { status: 400 })

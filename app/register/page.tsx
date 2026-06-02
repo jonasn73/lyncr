@@ -77,7 +77,7 @@ function RegisterForm() {
         return
       }
       setDone(true)
-      setTimeout(() => window.location.assign(json.data?.redirect ?? "/receptionist"), 900)
+      setTimeout(() => window.location.assign(json.data?.redirect ?? "/login"), 900)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error — please try again.")
     } finally {
@@ -181,7 +181,7 @@ function RegisterForm() {
         {done && (
           <div className="mt-6 flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
             <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
-            Account created — taking you to your dashboard…
+            Account created — taking you to sign in…
           </div>
         )}
       </div>
