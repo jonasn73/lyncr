@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { Check, X, Pencil, Loader2 } from "lucide-react"
+import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useAdminConsoleSection } from "@/components/admin-console-context"
 import type { AdminUserDetail, AdminUserSummary, FeedbackSubmission, FeedbackStatus } from "@/lib/types"
 
@@ -64,6 +66,10 @@ export function AdminConsole() {
   const [creditReason, setCreditReason] = useState("")
   const [busy, setBusy] = useState(false)
   const [operatorBusyId, setOperatorBusyId] = useState<string | null>(null)
+  // Inline phone editing in the directory table.
+  const [phoneEditId, setPhoneEditId] = useState<string | null>(null)
+  const [phoneDraft, setPhoneDraft] = useState("")
+  const [phoneSaving, setPhoneSaving] = useState(false)
 
   /** Pulls all three admin endpoints in parallel and stores JSON bodies in state. */
   const reload = useCallback(async () => {
@@ -174,6 +180,50 @@ export function AdminConsole() {
       toast({ title: next ? "Granted operator access" : "Revoked operator access" })
     } finally {
       setOperatorBusyId(null)
+    }
+  }
+
+  /** Opens the inline editor for a row, seeded with the current phone. */
+  function startPhoneEdit(u: AdminUserSummary) {
+    setPhoneEditId(u.id)
+    setPhoneDraft(u.phone ?? "")
+  }
+
+  /** Closes the inline editor without saving. */
+  function cancelPhoneEdit() {
+    setPhoneEditId(null)
+    setPhoneDraft("")
+  }
+
+  /** PATCHes the new phone (mirrored to users + receptionists) and updates local state. */
+  async function saveUserPhone(targetId: string) {
+    setPhoneSaving(true)
+    try {
+      const res = await fetch("/api/admin/users/update-phone", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: targetId, newPhone: phoneDraft }),
+      })
+      const j = (await res.json().catch(() => ({}))) as { data?: { phone?: string }; error?: string }
+      if (!res.ok || !j.data?.phone) {
+        toast({ title: "Couldn't update phone", description: j?.error ?? res.statusText, variant: "destructive" })
+        return
+      }
+      const saved = j.data.phone
+      setUsers((prev) => prev.map((u) => (u.id === targetId ? { ...u, phone: saved } : u)))
+      setUserDetail((d) => (d && d.user.id === targetId ? { ...d, user: { ...d.user, phone: saved } } : d))
+      setPhoneEditId(null)
+      setPhoneDraft("")
+      toast({ title: "Phone updated" })
+    } catch (e) {
+      toast({
+        title: "Couldn't update phone",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      })
+    } finally {
+      setPhoneSaving(false)
     }
   }
 
@@ -322,6 +372,7 @@ export function AdminConsole() {
                 <TableHeader>
                   <TableRow className="border-slate-700 hover:bg-transparent">
                     <TableHead className="text-slate-300">Email</TableHead>
+                    <TableHead className="text-slate-300">Phone</TableHead>
                     <TableHead className="text-slate-300">Plan</TableHead>
                     <TableHead className="text-right text-slate-300">Balance</TableHead>
                     <TableHead className="text-right text-slate-300">Calls 30d</TableHead>
@@ -334,6 +385,56 @@ export function AdminConsole() {
                   {users.map((u) => (
                     <TableRow key={u.id} className="border-slate-800">
                       <TableCell className="max-w-[200px] truncate text-sm text-slate-200">{u.email}</TableCell>
+                      <TableCell className="text-sm text-slate-300">
+                        {phoneEditId === u.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              value={phoneDraft}
+                              onChange={(e) => setPhoneDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !phoneSaving) void saveUserPhone(u.id)
+                                if (e.key === "Escape") cancelPhoneEdit()
+                              }}
+                              autoFocus
+                              type="tel"
+                              inputMode="tel"
+                              placeholder="(555) 123-4567"
+                              disabled={phoneSaving}
+                              className="w-32 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:opacity-60"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void saveUserPhone(u.id)}
+                              disabled={phoneSaving}
+                              aria-label="Save phone"
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
+                            >
+                              {phoneSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelPhoneEdit}
+                              disabled={phoneSaving}
+                              aria-label="Cancel"
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-600 text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-60"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startPhoneEdit(u)}
+                            aria-label={`Edit phone for ${u.email}`}
+                            className="group inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 tabular-nums transition-colors hover:bg-slate-800"
+                          >
+                            <span className={u.phone ? "text-slate-200" : "text-slate-500"}>
+                              {u.phone ? formatPhoneDisplay(u.phone) : "—"}
+                            </span>
+                            <Pencil className="h-3 w-3 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+                          </button>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm capitalize text-slate-300">{u.billing_plan}</TableCell>
                       <TableCell className="text-right text-sm tabular-nums text-slate-200">
                         {(u.credit_balance_cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })}

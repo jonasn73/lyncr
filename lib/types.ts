@@ -164,6 +164,7 @@ export interface AdminUserSummary {
   id: string
   email: string
   name: string
+  phone: string
   business_name: string
   credit_balance_cents: number
   billing_plan: string

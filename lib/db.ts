@@ -4721,6 +4721,7 @@ export async function listAdminUserSummaries(limit: number = 200): Promise<Admin
         u.id,
         u.email,
         u.name,
+        u.phone,
         u.business_name,
         u.credit_balance_cents,
         u.billing_plan,
@@ -4743,6 +4744,7 @@ export async function listAdminUserSummaries(limit: number = 200): Promise<Admin
       id: String(row.id),
       email: String(row.email ?? ""),
       name: String(row.name ?? ""),
+      phone: String(row.phone ?? ""),
       business_name: String(row.business_name ?? ""),
       credit_balance_cents: Number(row.credit_balance_cents ?? 0),
       billing_plan: String(row.billing_plan ?? "trial"),
@@ -4761,6 +4763,27 @@ export async function listAdminUserSummaries(limit: number = 200): Promise<Admin
   }
 }
 
+/**
+ * Operator action: update a user's phone in ONE atomic SQL transaction, mirrored across the
+ * `users` row and any linked `receptionists` row (matched by portal_user_id) so the receptionist's
+ * profile number never drifts from their login. Returns the normalized E.164 value that was stored.
+ */
+export async function adminUpdateUserPhone(
+  userId: string,
+  newPhone: string
+): Promise<{ phone: string }> {
+  const sql = getSql()
+  const phone = normalizePhoneNumberE164(newPhone)
+  const [userRows] = await sql.transaction([
+    sql`UPDATE users SET phone = ${phone} WHERE id = ${userId} RETURNING id`,
+    sql`UPDATE receptionists SET phone = ${phone} WHERE portal_user_id = ${userId}`,
+  ])
+  if (!Array.isArray(userRows) || userRows.length === 0) {
+    throw new Error("User not found")
+  }
+  return { phone }
+}
+
 /** Operator drill-down: one account + recent calls (newest first). */
 export async function getAdminUserDetail(targetUserId: string): Promise<AdminUserDetail | null> {
   const sql = getSql()
@@ -4771,6 +4794,7 @@ export async function getAdminUserDetail(targetUserId: string): Promise<AdminUse
         u.id,
         u.email,
         u.name,
+        u.phone,
         u.business_name,
         u.credit_balance_cents,
         u.billing_plan,
@@ -4795,6 +4819,7 @@ export async function getAdminUserDetail(targetUserId: string): Promise<AdminUse
       id: String(row.id),
       email: String(row.email ?? ""),
       name: String(row.name ?? ""),
+      phone: String(row.phone ?? ""),
       business_name: String(row.business_name ?? ""),
       credit_balance_cents: Number(row.credit_balance_cents ?? 0),
       billing_plan: String(row.billing_plan ?? "trial"),
