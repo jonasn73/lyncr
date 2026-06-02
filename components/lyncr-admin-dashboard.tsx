@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Spinner } from "@/components/ui/spinner"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -304,6 +305,29 @@ function formatMinutes(minutes: number): string {
   return Number(minutes).toFixed(2)
 }
 
+/** Role classification badge: violet for receptionists, green (+ business name) for owners. */
+function RoleBadge({ row }: { row: LyncrAdminDirectoryRow }) {
+  if (row.account_role === "receptionist") {
+    return (
+      <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-violet-200">
+        Receptionist
+      </Badge>
+    )
+  }
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <Badge variant="outline" className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
+        Business Owner
+      </Badge>
+      {row.business_name ? (
+        <span className="truncate text-xs text-slate-400" title={row.business_name}>
+          {row.business_name}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 function AccountStatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase()
   return (
@@ -544,6 +568,8 @@ export function LyncrAdminDashboard({
   const [filter, setFilter] = useState("")
   const [tierFilter, setTierFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  // Role tab: "all" | "owner" | "receptionist".
+  const [roleTab, setRoleTab] = useState("all")
   // Optimistic phone edits keyed by user_id so saves render instantly without a refetch.
   const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({})
 
@@ -560,9 +586,21 @@ export function LyncrAdminDashboard({
         (u.phone_number != null && u.phone_number.toLowerCase().includes(q))
       const matchesTier = tierFilter === "all" || u.subscription_tier === tierFilter
       const matchesStatus = statusFilter === "all" || u.account_status === statusFilter
-      return matchesText && matchesTier && matchesStatus
+      const matchesRole = roleTab === "all" || u.account_role === roleTab
+      return matchesText && matchesTier && matchesStatus && matchesRole
     })
-  }, [users, filter, tierFilter, statusFilter])
+  }, [users, filter, tierFilter, statusFilter, roleTab])
+
+  // Role tab counts (independent of text/tier/status filters) for the tab labels.
+  const roleCounts = useMemo(() => {
+    let owners = 0
+    let receptionists = 0
+    for (const u of users) {
+      if (u.account_role === "receptionist") receptionists += 1
+      else owners += 1
+    }
+    return { all: users.length, owner: owners, receptionist: receptionists }
+  }, [users])
 
   const routingPoolAvailableUsd = metrics?.telnyx_routing_pool?.available_credit_usd ?? NaN
   const routingPoolAvailableLabel = metrics?.telnyx_routing_pool?.available_credit_label ?? ""
@@ -710,12 +748,46 @@ export function LyncrAdminDashboard({
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="px-4 pt-4">
+            <Tabs value={roleTab} onValueChange={setRoleTab}>
+              <TabsList className="bg-slate-800/60">
+                <TabsTrigger
+                  value="all"
+                  className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+                >
+                  All Users
+                  <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                    {roleCounts.all}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="owner"
+                  className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+                >
+                  Business Owners
+                  <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                    {roleCounts.owner}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="receptionist"
+                  className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+                >
+                  Active Receptionists
+                  <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                    {roleCounts.receptionist}
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-800 hover:bg-transparent">
                   <TableHead className="text-slate-400">User ID</TableHead>
                   <TableHead className="text-slate-400">Email</TableHead>
+                  <TableHead className="text-slate-400">Role</TableHead>
                   <TableHead className="text-slate-400">Subscription</TableHead>
                   <TableHead className="text-slate-400">Tier</TableHead>
                   <TableHead className="text-slate-400">Total calls</TableHead>
@@ -730,7 +802,7 @@ export function LyncrAdminDashboard({
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow className="border-slate-800">
-                    <TableCell colSpan={11} className="py-10 text-center text-slate-500">
+                    <TableCell colSpan={12} className="py-10 text-center text-slate-500">
                       No users match your filter.
                     </TableCell>
                   </TableRow>
@@ -741,6 +813,9 @@ export function LyncrAdminDashboard({
                         <UserIdCell userId={row.user_id} />
                       </TableCell>
                       <TableCell className="text-slate-200">{row.email}</TableCell>
+                      <TableCell>
+                        <RoleBadge row={row} />
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"

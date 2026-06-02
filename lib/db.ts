@@ -4285,6 +4285,7 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
     account_role: (String(row.account_role ?? "owner") === "receptionist" ? "receptionist" : "owner") as
       | "owner"
       | "receptionist",
+    business_name: String(row.business_name ?? ""),
     receptionist_skills: parseSkillsArray(row.receptionist_skills),
     has_active_subscription: pgBool(row.has_active_subscription),
     subscription_tier: String(row.subscription_tier ?? "free_trial"),
@@ -4301,6 +4302,7 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
         u.id AS user_id,
         u.email,
         coalesce(u.account_role, 'owner') AS account_role,
+        coalesce(u.business_name, '') AS business_name,
         (
           SELECT r.skills
           FROM receptionists r
@@ -4343,6 +4345,7 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
           u.id AS user_id,
           u.email,
           'owner' AS account_role,
+          coalesce(u.business_name, '') AS business_name,
           NULL::text[] AS receptionist_skills,
           coalesce(op.has_active_subscription, false) AS has_active_subscription,
           coalesce(op.subscription_tier, 'free_trial') AS subscription_tier,
