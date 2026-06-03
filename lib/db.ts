@@ -11,6 +11,7 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { SITE_NAME } from "@/lib/brand"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
 import type {
+  CompanyBriefing,
   RoutingConfig,
   RoutingStrategy,
   Receptionist,
@@ -5152,6 +5153,78 @@ export async function setRoutingInstructions(userId: string, text: string): Prom
     }
     throw e
   }
+}
+
+/**
+ * Company briefing for the receptionist web-phone screen-pop. Resolves business_name (users),
+ * business_instructions (routing_instructions, scripts/055), and business_hours / service_rules
+ * (scripts/057) for a business owner. Deploy-safe: missing 055/057 columns degrade to null.
+ */
+export async function getCompanyBriefingByOwnerId(ownerId: string): Promise<CompanyBriefing | null> {
+  const sql = getSql()
+  const userRows = await sql`SELECT business_name FROM users WHERE id = ${ownerId} LIMIT 1`
+  const u = userRows[0] as Record<string, unknown> | undefined
+  if (!u) return null
+
+  const business_instructions = await getRoutingInstructions(ownerId)
+
+  let business_hours: string | null = null
+  let service_rules: string | null = null
+  try {
+    const rows = await sql`
+      SELECT business_hours, service_rules FROM onboarding_profiles WHERE user_id = ${ownerId} LIMIT 1
+    `
+    const r = rows[0] as Record<string, unknown> | undefined
+    business_hours = r?.business_hours != null ? String(r.business_hours) : null
+    service_rules = r?.service_rules != null ? String(r.service_rules) : null
+  } catch (e) {
+    if (
+      !(
+        pgErrorCode(e) === "42703" ||
+        isMissingOnboardingProfilesTableError(e) ||
+        isWrongLegacyProfilesTableError(e)
+      )
+    ) {
+      throw e
+    }
+  }
+
+  return {
+    found: true,
+    business_name: u.business_name != null ? String(u.business_name).trim() || null : null,
+    business_hours,
+    service_rules,
+    business_instructions,
+  }
+}
+
+/** Resolve a company briefing from an inbound business line (reserved_number, then phone_numbers). */
+export async function getCompanyBriefingByNumber(rawNumber: string): Promise<CompanyBriefing | null> {
+  const e164 = normalizePhoneNumberE164(rawNumber)
+  if (!e164) return null
+  const sql = getSql()
+
+  let ownerId: string | null = null
+  try {
+    const rows = await sql`SELECT user_id FROM onboarding_profiles WHERE reserved_number = ${e164} LIMIT 1`
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (row?.user_id) ownerId = String(row.user_id)
+  } catch (e) {
+    if (!isMissingOnboardingProfilesTableError(e) && !isWrongLegacyProfilesTableError(e)) throw e
+  }
+
+  if (!ownerId) {
+    try {
+      const rows = await sql`SELECT user_id FROM phone_numbers WHERE number = ${e164} LIMIT 1`
+      const row = rows[0] as Record<string, unknown> | undefined
+      if (row?.user_id) ownerId = String(row.user_id)
+    } catch {
+      /* table/column gaps → treat as no match */
+    }
+  }
+
+  if (!ownerId) return null
+  return getCompanyBriefingByOwnerId(ownerId)
 }
 
 /**

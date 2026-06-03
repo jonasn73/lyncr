@@ -3,12 +3,13 @@
 // Receptionist workspace — live status, payout metrics, and personal call ledger.
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Loader2, PhoneCall, PhoneIncoming, PhoneOff, Wallet } from "lucide-react"
+import { Loader2, PhoneCall, PhoneIncoming, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ReceptionistPortalDashboard } from "@/lib/types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
+import { CompanyBriefingCard } from "@/components/receptionist-company-briefing"
 import { useTelnyxWebRtc, WEBRTC_REMOTE_AUDIO_ID } from "@/lib/webrtc/use-telnyx-webrtc"
 import {
   WorkspacePage,
@@ -108,65 +109,6 @@ function LiveStatusPanel({ dashboard }: { dashboard: ReceptionistPortalDashboard
         >
           {onCall ? "In call" : receptionist.is_active ? "Available" : "Unavailable"}
         </span>
-      </div>
-    </WorkspacePanel>
-  )
-}
-
-function BrowserCallBar({
-  status,
-  callerNumber,
-  callerName,
-  onAnswer,
-  onHangup,
-}: {
-  status: "ringing" | "active"
-  callerNumber: string | null
-  callerName: string | null
-  onAnswer: () => void
-  onHangup: () => void
-}) {
-  const ringing = status === "ringing"
-  return (
-    <WorkspacePanel
-      className={cn(
-        "flex flex-wrap items-center justify-between gap-4 p-5",
-        ringing ? "border-emerald-500/40 bg-emerald-950/20" : "border-primary/30 bg-primary/5"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
-          <PhoneCall className={cn("h-5 w-5", ringing && "animate-pulse")} aria-hidden />
-        </span>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-            {ringing ? "Incoming browser call" : "Browser call in progress"}
-          </p>
-          <p className="mt-0.5 text-base font-semibold text-foreground">
-            {callerNumber ? formatPhoneDisplay(callerNumber) : "Unknown caller"}
-            {callerName ? <span className="ml-2 text-sm font-normal text-zinc-400">{callerName}</span> : null}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {ringing ? (
-          <button
-            type="button"
-            onClick={onAnswer}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-400"
-          >
-            <PhoneCall className="h-4 w-4" aria-hidden />
-            Answer
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onHangup}
-          className="inline-flex items-center gap-2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-500"
-        >
-          <PhoneOff className="h-4 w-4" aria-hidden />
-          {ringing ? "Decline" : "Hang up"}
-        </button>
       </div>
     </WorkspacePanel>
   )
@@ -293,12 +235,15 @@ export function ReceptionistPortalView() {
         }}
       />
 
-      {/* In-browser call bar — appears when a WEB call is ringing or connected. */}
+      {/* Company Briefing screen-pop — opens the instant a WEB call rings or connects. */}
       {endpoint === "WEB" && (web.status === "ringing" || web.status === "active") ? (
-        <BrowserCallBar
+        <CompanyBriefingCard
           status={web.status}
+          operatorName={dashboard.receptionist.name}
           callerNumber={web.call?.callerNumber ?? null}
           callerName={web.call?.callerName ?? null}
+          lookupNumber={web.call?.callerNumber ?? null}
+          fallbackBusinessName={dashboard.business_name}
           onAnswer={web.answer}
           onHangup={web.hangup}
         />

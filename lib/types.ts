@@ -336,6 +336,18 @@ export interface ReceptionistPortalDashboard {
   ledger: ReceptionistLedgerRow[]
 }
 
+/**
+ * Company attributes shown on the receptionist web-phone screen-pop so an operator can answer
+ * "as" the business being called. `business_instructions` mirrors onboarding_profiles.routing_instructions.
+ */
+export interface CompanyBriefing {
+  found: boolean
+  business_name: string | null
+  business_hours: string | null
+  service_rules: string | null
+  business_instructions: string | null
+}
+
 /** Pending team invite (`041-team-invites.sql`). */
 export type InviteChannel = "EMAIL" | "SMS"
 export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED"
