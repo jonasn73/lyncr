@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/sms/flush-scheduled",
-      "schedule": "0 * * * *"
+      "schedule": "0 13 * * *"
     }
   ],
   "functions": {
