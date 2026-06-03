@@ -4,9 +4,11 @@
 // Telnyx call status callback. Updates the call log with final status/duration.
 // Configure this URL in your Telnyx TeXML app or connection as the status callback.
 
+import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
+import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -50,6 +52,14 @@ export async function POST(req: NextRequest) {
     if (terminal) {
       void evaluateLowCarrierCreditFromCallUsage(callSid).catch((walletErr) => {
         console.error("[Telnyx] Low carrier credit evaluation failed:", walletErr)
+      })
+      // Text the answering receptionist an outcome-code prompt (after the 200, never blocks Telnyx).
+      after(async () => {
+        try {
+          await maybeSendPostCallDispositionSms(callSid, callStatus)
+        } catch (smsErr) {
+          console.error("[Telnyx] Post-call disposition SMS failed:", smsErr)
+        }
       })
     }
   } catch (error) {

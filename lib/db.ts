@@ -3930,7 +3930,7 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
   }
 }
 
-export type LeadDisposition = "BOOKED" | "PRICE_REJECTED"
+export type LeadDisposition = "BOOKED" | "PENDING_TIME" | "PRICE_REJECTED" | "FAILED"
 
 export interface DispositionedLead {
   id: string
@@ -4044,6 +4044,181 @@ export async function listRecentBookedLeads(
     return rows.map((r) => parseDispositionedLeadRow(r as Record<string, unknown>))
   } catch (e) {
     if (isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
+/** Stamp the call_logs row's final disposition (deploy-safe — no-op until scripts/059 runs). */
+export async function setCallLogDisposition(
+  providerCallSidOrId: string,
+  disposition: LeadDisposition
+): Promise<void> {
+  const key = providerCallSidOrId.trim()
+  if (!key) return
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE call_logs
+      SET disposition = ${disposition}
+      WHERE provider_call_sid = ${key} OR twilio_call_sid = ${key} OR id::text = ${key}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") return
+    throw e
+  }
+}
+
+export interface CallCellHandoffInfo {
+  id: string
+  user_id: string
+  routed_to_receptionist_id: string | null
+  from_number: string | null
+  status: string
+  duration_seconds: number
+  answered: boolean
+}
+
+/** Minimal call row used by the post-call disposition SMS (status webhook). */
+export async function getCallCellHandoffInfo(providerCallSid: string): Promise<CallCellHandoffInfo | null> {
+  const sid = providerCallSid.trim()
+  if (!sid) return null
+  const sql = getSql()
+  let rows: Record<string, unknown>[]
+  try {
+    rows = await sql`
+      SELECT id, user_id, routed_to_receptionist_id, from_number, status, duration_seconds, answered_at
+      FROM call_logs
+      WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+  } catch {
+    // answered_at (scripts/007) may not exist — retry without it.
+    rows = await sql`
+      SELECT id, user_id, routed_to_receptionist_id, from_number, status, duration_seconds
+      FROM call_logs
+      WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+  }
+  const row = rows[0]
+  if (!row) return null
+  const duration = Number(row.duration_seconds ?? 0) || 0
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    routed_to_receptionist_id: row.routed_to_receptionist_id ? String(row.routed_to_receptionist_id) : null,
+    from_number: row.from_number != null ? String(row.from_number) : null,
+    status: String(row.status ?? ""),
+    duration_seconds: duration,
+    answered: row.answered_at != null || duration > 0,
+  }
+}
+
+/**
+ * Record that we texted a receptionist's cell for a call outcome. Idempotent per call
+ * (`provider_call_sid` unique) — returns the new row id, or null when one already existed
+ * (so the status webhook only texts once even if Telnyx re-posts the completed event).
+ */
+export async function createPendingSmsDisposition(params: {
+  userId: string
+  callLogId: string | null
+  providerCallSid: string
+  receptionistId: string | null
+  receptionistName: string | null
+  receptionistPhoneE164: string
+  callerNumber: string | null
+  businessName: string | null
+}): Promise<string | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      INSERT INTO pending_sms_dispositions (
+        user_id, call_log_id, provider_call_sid, receptionist_id, receptionist_name,
+        receptionist_phone_e164, caller_number, business_name
+      ) VALUES (
+        ${params.userId},
+        ${params.callLogId},
+        ${params.providerCallSid},
+        ${params.receptionistId},
+        ${params.receptionistName},
+        ${params.receptionistPhoneE164},
+        ${params.callerNumber},
+        ${params.businessName}
+      )
+      ON CONFLICT (provider_call_sid) DO NOTHING
+      RETURNING id
+    `
+    return rows[0]?.id != null ? String(rows[0].id) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "pending_sms_dispositions")) {
+      console.warn("[db] pending_sms_dispositions missing — run scripts/059-cell-fallback-dispositions.sql in Neon.")
+      return null
+    }
+    throw e
+  }
+}
+
+export interface PendingSmsDisposition {
+  id: string
+  user_id: string
+  call_log_id: string | null
+  provider_call_sid: string
+  receptionist_id: string | null
+  receptionist_name: string | null
+  caller_number: string | null
+  business_name: string | null
+}
+
+/** Newest still-open outcome prompt texted to this cell within the window (default 12h). */
+export async function findOpenPendingSmsDispositionByPhone(
+  phoneE164: string,
+  withinHours = 12
+): Promise<PendingSmsDisposition | null> {
+  const phone = phoneE164.trim()
+  if (!phone) return null
+  const sql = getSql()
+  let rows: Record<string, unknown>[]
+  try {
+    rows = await sql`
+      SELECT id, user_id, call_log_id, provider_call_sid, receptionist_id, receptionist_name, caller_number, business_name
+      FROM pending_sms_dispositions
+      WHERE receptionist_phone_e164 = ${phone}
+        AND responded_at IS NULL
+        AND created_at > (now() - (${withinHours}::numeric * interval '1 hour'))
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+  } catch (e) {
+    if (isUndefinedRelationError(e, "pending_sms_dispositions")) return null
+    throw e
+  }
+  const row = rows[0]
+  if (!row) return null
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    call_log_id: row.call_log_id ? String(row.call_log_id) : null,
+    provider_call_sid: String(row.provider_call_sid),
+    receptionist_id: row.receptionist_id ? String(row.receptionist_id) : null,
+    receptionist_name: row.receptionist_name ? String(row.receptionist_name) : null,
+    caller_number: row.caller_number ? String(row.caller_number) : null,
+    business_name: row.business_name ? String(row.business_name) : null,
+  }
+}
+
+/** Close out a pending prompt once the operator's numeric reply is parsed. */
+export async function resolvePendingSmsDisposition(id: string, status: LeadDisposition): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE pending_sms_dispositions
+      SET status = ${status}, responded_at = now()
+      WHERE id = ${id}
+    `
+  } catch (e) {
+    if (isUndefinedRelationError(e, "pending_sms_dispositions")) return
     throw e
   }
 }

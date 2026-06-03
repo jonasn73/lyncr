@@ -50,7 +50,7 @@ export async function publishReceptionistEvent(
   }
 }
 
-export type OwnerChannelEvent = "job-booked" | "lead-salvageable"
+export type OwnerChannelEvent = "job-booked" | "lead-salvageable" | "disposition-updated"
 
 /** Publish an event to a business owner's channel (e.g. live booking alerts). Safe no-op when unconfigured. */
 export async function publishOwnerEvent(

@@ -384,6 +384,7 @@ function tryFastInboundPstnDial(params: {
           businessType: "generic",
           callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
           callerName,
+          businessName: routing.business_name?.trim() || routing.phone_line_label?.trim() || null,
         })
       : undefined
 
@@ -1172,7 +1173,19 @@ async function handleIncomingCall(
           method: "POST",
         }) as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0]
       )
-      dial.number(pstnNumberAttrs, recPhone)
+      // Screen the agent's cell leg ("Press 1 to connect") + pop their HUD on answer.
+      const recvAnswerUrl = selectedReceptionistId
+        ? buildReceptionistAnswerUrl({
+            appUrl,
+            receptionistId: selectedReceptionistId,
+            callSid,
+            businessType: "generic",
+            callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
+            callerName,
+            businessName: routing.business_name?.trim() || routing.phone_line_label?.trim() || null,
+          })
+        : undefined
+      dial.number({ ...pstnNumberAttrs, ...(recvAnswerUrl ? { url: recvAnswerUrl } : {}) }, recPhone)
     } else {
       const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
       if (debug) console.log(`[Sigo] No receptionist assigned, routing to owner: ${ownerPhone}`)

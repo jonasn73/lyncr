@@ -16,6 +16,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { getReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import { saveCallIntake } from "@/lib/intake-engine"
 import { applyLeadDisposition, type LeadDisposition } from "@/lib/db"
+import { dispatchStateFor } from "@/lib/call-disposition"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 
 type LogJobBody = {
@@ -70,8 +71,7 @@ export async function POST(req: NextRequest) {
     const businessType = (body.businessType ?? "generic").toString()
     const fields = body.fields && typeof body.fields === "object" ? body.fields : {}
     const isBooked = status === "BOOKED"
-    const dispatch_status = isBooked ? "pending_review" : "salvage_pending"
-    const is_salvageable = !isBooked
+    const { dispatch_status, is_salvageable } = dispatchStateFor(status)
     const summary = body.summary?.trim() || `Job ${status.toLowerCase()} by ${ctx.receptionist.name}.`
 
     const result = await saveCallIntake({
