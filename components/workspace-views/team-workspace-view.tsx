@@ -12,6 +12,7 @@ import {
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
 import { TeamInviteModal } from "@/components/team-invite-modal"
+import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 
 const AVATAR_COLORS = ["bg-primary", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"]
 
@@ -395,6 +396,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <AddTeamMemberCard onClick={() => setInviteOpen(true)} />
         </div>
       )}
+
+      <FieldTechniciansPanel />
 
       <TeamInviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
     </WorkspacePage>

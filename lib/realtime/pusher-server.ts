@@ -50,7 +50,27 @@ export async function publishReceptionistEvent(
   }
 }
 
-export type OwnerChannelEvent = "job-booked" | "lead-salvageable" | "disposition-updated"
+export type TechnicianChannelEvent = "job-assigned" | "job-updated"
+
+/** Publish to a single field tech's device channel (e.g. new job dispatched). Safe no-op when unconfigured. */
+export async function publishTechnicianEvent(
+  techUserId: string,
+  event: TechnicianChannelEvent,
+  payload: Record<string, unknown>
+): Promise<boolean> {
+  const pusher = getPusherServer()
+  if (!pusher) return false
+  const channel = `technician-${techUserId}`
+  try {
+    await pusher.trigger(channel, event, payload)
+    return true
+  } catch (e) {
+    console.error("[realtime] publishTechnicianEvent failed:", e)
+    return false
+  }
+}
+
+export type OwnerChannelEvent = "job-booked" | "lead-salvageable" | "disposition-updated" | "job-status-updated"
 
 /** Publish an event to a business owner's channel (e.g. live booking alerts). Safe no-op when unconfigured. */
 export async function publishOwnerEvent(

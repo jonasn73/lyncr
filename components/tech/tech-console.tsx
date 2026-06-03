@@ -1,0 +1,284 @@
+// Field tech mobile console: a linear stack of assigned job cards with click-to-call, click-to-navigate,
+// and a status toggle. Live-updates via Pusher (channel technician-{userId}) with a polling fallback.
+
+"use client"
+
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2 } from "lucide-react"
+import { getPusherClient } from "@/lib/realtime/pusher-client"
+import { InvoiceModal } from "@/components/tech/invoice-modal"
+import type { DispatchJob } from "@/lib/types"
+
+/** Universal maps link — opens the default navigation app on iOS/Android. */
+function mapsLink(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  assigned: "Assigned",
+  en_route: "En route",
+  arrived: "On site",
+  completed: "Completed",
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  assigned: "bg-zinc-700/60 text-zinc-200",
+  en_route: "bg-sky-500/20 text-sky-300",
+  arrived: "bg-amber-500/20 text-amber-200",
+  completed: "bg-emerald-500/20 text-emerald-300",
+}
+
+export function TechConsole(props: {
+  techUserId: string
+  techName: string
+  businessName: string
+  merchantConfigured: boolean
+}) {
+  const router = useRouter()
+  const [jobs, setJobs] = useState<DispatchJob[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [invoiceJob, setInvoiceJob] = useState<DispatchJob | null>(null)
+  const mounted = useRef(true)
+
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true)
+    try {
+      const res = await fetch("/api/tech/jobs", { credentials: "include", cache: "no-store" })
+      const json = await res.json()
+      if (mounted.current && json?.data?.jobs) setJobs(json.data.jobs as DispatchJob[])
+    } catch {
+      /* keep last jobs on transient error */
+    } finally {
+      if (mounted.current) {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    mounted.current = true
+    load()
+    // Poll as a safety net even when realtime isn't configured.
+    const t = setInterval(() => load(), 20_000)
+    return () => {
+      mounted.current = false
+      clearInterval(t)
+    }
+  }, [load])
+
+  // Live: refetch the moment the dispatcher assigns/updates a job for this tech.
+  useEffect(() => {
+    const pusher = getPusherClient()
+    if (!pusher) return
+    const channel = pusher.subscribe(`technician-${props.techUserId}`)
+    const refetch = () => load()
+    channel.bind("job-assigned", refetch)
+    channel.bind("job-updated", refetch)
+    return () => {
+      channel.unbind("job-assigned", refetch)
+      channel.unbind("job-updated", refetch)
+      pusher.unsubscribe(`technician-${props.techUserId}`)
+    }
+  }, [props.techUserId, load])
+
+  async function setStatus(jobId: string, status: string) {
+    setBusyId(jobId)
+    // Optimistic update so the toggle feels instant on a phone.
+    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, job_status: status } : j)))
+    try {
+      await fetch(`/api/tech/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      })
+    } catch {
+      load() // reconcile on failure
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function signOut() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
+    } catch {
+      /* ignore */
+    }
+    router.replace("/tech/login")
+  }
+
+  const active = jobs.filter((j) => j.job_status !== "completed")
+  const done = jobs.filter((j) => j.job_status === "completed")
+
+  return (
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800/80 bg-[#0b0b12]/95 px-5 py-4 backdrop-blur">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-400">{props.businessName}</p>
+          <h1 className="text-lg font-bold leading-tight">Hi, {props.techName.split(" ")[0]}</h1>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => load(true)}
+            className="rounded-lg p-2 text-zinc-400 transition active:scale-95 hover:text-white"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            onClick={signOut}
+            className="rounded-lg p-2 text-zinc-400 transition active:scale-95 hover:text-white"
+            aria-label="Sign out"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 space-y-3 px-4 py-5">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-24 text-zinc-500">
+            <Loader2 className="h-7 w-7 animate-spin" />
+            <p className="mt-3 text-sm">Loading your jobs…</p>
+          </div>
+        ) : active.length === 0 && done.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center text-zinc-500">
+            <CheckCircle2 className="h-10 w-10 text-zinc-700" />
+            <p className="mt-3 text-sm font-medium text-zinc-400">No jobs assigned yet</p>
+            <p className="mt-1 text-xs text-zinc-600">New dispatches appear here automatically.</p>
+          </div>
+        ) : (
+          <>
+            {active.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                busy={busyId === job.id}
+                onArrived={() => setStatus(job.id, "arrived")}
+                onEnRoute={() => setStatus(job.id, "en_route")}
+                onComplete={() => setInvoiceJob(job)}
+              />
+            ))}
+
+            {done.length > 0 && (
+              <div className="pt-4">
+                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                  Completed today
+                </p>
+                {done.map((job) => (
+                  <div
+                    key={job.id}
+                    className="mb-2 flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 opacity-70"
+                  >
+                    <span className="truncate text-sm text-zinc-300">
+                      {job.customer_name || job.customer_phone || "Job"}
+                    </span>
+                    <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+                      Completed
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {invoiceJob && (
+        <InvoiceModal
+          job={invoiceJob}
+          merchantConfigured={props.merchantConfigured}
+          onClose={() => setInvoiceJob(null)}
+          onCompleted={() => {
+            setInvoiceJob(null)
+            load()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function JobCard(props: {
+  job: DispatchJob
+  busy: boolean
+  onArrived: () => void
+  onEnRoute: () => void
+  onComplete: () => void
+}) {
+  const { job } = props
+  const status = job.job_status || "assigned"
+  const phoneDigits = (job.customer_phone || "").replace(/[^\d+]/g, "")
+
+  return (
+    <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold text-white">
+            {job.customer_name || "New customer"}
+          </h2>
+          {job.summary && <p className="mt-0.5 line-clamp-2 text-sm text-zinc-400">{job.summary}</p>}
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_STYLE[status] || STATUS_STYLE.assigned}`}>
+          {STATUS_LABEL[status] || "Assigned"}
+        </span>
+      </div>
+
+      {/* Contact + navigate */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <a
+          href={phoneDigits ? `tel:${phoneDigits}` : undefined}
+          className={`flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98] ${
+            phoneDigits ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
+          }`}
+        >
+          <Phone className="h-4 w-4" /> Call
+        </a>
+        <a
+          href={job.location ? mapsLink(job.location) : undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98] ${
+            job.location ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
+          }`}
+        >
+          <Navigation className="h-4 w-4" /> Navigate
+        </a>
+      </div>
+
+      {job.location && (
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-zinc-500">
+          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{job.location}</span>
+        </p>
+      )}
+
+      {/* Status toggle group */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          onClick={props.onArrived}
+          disabled={props.busy || status === "arrived"}
+          className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
+            status === "arrived"
+              ? "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/40"
+              : "bg-zinc-800 text-white hover:bg-zinc-700"
+          }`}
+        >
+          {props.busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Arrived on Site"}
+        </button>
+        <button
+          onClick={props.onComplete}
+          className="rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition active:scale-[0.98]"
+        >
+          Complete &amp; Invoice
+        </button>
+      </div>
+    </article>
+  )
+}

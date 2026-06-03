@@ -26,6 +26,10 @@ export function resolvePostAuthPath(ctx?: PostAuthContext, nextPath?: string | n
     if (nextPath?.startsWith("/receptionist")) return nextPath
     return "/receptionist"
   }
+  if (role === "field_tech") {
+    if (nextPath?.startsWith("/tech")) return nextPath
+    return "/tech/dashboard"
+  }
   if (nextPath?.startsWith("/dashboard") || nextPath?.startsWith("/onboarding")) return nextPath
   return "/dashboard"
 }

@@ -24,11 +24,15 @@ export function middleware(request: NextRequest) {
   // activate before they have an account. The page redirects token visits to the activation form.
   const hasInviteToken = Boolean(request.nextUrl.searchParams.get("token"))
 
+  // The tech console requires a session, except its own public login page.
+  const techNeedsSession = pathname.startsWith("/tech") && !pathname.startsWith("/tech/login")
+
   const needsSession =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/admin") ||
     (pathname.startsWith("/onboarding") && !hasInviteToken) ||
-    pathname.startsWith("/receptionist")
+    pathname.startsWith("/receptionist") ||
+    techNeedsSession
   if (!needsSession) {
     return NextResponse.next({
       request: { headers: requestHeaders },
@@ -47,5 +51,5 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   // Voice webhooks (/api/voice/*) are intentionally excluded — Telnyx needs raw TeXML with zero cookie/session work.
-  matcher: ["/dashboard", "/dashboard/:path*", "/admin", "/admin/:path*", "/onboarding", "/onboarding/:path*", "/receptionist", "/receptionist/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/admin", "/admin/:path*", "/onboarding", "/onboarding/:path*", "/receptionist", "/receptionist/:path*", "/tech", "/tech/:path*"],
 }

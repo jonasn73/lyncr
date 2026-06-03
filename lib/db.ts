@@ -41,6 +41,10 @@ import type {
   ReceptionistBadgeStatus,
   Messaging10DlcRegistration,
   TenDlcStatus,
+  FieldTechnician,
+  DispatchJob,
+  InvoiceLineItem,
+  JobInvoice,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -1618,12 +1622,17 @@ export async function createUser(params: {
   business_name: string
   industry?: string
   password_hash: string
-  account_role?: "owner" | "receptionist"
+  account_role?: "owner" | "receptionist" | "field_tech"
 }): Promise<User> {
   const sql = getSql()
   const id = crypto.randomUUID()
   const industry = defaultProfileFromUserIndustry(params.industry)
-  const accountRole = params.account_role === "receptionist" ? "receptionist" : "owner"
+  const accountRole =
+    params.account_role === "receptionist"
+      ? "receptionist"
+      : params.account_role === "field_tech"
+        ? "field_tech"
+        : "owner"
   try {
     await sql`
       INSERT INTO users (id, email, name, phone, business_name, industry, password_hash, account_role, created_at)
@@ -1784,8 +1793,16 @@ function parseUserRow(row: Record<string, unknown>): User {
       row.answered_call_customer_popup_enabled === null || row.answered_call_customer_popup_enabled === undefined
         ? true
         : pgBool(row.answered_call_customer_popup_enabled),
-    account_role: String(row.account_role ?? "owner") === "receptionist" ? "receptionist" : "owner",
+    account_role: normalizeAccountRole(row.account_role),
   }
+}
+
+/** Map a raw DB account_role to the typed union (defaults to owner). */
+function normalizeAccountRole(raw: unknown): "owner" | "receptionist" | "field_tech" {
+  const v = String(raw ?? "owner")
+  if (v === "receptionist") return "receptionist"
+  if (v === "field_tech") return "field_tech"
+  return "owner"
 }
 
 // Get user by phone number they own (joins phone_numbers → users)
@@ -3926,6 +3943,300 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
       )
       return []
     }
+    throw e
+  }
+}
+
+// ============================================
+// Field technicians + job dispatch (scripts/061)
+// ============================================
+
+function isMissingFieldTechTableError(e: unknown): boolean {
+  return isUndefinedRelationError(e, "field_technicians")
+}
+
+function isMissingAssignedTechColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return msg.includes("assigned_tech_id") || msg.includes("job_status")
+}
+
+function parseFieldTechnicianRow(row: Record<string, unknown>): FieldTechnician {
+  return {
+    id: String(row.id),
+    owner_user_id: String(row.user_id),
+    portal_user_id: row.portal_user_id != null ? String(row.portal_user_id) : null,
+    name: String(row.name ?? ""),
+    phone: String(row.phone ?? ""),
+    email: row.email != null ? String(row.email) : null,
+    is_active: row.is_active == null ? true : pgBool(row.is_active),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }
+}
+
+/** All technicians on an owner's roster (joins the linked login email). Empty until scripts/061 runs. */
+export async function listFieldTechnicians(ownerUserId: string): Promise<FieldTechnician[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
+             u.email AS email
+      FROM field_technicians ft
+      LEFT JOIN users u ON u.id = ft.portal_user_id
+      WHERE ft.user_id = ${ownerUserId}
+      ORDER BY ft.created_at DESC
+    `
+    return rows.map(parseFieldTechnicianRow)
+  } catch (e) {
+    if (isMissingFieldTechTableError(e)) return []
+    throw e
+  }
+}
+
+/** Insert a technician roster row linking the owner to the tech's login user. */
+export async function insertFieldTechnician(params: {
+  owner_user_id: string
+  portal_user_id: string
+  name: string
+  phone: string
+}): Promise<FieldTechnician> {
+  const sql = getSql()
+  const id = crypto.randomUUID()
+  await sql`
+    INSERT INTO field_technicians (id, user_id, portal_user_id, name, phone, is_active, created_at)
+    VALUES (${id}, ${params.owner_user_id}, ${params.portal_user_id}, ${params.name}, ${params.phone}, true, now())
+  `
+  return {
+    id,
+    owner_user_id: params.owner_user_id,
+    portal_user_id: params.portal_user_id,
+    name: params.name,
+    phone: params.phone,
+    email: null,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  }
+}
+
+/** Resolve the tech roster row for a logged-in field_tech user (by their login id). */
+export async function getFieldTechnicianByPortalUserId(
+  portalUserId: string
+): Promise<FieldTechnician | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
+             u.email AS email
+      FROM field_technicians ft
+      LEFT JOIN users u ON u.id = ft.portal_user_id
+      WHERE ft.portal_user_id = ${portalUserId}
+      LIMIT 1
+    `
+    return rows[0] ? parseFieldTechnicianRow(rows[0]) : null
+  } catch (e) {
+    if (isMissingFieldTechTableError(e)) return null
+    throw e
+  }
+}
+
+/** Toggle a technician active/inactive (owner-scoped). */
+export async function setFieldTechnicianActive(
+  ownerUserId: string,
+  techId: string,
+  isActive: boolean
+): Promise<void> {
+  const sql = getSql()
+  await sql`
+    UPDATE field_technicians SET is_active = ${isActive}
+    WHERE id = ${techId} AND user_id = ${ownerUserId}
+  `
+}
+
+/** Read a job site + customer from a lead's collected JSONB. */
+function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
+  const collected = (row.collected as Record<string, unknown>) || {}
+  const pick = (keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = collected[k]
+      if (typeof v === "string" && v.trim()) return v.trim()
+    }
+    return null
+  }
+  return {
+    id: String(row.id),
+    customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
+    customer_phone:
+      pick(["callback_number", "caller_number", "phone", "callback"]) ||
+      (row.caller_e164 != null ? String(row.caller_e164) : null),
+    location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
+    summary: row.summary != null ? String(row.summary) : null,
+    job_status: row.job_status != null ? String(row.job_status) : null,
+    assigned_tech_id: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
+    assigned_tech_name: row.assigned_tech_name != null ? String(row.assigned_tech_name) : null,
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }
+}
+
+/** Booked jobs for the owner's dispatch feed, with any current tech assignment. */
+export async function listOwnerBookedJobs(ownerUserId: string, limit = 50): Promise<DispatchJob[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+             t.name AS assigned_tech_name
+      FROM ai_leads l
+      LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+      WHERE l.user_id = ${ownerUserId}
+        AND (l.disposition = 'BOOKED' OR l.collected->>'disposition' = 'BOOKED')
+      ORDER BY l.created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map(dispatchJobFromRow)
+  } catch (e) {
+    // Pre-061 (no assigned_tech_id/job_status) or pre-058 (no disposition col) → fall back to JSONB-only.
+    if (isMissingAssignedTechColumnError(e) || (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("disposition"))) {
+      try {
+        const rows = await sql`
+          SELECT id, caller_e164, collected, summary, created_at
+          FROM ai_leads
+          WHERE user_id = ${ownerUserId} AND collected->>'disposition' = 'BOOKED'
+          ORDER BY created_at DESC
+          LIMIT ${lim}
+        `
+        return rows.map(dispatchJobFromRow)
+      } catch (e2) {
+        if (isUndefinedRelationError(e2, "ai_leads")) return []
+        throw e2
+      }
+    }
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
+/** Jobs dispatched to a specific tech (their login user id). */
+export async function listJobsForTech(techUserId: string, limit = 50): Promise<DispatchJob[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT id, caller_e164, collected, summary, job_status, assigned_tech_id, created_at
+      FROM ai_leads
+      WHERE assigned_tech_id = ${techUserId}
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map(dispatchJobFromRow)
+  } catch (e) {
+    if (isMissingAssignedTechColumnError(e) || isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
+/** Assign (or clear) the tech on a booked job. Owner-scoped + parameterized. Returns false if not found. */
+export async function assignJobToTech(
+  ownerUserId: string,
+  leadId: string,
+  techUserId: string | null
+): Promise<boolean> {
+  const sql = getSql()
+  const rows = await sql`
+    UPDATE ai_leads
+    SET assigned_tech_id = ${techUserId},
+        job_status = ${techUserId ? "assigned" : null}
+    WHERE id = ${leadId} AND user_id = ${ownerUserId}
+    RETURNING id
+  `
+  return rows.length > 0
+}
+
+/** Tech updates field progress on a job assigned to them. Returns false if not their job. */
+export async function setJobStatusForTech(
+  techUserId: string,
+  leadId: string,
+  status: string
+): Promise<boolean> {
+  const sql = getSql()
+  const rows = await sql`
+    UPDATE ai_leads
+    SET job_status = ${status}
+    WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
+    RETURNING id
+  `
+  return rows.length > 0
+}
+
+/** Owner id for a job (used to broadcast owner events when a tech updates a job). */
+export async function getOwnerIdForLead(leadId: string): Promise<string | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`SELECT user_id FROM ai_leads WHERE id = ${leadId} LIMIT 1`
+    return rows[0]?.user_id != null ? String(rows[0].user_id) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return null
+    throw e
+  }
+}
+
+/** Create a job invoice raised on-site by a tech. */
+export async function createJobInvoice(params: {
+  lead_id: string | null
+  owner_user_id: string
+  tech_user_id: string | null
+  customer_name: string | null
+  customer_phone: string | null
+  line_items: InvoiceLineItem[]
+  subtotal_cents: number
+  tax_cents: number
+  total_cents: number
+  payment_status: JobInvoice["payment_status"]
+  payment_method: JobInvoice["payment_method"]
+  card_last4: string | null
+}): Promise<JobInvoice> {
+  const sql = getSql()
+  const id = crypto.randomUUID()
+  const paidAt = params.payment_status === "paid" ? new Date() : null
+  await sql`
+    INSERT INTO job_invoices
+      (id, lead_id, owner_user_id, tech_user_id, customer_name, customer_phone, line_items,
+       subtotal_cents, tax_cents, total_cents, payment_status, payment_method, card_last4, created_at, paid_at)
+    VALUES
+      (${id}, ${params.lead_id}, ${params.owner_user_id}, ${params.tech_user_id}, ${params.customer_name},
+       ${params.customer_phone}, ${JSON.stringify(params.line_items)}::jsonb, ${params.subtotal_cents},
+       ${params.tax_cents}, ${params.total_cents}, ${params.payment_status}, ${params.payment_method},
+       ${params.card_last4}, now(), ${paidAt})
+  `
+  return {
+    id,
+    lead_id: params.lead_id,
+    owner_user_id: params.owner_user_id,
+    tech_user_id: params.tech_user_id,
+    customer_name: params.customer_name,
+    customer_phone: params.customer_phone,
+    line_items: params.line_items,
+    subtotal_cents: params.subtotal_cents,
+    tax_cents: params.tax_cents,
+    total_cents: params.total_cents,
+    payment_status: params.payment_status,
+    payment_method: params.payment_method,
+    card_last4: params.card_last4,
+    created_at: new Date().toISOString(),
+    paid_at: paidAt ? paidAt.toISOString() : null,
+  }
+}
+
+/** Whether the owner has marked a merchant processor as configured (gates real card capture). */
+export async function getOwnerMerchantConfigured(ownerUserId: string): Promise<boolean> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT merchant_configured FROM onboarding_profiles WHERE user_id = ${ownerUserId} LIMIT 1
+    `
+    return rows[0]?.merchant_configured === true
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") return false
+    if (isMissingOnboardingProfilesTableError(e)) return false
     throw e
   }
 }

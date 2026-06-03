@@ -27,6 +27,9 @@ export default async function DashboardLayout({
   if (user.account_role === "receptionist") {
     redirect("/receptionist")
   }
+  if (user.account_role === "field_tech") {
+    redirect("/tech/dashboard")
+  }
   if (isSandboxTestReceptionistEmail(user.email)) {
     redirect("/receptionist/training/automotive_core")
   }

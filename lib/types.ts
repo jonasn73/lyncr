@@ -3,7 +3,7 @@
 // ============================================
 
 // --- Users (Business Owners) ---
-export type AccountRole = "owner" | "receptionist"
+export type AccountRole = "owner" | "receptionist" | "field_tech"
 
 export interface User {
   id: string
@@ -13,6 +13,7 @@ export interface User {
   business_name: string
   /** owner = business dashboard; receptionist = /receptionist portal */
   account_role: AccountRole
+  /** owner = business dashboard; receptionist = /receptionist; field_tech = /tech mobile console */
   /** When false, skip the short callee-only whisper on forwarded inbound calls (TeXML Number url). */
   inbound_receptionist_whisper_enabled: boolean
   /** Signup industry — default AI fallback playbook when intake has no profileId override */
@@ -28,6 +29,59 @@ export interface User {
   is_platform_admin: boolean
   /** When false, do not show the answered-call customer sheet (requires `023-user-answered-call-popup-toggle.sql`). */
   answered_call_customer_popup_enabled: boolean
+}
+
+/** A field technician on an owner's roster (`field_technicians` — scripts/061). */
+export interface FieldTechnician {
+  id: string
+  /** The business owner this tech works for. */
+  owner_user_id: string
+  /** The tech's login user (users.id, account_role=field_tech). Null until linked. */
+  portal_user_id: string | null
+  name: string
+  phone: string
+  /** Login email (joined from the linked users row). */
+  email: string | null
+  is_active: boolean
+  created_at: string
+}
+
+/** A single invoice line item. */
+export interface InvoiceLineItem {
+  label: string
+  amount_cents: number
+}
+
+/** An on-site invoice raised by a tech (`job_invoices` — scripts/061). */
+export interface JobInvoice {
+  id: string
+  lead_id: string | null
+  owner_user_id: string
+  tech_user_id: string | null
+  customer_name: string | null
+  customer_phone: string | null
+  line_items: InvoiceLineItem[]
+  subtotal_cents: number
+  tax_cents: number
+  total_cents: number
+  payment_status: "unpaid" | "pending" | "paid" | "recorded"
+  payment_method: "card" | "cash" | "none" | null
+  card_last4: string | null
+  created_at: string
+  paid_at: string | null
+}
+
+/** A booked job as shown to the owner (assign dropdown) and the tech (console). */
+export interface DispatchJob {
+  id: string
+  customer_name: string | null
+  customer_phone: string | null
+  location: string | null
+  summary: string | null
+  job_status: string | null
+  assigned_tech_id: string | null
+  assigned_tech_name: string | null
+  created_at: string
 }
 
 /** Onboarding wizard row (`onboarding_profiles` — scripts/025-onboarding-profiles-table.sql). */
