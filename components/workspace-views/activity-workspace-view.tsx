@@ -29,6 +29,7 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 import { DispatchJobsPanel } from "@/components/workspace-views/dispatch-jobs-panel"
+import { DispatchLiveMap } from "@/components/workspace-views/dispatch-live-map"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import {
@@ -407,6 +408,8 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       />
 
       {refreshing ? <p className="text-xs text-zinc-600">Refreshing…</p> : null}
+
+      <DispatchLiveMap />
 
       <DispatchJobsPanel />
 

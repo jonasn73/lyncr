@@ -43,6 +43,7 @@ import type {
   TenDlcStatus,
   FieldTechnician,
   DispatchJob,
+  TechLiveLocation,
   InvoiceLineItem,
   JobInvoice,
   OwnerSmsSettings,
@@ -4066,6 +4067,8 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     }
     return null
   }
+  const lat = firstNumericField(collected, ["customer_lat", "lat", "latitude", "geo_lat", "location_lat", "service_lat"])
+  const lng = firstNumericField(collected, ["customer_lng", "lng", "longitude", "geo_lng", "location_lng", "service_lng", "lon"])
   return {
     id: String(row.id),
     customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
@@ -4077,6 +4080,8 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     job_status: row.job_status != null ? String(row.job_status) : null,
     assigned_tech_id: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
     assigned_tech_name: row.assigned_tech_name != null ? String(row.assigned_tech_name) : null,
+    latitude: lat != null && Math.abs(lat) <= 90 ? lat : null,
+    longitude: lng != null && Math.abs(lng) <= 180 ? lng : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
 }
@@ -4288,6 +4293,37 @@ export async function getActiveJobGeoForTech(techUserId: string): Promise<TechAc
     return null
   } catch (e) {
     if (isMissingAssignedTechColumnError(e) || isUndefinedRelationError(e, "ai_leads")) return null
+    throw e
+  }
+}
+
+/** Active techs that have a last-known coordinate, for the owner's live dispatch map. */
+export async function listTechLiveLocations(ownerUserId: string): Promise<TechLiveLocation[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT ft.portal_user_id AS tech_user_id, ft.name,
+             u.tech_status AS status, u.current_latitude AS lat, u.current_longitude AS lng
+      FROM field_technicians ft
+      JOIN users u ON u.id = ft.portal_user_id
+      WHERE ft.user_id = ${ownerUserId}
+        AND ft.is_active = true
+        AND ft.portal_user_id IS NOT NULL
+        AND u.current_latitude IS NOT NULL
+        AND u.current_longitude IS NOT NULL
+    `
+    return rows
+      .map((r) => ({
+        tech_user_id: String(r.tech_user_id),
+        name: r.name != null ? String(r.name) : "Technician",
+        status: r.status != null ? String(r.status) : null,
+        latitude: Number(r.lat),
+        longitude: Number(r.lng),
+      }))
+      .filter((t) => Number.isFinite(t.latitude) && Number.isFinite(t.longitude))
+  } catch (e) {
+    // Pre-062 (no current_latitude/tech_status) or no tech table yet → nothing to plot.
+    if (isMissingFieldTechTableError(e) || pgErrorCode(e) === "42703") return []
     throw e
   }
 }

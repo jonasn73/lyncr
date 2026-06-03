@@ -81,7 +81,19 @@ export interface DispatchJob {
   job_status: string | null
   assigned_tech_id: string | null
   assigned_tech_name: string | null
+  /** Geocoded service-address coordinates (null until the address is resolved). */
+  latitude: number | null
+  longitude: number | null
   created_at: string
+}
+
+/** A field tech's last-known live position for the owner's dispatch map. */
+export interface TechLiveLocation {
+  tech_user_id: string
+  name: string
+  status: string | null
+  latitude: number
+  longitude: number
 }
 
 /** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062). */
