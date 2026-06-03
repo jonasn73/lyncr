@@ -45,6 +45,8 @@ import type {
   DispatchJob,
   InvoiceLineItem,
   JobInvoice,
+  OwnerSmsSettings,
+  LeadDispatchContext,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -4239,6 +4241,277 @@ export async function getOwnerMerchantConfigured(ownerUserId: string): Promise<b
     if (isMissingOnboardingProfilesTableError(e)) return false
     throw e
   }
+}
+
+// ============================================
+// Tech tracking, badges, SMS engine settings, scheduled SMS (scripts/062)
+// ============================================
+
+function isMissingTechTrackingColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return (
+    msg.includes("current_latitude") ||
+    msg.includes("current_longitude") ||
+    msg.includes("tech_status") ||
+    msg.includes("earned_badges")
+  )
+}
+
+function isMissingSmsEngineColumnError(e: unknown): boolean {
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e)
+  return msg.includes("sms_booking") || msg.includes("sms_route") || msg.includes("sms_review") || msg.includes("google_review_url")
+}
+
+/** Persist a tech's live coordinates + status (no-op until scripts/062). */
+export async function updateTechLocation(
+  userId: string,
+  latitude: number | null,
+  longitude: number | null,
+  status: string | null
+): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE users
+      SET current_latitude = ${latitude}, current_longitude = ${longitude}, tech_status = ${status}
+      WHERE id = ${userId}
+    `
+  } catch (e) {
+    if (isMissingTechTrackingColumnError(e)) return
+    throw e
+  }
+}
+
+/** Persist computed earned badge ids onto the tech's user row. */
+export async function setTechEarnedBadges(userId: string, badgeIds: string[]): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`UPDATE users SET earned_badges = ${JSON.stringify(badgeIds)}::jsonb WHERE id = ${userId}`
+  } catch (e) {
+    if (isMissingTechTrackingColumnError(e)) return
+    throw e
+  }
+}
+
+/** Job/invoice counters a tech's performance badges are derived from. */
+export async function getTechJobMetrics(
+  techUserId: string
+): Promise<{ completed: number; total_invoiced_cents: number; paid_invoices: number }> {
+  const sql = getSql()
+  let completed = 0
+  try {
+    const rows = await sql`
+      SELECT COUNT(*)::int AS n FROM ai_leads
+      WHERE assigned_tech_id = ${techUserId} AND job_status = 'completed'
+    `
+    completed = Number(rows[0]?.n ?? 0)
+  } catch (e) {
+    if (!isMissingAssignedTechColumnError(e) && !isUndefinedRelationError(e, "ai_leads")) throw e
+  }
+
+  let totalInvoiced = 0
+  let paid = 0
+  try {
+    const rows = await sql`
+      SELECT COALESCE(SUM(total_cents), 0)::bigint AS sum_cents,
+             COUNT(*) FILTER (WHERE payment_status = 'paid')::int AS paid_n
+      FROM job_invoices
+      WHERE tech_user_id = ${techUserId}
+    `
+    totalInvoiced = Number(rows[0]?.sum_cents ?? 0)
+    paid = Number(rows[0]?.paid_n ?? 0)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "job_invoices")) throw e
+  }
+  return { completed, total_invoiced_cents: totalInvoiced, paid_invoices: paid }
+}
+
+/** Full dispatch context for a single lead (any disposition), used by the SMS pipeline. */
+export async function getLeadDispatchContext(leadId: string): Promise<LeadDispatchContext | null> {
+  const sql = getSql()
+  let rows: Record<string, unknown>[]
+  try {
+    rows = await sql`
+      SELECT id, user_id, caller_e164, collected, summary, job_status, assigned_tech_id
+      FROM ai_leads WHERE id = ${leadId} LIMIT 1
+    `
+  } catch (e) {
+    if (isMissingAssignedTechColumnError(e)) {
+      rows = await sql`SELECT id, user_id, caller_e164, collected, summary FROM ai_leads WHERE id = ${leadId} LIMIT 1`
+    } else if (isUndefinedRelationError(e, "ai_leads")) {
+      return null
+    } else {
+      throw e
+    }
+  }
+  const row = rows[0]
+  if (!row) return null
+  const collected = (row.collected as Record<string, unknown>) || {}
+  const pick = (keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = collected[k]
+      if (typeof v === "string" && v.trim()) return v.trim()
+    }
+    return null
+  }
+  return {
+    lead_id: String(row.id),
+    owner_user_id: String(row.user_id),
+    customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
+    customer_phone:
+      pick(["callback_number", "caller_number", "phone", "callback"]) ||
+      (row.caller_e164 != null ? String(row.caller_e164) : null),
+    location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
+    time_slot: pick(["time_slot", "appointment_time", "slot", "appointment", "scheduled_time", "when"]),
+    summary: row.summary != null ? String(row.summary) : null,
+    assigned_tech_id: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
+    job_status: row.job_status != null ? String(row.job_status) : null,
+  }
+}
+
+function defaultOwnerSmsSettings(): OwnerSmsSettings {
+  return {
+    sms_booking_enabled: false,
+    sms_route_enabled: false,
+    sms_review_enabled: false,
+    sms_booking_template: null,
+    sms_route_template: null,
+    sms_review_template: null,
+    google_review_url: null,
+  }
+}
+
+/** Read the owner's automated-SMS settings (defaults until scripts/062 runs). */
+export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSettings> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT sms_booking_enabled, sms_route_enabled, sms_review_enabled,
+             sms_booking_template, sms_route_template, sms_review_template, google_review_url
+      FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1
+    `
+    const row = rows[0]
+    if (!row) return defaultOwnerSmsSettings()
+    return {
+      sms_booking_enabled: row.sms_booking_enabled === true,
+      sms_route_enabled: row.sms_route_enabled === true,
+      sms_review_enabled: row.sms_review_enabled === true,
+      sms_booking_template: row.sms_booking_template != null ? String(row.sms_booking_template) : null,
+      sms_route_template: row.sms_route_template != null ? String(row.sms_route_template) : null,
+      sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
+      google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
+    }
+  } catch (e) {
+    if (isMissingSmsEngineColumnError(e) || isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) {
+      return defaultOwnerSmsSettings()
+    }
+    throw e
+  }
+}
+
+/** Upsert the owner's automated-SMS settings (only provided fields change). */
+export async function updateOwnerSmsSettings(
+  userId: string,
+  updates: Partial<OwnerSmsSettings>
+): Promise<OwnerSmsSettings> {
+  await ensureOnboardingProfile(userId)
+  const sql = getSql()
+  const cur = await getOwnerSmsSettings(userId)
+  const next: OwnerSmsSettings = {
+    sms_booking_enabled: updates.sms_booking_enabled ?? cur.sms_booking_enabled,
+    sms_route_enabled: updates.sms_route_enabled ?? cur.sms_route_enabled,
+    sms_review_enabled: updates.sms_review_enabled ?? cur.sms_review_enabled,
+    sms_booking_template:
+      updates.sms_booking_template !== undefined ? updates.sms_booking_template : cur.sms_booking_template,
+    sms_route_template:
+      updates.sms_route_template !== undefined ? updates.sms_route_template : cur.sms_route_template,
+    sms_review_template:
+      updates.sms_review_template !== undefined ? updates.sms_review_template : cur.sms_review_template,
+    google_review_url: updates.google_review_url !== undefined ? updates.google_review_url : cur.google_review_url,
+  }
+  await sql`
+    UPDATE onboarding_profiles SET
+      sms_booking_enabled = ${next.sms_booking_enabled},
+      sms_route_enabled = ${next.sms_route_enabled},
+      sms_review_enabled = ${next.sms_review_enabled},
+      sms_booking_template = ${next.sms_booking_template},
+      sms_route_template = ${next.sms_route_template},
+      sms_review_template = ${next.sms_review_template},
+      google_review_url = ${next.google_review_url},
+      updated_at = now()
+    WHERE user_id = ${userId}
+  `
+  return next
+}
+
+/** Queue an SMS to be sent later (e.g. the post-job review request). */
+export async function insertScheduledSms(params: {
+  owner_user_id: string
+  lead_id: string | null
+  to_e164: string
+  body: string
+  phase: string
+  send_after: Date
+}): Promise<void> {
+  const sql = getSql()
+  await sql`
+    INSERT INTO scheduled_sms (owner_user_id, lead_id, to_e164, body, phase, send_after, status, created_at)
+    VALUES (${params.owner_user_id}, ${params.lead_id}, ${params.to_e164}, ${params.body}, ${params.phase}, ${params.send_after.toISOString()}, 'pending', now())
+  `
+}
+
+export interface DueScheduledSms {
+  id: string
+  owner_user_id: string
+  to_e164: string
+  body: string
+}
+
+/** Scheduled texts that are now due (status pending, send_after in the past). */
+export async function listDueScheduledSms(limit = 20): Promise<DueScheduledSms[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 50)
+  try {
+    const rows = await sql`
+      SELECT id, owner_user_id, to_e164, body
+      FROM scheduled_sms
+      WHERE status = 'pending' AND send_after <= now()
+      ORDER BY send_after ASC
+      LIMIT ${lim}
+    `
+    return rows.map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      owner_user_id: String(r.owner_user_id),
+      to_e164: String(r.to_e164),
+      body: String(r.body),
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "scheduled_sms")) return []
+    throw e
+  }
+}
+
+/** Atomically claim a scheduled SMS so concurrent flushers can't double-send it. */
+export async function claimScheduledSms(id: string): Promise<boolean> {
+  const sql = getSql()
+  const rows = await sql`
+    UPDATE scheduled_sms SET status = 'sending'
+    WHERE id = ${id} AND status = 'pending'
+    RETURNING id
+  `
+  return rows.length > 0
+}
+
+export async function markScheduledSmsSent(id: string): Promise<void> {
+  const sql = getSql()
+  await sql`UPDATE scheduled_sms SET status = 'sent', sent_at = now() WHERE id = ${id}`
+}
+
+export async function markScheduledSmsFailed(id: string, error: string): Promise<void> {
+  const sql = getSql()
+  await sql`UPDATE scheduled_sms SET status = 'failed', error = ${error.slice(0, 240)} WHERE id = ${id}`
 }
 
 export type LeadDisposition = "BOOKED" | "PENDING_TIME" | "PRICE_REJECTED" | "FAILED"

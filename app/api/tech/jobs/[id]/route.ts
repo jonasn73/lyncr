@@ -4,9 +4,11 @@
 // Field tech updates a job's field status (en_route | arrived | completed). Owner-notified live.
 
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getOwnerIdForLead, getUser, setJobStatusForTech } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { runSmsPipeline } from "@/lib/sms-pipeline"
 
 export const dynamic = "force-dynamic"
 
@@ -36,6 +38,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const ownerId = await getOwnerIdForLead(id)
     if (ownerId) {
       await publishOwnerEvent(ownerId, "job-status-updated", { leadId: id, status }).catch(() => {})
+    }
+
+    // Pressing "Start Route" dispatches the customer's "on the way" text (if the owner enabled it).
+    if (status === "en_route") {
+      after(async () => {
+        try {
+          await runSmsPipeline({ leadId: id, phase: "route", techName: user.name })
+        } catch (e) {
+          console.warn("[tech status] route SMS pipeline failed:", e)
+        }
+      })
     }
     return NextResponse.json({ data: { id, status } })
   } catch (e) {

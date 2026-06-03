@@ -5,9 +5,11 @@
 // push to that tech's device so the job appears instantly on their console.
 
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { assignJobToTech, listFieldTechnicians } from "@/lib/db"
 import { publishTechnicianEvent } from "@/lib/realtime/pusher-server"
+import { runSmsPipeline } from "@/lib/sms-pipeline"
 
 export const dynamic = "force-dynamic"
 
@@ -21,12 +23,14 @@ export async function POST(req: NextRequest) {
   if (!leadId) return NextResponse.json({ error: "leadId is required" }, { status: 400 })
 
   // If assigning, the tech must belong to this owner's active roster.
+  let techName: string | null = null
   if (techUserId) {
     const roster = await listFieldTechnicians(userId)
     const match = roster.find((t) => t.portal_user_id === techUserId && t.is_active)
     if (!match) {
       return NextResponse.json({ error: "Unknown or inactive technician" }, { status: 400 })
     }
+    techName = match.name
   }
 
   try {
@@ -35,6 +39,14 @@ export async function POST(req: NextRequest) {
 
     if (techUserId) {
       await publishTechnicianEvent(techUserId, "job-assigned", { leadId }).catch(() => {})
+      // Assigning a tech dispatches the "on the way" customer text (if the owner enabled it).
+      after(async () => {
+        try {
+          await runSmsPipeline({ leadId, phase: "route", techName, expectedOwnerUserId: userId })
+        } catch (e) {
+          console.warn("[assign] route SMS pipeline failed:", e)
+        }
+      })
     }
     return NextResponse.json({ data: { leadId, techUserId } })
   } catch (e) {

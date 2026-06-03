@@ -4,8 +4,10 @@
 // Booked jobs for the owner's dispatch feed + the active technician roster (for the Assign dropdown).
 
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { listFieldTechnicians, listOwnerBookedJobs } from "@/lib/db"
+import { flushDueScheduledSms } from "@/lib/sms-pipeline"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +20,14 @@ export async function GET(req: NextRequest) {
       listOwnerBookedJobs(userId),
       listFieldTechnicians(userId),
     ])
+    // Backstop the scheduler: flush any due review texts whenever the dispatch feed is open.
+    after(async () => {
+      try {
+        await flushDueScheduledSms()
+      } catch {
+        /* best-effort */
+      }
+    })
     // Only techs that have a usable login are assignable.
     const assignable = technicians.filter((t) => t.is_active && t.portal_user_id)
     return NextResponse.json({ data: { jobs, technicians: assignable } })

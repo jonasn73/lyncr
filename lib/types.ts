@@ -84,6 +84,30 @@ export interface DispatchJob {
   created_at: string
 }
 
+/** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062). */
+export interface OwnerSmsSettings {
+  sms_booking_enabled: boolean
+  sms_route_enabled: boolean
+  sms_review_enabled: boolean
+  sms_booking_template: string | null
+  sms_route_template: string | null
+  sms_review_template: string | null
+  google_review_url: string | null
+}
+
+/** Dispatch context for a single job, used by the SMS pipeline + tracking. */
+export interface LeadDispatchContext {
+  lead_id: string
+  owner_user_id: string
+  customer_name: string | null
+  customer_phone: string | null
+  location: string | null
+  time_slot: string | null
+  summary: string | null
+  assigned_tech_id: string | null
+  job_status: string | null
+}
+
 /** Onboarding wizard row (`onboarding_profiles` — scripts/025-onboarding-profiles-table.sql). */
 export interface OnboardingProfile {
   user_id: string

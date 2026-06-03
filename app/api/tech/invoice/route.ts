@@ -6,6 +6,7 @@
 // (no full card number is ever sent to or stored on our server; only the last 4).
 
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
   createJobInvoice,
@@ -17,6 +18,7 @@ import {
   setJobStatusForTech,
 } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { runSmsPipeline } from "@/lib/sms-pipeline"
 import type { InvoiceLineItem, JobInvoice } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -104,6 +106,15 @@ export async function POST(req: NextRequest) {
         paymentStatus,
       }).catch(() => {})
     }
+
+    // Finishing the job schedules the post-job review request (drops ~15 min later if enabled).
+    after(async () => {
+      try {
+        await runSmsPipeline({ leadId, phase: "review", expectedOwnerUserId: tech.owner_user_id })
+      } catch (e) {
+        console.warn("[invoice] review SMS pipeline failed:", e)
+      }
+    })
 
     return NextResponse.json({
       data: {

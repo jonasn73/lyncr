@@ -1,13 +1,16 @@
-// Field tech mobile console: a linear stack of assigned job cards with click-to-call, click-to-navigate,
-// and a status toggle. Live-updates via Pusher (channel technician-{userId}) with a polling fallback.
+// Field tech mobile console: a performance-badge strip, a linear stack of assigned job cards with
+// click-to-call / click-to-navigate, and a status toggle (Start Route → Arrived → Complete). While a
+// tech is en route or on site, the console quietly streams their location to the dispatch map.
+// Live-updates via Pusher (channel technician-{userId}) with a polling fallback.
 
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2 } from "lucide-react"
+import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { InvoiceModal } from "@/components/tech/invoice-modal"
+import type { TechBadge } from "@/lib/tech-badges"
 import type { DispatchJob } from "@/lib/types"
 
 /** Universal maps link — opens the default navigation app on iOS/Android. */
@@ -29,6 +32,13 @@ const STATUS_STYLE: Record<string, string> = {
   completed: "bg-emerald-500/20 text-emerald-300",
 }
 
+/** Derive the tech's overall live status from their active jobs. */
+function deriveTechStatus(jobs: DispatchJob[]): "idle" | "en_route" | "on_site" {
+  if (jobs.some((j) => j.job_status === "arrived")) return "on_site"
+  if (jobs.some((j) => j.job_status === "en_route")) return "en_route"
+  return "idle"
+}
+
 export function TechConsole(props: {
   techUserId: string
   techName: string
@@ -37,6 +47,7 @@ export function TechConsole(props: {
 }) {
   const router = useRouter()
   const [jobs, setJobs] = useState<DispatchJob[]>([])
+  const [badges, setBadges] = useState<TechBadge[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -48,7 +59,10 @@ export function TechConsole(props: {
     try {
       const res = await fetch("/api/tech/jobs", { credentials: "include", cache: "no-store" })
       const json = await res.json()
-      if (mounted.current && json?.data?.jobs) setJobs(json.data.jobs as DispatchJob[])
+      if (mounted.current && json?.data) {
+        if (json.data.jobs) setJobs(json.data.jobs as DispatchJob[])
+        if (json.data.badges) setBadges(json.data.badges as TechBadge[])
+      }
     } catch {
       /* keep last jobs on transient error */
     } finally {
@@ -84,6 +98,47 @@ export function TechConsole(props: {
       pusher.unsubscribe(`technician-${props.techUserId}`)
     }
   }, [props.techUserId, load])
+
+  const techStatus = useMemo(() => deriveTechStatus(jobs), [jobs])
+
+  // Stream live location while en route / on site so the owner can track this tech on the map.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return
+
+    const post = (latitude: number | null, longitude: number | null) => {
+      void fetch("/api/tech/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ latitude, longitude, status: techStatus }),
+      }).catch(() => {})
+    }
+
+    if (techStatus === "idle") {
+      post(null, null) // mark off the map when nothing is active
+      return
+    }
+
+    // Immediate fix, then continuous (throttled) updates.
+    navigator.geolocation.getCurrentPosition(
+      (p) => post(p.coords.latitude, p.coords.longitude),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 }
+    )
+
+    let lastSent = 0
+    const watchId = navigator.geolocation.watchPosition(
+      (p) => {
+        const now = Date.now()
+        if (now - lastSent < 25_000) return // ~every 25s is plenty for a dispatch map
+        lastSent = now
+        post(p.coords.latitude, p.coords.longitude)
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 }
+    )
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [techStatus])
 
   async function setStatus(jobId: string, status: string) {
     setBusyId(jobId)
@@ -142,6 +197,8 @@ export function TechConsole(props: {
       </header>
 
       <main className="flex-1 space-y-3 px-4 py-5">
+        {!loading && <BadgesStrip badges={badges} />}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-zinc-500">
             <Loader2 className="h-7 w-7 animate-spin" />
@@ -205,6 +262,39 @@ export function TechConsole(props: {
   )
 }
 
+function BadgesStrip({ badges }: { badges: TechBadge[] }) {
+  if (!badges.length) return null
+  const earnedCount = badges.filter((b) => b.earned).length
+  return (
+    <section className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Performance badges</p>
+        <span className="text-[11px] font-medium text-zinc-500">
+          {earnedCount}/{badges.length} earned
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {badges.map((b) => (
+          <div
+            key={b.id}
+            title={b.description}
+            className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition ${
+              b.earned
+                ? "border-indigo-500/40 bg-indigo-500/10"
+                : "border-zinc-800 bg-zinc-950/40 opacity-50 grayscale"
+            }`}
+          >
+            <span className="text-2xl leading-none" aria-hidden>
+              {b.emoji}
+            </span>
+            <span className="text-[10px] font-semibold leading-tight text-zinc-300">{b.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function JobCard(props: {
   job: DispatchJob
   busy: boolean
@@ -259,19 +349,9 @@ function JobCard(props: {
         </p>
       )}
 
-      {/* Status toggle group */}
+      {/* Status toggle group: Start Route → Arrived → Complete */}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button
-          onClick={props.onArrived}
-          disabled={props.busy || status === "arrived"}
-          className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
-            status === "arrived"
-              ? "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/40"
-              : "bg-zinc-800 text-white hover:bg-zinc-700"
-          }`}
-        >
-          {props.busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Arrived on Site"}
-        </button>
+        <LeftStatusButton {...props} status={status} />
         <button
           onClick={props.onComplete}
           className="rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition active:scale-[0.98]"
@@ -280,5 +360,50 @@ function JobCard(props: {
         </button>
       </div>
     </article>
+  )
+}
+
+/** The left half of the status toggle advances assigned → en_route → arrived. */
+function LeftStatusButton(props: {
+  status: string
+  busy: boolean
+  onArrived: () => void
+  onEnRoute: () => void
+}) {
+  if (props.busy) {
+    return (
+      <button disabled className="rounded-xl bg-zinc-800 px-3 py-3 text-sm font-semibold text-white opacity-60">
+        <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+      </button>
+    )
+  }
+  if (props.status === "assigned") {
+    return (
+      <button
+        onClick={props.onEnRoute}
+        className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-sky-500"
+      >
+        <Route className="h-4 w-4" /> Start Route
+      </button>
+    )
+  }
+  if (props.status === "en_route") {
+    return (
+      <button
+        onClick={props.onArrived}
+        className="rounded-xl bg-zinc-800 px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-zinc-700"
+      >
+        Arrived on Site
+      </button>
+    )
+  }
+  // arrived
+  return (
+    <button
+      disabled
+      className="rounded-xl bg-amber-500/20 px-3 py-3 text-sm font-semibold text-amber-200 ring-1 ring-amber-500/40"
+    >
+      On Site
+    </button>
   )
 }
