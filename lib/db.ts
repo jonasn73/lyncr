@@ -47,6 +47,8 @@ import type {
   JobInvoice,
   OwnerSmsSettings,
   LeadDispatchContext,
+  AdminLiveCall,
+  OperatorPayoutRow,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -5375,6 +5377,219 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
 }
 
 /** Atomically adjust onboarding_profiles.carrier_credit (admin override). */
+// ============================================
+// Platform admin: live traffic, tenant feature flags, operator payout ledger (scripts/063)
+// ============================================
+
+/** Canonical admin-controlled premium feature ids. */
+export const ADMIN_FEATURE_FLAGS = ["field_tech_hud", "sms_automation"] as const
+
+/** In-progress calls across all tenants for the admin Live Traffic Pulse. */
+export async function listActiveCallTraffic(): Promise<AdminLiveCall[]> {
+  const sql = getSql()
+  const TERMINAL = ["completed", "no-answer", "failed", "busy", "canceled", "cancelled", "voicemail", "missed"]
+
+  const mapRow = (r: Record<string, unknown>): AdminLiveCall => {
+    const answeredAt = r.answered_at != null ? String(r.answered_at) : null
+    const status = String(r.status ?? "")
+    return {
+      id: String(r.id),
+      business_name: String(r.business_name ?? "").trim() || "Unnamed business",
+      email: String(r.email ?? ""),
+      operator: r.routed_to_name != null && String(r.routed_to_name).trim() ? String(r.routed_to_name) : null,
+      from_number: String(r.from_number ?? ""),
+      status,
+      started_at: String(r.started_at ?? r.created_at ?? new Date().toISOString()),
+      connected: answeredAt != null || status === "in-progress" || status === "answered",
+    }
+  }
+
+  try {
+    const rows = await sql`
+      SELECT cl.id, cl.from_number, cl.routed_to_name, cl.status, cl.answered_at,
+             COALESCE(cl.answered_at, cl.first_ring_at, cl.created_at) AS started_at,
+             cl.created_at, u.business_name, u.email
+      FROM call_logs cl
+      JOIN users u ON u.id = cl.user_id
+      WHERE cl.ended_at IS NULL
+        AND cl.created_at > now() - interval '2 hours'
+        AND lower(cl.status) <> ALL(${TERMINAL})
+      ORDER BY started_at DESC
+      LIMIT 50
+    `
+    return rows.map(mapRow)
+  } catch (e) {
+    // Deploy-safe: ended_at / answered_at / first_ring_at may not exist on older DBs.
+    if (pgErrorCode(e) !== "42703") throw e
+    const rows = await sql`
+      SELECT cl.id, cl.from_number, cl.routed_to_name, cl.status, cl.created_at AS started_at, cl.created_at,
+             u.business_name, u.email
+      FROM call_logs cl
+      JOIN users u ON u.id = cl.user_id
+      WHERE cl.created_at > now() - interval '10 minutes'
+        AND lower(cl.status) <> ALL(${TERMINAL})
+      ORDER BY cl.created_at DESC
+      LIMIT 50
+    `
+    return rows.map(mapRow)
+  }
+}
+
+/** Read a tenant's admin feature overrides (empty until scripts/063). */
+export async function getProfileFeatureFlags(userId: string): Promise<Record<string, boolean>> {
+  const sql = getSql()
+  try {
+    const rows = await sql`SELECT feature_flags FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1`
+    const raw = rows[0]?.feature_flags
+    if (raw && typeof raw === "object") {
+      const out: Record<string, boolean> = {}
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) out[k] = v === true
+      return out
+    }
+    return {}
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" || isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) {
+      return {}
+    }
+    throw e
+  }
+}
+
+/** Toggle a single tenant feature override. Returns the full flag map. */
+export async function setProfileFeatureFlag(
+  userId: string,
+  flag: string,
+  enabled: boolean
+): Promise<Record<string, boolean>> {
+  await ensureOnboardingProfile(userId)
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE onboarding_profiles
+      SET feature_flags = jsonb_set(coalesce(feature_flags, '{}'::jsonb), ARRAY[${flag}], to_jsonb(${enabled}::boolean), true),
+          updated_at = now()
+      WHERE user_id = ${userId}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      throw new Error("feature_flags column missing — run scripts/063-admin-ops-controls.sql in Neon.")
+    }
+    throw e
+  }
+  return getProfileFeatureFlags(userId)
+}
+
+function mapOperatorPayoutRow(r: Record<string, unknown>): OperatorPayoutRow {
+  const rate = Number(r.rate_per_minute ?? 0)
+  const minutes = Number(r.minutes ?? 0)
+  const earned = Math.round(minutes * rate * 100) / 100
+  const paid = Math.round(Number(r.total_paid ?? 0) * 100) / 100
+  const accrued = Math.max(0, Math.round((earned - paid) * 100) / 100)
+  return {
+    receptionist_id: String(r.id),
+    name: String(r.name ?? "Agent"),
+    phone: String(r.phone ?? ""),
+    is_active: r.is_active !== false,
+    is_network_agent: r.user_id == null,
+    rate_per_minute: rate,
+    total_calls: Number(r.calls ?? 0),
+    total_minutes: Math.round(minutes * 100) / 100,
+    avg_answer_ms: r.avg_answer_ms != null ? Math.round(Number(r.avg_answer_ms)) : null,
+    earned_usd: earned,
+    paid_usd: paid,
+    accrued_usd: accrued,
+    last_paid_at: r.last_paid_at != null ? String(r.last_paid_at) : null,
+  }
+}
+
+/** Per-receptionist payout metrics: minutes, answer speed, earned/paid/accrued. */
+export async function listOperatorPayouts(): Promise<OperatorPayoutRow[]> {
+  const sql = getSql()
+
+  // Stats subquery — avg_answer_ms is best-effort (column may be missing).
+  const buildQuery = (withAnswerSpeed: boolean, withLedger: boolean) => {
+    const answerSpeed = withAnswerSpeed ? sql`AVG(post_dial_delay_ms) AS avg_answer_ms` : sql`NULL AS avg_answer_ms`
+    const ledgerJoin = withLedger
+      ? sql`LEFT JOIN (
+              SELECT receptionist_id AS rid, SUM(amount_usd) AS total_paid, MAX(created_at) AS last_paid_at
+              FROM payout_ledger GROUP BY receptionist_id
+            ) paid ON paid.rid = r.id`
+      : sql``
+    const paidCols = withLedger
+      ? sql`COALESCE(paid.total_paid, 0) AS total_paid, paid.last_paid_at`
+      : sql`0 AS total_paid, NULL AS last_paid_at`
+    return sql`
+      SELECT r.id, r.name, r.phone, r.user_id, r.rate_per_minute, r.is_active,
+             COALESCE(stats.calls, 0) AS calls,
+             COALESCE(stats.minutes, 0) AS minutes,
+             stats.avg_answer_ms,
+             ${paidCols}
+      FROM receptionists r
+      LEFT JOIN (
+        SELECT routed_to_receptionist_id AS rid,
+               COUNT(*) AS calls,
+               SUM(duration_seconds) / 60.0 AS minutes,
+               ${answerSpeed}
+        FROM call_logs
+        WHERE routed_to_receptionist_id IS NOT NULL
+        GROUP BY routed_to_receptionist_id
+      ) stats ON stats.rid = r.id
+      ${ledgerJoin}
+      ORDER BY r.is_active DESC, minutes DESC NULLS LAST
+    `
+  }
+
+  let withAnswerSpeed = true
+  let withLedger = true
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const rows = await buildQuery(withAnswerSpeed, withLedger)
+      return rows.map((r) => mapOperatorPayoutRow(r as Record<string, unknown>))
+    } catch (e) {
+      if (isUndefinedRelationError(e, "payout_ledger") && withLedger) {
+        withLedger = false
+        continue
+      }
+      if (pgErrorCode(e) === "42703" && withAnswerSpeed) {
+        withAnswerSpeed = false
+        continue
+      }
+      throw e
+    }
+  }
+  return []
+}
+
+/** Current accrued snapshot for one receptionist (server-trusted amount for Mark Paid). */
+export async function getOperatorPayoutSnapshot(receptionistId: string): Promise<OperatorPayoutRow | null> {
+  const all = await listOperatorPayouts()
+  return all.find((r) => r.receptionist_id === receptionistId) ?? null
+}
+
+/** Log a payout (balance reset) transaction in the ledger. */
+export async function recordOperatorPayout(params: {
+  receptionistId: string
+  amountUsd: number
+  minutesPaid: number
+  note?: string | null
+  adminUserId: string
+}): Promise<{ id: string }> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      INSERT INTO payout_ledger (receptionist_id, amount_usd, minutes_paid, note, created_by, created_at)
+      VALUES (${params.receptionistId}, ${params.amountUsd}, ${params.minutesPaid}, ${params.note ?? null}, ${params.adminUserId}, now())
+      RETURNING id
+    `
+    return { id: String(rows[0]?.id) }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "payout_ledger")) {
+      throw new Error("payout_ledger table missing — run scripts/063-admin-ops-controls.sql in Neon.")
+    }
+    throw e
+  }
+}
+
 export async function adminAdjustProfileCarrierCredit(params: {
   userId: string
   amountUsd: number

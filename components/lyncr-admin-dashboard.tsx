@@ -64,6 +64,7 @@ import {
 import { accountStatusLabel } from "@/lib/account-status"
 import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
 import { AdminInviteReceptionistDialog } from "@/components/admin-invite-receptionist-dialog"
+import { LiveTrafficPulse } from "@/components/admin/live-traffic"
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
@@ -710,6 +711,8 @@ export function LyncrAdminDashboard({
         </Card>
       </div>
 
+      <LiveTrafficPulse />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">Invite platform receptionists to the payout portal.</p>
         <AdminInviteReceptionistDialog />
@@ -814,8 +817,26 @@ export function LyncrAdminDashboard({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUsers.map((row) => (
-                    <TableRow key={row.user_id} className="border-slate-800 hover:bg-slate-800/30">
+                  filteredUsers.map((row) => {
+                    const isOwner = row.role === "OWNER"
+                    return (
+                    <TableRow
+                      key={row.user_id}
+                      className={cn(
+                        "border-slate-800 hover:bg-slate-800/30",
+                        isOwner && "cursor-pointer"
+                      )}
+                      onClick={
+                        isOwner
+                          ? (e) => {
+                              // Ignore clicks that land on interactive cells (buttons, inputs, links).
+                              if ((e.target as HTMLElement).closest("button, input, a, [role='menuitem']")) return
+                              onManageUser(row)
+                            }
+                          : undefined
+                      }
+                      title={isOwner ? "Open tenant management" : undefined}
+                    >
                       <TableCell>
                         <UserIdCell userId={row.user_id} />
                       </TableCell>
@@ -861,7 +882,8 @@ export function LyncrAdminDashboard({
                         />
                       </TableCell>
                     </TableRow>
-                  ))
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

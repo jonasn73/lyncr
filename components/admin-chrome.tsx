@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
-import { FlaskConical, Network, Shield, LogOut } from "lucide-react"
+import { FlaskConical, Network, Shield, LogOut, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,11 @@ function AdminSidebar() {
   const nav = [
     { href: "/admin", label: "Dashboard", active: pathname === "/admin" },
     { href: "/admin/network", label: "Network agents", active: pathname?.startsWith("/admin/network") },
+    {
+      href: "/admin/dashboard/operators",
+      label: "Operator payouts",
+      active: pathname?.startsWith("/admin/dashboard/operators"),
+    },
     { href: "/admin/sandbox", label: "Dev sandbox", active: pathname?.startsWith("/admin/sandbox") },
   ]
 
@@ -76,6 +81,8 @@ function AdminSidebar() {
           >
             {item.href.includes("sandbox") ? (
               <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
+            ) : item.href.includes("operators") ? (
+              <Wallet className="h-4 w-4 shrink-0" aria-hidden />
             ) : item.href.includes("network") ? (
               <Network className="h-4 w-4 shrink-0" aria-hidden />
             ) : null}

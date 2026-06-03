@@ -302,6 +302,42 @@ export interface LyncrAdminDirectoryRow {
   custom_routing_note: string | null
 }
 
+/** One in-progress call for the admin Live Traffic Pulse feed. */
+export interface AdminLiveCall {
+  id: string
+  business_name: string
+  email: string
+  operator: string | null
+  from_number: string
+  status: string
+  /** ISO timestamp the call connected/started — the client renders a live counter from this. */
+  started_at: string
+  connected: boolean
+}
+
+/** Tenant feature overrides + provisioned lines shown in the admin tenant drawer. */
+export interface AdminTenantControls {
+  feature_flags: Record<string, boolean>
+  phone_lines: { id: string; number: string; label: string; status: string; type: string }[]
+}
+
+/** One row in the receptionist payout ledger view. */
+export interface OperatorPayoutRow {
+  receptionist_id: string
+  name: string
+  phone: string
+  is_active: boolean
+  is_network_agent: boolean
+  rate_per_minute: number
+  total_calls: number
+  total_minutes: number
+  avg_answer_ms: number | null
+  earned_usd: number
+  paid_usd: number
+  accrued_usd: number
+  last_paid_at: string | null
+}
+
 export type AdminUserOverrideResult = {
   user_id: string
   account_status: string
