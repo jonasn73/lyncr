@@ -49,3 +49,23 @@ export async function publishReceptionistEvent(
     return false
   }
 }
+
+export type OwnerChannelEvent = "job-booked" | "lead-salvageable"
+
+/** Publish an event to a business owner's channel (e.g. live booking alerts). Safe no-op when unconfigured. */
+export async function publishOwnerEvent(
+  ownerId: string,
+  event: OwnerChannelEvent,
+  payload: Record<string, unknown>
+): Promise<boolean> {
+  const pusher = getPusherServer()
+  if (!pusher) return false
+  const channel = `owner-${ownerId}`
+  try {
+    await pusher.trigger(channel, event, payload)
+    return true
+  } catch (e) {
+    console.error("[realtime] publishOwnerEvent failed:", e)
+    return false
+  }
+}

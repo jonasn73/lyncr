@@ -3930,6 +3930,124 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
   }
 }
 
+export type LeadDisposition = "BOOKED" | "PRICE_REJECTED"
+
+export interface DispositionedLead {
+  id: string
+  caller_e164: string | null
+  intent_slug: string | null
+  summary: string | null
+  collected: Record<string, unknown>
+  disposition: LeadDisposition | null
+  dispatch_status: string | null
+  is_salvageable: boolean
+  created_at: string
+}
+
+function parseDispositionedLeadRow(r: Record<string, unknown>): DispositionedLead {
+  const collected = (r.collected as Record<string, unknown>) || {}
+  const dispositionRaw =
+    (r.disposition != null ? String(r.disposition) : null) ??
+    (typeof collected.disposition === "string" ? collected.disposition : null)
+  const disposition =
+    dispositionRaw === "BOOKED" || dispositionRaw === "PRICE_REJECTED" ? dispositionRaw : null
+  const dispatch_status =
+    r.dispatch_status != null
+      ? String(r.dispatch_status)
+      : typeof collected.dispatch_status === "string"
+        ? collected.dispatch_status
+        : null
+  const is_salvageable =
+    r.is_salvageable === true || r.is_salvageable === "t" || collected.is_salvageable === true
+  return {
+    id: String(r.id),
+    caller_e164: r.caller_e164 != null ? String(r.caller_e164) : null,
+    intent_slug: r.intent_slug != null ? String(r.intent_slug) : null,
+    summary: r.summary != null ? String(r.summary) : null,
+    collected,
+    disposition,
+    dispatch_status,
+    is_salvageable,
+    created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  }
+}
+
+/**
+ * Best-effort stamp of the dedicated disposition columns (scripts/058). The same keys are always
+ * written into ai_leads.collected by the log-job route, so this is a no-op-safe enhancement that is
+ * skipped when the migration hasn't run yet.
+ */
+export async function applyLeadDisposition(
+  leadId: string,
+  params: { disposition: LeadDisposition; dispatch_status: string | null; is_salvageable: boolean }
+): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE ai_leads
+      SET disposition = ${params.disposition},
+          dispatch_status = ${params.dispatch_status},
+          is_salvageable = ${params.is_salvageable}
+      WHERE id = ${leadId}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" || isUndefinedRelationError(e, "ai_leads")) return
+    throw e
+  }
+}
+
+/** PRICE_REJECTED leads the owner can try to rescue (filters JSONB so it works pre-migration). */
+export async function listSalvageableLeads(userId: string, limit = 25): Promise<DispositionedLead[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT id, caller_e164, intent_slug, collected, summary, created_at,
+             collected ->> 'disposition' AS disposition,
+             collected ->> 'dispatch_status' AS dispatch_status,
+             (collected ->> 'is_salvageable') = 'true' AS is_salvageable
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND collected ->> 'disposition' = 'PRICE_REJECTED'
+        AND collected ->> 'is_salvageable' = 'true'
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map((r) => parseDispositionedLeadRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
+/** BOOKED leads created after `sinceIso` — drives the owner's live booking toast feed. */
+export async function listRecentBookedLeads(
+  userId: string,
+  sinceIso: string,
+  limit = 20
+): Promise<DispositionedLead[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 50)
+  try {
+    const rows = await sql`
+      SELECT id, caller_e164, intent_slug, collected, summary, created_at,
+             collected ->> 'disposition' AS disposition,
+             collected ->> 'dispatch_status' AS dispatch_status,
+             (collected ->> 'is_salvageable') = 'true' AS is_salvageable
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND collected ->> 'disposition' = 'BOOKED'
+        AND created_at > ${sinceIso}
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map((r) => parseDispositionedLeadRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
 /**
  * Counts how many times Telnyx has POSTed `/incoming` for this `call_sid` (atomic upsert).
  * - **1** → first hit: silent `<Redirect>` to `/ai-bridge` is OK.

@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useMemo, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { LifeBuoy, Loader2, PhoneOutgoing } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   DrawerStepHeader,
@@ -291,10 +291,100 @@ const LeadsGrid = memo(function LeadsGrid({
   )
 })
 
+type SalvageLead = {
+  id: string
+  caller_e164: string | null
+  summary: string | null
+  collected: Record<string, unknown>
+  created_at: string
+}
+
+/** Build a tel: href, defaulting to US (+1) when the stored number is bare 10 digits. */
+function telHref(e164: string | null): string | null {
+  if (!e164) return null
+  const trimmed = e164.trim()
+  if (trimmed.startsWith("+")) return `tel:${trimmed.replace(/[^\d+]/g, "")}`
+  const digits = trimmed.replace(/\D/g, "")
+  if (digits.length === 11 && digits.startsWith("1")) return `tel:+${digits}`
+  if (digits.length === 10) return `tel:+1${digits}`
+  return digits ? `tel:${digits}` : null
+}
+
+function salvageOperator(collected: Record<string, unknown>): string | null {
+  const v = collected?.captured_by_name
+  return typeof v === "string" && v.trim() ? v.trim() : null
+}
+
+function LeadSalvageSection({ leads }: { leads: SalvageLead[] }) {
+  if (leads.length === 0) return null
+  return (
+    <section className="mb-7">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10">
+          <LifeBuoy className="h-4 w-4 text-amber-300" aria-hidden />
+        </span>
+        <div>
+          <h2 className="text-sm font-semibold text-foreground sm:text-base">Lyncr Lead Salvage</h2>
+          <p className="text-xs text-zinc-500">
+            Callers who balked at pricing — call them back to rescue the deal.
+          </p>
+        </div>
+        <span className="ml-auto inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
+          {leads.length} to rescue
+        </span>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {leads.map((lead) => {
+          const href = telHref(lead.caller_e164)
+          const operator = salvageOperator(lead.collected)
+          return (
+            <div
+              key={lead.id}
+              className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/15 p-5"
+            >
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                Price rejected
+              </span>
+
+              {href ? (
+                <a
+                  href={href}
+                  className="group inline-flex items-center gap-2 text-2xl font-bold tracking-tight text-amber-200 transition-colors hover:text-amber-100"
+                >
+                  <PhoneOutgoing className="h-5 w-5 shrink-0 text-amber-400" aria-hidden />
+                  {formatCaller(lead.caller_e164)}
+                </a>
+              ) : (
+                <p className="text-2xl font-bold tracking-tight text-zinc-500">No number captured</p>
+              )}
+              {href ? (
+                <p className="-mt-1 text-[11px] font-medium uppercase tracking-wide text-amber-400/70">
+                  Tap to call back
+                </p>
+              ) : null}
+
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+                {lead.summary?.trim() || "No operator notes captured."}
+              </p>
+
+              <p className="mt-auto text-[11px] text-zinc-600">
+                {operator ? `Logged by ${operator} · ` : ""}
+                {formatCapturedDate(lead.created_at)}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   loading,
   error,
   leads,
+  salvageLeads,
   usingDemo,
   selectedLead,
   onSelectLead,
@@ -302,6 +392,7 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   loading: boolean
   error: string | null
   leads: DisplayLead[]
+  salvageLeads: SalvageLead[]
   usingDemo: boolean
   selectedLead: DisplayLead | null
   onSelectLead: (lead: DisplayLead) => void
@@ -309,6 +400,8 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   return (
     <WorkspacePage>
       <WorkspacePageHeader eyebrow="CRM" title="Leads" />
+
+      <LeadSalvageSection leads={salvageLeads} />
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -326,9 +419,25 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const [apiLeads, setApiLeads] = useState<LeadRow[]>([])
   const [leads, setLeads] = useState<DisplayLead[]>([])
+  const [salvageLeads, setSalvageLeads] = useState<SalvageLead[]>([])
   const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/owner/lead-salvage", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("salvage"))))
+      .then((data: { data?: { leads?: SalvageLead[] } }) => {
+        if (!cancelled) setSalvageLeads(Array.isArray(data.data?.leads) ? data.data!.leads! : [])
+      })
+      .catch(() => {
+        if (!cancelled) setSalvageLeads([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -377,6 +486,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
         loading={loading}
         error={error}
         leads={leads}
+        salvageLeads={salvageLeads}
         usingDemo={usingDemo}
         selectedLead={selectedLead}
         onSelectLead={setSelectedLead}

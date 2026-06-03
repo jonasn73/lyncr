@@ -145,6 +145,53 @@ export function ReceptionistLiveIntake({
     [config.fields, values]
   )
 
+  function buildSummary(): string {
+    return (
+      config.fields
+        .map((f) => {
+          const v = values[f.name]
+          if (v === undefined || v === "" || v === false) return null
+          return `${f.label}: ${v === true ? "Yes" : v}`
+        })
+        .filter(Boolean)
+        .join(" · ") || ""
+    )
+  }
+
+  // Job disposition → owner pipeline (BOOKED routes for review, PRICE_REJECTED goes to salvage).
+  async function logJob(status: "BOOKED" | "PRICE_REJECTED") {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/receptionist/log-job", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callLogId: session.callLogId,
+          status,
+          businessType: session.businessType,
+          callerNumber,
+          callerName,
+          summary: buildSummary() || null,
+          fields: values,
+        }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Could not log job")
+      setSavedMsg(
+        status === "BOOKED"
+          ? "Booked — the owner has been notified."
+          : "Logged as price-rejected — sent to the owner's salvage queue."
+      )
+      window.setTimeout(() => onDismiss("saved"), 1100)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error logging job")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function submit() {
     setSaving(true)
     setError(null)
@@ -289,25 +336,48 @@ export function ReceptionistLiveIntake({
           </p>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => onDismiss("dismissed")}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
-          >
-            <X className="h-4 w-4" aria-hidden />
-            Dismiss
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={saving || missingRequired || Boolean(savedMsg)}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
-            Save & text owner
-          </button>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Disposition:</span>
+            <button
+              type="button"
+              onClick={() => void logJob("BOOKED")}
+              disabled={saving || Boolean(savedMsg)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Check className="h-4 w-4" aria-hidden />
+              Booked
+            </button>
+            <button
+              type="button"
+              onClick={() => void logJob("PRICE_REJECTED")}
+              disabled={saving || Boolean(savedMsg)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <X className="h-4 w-4" aria-hidden />
+              Price rejected
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onDismiss("dismissed")}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
+            >
+              <X className="h-4 w-4" aria-hidden />
+              Dismiss
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving || missingRequired || Boolean(savedMsg)}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
+              Save & text owner
+            </button>
+          </div>
         </div>
       </div>
     </WorkspacePanel>

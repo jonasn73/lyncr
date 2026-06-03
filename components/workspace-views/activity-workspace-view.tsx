@@ -1,7 +1,8 @@
 "use client"
 
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import {
   DrawerStepHeader,
@@ -41,6 +42,81 @@ function formatDuration(seconds: number): string {
   const s = seconds % 60
   if (m === 0) return `${s}s`
   return `${m}m ${s.toString().padStart(2, "0")}s`
+}
+
+function formatCallerNumber(num: string | null): string {
+  if (!num) return "Unknown caller"
+  const d = num.replace(/\D/g, "")
+  if (d.length === 11 && d.startsWith("1")) return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return num
+}
+
+/** Short two-tone chime for a new booking — synthesized so we ship no audio asset. */
+function playBookingPing() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = "sine"
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.34)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.36)
+    osc.onended = () => void ctx.close()
+  } catch {
+    /* audio not available — toast still fires */
+  }
+}
+
+type BookingAlert = { id: string; caller: string | null; summary: string | null; created_at: string }
+
+/** Poll for newly-BOOKED operator jobs and fire a toast + audio ping for each. */
+function useBookingAlerts() {
+  const { toast } = useToast()
+  const sinceRef = useRef<string>(new Date().toISOString())
+  const seenRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    let stopped = false
+    async function poll() {
+      try {
+        const res = await fetch(`/api/owner/booking-alerts?since=${encodeURIComponent(sinceRef.current)}`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+        if (!res.ok) return
+        const json = (await res.json()) as { data?: { bookings?: BookingAlert[]; now?: string } }
+        for (const b of json.data?.bookings ?? []) {
+          if (seenRef.current.has(b.id)) continue
+          seenRef.current.add(b.id)
+          playBookingPing()
+          toast({
+            title: "New booking confirmed",
+            description: `${formatCallerNumber(b.caller)}${b.summary ? ` — ${b.summary}` : ""}`,
+          })
+        }
+        if (json.data?.now) sinceRef.current = json.data.now
+      } catch {
+        /* transient — next tick retries */
+      }
+    }
+    const timer = window.setInterval(() => {
+      if (!stopped) void poll()
+    }, 12_000)
+    void poll()
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+    }
+  }, [toast])
 }
 
 /** e.g. "Today, 4:15 PM" or "May 25, 2:30 PM" */
@@ -384,6 +460,7 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   const { calls, loading, loadError, refreshing } = useOperationsData({ refetchIntervalMs: 12_000 })
   const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()
+  useBookingAlerts()
 
   useEffect(() => {
     setActivityLogs(calls)
