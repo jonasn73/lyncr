@@ -25,15 +25,35 @@ function getSql(): ReturnType<typeof neon> {
   return cachedSql
 }
 
-/** Postgres "column does not exist" — migration 064/054 not applied yet. */
-function isMissingInviteColumn(e: unknown): boolean {
+/**
+ * Detect a missing column (42703) or missing table (42P01) and return a precise,
+ * actionable message that names the actual gap — instead of always blaming "064".
+ * Returns null for any other error (so real failures aren't masked).
+ */
+function schemaGapMessage(e: unknown): string | null {
   const anyE = e as { code?: string; message?: string }
   const code = anyE?.code ?? ""
   const msg = String(anyE?.message ?? e ?? "")
-  return code === "42703" || msg.includes("42703") || /column .* does not exist/i.test(msg)
+
+  const missingColumn = code === "42703" || msg.includes("42703") || /column .* does not exist/i.test(msg)
+  if (missingColumn) {
+    const col = msg.match(/column "?([\w.]+)"? .*does not exist/i)?.[1] ?? "unknown"
+    return `Field-tech invites can't run — the database is missing column "${col}". Run the latest migrations (011, 061, 064) in Neon → SQL Editor.`
+  }
+
+  const missingTable = code === "42P01" || msg.includes("42P01") || /relation .* does not exist/i.test(msg)
+  if (missingTable) {
+    const tbl = msg.match(/relation "?([\w.]+)"? does not exist/i)?.[1] ?? "field_technicians"
+    return `Field-tech invites can't run — the database is missing table "${tbl}". Run migration 061 (and 064) in Neon → SQL Editor.`
+  }
+
+  return null
 }
 
-const MIGRATION_HINT = "Tech invites need migration 064 — run scripts/064-tech-invite-link.sql in Neon."
+/** Back-compat: still used to gate read paths that should degrade quietly. */
+function isMissingInviteColumn(e: unknown): boolean {
+  return schemaGapMessage(e) !== null
+}
 
 export type TechInviteStub = {
   userId: string
@@ -99,13 +119,15 @@ export async function createTechInviteStub(params: {
 
     const id = crypto.randomUUID()
     await sql.transaction([
+      // `industry` is intentionally omitted — it carries a NOT NULL DEFAULT 'generic'
+      // in the schema, so we let the DB fill it and avoid coupling to migration 011.
       sql`
         INSERT INTO users (
-          id, email, name, phone, business_name, industry, password_hash,
+          id, email, name, phone, business_name, password_hash,
           account_role, invite_status, invitation_token, invitation_expires_at, created_at
         )
         VALUES (
-          ${id}, ${email}, ${params.name}, ${phoneE164}, ${businessName}, 'generic', '',
+          ${id}, ${email}, ${params.name}, ${phoneE164}, ${businessName}, '',
           'field_tech', 'invited', ${params.token}, ${params.expiresAt}::timestamptz, now()
         )
       `,
@@ -116,7 +138,8 @@ export async function createTechInviteStub(params: {
     ])
     return { userId: id, created: true }
   } catch (e) {
-    if (isMissingInviteColumn(e)) throw new Error(MIGRATION_HINT)
+    const gap = schemaGapMessage(e)
+    if (gap) throw new Error(gap)
     throw e
   }
 }

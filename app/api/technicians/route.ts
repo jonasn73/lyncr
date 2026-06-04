@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     const msg = e instanceof Error ? e.message : "Could not invite technician"
     console.error("[POST /api/technicians] failed:", e)
     // Surface friendly validation/migration errors to the owner.
-    const isUserFacing = /already has|migration 064/i.test(msg)
+    const isUserFacing = /already has|migration|missing (column|table)/i.test(msg)
     return NextResponse.json({ error: isUserFacing ? msg : "Could not invite technician" }, {
       status: isUserFacing ? 409 : 500,
     })
