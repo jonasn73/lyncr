@@ -355,6 +355,42 @@ function AccountStatusBadge({ status }: { status: string }) {
   )
 }
 
+/** Subscription tier pill: dark-green/mint for paid tiers, muted steel-blue for free trial. */
+function TierBadge({ tier }: { tier: string }) {
+  const t = (tier || "").toLowerCase()
+  const isPaid = t === "professional" || t === "business"
+  const isTrial = t === "free_trial"
+  const label = isTrial ? "Free trial" : tier || "—"
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-0 capitalize",
+        isPaid && "bg-emerald-900/50 text-emerald-300",
+        isTrial && "bg-sky-950/60 text-sky-300",
+        !isPaid && !isTrial && "bg-slate-700/40 text-slate-300"
+      )}
+    >
+      {label}
+    </Badge>
+  )
+}
+
+/** Subscription status pill: vibrant emerald when active, soft dark-red/crimson when inactive. */
+function SubscriptionStatusBadge({ active }: { active: boolean }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-0",
+        active ? "bg-emerald-500/20 text-emerald-300" : "bg-red-950/50 text-red-400"
+      )}
+    >
+      {active ? "Active" : "Inactive"}
+    </Badge>
+  )
+}
+
 function UserRowActions({
   row,
   fetchLatestAdminStats,
@@ -715,14 +751,12 @@ export function LyncrAdminDashboard({
       {/* Two-column workflow grid: User Directory (left, wide) + Live Traffic Pulse (right, narrow). */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-slate-500">Invite platform receptionists to the payout portal.</p>
-            <AdminInviteReceptionistDialog />
-          </div>
-
           <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader className="border-b border-slate-800/80 pb-4">
-          <CardTitle className="text-lg text-slate-100">User directory</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-lg text-slate-100">User directory</CardTitle>
+            <AdminInviteReceptionistDialog />
+          </div>
           <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
             <div className="relative max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
@@ -824,10 +858,7 @@ export function LyncrAdminDashboard({
                     return (
                     <TableRow
                       key={row.user_id}
-                      className={cn(
-                        "border-slate-800 hover:bg-slate-800/30",
-                        isOwner && "cursor-pointer"
-                      )}
+                      className="cursor-pointer border-slate-800 transition-colors hover:bg-slate-800/40"
                       onClick={
                         isOwner
                           ? (e) => {
@@ -847,19 +878,11 @@ export function LyncrAdminDashboard({
                         <RoleBadge row={row} />
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "border-0",
-                            row.has_active_subscription
-                              ? "bg-emerald-500/15 text-emerald-300"
-                              : "bg-slate-700/50 text-slate-400"
-                          )}
-                        >
-                          {row.has_active_subscription ? "Active" : "Inactive"}
-                        </Badge>
+                        <SubscriptionStatusBadge active={row.has_active_subscription} />
                       </TableCell>
-                      <TableCell className="text-slate-300">{row.subscription_tier}</TableCell>
+                      <TableCell>
+                        <TierBadge tier={row.subscription_tier} />
+                      </TableCell>
                       <TableCell className="text-slate-200">{row.total_calls_routed}</TableCell>
                       <TableCell className="text-slate-200">{formatMinutes(row.total_minutes_used)}</TableCell>
                       <TableCell>
@@ -894,7 +917,7 @@ export function LyncrAdminDashboard({
           </Card>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="flex h-full flex-col lg:col-span-1">
           <LiveTrafficPulse />
         </div>
       </div>

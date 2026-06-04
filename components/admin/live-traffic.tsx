@@ -57,7 +57,7 @@ export function LiveTrafficPulse() {
   }, [])
 
   return (
-    <Card className="border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
+    <Card className="flex h-full flex-col border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="flex items-center gap-2 text-base text-slate-100">
           <span className="relative flex h-2.5 w-2.5">
