@@ -49,6 +49,7 @@ import type {
   OwnerSmsSettings,
   LeadDispatchContext,
   AdminLiveCall,
+  AdminCallHistoryRow,
   OperatorPayoutRow,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
@@ -5607,6 +5608,42 @@ export async function listActiveCallTraffic(): Promise<AdminLiveCall[]> {
       LIMIT 50
     `
     return rows.map(mapRow)
+  }
+}
+
+/** Most recent calls across every tenant for the platform-admin call history widget. */
+export async function listRecentCallHistory(limit = 50): Promise<AdminCallHistoryRow[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 200)
+  const mapRow = (r: Record<string, unknown>): AdminCallHistoryRow => ({
+    id: String(r.id),
+    // provider_call_sid is our trunk identifier; surfaced as call_uuid per the admin spec.
+    call_uuid: r.call_uuid != null ? String(r.call_uuid) : "",
+    direction: r.direction != null ? String(r.direction) : "",
+    from_number: r.from_number != null ? String(r.from_number) : "",
+    to_number: r.to_number != null ? String(r.to_number) : "",
+    status: r.status != null ? String(r.status) : "",
+    duration_seconds: Number(r.duration_seconds ?? 0) || 0,
+    created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ""),
+  })
+  try {
+    const rows = await sql`
+      SELECT id,
+             provider_call_sid AS call_uuid,
+             call_type AS direction,
+             from_number,
+             to_number,
+             status,
+             duration_seconds,
+             created_at
+      FROM call_logs
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map(mapRow)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "call_logs")) return []
+    throw e
   }
 }
 

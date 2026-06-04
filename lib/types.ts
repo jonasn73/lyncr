@@ -329,6 +329,20 @@ export interface AdminLiveCall {
   connected: boolean
 }
 
+/** A historical call-log row for the platform-admin call history widget. */
+export interface AdminCallHistoryRow {
+  id: string
+  /** Provider trunk identifier (call_logs.provider_call_sid). */
+  call_uuid: string
+  /** Flow direction (call_logs.call_type): incoming | outgoing | missed | voicemail. */
+  direction: string
+  from_number: string
+  to_number: string
+  status: string
+  duration_seconds: number
+  created_at: string
+}
+
 /** Tenant feature overrides + provisioned lines shown in the admin tenant drawer. */
 export interface AdminTenantControls {
   feature_flags: Record<string, boolean>

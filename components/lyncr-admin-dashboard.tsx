@@ -65,6 +65,7 @@ import { accountStatusLabel } from "@/lib/account-status"
 import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
 import { AdminInviteReceptionistDialog } from "@/components/admin-invite-receptionist-dialog"
 import { LiveTrafficPulse } from "@/components/admin/live-traffic"
+import { CallHistoryTable } from "@/components/admin/call-history"
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
@@ -712,6 +713,8 @@ export function LyncrAdminDashboard({
       </div>
 
       <LiveTrafficPulse />
+
+      <CallHistoryTable />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">Invite platform receptionists to the payout portal.</p>
