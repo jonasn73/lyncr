@@ -13,6 +13,46 @@ type TelnyxErrorBody = {
   errors?: { code?: string; title?: string; detail?: string }[]
 }
 
+/** Shown to owners when carriers block outbound SMS (missing / unregistered 10DLC). */
+export const TEN_DLC_BLOCK_USER_MESSAGE =
+  "Message blocked by carrier due to missing 10DLC profile registration."
+
+export type TelnyxSmsErrorType = "10DLC_BLOCK" | "OTHER"
+
+/** Classify a Telnyx SMS API error body or message for owner-facing handling. */
+export function classifyTelnyxSmsError(raw: string): { errorType: TelnyxSmsErrorType; message: string } {
+  let code: string | undefined
+  let title = ""
+  let detail = ""
+  try {
+    const parsed = JSON.parse(raw) as TelnyxErrorBody
+    const err = parsed.errors?.[0]
+    code = err?.code != null ? String(err.code) : undefined
+    title = err?.title ?? ""
+    detail = err?.detail ?? ""
+  } catch {
+    // Not JSON — fall through to pattern match on raw text.
+  }
+
+  const blob = `${code ?? ""} ${title} ${detail} ${raw}`.toLowerCase()
+  const is10Dlc =
+    code === "40011" ||
+    /10dlc|unregistered.*traffic|a2p|campaign.*not assigned|missing.*10dlc/i.test(blob)
+
+  if (is10Dlc) {
+    return { errorType: "10DLC_BLOCK", message: TEN_DLC_BLOCK_USER_MESSAGE }
+  }
+
+  const formatted = formatTelnyxSmsError(raw, null)
+  return { errorType: "OTHER", message: formatted }
+}
+
+/** True when a post-accept delivery_warning means US carriers will block the text. */
+export function is10DlcDeliveryWarning(warning: string | null | undefined): boolean {
+  if (!warning?.trim()) return false
+  return /10dlc|campaign not assigned|carriers block/i.test(warning)
+}
+
 export type TelnyxSmsSendResult =
   | {
       ok: true
@@ -22,7 +62,7 @@ export type TelnyxSmsSendResult =
       /** Set when Telnyx accepts the message but carrier delivery may still fail (e.g. missing 10DLC). */
       delivery_warning: string | null
     }
-  | { ok: false; error: string }
+  | { ok: false; error: string; errorType?: TelnyxSmsErrorType }
 
 function formatTelnyxSmsError(raw: string, fromE164: string | null): string {
   try {
@@ -174,7 +214,14 @@ export async function sendTelnyxSms(params: {
         }
       }
     }
-    return { ok: false, error: formatTelnyxSmsError(errText, from) }
+    const classified = classifyTelnyxSmsError(errText)
+    console.error("[Telnyx SMS] send rejected:", {
+      to: params.toE164,
+      from,
+      errorType: classified.errorType,
+      detail: errText.slice(0, 500),
+    })
+    return { ok: false, error: classified.message, errorType: classified.errorType }
   }
 
   return successResult(res)

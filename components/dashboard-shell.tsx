@@ -13,6 +13,10 @@ import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-p
 import { DashboardActivationProvider } from "@/components/dashboard-activation-context"
 import { DashboardActivationBanner } from "@/components/dashboard-activation-banner"
 import { AdminImpersonationBanner } from "@/components/admin-impersonation-banner"
+import {
+  DashboardHeaderWorkspace,
+  DashboardOrganizationsBootstrap,
+} from "@/components/dashboard-header-workspace"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "help"]
 
@@ -107,9 +111,11 @@ export function DashboardShell({
             <DashboardNumbersModalProvider>
               <UpgradeSubscriptionModal />
               <AddCarrierCreditModal />
+              <DashboardOrganizationsBootstrap />
               <AppShell
                 pathname={pathname}
                 accountHeader={accountHeader}
+                headerCenter={<DashboardHeaderWorkspace />}
                 topBanner={
                   <>
                     <AdminImpersonationBanner />

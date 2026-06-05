@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -13,6 +14,8 @@ import type { PageId } from "@/components/app-shell"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
+import type { Organization } from "@/lib/types"
+import { readActiveOrganizationId, writeActiveOrganizationId } from "@/lib/workspace-organizations"
 
 const PAGE_HREF: Record<PageId, string> = {
   dashboard: "/dashboard",
@@ -40,6 +43,11 @@ type DashboardWorkspaceContextValue = {
   setSelectedActivityLog: (log: UiCallRecord | null) => void
   openActivityLog: (log: UiCallRecord) => void
   closeActivityLog: () => void
+  /** Active business workspace (`065` organizations). */
+  activeOrganizationId: string | null
+  setActiveOrganizationId: (id: string | null) => void
+  organizations: Organization[]
+  setOrganizations: (orgs: Organization[]) => void
 }
 
 const DashboardWorkspaceContext = createContext<DashboardWorkspaceContextValue | null>(null)
@@ -51,6 +59,20 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>([])
   const [activityLogs, setActivityLogs] = useState<UiCallRecord[]>([])
   const [selectedActivityLog, setSelectedActivityLog] = useState<UiCallRecord | null>(null)
+  const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(null)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+
+  const setActiveOrganizationId = useCallback((id: string | null) => {
+    setActiveOrganizationIdState(id)
+    writeActiveOrganizationId(id)
+  }, [])
+
+  useEffect(() => {
+    setActiveOrganizationIdState(readActiveOrganizationId())
+    const onChanged = () => setActiveOrganizationIdState(readActiveOrganizationId())
+    window.addEventListener("lyncr-organization-changed", onChanged)
+    return () => window.removeEventListener("lyncr-organization-changed", onChanged)
+  }, [])
 
   const setActiveTab = useCallback(
     (tab: PageId) => {
@@ -81,6 +103,10 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
       setSelectedActivityLog,
       openActivityLog,
       closeActivityLog,
+      activeOrganizationId,
+      setActiveOrganizationId,
+      organizations,
+      setOrganizations,
     }),
     [
       activeTab,
@@ -91,6 +117,9 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
       selectedActivityLog,
       openActivityLog,
       closeActivityLog,
+      activeOrganizationId,
+      setActiveOrganizationId,
+      organizations,
     ]
   )
 

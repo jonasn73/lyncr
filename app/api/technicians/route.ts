@@ -79,20 +79,40 @@ export async function POST(req: NextRequest) {
       baseUrl,
     })
 
+    if (!sms.success) {
+      console.error("[POST /api/technicians] SMS dispatch failed:", {
+        phone,
+        errorType: sms.errorType,
+        error: sms.error,
+      })
+    }
+
     // Return the refreshed roster so the UI updates, plus invite/SMS status.
     const technicians = await listFieldTechnicians(userId)
+    const inviteBase = {
+      name,
+      phone,
+      expires_at: expiresAt,
+      setup_url: sms.setupUrl,
+      sms_sent: sms.success,
+      sms_error: sms.error,
+      success: sms.success,
+      errorType: sms.errorType,
+      message: sms.message,
+    }
+
+    if (sms.errorType === "10DLC_BLOCK") {
+      return NextResponse.json({
+        success: false,
+        errorType: "10DLC_BLOCK",
+        message: sms.message,
+        data: { technicians, invite: inviteBase },
+      })
+    }
+
     return NextResponse.json({
-      data: {
-        technicians,
-        invite: {
-          name,
-          phone,
-          expires_at: expiresAt,
-          setup_url: sms.setupUrl,
-          sms_sent: sms.sent,
-          sms_error: sms.error,
-        },
-      },
+      success: sms.success,
+      data: { technicians, invite: inviteBase },
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not invite technician"

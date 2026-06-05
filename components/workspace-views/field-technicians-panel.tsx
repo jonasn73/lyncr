@@ -16,7 +16,13 @@ type InviteResult = {
   setup_url: string
   sms_sent: boolean
   sms_error: string | null
+  success?: boolean
+  errorType?: "10DLC_BLOCK" | "OTHER"
+  message?: string
 }
+
+const TEN_DLC_BANNER_HEADLINE =
+  "Delivery Failed: This system's outbound number is missing 10DLC profile registration. Carrier spam filters are blocking URLs."
 
 function formatPhoneDisplay(phone: string): string {
   const d = phone.replace(/\D/g, "")
@@ -33,6 +39,7 @@ export function FieldTechniciansPanel() {
   const [error, setError] = useState<string | null>(null)
   const [invite, setInvite] = useState<InviteResult | null>(null)
   const [resentId, setResentId] = useState<string | null>(null)
+  const [resendError, setResendError] = useState<{ techId: string; message: string } | null>(null)
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -61,13 +68,22 @@ export function FieldTechniciansPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() }),
       })
-      const j = await res.json()
+      const j = (await res.json()) as {
+        error?: string
+        success?: boolean
+        errorType?: string
+        data?: { technicians?: FieldTechnician[]; invite?: InviteResult }
+      }
       if (!res.ok) {
         setError(j?.error || "Could not invite technician")
         return
       }
-      if (Array.isArray(j.data?.technicians)) setTechs(j.data.technicians as FieldTechnician[])
-      setInvite(j.data.invite as InviteResult)
+      if (Array.isArray(j.data?.technicians)) setTechs(j.data.technicians)
+      if (j.data?.invite) setInvite(j.data.invite)
+      if (j.success === false || j.data?.invite?.success === false) {
+        setAdding(false)
+        return
+      }
       setFirstName("")
       setLastName("")
       setPhone("")
@@ -81,16 +97,41 @@ export function FieldTechniciansPanel() {
 
   async function resend(tech: FieldTechnician) {
     setResentId(tech.id)
+    setResendError(null)
+    setInvite(null)
     try {
-      await fetch("/api/tech/invite", {
+      const res = await fetch("/api/tech/invite", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ technicianId: tech.id }),
       })
+      const j = (await res.json().catch(() => ({}))) as {
+        success?: boolean
+        errorType?: string
+        message?: string
+        data?: { setup_url?: string; sms_error?: string | null }
+      }
+      if (j.errorType === "10DLC_BLOCK") {
+        setResendError({
+          techId: tech.id,
+          message: TEN_DLC_BANNER_HEADLINE,
+        })
+        setResentId(null)
+        return
+      }
+      if (!res.ok || j.success === false) {
+        setResendError({
+          techId: tech.id,
+          message: j.message || "Could not resend invite text. Try again or share the setup link manually.",
+        })
+        setResentId(null)
+        return
+      }
       setTimeout(() => setResentId(null), 2500)
     } catch {
       setResentId(null)
+      setResendError({ techId: tech.id, message: "Network error. Please try again." })
     }
   }
 
@@ -134,24 +175,60 @@ export function FieldTechniciansPanel() {
         )}
       </div>
 
-      {/* Invite-sent confirmation */}
-      {invite && (
+      {/* 10DLC carrier block — do not show green "texted" success */}
+      {invite?.errorType === "10DLC_BLOCK" && (
+        <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
+          <p className="text-sm font-semibold text-red-200">
+            ⚠️ {TEN_DLC_BANNER_HEADLINE}
+          </p>
+          <p className="mt-2 text-xs text-red-100/80">
+            Technician <span className="font-medium text-red-100">{invite.name}</span> was added, but the
+            invite text did not leave our system. Register 10DLC under Settings → SMS lead-alert registration,
+            or share this setup link manually:
+          </p>
+          <p className="mt-2 break-all rounded-lg bg-black/40 p-2 font-mono text-[11px] text-red-100/90">
+            {invite.setup_url}
+          </p>
+          <p className="mt-2 text-[11px] text-red-200/60">Link expires in 48 hours.</p>
+        </div>
+      )}
+
+      {/* Invite-sent confirmation (only when SMS actually succeeded) */}
+      {invite && invite.errorType !== "10DLC_BLOCK" && invite.sms_sent && invite.success !== false && (
         <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
             <MessageSquare className="h-4 w-4" />
-            {invite.sms_sent ? `Invite texted to ${invite.name}` : `Invite created for ${invite.name}`}
+            Invite texted to {invite.name}
           </p>
           <p className="mt-1 text-xs text-emerald-100/80">
-            {invite.sms_sent
-              ? `We sent a secure setup link to ${formatPhoneDisplay(invite.phone)}. They tap it, pick a password, and they're in — no password for you to manage.`
-              : `We couldn't send the SMS automatically${invite.sms_error ? ` (${invite.sms_error})` : ""}. Share this setup link with them directly:`}
+            We sent a secure setup link to {formatPhoneDisplay(invite.phone)}. They tap it, pick a password,
+            and they&apos;re in — no password for you to manage.
           </p>
-          {!invite.sms_sent && (
-            <p className="mt-2 break-all rounded-lg bg-black/30 p-2 font-mono text-[11px] text-emerald-100">
-              {invite.setup_url}
-            </p>
-          )}
           <p className="mt-2 text-[11px] text-emerald-100/60">Link expires in 48 hours.</p>
+        </div>
+      )}
+
+      {/* Other SMS failures — neutral fallback with manual link */}
+      {invite && invite.errorType !== "10DLC_BLOCK" && !invite.sms_sent && (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <p className="text-sm font-semibold text-amber-200">Invite created for {invite.name}</p>
+          <p className="mt-1 text-xs text-amber-100/80">
+            We couldn&apos;t send the SMS automatically
+            {invite.sms_error || invite.message ? ` (${invite.message || invite.sms_error})` : ""}. Share this
+            setup link with them directly:
+          </p>
+          <p className="mt-2 break-all rounded-lg bg-black/30 p-2 font-mono text-[11px] text-amber-100">
+            {invite.setup_url}
+          </p>
+          <p className="mt-2 text-[11px] text-amber-100/60">Link expires in 48 hours.</p>
+        </div>
+      )}
+
+      {resendError && (
+        <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
+          <p className="text-sm font-semibold text-red-200">
+            ⚠️ {resendError.message.includes("10DLC") ? resendError.message : `Resend failed: ${resendError.message}`}
+          </p>
         </div>
       )}
 

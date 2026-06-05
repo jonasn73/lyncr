@@ -18,6 +18,9 @@ export interface Contact {
 export interface DashboardBusinessNumber {
   number: string
   status: string
+  label?: string
+  organization_id?: string | null
+  source_provider?: "telnyx" | "external"
   routing_summary?: PhoneNumberRoutingSummary
 }
 

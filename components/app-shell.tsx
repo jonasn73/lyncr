@@ -165,12 +165,15 @@ const AppShellHeader = memo(function AppShellHeader({
   onNavigate,
   commandOpen,
   onCommandOpenChange,
+  headerCenter,
 }: {
   useLinks: boolean
   accountHeader?: AccountHeaderState
   onNavigate?: (page: PageId) => void
   commandOpen: boolean
   onCommandOpenChange: (open: boolean) => void
+  /** Optional center slot (e.g. business workspace switcher). */
+  headerCenter?: ReactNode
 }) {
   return (
     <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background px-3 py-3 sm:px-5 sm:py-3.5">
@@ -199,7 +202,7 @@ const AppShellHeader = memo(function AppShellHeader({
         </button>
       )}
 
-      <div className="min-w-0 flex-1" />
+      {headerCenter ? <div className="flex min-w-0 flex-1 justify-center px-2">{headerCenter}</div> : <div className="min-w-0 flex-1" />}
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {useLinks && (
@@ -296,6 +299,7 @@ function AppShellInner({
   accountHeader,
   onNavigate,
   topBanner,
+  headerCenter,
   children,
 }: {
   pathname?: string
@@ -303,6 +307,7 @@ function AppShellInner({
   onNavigate?: (page: PageId) => void
   /** Renders above the sticky Lyncr header (e.g. sandbox trial alert). */
   topBanner?: ReactNode
+  headerCenter?: ReactNode
   children: ReactNode
 }) {
   const activePage = useDashboardActivePage()
@@ -338,6 +343,7 @@ function AppShellInner({
         onNavigate={onNavigate}
         commandOpen={commandOpen}
         onCommandOpenChange={handleCommandOpenChange}
+        headerCenter={headerCenter}
       />
 
       <main

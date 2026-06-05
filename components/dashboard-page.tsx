@@ -19,7 +19,38 @@ import {
 
 export function DashboardPage() {
   const { toast } = useToast()
-  const { activeLine, setActiveLine, businessNumbers, setBusinessNumbers } = useDashboardWorkspace()
+  const { activeLine, setActiveLine, businessNumbers, setBusinessNumbers, activeOrganizationId } =
+    useDashboardWorkspace()
+
+  const numbersMineUrl = useCallback(() => {
+    const base = "/api/numbers/mine"
+    if (activeOrganizationId && !activeOrganizationId.startsWith("legacy-")) {
+      return `${base}?organization_id=${encodeURIComponent(activeOrganizationId)}`
+    }
+    return base
+  }, [activeOrganizationId])
+
+  const mapNumbersResponse = useCallback(
+    (data: { numbers?: unknown[] }) => {
+      if (!Array.isArray(data.numbers)) return
+      const active = data.numbers
+        .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
+        .map((n: Record<string, unknown>) => ({
+          number: String(n.number),
+          status: String(n.status),
+          label: n.label != null ? String(n.label) : undefined,
+          organization_id: n.organization_id != null ? String(n.organization_id) : null,
+          source_provider: n.source_provider === "external" ? "external" as const : "telnyx" as const,
+          routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
+        }))
+      setBusinessNumbers(active)
+      setActiveLine((prev) => {
+        if (prev && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, prev))) return prev
+        return active[0]?.number ?? null
+      })
+    },
+    [setBusinessNumbers, setActiveLine]
+  )
 
   const [mainLinePhone, setMainLinePhone] = useState<string | null>(null)
   const [receptionists, setReceptionists] = useState<Contact[]>([])
@@ -80,25 +111,11 @@ export function DashboardPage() {
       .catch(() => {})
       .finally(() => safeFinally(() => setReceptionistsFetchDone(true)))
 
-    fetch("/api/numbers/mine", { credentials: "include" })
+    fetch(numbersMineUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
       .then((data) => {
-        if (cancelled || !Array.isArray(data.numbers)) {
-          return Promise.resolve()
-        }
-        const active = data.numbers
-          .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
-          .map((n: Record<string, unknown>) => ({
-            number: String(n.number),
-            status: String(n.status),
-            routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
-          }))
-        setBusinessNumbers(active)
-        // Keep the same selected line after refresh when possible; otherwise default to the first active number
-        setActiveLine((prev) => {
-          if (prev && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, prev))) return prev
-          return active[0]?.number ?? null
-        })
+        if (cancelled) return Promise.resolve()
+        mapNumbersResponse(data)
 
         return fetch("/api/ai-assistant", { credentials: "include" }).then((r) => (r.ok ? r.json() : null))
           .then((aiData) => {
@@ -113,28 +130,19 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [numbersMineUrl, mapNumbersResponse])
 
   const refreshBusinessNumbers = useCallback(() => {
-    fetch("/api/numbers/mine", { credentials: "include" })
+    fetch(numbersMineUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
-      .then((data) => {
-        if (!Array.isArray(data.numbers)) return
-        const active = data.numbers
-          .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
-          .map((n: Record<string, unknown>) => ({
-            number: String(n.number),
-            status: String(n.status),
-            routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
-          }))
-        setBusinessNumbers(active)
-        setActiveLine((prev) => {
-          if (prev && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, prev))) return prev
-          return active[0]?.number ?? null
-        })
-      })
+      .then((data) => mapNumbersResponse(data))
       .catch(() => {})
-  }, [])
+  }, [numbersMineUrl, mapNumbersResponse])
+
+  useEffect(() => {
+    if (!numbersRoutingFetchDone) return
+    void refreshBusinessNumbers()
+  }, [activeOrganizationId, numbersRoutingFetchDone, refreshBusinessNumbers])
 
   useEffect(() => {
     const onChanged = () => refreshBusinessNumbers()

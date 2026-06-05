@@ -54,8 +54,49 @@ export async function POST(req: NextRequest) {
       baseUrl: resolveAppBaseUrl(req.nextUrl.origin),
     })
 
+    if (!sms.success) {
+      console.error("[POST /api/tech/invite] SMS dispatch failed:", {
+        technicianId,
+        errorType: sms.errorType,
+        error: sms.error,
+      })
+    }
+
+    // Surface carrier blocks (e.g. Telnyx 40011 / missing 10DLC) — do not imply delivery succeeded.
+    if (sms.errorType === "10DLC_BLOCK") {
+      return NextResponse.json({
+        success: false,
+        errorType: "10DLC_BLOCK",
+        message: sms.message,
+        data: {
+          sms_sent: false,
+          sms_error: sms.error,
+          setup_url: sms.setupUrl,
+          expires_at: expiresAt,
+        },
+      })
+    }
+
+    if (!sms.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          errorType: sms.errorType ?? "OTHER",
+          message: sms.message ?? sms.error ?? "Could not send invite text",
+          data: {
+            sms_sent: false,
+            sms_error: sms.error,
+            setup_url: sms.setupUrl,
+            expires_at: expiresAt,
+          },
+        },
+        { status: 502 }
+      )
+    }
+
     return NextResponse.json({
-      data: { sms_sent: sms.sent, sms_error: sms.error, setup_url: sms.setupUrl, expires_at: expiresAt },
+      success: true,
+      data: { sms_sent: true, sms_error: null, setup_url: sms.setupUrl, expires_at: expiresAt },
     })
   } catch (e) {
     console.error("[POST /api/tech/invite] failed:", e)

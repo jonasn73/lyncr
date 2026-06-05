@@ -632,16 +632,33 @@ export interface RoutingConfig {
   updated_at: string
 }
 
+// --- Organizations (multi-business workspaces — scripts/065) ---
+export interface Organization {
+  id: string
+  owner_user_id: string
+  name: string
+  is_default: boolean
+  created_at: string
+}
+
 // --- Phone Numbers ---
+export type PhoneLineSourceProvider = "telnyx" | "external"
+
 export interface PhoneNumber {
   id: string
   user_id: string
+  /** Workspace this line belongs to (`065-organizations-external-lines.sql`). */
+  organization_id: string | null
   provider_number_sid: string
   number: string // e.g. "+15551234567"
   friendly_name: string // e.g. "(555) 123-4567"
   label: string // e.g. "Main Line"
   type: "local" | "toll-free"
   status: "active" | "pending" | "porting" | "released"
+  /** telnyx = purchased on Lyncr; external = Twilio/other forward to our TeXML webhook. */
+  source_provider: PhoneLineSourceProvider
+  /** Owner confirmed webhook routing for external lines. */
+  external_verified: boolean
   /** Per-line industry tag for skill-pool routing (`042`). */
   industry_tag: string | null
   /** How matched receptionists are dialed — sequential or simultaneous (`042`). */

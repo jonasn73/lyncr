@@ -19,7 +19,11 @@ export async function GET(req: NextRequest) {
       console.error("[numbers/mine] onboarding line backfill:", e)
     })
     await retryProvisionOnboardingBuyLine(userId)
-    const [numbers, account] = await Promise.all([getPhoneNumbers(userId), getUser(userId)])
+    const orgParam = req.nextUrl.searchParams.get("organization_id")?.trim() || null
+    const [numbers, account] = await Promise.all([
+      getPhoneNumbers(userId, orgParam),
+      getUser(userId),
+    ])
     const assistantLinked = Boolean(account?.telnyx_ai_assistant_id?.trim())
 
     const numbersWithRouting = await Promise.all(

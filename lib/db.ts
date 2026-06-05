@@ -51,6 +51,7 @@ import type {
   AdminLiveCall,
   AdminCallHistoryRow,
   OperatorPayoutRow,
+  Organization,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -3298,20 +3299,116 @@ export async function upsertCustomerForUser(params: {
 }
 
 function parsePhoneNumberRow(row: Record<string, unknown>): PhoneNumber {
+  const sourceRaw = row.source_provider != null ? String(row.source_provider).toLowerCase() : "telnyx"
   return {
     id: String(row.id),
     user_id: String(row.user_id),
+    organization_id: row.organization_id != null ? String(row.organization_id) : null,
     provider_number_sid: String(row.provider_number_sid ?? row.twilio_sid ?? ""),
     number: String(row.number),
     friendly_name: String(row.friendly_name ?? ""),
     label: String(row.label ?? "Business Line"),
     type: (row.type as "local" | "toll-free") || "local",
     status: (row.status as PhoneNumber["status"]) || "active",
+    source_provider: sourceRaw === "external" ? "external" : "telnyx",
+    external_verified: Boolean(row.external_verified),
     industry_tag:
       row.industry_tag != null && String(row.industry_tag).trim() !== "" ? String(row.industry_tag).trim() : null,
     routing_pool_mode: parseRoutingPoolMode(row.routing_pool_mode),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
+}
+
+function parseOrganizationRow(row: Record<string, unknown>): Organization {
+  return {
+    id: String(row.id),
+    owner_user_id: String(row.owner_user_id),
+    name: String(row.name),
+    is_default: Boolean(row.is_default),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }
+}
+
+function isMissingOrganizationsSchemaError(e: unknown): boolean {
+  if (isUndefinedRelationError(e, "organizations")) return true
+  if (pgErrorCode(e) !== "42703") return false
+  const msg = pgErrorMessage(e).toLowerCase()
+  return msg.includes("organization_id") || msg.includes("source_provider") || msg.includes("external_verified")
+}
+
+/** List workspaces for an owner (`065`). Returns a synthetic default row when migration not applied yet. */
+export async function listOrganizationsForOwner(ownerUserId: string): Promise<Organization[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, owner_user_id, name, is_default, created_at
+      FROM organizations
+      WHERE owner_user_id = ${ownerUserId}
+      ORDER BY is_default DESC, created_at ASC
+    `
+    if (rows.length > 0) return rows.map((r) => parseOrganizationRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (!isMissingOrganizationsSchemaError(e)) throw e
+  }
+  const user = await getUser(ownerUserId)
+  const name = user?.business_name?.trim() || user?.name?.trim() || "My Business"
+  return [
+    {
+      id: `legacy-${ownerUserId}`,
+      owner_user_id: ownerUserId,
+      name,
+      is_default: true,
+      created_at: new Date().toISOString(),
+    },
+  ]
+}
+
+/** Resolve an organization the owner may use (real UUID rows only). */
+export async function getOrganizationForOwner(
+  organizationId: string,
+  ownerUserId: string
+): Promise<Organization | null> {
+  if (organizationId.startsWith("legacy-")) {
+    const list = await listOrganizationsForOwner(ownerUserId)
+    return list.find((o) => o.id === organizationId) ?? list[0] ?? null
+  }
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, owner_user_id, name, is_default, created_at
+      FROM organizations
+      WHERE id = ${organizationId} AND owner_user_id = ${ownerUserId}
+      LIMIT 1
+    `
+    return rows[0] ? parseOrganizationRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingOrganizationsSchemaError(e)) {
+      const list = await listOrganizationsForOwner(ownerUserId)
+      return list[0] ?? null
+    }
+    throw e
+  }
+}
+
+export async function getDefaultOrganizationForOwner(ownerUserId: string): Promise<Organization | null> {
+  const list = await listOrganizationsForOwner(ownerUserId)
+  return list.find((o) => o.is_default) ?? list[0] ?? null
+}
+
+export async function createOrganizationForOwner(
+  ownerUserId: string,
+  name: string
+): Promise<Organization> {
+  const sql = getSql()
+  const trimmed = name.trim()
+  if (trimmed.length < 2) throw new Error("Business name must be at least 2 characters")
+  const id = crypto.randomUUID()
+  const rows = await sql`
+    INSERT INTO organizations (id, owner_user_id, name, is_default, created_at)
+    VALUES (${id}, ${ownerUserId}, ${trimmed}, false, now())
+    RETURNING id, owner_user_id, name, is_default, created_at
+  `
+  return parseOrganizationRow(rows[0] as Record<string, unknown>)
 }
 
 /** First active line linked to Telnyx (has provider SID) — usable as outbound SMS "from". */
@@ -3368,14 +3465,34 @@ export async function getPlatformLeadAlertTestRecipientE164(): Promise<string | 
   return null
 }
 
-// Get phone numbers for a user
-export async function getPhoneNumbers(userId: string): Promise<PhoneNumber[]> {
+// Get phone numbers for a user (optionally scoped to one organization workspace).
+export async function getPhoneNumbers(userId: string, organizationId?: string | null): Promise<PhoneNumber[]> {
   const sql = getSql()
-  const rows = await sql`
-    SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
-    FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
-  `
-  return rows.map(parsePhoneNumberRow)
+  const orgFilter =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
+  try {
+    const rows = orgFilter
+      ? await sql`
+          SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+            industry_tag, routing_pool_mode, source_provider, external_verified, created_at
+          FROM phone_numbers
+          WHERE user_id = ${userId} AND organization_id = ${orgFilter}
+          ORDER BY created_at ASC
+        `
+      : await sql`
+          SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+            industry_tag, routing_pool_mode, source_provider, external_verified, created_at
+          FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
+        `
+    return rows.map((r) => parsePhoneNumberRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (!isMissingOrganizationsSchemaError(e)) throw e
+    const rows = await sql`
+      SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
+      FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
+    `
+    return rows.map((r) => parsePhoneNumberRow(r as Record<string, unknown>))
+  }
 }
 
 /** One owned line by database id — used before release / patch. */
@@ -3441,36 +3558,108 @@ export async function insertPhoneNumber(params: {
   type?: "local" | "toll-free"
   status?: "active" | "pending" | "porting"
   provider_number_sid?: string
+  organization_id?: string | null
+  source_provider?: "telnyx" | "external"
+  external_verified?: boolean
 }): Promise<PhoneNumber> {
   const sql = getSql()
   const id = crypto.randomUUID()
   const numberE164 = normalizePhoneNumberE164(params.number)
-  await sql`
-    INSERT INTO phone_numbers (id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
-    VALUES (
-      ${id},
-      ${params.user_id},
-      ${params.provider_number_sid || ""},
-      ${params.provider_number_sid || ""},
-      ${numberE164},
-      ${params.friendly_name},
-      ${params.label || "Business Line"},
-      ${params.type || "local"},
-      ${params.status || "active"},
-      now()
-    )
-  `
+  let organizationId = params.organization_id ?? null
+  if (!organizationId) {
+    const def = await getDefaultOrganizationForOwner(params.user_id)
+    if (def && !def.id.startsWith("legacy-")) organizationId = def.id
+  }
+  const source = params.source_provider ?? "telnyx"
+  const extVerified = params.external_verified ?? source === "external"
+  try {
+    await sql`
+      INSERT INTO phone_numbers (
+        id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+        source_provider, external_verified, created_at
+      )
+      VALUES (
+        ${id},
+        ${params.user_id},
+        ${organizationId},
+        ${params.provider_number_sid || ""},
+        ${params.provider_number_sid || ""},
+        ${numberE164},
+        ${params.friendly_name},
+        ${params.label || "Business Line"},
+        ${params.type || "local"},
+        ${params.status || "active"},
+        ${source},
+        ${extVerified},
+        now()
+      )
+    `
+  } catch (e) {
+    if (!isMissingOrganizationsSchemaError(e)) throw e
+    await sql`
+      INSERT INTO phone_numbers (id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
+      VALUES (
+        ${id},
+        ${params.user_id},
+        ${params.provider_number_sid || ""},
+        ${params.provider_number_sid || ""},
+        ${numberE164},
+        ${params.friendly_name},
+        ${params.label || "Business Line"},
+        ${params.type || "local"},
+        ${params.status || "active"},
+        now()
+      )
+    `
+  }
   return {
     id,
     user_id: params.user_id,
+    organization_id: organizationId,
     provider_number_sid: params.provider_number_sid || "",
     number: numberE164,
     friendly_name: params.friendly_name,
     label: params.label || "Business Line",
     type: params.type || "local",
     status: params.status || "active",
+    source_provider: source,
+    external_verified: extVerified,
+    industry_tag: null,
+    routing_pool_mode: "sequential",
     created_at: new Date().toISOString(),
   }
+}
+
+/** Register an externally hosted DID (Twilio transfer) — active immediately, no carrier port. */
+export async function insertExternalPhoneLine(params: {
+  user_id: string
+  organization_id: string
+  number: string
+  label: string
+}): Promise<PhoneNumber> {
+  const org = await getOrganizationForOwner(params.organization_id, params.user_id)
+  if (!org) throw new Error("Workspace not found")
+  const normalized = normalizePhoneNumberE164(params.number)
+  const existing = await getPhoneNumberByNumberAndStatus(normalized, "active")
+  if (existing && existing.user_id !== params.user_id) {
+    throw new Error("That number is already registered on another Lyncr account")
+  }
+  if (existing && existing.user_id === params.user_id) {
+    return existing
+  }
+  const display = params.label.trim() || "External Line"
+  return insertPhoneNumber({
+    user_id: params.user_id,
+    organization_id: org.id.startsWith("legacy-") ? null : org.id,
+    number: normalized,
+    friendly_name: normalized,
+    label: display,
+    type: "local",
+    status: "active",
+    provider_number_sid: "external",
+    source_provider: "external",
+    external_verified: true,
+  })
 }
 
 // Get a phone number by number and status (e.g. for porting webhook)
