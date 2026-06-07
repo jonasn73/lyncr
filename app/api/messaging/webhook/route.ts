@@ -1,8 +1,4 @@
-// ============================================
-// POST /api/webhooks/telnyx/messaging
-// ============================================
-// Telnyx Messaging webhook — inbound SMS (message.received).
-// Also reachable at POST /api/messaging/webhook (same handler).
+// POST /api/messaging/webhook — Telnyx inbound SMS (message.received).
 
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
@@ -24,7 +20,7 @@ export async function POST(req: NextRequest) {
     try {
       await processInboundTelnyxMessage(body!)
     } catch (e) {
-      console.error("[telnyx/messaging webhook]", e)
+      console.error("[POST /api/messaging/webhook]", e)
     }
   })
 

@@ -5,14 +5,17 @@
 // is set on the porting order — see POST /api/numbers/port and Telnyx port-in notifications docs.
 
 import { NextRequest, NextResponse } from "next/server"
+import { after } from "next/server"
 import { insertPortingNotificationIfNew } from "@/lib/db"
 import { SITE_NAME } from "@/lib/brand"
+import { finalizePortedNumber } from "@/lib/port-number-finalize"
 import { syncPortingOrderFromTelnyxWebhook } from "@/lib/porting-order-sync"
 import {
   buildPortingNotificationText,
   buildPortingNotificationTitle,
   customerRefToUserId,
   extractEventType,
+  extractPortingPhoneNumbers,
   extractTelnyxEventId,
   findPortingOrderId,
   findZingCustomerReference,
@@ -65,6 +68,23 @@ export async function POST(req: NextRequest) {
       body,
       telnyxOrderId: orderId,
     })
+
+    if (orderSync.just_completed) {
+      const numbers = [
+        orderSync.phone_number?.trim(),
+        ...extractPortingPhoneNumbers(body),
+      ].filter(Boolean) as string[]
+      const unique = [...new Set(numbers)]
+      after(async () => {
+        for (const phone of unique) {
+          await finalizePortedNumber({
+            ownerUserId: userId,
+            phoneNumberE164: phone,
+            telnyxOrderId: orderId,
+          })
+        }
+      })
+    }
 
     console.log(
       JSON.stringify({

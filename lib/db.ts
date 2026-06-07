@@ -57,6 +57,7 @@ import type {
   SmsRegistration,
   SmsRegistrationOrgStatus,
   SmsRegistrationStatus,
+  SmsMessage,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -952,7 +953,7 @@ export async function getActivePhoneNumberByE164(toNumber: string): Promise<Phon
   const digitKey = phoneDigitsKey(toNumber)
   try {
     const rows = await sql`
-      SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+      SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
              industry_tag, routing_pool_mode, created_at
       FROM phone_numbers
       WHERE status = 'active'
@@ -964,7 +965,7 @@ export async function getActivePhoneNumberByE164(toNumber: string): Promise<Phon
   } catch (e) {
     if (!isMissingIndustryTagColumnError(e)) throw e
     const rows = await sql`
-      SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
+      SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
       FROM phone_numbers
       WHERE status = 'active'
         AND (number = ${normalized} OR regexp_replace(number, '\\D', '', 'g') = ${digitKey})
@@ -3430,6 +3431,14 @@ export async function getSmsRegistrationForOwner(
   ownerUserId: string,
   organizationId?: string | null
 ): Promise<SmsRegistration | null> {
+  return getSmsRegistrationForOrganization(ownerUserId, organizationId)
+}
+
+/** Load SMS compliance form data for a specific workspace. */
+export async function getSmsRegistrationForOrganization(
+  ownerUserId: string,
+  organizationId?: string | null
+): Promise<SmsRegistration | null> {
   const sql = getSql()
   try {
     const orgUuid =
@@ -3469,7 +3478,12 @@ export async function upsertSmsRegistration(params: {
 }): Promise<SmsRegistration> {
   const sql = getSql()
   const orgId = params.organization_id?.startsWith("legacy-") ? null : params.organization_id
-  const existing = await getSmsRegistrationForOwner(params.owner_user_id, orgId)
+  if (!orgId) {
+    throw new Error(
+      "An active business workspace is required for SMS registration. Choose a workspace in the dashboard switcher."
+    )
+  }
+  const existing = await getSmsRegistrationForOrganization(params.owner_user_id, orgId)
 
   if (existing) {
     const rows = await sql`
@@ -3546,6 +3560,83 @@ export async function getOrganizationSmsRegistrationStatus(
     return "NONE"
   } catch (e) {
     if (isMissingOrganizationsSchemaError(e) || pgErrorCode(e) === "42703") return null
+    throw e
+  }
+}
+
+function isMissingSmsMessagesTableError(e: unknown): boolean {
+  return isUndefinedRelationError(e, "sms_messages")
+}
+
+function parseSmsMessageRow(row: Record<string, unknown>): SmsMessage {
+  return {
+    id: String(row.id),
+    organization_id: row.organization_id != null ? String(row.organization_id) : null,
+    owner_user_id: String(row.owner_user_id),
+    phone_number_id: row.phone_number_id != null ? String(row.phone_number_id) : null,
+    direction: String(row.direction) === "outbound" ? "outbound" : "inbound",
+    from_number: String(row.from_number ?? ""),
+    to_number: String(row.to_number ?? ""),
+    body: String(row.body ?? ""),
+    customer_phone: String(row.customer_phone ?? ""),
+    telnyx_message_id: row.telnyx_message_id != null ? String(row.telnyx_message_id) : null,
+    status: String(row.status ?? "received"),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }
+}
+
+export async function insertSmsMessage(params: {
+  organization_id: string | null
+  owner_user_id: string
+  phone_number_id?: string | null
+  direction: "inbound" | "outbound"
+  from_number: string
+  to_number: string
+  body: string
+  customer_phone: string
+  telnyx_message_id?: string | null
+  status?: string
+}): Promise<SmsMessage | null> {
+  const sql = getSql()
+  const id = crypto.randomUUID()
+  try {
+    const rows = await sql`
+      INSERT INTO sms_messages (
+        id, organization_id, owner_user_id, phone_number_id, direction,
+        from_number, to_number, body, customer_phone, telnyx_message_id, status, created_at
+      )
+      VALUES (
+        ${id}, ${params.organization_id}, ${params.owner_user_id}, ${params.phone_number_id ?? null},
+        ${params.direction}, ${params.from_number}, ${params.to_number}, ${params.body},
+        ${params.customer_phone}, ${params.telnyx_message_id ?? null}, ${params.status ?? "received"}, now()
+      )
+      RETURNING *
+    `
+    return parseSmsMessageRow(rows[0] as Record<string, unknown>)
+  } catch (e) {
+    if (isMissingSmsMessagesTableError(e)) return null
+    throw e
+  }
+}
+
+export async function listSmsMessagesForOrganization(
+  ownerUserId: string,
+  organizationId: string,
+  limit = 100
+): Promise<SmsMessage[]> {
+  if (organizationId.startsWith("legacy-")) return []
+  const sql = getSql()
+  const cap = Math.min(Math.max(limit, 1), 500)
+  try {
+    const rows = await sql`
+      SELECT * FROM sms_messages
+      WHERE owner_user_id = ${ownerUserId} AND organization_id = ${organizationId}
+      ORDER BY created_at DESC
+      LIMIT ${cap}
+    `
+    return rows.map((r) => parseSmsMessageRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingSmsMessagesTableError(e)) return []
     throw e
   }
 }
@@ -8717,9 +8808,15 @@ function isMissing10DlcTableError(e: unknown): boolean {
   return pgErrorCode(e) === "42P01" && pgErrorMessage(e).includes("messaging_10dlc_registrations")
 }
 
+function isMissing10DlcOrgColumnError(e: unknown): boolean {
+  return pgErrorCode(e) === "42703"
+}
+
 function parse10DlcRow(row: Record<string, unknown>): Messaging10DlcRegistration {
   const str = (v: unknown): string | null => (v == null ? null : String(v))
   return {
+    id: row.id != null ? String(row.id) : undefined,
+    organization_id: row.organization_id != null ? String(row.organization_id) : null,
     user_id: String(row.user_id),
     entity_type: (str(row.entity_type) as Messaging10DlcRegistration["entity_type"]) ?? null,
     legal_company_name: str(row.legal_company_name),
@@ -8754,19 +8851,72 @@ function parse10DlcRow(row: Record<string, unknown>): Messaging10DlcRegistration
   }
 }
 
-/** Load a business's 10DLC registration (null when none / table missing). */
+/** Load a workspace's 10DLC registration (null when none / table missing). */
 export async function getMessaging10DlcRegistration(
-  userId: string
+  userId: string,
+  organizationId?: string | null
 ): Promise<Messaging10DlcRegistration | null> {
   const sql = getSql()
+  const orgUuid =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
   try {
+    if (orgUuid) {
+      const rows = await sql`
+        SELECT * FROM messaging_10dlc_registrations
+        WHERE user_id = ${userId} AND organization_id = ${orgUuid}
+        LIMIT 1
+      `
+      if (rows[0]) return parse10DlcRow(rows[0] as Record<string, unknown>)
+      return null
+    }
     const rows = await sql`
       SELECT * FROM messaging_10dlc_registrations WHERE user_id = ${userId} LIMIT 1
     `
     return rows[0] ? parse10DlcRow(rows[0] as Record<string, unknown>) : null
   } catch (e) {
     if (isMissing10DlcTableError(e)) return null
+    if (orgUuid && isMissing10DlcOrgColumnError(e)) {
+      const rows = await sql`
+        SELECT * FROM messaging_10dlc_registrations WHERE user_id = ${userId} LIMIT 1
+      `
+      return rows[0] ? parse10DlcRow(rows[0] as Record<string, unknown>) : null
+    }
     throw e
+  }
+}
+
+function build10DlcUpdateFields(merged: Messaging10DlcRegistration) {
+  const v = <K extends keyof Messaging10DlcRegistration>(k: K): unknown =>
+    (merged as Record<string, unknown>)[k as string] ?? null
+  return {
+    entity_type: v("entity_type"),
+    legal_company_name: v("legal_company_name"),
+    display_name: v("display_name"),
+    ein: v("ein"),
+    vertical: v("vertical"),
+    website: v("website"),
+    contact_first_name: v("contact_first_name"),
+    contact_last_name: v("contact_last_name"),
+    email: v("email"),
+    phone: v("phone"),
+    street: v("street"),
+    city: v("city"),
+    state: v("state"),
+    postal_code: v("postal_code"),
+    country: v("country") ?? "US",
+    use_case: v("use_case"),
+    campaign_description: v("campaign_description"),
+    sample_message_1: v("sample_message_1"),
+    sample_message_2: v("sample_message_2"),
+    message_flow: v("message_flow"),
+    brand_id: v("brand_id"),
+    campaign_id: v("campaign_id"),
+    assigned_number: v("assigned_number"),
+    status: v("status") ?? "draft",
+    status_detail: v("status_detail"),
+    fee_cents: Number(merged.fee_cents ?? 0),
+    fee_paid: merged.fee_paid === true,
+    stripe_session_id: v("stripe_session_id"),
   }
 }
 
@@ -8774,65 +8924,170 @@ export type Upsert10DlcInput = Partial<
   Omit<Messaging10DlcRegistration, "user_id" | "created_at" | "updated_at">
 >
 
-/** Insert or update a business's 10DLC registration draft + lifecycle fields. */
+/** Insert or update a workspace's 10DLC registration draft + lifecycle fields. */
 export async function upsertMessaging10DlcRegistration(
   userId: string,
-  input: Upsert10DlcInput
+  input: Upsert10DlcInput,
+  organizationId?: string | null
 ): Promise<Messaging10DlcRegistration> {
   const sql = getSql()
-  const existing = await getMessaging10DlcRegistration(userId)
-  const merged = { ...existing, ...input }
-  const v = <K extends keyof Messaging10DlcRegistration>(k: K): unknown =>
-    (merged as Record<string, unknown>)[k as string] ?? null
+  const orgUuid =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
+  const existing = await getMessaging10DlcRegistration(userId, orgUuid)
+  const merged = { ...(existing ?? { user_id: userId, organization_id: orgUuid }), ...input }
+  const fields = build10DlcUpdateFields(merged as Messaging10DlcRegistration)
 
-  await sql`
-    INSERT INTO messaging_10dlc_registrations (
-      user_id, entity_type, legal_company_name, display_name, ein, vertical, website,
-      contact_first_name, contact_last_name, email, phone, street, city, state, postal_code, country,
-      use_case, campaign_description, sample_message_1, sample_message_2, message_flow,
-      brand_id, campaign_id, assigned_number, status, status_detail, fee_cents, fee_paid, stripe_session_id,
-      updated_at
-    ) VALUES (
-      ${userId}, ${v("entity_type")}, ${v("legal_company_name")}, ${v("display_name")}, ${v("ein")},
-      ${v("vertical")}, ${v("website")}, ${v("contact_first_name")}, ${v("contact_last_name")},
-      ${v("email")}, ${v("phone")}, ${v("street")}, ${v("city")}, ${v("state")}, ${v("postal_code")},
-      ${v("country") ?? "US"}, ${v("use_case")}, ${v("campaign_description")}, ${v("sample_message_1")},
-      ${v("sample_message_2")}, ${v("message_flow")}, ${v("brand_id")}, ${v("campaign_id")},
-      ${v("assigned_number")}, ${v("status") ?? "draft"}, ${v("status_detail")},
-      ${Number(merged.fee_cents ?? 0)}, ${merged.fee_paid === true}, ${v("stripe_session_id")}, now()
-    )
-    ON CONFLICT (user_id) DO UPDATE SET
-      entity_type = EXCLUDED.entity_type,
-      legal_company_name = EXCLUDED.legal_company_name,
-      display_name = EXCLUDED.display_name,
-      ein = EXCLUDED.ein,
-      vertical = EXCLUDED.vertical,
-      website = EXCLUDED.website,
-      contact_first_name = EXCLUDED.contact_first_name,
-      contact_last_name = EXCLUDED.contact_last_name,
-      email = EXCLUDED.email,
-      phone = EXCLUDED.phone,
-      street = EXCLUDED.street,
-      city = EXCLUDED.city,
-      state = EXCLUDED.state,
-      postal_code = EXCLUDED.postal_code,
-      country = EXCLUDED.country,
-      use_case = EXCLUDED.use_case,
-      campaign_description = EXCLUDED.campaign_description,
-      sample_message_1 = EXCLUDED.sample_message_1,
-      sample_message_2 = EXCLUDED.sample_message_2,
-      message_flow = EXCLUDED.message_flow,
-      brand_id = EXCLUDED.brand_id,
-      campaign_id = EXCLUDED.campaign_id,
-      assigned_number = EXCLUDED.assigned_number,
-      status = EXCLUDED.status,
-      status_detail = EXCLUDED.status_detail,
-      fee_cents = EXCLUDED.fee_cents,
-      fee_paid = EXCLUDED.fee_paid,
-      stripe_session_id = EXCLUDED.stripe_session_id,
-      updated_at = now()
-  `
-  const saved = await getMessaging10DlcRegistration(userId)
+  if (existing?.id) {
+    await sql`
+      UPDATE messaging_10dlc_registrations
+      SET
+        entity_type = ${fields.entity_type},
+        legal_company_name = ${fields.legal_company_name},
+        display_name = ${fields.display_name},
+        ein = ${fields.ein},
+        vertical = ${fields.vertical},
+        website = ${fields.website},
+        contact_first_name = ${fields.contact_first_name},
+        contact_last_name = ${fields.contact_last_name},
+        email = ${fields.email},
+        phone = ${fields.phone},
+        street = ${fields.street},
+        city = ${fields.city},
+        state = ${fields.state},
+        postal_code = ${fields.postal_code},
+        country = ${fields.country},
+        use_case = ${fields.use_case},
+        campaign_description = ${fields.campaign_description},
+        sample_message_1 = ${fields.sample_message_1},
+        sample_message_2 = ${fields.sample_message_2},
+        message_flow = ${fields.message_flow},
+        brand_id = ${fields.brand_id},
+        campaign_id = ${fields.campaign_id},
+        assigned_number = ${fields.assigned_number},
+        status = ${fields.status},
+        status_detail = ${fields.status_detail},
+        fee_cents = ${fields.fee_cents},
+        fee_paid = ${fields.fee_paid},
+        stripe_session_id = ${fields.stripe_session_id},
+        updated_at = now()
+      WHERE id = ${existing.id}
+    `
+    const saved = await getMessaging10DlcRegistration(userId, orgUuid)
+    if (!saved) throw new Error("Failed to save 10DLC registration")
+    return saved
+  }
+
+  if (existing) {
+    await sql`
+      UPDATE messaging_10dlc_registrations
+      SET
+        entity_type = ${fields.entity_type},
+        legal_company_name = ${fields.legal_company_name},
+        display_name = ${fields.display_name},
+        ein = ${fields.ein},
+        vertical = ${fields.vertical},
+        website = ${fields.website},
+        contact_first_name = ${fields.contact_first_name},
+        contact_last_name = ${fields.contact_last_name},
+        email = ${fields.email},
+        phone = ${fields.phone},
+        street = ${fields.street},
+        city = ${fields.city},
+        state = ${fields.state},
+        postal_code = ${fields.postal_code},
+        country = ${fields.country},
+        use_case = ${fields.use_case},
+        campaign_description = ${fields.campaign_description},
+        sample_message_1 = ${fields.sample_message_1},
+        sample_message_2 = ${fields.sample_message_2},
+        message_flow = ${fields.message_flow},
+        brand_id = ${fields.brand_id},
+        campaign_id = ${fields.campaign_id},
+        assigned_number = ${fields.assigned_number},
+        status = ${fields.status},
+        status_detail = ${fields.status_detail},
+        fee_cents = ${fields.fee_cents},
+        fee_paid = ${fields.fee_paid},
+        stripe_session_id = ${fields.stripe_session_id},
+        updated_at = now()
+      WHERE user_id = ${userId}
+    `
+    const saved = await getMessaging10DlcRegistration(userId, orgUuid)
+    if (!saved) throw new Error("Failed to save 10DLC registration")
+    return saved
+  }
+
+  const rowId = crypto.randomUUID()
+  try {
+    await sql`
+      INSERT INTO messaging_10dlc_registrations (
+        id, user_id, organization_id, entity_type, legal_company_name, display_name, ein, vertical, website,
+        contact_first_name, contact_last_name, email, phone, street, city, state, postal_code, country,
+        use_case, campaign_description, sample_message_1, sample_message_2, message_flow,
+        brand_id, campaign_id, assigned_number, status, status_detail, fee_cents, fee_paid, stripe_session_id,
+        updated_at
+      ) VALUES (
+        ${rowId}, ${userId}, ${orgUuid}, ${fields.entity_type}, ${fields.legal_company_name}, ${fields.display_name},
+        ${fields.ein}, ${fields.vertical}, ${fields.website}, ${fields.contact_first_name}, ${fields.contact_last_name},
+        ${fields.email}, ${fields.phone}, ${fields.street}, ${fields.city}, ${fields.state}, ${fields.postal_code},
+        ${fields.country}, ${fields.use_case}, ${fields.campaign_description}, ${fields.sample_message_1},
+        ${fields.sample_message_2}, ${fields.message_flow}, ${fields.brand_id}, ${fields.campaign_id},
+        ${fields.assigned_number}, ${fields.status}, ${fields.status_detail},
+        ${fields.fee_cents}, ${fields.fee_paid}, ${fields.stripe_session_id}, now()
+      )
+    `
+  } catch (e) {
+    if (!isMissing10DlcOrgColumnError(e) && !isMissing10DlcTableError(e)) throw e
+    await sql`
+      INSERT INTO messaging_10dlc_registrations (
+        user_id, entity_type, legal_company_name, display_name, ein, vertical, website,
+        contact_first_name, contact_last_name, email, phone, street, city, state, postal_code, country,
+        use_case, campaign_description, sample_message_1, sample_message_2, message_flow,
+        brand_id, campaign_id, assigned_number, status, status_detail, fee_cents, fee_paid, stripe_session_id,
+        updated_at
+      ) VALUES (
+        ${userId}, ${fields.entity_type}, ${fields.legal_company_name}, ${fields.display_name}, ${fields.ein},
+        ${fields.vertical}, ${fields.website}, ${fields.contact_first_name}, ${fields.contact_last_name},
+        ${fields.email}, ${fields.phone}, ${fields.street}, ${fields.city}, ${fields.state}, ${fields.postal_code},
+        ${fields.country}, ${fields.use_case}, ${fields.campaign_description}, ${fields.sample_message_1},
+        ${fields.sample_message_2}, ${fields.message_flow}, ${fields.brand_id}, ${fields.campaign_id},
+        ${fields.assigned_number}, ${fields.status}, ${fields.status_detail},
+        ${fields.fee_cents}, ${fields.fee_paid}, ${fields.stripe_session_id}, now()
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        entity_type = EXCLUDED.entity_type,
+        legal_company_name = EXCLUDED.legal_company_name,
+        display_name = EXCLUDED.display_name,
+        ein = EXCLUDED.ein,
+        vertical = EXCLUDED.vertical,
+        website = EXCLUDED.website,
+        contact_first_name = EXCLUDED.contact_first_name,
+        contact_last_name = EXCLUDED.contact_last_name,
+        email = EXCLUDED.email,
+        phone = EXCLUDED.phone,
+        street = EXCLUDED.street,
+        city = EXCLUDED.city,
+        state = EXCLUDED.state,
+        postal_code = EXCLUDED.postal_code,
+        country = EXCLUDED.country,
+        use_case = EXCLUDED.use_case,
+        campaign_description = EXCLUDED.campaign_description,
+        sample_message_1 = EXCLUDED.sample_message_1,
+        sample_message_2 = EXCLUDED.sample_message_2,
+        message_flow = EXCLUDED.message_flow,
+        brand_id = EXCLUDED.brand_id,
+        campaign_id = EXCLUDED.campaign_id,
+        assigned_number = EXCLUDED.assigned_number,
+        status = EXCLUDED.status,
+        status_detail = EXCLUDED.status_detail,
+        fee_cents = EXCLUDED.fee_cents,
+        fee_paid = EXCLUDED.fee_paid,
+        stripe_session_id = EXCLUDED.stripe_session_id,
+        updated_at = now()
+    `
+  }
+
+  const saved = await getMessaging10DlcRegistration(userId, orgUuid)
   if (!saved) throw new Error("Failed to save 10DLC registration")
   return saved
 }

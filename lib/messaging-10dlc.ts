@@ -327,8 +327,11 @@ export type TenDlcView = {
 }
 
 /** Assemble everything the settings UI needs to render the 10DLC card. */
-export async function getMessaging10DlcView(userId: string): Promise<TenDlcView> {
-  const registration = await getMessaging10DlcRegistration(userId)
+export async function getMessaging10DlcView(
+  userId: string,
+  organizationId?: string | null
+): Promise<TenDlcView> {
+  const registration = await getMessaging10DlcRegistration(userId, organizationId)
   const use_cases = (Object.values(TEN_DLC_USE_CASES)).map((m) => ({
     key: m.key,
     label: m.label,

@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { MessageSquareWarning, X } from "lucide-react"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { openCarrierRegistrationModal } from "@/lib/settings-modals-events"
+import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 
 type BannerView = {
   sms_ready?: boolean
@@ -11,23 +13,51 @@ type BannerView = {
   registration?: { status?: string } | null
 }
 
-const DISMISS_KEY = "lyncr_10dlc_nudge_dismissed"
+function dismissStorageKey(organizationId: string | null): string {
+  const orgKey =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId : "default"
+  return `lyncr_10dlc_nudge_dismissed_${orgKey}`
+}
+
+function build10DlcUrl(organizationId: string | null): string {
+  if (organizationId && !organizationId.startsWith("legacy-")) {
+    return `/api/settings/10dlc?organization_id=${encodeURIComponent(organizationId)}`
+  }
+  return "/api/settings/10dlc"
+}
 
 export function SmsAlertBanner() {
+  const { activeOrganizationId } = useDashboardWorkspace()
   const [view, setView] = useState<BannerView | null>(null)
   const [dismissed, setDismissed] = useState(true)
 
-  useEffect(() => {
+  const loadCompliance = useCallback(async (organizationId: string | null) => {
+    const dismissKey = dismissStorageKey(organizationId)
     if (typeof window !== "undefined") {
-      setDismissed(window.localStorage.getItem(DISMISS_KEY) === "1")
+      setDismissed(window.localStorage.getItem(dismissKey) === "1")
     }
-    fetch("/api/settings/10dlc", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json?.data) setView(json.data as BannerView)
-      })
-      .catch(() => {})
+
+    try {
+      const res = await fetch(build10DlcUrl(organizationId), { credentials: "include" })
+      const json = res.ok ? await res.json() : null
+      if (json?.data) setView(json.data as BannerView)
+      else setView(null)
+    } catch {
+      setView(null)
+    }
   }, [])
+
+  useEffect(() => {
+    void loadCompliance(activeOrganizationId)
+  }, [activeOrganizationId, loadCompliance])
+
+  useEffect(() => {
+    const onOrgChanged = () => {
+      void loadCompliance(readActiveOrganizationId())
+    }
+    window.addEventListener("lyncr-organization-changed", onOrgChanged)
+    return () => window.removeEventListener("lyncr-organization-changed", onOrgChanged)
+  }, [loadCompliance])
 
   if (!view || view.sms_ready) return null
 
@@ -44,7 +74,9 @@ export function SmsAlertBanner() {
 
   const dismiss = () => {
     setDismissed(true)
-    if (typeof window !== "undefined") window.localStorage.setItem(DISMISS_KEY, "1")
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(dismissStorageKey(activeOrganizationId), "1")
+    }
   }
 
   const tone = needsAttention

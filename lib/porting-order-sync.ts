@@ -45,6 +45,9 @@ export type SyncPortingOrderResult = {
   telnyx_order_id: string | null
   telnyx_status: string | null
   status: PortingOrderStatus | null
+  /** True when this webhook just moved the order to completed (Live on Lyncr). */
+  just_completed?: boolean
+  phone_number?: string | null
   skipped_reason?: string
 }
 
@@ -94,12 +97,16 @@ export async function syncPortingOrderFromTelnyxWebhook(params: {
     ? telnyxStatus
     : (existing.telnyx_status ?? telnyxStatus)
 
+  const wasCompleted = existing.status === "completed"
+
   if (statusToWrite === existing.status && telnyxToWrite === existing.telnyx_status) {
     return {
       updated: false,
       telnyx_order_id: telnyxOrderId,
       telnyx_status: telnyxToWrite,
       status: statusToWrite,
+      just_completed: false,
+      phone_number: existing.phone_number,
       skipped_reason: "no_change",
     }
   }
@@ -109,10 +116,14 @@ export async function syncPortingOrderFromTelnyxWebhook(params: {
     telnyx_status: telnyxToWrite,
   })
 
+  const justCompleted = !wasCompleted && statusToWrite === "completed"
+
   return {
     updated: updated != null,
     telnyx_order_id: telnyxOrderId,
     telnyx_status: telnyxStatus,
     status: statusToWrite,
+    just_completed: justCompleted,
+    phone_number: updated?.phone_number ?? existing.phone_number,
   }
 }

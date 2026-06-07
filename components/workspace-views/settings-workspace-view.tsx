@@ -31,8 +31,10 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { SettingsMenuRow } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
+import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
@@ -255,6 +257,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 
 export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
   const { toast } = useToast()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const [loading, setLoading] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
   const [carrierRegistrationPending, setCarrierRegistrationPending] = useState(false)
@@ -293,16 +296,23 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
         }))
       })
       .catch(() => {})
+  }, [])
 
-    fetch("/api/settings/10dlc", { credentials: "include" })
+  useEffect(() => {
+    const orgId = activeOrganizationId ?? readActiveOrganizationId()
+    const qs =
+      orgId && !orgId.startsWith("legacy-")
+        ? `?organization_id=${encodeURIComponent(orgId)}`
+        : ""
+    fetch(`/api/settings/10dlc${qs}`, { credentials: "include" })
       .then(async (res) => (res.ok ? res.json() : null))
       .then((json) => {
         const pending =
           json?.data?.pending_approval === true || json?.data?.organization_status === "PENDING_APPROVAL"
         setCarrierRegistrationPending(pending)
       })
-      .catch(() => {})
-  }, [])
+      .catch(() => setCarrierRegistrationPending(false))
+  }, [activeOrganizationId])
 
   async function saveWhisper(next: boolean) {
     setWhisperSaving(true)

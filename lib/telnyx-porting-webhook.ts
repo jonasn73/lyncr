@@ -168,6 +168,28 @@ export function buildPortingNotificationTitle(eventType: string): string {
   return humanizeEventType(eventType)
 }
 
+/** Phone numbers listed on a Telnyx porting order payload. */
+export function extractPortingPhoneNumbers(body: Record<string, unknown>): string[] {
+  const record = extractPortingOrderRecord(body)
+  const sources = record ? [record] : [body]
+  const out: string[] = []
+  for (const src of sources) {
+    const nums = (src as Record<string, unknown>).phone_numbers
+    if (!Array.isArray(nums)) continue
+    for (const item of nums) {
+      if (typeof item === "string" && item.trim()) {
+        out.push(item.trim())
+        continue
+      }
+      if (item && typeof item === "object") {
+        const pn = (item as Record<string, unknown>).phone_number
+        if (typeof pn === "string" && pn.trim()) out.push(pn.trim())
+      }
+    }
+  }
+  return [...new Set(out)]
+}
+
 /** Find the richest Telnyx porting-order object embedded in a webhook payload. */
 export function extractPortingOrderRecord(body: Record<string, unknown>): Record<string, unknown> | null {
   const data = body.data as Record<string, unknown> | undefined

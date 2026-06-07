@@ -74,6 +74,15 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     void load()
   }, [load])
 
+  useEffect(() => {
+    const onOrgChanged = () => {
+      setLoading(true)
+      void load()
+    }
+    window.addEventListener("lyncr-organization-changed", onOrgChanged)
+    return () => window.removeEventListener("lyncr-organization-changed", onOrgChanged)
+  }, [load])
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (busy || pending) return

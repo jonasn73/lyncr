@@ -70,6 +70,8 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 65 | `065-organizations-external-lines.sql` | **Multi-business workspaces.** Adds **`organizations`** (one owner → many businesses) and **`phone_numbers.organization_id`**. Backfills a default org per owner. **Required** for the dashboard business switcher. |
 | 66 | `066-porting-orders.sql` | **Native LNP porting orders.** Adds **`porting_orders`** to track formal Telnyx port requests (`pending` / `processing` / `completed` / `rejected`) per organization. **Required** for “Port Your Existing Number to Lyncr” in the buy-number modal. |
 | 67 | `067-sms-registrations.sql` | **Dashboard SMS carrier registration.** Adds **`sms_registrations`** (compliance form data per workspace) and **`organizations.sms_registration_status`**. **Required** for Settings → `?tab=sms-registration` and the “Set up SMS” dashboard banner. |
+| 68 | `068-10dlc-multi-tenant.sql` | **Multi-tenant 10DLC.** Adds **`organization_id`** + surrogate **`id`** PK on **`messaging_10dlc_registrations`** (one brand/campaign row per workspace), backfills existing rows to the default org, and drops the owner-global **`sms_registrations`** fallback index. **Required** for per-workspace SMS banners and carrier registration. |
+| 69 | `069-sms-messages.sql` | **Two-way SMS threads.** Adds **`sms_messages`** (inbound + outbound per workspace). **Required** for Telnyx `message.received` storage and `POST /api/messaging/send` replies in the dashboard. |
 
 ## Platform admin (`admin@lyncr.app`)
 

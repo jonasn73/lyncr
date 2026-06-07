@@ -6,12 +6,10 @@ import {
   getDefaultOrganizationForOwner,
   getMessaging10DlcRegistration,
   getOrganizationForOwner,
-  getOrganizationSmsRegistrationStatus,
-  getSmsRegistrationForOwner,
   getUser,
 } from "@/lib/db"
-import { getMessaging10DlcView } from "@/lib/messaging-10dlc"
 import { submitSmsRegistrationForOwner, type SmsRegistrationFormInput } from "@/lib/sms-registration-service"
+import { getWorkspace10DlcCompliance } from "@/lib/workspace-10dlc-compliance"
 
 export const dynamic = "force-dynamic"
 
@@ -39,25 +37,16 @@ export async function GET(req: NextRequest) {
       userId,
       req.nextUrl.searchParams.get("organization_id")
     )
-    const [registration, orgStatus, legacyView] = await Promise.all([
-      getSmsRegistrationForOwner(userId, organizationId),
-      organizationId ? getOrganizationSmsRegistrationStatus(organizationId, userId) : null,
-      getMessaging10DlcView(userId),
-    ])
-
-    const pending =
-      registration?.status === "PENDING_APPROVAL" ||
-      orgStatus === "PENDING_APPROVAL" ||
-      ["paid", "submitted", "pending_review"].includes(legacyView.registration?.status ?? "")
+    const compliance = await getWorkspace10DlcCompliance(userId, organizationId)
 
     return NextResponse.json({
       data: {
-        registration,
-        organization_id: organizationId,
-        organization_status: orgStatus ?? (registration?.status === "PENDING_APPROVAL" ? "PENDING_APPROVAL" : "NONE"),
-        sms_ready: legacyView.sms_ready,
-        pending_approval: pending,
-        legacy_registration: legacyView.registration,
+        registration: compliance.registration,
+        organization_id: compliance.organization_id,
+        organization_status: compliance.organization_status,
+        sms_ready: compliance.sms_ready,
+        pending_approval: compliance.pending_approval,
+        legacy_registration: compliance.telnyx_registration,
       },
     })
   } catch (e) {
@@ -89,7 +78,10 @@ export async function POST(req: NextRequest) {
       use_case_description: String(body.use_case_description ?? ""),
     })
 
-    const legacy = await getMessaging10DlcRegistration(userId)
+    const organizationId = result.registration.organization_id
+    const legacy = organizationId
+      ? await getMessaging10DlcRegistration(userId, organizationId)
+      : await getMessaging10DlcRegistration(userId)
 
     return NextResponse.json({
       success: true,

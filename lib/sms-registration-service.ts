@@ -36,6 +36,11 @@ export async function submitSmsRegistrationForOwner(
   }
   const org = organizationId ? await getOrganizationForOwner(organizationId, ownerUserId) : null
   const orgUuid = org?.id?.startsWith("legacy-") ? null : org?.id ?? null
+  if (!orgUuid) {
+    throw new Error(
+      "Select a business workspace before submitting SMS registration. If workspaces are missing, run migration 065 in Neon."
+    )
+  }
 
   const registration = await upsertSmsRegistration({
     owner_user_id: ownerUserId,
@@ -57,24 +62,28 @@ export async function submitSmsRegistrationForOwner(
 
   const tenDlcEntity = mapEntityTypeToTenDlc(input.entity_type)
   const displayName = input.legal_business_name.trim()
-  await upsertMessaging10DlcRegistration(ownerUserId, {
-    entity_type: tenDlcEntity,
-    legal_company_name: displayName,
-    display_name: displayName,
-    ein: requiresSmsRegistrationEin(input.entity_type) ? (input.tax_id_ein ?? "").replace(/\D/g, "") : null,
-    vertical: "PROFESSIONAL",
-    email: owner.email,
-    phone: owner.phone,
-    street: input.street.trim(),
-    city: input.city.trim(),
-    state: input.state.trim().toUpperCase().slice(0, 2),
-    postal_code: input.postal_code.trim(),
-    country: "US",
-    use_case: tenDlcEntity === "SOLE_PROPRIETOR" ? "SOLE_PROPRIETOR" : "LOW_VOLUME",
-    campaign_description: input.use_case_description.trim(),
-    status: "pending_review",
-    status_detail: "Submitted from dashboard SMS registration form — awaiting carrier review.",
-  })
+  await upsertMessaging10DlcRegistration(
+    ownerUserId,
+    {
+      entity_type: tenDlcEntity,
+      legal_company_name: displayName,
+      display_name: displayName,
+      ein: requiresSmsRegistrationEin(input.entity_type) ? (input.tax_id_ein ?? "").replace(/\D/g, "") : null,
+      vertical: "PROFESSIONAL",
+      email: owner.email,
+      phone: owner.phone,
+      street: input.street.trim(),
+      city: input.city.trim(),
+      state: input.state.trim().toUpperCase().slice(0, 2),
+      postal_code: input.postal_code.trim(),
+      country: "US",
+      use_case: tenDlcEntity === "SOLE_PROPRIETOR" ? "SOLE_PROPRIETOR" : "LOW_VOLUME",
+      campaign_description: input.use_case_description.trim(),
+      status: "pending_review",
+      status_detail: "Submitted from dashboard SMS registration form — awaiting carrier review.",
+    },
+    orgUuid
+  )
 
   return { registration, org_status: "PENDING_APPROVAL" }
 }

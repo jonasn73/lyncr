@@ -205,6 +205,10 @@ export type TenDlcEntityType =
 
 /** A business's own A2P 10DLC brand + campaign registration. */
 export interface Messaging10DlcRegistration {
+  /** Surrogate row id (`068-10dlc-multi-tenant.sql`). */
+  id?: string
+  /** Workspace this brand/campaign belongs to (`068-10dlc-multi-tenant.sql`). */
+  organization_id?: string | null
   user_id: string
   entity_type: TenDlcEntityType | null
   legal_company_name: string | null
@@ -680,6 +684,24 @@ export interface SmsRegistration {
   status: SmsRegistrationStatus
   created_at: string
   updated_at: string
+}
+
+export type SmsMessageDirection = "inbound" | "outbound"
+
+/** One SMS in a customer thread (`069-sms-messages.sql`). */
+export interface SmsMessage {
+  id: string
+  organization_id: string | null
+  owner_user_id: string
+  phone_number_id: string | null
+  direction: SmsMessageDirection
+  from_number: string
+  to_number: string
+  body: string
+  customer_phone: string
+  telnyx_message_id: string | null
+  status: string
+  created_at: string
 }
 
 // --- Phone Numbers ---

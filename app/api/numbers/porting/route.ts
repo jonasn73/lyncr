@@ -16,9 +16,8 @@ import {
 } from "@/lib/db"
 import {
   telnyxHeaders,
-  getOrCreateTexmlApp,
-  configureNumberVoice,
 } from "@/lib/telnyx-config"
+import { finalizePortedNumber } from "@/lib/port-number-finalize"
 import {
   collectPortingStatuses,
   pickBestPortingStatus,
@@ -156,16 +155,13 @@ export async function GET(req: NextRequest) {
       // Run in background — don't block the response
       (async () => {
         try {
-          const texmlAppId = await getOrCreateTexmlApp()
           for (const entry of portedNumbers) {
-            // Figure out which user owns this port from the customer_reference
             const refUserId = entry.customerRef.startsWith("zing-")
               ? entry.customerRef.slice(5)
-              : userId // fall back to current user
+              : userId
 
             if (!refUserId) continue
 
-            // Only add to DB if not already there
             const existingActive = await getPhoneNumberByNumberAndStatus(entry.number, "active")
             if (!existingActive) {
               const portingRow = await getPhoneNumberByNumberAndStatus(entry.number, "porting")
@@ -186,8 +182,11 @@ export async function GET(req: NextRequest) {
               }
             }
 
-            // Configure the number with TeXML webhook
-            await configureNumberVoice(entry.number, texmlAppId)
+            await finalizePortedNumber({
+              ownerUserId: refUserId,
+              phoneNumberE164: entry.number,
+              telnyxOrderId: entry.id,
+            })
           }
         } catch (err) {
           console.error("[Sigo] Auto-configure ported numbers error:", err)
