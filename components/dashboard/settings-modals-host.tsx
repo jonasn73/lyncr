@@ -6,10 +6,12 @@ import {
   OPEN_BILLING_MODAL_EVENT,
   OPEN_BUSINESS_PROFILE_MODAL_EVENT,
   OPEN_CARRIER_REGISTRATION_MODAL_EVENT,
+  OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT,
   OPEN_ROUTING_STRATEGY_MODAL_EVENT,
   OPEN_SMS_AUTOMATION_MODAL_EVENT,
 } from "@/lib/settings-modals-events"
 import { CarrierRegistrationModal } from "@/components/dashboard/carrier-registration-modal"
+import { PortServiceAddressModal } from "@/components/dashboard/port-service-address-modal"
 import { SmsAutomationModal } from "@/components/dashboard/sms-automation-modal"
 import { BusinessProfileModal } from "@/components/dashboard/business-profile-modal"
 import { BillingSubscriptionModal } from "@/components/dashboard/billing-subscription-modal"
@@ -46,6 +48,7 @@ export function DashboardSettingsModalsHost() {
   const searchParams = useSearchParams()
   const [profile, setProfile] = useState<SettingsModalsProfile>(EMPTY_PROFILE)
   const [carrierOpen, setCarrierOpen] = useState(false)
+  const [portAddressOpen, setPortAddressOpen] = useState(false)
   const [smsAutomationOpen, setSmsAutomationOpen] = useState(false)
   const [businessOpen, setBusinessOpen] = useState(false)
   const [billingOpen, setBillingOpen] = useState(false)
@@ -94,6 +97,7 @@ export function DashboardSettingsModalsHost() {
     void refreshProfile()
     setCarrierOpen(true)
   }, [refreshProfile])
+  const openPortAddress = useCallback(() => setPortAddressOpen(true), [])
   const openSmsAutomation = useCallback(() => setSmsAutomationOpen(true), [])
   const openBusiness = useCallback(() => {
     void refreshProfile()
@@ -108,6 +112,7 @@ export function DashboardSettingsModalsHost() {
   useEffect(() => {
     const handlers: [string, () => void][] = [
       [OPEN_CARRIER_REGISTRATION_MODAL_EVENT, openCarrier],
+      [OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT, openPortAddress],
       [OPEN_SMS_AUTOMATION_MODAL_EVENT, openSmsAutomation],
       [OPEN_BUSINESS_PROFILE_MODAL_EVENT, openBusiness],
       [OPEN_BILLING_MODAL_EVENT, openBilling],
@@ -121,7 +126,7 @@ export function DashboardSettingsModalsHost() {
         window.removeEventListener(event, fn)
       }
     }
-  }, [openCarrier, openSmsAutomation, openBusiness, openBilling, openRouting])
+  }, [openCarrier, openPortAddress, openSmsAutomation, openBusiness, openBilling, openRouting])
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -135,6 +140,7 @@ export function DashboardSettingsModalsHost() {
   return (
     <>
       <CarrierRegistrationModal open={carrierOpen} onOpenChange={setCarrierOpen} />
+      <PortServiceAddressModal open={portAddressOpen} onOpenChange={setPortAddressOpen} />
       <SmsAutomationModal open={smsAutomationOpen} onOpenChange={setSmsAutomationOpen} />
       <BusinessProfileModal
         open={businessOpen}

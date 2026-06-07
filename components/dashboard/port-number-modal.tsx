@@ -14,7 +14,7 @@ import { dispatchBusinessNumbersChanged } from "@/components/dashboard-numbers-m
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import {
   CARRIER_REGISTRATION_UPDATED_EVENT,
-  openCarrierRegistrationModal,
+  openPortServiceAddressModal,
 } from "@/lib/settings-modals-events"
 import type { PortingOrder } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
@@ -395,7 +395,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               <p>{addressBlock.message}</p>
               <button
                 type="button"
-                onClick={() => openCarrierRegistrationModal()}
+                onClick={() => openPortServiceAddressModal()}
                 className="mt-2 inline-flex items-center gap-1 font-semibold text-destructive underline underline-offset-2 hover:text-destructive/90"
               >
                 Fix now — add business address
