@@ -347,10 +347,49 @@ export interface AdminCallHistoryRow {
   created_at: string
 }
 
+/** One workspace row in the admin Business Owner control hub. */
+export interface AdminTenantControlOrganization {
+  id: string
+  name: string
+  is_default: boolean
+  sms_registration_status: SmsRegistrationOrgStatus
+  sms_registration: {
+    id: string
+    legal_business_name: string
+    status: SmsRegistrationStatus
+  } | null
+  messaging_10dlc: {
+    status: TenDlcStatus
+    brand_id: string | null
+    campaign_id: string | null
+    legal_company_name: string | null
+    display_name: string | null
+  } | null
+}
+
+/** Pending team invite surfaced in the admin drawer. */
+export interface AdminTenantControlPendingInvite {
+  id: string
+  /** Email address or phone number the invite was sent to. */
+  target: string
+  channel: InviteChannel
+  status: InviteStatus
+  created_at: string
+  expires_at: string
+}
+
 /** Tenant feature overrides + provisioned lines shown in the admin tenant drawer. */
 export interface AdminTenantControls {
   feature_flags: Record<string, boolean>
   phone_lines: { id: string; number: string; label: string; status: string; type: string }[]
+  /** True when the owner has more than one workspace in `organizations`. */
+  is_multi_workspace: boolean
+  team_roster: {
+    active_receptionists: number
+    active_field_technicians: number
+  }
+  organizations: AdminTenantControlOrganization[]
+  pending_invites: AdminTenantControlPendingInvite[]
 }
 
 /** One row in the receptionist payout ledger view. */

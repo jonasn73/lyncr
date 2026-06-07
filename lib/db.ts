@@ -3326,13 +3326,20 @@ function parsePhoneNumberRow(row: Record<string, unknown>): PhoneNumber {
 }
 
 function parseOrganizationRow(row: Record<string, unknown>): Organization {
-  return {
+  const org: Organization = {
     id: String(row.id),
     owner_user_id: String(row.owner_user_id),
     name: String(row.name),
     is_default: Boolean(row.is_default),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
+  if (row.sms_registration_status != null) {
+    const s = String(row.sms_registration_status).toUpperCase()
+    if (s === "PENDING_APPROVAL" || s === "APPROVED" || s === "REJECTED" || s === "NONE") {
+      org.sms_registration_status = s as Organization["sms_registration_status"]
+    }
+  }
+  return org
 }
 
 function isMissingOrganizationsSchemaError(e: unknown): boolean {
@@ -3346,13 +3353,27 @@ function isMissingOrganizationsSchemaError(e: unknown): boolean {
 export async function listOrganizationsForOwner(ownerUserId: string): Promise<Organization[]> {
   const sql = getSql()
   try {
-    const rows = await sql`
-      SELECT id, owner_user_id, name, is_default, created_at
-      FROM organizations
-      WHERE owner_user_id = ${ownerUserId}
-      ORDER BY is_default DESC, created_at ASC
-    `
-    if (rows.length > 0) return rows.map((r) => parseOrganizationRow(r as Record<string, unknown>))
+    try {
+      const rows = await sql`
+        SELECT id, owner_user_id, name, is_default, created_at, sms_registration_status
+        FROM organizations
+        WHERE owner_user_id = ${ownerUserId}
+        ORDER BY is_default DESC, created_at ASC
+      `
+      if (rows.length > 0) return rows.map((r) => parseOrganizationRow(r as Record<string, unknown>))
+    } catch (e) {
+      if (pgErrorCode(e) === "42703") {
+        const rows = await sql`
+          SELECT id, owner_user_id, name, is_default, created_at
+          FROM organizations
+          WHERE owner_user_id = ${ownerUserId}
+          ORDER BY is_default DESC, created_at ASC
+        `
+        if (rows.length > 0) return rows.map((r) => parseOrganizationRow(r as Record<string, unknown>))
+      } else if (!isMissingOrganizationsSchemaError(e)) {
+        throw e
+      }
+    }
   } catch (e) {
     if (!isMissingOrganizationsSchemaError(e)) throw e
   }
@@ -4638,6 +4659,36 @@ export async function listFieldTechnicians(ownerUserId: string): Promise<FieldTe
         throw e2
       }
     }
+    throw e
+  }
+}
+
+/** Count active receptionists on an owner's roster (admin control hub). */
+export async function countActiveReceptionistsForOwner(ownerUserId: string): Promise<number> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT count(*)::int AS c FROM receptionists
+      WHERE user_id = ${ownerUserId} AND is_active = true
+    `
+    return Number(rows[0]?.c ?? 0)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "receptionists")) return 0
+    throw e
+  }
+}
+
+/** Count active field technicians on an owner's roster (admin control hub). */
+export async function countActiveFieldTechniciansForOwner(ownerUserId: string): Promise<number> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT count(*)::int AS c FROM field_technicians
+      WHERE user_id = ${ownerUserId} AND is_active = true
+    `
+    return Number(rows[0]?.c ?? 0)
+  } catch (e) {
+    if (isMissingFieldTechTableError(e)) return 0
     throw e
   }
 }
@@ -8281,6 +8332,22 @@ export async function getTeamInviteByToken(token: string): Promise<TeamInvite | 
     return rows[0] ? parseTeamInviteRow(rows[0] as Record<string, unknown>) : null
   } catch (e) {
     if (isMissingTeamInvitesTableError(e)) return null
+    throw e
+  }
+}
+
+/** All team invites created by a user (admin drawer — onboarding queue). */
+export async function listTeamInvitesForInviter(invitedByUserId: string): Promise<TeamInvite[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM team_invites
+      WHERE invited_by_user_id = ${invitedByUserId}
+      ORDER BY created_at DESC
+    `
+    return rows.map((r) => parseTeamInviteRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingTeamInvitesTableError(e)) return []
     throw e
   }
 }

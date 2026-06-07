@@ -4,9 +4,9 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Loader2, Phone, Wallet, Zap } from "lucide-react"
+import { Loader2, Phone, Wallet, Zap, Building2, Users, Mail, MessageSquare } from "lucide-react"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
-import type { AdminTenantControls, LyncrAdminDirectoryRow } from "@/lib/types"
+import type { AdminTenantControls, LyncrAdminDirectoryRow, SmsRegistrationOrgStatus } from "@/lib/types"
 import { ACCOUNT_STATUSES, accountStatusLabel } from "@/lib/account-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,13 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 const FEATURE_CONTROLS: { id: string; label: string; description: string }[] = [
   { id: "field_tech_hud", label: "Field Tech HUD", description: "Mobile technician console, dispatch + live tracking." },
@@ -22,6 +29,34 @@ const FEATURE_CONTROLS: { id: string; label: string; description: string }[] = [
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
+}
+
+/** Human label for org-level SMS registration status badges. */
+function smsRegistrationStatusLabel(status: SmsRegistrationOrgStatus): string {
+  if (status === "PENDING_APPROVAL") return "Pending"
+  if (status === "APPROVED") return "Approved"
+  if (status === "REJECTED") return "Rejected"
+  return "None"
+}
+
+/** Tailwind classes for org-level 10DLC / SMS registration badges. */
+function smsRegistrationBadgeClass(status: SmsRegistrationOrgStatus): string {
+  if (status === "PENDING_APPROVAL") return "border-amber-700/60 bg-amber-950/40 text-amber-200"
+  if (status === "APPROVED") return "border-emerald-700/60 bg-emerald-950/40 text-emerald-200"
+  if (status === "REJECTED") return "border-red-800/60 bg-red-950/40 text-red-200"
+  return "border-slate-700 bg-slate-900/60 text-slate-400"
+}
+
+/** Default empty control hub payload when the API fails. */
+function emptyAdminControls(): AdminTenantControls {
+  return {
+    feature_flags: {},
+    phone_lines: [],
+    is_multi_workspace: false,
+    team_roster: { active_receptionists: 0, active_field_technicians: 0 },
+    organizations: [],
+    pending_invites: [],
+  }
 }
 import {
   Sheet,
@@ -77,9 +112,9 @@ export function AdminUserManageDrawer({
       const res = await fetch(`/api/admin/users/${userId}/controls`, { credentials: "include", cache: "no-store" })
       const json = (await res.json().catch(() => ({}))) as { data?: AdminTenantControls; error?: string }
       if (res.ok && json.data) setControls(json.data)
-      else setControls({ feature_flags: {}, phone_lines: [] })
+      else setControls(emptyAdminControls())
     } catch {
-      setControls({ feature_flags: {}, phone_lines: [] })
+      setControls(emptyAdminControls())
     } finally {
       setControlsLoading(false)
     }
@@ -389,6 +424,136 @@ export function AdminUserManageDrawer({
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+
+            {/* Workspace & team infrastructure */}
+            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-sky-300" aria-hidden />
+                  <Label className="text-slate-200">Workspace &amp; team infrastructure</Label>
+                </div>
+                {controls?.is_multi_workspace ? (
+                  <Badge className="border-violet-700/60 bg-violet-950/40 text-violet-200">
+                    Multi-workspace tenant
+                  </Badge>
+                ) : null}
+              </div>
+
+              {controlsLoading && !controls ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start gap-2 text-xs text-slate-400">
+                    <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                    <p>
+                      <span className="font-medium text-slate-300">
+                        {controls?.team_roster.active_receptionists ?? 0}
+                      </span>{" "}
+                      active receptionist
+                      {(controls?.team_roster.active_receptionists ?? 0) === 1 ? "" : "s"}
+                      {" · "}
+                      <span className="font-medium text-slate-300">
+                        {controls?.team_roster.active_field_technicians ?? 0}
+                      </span>{" "}
+                      active dispatch tech
+                      {(controls?.team_roster.active_field_technicians ?? 0) === 1 ? "" : "s"}
+                    </p>
+                  </div>
+
+                  {!controls || controls.organizations.length === 0 ? (
+                    <p className="text-xs text-slate-500">No workspaces found for this owner.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {controls.organizations.map((org) => (
+                        <li
+                          key={org.id}
+                          className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2.5"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-200">
+                                {org.name}
+                                {org.is_default ? (
+                                  <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-slate-500">
+                                    default
+                                  </span>
+                                ) : null}
+                              </p>
+                              {org.sms_registration?.legal_business_name || org.messaging_10dlc?.legal_company_name ? (
+                                <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                                  {org.sms_registration?.legal_business_name ||
+                                    org.messaging_10dlc?.legal_company_name}
+                                </p>
+                              ) : null}
+                              {org.messaging_10dlc?.brand_id || org.messaging_10dlc?.campaign_id ? (
+                                <p className="mt-1 truncate font-mono text-[10px] text-slate-600">
+                                  {org.messaging_10dlc.brand_id ? `Brand ${org.messaging_10dlc.brand_id}` : null}
+                                  {org.messaging_10dlc.brand_id && org.messaging_10dlc.campaign_id ? " · " : null}
+                                  {org.messaging_10dlc.campaign_id
+                                    ? `Campaign ${org.messaging_10dlc.campaign_id}`
+                                    : null}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Badge className={cn("shrink-0", smsRegistrationBadgeClass(org.sms_registration_status))}>
+                              10DLC · {smsRegistrationStatusLabel(org.sms_registration_status)}
+                            </Badge>
+                          </div>
+                          {org.messaging_10dlc?.status ? (
+                            <p className="mt-1.5 text-[10px] capitalize text-slate-600">
+                              Telnyx registration: {org.messaging_10dlc.status.replace(/_/g, " ")}
+                            </p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {(controls?.pending_invites.length ?? 0) > 0 ? (
+                    <Accordion type="single" collapsible className="rounded-md border border-slate-800">
+                      <AccordionItem value="pending-invites" className="border-0 px-3">
+                        <AccordionTrigger className="py-3 text-xs font-medium text-slate-300 hover:no-underline">
+                          Pending team invites ({controls?.pending_invites.length})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <ul className="space-y-2 pb-1">
+                            {controls?.pending_invites.map((inv) => (
+                              <li
+                                key={inv.id}
+                                className="flex items-center justify-between gap-3 rounded-md border border-slate-800 bg-slate-950/60 px-2.5 py-2"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  {inv.channel === "SMS" ? (
+                                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
+                                  ) : (
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-sky-400" aria-hidden />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="truncate font-mono text-xs text-slate-200">{inv.target}</p>
+                                    <p className="text-[10px] text-slate-500">
+                                      {inv.channel} · expires{" "}
+                                      {new Date(inv.expires_at).toLocaleDateString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Badge className="border-amber-700/60 bg-amber-950/40 text-amber-200">
+                                  {inv.status}
+                                </Badge>
+                              </li>
+                            ))}
+                          </ul>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  ) : null}
+                </>
               )}
             </div>
 
