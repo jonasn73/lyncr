@@ -3,15 +3,17 @@
 // Step-by-step A2P 10DLC carrier compliance form (Settings → ?tab=sms-registration).
 
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react"
+import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { WorkspacePanel, workspaceFieldClass } from "@/components/dashboard-workspace-ui"
+import { SmsRegistrationStatusView } from "@/components/dashboard/sms-registration-status-view"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import { notifyCarrierRegistrationUpdated } from "@/lib/settings-modals-events"
 import { SMS_ENTITY_TYPE_OPTIONS } from "@/lib/sms-registration-constants"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary"
 import type { SmsRegistration } from "@/lib/types"
 
 const DEFAULT_USE_CASE =
@@ -30,6 +32,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
   const [busy, setBusy] = useState(false)
   const [existing, setExisting] = useState<SmsRegistration | null>(null)
   const [pending, setPending] = useState(false)
+  const [submissionSummary, setSubmissionSummary] = useState<SmsRegistrationSubmissionSummary | null>(null)
+  const [forceForm, setForceForm] = useState(false)
 
   const [legalName, setLegalName] = useState("")
   const [entityType, setEntityType] = useState("")
@@ -49,15 +53,17 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         registration?: SmsRegistration | null
         pending_approval?: boolean
         organization_status?: string
+        submission_summary?: SmsRegistrationSubmissionSummary | null
       }
     }
     const reg = json.data?.registration ?? null
     setExisting(reg)
-    setPending(
+    setSubmissionSummary(json.data?.submission_summary ?? null)
+    const isPending =
       json.data?.pending_approval === true ||
-        json.data?.organization_status === "PENDING_APPROVAL" ||
-        reg?.status === "PENDING_APPROVAL"
-    )
+      json.data?.organization_status === "PENDING_APPROVAL" ||
+      reg?.status === "PENDING_APPROVAL"
+    setPending(isPending)
     if (reg) {
       setLegalName(reg.legal_business_name)
       setEntityType(reg.entity_type)
@@ -78,6 +84,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
   useEffect(() => {
     const onOrgChanged = () => {
       if (variant === "page") setLoading(true)
+      setForceForm(false)
       void load()
     }
     window.addEventListener("lyncr-organization-changed", onOrgChanged)
@@ -227,17 +234,43 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     </label>
   )
 
-  if (pending) {
+  const showStatusView =
+    !forceForm &&
+    submissionSummary != null &&
+    (pending ||
+      submissionSummary.lifecycle_stage === "carrier_review" ||
+      submissionSummary.lifecycle_stage === "rejected" ||
+      submissionSummary.lifecycle_stage === "approved")
+
+  if (showStatusView && submissionSummary) {
+    const statusBody = (
+      <SmsRegistrationStatusView
+        summary={submissionSummary}
+        variant={variant}
+        onRefresh={() => void load()}
+        onEdit={submissionSummary.lifecycle_stage === "rejected" ? () => setForceForm(true) : undefined}
+      />
+    )
+    if (variant === "modal") return statusBody
+    return (
+      <WorkspacePanel className="space-y-4 p-6 sm:p-8">
+        {statusBody}
+        <Link
+          href="/dashboard/settings"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+          Back to settings
+        </Link>
+      </WorkspacePanel>
+    )
+  }
+
+  if (pending && !submissionSummary) {
     const pendingBody = (
-      <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-4">
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden />
-        <div>
-          <p className="text-sm font-semibold text-foreground">Under carrier review</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            ⏳ Your SMS business registration is currently undergoing carrier review. Alerts will unlock shortly.
-            Review usually takes 1–3 business days.
-          </p>
-        </div>
+      <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        Loading submission details…
       </div>
     )
     if (variant === "modal") return pendingBody

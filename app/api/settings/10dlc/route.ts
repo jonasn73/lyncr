@@ -9,6 +9,7 @@ import {
   getUser,
 } from "@/lib/db"
 import { submitSmsRegistrationForOwner, type SmsRegistrationFormInput } from "@/lib/sms-registration-service"
+import { buildSmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary"
 import { getWorkspace10DlcCompliance } from "@/lib/workspace-10dlc-compliance"
 
 export const dynamic = "force-dynamic"
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
       req.nextUrl.searchParams.get("organization_id")
     )
     const compliance = await getWorkspace10DlcCompliance(userId, organizationId)
+    const submission_summary = await buildSmsRegistrationSubmissionSummary(userId, compliance)
 
     return NextResponse.json({
       data: {
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest) {
         sms_ready: compliance.sms_ready,
         pending_approval: compliance.pending_approval,
         legacy_registration: compliance.telnyx_registration,
+        submission_summary,
       },
     })
   } catch (e) {
