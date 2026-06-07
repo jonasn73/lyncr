@@ -5,7 +5,7 @@ import { formatPhoneDisplay } from "@/lib/line-display"
 import {
   formatSmsSubmissionDate,
   type SmsRegistrationSubmissionSummary,
-} from "@/lib/sms-registration-submission-summary"
+} from "@/lib/sms-registration-submission-summary-types"
 import { cn } from "@/lib/utils"
 
 type Props = {

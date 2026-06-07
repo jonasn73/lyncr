@@ -1,30 +1,19 @@
-// Build a structured carrier submission summary for the dashboard 10DLC status modal.
+// Server-only: build structured carrier submission summary for the 10DLC status modal.
 
 import { getPhoneNumbers, listPortingOrdersForOwner } from "@/lib/db"
+import type {
+  SmsRegistrationLifecycleStage,
+  SmsRegistrationSubmissionSummary,
+} from "@/lib/sms-registration-submission-summary-types"
 import type { Workspace10DlcCompliance } from "@/lib/workspace-10dlc-compliance"
+
+export type {
+  SmsRegistrationLifecycleStage,
+  SmsRegistrationSubmissionSummary,
+} from "@/lib/sms-registration-submission-summary-types"
 
 const TELNYX_PENDING = new Set(["paid", "submitted", "pending_review"])
 const TELNYX_REJECTED = new Set(["rejected", "failed"])
-
-export type SmsRegistrationLifecycleStage = "submitted" | "carrier_review" | "approved" | "rejected"
-
-export type SmsRegistrationSubmissionSummary = {
-  legal_business_name: string | null
-  entity_type: string | null
-  business_address: string | null
-  use_case_description: string | null
-  target_phone_line: string | null
-  target_line_label: string | null
-  submission_date: string | null
-  carrier_reference_id: string | null
-  carrier_reference_kind: "campaign" | "brand" | null
-  registration_status: string | null
-  organization_status: string | null
-  telnyx_status: string | null
-  status_detail: string | null
-  lifecycle_stage: SmsRegistrationLifecycleStage
-  rejection_reason: string | null
-}
 
 function formatAddress(parts: {
   street?: string | null
@@ -181,17 +170,4 @@ export async function buildSmsRegistrationSubmissionSummary(
     lifecycle_stage: lifecycleStage,
     rejection_reason: rejectionReason,
   }
-}
-
-export function formatSmsSubmissionDate(iso: string | null | undefined): string {
-  if (!iso) return "—"
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
 }

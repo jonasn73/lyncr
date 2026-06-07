@@ -13,7 +13,7 @@ import { notifyCarrierRegistrationUpdated } from "@/lib/settings-modals-events"
 import { SMS_ENTITY_TYPE_OPTIONS } from "@/lib/sms-registration-constants"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary"
+import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary-types"
 import type { SmsRegistration } from "@/lib/types"
 
 const DEFAULT_USE_CASE =

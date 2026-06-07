@@ -14,7 +14,7 @@ import { SmsRegistrationStatusView } from "@/components/dashboard/sms-registrati
 import {
   CARRIER_REGISTRATION_UPDATED_EVENT,
 } from "@/lib/settings-modals-events"
-import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary"
+import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary-types"
 import type { SmsRegistration } from "@/lib/types"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 
