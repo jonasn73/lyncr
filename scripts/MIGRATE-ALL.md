@@ -69,6 +69,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 64 | `064-tech-invite-link.sql` | **Hands-free field-tech invites.** Ensures the **`users.invitation_token` / `invitation_expires_at` / `invite_status`** columns exist (same columns as 054) so owners can add a tech by **mobile number only** — Lyncr texts a `/tech/setup?token=…` link where the tech sets their own password. Safe to run even if 054 already added these. |
 | 65 | `065-organizations-external-lines.sql` | **Multi-business workspaces.** Adds **`organizations`** (one owner → many businesses) and **`phone_numbers.organization_id`**. Backfills a default org per owner. **Required** for the dashboard business switcher. |
 | 66 | `066-porting-orders.sql` | **Native LNP porting orders.** Adds **`porting_orders`** to track formal Telnyx port requests (`pending` / `processing` / `completed` / `rejected`) per organization. **Required** for “Port Your Existing Number to Lyncr” in the buy-number modal. |
+| 67 | `067-sms-registrations.sql` | **Dashboard SMS carrier registration.** Adds **`sms_registrations`** (compliance form data per workspace) and **`organizations.sms_registration_status`**. **Required** for Settings → `?tab=sms-registration` and the “Set up SMS” dashboard banner. |
 
 ## Platform admin (`admin@lyncr.app`)
 

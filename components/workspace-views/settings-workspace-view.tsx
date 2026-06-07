@@ -1,7 +1,8 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { Bell, Clock, CreditCard, FileAudio, Loader2, LogOut, MessageSquare, Shield, Siren, Smartphone, Volume2, Zap } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { ArrowLeft, Bell, Clock, CreditCard, FileAudio, Loader2, LogOut, MessageSquare, Shield, Siren, Smartphone, Volume2, Zap } from "lucide-react"
 import { updateNotificationPreferences } from "@/app/actions/notification-preferences"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
@@ -19,7 +20,9 @@ import {
   WorkspaceDisclosureRow,
   workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
+import Link from "next/link"
 import { Messaging10DlcCard } from "@/components/messaging-10dlc-card"
+import { SmsRegistrationForm } from "@/components/dashboard/sms-registration-form"
 import { RoutingStrategyCard } from "@/components/routing-strategy-card"
 import { SmsEngineCard } from "@/components/workspace-views/sms-engine-card"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
@@ -408,6 +411,10 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 })
 
 export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
+  const searchParams = useSearchParams()
+  const settingsTab = searchParams.get("tab")
+  const showSmsRegistration = settingsTab === "sms-registration"
+
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
@@ -590,6 +597,23 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
     <WorkspaceRightSheetGate<typeof HOURS_SHEET_KEY>
       render={() => <SettingsHoursSheet />}
     >
+      {showSmsRegistration ? (
+        <WorkspacePage className="gap-8 pb-8">
+          <WorkspacePageHeader
+            eyebrow="Carrier compliance"
+            title="SMS business registration"
+            subtitle="Register your business for A2P 10DLC so lead-alert texts deliver on US carriers."
+          />
+          <Link
+            href="/dashboard/settings"
+            className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+            Back to all settings
+          </Link>
+          <SmsRegistrationForm />
+        </WorkspacePage>
+      ) : (
       <SettingsWorkspaceBody
         loading={loading}
         name={name}
@@ -623,6 +647,7 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
           void signOutAndGoToLogin().finally(() => setSigningOut(false))
         }}
       />
+      )}
     </WorkspaceRightSheetGate>
   )
 })

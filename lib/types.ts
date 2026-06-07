@@ -657,6 +657,29 @@ export interface Organization {
   name: string
   is_default: boolean
   created_at: string
+  /** Carrier SMS compliance status for this workspace (`067-sms-registrations.sql`). */
+  sms_registration_status?: SmsRegistrationOrgStatus | null
+}
+
+export type SmsRegistrationStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
+
+export type SmsRegistrationOrgStatus = "NONE" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
+
+export interface SmsRegistration {
+  id: string
+  organization_id: string | null
+  owner_user_id: string
+  legal_business_name: string
+  entity_type: string
+  tax_id_ein: string | null
+  street: string
+  city: string
+  state: string
+  postal_code: string
+  use_case_description: string
+  status: SmsRegistrationStatus
+  created_at: string
+  updated_at: string
 }
 
 // --- Phone Numbers ---

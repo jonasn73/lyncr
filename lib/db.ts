@@ -54,6 +54,9 @@ import type {
   Organization,
   PortingOrder,
   PortingOrderStatus,
+  SmsRegistration,
+  SmsRegistrationOrgStatus,
+  SmsRegistrationStatus,
 } from "./types"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
@@ -3395,6 +3398,156 @@ export async function getOrganizationForOwner(
 export async function getDefaultOrganizationForOwner(ownerUserId: string): Promise<Organization | null> {
   const list = await listOrganizationsForOwner(ownerUserId)
   return list.find((o) => o.is_default) ?? list[0] ?? null
+}
+
+function isMissingSmsRegistrationsTableError(e: unknown): boolean {
+  return isUndefinedRelationError(e, "sms_registrations")
+}
+
+function parseSmsRegistrationRow(row: Record<string, unknown>): SmsRegistration {
+  const status = String(row.status ?? "DRAFT").toUpperCase()
+  const normalized: SmsRegistrationStatus =
+    status === "PENDING_APPROVAL" || status === "APPROVED" || status === "REJECTED" ? status : "DRAFT"
+  return {
+    id: String(row.id),
+    organization_id: row.organization_id != null ? String(row.organization_id) : null,
+    owner_user_id: String(row.owner_user_id),
+    legal_business_name: String(row.legal_business_name ?? ""),
+    entity_type: String(row.entity_type ?? ""),
+    tax_id_ein: row.tax_id_ein != null ? String(row.tax_id_ein) : null,
+    street: String(row.street ?? ""),
+    city: String(row.city ?? ""),
+    state: String(row.state ?? ""),
+    postal_code: String(row.postal_code ?? ""),
+    use_case_description: String(row.use_case_description ?? ""),
+    status: normalized,
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+  }
+}
+
+export async function getSmsRegistrationForOwner(
+  ownerUserId: string,
+  organizationId?: string | null
+): Promise<SmsRegistration | null> {
+  const sql = getSql()
+  try {
+    const orgUuid =
+      organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
+    const rows = orgUuid
+      ? await sql`
+          SELECT * FROM sms_registrations
+          WHERE owner_user_id = ${ownerUserId} AND organization_id = ${orgUuid}
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+      : await sql`
+          SELECT * FROM sms_registrations
+          WHERE owner_user_id = ${ownerUserId} AND organization_id IS NULL
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+    return rows[0] ? parseSmsRegistrationRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingSmsRegistrationsTableError(e)) return null
+    throw e
+  }
+}
+
+export async function upsertSmsRegistration(params: {
+  owner_user_id: string
+  organization_id: string | null
+  legal_business_name: string
+  entity_type: string
+  tax_id_ein?: string | null
+  street: string
+  city: string
+  state: string
+  postal_code: string
+  use_case_description: string
+  status: SmsRegistrationStatus
+}): Promise<SmsRegistration> {
+  const sql = getSql()
+  const orgId = params.organization_id?.startsWith("legacy-") ? null : params.organization_id
+  const existing = await getSmsRegistrationForOwner(params.owner_user_id, orgId)
+
+  if (existing) {
+    const rows = await sql`
+      UPDATE sms_registrations
+      SET
+        legal_business_name = ${params.legal_business_name},
+        entity_type = ${params.entity_type},
+        tax_id_ein = ${params.tax_id_ein ?? null},
+        street = ${params.street},
+        city = ${params.city},
+        state = ${params.state},
+        postal_code = ${params.postal_code},
+        use_case_description = ${params.use_case_description},
+        status = ${params.status},
+        updated_at = now()
+      WHERE id = ${existing.id} AND owner_user_id = ${params.owner_user_id}
+      RETURNING *
+    `
+    return parseSmsRegistrationRow(rows[0] as Record<string, unknown>)
+  }
+
+  const id = crypto.randomUUID()
+  const rows = await sql`
+    INSERT INTO sms_registrations (
+      id, organization_id, owner_user_id, legal_business_name, entity_type, tax_id_ein,
+      street, city, state, postal_code, use_case_description, status, created_at, updated_at
+    )
+    VALUES (
+      ${id}, ${orgId}, ${params.owner_user_id}, ${params.legal_business_name}, ${params.entity_type},
+      ${params.tax_id_ein ?? null}, ${params.street}, ${params.city}, ${params.state},
+      ${params.postal_code}, ${params.use_case_description}, ${params.status}, now(), now()
+    )
+    RETURNING *
+  `
+  return parseSmsRegistrationRow(rows[0] as Record<string, unknown>)
+}
+
+export async function setOrganizationSmsRegistrationStatus(
+  organizationId: string,
+  ownerUserId: string,
+  status: SmsRegistrationOrgStatus
+): Promise<void> {
+  if (organizationId.startsWith("legacy-")) return
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE organizations
+      SET sms_registration_status = ${status}
+      WHERE id = ${organizationId} AND owner_user_id = ${ownerUserId}
+    `
+  } catch (e) {
+    if (isMissingOrganizationsSchemaError(e)) return
+    if (pgErrorCode(e) === "42703") return
+    throw e
+  }
+}
+
+export async function getOrganizationSmsRegistrationStatus(
+  organizationId: string,
+  ownerUserId: string
+): Promise<SmsRegistrationOrgStatus | null> {
+  if (organizationId.startsWith("legacy-")) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT sms_registration_status FROM organizations
+      WHERE id = ${organizationId} AND owner_user_id = ${ownerUserId}
+      LIMIT 1
+    `
+    const raw = rows[0]?.sms_registration_status
+    if (raw == null) return "NONE"
+    const s = String(raw).toUpperCase()
+    if (s === "PENDING_APPROVAL" || s === "APPROVED" || s === "REJECTED") return s
+    return "NONE"
+  } catch (e) {
+    if (isMissingOrganizationsSchemaError(e) || pgErrorCode(e) === "42703") return null
+    throw e
+  }
 }
 
 function parsePortingOrderRow(row: Record<string, unknown>): PortingOrder {
