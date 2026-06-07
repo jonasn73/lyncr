@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { Loader2, Phone, Plus, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Loader2, Pencil, Phone, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -30,7 +30,151 @@ type OwnedLine = {
   id: string
   number: string
   status: string
-  line_business_name?: string | null
+  /** phone_numbers.label — whisper name for this line */
+  line_business_name: string
+}
+
+const DEFAULT_LINE_LABEL = "Main Line"
+const MAX_LINE_LABEL_LEN = 120
+
+function EditableLineLabel({
+  lineId,
+  label,
+  disabled,
+  onSaved,
+  onRevert,
+}: {
+  lineId: string
+  label: string
+  disabled?: boolean
+  onSaved: (lineId: string, nextLabel: string) => void
+  onRevert: (lineId: string, previousLabel: string) => void
+}) {
+  const { toast } = useToast()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const skipBlurRef = useRef(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(label)
+  const [saving, setSaving] = useState(false)
+
+  const storedLabel = label.trim() || DEFAULT_LINE_LABEL
+  const displayLabel = label.trim() ? label.trim() : DEFAULT_LINE_LABEL
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(storedLabel)
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+  }, [editing, storedLabel])
+
+  async function commitSave() {
+    const trimmed = draft.trim().slice(0, MAX_LINE_LABEL_LEN)
+    if (!trimmed) {
+      toast({
+        variant: "destructive",
+        title: "Label required",
+        description: "Enter a short name your team will recognize on incoming calls.",
+      })
+      setDraft(storedLabel)
+      setEditing(false)
+      return
+    }
+    if (trimmed === storedLabel) {
+      setEditing(false)
+      return
+    }
+
+    const previous = label
+    setSaving(true)
+    onSaved(lineId, trimmed)
+    try {
+      const res = await fetch(`/api/numbers/${encodeURIComponent(lineId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: trimmed }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(data.error || "Could not save label")
+      toast({
+        title: "Line label saved",
+        description: `Your team will hear “${trimmed}” on the whisper for this line.`,
+      })
+      dispatchBusinessNumbersChanged()
+      setEditing(false)
+    } catch (e) {
+      onRevert(lineId, previous)
+      toast({
+        variant: "destructive",
+        title: "Could not save label",
+        description: e instanceof Error ? e.message : "Try again in a moment.",
+      })
+      setDraft(storedLabel)
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-1 space-y-1">
+        <input
+          ref={inputRef}
+          value={draft}
+          disabled={saving}
+          maxLength={MAX_LINE_LABEL_LEN}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              void commitSave()
+            }
+            if (e.key === "Escape") {
+              skipBlurRef.current = true
+              setDraft(storedLabel)
+              setEditing(false)
+            }
+          }}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false
+              return
+            }
+            if (!saving) void commitSave()
+          }}
+          placeholder={DEFAULT_LINE_LABEL}
+          className="w-full rounded-md border border-primary/40 bg-zinc-900/80 px-2 py-1 text-xs text-foreground placeholder:text-zinc-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+          aria-label="Line label whisper name"
+        />
+        <p className="text-[10px] leading-snug text-zinc-500">
+          Line label (whisper name) — what your team hears when a call comes in.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-0.5 flex min-w-0 items-center gap-1">
+      <button
+        type="button"
+        disabled={disabled || saving}
+        onClick={() => setEditing(true)}
+        className="group flex min-w-0 flex-1 items-center gap-1 text-left"
+        title="Rename line label"
+      >
+        <span className="truncate text-xs text-zinc-500 group-hover:text-zinc-300">{displayLabel}</span>
+        {saving ? (
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-zinc-500" aria-hidden />
+        ) : (
+          <Pencil className="h-3 w-3 shrink-0 text-zinc-600 opacity-70 group-hover:text-primary group-hover:opacity-100" aria-hidden />
+        )}
+      </button>
+    </div>
+  )
 }
 
 export function ManageNumbersModal({
@@ -49,6 +193,12 @@ export function ManageNumbersModal({
   const [releaseTarget, setReleaseTarget] = useState<OwnedLine | null>(null)
   const [releasingId, setReleasingId] = useState<string | null>(null)
 
+  const applyLineLabel = useCallback((lineId: string, nextLabel: string) => {
+    setLines((prev) =>
+      prev.map((line) => (line.id === lineId ? { ...line, line_business_name: nextLabel } : line))
+    )
+  }, [])
+
   const loadLines = useCallback(() => {
     setLoading(true)
     void fetchOnboardingProfile()
@@ -65,7 +215,7 @@ export function ManageNumbersModal({
               id: String(n.id),
               number: String(n.number),
               status: String(n.status),
-              line_business_name: n.label?.trim() || null,
+              line_business_name: n.label?.trim() || DEFAULT_LINE_LABEL,
             }))
         )
       })
@@ -155,9 +305,13 @@ export function ManageNumbersModal({
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold tabular-nums text-foreground">{formatPhoneDisplay(line.number)}</p>
-                      {line.line_business_name ? (
-                        <p className="truncate text-xs text-zinc-500">{line.line_business_name}</p>
-                      ) : null}
+                      <EditableLineLabel
+                        lineId={line.id}
+                        label={line.line_business_name}
+                        disabled={releasingId != null}
+                        onSaved={applyLineLabel}
+                        onRevert={applyLineLabel}
+                      />
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
