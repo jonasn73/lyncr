@@ -1,10 +1,8 @@
 "use client"
 
-// Dashboard banner — nudge owners to complete A2P 10DLC SMS carrier registration.
-
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { MessageSquareWarning, X } from "lucide-react"
+import { openCarrierRegistrationModal } from "@/lib/settings-modals-events"
 
 type BannerView = {
   sms_ready?: boolean
@@ -14,7 +12,6 @@ type BannerView = {
 }
 
 const DISMISS_KEY = "lyncr_10dlc_nudge_dismissed"
-const SMS_REGISTRATION_HREF = "/dashboard/settings?tab=sms-registration"
 
 export function SmsAlertBanner() {
   const [view, setView] = useState<BannerView | null>(null)
@@ -66,12 +63,13 @@ export function SmsAlertBanner() {
     <div className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${tone}`}>
       <MessageSquareWarning className="h-5 w-5 shrink-0" aria-hidden />
       <p className="min-w-0 flex-1 text-sm">{message}</p>
-      <Link
-        href={SMS_REGISTRATION_HREF}
+      <button
+        type="button"
+        onClick={openCarrierRegistrationModal}
         className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20"
       >
         {needsAttention ? "Fix registration →" : isPending ? "View status →" : "Set up SMS →"}
-      </Link>
+      </button>
       {isPending && !needsAttention ? (
         <button
           type="button"
@@ -86,5 +84,4 @@ export function SmsAlertBanner() {
   )
 }
 
-/** @deprecated Use {@link SmsAlertBanner}. */
 export const Sms10DlcNudgeBanner = SmsAlertBanner

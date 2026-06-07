@@ -1,9 +1,20 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { ArrowLeft, Bell, Clock, CreditCard, FileAudio, Loader2, LogOut, MessageSquare, Shield, Siren, Smartphone, Volume2, Zap } from "lucide-react"
-import { updateNotificationPreferences } from "@/app/actions/notification-preferences"
+import {
+  Bell,
+  Building2,
+  Clock,
+  CreditCard,
+  Loader2,
+  LogOut,
+  MessageSquare,
+  Network,
+  Shield,
+  ShieldCheck,
+  Volume2,
+  Zap,
+} from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -12,26 +23,26 @@ import {
 } from "@/components/dashboard-routing-drawer-shared"
 import { useToast } from "@/hooks/use-toast"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
-import { submitFormEvent } from "@/lib/form-keyboard"
 import {
   WorkspacePage,
   WorkspacePageHeader,
-  WorkspacePanel,
   WorkspaceDisclosureRow,
   workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
-import Link from "next/link"
-import { Messaging10DlcCard } from "@/components/messaging-10dlc-card"
-import { SmsRegistrationForm } from "@/components/dashboard/sms-registration-form"
-import { RoutingStrategyCard } from "@/components/routing-strategy-card"
-import { SmsEngineCard } from "@/components/workspace-views/sms-engine-card"
+import { SettingsMenuRow } from "@/components/dashboard/settings-menu-row"
+import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
-import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
 import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
+
+type SettingsProfileSummary = {
+  name: string
+  email: string
+  subscriptionActive: boolean
+}
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 type DayHours = { open: string; close: string; enabled: boolean }
@@ -102,12 +113,7 @@ function SettingsHoursSheet() {
 
 const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   loading,
-  name,
-  email,
-  businessName,
-  setBusinessName,
-  businessNameSaving,
-  onSaveBusinessName,
+  profile,
   pushEnabled,
   setPushEnabled,
   smsEnabled,
@@ -115,28 +121,12 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   whisperEnabled,
   whisperSaving,
   onSaveWhisper,
-  smsLeadsEnabled,
-  setSmsLeadsEnabled,
-  dispatchSmsPhone,
-  setDispatchSmsPhone,
-  notificationSaving,
-  onSaveNotificationPreferences,
-  onToggleSmsLeads,
-  emailRecordingsEnabled,
-  onToggleEmailRecordings,
-  dispatchAlertsSaving,
-  billingCycleEnd,
-  subscriptionActive,
   signingOut,
   onSignOut,
+  carrierRegistrationPending,
 }: {
   loading: boolean
-  name: string
-  email: string
-  businessName: string
-  setBusinessName: (v: string) => void
-  businessNameSaving: boolean
-  onSaveBusinessName: () => void
+  profile: SettingsProfileSummary
   pushEnabled: boolean
   setPushEnabled: (v: boolean) => void
   smsEnabled: boolean
@@ -144,23 +134,13 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   whisperEnabled: boolean
   whisperSaving: boolean
   onSaveWhisper: (v: boolean) => void
-  smsLeadsEnabled: boolean
-  setSmsLeadsEnabled: (v: boolean) => void
-  dispatchSmsPhone: string
-  setDispatchSmsPhone: (v: string) => void
-  notificationSaving: boolean
-  onSaveNotificationPreferences: () => void
-  onToggleSmsLeads: (v: boolean) => void
-  emailRecordingsEnabled: boolean
-  onToggleEmailRecordings: (v: boolean) => void
-  dispatchAlertsSaving: boolean
-  billingCycleEnd: string | null
-  subscriptionActive: boolean
   signingOut: boolean
   onSignOut: () => void
+  carrierRegistrationPending: boolean
 }) {
   const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
-  const initials = name
+  const modals = useSettingsModalActions()
+  const initials = profile.name
     .split(/\s+/)
     .map((w) => w[0])
     .join("")
@@ -168,208 +148,71 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
     .slice(0, 2)
 
   return (
-    <WorkspacePage className="gap-10 pb-8">
+    <WorkspacePage className="gap-8 pb-8">
       <WorkspacePageHeader eyebrow="Account" title="Settings" />
 
-      <WorkspacePanel className="p-6 sm:p-8">
+      <div className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-4 sm:px-5">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            Loading…
-          </div>
+          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
         ) : (
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-            <Avatar className="h-14 w-14 shrink-0">
-              <AvatarFallback className="bg-primary text-lg font-semibold text-primary-foreground">
+          <>
+            <Avatar className="h-12 w-12 shrink-0">
+              <AvatarFallback className="bg-primary text-base font-semibold text-primary-foreground">
                 {initials || "ME"}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1 space-y-5">
-              <div>
-                <p className="text-lg font-semibold text-foreground">{name || "Account"}</p>
-                <p className="text-sm text-zinc-500">{email}</p>
-              </div>
-              <form
-                className="space-y-5"
-                onSubmit={(e) => {
-                  submitFormEvent(e)
-                  if (!businessNameSaving && businessName.trim()) onSaveBusinessName()
-                }}
-              >
-                <label className="block">
-                  <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Business name
-                  </span>
-                  <input
-                    className={workspaceFieldClass}
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    maxLength={120}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={businessNameSaving || !businessName.trim()}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {businessNameSaving ? "Saving…" : "Save"}
-                </button>
-              </form>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-foreground">{profile.name || "Account"}</p>
+              <p className="truncate text-sm text-zinc-500">{profile.email}</p>
             </div>
-          </div>
+          </>
         )}
-      </WorkspacePanel>
+      </div>
 
-      <WorkspacePanel className="p-6 sm:p-8">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
-            <CreditCard className="h-5 w-5 text-primary" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-sm font-semibold text-foreground">Billing & subscription</p>
-            {subscriptionActive ? (
-              <>
-                <p className="text-xs text-zinc-500">Your Lyncr core plan is active.</p>
-                {billingCycleEnd ? (
-                  <p className="text-sm text-foreground">
-                    Next billing date:{" "}
-                    <span className="font-medium tabular-nums">{formatBillingCycleDate(billingCycleEnd)}</span>
-                  </p>
-                ) : (
-                  <p className="text-xs text-zinc-500">Renewal date will appear after Stripe syncs.</p>
-                )}
-              </>
-            ) : (
-              <p className="text-xs text-zinc-500">
-                Trial mode — activate your line from the dashboard banner to start billing.
-              </p>
-            )}
-          </div>
+      <section className="space-y-2">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Workspace</p>
+        <div className="flex flex-col gap-2">
+          <SettingsMenuRow
+            icon={<Building2 className="h-5 w-5 text-primary" aria-hidden />}
+            title="Business profile"
+            subtitle="Business name, lead-alert SMS number, and operator dispatch notifications."
+            onClick={modals.openBusinessProfile}
+          />
+          <SettingsMenuRow
+            icon={<CreditCard className="h-5 w-5 text-primary" aria-hidden />}
+            title="Billing & subscription"
+            subtitle={
+              profile.subscriptionActive
+                ? "View your plan, renewal date, and carrier credit on the Pay tab."
+                : "Activate your line and manage plans from the Pay tab."
+            }
+            onClick={modals.openBilling}
+          />
+          <SettingsMenuRow
+            icon={<Zap className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="SMS automation engine"
+            subtitle="Booking confirmations, en-route texts, and post-job review templates with merge tags."
+            onClick={modals.openSmsAutomation}
+          />
+          <SettingsMenuRow
+            icon={<ShieldCheck className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="Carrier 10DLC registration"
+            subtitle="One-time US carrier compliance so lead-alert and customer SMS can deliver."
+            badge={carrierRegistrationPending ? "Pending" : undefined}
+            onClick={modals.openCarrierRegistration}
+          />
+          <SettingsMenuRow
+            icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="Call routing strategy"
+            subtitle="Private team, Lyncr operator pool, or hybrid fallback per business line."
+            onClick={modals.openRoutingStrategy}
+          />
         </div>
-      </WorkspacePanel>
-
-      <WorkspacePanel className="p-6 sm:p-8">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10">
-            <Zap className="h-5 w-5 text-violet-300" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1 space-y-5">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Notification channels</p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Get a text the moment Voice AI captures a new lead from an after-hours call.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <Smartphone className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Instant SMS lead alerts</p>
-                  <p className="text-xs text-zinc-500">Texts include caller, service type, and intake notes.</p>
-                </div>
-              </div>
-              <Switch
-                checked={smsLeadsEnabled}
-                onCheckedChange={setSmsLeadsEnabled}
-                disabled={notificationSaving}
-                aria-label="Instant SMS lead alerts"
-              />
-            </div>
-
-            <label className="block">
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                Dedicated dispatch SMS number
-              </span>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder="(555) 123-4567"
-                className={workspaceFieldClass}
-                value={dispatchSmsPhone}
-                onChange={(e) => setDispatchSmsPhone(e.target.value)}
-                disabled={notificationSaving}
-              />
-              <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-                Leads will be texted here for dispatching. If left blank, notifications will default to your primary
-                profile phone number.
-              </p>
-            </label>
-
-            <button
-              type="button"
-              disabled={notificationSaving}
-              onClick={() => onSaveNotificationPreferences()}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {notificationSaving ? "Saving…" : "Save notification settings"}
-            </button>
-          </div>
-        </div>
-      </WorkspacePanel>
-
-      <WorkspacePanel className="p-6 sm:p-8">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10">
-            <Siren className="h-5 w-5 text-amber-300" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1 space-y-5">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Lyncr Operator Dispatch Alerts</p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Stay in the loop the moment a live operator wraps a call on your line.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <MessageSquare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
-                <div>
-                  <p className="text-sm font-medium text-foreground">SMS Lead Notifications</p>
-                  <p className="text-xs text-zinc-500">
-                    Text your phone an instant summary the second an operator finishes logging a call.
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={smsLeadsEnabled}
-                onCheckedChange={onToggleSmsLeads}
-                disabled={dispatchAlertsSaving || notificationSaving}
-                aria-label="SMS Lead Notifications"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <FileAudio className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Email Call Recordings</p>
-                  <p className="text-xs text-zinc-500">
-                    Deliver mp3 playback files of completed calls to your primary email address.
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={emailRecordingsEnabled}
-                onCheckedChange={onToggleEmailRecordings}
-                disabled={dispatchAlertsSaving}
-                aria-label="Email Call Recordings"
-              />
-            </div>
-          </div>
-        </div>
-      </WorkspacePanel>
-
-      <SmsEngineCard />
-
-      <RoutingStrategyCard />
-
-      <Messaging10DlcCard />
+      </section>
 
       <section className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
+        <div className="grid gap-2 sm:grid-cols-3">
           <ToggleRow label="Push" icon={Bell} checked={pushEnabled} onChange={setPushEnabled} />
           <ToggleRow label="SMS" icon={MessageSquare} checked={smsEnabled} onChange={setSmsEnabled} />
           <ToggleRow
@@ -382,12 +225,12 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         </div>
       </section>
 
-      <section className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
-        <div className="flex flex-col gap-3">
+      <section className="space-y-2">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
+        <div className="flex flex-col gap-2">
           <WorkspaceDisclosureRow
             icon={<Clock className="h-5 w-5" />}
-            label="Business Hours"
+            label="Business hours"
             onClick={() => openHours(HOURS_SHEET_KEY)}
           />
           <WorkspaceDisclosureRow
@@ -400,7 +243,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <WorkspaceDisclosureRow
             icon={<LogOut className="h-5 w-5" />}
-            label={signingOut ? "Signing out…" : "Sign Out"}
+            label={signingOut ? "Signing out…" : "Sign out"}
             destructive
             onClick={onSignOut}
           />
@@ -411,31 +254,21 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 })
 
 export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
-  const searchParams = useSearchParams()
-  const settingsTab = searchParams.get("tab")
-  const showSmsRegistration = settingsTab === "sms-registration"
-
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
+  const [carrierRegistrationPending, setCarrierRegistrationPending] = useState(false)
 
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [businessName, setBusinessName] = useState("")
-  const [businessNameSaving, setBusinessNameSaving] = useState(false)
+  const [profile, setProfile] = useState<SettingsProfileSummary>({
+    name: "",
+    email: "",
+    subscriptionActive: false,
+  })
 
   const [pushEnabled, setPushEnabled] = useState(true)
   const [smsEnabled, setSmsEnabled] = useState(true)
   const [whisperEnabled, setWhisperEnabled] = useState(true)
   const [whisperSaving, setWhisperSaving] = useState(false)
-  const [companyUserId, setCompanyUserId] = useState("")
-  const [smsLeadsEnabled, setSmsLeadsEnabled] = useState(false)
-  const [dispatchSmsPhone, setDispatchSmsPhone] = useState("")
-  const [notificationSaving, setNotificationSaving] = useState(false)
-  const [emailRecordingsEnabled, setEmailRecordingsEnabled] = useState(false)
-  const [dispatchAlertsSaving, setDispatchAlertsSaving] = useState(false)
-  const [billingCycleEnd, setBillingCycleEnd] = useState<string | null>(null)
-  const [subscriptionActive, setSubscriptionActive] = useState(false)
 
   useEffect(() => {
     fetch("/api/auth/session", { credentials: "include" })
@@ -443,54 +276,33 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
       .then((data) => {
         const u = data?.data?.user
         if (!u) return
-        setName(String(u.name ?? ""))
-        setEmail(String(u.email ?? ""))
-        setCompanyUserId(String(u.id ?? ""))
-        setBusinessName(String(u.business_name ?? "").trim() || "My Business")
+        setProfile((p) => ({
+          ...p,
+          name: String(u.name ?? ""),
+          email: String(u.email ?? ""),
+        }))
         setWhisperEnabled(u.inbound_receptionist_whisper_enabled !== false)
       })
       .finally(() => setLoading(false))
 
     void fetchOnboardingProfile()
-      .then(({ profile, carrierLive }) => {
-        setSubscriptionActive(isVerifiedActiveSubscription(profile, carrierLive))
-        setBillingCycleEnd(profile?.billing_cycle_end?.trim() || null)
-        setSmsLeadsEnabled(profile?.sms_leads_enabled === true)
-        setDispatchSmsPhone(profile?.dispatch_sms_phone?.trim() || "")
+      .then(({ profile: ob, carrierLive }) => {
+        setProfile((p) => ({
+          ...p,
+          subscriptionActive: isVerifiedActiveSubscription(ob, carrierLive),
+        }))
       })
-      .catch(() => {
-        /* optional until migration 027 */
-      })
+      .catch(() => {})
 
-    fetch("/api/settings/email-recordings", { credentials: "include" })
+    fetch("/api/settings/10dlc", { credentials: "include" })
       .then(async (res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.data) setEmailRecordingsEnabled(data.data.email_recordings_enabled === true)
+      .then((json) => {
+        const pending =
+          json?.data?.pending_approval === true || json?.data?.organization_status === "PENDING_APPROVAL"
+        setCarrierRegistrationPending(pending)
       })
-      .catch(() => {
-        /* optional until migration 056 */
-      })
+      .catch(() => {})
   }, [])
-
-  async function saveBusinessName() {
-    const trimmed = businessName.trim() || "My Business"
-    setBusinessNameSaving(true)
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ business_name: trimmed }),
-      })
-      if (!res.ok) throw new Error("Save failed")
-      setBusinessName(trimmed)
-      toast({ title: "Saved" })
-    } catch {
-      toast({ title: "Could not save", variant: "destructive" })
-    } finally {
-      setBusinessNameSaving(false)
-    }
-  }
 
   async function saveWhisper(next: boolean) {
     setWhisperSaving(true)
@@ -503,93 +315,15 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
       })
       if (!res.ok) throw new Error("Save failed")
       setWhisperEnabled(next)
-    } catch {
-      toast({ title: "Could not update", variant: "destructive" })
+      toast({ title: next ? "Whisper on" : "Whisper off" })
+    } catch (e) {
+      toast({
+        title: "Could not update whisper",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      })
     } finally {
       setWhisperSaving(false)
-    }
-  }
-
-  async function saveNotificationPreferences() {
-    if (!companyUserId) {
-      toast({ title: "Could not save", description: "Session not loaded yet.", variant: "destructive" })
-      return
-    }
-    setNotificationSaving(true)
-    try {
-      const result = await updateNotificationPreferences(
-        companyUserId,
-        smsLeadsEnabled,
-        dispatchSmsPhone
-      )
-      if (!result.ok) throw new Error(result.error)
-      setSmsLeadsEnabled(result.sms_leads_enabled)
-      setDispatchSmsPhone(result.dispatch_sms_phone ?? dispatchSmsPhone)
-      toast({ title: "Notification settings saved" })
-    } catch (e) {
-      toast({
-        title: "Could not save notifications",
-        description: e instanceof Error ? e.message : "Try again",
-        variant: "destructive",
-      })
-    } finally {
-      setNotificationSaving(false)
-    }
-  }
-
-  async function toggleSmsLeads(next: boolean) {
-    if (!companyUserId) {
-      toast({ title: "Could not save", description: "Session not loaded yet.", variant: "destructive" })
-      return
-    }
-    const prev = smsLeadsEnabled
-    setSmsLeadsEnabled(next)
-    setDispatchAlertsSaving(true)
-    try {
-      const result = await updateNotificationPreferences(companyUserId, next, dispatchSmsPhone)
-      if (!result.ok) throw new Error(result.error)
-      setSmsLeadsEnabled(result.sms_leads_enabled)
-      setDispatchSmsPhone(result.dispatch_sms_phone ?? dispatchSmsPhone)
-      toast({ title: next ? "SMS lead alerts on" : "SMS lead alerts off" })
-    } catch (e) {
-      setSmsLeadsEnabled(prev)
-      toast({
-        title: "Could not update SMS alerts",
-        description: e instanceof Error ? e.message : "Try again",
-        variant: "destructive",
-      })
-    } finally {
-      setDispatchAlertsSaving(false)
-    }
-  }
-
-  async function toggleEmailRecordings(next: boolean) {
-    const prev = emailRecordingsEnabled
-    setEmailRecordingsEnabled(next)
-    setDispatchAlertsSaving(true)
-    try {
-      const res = await fetch("/api/settings/email-recordings", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_recordings_enabled: next }),
-      })
-      const json = (await res.json().catch(() => ({}))) as {
-        data?: { email_recordings_enabled?: boolean }
-        error?: string
-      }
-      if (!res.ok) throw new Error(json.error || "Could not save")
-      setEmailRecordingsEnabled(json.data?.email_recordings_enabled === true)
-      toast({ title: next ? "Email recordings on" : "Email recordings off" })
-    } catch (e) {
-      setEmailRecordingsEnabled(prev)
-      toast({
-        title: "Could not update email recordings",
-        description: e instanceof Error ? e.message : "Try again",
-        variant: "destructive",
-      })
-    } finally {
-      setDispatchAlertsSaving(false)
     }
   }
 
@@ -597,31 +331,9 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
     <WorkspaceRightSheetGate<typeof HOURS_SHEET_KEY>
       render={() => <SettingsHoursSheet />}
     >
-      {showSmsRegistration ? (
-        <WorkspacePage className="gap-8 pb-8">
-          <WorkspacePageHeader
-            eyebrow="Carrier compliance"
-            title="SMS business registration"
-            subtitle="Register your business for A2P 10DLC so lead-alert texts deliver on US carriers."
-          />
-          <Link
-            href="/dashboard/settings"
-            className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Back to all settings
-          </Link>
-          <SmsRegistrationForm />
-        </WorkspacePage>
-      ) : (
       <SettingsWorkspaceBody
         loading={loading}
-        name={name}
-        email={email}
-        businessName={businessName}
-        setBusinessName={setBusinessName}
-        businessNameSaving={businessNameSaving}
-        onSaveBusinessName={() => void saveBusinessName()}
+        profile={profile}
         pushEnabled={pushEnabled}
         setPushEnabled={setPushEnabled}
         smsEnabled={smsEnabled}
@@ -629,25 +341,13 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
         whisperEnabled={whisperEnabled}
         whisperSaving={whisperSaving}
         onSaveWhisper={(v) => void saveWhisper(v)}
-        smsLeadsEnabled={smsLeadsEnabled}
-        setSmsLeadsEnabled={setSmsLeadsEnabled}
-        dispatchSmsPhone={dispatchSmsPhone}
-        setDispatchSmsPhone={setDispatchSmsPhone}
-        notificationSaving={notificationSaving}
-        onSaveNotificationPreferences={() => void saveNotificationPreferences()}
-        onToggleSmsLeads={(v) => void toggleSmsLeads(v)}
-        emailRecordingsEnabled={emailRecordingsEnabled}
-        onToggleEmailRecordings={(v) => void toggleEmailRecordings(v)}
-        dispatchAlertsSaving={dispatchAlertsSaving}
-        billingCycleEnd={billingCycleEnd}
-        subscriptionActive={subscriptionActive}
         signingOut={signingOut}
+        carrierRegistrationPending={carrierRegistrationPending}
         onSignOut={() => {
           setSigningOut(true)
           void signOutAndGoToLogin().finally(() => setSigningOut(false))
         }}
       />
-      )}
     </WorkspaceRightSheetGate>
   )
 })

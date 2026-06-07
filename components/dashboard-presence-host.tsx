@@ -4,6 +4,7 @@ import { Suspense, memo, type ReactNode } from "react"
 import type { PageId } from "@/components/app-shell"
 import { cn } from "@/lib/utils"
 import { DashboardPage } from "@/components/dashboard-page"
+import { DashboardSettingsModalsHost } from "@/components/dashboard/settings-modals-host"
 import { ActivityWorkspaceView } from "@/components/workspace-views/activity-workspace-view"
 import { LeadsWorkspaceView } from "@/components/workspace-views/leads-workspace-view"
 import { TeamWorkspaceView } from "@/components/workspace-views/team-workspace-view"
@@ -76,6 +77,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
 }) {
   return (
     <div className="relative w-full min-h-[calc(100dvh-7.5rem)]">
+      <Suspense fallback={null}>
+        <DashboardSettingsModalsHost />
+      </Suspense>
       <PresencePane active={activePage === "dashboard"} label="Routing">
         <RoutingPane />
       </PresencePane>
