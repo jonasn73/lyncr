@@ -794,6 +794,34 @@ export interface PortingNotification {
   created_at: string
 }
 
+/** Admin porting desk — order detail bundle for GET /api/admin/porting/[id]. */
+export interface AdminPortingDeskDetail {
+  order: PortingOrder
+  notifications: PortingNotification[]
+  telnyx_comments: { id: string; body: string; user_type: string; created_at: string }[]
+  telnyx_live_status: string | null
+  telnyx_status_label: string
+  pipeline_steps: { key: string; label: string; state: "complete" | "current" | "upcoming" | "failed" }[]
+  action_alerts: PortingNotification[]
+}
+
+/** POST body for admin porting corrections. */
+export interface AdminPortingCorrectionRequest {
+  account_number?: string
+  pin?: string
+  street_address?: string
+  city?: string
+  state?: string
+  postal_code?: string
+  entity_name?: string
+  authorized_person?: string
+  loa_base64?: string
+  loa_filename?: string
+  invoice_base64?: string
+  invoice_filename?: string
+  carrier_comment?: string
+}
+
 // --- Call Logs ---
 export type CallType = "incoming" | "outgoing" | "missed" | "voicemail"
 

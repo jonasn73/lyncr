@@ -3761,6 +3761,52 @@ export async function listPortingOrdersForOwner(
   }
 }
 
+/** Load one porting order by primary key (admin desk). */
+export async function getPortingOrderById(orderId: string): Promise<PortingOrder | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM porting_orders WHERE id = ${orderId} LIMIT 1
+    `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    throw e
+  }
+}
+
+/** Update local porting_orders columns after an admin correction. */
+export async function patchPortingOrderFields(
+  orderId: string,
+  updates: {
+    account_number?: string
+    pin_or_sid?: string | null
+    telnyx_status?: string
+    status?: PortingOrderStatus
+  }
+): Promise<PortingOrder | null> {
+  const current = await getPortingOrderById(orderId)
+  if (!current) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE porting_orders
+      SET
+        account_number = ${updates.account_number ?? current.account_number},
+        pin_or_sid = ${updates.pin_or_sid !== undefined ? updates.pin_or_sid : current.pin_or_sid},
+        telnyx_status = ${updates.telnyx_status ?? current.telnyx_status},
+        status = ${updates.status ?? current.status},
+        updated_at = now()
+      WHERE id = ${orderId}
+      RETURNING *
+    `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    throw e
+  }
+}
+
 export async function getPortingOrderByTelnyxOrderId(
   ownerUserId: string,
   telnyxOrderId: string
@@ -5929,6 +5975,40 @@ export async function listPortingNotifications(
       console.warn("[db] porting_notifications missing — run scripts/016-porting-notifications.sql in Neon.")
       return []
     }
+    throw e
+  }
+}
+
+/** Chronological porting webhook log for one Telnyx order id (admin timeline). */
+export async function listPortingNotificationsChronological(
+  userId: string,
+  telnyxOrderId: string,
+  limit: number = 100
+): Promise<PortingNotification[]> {
+  const sql = getSql()
+  const orderFilter = telnyxOrderId.trim()
+  if (!orderFilter) return []
+  try {
+    const rows = await sql`
+      SELECT id, user_id, telnyx_event_id, porting_order_id, event_type, title, body, read_at, created_at
+      FROM porting_notifications
+      WHERE user_id = ${userId} AND porting_order_id = ${orderFilter}
+      ORDER BY created_at ASC
+      LIMIT ${Math.min(Math.max(limit, 1), 200)}
+    `
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      id: String(row.id),
+      user_id: String(row.user_id),
+      telnyx_event_id: String(row.telnyx_event_id),
+      porting_order_id: row.porting_order_id != null ? String(row.porting_order_id) : null,
+      event_type: String(row.event_type ?? ""),
+      title: String(row.title ?? ""),
+      body: String(row.body ?? ""),
+      read_at: row.read_at instanceof Date ? row.read_at.toISOString() : row.read_at != null ? String(row.read_at) : null,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "porting_notifications")) return []
     throw e
   }
 }

@@ -21,6 +21,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { PortingControlDesk } from "@/components/admin/porting-control-desk"
 
 const FEATURE_CONTROLS: { id: string; label: string; description: string }[] = [
   { id: "field_tech_hud", label: "Field Tech HUD", description: "Mobile technician console, dispatch + live tracking." },
@@ -556,6 +557,8 @@ export function AdminUserManageDrawer({
                 </>
               )}
             </div>
+
+            {row ? <PortingControlDesk ownerUserId={row.user_id} /> : null}
 
             <div className="rounded-lg border border-red-900/50 bg-red-950/20 p-4">
               <p className="text-sm font-medium text-red-200">Danger zone</p>
