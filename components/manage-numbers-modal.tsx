@@ -1,8 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Loader2, Pencil, Phone, Plus, Trash2 } from "lucide-react"
+import { ArrowRightLeft, Hourglass, Loader2, Pencil, Phone, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { PortingOrder } from "@/lib/types"
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,26 @@ type OwnedLine = {
 
 const DEFAULT_LINE_LABEL = "Main Line"
 const MAX_LINE_LABEL_LEN = 120
+
+/** Human pipeline stage for a pending transfer (mirrors the carrier journey steps). */
+function pendingPortStageLabel(order: PortingOrder): string {
+  const ts = (order.telnyx_status ?? "").toLowerCase().replace(/_/g, "-")
+  if (["foc-date-confirmed", "foc-date-confirmed-pending", "port-activating", "activation-in-progress"].includes(ts)) {
+    return "Port Date Assigned"
+  }
+  if (order.status === "processing" || ["in-process", "submitted"].includes(ts)) {
+    return "Carrier Review"
+  }
+  if (ts.includes("exception") || ts === "draft") {
+    return "Document Verification"
+  }
+  return "Submitted"
+}
+
+/** Active transfers only — completed/rejected orders drop off this list. */
+function isPendingPortOrder(order: PortingOrder): boolean {
+  return order.status === "pending" || order.status === "processing"
+}
 
 function EditableLineLabel({
   lineId,
@@ -192,6 +213,7 @@ export function ManageNumbersModal({
   const [billingCycleEnd, setBillingCycleEnd] = useState<string | null>(null)
   const [releaseTarget, setReleaseTarget] = useState<OwnedLine | null>(null)
   const [releasingId, setReleasingId] = useState<string | null>(null)
+  const [pendingPorts, setPendingPorts] = useState<PortingOrder[]>([])
 
   const applyLineLabel = useCallback((lineId: string, nextLabel: string) => {
     setLines((prev) =>
@@ -221,6 +243,14 @@ export function ManageNumbersModal({
       })
       .catch(() => setLines([]))
       .finally(() => setLoading(false))
+    // In-flight transfer requests so owners can track ports after submitting.
+    fetch("/api/porting/orders", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { data: { orders: [] } }))
+      .then((data: { data?: { orders?: PortingOrder[] } }) => {
+        const orders = Array.isArray(data.data?.orders) ? data.data.orders : []
+        setPendingPorts(orders.filter(isPendingPortOrder))
+      })
+      .catch(() => setPendingPorts([]))
   }, [])
 
   useEffect(() => {
@@ -340,6 +370,41 @@ export function ManageNumbersModal({
                 ))}
               </ul>
             )}
+
+            {pendingPorts.length > 0 ? (
+              <div className="mt-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Hourglass className="h-3.5 w-3.5 text-amber-400" aria-hidden />
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-amber-300/90">
+                    Pending Number Transfers
+                  </h3>
+                </div>
+                <ul className="space-y-3">
+                  {pendingPorts.map((order) => (
+                    <li
+                      key={order.id}
+                      className="flex items-center gap-3 rounded-xl border border-amber-700/40 bg-amber-950/20 px-4 py-3"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10">
+                        <ArrowRightLeft className="h-4 w-4 text-amber-400" aria-hidden />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold tabular-nums text-foreground">
+                          {formatPhoneDisplay(order.phone_number)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-amber-200/60">
+                          Transferring from {order.current_carrier?.trim() || "your current carrier"} ·{" "}
+                          Est. completion: 1-3 business days
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                        {pendingPortStageLabel(order)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           {!canReleaseAny && lines.length === 1 ? (
