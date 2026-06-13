@@ -20,7 +20,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { phone_number, line_business_name } = body as { phone_number: string; line_business_name?: string }
+    const { phone_number, line_business_name, organization_id } = body as {
+      phone_number: string
+      line_business_name?: string
+      organization_id?: string
+    }
 
     if (!phone_number) {
       return NextResponse.json({ error: "Phone number is required" }, { status: 400 })
@@ -34,7 +38,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const result = await purchasePhoneNumberForUser(userId, phone_number, label)
+    const result = await purchasePhoneNumberForUser(
+      userId,
+      phone_number,
+      label,
+      undefined,
+      organization_id?.trim() || null
+    )
     if (!result.ok) {
       const status = result.reason === "tier_limit" ? 403 : result.reason === "insufficient_credit" ? 402 : 422
       return NextResponse.json({ error: result.error, reason: result.reason }, { status })

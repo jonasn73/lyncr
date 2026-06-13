@@ -9,7 +9,7 @@ import { after } from "next/server"
 import { insertPortingNotificationIfNew } from "@/lib/db"
 import { SITE_NAME } from "@/lib/brand"
 import { finalizePortedNumber } from "@/lib/port-number-finalize"
-import { syncPortingOrderFromTelnyxWebhook } from "@/lib/porting-order-sync"
+import { syncPortingOrderFromTelnyxWebhook, applyPortRejectionFromTelnyxWebhook } from "@/lib/porting-order-sync"
 import {
   buildPortingNotificationText,
   buildPortingNotificationTitle,
@@ -63,6 +63,12 @@ export async function POST(req: NextRequest) {
       rawPayload: body,
     })
 
+    const rejectionSync = await applyPortRejectionFromTelnyxWebhook({
+      ownerUserId: userId,
+      body,
+      telnyxOrderId: orderId,
+    })
+
     const orderSync = await syncPortingOrderFromTelnyxWebhook({
       ownerUserId: userId,
       body,
@@ -93,12 +99,14 @@ export async function POST(req: NextRequest) {
         eventType,
         eventId,
         inserted,
+        porting_rejection_sync: rejectionSync,
         porting_order_sync: orderSync,
       })
     )
     return NextResponse.json({
       received: true,
       stored: inserted,
+      porting_rejection_applied: rejectionSync.applied,
       porting_order_updated: orderSync.updated,
       porting_order_status: orderSync.status,
     })

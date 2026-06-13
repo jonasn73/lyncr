@@ -30,6 +30,14 @@ export function DashboardPage() {
     return base
   }, [activeOrganizationId])
 
+  const receptionistsUrl = useCallback(() => {
+    const base = "/api/receptionists"
+    if (activeOrganizationId && !activeOrganizationId.startsWith("legacy-")) {
+      return `${base}?organization_id=${encodeURIComponent(activeOrganizationId)}`
+    }
+    return base
+  }, [activeOrganizationId])
+
   const mapNumbersResponse = useCallback(
     (data: { numbers?: unknown[] }) => {
       if (!Array.isArray(data.numbers)) return
@@ -79,37 +87,57 @@ export function DashboardPage() {
   const quickSetupDecided =
     sessionFetchDone && receptionistsFetchDone && numbersRoutingFetchDone
 
-  // Fire session, receptionists, and numbers in parallel (single effect = one cleanup, faster wall-clock than chaining).
+  // Session bootstrap (once).
   useEffect(() => {
     let cancelled = false
-    const safeFinally = (setter: () => void) => {
-      if (!cancelled) setter()
-    }
-
     fetch("/api/auth/session", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled && data?.data?.user?.phone) setMainLinePhone(data.data.user.phone)
       })
       .catch(() => {})
-      .finally(() => safeFinally(() => setSessionFetchDone(true)))
+      .finally(() => {
+        if (!cancelled) setSessionFetchDone(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    fetch("/api/receptionists", { credentials: "include" })
+  // Personnel scoped to the active workspace (receptionists on this org's lines).
+  useEffect(() => {
+    let cancelled = false
+    fetch(receptionistsUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((data) => {
         if (cancelled || !Array.isArray(data.data)) return
-        setReceptionists(
-          data.data.map((r: Record<string, string>) => ({
-            id: r.id,
-            name: r.name,
-            phone: r.phone,
-            initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
-            color: r.color || "bg-primary",
-          }))
+        const mapped = data.data.map((r: Record<string, string>) => ({
+          id: r.id,
+          name: r.name,
+          phone: r.phone,
+          initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
+          color: r.color || "bg-primary",
+        }))
+        setReceptionists(mapped)
+        setSelectedReceptionistId((prev) =>
+          prev && mapped.some((r: Contact) => r.id === prev) ? prev : mapped[0]?.id ?? null
         )
       })
       .catch(() => {})
-      .finally(() => safeFinally(() => setReceptionistsFetchDone(true)))
+      .finally(() => {
+        if (!cancelled) setReceptionistsFetchDone(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [receptionistsUrl])
+
+  // Phone lines + AI assistant for the active workspace.
+  useEffect(() => {
+    let cancelled = false
+    const safeFinally = (setter: () => void) => {
+      if (!cancelled) setter()
+    }
 
     fetch(numbersMineUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))

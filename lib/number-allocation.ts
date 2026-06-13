@@ -160,7 +160,8 @@ export async function purchasePhoneNumberForUser(
   userId: string,
   phoneNumberE164: string,
   label: string,
-  friendlyName?: string
+  friendlyName?: string,
+  organizationId?: string | null
 ): Promise<PurchasePhoneNumberResult> {
   const gate = await evaluateNumberPurchaseGate(userId)
   if (!gate.allowed) {
@@ -188,6 +189,7 @@ export async function purchasePhoneNumberForUser(
     type: "local",
     status: "active",
     provider_number_sid: purchase.order_id,
+    organization_id: organizationId ?? null,
   })
 
   void saved

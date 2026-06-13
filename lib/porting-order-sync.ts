@@ -4,6 +4,7 @@ import type { PortingOrderStatus } from "@/lib/types"
 import {
   getPortingOrderByTelnyxOrderId,
   mapTelnyxStatusToPortingOrderStatus,
+  rejectPortingOrderWithReason,
   updatePortingOrderByTelnyxOrderId,
 } from "@/lib/db"
 import {
@@ -12,7 +13,13 @@ import {
   pickBestPortingStatus,
   PORTING_STATUS_PRIORITY,
 } from "@/lib/telnyx-porting-status"
-import { extractPortingOrderRecord, findPortingOrderId } from "@/lib/telnyx-porting-webhook"
+import {
+  extractEventType,
+  extractPortRejectionReason,
+  extractPortingOrderRecord,
+  findPortingOrderId,
+  isPortRejectionWebhook,
+} from "@/lib/telnyx-porting-webhook"
 
 const STATUS_RANK: Record<PortingOrderStatus, number> = {
   pending: 0,
@@ -49,6 +56,55 @@ export type SyncPortingOrderResult = {
   just_completed?: boolean
   phone_number?: string | null
   skipped_reason?: string
+}
+
+export type ApplyPortRejectionResult = {
+  applied: boolean
+  telnyx_order_id: string | null
+  carrier_rejection_reason: string | null
+  skipped_reason?: string
+}
+
+/**
+ * On `porting_order.comment_created` / `porting_order.rejected`, persist rejection text
+ * and set status to `rejected` on the matching porting_orders row.
+ */
+export async function applyPortRejectionFromTelnyxWebhook(params: {
+  ownerUserId: string
+  body: Record<string, unknown>
+  telnyxOrderId?: string | null
+}): Promise<ApplyPortRejectionResult> {
+  if (!isPortRejectionWebhook(params.body)) {
+    return { applied: false, telnyx_order_id: null, carrier_rejection_reason: null, skipped_reason: "not_rejection" }
+  }
+
+  const telnyxOrderId = params.telnyxOrderId?.trim() || findPortingOrderId(params.body)
+  if (!telnyxOrderId) {
+    return { applied: false, telnyx_order_id: null, carrier_rejection_reason: null, skipped_reason: "no_order_id" }
+  }
+
+  const eventType = extractEventType(params.body)
+  const reason = extractPortRejectionReason(params.body, eventType)
+  if (!reason) {
+    return {
+      applied: false,
+      telnyx_order_id: telnyxOrderId,
+      carrier_rejection_reason: null,
+      skipped_reason: "no_rejection_text",
+    }
+  }
+
+  const updated = await rejectPortingOrderWithReason(params.ownerUserId, telnyxOrderId, reason)
+  if (!updated) {
+    return {
+      applied: false,
+      telnyx_order_id: telnyxOrderId,
+      carrier_rejection_reason: reason,
+      skipped_reason: "no_porting_orders_row",
+    }
+  }
+
+  return { applied: true, telnyx_order_id: telnyxOrderId, carrier_rejection_reason: reason }
 }
 
 /**

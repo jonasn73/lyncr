@@ -25,6 +25,8 @@ import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { formatBillingCycleDate } from "@/lib/format-billing-cycle"
 import { dispatchBusinessNumbersChanged } from "@/components/dashboard-numbers-modal-context"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { organizationQueryString } from "@/lib/workspace-organizations"
 import { useToast } from "@/hooks/use-toast"
 
 type OwnedLine = {
@@ -53,9 +55,85 @@ function pendingPortStageLabel(order: PortingOrder): string {
   return "Submitted"
 }
 
-/** Active transfers only — completed/rejected orders drop off this list. */
-function isPendingPortOrder(order: PortingOrder): boolean {
-  return order.status === "pending" || order.status === "processing"
+/** Active transfers — includes rejected orders that need owner correction. */
+function isActiveTransferOrder(order: PortingOrder): boolean {
+  return order.status === "pending" || order.status === "processing" || order.status === "rejected"
+}
+
+/** Inline PIN correction after a carrier rejection. */
+function PortPinCorrectionForm({
+  order,
+  onResubmitted,
+}: {
+  order: PortingOrder
+  onResubmitted: () => void
+}) {
+  const { toast } = useToast()
+  const [pin, setPin] = useState(order.pin_or_sid ?? "")
+  const [submitting, setSubmitting] = useState(false)
+
+  async function resubmit() {
+    const trimmed = pin.trim()
+    if (!trimmed) {
+      toast({
+        variant: "destructive",
+        title: "PIN required",
+        description: "Enter the correct account PIN or passcode from your current carrier.",
+      })
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/porting/orders/${encodeURIComponent(order.id)}/resubmit-pin`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: trimmed }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+      if (!res.ok) throw new Error(data.error || "Could not resubmit port")
+      toast({
+        title: "Port resubmitted",
+        description: data.message || "Carrier is reviewing your corrected PIN.",
+      })
+      onResubmitted()
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Resubmit failed",
+        description: e instanceof Error ? e.message : "Try again or contact support.",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded-lg border border-red-500/30 bg-red-950/20 px-3 py-3">
+      <p className="text-xs leading-snug text-red-200/90">
+        {order.carrier_rejection_reason?.trim() || "Carrier rejected this transfer and needs a correction."}
+      </p>
+      <label className="block text-[11px] font-medium text-red-100/80">
+        Enter Correct Account PIN/Passcode:
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          className="mt-1 w-full rounded-md border border-red-500/40 bg-zinc-950/80 px-2 py-1.5 text-xs text-foreground placeholder:text-zinc-600 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
+        />
+      </label>
+      <button
+        type="button"
+        disabled={submitting}
+        onClick={() => void resubmit()}
+        className="inline-flex w-full items-center justify-center rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-60"
+      >
+        {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Resubmit Port"}
+      </button>
+    </div>
+  )
 }
 
 function EditableLineLabel({
@@ -208,6 +286,7 @@ export function ManageNumbersModal({
   onBuyAnother?: () => void
 }) {
   const { toast } = useToast()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const [lines, setLines] = useState<OwnedLine[]>([])
   const [loading, setLoading] = useState(false)
   const [billingCycleEnd, setBillingCycleEnd] = useState<string | null>(null)
@@ -223,10 +302,11 @@ export function ManageNumbersModal({
 
   const loadLines = useCallback(() => {
     setLoading(true)
+    const orgQs = organizationQueryString(activeOrganizationId)
     void fetchOnboardingProfile()
       .then(({ profile }) => setBillingCycleEnd(profile?.billing_cycle_end?.trim() || null))
       .catch(() => setBillingCycleEnd(null))
-    fetch("/api/numbers/mine", { credentials: "include" })
+    fetch(`/api/numbers/mine${orgQs}`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
       .then((data: { numbers?: { id?: string; number: string; status: string; label?: string }[] }) => {
         const rows = Array.isArray(data.numbers) ? data.numbers : []
@@ -243,15 +323,14 @@ export function ManageNumbersModal({
       })
       .catch(() => setLines([]))
       .finally(() => setLoading(false))
-    // In-flight transfer requests so owners can track ports after submitting.
-    fetch("/api/porting/orders", { credentials: "include" })
+    fetch(`/api/porting/orders${orgQs}`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { data: { orders: [] } }))
       .then((data: { data?: { orders?: PortingOrder[] } }) => {
         const orders = Array.isArray(data.data?.orders) ? data.data.orders : []
-        setPendingPorts(orders.filter(isPendingPortOrder))
+        setPendingPorts(orders.filter(isActiveTransferOrder))
       })
       .catch(() => setPendingPorts([]))
-  }, [])
+  }, [activeOrganizationId])
 
   useEffect(() => {
     if (open) loadLines()
@@ -380,28 +459,62 @@ export function ManageNumbersModal({
                   </h3>
                 </div>
                 <ul className="space-y-3">
-                  {pendingPorts.map((order) => (
-                    <li
-                      key={order.id}
-                      className="flex items-center gap-3 rounded-xl border border-amber-700/40 bg-amber-950/20 px-4 py-3"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10">
-                        <ArrowRightLeft className="h-4 w-4 text-amber-400" aria-hidden />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold tabular-nums text-foreground">
-                          {formatPhoneDisplay(order.phone_number)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-amber-200/60">
-                          Transferring from {order.current_carrier?.trim() || "your current carrier"} ·{" "}
-                          Est. completion: 1-3 business days
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
-                        {pendingPortStageLabel(order)}
-                      </span>
-                    </li>
-                  ))}
+                  {pendingPorts.map((order) => {
+                    const rejected = order.status === "rejected"
+                    return (
+                      <li key={order.id}>
+                        <div
+                          className={cn(
+                            "flex items-center gap-3 rounded-xl border px-4 py-3",
+                            rejected
+                              ? "border-red-700/40 bg-red-950/20"
+                              : "border-amber-700/40 bg-amber-950/20"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border",
+                              rejected
+                                ? "border-red-500/30 bg-red-500/10"
+                                : "border-amber-500/30 bg-amber-500/10"
+                            )}
+                          >
+                            <ArrowRightLeft
+                              className={cn("h-4 w-4", rejected ? "text-red-400" : "text-amber-400")}
+                              aria-hidden
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold tabular-nums text-foreground">
+                              {formatPhoneDisplay(order.phone_number)}
+                            </p>
+                            <p
+                              className={cn(
+                                "mt-0.5 text-xs",
+                                rejected ? "text-red-200/60" : "text-amber-200/60"
+                              )}
+                            >
+                              Transferring from {order.current_carrier?.trim() || "your current carrier"}
+                              {!rejected ? " · Est. completion: 1-3 business days" : ""}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                              rejected
+                                ? "border-red-500/50 bg-red-500/15 text-red-300"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                            )}
+                          >
+                            {rejected ? "Rejection: Need Correction" : pendingPortStageLabel(order)}
+                          </span>
+                        </div>
+                        {rejected ? (
+                          <PortPinCorrectionForm order={order} onResubmitted={loadLines} />
+                        ) : null}
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             ) : null}

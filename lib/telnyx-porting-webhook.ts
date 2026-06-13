@@ -168,6 +168,61 @@ export function buildPortingNotificationTitle(eventType: string): string {
   return humanizeEventType(eventType)
 }
 
+/** Telnyx events that can mark a port order rejected. */
+export function isPortRejectionEventType(eventType: string): boolean {
+  const lower = eventType.toLowerCase()
+  return lower.includes("porting_order.rejected") || lower.endsWith(".rejected")
+}
+
+/** Comment / exception bodies that indicate the carrier rejected or needs correction. */
+export function looksLikeCarrierRejection(text: string): boolean {
+  const lower = text.toLowerCase()
+  return (
+    lower.includes("reject") ||
+    lower.includes("invalid pin") ||
+    lower.includes("invalid passcode") ||
+    lower.includes("passcode") ||
+    lower.includes("pin/passcode") ||
+    lower.includes("account pin") ||
+    lower.includes("action required") ||
+    lower.includes("exception") ||
+    lower.includes("cannot be ported") ||
+    lower.includes("port request failed")
+  )
+}
+
+/** Best rejection / correction message from a Telnyx porting webhook payload. */
+export function extractPortRejectionReason(body: Record<string, unknown>, eventType?: string): string | null {
+  const et = (eventType ?? extractEventType(body)).toLowerCase()
+  const comment = buildPortingNotificationText(body).trim()
+  if (isPortRejectionEventType(et)) {
+    return comment || "Port request rejected by carrier."
+  }
+  if (et.includes("comment") && comment && looksLikeCarrierRejection(comment)) {
+    return comment
+  }
+  const data = body.data as Record<string, unknown> | undefined
+  const record = data?.record as Record<string, unknown> | undefined
+  const statusMsg =
+    (typeof record?.status_message === "string" && record.status_message.trim()) ||
+    (typeof record?.rejection_reason === "string" && record.rejection_reason.trim()) ||
+    (typeof body.message === "string" && body.message.trim()) ||
+    null
+  if (statusMsg && looksLikeCarrierRejection(statusMsg)) return statusMsg
+  return null
+}
+
+/** True when this webhook should set porting_orders.status = rejected. */
+export function isPortRejectionWebhook(body: Record<string, unknown>): boolean {
+  const eventType = extractEventType(body)
+  if (isPortRejectionEventType(eventType)) return true
+  if (eventType.toLowerCase().includes("comment_created")) {
+    const reason = extractPortRejectionReason(body, eventType)
+    return Boolean(reason)
+  }
+  return false
+}
+
 /** Phone numbers listed on a Telnyx porting order payload. */
 export function extractPortingPhoneNumbers(body: Record<string, unknown>): string[] {
   const record = extractPortingOrderRecord(body)

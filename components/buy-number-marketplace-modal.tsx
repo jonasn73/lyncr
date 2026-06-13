@@ -14,6 +14,7 @@ import {
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { fetchNumberEntitlements } from "@/lib/number-entitlements-client"
 import { dispatchBusinessNumbersChanged } from "@/components/dashboard-numbers-modal-context"
+import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import { PortNumberModal } from "@/components/dashboard/port-number-modal"
 import { useToast } from "@/hooks/use-toast"
 import { showUpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
@@ -252,6 +253,7 @@ export function BuyNumberMarketplaceModal({
         body: JSON.stringify({
           phone_number: line.number,
           line_business_name: lineLabel.trim() || "Main Line",
+          organization_id: readActiveOrganizationId(),
         }),
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string; reason?: string }

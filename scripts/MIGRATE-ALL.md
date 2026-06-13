@@ -72,6 +72,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 67 | `067-sms-registrations.sql` | **Dashboard SMS carrier registration.** Adds **`sms_registrations`** (compliance form data per workspace) and **`organizations.sms_registration_status`**. **Required** for Settings → `?tab=sms-registration` and the “Set up SMS” dashboard banner. |
 | 68 | `068-10dlc-multi-tenant.sql` | **Multi-tenant 10DLC.** Adds **`organization_id`** + surrogate **`id`** PK on **`messaging_10dlc_registrations`** (one brand/campaign row per workspace), backfills existing rows to the default org, and drops the owner-global **`sms_registrations`** fallback index. **Required** for per-workspace SMS banners and carrier registration. |
 | 69 | `069-sms-messages.sql` | **Two-way SMS threads.** Adds **`sms_messages`** (inbound + outbound per workspace). **Required** for Telnyx `message.received` storage and `POST /api/messaging/send` replies in the dashboard. |
+| 70 | `070-porting-rejection-reason.sql` | **Port rejection capture.** Adds **`porting_orders.carrier_rejection_reason`** — Telnyx `porting_order.rejected` / rejection comments update owner Lines modal with PIN correction. **Required** for rejected-port resubmit flow. |
 
 ## Platform admin (`admin@lyncr.app`)
 

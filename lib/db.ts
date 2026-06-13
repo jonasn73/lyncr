@@ -919,6 +919,47 @@ export async function getReceptionists(userId: string): Promise<Receptionist[]> 
   }
 }
 
+/** Receptionists assigned (via routing_config) to phone lines in one workspace. */
+export async function getReceptionistsForOrganization(
+  userId: string,
+  organizationId: string
+): Promise<Receptionist[]> {
+  if (!organizationId || organizationId.startsWith("legacy-")) {
+    return getReceptionists(userId)
+  }
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT DISTINCT r.id, r.user_id, r.name, r.phone, r.initials, r.color, r.rate_per_minute,
+        r.pay_mode, r.flat_rate_usd, r.is_active, r.created_at
+      FROM receptionists r
+      INNER JOIN routing_config rc ON rc.selected_receptionist_id = r.id AND rc.user_id = r.user_id
+      INNER JOIN phone_numbers pn ON pn.user_id = r.user_id AND pn.number = rc.business_number
+      WHERE r.user_id = ${userId}
+        AND pn.organization_id = ${organizationId}
+        AND r.is_active = true
+      ORDER BY r.created_at ASC
+    `
+    if (rows.length > 0) return rows.map(parseReceptionistRow)
+    return []
+  } catch (e) {
+    if (isMissingOrganizationsSchemaError(e)) return getReceptionists(userId)
+    if (!isMissingReceptionistPayColumnError(e)) throw e
+    const rows = await sql`
+      SELECT DISTINCT r.id, r.user_id, r.name, r.phone, r.initials, r.color, r.rate_per_minute, r.is_active, r.created_at
+      FROM receptionists r
+      INNER JOIN routing_config rc ON rc.selected_receptionist_id = r.id AND rc.user_id = r.user_id
+      INNER JOIN phone_numbers pn ON pn.user_id = r.user_id AND pn.number = rc.business_number
+      WHERE r.user_id = ${userId}
+        AND pn.organization_id = ${organizationId}
+        AND r.is_active = true
+      ORDER BY r.created_at ASC
+    `
+    if (rows.length > 0) return rows.map(parseReceptionistRow)
+    return []
+  }
+}
+
 /** Active phone_numbers row by primary key — used by skill-pool routing. */
 export async function getPhoneNumberLineById(lineId: string): Promise<PhoneNumber | null> {
   const sql = getSql()
@@ -3677,6 +3718,8 @@ function parsePortingOrderRow(row: Record<string, unknown>): PortingOrder {
     status: normalized,
     telnyx_order_id: row.telnyx_order_id != null ? String(row.telnyx_order_id) : null,
     telnyx_status: row.telnyx_status != null ? String(row.telnyx_status) : null,
+    carrier_rejection_reason:
+      row.carrier_rejection_reason != null ? String(row.carrier_rejection_reason) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
   }
@@ -3775,6 +3818,46 @@ export async function getPortingOrderById(orderId: string): Promise<PortingOrder
   }
 }
 
+function isMissingCarrierRejectionColumnError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e)
+  return msg.includes("carrier_rejection_reason")
+}
+
+export async function rejectPortingOrderWithReason(
+  ownerUserId: string,
+  telnyxOrderId: string,
+  carrierRejectionReason: string
+): Promise<PortingOrder | null> {
+  const sql = getSql()
+  const reason = carrierRejectionReason.trim().slice(0, 4000)
+  if (!reason) return null
+  try {
+    const rows = await sql`
+      UPDATE porting_orders
+      SET
+        status = 'rejected',
+        telnyx_status = COALESCE(NULLIF(trim(telnyx_status), ''), 'rejected'),
+        carrier_rejection_reason = ${reason},
+        updated_at = now()
+      WHERE owner_user_id = ${ownerUserId} AND telnyx_order_id = ${telnyxOrderId}
+      RETURNING *
+    `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    if (isMissingCarrierRejectionColumnError(e)) {
+      const rows = await sql`
+        UPDATE porting_orders
+        SET status = 'rejected', telnyx_status = COALESCE(NULLIF(trim(telnyx_status), ''), 'rejected'), updated_at = now()
+        WHERE owner_user_id = ${ownerUserId} AND telnyx_order_id = ${telnyxOrderId}
+        RETURNING *
+      `
+      return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+    }
+    throw e
+  }
+}
+
 /** Update local porting_orders columns after an admin correction. */
 export async function patchPortingOrderFields(
   orderId: string,
@@ -3783,6 +3866,7 @@ export async function patchPortingOrderFields(
     pin_or_sid?: string | null
     telnyx_status?: string
     status?: PortingOrderStatus
+    carrier_rejection_reason?: string | null
   }
 ): Promise<PortingOrder | null> {
   const current = await getPortingOrderById(orderId)
@@ -3796,6 +3880,11 @@ export async function patchPortingOrderFields(
         pin_or_sid = ${updates.pin_or_sid !== undefined ? updates.pin_or_sid : current.pin_or_sid},
         telnyx_status = ${updates.telnyx_status ?? current.telnyx_status},
         status = ${updates.status ?? current.status},
+        carrier_rejection_reason = ${
+          updates.carrier_rejection_reason !== undefined
+            ? updates.carrier_rejection_reason
+            : current.carrier_rejection_reason ?? null
+        },
         updated_at = now()
       WHERE id = ${orderId}
       RETURNING *
@@ -3803,6 +3892,20 @@ export async function patchPortingOrderFields(
     return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
   } catch (e) {
     if (isMissingPortingOrdersTableError(e)) return null
+    if (isMissingCarrierRejectionColumnError(e)) {
+      const rows = await sql`
+        UPDATE porting_orders
+        SET
+          account_number = ${updates.account_number ?? current.account_number},
+          pin_or_sid = ${updates.pin_or_sid !== undefined ? updates.pin_or_sid : current.pin_or_sid},
+          telnyx_status = ${updates.telnyx_status ?? current.telnyx_status},
+          status = ${updates.status ?? current.status},
+          updated_at = now()
+        WHERE id = ${orderId}
+        RETURNING *
+      `
+      return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+    }
     throw e
   }
 }

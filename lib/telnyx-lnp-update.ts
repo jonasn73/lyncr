@@ -141,3 +141,27 @@ export async function submitTelnyxPortingCorrections(
 
   return { telnyxOrderId: orderId, telnyxStatus, orderStatus }
 }
+
+/** Owner resubmit: PATCH only the account PIN and refresh Telnyx status. */
+export async function submitTelnyxPortingPinCorrection(
+  telnyxOrderId: string,
+  pin: string
+): Promise<TelnyxPortingCorrectionResult> {
+  const orderId = telnyxOrderId.trim()
+  const pinTrimmed = pin.trim()
+  if (!orderId) throw new Error("Telnyx order id is required")
+  if (!pinTrimmed) throw new Error("Account PIN or passcode is required")
+
+  await telnyxFetch(`/porting_orders/${orderId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ end_user: { admin: { pin: pinTrimmed } } }),
+  })
+
+  const refreshed = await telnyxFetch(`/porting_orders/${orderId}?include_phone_numbers=true`)
+  const orderData = (refreshed?.data ?? refreshed) as Record<string, unknown>
+  const statuses = collectPortingStatuses(orderData)
+  const telnyxStatus = pickBestPortingStatus(statuses)
+  const orderStatus = mapTelnyxStatusToPortingOrderStatus(telnyxStatus)
+
+  return { telnyxOrderId: orderId, telnyxStatus, orderStatus }
+}

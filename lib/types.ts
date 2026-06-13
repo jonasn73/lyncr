@@ -689,6 +689,8 @@ export interface PortingOrder {
   status: PortingOrderStatus
   telnyx_order_id: string | null
   telnyx_status: string | null
+  /** Carrier rejection or action-required text from Telnyx (e.g. invalid PIN). */
+  carrier_rejection_reason?: string | null
   created_at: string
   updated_at: string
 }

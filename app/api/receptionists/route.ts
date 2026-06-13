@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getReceptionists, insertReceptionist } from "@/lib/db"
+import { getReceptionists, getReceptionistsForOrganization, insertReceptionist } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -14,7 +14,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
   try {
-    const receptionists = await getReceptionists(userId)
+    const orgId = req.nextUrl.searchParams.get("organization_id")?.trim() || null
+    const receptionists =
+      orgId && !orgId.startsWith("legacy-")
+        ? await getReceptionistsForOrganization(userId, orgId)
+        : await getReceptionists(userId)
     return NextResponse.json({ data: receptionists })
   } catch (error) {
     console.error("[Sigo] List receptionists error:", error)
