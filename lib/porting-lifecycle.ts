@@ -110,7 +110,7 @@ export function portingBannerMessage(order: PortingOrder, phase: PortingBannerPh
     return `❌ Transfer Overdue/Rejected: Click to fix credentials and resubmit.`
   }
   if (phase === "action_needed") {
-    return `⚠️ Telnyx Response Needed: Telnyx has requested information for ${phone} to avoid carrier rejection. Click to view message.`
+    return `⚠️ Carrier Response Needed: The transfer desk requested information for ${phone} to avoid rejection. Click to read carrier updates.`
   }
   return `🚚 Number Transfer in Progress: ${phone} is transferring onto Lyncr. Tracking status...`
 }

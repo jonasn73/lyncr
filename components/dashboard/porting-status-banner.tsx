@@ -10,7 +10,6 @@ import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import {
   getPortingBannerPhase,
   isActivePortingOrder,
-  portingBannerMessage,
   sortPortingOrdersForBanner,
   type PortingBannerPhase,
 } from "@/lib/porting-lifecycle"
@@ -46,7 +45,7 @@ function buildDisplayMessage(order: PortingOrderRow, phase: PortingBannerPhase):
     return `❌ Transfer Overdue/Rejected: Click to fix credentials and resubmit.`
   }
   if (phase === "action_needed") {
-    return `⚠️ Telnyx Response Needed: Telnyx has requested information for ${phone} to avoid carrier rejection. Click to view message.`
+    return `⚠️ Carrier Response Needed: The transfer desk requested information for ${phone} to avoid rejection. Click to read carrier updates.`
   }
   return `🚚 Number Transfer in Progress: ${phone} is transferring onto Lyncr. Tracking status...`
 }

@@ -6,7 +6,11 @@ import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { DrawerScrollBody, DrawerStepHeader } from "@/components/dashboard-routing-drawer-shared"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { displayPortingMessageBody } from "@/lib/porting-display"
+import {
+  displayPortingMessageBody,
+  formatPortingThreadMessage,
+  isPortingSystemStatusMessage,
+} from "@/lib/porting-display"
 import { dispatchPortingOrdersChanged } from "@/components/dashboard-numbers-modal-context"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -60,63 +64,83 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
   )
 }
 
+function formatThreadTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
 function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
   if (items.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-zinc-500">
-        No carrier messages yet. If Telnyx left a comment in their portal, open this desk again in a
-        moment — we pull those messages live on each refresh.
+        No carrier updates yet. Open this desk again after a moment — carrier correspondence syncs on
+        each refresh.
       </p>
     )
   }
 
   return (
-    <ul className="space-y-3">
+    <div className="space-y-4">
       {items.map((item) => {
-        const isCarrier = item.author === "porting_desk" || item.author === "carrier"
-        return (
-          <li
-            key={item.id}
-            className={cn(
-              "rounded-xl border px-3 py-3 text-sm",
-              isCarrier
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-50"
-                : item.author === "customer"
-                  ? "border-sky-500/25 bg-sky-500/10 text-sky-50"
-                  : "border-zinc-800 bg-zinc-950/50 text-zinc-300"
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                {item.author === "porting_desk"
-                  ? "Porting desk"
-                  : item.author === "customer"
-                    ? "You"
-                    : item.author === "system"
-                      ? "System update"
-                      : "Carrier"}
-              </span>
-              <time className="text-[10px] text-zinc-600">
-                {new Date(item.created_at).toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </time>
+        const text = formatPortingThreadMessage(item.body)
+        const isSystem = isPortingSystemStatusMessage(item.title, item.body, item.author)
+        const isCustomer = item.author === "customer"
+        const isDesk = item.author === "porting_desk" || item.author === "carrier"
+
+        if (isSystem) {
+          return (
+            <div key={item.id} className="flex justify-center px-2">
+              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-1.5 text-center text-[11px] leading-snug text-zinc-400">
+                {displayPortingMessageBody(text)}
+                <span className="mt-0.5 block text-[10px] text-zinc-600">{formatThreadTime(item.created_at)}</span>
+              </div>
             </div>
-            <p className="mt-1.5 whitespace-pre-wrap leading-relaxed">
-              {displayPortingMessageBody(item.body)}
-            </p>
-            {item.is_new ? (
-              <span className="mt-2 inline-block rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
-                New
-              </span>
-            ) : null}
-          </li>
+          )
+        }
+
+        if (isCustomer) {
+          return (
+            <div key={item.id} className="flex justify-end">
+              <div className="max-w-[88%] rounded-2xl rounded-br-md border border-sky-500/25 bg-sky-500/15 px-3.5 py-2.5 text-sm text-sky-50 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-200/80">You</p>
+                <p className="mt-1 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
+                <time className="mt-2 block text-[10px] text-sky-200/60">{formatThreadTime(item.created_at)}</time>
+              </div>
+            </div>
+          )
+        }
+
+        return (
+          <div key={item.id} className="flex justify-start">
+            <div
+              className={cn(
+                "max-w-[92%] rounded-2xl rounded-bl-md border px-3.5 py-2.5 text-sm shadow-sm",
+                isDesk
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-50"
+                  : "border-zinc-700/80 bg-zinc-900/80 text-zinc-200"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+                  {isDesk ? "Carrier Core Desk" : "Carrier network"}
+                </p>
+                {item.is_new ? (
+                  <span className="rounded-full bg-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-100">
+                    New
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1.5 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
+              <time className="mt-2 block text-[10px] text-zinc-500">{formatThreadTime(item.created_at)}</time>
+            </div>
+          </div>
         )
       })}
-    </ul>
+    </div>
   )
 }
 
@@ -161,7 +185,8 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
   }, [open, orderId, loadDesk])
 
   async function sendUpdate() {
-    if (!orderId) return
+    const target = detail?.order
+    if (!orderId || !target?.id) return
     const message = reply.trim()
     const pinTrimmed = pin.trim()
     if (!message && !pinTrimmed) {
@@ -170,15 +195,24 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
     }
     setSending(true)
     try {
-      const res = await fetch(`/api/porting/orders/${encodeURIComponent(orderId)}/reply`, {
-        method: "POST",
+      const res = await fetch(`/api/porting/orders/${encodeURIComponent(target.id)}/resubmit`, {
+        method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, pin: pinTrimmed || undefined }),
+        body: JSON.stringify({
+          porting_order_id: target.id,
+          telnyx_order_id: target.telnyx_order_id,
+          phone_number: target.phone_number,
+          message: message || undefined,
+          pin: pinTrimmed || undefined,
+        }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || "Send failed")
-      toast({ title: "Update sent", description: json.message || "Porting desk received your message." })
+      toast({
+        title: "Correction submitted",
+        description: json.message || "Carrier desk received your update for this line.",
+      })
       setReply("")
       dispatchPortingOrdersChanged()
       await loadDesk()
@@ -203,7 +237,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
         <DrawerStepHeader
           step="Number transfer"
           title="Carrier transfer desk"
-          subtitle="Track your port, read Telnyx messages, and send corrections before a rejection."
+          subtitle="Track your port, read carrier updates, and submit corrections before a rejection."
           lineLabel={phone}
         />
 
@@ -219,7 +253,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
               <div>
                 <div className="mb-3 flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-amber-400" aria-hidden />
-                  <h3 className="text-sm font-semibold text-foreground">Telnyx conversation</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Carrier Correspondence Log</h3>
                 </div>
                 <ConversationFeed items={detail.conversation} />
               </div>
@@ -242,13 +276,13 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
                     rows={4}
-                    placeholder="Answer the porting team's questions (account number, invoice, LOA details, etc.)"
+                    placeholder="Answer the carrier desk (account number, invoice, LOA details, etc.)"
                     className="mt-1 w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
                   />
                 </label>
                 <button
                   type="button"
-                  disabled={sending}
+                  disabled={sending || !detail.order.id}
                   onClick={() => void sendUpdate()}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
@@ -257,7 +291,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
                   ) : (
                     <Send className="h-4 w-4" aria-hidden />
                   )}
-                  Send Update to Telnyx
+                  Submit Correction to Carrier
                 </button>
               </div>
             </>

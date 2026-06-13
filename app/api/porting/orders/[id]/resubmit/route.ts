@@ -1,4 +1,4 @@
-// POST /api/porting/orders/[id]/reply — owner reply to Telnyx porting desk thread.
+// PATCH/POST /api/porting/orders/[id]/resubmit — owner correction scoped to one porting_orders row.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
@@ -8,30 +8,50 @@ import { submitTelnyxPortingPinCorrection } from "@/lib/telnyx-lnp-update"
 
 export const dynamic = "force-dynamic"
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+type ResubmitBody = {
+  porting_order_id?: string
+  telnyx_order_id?: string
+  phone_number?: string
+  message?: string
+  body?: string
+  pin?: string
+  pin_or_sid?: string
+}
+
+async function handleResubmit(req: NextRequest, id: string) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
-  const { id } = await ctx.params
   const order = await getPortingOrderByIdForOwner(id, userId)
   if (!order) return NextResponse.json({ error: "Port order not found" }, { status: 404 })
+
+  const body = (await req.json().catch(() => ({}))) as ResubmitBody
+
+  if (body.porting_order_id?.trim() && body.porting_order_id.trim() !== id) {
+    return NextResponse.json({ error: "Port order id mismatch for this transfer" }, { status: 400 })
+  }
 
   const telnyxOrderId = order.telnyx_order_id?.trim()
   if (!telnyxOrderId) {
     return NextResponse.json({ error: "This transfer has no carrier ticket id yet" }, { status: 400 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as {
-    message?: string
-    body?: string
-    pin?: string
-    pin_or_sid?: string
+  if (body.telnyx_order_id?.trim() && body.telnyx_order_id.trim() !== telnyxOrderId) {
+    return NextResponse.json({ error: "Carrier ticket id does not match this line" }, { status: 400 })
   }
+
+  if (body.phone_number?.trim()) {
+    const norm = (v: string) => v.replace(/\D/g, "")
+    if (norm(body.phone_number) !== norm(order.phone_number)) {
+      return NextResponse.json({ error: "Phone number does not match this transfer" }, { status: 400 })
+    }
+  }
+
   const message = String(body.message ?? body.body ?? "").trim()
   const pin = String(body.pin ?? body.pin_or_sid ?? "").trim()
 
   if (!message && !pin) {
-    return NextResponse.json({ error: "Enter a reply or corrected PIN" }, { status: 400 })
+    return NextResponse.json({ error: "Enter a correction message or updated PIN" }, { status: 400 })
   }
 
   try {
@@ -59,11 +79,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     return NextResponse.json({
       success: true,
-      message: "Update sent to the porting desk.",
+      message: "Correction submitted to the carrier desk for this line.",
+      data: {
+        porting_order_id: id,
+        telnyx_order_id: telnyxOrderId,
+        phone_number: order.phone_number,
+      },
     })
   } catch (e) {
-    console.error("[POST /api/porting/orders/reply] failed:", e)
-    const msg = e instanceof Error ? e.message : "Could not send update"
+    console.error("[porting/resubmit] failed:", e)
+    const msg = e instanceof Error ? e.message : "Could not submit correction"
     return NextResponse.json({ error: msg }, { status: 502 })
   }
+}
+
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params
+  return handleResubmit(req, id)
+}
+
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params
+  return handleResubmit(req, id)
 }

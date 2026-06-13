@@ -62,7 +62,7 @@ export function buildPortingConversationFeed(
       author: commentAuthor(c.user_type),
       title:
         c.user_type.toLowerCase() === "admin"
-          ? "Porting team comment"
+          ? "Carrier Core Desk"
           : c.user_type.toLowerCase() === "user"
             ? "Your reply"
             : "Carrier update",

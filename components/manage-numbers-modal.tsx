@@ -92,11 +92,16 @@ function PortPinCorrectionForm({
     }
     setSubmitting(true)
     try {
-      const res = await fetch(`/api/porting/orders/${encodeURIComponent(order.id)}/resubmit-pin`, {
-        method: "POST",
+      const res = await fetch(`/api/porting/orders/${encodeURIComponent(order.id)}/resubmit`, {
+        method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: trimmed }),
+        body: JSON.stringify({
+          porting_order_id: order.id,
+          telnyx_order_id: order.telnyx_order_id,
+          phone_number: order.phone_number,
+          pin: trimmed,
+        }),
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
       if (!res.ok) throw new Error(data.error || "Could not resubmit port")
@@ -139,7 +144,7 @@ function PortPinCorrectionForm({
         onClick={() => void resubmit()}
         className="inline-flex w-full items-center justify-center rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-60"
       >
-        {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Resubmit Port"}
+        {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Submit Correction to Carrier"}
       </button>
     </div>
   )
@@ -560,7 +565,7 @@ export function ManageNumbersModal({
                   <span className="font-medium text-foreground">
                     {releaseTarget ? formatPhoneDisplay(releaseTarget.number) : ""}
                   </span>{" "}
-                  will be removed from your account and returned to Telnyx inventory.
+                  will be removed from your account and returned to carrier inventory.
                 </p>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>Callers will no longer reach you on this number.</li>
