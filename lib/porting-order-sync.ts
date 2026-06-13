@@ -14,6 +14,8 @@ import {
   pickBestPortingStatus,
   PORTING_STATUS_PRIORITY,
 } from "@/lib/telnyx-porting-status"
+import { cleansePortingHumanComment } from "@/lib/porting-display"
+import { buildPortingNotificationLogBody } from "@/lib/porting-notification-log"
 import {
   extractEventType,
   extractPortRejectionReason,
@@ -23,6 +25,13 @@ import {
   looksLikePinPasscodeRejection,
   buildPortingNotificationText,
 } from "@/lib/telnyx-porting-webhook"
+
+function cleansedPortingWebhookText(body: Record<string, unknown>, eventType?: string): string {
+  const logged = buildPortingNotificationLogBody(body, eventType).trim()
+  if (logged && !logged.startsWith("System Update:")) return logged
+  const raw = buildPortingNotificationText(body).trim()
+  return cleansePortingHumanComment(raw) || raw
+}
 
 const STATUS_RANK: Record<PortingOrderStatus, number> = {
   pending: 0,
@@ -102,7 +111,7 @@ export async function applyPortActionRequiredFromTelnyxWebhook(params: {
   const eventType = extractEventType(params.body)
   const note =
     extractPortRejectionReason(params.body, eventType) ||
-    buildPortingNotificationText(params.body).trim() ||
+    cleansedPortingWebhookText(params.body, eventType) ||
     null
 
   const updated = await markPortingOrderActionRequired(params.ownerUserId, telnyxOrderId, note)
@@ -139,7 +148,7 @@ export async function applyPortRejectionFromTelnyxWebhook(params: {
   }
 
   const eventType = extractEventType(params.body)
-  const commentText = buildPortingNotificationText(params.body).trim()
+  const commentText = cleansedPortingWebhookText(params.body, eventType)
   const reason =
     extractPortRejectionReason(params.body, eventType) ||
     (commentText && looksLikePinPasscodeRejection(commentText) ? commentText : null)
@@ -242,7 +251,7 @@ export async function syncPortingOrderFromTelnyxWebhook(params: {
   }
 
   if (statusToWrite === "action_required" && existing.status !== "rejected") {
-    const note = buildPortingNotificationText(params.body).trim() || null
+    const note = cleansedPortingWebhookText(params.body) || null
     const updated = await markPortingOrderActionRequired(params.ownerUserId, telnyxOrderId, note)
     if (updated) {
       return {

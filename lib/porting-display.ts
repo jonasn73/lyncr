@@ -34,6 +34,10 @@ export function stripPortingEmailBoilerplate(raw: string): string {
   s = s.replace(/^thank you for (using|choosing|submitting)[^.]*\.\s*/i, "")
   s = s.replace(/\bto resolve this[,:]?\s*/gi, "")
   s = s.replace(/\bplease follow these steps[,:]?\s*/gi, "")
+  s = s.replace(/\bif you need assistance,?\s*please reply[^\n.]*/gi, "")
+  s = s.replace(/^\d+\.\s+contact your current carrier[^\n]*/gim, "")
+  s = s.replace(/^\d+\.\s+update the pin[^\n]*/gim, "")
+  s = s.replace(/^\d+\.\s+[^\n]+/gim, "")
   s = s.replace(/\n+(\d+\.\s*)+/g, "\n")
   s = s.replace(/\n\s*(best regards|regards|sincerely|thanks),?\s*[\s\S]*$/i, "")
   s = s.replace(/\n\s*carrier core desk\s*$/i, "")
@@ -42,8 +46,37 @@ export function stripPortingEmailBoilerplate(raw: string): string {
   return s.trim()
 }
 
+/** Isolate the unique human diagnostic from a carrier desk comment (pre-save / pre-render). */
+export function cleansePortingHumanComment(raw: string): string {
+  const stripped = stripPortingEmailBoilerplate(raw)
+  if (!stripped) return ""
+
+  const sentences = stripped
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+
+  const diagnostic = sentences.filter((sentence) =>
+    /pin|passcode|pass code|reject|exception|invoice|loa|account number|must be provided|invalid|cannot be ported|action required|wireless port/i.test(
+      sentence
+    )
+  )
+
+  if (diagnostic.length > 0) {
+    const joined = diagnostic.join(" ").trim()
+    return joined.endsWith(".") ? joined : `${joined}.`
+  }
+
+  const substantive = sentences.find((s) => s.length >= 12 && s.length <= 500)
+  if (substantive) return substantive.endsWith(".") ? substantive : `${substantive}.`
+
+  return stripped.slice(0, 2000)
+}
+
 /** Core conversational text for bubble rendering. */
 export function formatPortingThreadMessage(raw: string): string {
+  const trimmed = raw.trim()
+  if (trimmed.startsWith("System Update:")) return trimmed
   const cleaned = stripPortingEmailBoilerplate(raw)
   return cleaned || displayUserFacingMessage(raw).trim()
 }
@@ -56,13 +89,15 @@ export function displayPortingMessageBody(raw: string): string {
 /** True when a feed item should render as a centered status micro-pill. */
 export function isPortingSystemStatusMessage(title: string, body: string, author: string): boolean {
   if (author === "porting_desk" || author === "customer") return false
+  const trimmed = body.trim()
+  if (trimmed.startsWith("System Update:")) return true
   const blob = `${title} ${body}`.toLowerCase()
   if (blob.includes("new comment") || blob.includes("carrier core desk")) return false
   return (
     blob.includes("status updated") ||
     blob.includes("status changed") ||
-    blob.includes("transfer status") ||
-    (body.trim().length < 160 &&
+    blob.includes("transfer status changed") ||
+    (trimmed.length < 120 &&
       (blob.includes("submitted") || blob.includes("in progress") || blob.includes("exception")))
   )
 }

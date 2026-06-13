@@ -16,6 +16,7 @@ import {
   fetchTelnyxPortingOrderById,
   listTelnyxPortingOrderComments,
 } from "@/lib/telnyx-porting-orders"
+import { cleansePortingHumanComment } from "@/lib/porting-display"
 import {
   isPortRejectionWebhook,
   looksLikePinPasscodeRejection,
@@ -42,8 +43,9 @@ export async function backfillPortingNotificationsFromTelnyxComments(params: {
   for (const c of comments) {
     const ut = c.user_type.toLowerCase()
     if (ut !== "admin" && ut !== "system") continue
-    const body = c.body.trim()
-    if (!body) continue
+    const raw = c.body.trim()
+    if (!raw) continue
+    const body = cleansePortingHumanComment(raw) || raw
     const ok = await insertPortingNotificationIfNew({
       userId: params.ownerUserId,
       telnyxEventId: `telnyx-comment-sync-${c.id}`,
@@ -77,7 +79,8 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
   let rejectionReason: string | null = null
 
   if (latestAdmin?.body.trim()) {
-    const body = latestAdmin.body.trim()
+    const raw = latestAdmin.body.trim()
+    const body = cleansePortingHumanComment(raw) || raw
     const pseudoPayload = {
       event_type: "porting_order.comment_created",
       data: { record: { body, user_type: latestAdmin.user_type } },

@@ -10,8 +10,8 @@ import { insertPortingNotificationIfNew } from "@/lib/db"
 import { SITE_NAME } from "@/lib/brand"
 import { finalizePortedNumber } from "@/lib/port-number-finalize"
 import { syncPortingOrderFromTelnyxWebhook, applyPortRejectionFromTelnyxWebhook, applyPortActionRequiredFromTelnyxWebhook } from "@/lib/porting-order-sync"
+import { buildPortingNotificationLogBody } from "@/lib/porting-notification-log"
 import {
-  buildPortingNotificationText,
   buildPortingNotificationTitle,
   customerRefToUserId,
   extractEventType,
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const eventId = extractTelnyxEventId(body)
   const orderId = findPortingOrderId(body)
   const title = buildPortingNotificationTitle(eventType)
-  const text = buildPortingNotificationText(body)
+  const text = buildPortingNotificationLogBody(body, eventType)
 
   try {
     const inserted = await insertPortingNotificationIfNew({

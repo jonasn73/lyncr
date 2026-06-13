@@ -4,6 +4,8 @@
 // Telnyx sends several JSON shapes (event_type at root vs meta, nested porting_order, etc.).
 // We walk the tree for `customer_reference` starting with `zing-` and stable event ids.
 
+import { cleansePortingHumanComment } from "@/lib/porting-display"
+
 /** Find `customer_reference` like `zing-<uuid>` anywhere in the payload. */
 export function findZingCustomerReference(obj: unknown): string | null {
   if (obj == null) return null
@@ -205,7 +207,8 @@ export function looksLikeCarrierRejection(text: string): boolean {
 /** Best rejection / correction message from a Telnyx porting webhook payload. */
 export function extractPortRejectionReason(body: Record<string, unknown>, eventType?: string): string | null {
   const et = (eventType ?? extractEventType(body)).toLowerCase()
-  const comment = buildPortingNotificationText(body).trim()
+  const rawComment = buildPortingNotificationText(body).trim()
+  const comment = rawComment ? cleansePortingHumanComment(rawComment) || rawComment : ""
   if (isPortRejectionEventType(et)) {
     return comment || "Port request rejected by carrier."
   }
@@ -219,7 +222,9 @@ export function extractPortRejectionReason(body: Record<string, unknown>, eventT
     (typeof record?.rejection_reason === "string" && record.rejection_reason.trim()) ||
     (typeof body.message === "string" && body.message.trim()) ||
     null
-  if (statusMsg && looksLikeCarrierRejection(statusMsg)) return statusMsg
+  if (statusMsg && looksLikeCarrierRejection(statusMsg)) {
+    return cleansePortingHumanComment(statusMsg) || statusMsg
+  }
   return null
 }
 

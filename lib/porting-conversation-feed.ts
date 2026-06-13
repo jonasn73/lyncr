@@ -1,5 +1,10 @@
 // Merge Telnyx porting comments (live API) with local webhook notifications for the owner drawer.
 
+import {
+  cleansePortingHumanComment,
+  formatPortingThreadMessage,
+} from "@/lib/porting-display"
+import { isPortingSystemNotificationBody } from "@/lib/porting-notification-log"
 import type { PortingConversationItem, PortingNotification } from "@/lib/types"
 import type { TelnyxPortingComment } from "@/lib/telnyx-porting-orders"
 
@@ -14,6 +19,8 @@ function commentAuthor(userType: string): PortingConversationItem["author"] {
 }
 
 function notificationAuthor(n: PortingNotification): PortingConversationItem["author"] {
+  if (isPortingSystemNotificationBody(n.body, n.event_type)) return "system"
+  if (n.body.trim().startsWith("System Update:")) return "system"
   const blob = `${n.event_type} ${n.title}`.toLowerCase()
   if (blob.includes("comment")) return "porting_desk"
   if (blob.includes("exception") || blob.includes("action") || blob.includes("reject")) {
@@ -26,7 +33,39 @@ function normalizeBody(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase()
 }
 
-/** Chronological thread — Telnyx API comments + webhook inbox, deduped by body + time. */
+/** Same cleansing rules used when saving webhook comments — keeps dedupe accurate. */
+function displayBodyForItem(item: Pick<PortingConversationItem, "body" | "author">): string {
+  const raw = item.body.trim()
+  if (!raw) return ""
+  if (raw.startsWith("System Update:")) return raw
+  if (item.author === "system") return raw
+  const cleansed = cleansePortingHumanComment(raw)
+  if (cleansed) return cleansed
+  return formatPortingThreadMessage(raw)
+}
+
+function dedupeConsecutiveIdentical(items: PortingConversationItem[]): PortingConversationItem[] {
+  if (items.length <= 1) return items
+  const out: PortingConversationItem[] = []
+  let i = 0
+  while (i < items.length) {
+    const norm = normalizeBody(displayBodyForItem(items[i]))
+    let j = i + 1
+    while (j < items.length && normalizeBody(displayBodyForItem(items[j])) === norm) {
+      j += 1
+    }
+    if (j > i + 1) {
+      out.push(items[j - 1])
+      i = j
+    } else {
+      out.push(items[i])
+      i += 1
+    }
+  }
+  return out
+}
+
+/** Chronological thread — Telnyx API comments + webhook inbox, deduped by cleansed body. */
 export function buildPortingConversationFeed(
   notifications: PortingNotification[],
   telnyxComments: TelnyxPortingComment[]
@@ -34,32 +73,36 @@ export function buildPortingConversationFeed(
   const items: PortingConversationItem[] = []
 
   for (const n of notifications) {
+    const author = notificationAuthor(n)
+    const body = displayBodyForItem({ body: n.body, author })
+    if (!body) continue
     items.push({
       id: `notif-${n.id}`,
       source: "webhook",
-      author: notificationAuthor(n),
+      author,
       title: n.title,
-      body: n.body,
+      body,
       created_at: n.created_at,
       is_new: n.read_at == null,
     })
   }
 
   for (const c of telnyxComments) {
-    const body = c.body.trim()
+    const author = commentAuthor(c.user_type)
+    const body = displayBodyForItem({ body: c.body.trim(), author })
     if (!body) continue
     const createdAt = c.created_at || new Date().toISOString()
     const norm = normalizeBody(body)
     const dup = items.some(
       (i) =>
-        normalizeBody(i.body) === norm &&
-        Math.abs(new Date(i.created_at).getTime() - new Date(createdAt).getTime()) < 120_000
+        normalizeBody(displayBodyForItem(i)) === norm &&
+        Math.abs(new Date(i.created_at).getTime() - new Date(createdAt).getTime()) < 300_000
     )
     if (dup) continue
     items.push({
       id: `comment-${c.id}`,
       source: "telnyx_comment",
-      author: commentAuthor(c.user_type),
+      author,
       title:
         c.user_type.toLowerCase() === "admin"
           ? "Carrier Core Desk"
@@ -72,7 +115,8 @@ export function buildPortingConversationFeed(
     })
   }
 
-  return items.sort(
+  const sorted = items.sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
+  return dedupeConsecutiveIdentical(sorted)
 }
