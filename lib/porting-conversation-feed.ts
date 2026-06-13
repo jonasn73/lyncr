@@ -3,7 +3,9 @@
 import {
   cleansePortingHumanComment,
   formatPortingThreadMessage,
+  isPortingRenderableMessage,
 } from "@/lib/porting-display"
+import { dedupePortingConversationItems } from "@/lib/porting-conversation-dedupe"
 import { isPortingSystemNotificationBody } from "@/lib/porting-notification-log"
 import type { PortingConversationItem, PortingNotification } from "@/lib/types"
 import type { TelnyxPortingComment } from "@/lib/telnyx-porting-orders"
@@ -37,33 +39,12 @@ function normalizeBody(text: string): string {
 /** Same cleansing rules used when saving webhook comments — keeps dedupe accurate. */
 function displayBodyForItem(item: Pick<PortingConversationItem, "body" | "author">): string {
   const raw = item.body.trim()
-  if (!raw) return ""
+  if (!raw || !isPortingRenderableMessage(raw)) return ""
   if (raw.startsWith("System Update:") || raw.startsWith("Losing Carrier")) return raw
   if (item.author === "system") return raw
   const cleansed = cleansePortingHumanComment(raw)
   if (cleansed) return cleansed
   return formatPortingThreadMessage(raw)
-}
-
-function dedupeConsecutiveIdentical(items: PortingConversationItem[]): PortingConversationItem[] {
-  if (items.length <= 1) return items
-  const out: PortingConversationItem[] = []
-  let i = 0
-  while (i < items.length) {
-    const norm = normalizeBody(displayBodyForItem(items[i]))
-    let j = i + 1
-    while (j < items.length && normalizeBody(displayBodyForItem(items[j])) === norm) {
-      j += 1
-    }
-    if (j > i + 1) {
-      out.push(items[j - 1])
-      i = j
-    } else {
-      out.push(items[i])
-      i += 1
-    }
-  }
-  return out
 }
 
 /** Chronological thread — Telnyx API comments + webhook inbox, deduped by cleansed body. */
@@ -119,5 +100,5 @@ export function buildPortingConversationFeed(
   const sorted = items.sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
-  return dedupeConsecutiveIdentical(sorted)
+  return dedupePortingConversationItems(sorted)
 }

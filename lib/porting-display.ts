@@ -27,9 +27,36 @@ export function displayUserFacingMessage(raw: string): string {
   return s
 }
 
+/** Drop placeholder lines (lone hyphens, punctuation-only rows) from raw carrier text. */
+export function stripPortingJunkLines(raw: string): string {
+  return raw
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false
+      if (line === "-" || line === "--" || line === "---") return false
+      if (/^[-–—_.*\u2022\s]+$/u.test(line)) return false
+      return true
+    })
+    .join("\n")
+    .trim()
+}
+
+/** True when sanitized text is worth rendering (blocks stray "-" separator rows). */
+export function isPortingRenderableMessage(raw: string): boolean {
+  const cleaned = stripPortingJunkLines(displayUserFacingMessage(raw).trim())
+  if (!cleaned) return false
+  if (/^[-–—_.*\u2022\s]+$/u.test(cleaned)) return false
+  const formatted = formatPortingThreadMessage(cleaned).trim()
+  if (!formatted) return false
+  if (/^[-–—_.*\u2022\s]+$/u.test(formatted)) return false
+  if (formatted.length < 2 && !/\d/.test(formatted)) return false
+  return true
+}
+
 /** Strip email-style boilerplate from carrier desk comment threads. */
 export function stripPortingEmailBoilerplate(raw: string): string {
-  let s = displayUserFacingMessage(raw).trim()
+  let s = stripPortingJunkLines(displayUserFacingMessage(raw).trim())
   s = s.replace(/^(hello|hi|dear customer|dear\s+\w+),?\s*/i, "")
   s = s.replace(/^thank you for (using|choosing|submitting)[^.]*\.\s*/i, "")
   s = s.replace(/\bto resolve this[,:]?\s*/gi, "")
@@ -75,10 +102,11 @@ export function cleansePortingHumanComment(raw: string): string {
 
 /** Core conversational text for bubble rendering. */
 export function formatPortingThreadMessage(raw: string): string {
-  const trimmed = raw.trim()
+  const trimmed = stripPortingJunkLines(raw.trim())
+  if (!trimmed) return ""
   if (trimmed.startsWith("System Update:") || trimmed.startsWith("Losing Carrier")) return trimmed
-  const cleaned = stripPortingEmailBoilerplate(raw)
-  return cleaned || displayUserFacingMessage(raw).trim()
+  const cleaned = stripPortingEmailBoilerplate(trimmed)
+  return cleaned || stripPortingJunkLines(displayUserFacingMessage(trimmed).trim())
 }
 
 /** Port thread messages — sanitized + boilerplate stripped for UI bubbles. */

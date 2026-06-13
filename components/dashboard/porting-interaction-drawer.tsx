@@ -11,7 +11,8 @@ import {
   formatPortingThreadMessage,
   isPortingSystemStatusMessage,
 } from "@/lib/porting-display"
-import { buildCarrierLookupGuide } from "@/lib/porting-carrier-lookup-guide"
+import { dedupePortingConversationItems } from "@/lib/porting-conversation-dedupe"
+import { buildCarrierLookupBanner } from "@/lib/porting-carrier-lookup-guide"
 import { dispatchPortingOrdersChanged } from "@/components/dashboard-numbers-modal-context"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -74,60 +75,32 @@ function formatThreadTime(iso: string): string {
   })
 }
 
-function normalizeCoreMessage(text: string): string {
-  return formatPortingThreadMessage(text).trim().replace(/\s+/g, " ").toLowerCase()
-}
-
-/** Client-side guard: hide consecutive bubbles with the same core text (desk vs network tags). */
-function dedupeConversationForDisplay(items: PortingConversationItem[]): PortingConversationItem[] {
-  if (items.length <= 1) return items
-  const out: PortingConversationItem[] = []
-  let index = 0
-  while (index < items.length) {
-    const norm = normalizeCoreMessage(items[index].body)
-    let end = index + 1
-    while (end < items.length && normalizeCoreMessage(items[end].body) === norm) {
-      end += 1
-    }
-    if (end > index + 1) {
-      out.push(items[end - 1])
-      index = end
-    } else {
-      out.push(items[index])
-      index += 1
-    }
-  }
-  return out
-}
-
-function CarrierLookupGuideCard({
+function CarrierLookupGuideBanner({
   order,
   conversation,
 }: {
   order: OwnerPortingDeskDetail["order"]
   conversation: PortingConversationItem[]
 }) {
-  const guide = buildCarrierLookupGuide(order, conversation)
+  const banner = buildCarrierLookupBanner(order, conversation)
+  if (!banner) return null
   return (
-    <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
-      <div className="flex items-center gap-2">
-        <Lightbulb className="h-4 w-4 text-sky-300" aria-hidden />
-        <h3 className="text-sm font-semibold text-sky-100">{guide.title}</h3>
+    <div className="flex justify-center px-1">
+      <div className="flex max-w-[98%] items-start gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-[11px] leading-snug text-sky-50/95">
+        <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
+        <p>
+          <span aria-hidden>💡 </span>
+          <strong className="font-semibold text-sky-100">{banner.rule_label}</strong>
+          {": "}
+          {banner.rule_body}
+        </p>
       </div>
-      <p className="mt-2 text-xs font-medium uppercase tracking-wide text-sky-200/70">
-        Losing carrier: {guide.carrier_label}
-      </p>
-      <ul className="mt-3 space-y-2 text-sm leading-relaxed text-sky-50/90">
-        {guide.tips.map((tip) => (
-          <li key={tip}>{tip}</li>
-        ))}
-      </ul>
     </div>
   )
 }
 
 function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
-  const visibleItems = useMemo(() => dedupeConversationForDisplay(items), [items])
+  const visibleItems = useMemo(() => dedupePortingConversationItems(items), [items])
   if (visibleItems.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-zinc-500">
@@ -141,6 +114,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
     <div className="space-y-4">
       {visibleItems.map((item) => {
         const text = formatPortingThreadMessage(item.body)
+        if (!text.trim()) return null
         const isSystem = isPortingSystemStatusMessage(item.title, item.body, item.author)
         const isCustomer = item.author === "customer"
         const isDesk = item.author === "porting_desk" || item.author === "carrier"
@@ -312,7 +286,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
                 <ConversationFeed items={detail.conversation} />
               </div>
 
-              <CarrierLookupGuideCard order={detail.order} conversation={detail.conversation} />
+              <CarrierLookupGuideBanner order={detail.order} conversation={detail.conversation} />
 
               <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
                 {detail.order.status === "rejected" ? (
