@@ -4,6 +4,7 @@ import type { PortingOrderStatus } from "@/lib/types"
 import {
   getPortingOrderByTelnyxOrderId,
   mapTelnyxStatusToPortingOrderStatus,
+  markPortingOrderActionRequired,
   rejectPortingOrderWithReason,
   updatePortingOrderByTelnyxOrderId,
 } from "@/lib/db"
@@ -25,9 +26,13 @@ import {
 
 const STATUS_RANK: Record<PortingOrderStatus, number> = {
   pending: 0,
+  submitted: 0,
+  pending_carrier_review: 1,
   processing: 1,
-  completed: 2,
-  rejected: 2,
+  pending_info: 2,
+  action_required: 2,
+  rejected: 3,
+  completed: 4,
 }
 
 /** Avoid downgrading a terminal row when Telnyx sends stale nested `draft`. */
@@ -38,6 +43,17 @@ export function shouldAdvancePortingOrderStatus(
   if (current === next) return true
   if (current === "completed" && next !== "rejected") return false
   if (current === "rejected" && next !== "rejected") return false
+  if (current === "rejected") return next === "rejected"
+  if (
+    current === "action_required" &&
+    (next === "processing" ||
+      next === "pending_carrier_review" ||
+      next === "submitted" ||
+      next === "pending" ||
+      next === "completed")
+  ) {
+    return true
+  }
   return STATUS_RANK[next] >= STATUS_RANK[current]
 }
 
@@ -58,6 +74,43 @@ export type SyncPortingOrderResult = {
   just_completed?: boolean
   phone_number?: string | null
   skipped_reason?: string
+}
+
+export type ApplyPortActionRequiredResult = {
+  applied: boolean
+  telnyx_order_id: string | null
+  skipped_reason?: string
+}
+
+/**
+ * On carrier-agent comments / exceptions, set status `action_required` before rejection.
+ */
+export async function applyPortActionRequiredFromTelnyxWebhook(params: {
+  ownerUserId: string
+  body: Record<string, unknown>
+  telnyxOrderId?: string | null
+}): Promise<ApplyPortActionRequiredResult> {
+  if (!isPortActionRequiredWebhook(params.body)) {
+    return { applied: false, telnyx_order_id: null, skipped_reason: "not_action_required" }
+  }
+
+  const telnyxOrderId = params.telnyxOrderId?.trim() || findPortingOrderId(params.body)
+  if (!telnyxOrderId) {
+    return { applied: false, telnyx_order_id: null, skipped_reason: "no_order_id" }
+  }
+
+  const eventType = extractEventType(params.body)
+  const note =
+    extractPortRejectionReason(params.body, eventType) ||
+    buildPortingNotificationText(params.body).trim() ||
+    null
+
+  const updated = await markPortingOrderActionRequired(params.ownerUserId, telnyxOrderId, note)
+  if (!updated) {
+    return { applied: false, telnyx_order_id: telnyxOrderId, skipped_reason: "no_porting_orders_row" }
+  }
+
+  return { applied: true, telnyx_order_id: telnyxOrderId }
 }
 
 export type ApplyPortRejectionResult = {
@@ -185,6 +238,21 @@ export async function syncPortingOrderFromTelnyxWebhook(params: {
       status: "rejected" as PortingOrderStatus,
       just_completed: false,
       phone_number: updated?.phone_number ?? existing.phone_number,
+    }
+  }
+
+  if (statusToWrite === "action_required" && existing.status !== "rejected") {
+    const note = buildPortingNotificationText(params.body).trim() || null
+    const updated = await markPortingOrderActionRequired(params.ownerUserId, telnyxOrderId, note)
+    if (updated) {
+      return {
+        updated: true,
+        telnyx_order_id: telnyxOrderId,
+        telnyx_status: telnyxToWrite,
+        status: "action_required",
+        just_completed: false,
+        phone_number: updated.phone_number,
+      }
     }
   }
 

@@ -676,7 +676,15 @@ export interface RoutingConfig {
 }
 
 // --- Porting orders (native LNP — scripts/066) ---
-export type PortingOrderStatus = "pending" | "processing" | "completed" | "rejected"
+export type PortingOrderStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "rejected"
+  | "action_required"
+  | "pending_info"
+  | "submitted"
+  | "pending_carrier_review"
 
 export interface PortingOrder {
   id: string
@@ -794,6 +802,15 @@ export interface PortingNotification {
   body: string
   read_at: string | null
   created_at: string
+}
+
+/** Owner porting drawer — order + thread + pipeline for GET /api/porting/orders/[id]/desk. */
+export interface OwnerPortingDeskDetail {
+  order: PortingOrder
+  notifications: PortingNotification[]
+  pipeline_steps: { key: string; label: string; state: "complete" | "current" | "upcoming" | "failed" }[]
+  unread_count: number
+  banner_phase: "in_progress" | "action_needed" | "rejected"
 }
 
 /** Admin porting desk — order detail bundle for GET /api/admin/porting/[id]. */

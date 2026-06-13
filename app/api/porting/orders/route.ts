@@ -2,7 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getUser, listPortingOrdersForOwner } from "@/lib/db"
+import { getUser, listPortingOrdersForOwner, countUnreadPortingNotificationsForOrder } from "@/lib/db"
+import { isActivePortingOrder } from "@/lib/porting-lifecycle"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,18 @@ export async function GET(req: NextRequest) {
 
   try {
     const orders = await listPortingOrdersForOwner(userId, orgId)
-    return NextResponse.json({ data: { orders } })
+    const activeOnly = req.nextUrl.searchParams.get("active") === "1"
+    const filtered = activeOnly ? orders.filter(isActivePortingOrder) : orders
+    const enriched = await Promise.all(
+      filtered.map(async (order) => {
+        const telnyxId = order.telnyx_order_id?.trim() || ""
+        const unread_notification_count = telnyxId
+          ? await countUnreadPortingNotificationsForOrder(userId, telnyxId)
+          : 0
+        return { ...order, unread_notification_count }
+      })
+    )
+    return NextResponse.json({ data: { orders: enriched } })
   } catch (e) {
     console.error("[GET /api/porting/orders] failed:", e)
     return NextResponse.json({ error: "Could not load port orders" }, { status: 500 })

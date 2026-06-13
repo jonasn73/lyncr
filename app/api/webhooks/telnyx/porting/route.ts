@@ -9,7 +9,7 @@ import { after } from "next/server"
 import { insertPortingNotificationIfNew } from "@/lib/db"
 import { SITE_NAME } from "@/lib/brand"
 import { finalizePortedNumber } from "@/lib/port-number-finalize"
-import { syncPortingOrderFromTelnyxWebhook, applyPortRejectionFromTelnyxWebhook } from "@/lib/porting-order-sync"
+import { syncPortingOrderFromTelnyxWebhook, applyPortRejectionFromTelnyxWebhook, applyPortActionRequiredFromTelnyxWebhook } from "@/lib/porting-order-sync"
 import {
   buildPortingNotificationText,
   buildPortingNotificationTitle,
@@ -63,6 +63,12 @@ export async function POST(req: NextRequest) {
       rawPayload: body,
     })
 
+    const actionSync = await applyPortActionRequiredFromTelnyxWebhook({
+      ownerUserId: userId,
+      body,
+      telnyxOrderId: orderId,
+    })
+
     const rejectionSync = await applyPortRejectionFromTelnyxWebhook({
       ownerUserId: userId,
       body,
@@ -99,6 +105,7 @@ export async function POST(req: NextRequest) {
         eventType,
         eventId,
         inserted,
+        porting_action_sync: actionSync,
         porting_rejection_sync: rejectionSync,
         porting_order_sync: orderSync,
       })
@@ -106,10 +113,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       received: true,
       stored: inserted,
+      porting_action_applied: actionSync.applied,
       porting_rejection_applied: rejectionSync.applied,
       carrier_rejection_reason: rejectionSync.carrier_rejection_reason,
-      porting_order_updated: orderSync.updated || rejectionSync.applied,
-      porting_order_status: rejectionSync.applied ? "rejected" : orderSync.status,
+      porting_order_updated: orderSync.updated || rejectionSync.applied || actionSync.applied,
+      porting_order_status: rejectionSync.applied
+        ? "rejected"
+        : actionSync.applied
+          ? "action_required"
+          : orderSync.status,
     })
   } catch (e) {
     console.error("[Sigo] telnyx-porting-webhook insert error:", e)

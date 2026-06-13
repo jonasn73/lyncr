@@ -55,9 +55,17 @@ function pendingPortStageLabel(order: PortingOrder): string {
   return "Submitted"
 }
 
-/** Active transfers — includes rejected orders that need owner correction. */
+/** Active transfers — includes action_required and rejected orders needing owner input. */
 function isActiveTransferOrder(order: PortingOrder): boolean {
-  return order.status === "pending" || order.status === "processing" || order.status === "rejected"
+  return (
+    order.status === "pending" ||
+    order.status === "processing" ||
+    order.status === "submitted" ||
+    order.status === "pending_carrier_review" ||
+    order.status === "action_required" ||
+    order.status === "pending_info" ||
+    order.status === "rejected"
+  )
 }
 
 /** Inline PIN correction after a carrier rejection. */

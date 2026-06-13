@@ -22,10 +22,13 @@ Three linked areas: Telnyx port rejection capture, owner PIN correction in the L
 | Layer | File | Role |
 |-------|------|------|
 | UI | `components/manage-numbers-modal.tsx` | Red badge + inline PIN form for `status === rejected` |
+| **Lifecycle banner** | `components/dashboard/porting-status-banner.tsx` | Permanent tracker for all non-completed ports (slate / amber / red) |
+| **Interaction drawer** | `components/dashboard/porting-interaction-drawer.tsx` | Pipeline + `porting_notifications` thread + Telnyx reply |
+| API | `GET /api/porting/orders/[id]/desk`, `POST /api/porting/orders/[id]/reply` | Drawer data + send comment/PIN to Telnyx |
 | API | `app/api/porting/orders/[id]/resubmit-pin/route.ts` | Owner-only POST → Telnyx PATCH + reset local status to `pending` |
 | Telnyx | `lib/telnyx-lnp-update.ts` | `submitTelnyxPortingPinCorrection` |
 
-Rejected orders stay visible in **Pending Number Transfers** until corrected or completed.
+Rejected orders stay visible in **Pending Number Transfers** until corrected or completed. Banner click opens the **interaction drawer** (not the Lines modal).
 
 ## 3. Workspace isolation
 

@@ -1,43 +1,71 @@
 "use client"
 
-// Full-width dashboard alert when a number transfer was rejected by the carrier.
+// Permanent lifecycle banner for in-flight number transfers (all non-completed orders).
 
 import { useCallback, useEffect, useState } from "react"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Truck } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { requestOpenManageNumbersModal } from "@/components/dashboard-numbers-modal-context"
+import { requestOpenPortingInteractionDrawer } from "@/components/dashboard/porting-interaction-context"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import {
+  getPortingBannerPhase,
+  isActivePortingOrder,
+  portingBannerMessage,
+  sortPortingOrdersForBanner,
+  type PortingBannerPhase,
+} from "@/lib/porting-lifecycle"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import type { PortingOrder } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
-/** Load rejected port orders for the active workspace. */
-async function fetchRejectedPortOrders(organizationId: string | null): Promise<PortingOrder[]> {
+type PortingOrderRow = PortingOrder & { unread_notification_count?: number }
+
+async function fetchActivePortingOrders(organizationId: string | null): Promise<PortingOrderRow[]> {
   const orgQs = organizationQueryString(organizationId)
-  const res = await fetch(`/api/porting/orders${orgQs}`, { credentials: "include" })
+  const sep = orgQs ? "&" : "?"
+  const res = await fetch(`/api/porting/orders${orgQs}${sep}active=1`, { credentials: "include" })
   if (!res.ok) return []
-  const json = (await res.json().catch(() => ({}))) as { data?: { orders?: PortingOrder[] } }
+  const json = (await res.json().catch(() => ({}))) as { data?: { orders?: PortingOrderRow[] } }
   const orders = Array.isArray(json.data?.orders) ? json.data.orders : []
-  return orders.filter((o) => o.status === "rejected")
+  return orders.filter(isActivePortingOrder)
 }
 
-/** Build the banner sentence for one rejected transfer. */
-function buildRejectionMessage(order: PortingOrder): string {
+function bannerTone(phase: PortingBannerPhase): string {
+  if (phase === "rejected") {
+    return "border-red-500/40 bg-gradient-to-r from-red-950/95 via-red-900/90 to-red-950/85 text-red-50"
+  }
+  if (phase === "action_needed") {
+    return "border-amber-500/40 bg-gradient-to-r from-amber-950/95 via-orange-900/85 to-amber-950/80 text-amber-50"
+  }
+  return "border-sky-500/30 bg-gradient-to-r from-slate-900/95 via-sky-950/80 to-slate-900/90 text-sky-50"
+}
+
+function buildDisplayMessage(order: PortingOrderRow, phase: PortingBannerPhase): string {
   const phone = formatPhoneDisplay(order.phone_number)
-  const reason =
-    order.carrier_rejection_reason?.trim() || "Carrier needs a correction before the transfer can continue."
-  return `⚠️ Number Transfer Action Required: Your port request for ${phone} was rejected by the carrier due to: ${reason}. Click here to update your PIN.`
+  if (phase === "rejected") {
+    return `❌ Transfer Overdue/Rejected: Click to fix credentials and resubmit.`
+  }
+  if (phase === "action_needed") {
+    return `⚠️ Telnyx Response Needed: Telnyx has requested information for ${phone} to avoid carrier rejection. Click to view message.`
+  }
+  return `🚚 Number Transfer in Progress: ${phone} is transferring onto Lyncr. Tracking status...`
 }
 
 export function PortingStatusBanner() {
   const { activeOrganizationId } = useDashboardWorkspace()
-  const [rejected, setRejected] = useState<PortingOrder[]>([])
+  const [orders, setOrders] = useState<PortingOrderRow[]>([])
 
   const refresh = useCallback(async () => {
     try {
-      const rows = await fetchRejectedPortOrders(activeOrganizationId)
-      setRejected(rows)
+      const rows = await fetchActivePortingOrders(activeOrganizationId)
+      const unreadMap: Record<string, number> = {}
+      for (const o of rows) {
+        const id = o.telnyx_order_id?.trim()
+        if (id) unreadMap[id] = o.unread_notification_count ?? 0
+      }
+      setOrders(sortPortingOrdersForBanner(rows, unreadMap))
     } catch {
-      setRejected([])
+      setOrders([])
     }
   }, [activeOrganizationId])
 
@@ -57,32 +85,35 @@ export function PortingStatusBanner() {
     }
   }, [refresh])
 
-  if (rejected.length === 0) return null
+  if (orders.length === 0) return null
 
-  const primary = rejected[0]
-  const extraCount = rejected.length - 1
+  const primary = orders[0]
+  const unread = primary.unread_notification_count ?? 0
+  const phase = getPortingBannerPhase(primary, unread)
+  const extraCount = orders.length - 1
+  const Icon = phase === "in_progress" ? Truck : AlertTriangle
 
   return (
     <button
       type="button"
-      onClick={() => requestOpenManageNumbersModal()}
-      className="group -mx-5 mb-5 flex w-[calc(100%+2.5rem)] cursor-pointer items-start gap-3 border-b border-red-500/40 bg-gradient-to-r from-red-950/95 via-red-900/90 to-amber-950/85 px-5 py-3.5 text-left shadow-[0_4px_24px_rgba(220,38,38,0.15)] transition-colors hover:from-red-900/95 hover:via-red-800/90 sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-8"
-      aria-label="Open lines and numbers to correct rejected port transfer"
+      onClick={() => requestOpenPortingInteractionDrawer(primary.id)}
+      className={cn(
+        "group -mx-5 mb-5 flex w-[calc(100%+2.5rem)] cursor-pointer items-start gap-3 border-b px-5 py-3.5 text-left shadow-lg transition-opacity hover:opacity-95 sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-8",
+        bannerTone(phase)
+      )}
+      aria-label="Open number transfer tracking desk"
     >
-      <AlertTriangle
-        className="mt-0.5 h-5 w-5 shrink-0 text-amber-300 group-hover:text-amber-200"
-        aria-hidden
-      />
-      <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-red-50 group-hover:text-white">
-        {buildRejectionMessage(primary)}
+      <Icon className="mt-0.5 h-5 w-5 shrink-0 opacity-90" aria-hidden />
+      <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
+        {buildDisplayMessage(primary, phase)}
         {extraCount > 0 ? (
-          <span className="mt-1 block text-xs font-normal text-red-200/80">
-            +{extraCount} more rejected transfer{extraCount === 1 ? "" : "s"} in this workspace
+          <span className="mt-1 block text-xs font-normal opacity-80">
+            +{extraCount} more active transfer{extraCount === 1 ? "" : "s"} in this workspace
           </span>
         ) : null}
       </span>
-      <span className="hidden shrink-0 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-amber-200 group-hover:bg-amber-500/25 sm:inline">
-        Fix PIN →
+      <span className="hidden shrink-0 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide group-hover:bg-white/15 sm:inline">
+        {phase === "rejected" ? "Fix & resubmit →" : phase === "action_needed" ? "View message →" : "Track transfer →"}
       </span>
     </button>
   )

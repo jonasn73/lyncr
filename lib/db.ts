@@ -3705,8 +3705,19 @@ export async function listSmsMessagesForOrganization(
 
 function parsePortingOrderRow(row: Record<string, unknown>): PortingOrder {
   const status = String(row.status ?? "pending").toLowerCase()
-  const normalized: PortingOrderStatus =
-    status === "processing" || status === "completed" || status === "rejected" ? status : "pending"
+  const allowed: PortingOrderStatus[] = [
+    "pending",
+    "processing",
+    "completed",
+    "rejected",
+    "action_required",
+    "pending_info",
+    "submitted",
+    "pending_carrier_review",
+  ]
+  const normalized: PortingOrderStatus = allowed.includes(status as PortingOrderStatus)
+    ? (status as PortingOrderStatus)
+    : "pending"
   return {
     id: String(row.id),
     owner_user_id: String(row.owner_user_id),
@@ -3732,11 +3743,13 @@ function isMissingPortingOrdersTableError(e: unknown): boolean {
 export function mapTelnyxStatusToPortingOrderStatus(telnyxStatus: string): PortingOrderStatus {
   const s = telnyxStatus.toLowerCase().trim().replace(/_/g, "-")
   if (s === "ported") return "completed"
-  if (["rejected", "exception", "failed", "cancelled", "canceled"].includes(s)) return "rejected"
+  if (["rejected", "failed", "cancelled", "canceled"].includes(s)) return "rejected"
+  if (s === "exception") return "action_required"
+  if (s === "submitted") return "submitted"
+  if (s === "draft") return "pending_carrier_review"
   if (
     [
       "in-process",
-      "submitted",
       "foc-date-confirmed",
       "port-activating",
       "activation-in-progress",
@@ -3818,6 +3831,16 @@ export async function getPortingOrderById(orderId: string): Promise<PortingOrder
   }
 }
 
+/** Owner-scoped porting order lookup (dashboard drawer). */
+export async function getPortingOrderByIdForOwner(
+  orderId: string,
+  ownerUserId: string
+): Promise<PortingOrder | null> {
+  const order = await getPortingOrderById(orderId)
+  if (!order || order.owner_user_id !== ownerUserId) return null
+  return order
+}
+
 function isMissingCarrierRejectionColumnError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e)
   return msg.includes("carrier_rejection_reason")
@@ -3849,6 +3872,41 @@ export async function rejectPortingOrderWithReason(
       const rows = await sql`
         UPDATE porting_orders
         SET status = 'rejected', telnyx_status = COALESCE(NULLIF(trim(telnyx_status), ''), 'rejected'), updated_at = now()
+        WHERE owner_user_id = ${ownerUserId} AND telnyx_order_id = ${telnyxOrderId}
+        RETURNING *
+      `
+      return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+    }
+    throw e
+  }
+}
+
+/** Mark order action_required when Telnyx porting desk leaves a carrier comment. */
+export async function markPortingOrderActionRequired(
+  ownerUserId: string,
+  telnyxOrderId: string,
+  note?: string | null
+): Promise<PortingOrder | null> {
+  const sql = getSql()
+  const reason = note?.trim().slice(0, 4000) || null
+  try {
+    const rows = await sql`
+      UPDATE porting_orders
+      SET
+        status = 'action_required',
+        telnyx_status = COALESCE(NULLIF(trim(telnyx_status), ''), 'exception'),
+        carrier_rejection_reason = COALESCE(${reason}, carrier_rejection_reason),
+        updated_at = now()
+      WHERE owner_user_id = ${ownerUserId} AND telnyx_order_id = ${telnyxOrderId}
+      RETURNING *
+    `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    if (isMissingCarrierRejectionColumnError(e)) {
+      const rows = await sql`
+        UPDATE porting_orders
+        SET status = 'action_required', telnyx_status = COALESCE(NULLIF(trim(telnyx_status), ''), 'exception'), updated_at = now()
         WHERE owner_user_id = ${ownerUserId} AND telnyx_order_id = ${telnyxOrderId}
         RETURNING *
       `
@@ -6122,6 +6180,26 @@ export async function countUnreadPortingNotifications(userId: string): Promise<n
     const rows = await sql`
       SELECT count(*)::int AS c FROM porting_notifications
       WHERE user_id = ${userId} AND read_at IS NULL
+    `
+    const row = rows[0] as { c?: number } | undefined
+    return row?.c != null ? Number(row.c) : 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "porting_notifications")) return 0
+    throw e
+  }
+}
+
+export async function countUnreadPortingNotificationsForOrder(
+  userId: string,
+  telnyxOrderId: string
+): Promise<number> {
+  const sql = getSql()
+  const orderId = telnyxOrderId.trim()
+  if (!orderId) return 0
+  try {
+    const rows = await sql`
+      SELECT count(*)::int AS c FROM porting_notifications
+      WHERE user_id = ${userId} AND porting_order_id = ${orderId} AND read_at IS NULL
     `
     const row = rows[0] as { c?: number } | undefined
     return row?.c != null ? Number(row.c) : 0

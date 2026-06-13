@@ -227,16 +227,55 @@ export function extractPortRejectionReason(body: Record<string, unknown>, eventT
 export function isPortRejectionWebhook(body: Record<string, unknown>): boolean {
   const eventType = extractEventType(body).toLowerCase()
   if (isPortRejectionEventType(eventType)) return true
-  if (
-    eventType.includes("comment") ||
-    eventType.includes("exception") ||
-    eventType.includes("action_required")
-  ) {
-    const reason = extractPortRejectionReason(body, eventType)
-    if (reason) return true
-    const comment = buildPortingNotificationText(body).trim()
-    if (comment && looksLikePinPasscodeRejection(comment)) return true
+  const comment = buildPortingNotificationText(body).trim()
+  if (!comment) return false
+  const lower = comment.toLowerCase()
+  return (
+    looksLikePinPasscodeRejection(comment) ||
+    lower.includes("rejected") ||
+    lower.includes("rejection due to") ||
+    (looksLikeCarrierRejection(comment) &&
+      (lower.includes("failed") || lower.includes("cannot be ported")))
+  )
+}
+
+/** Carrier / Telnyx porting desk left a comment (admin or system user_type in payload). */
+export function hasCarrierAgentAuthor(body: Record<string, unknown>): boolean {
+  return deepFindPortingCommentUserType(body) != null
+}
+
+function deepFindPortingCommentUserType(obj: unknown, depth = 0): string | null {
+  if (depth > 14 || obj == null) return null
+  if (typeof obj === "object" && !Array.isArray(obj)) {
+    const o = obj as Record<string, unknown>
+    const ut = o.user_type
+    if (typeof ut === "string") {
+      const lower = ut.toLowerCase()
+      if (lower === "admin" || lower === "system") return lower
+    }
+    for (const v of Object.values(o)) {
+      const found = deepFindPortingCommentUserType(v, depth + 1)
+      if (found) return found
+    }
   }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const found = deepFindPortingCommentUserType(item, depth + 1)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** True when owner should see amber action_required (not a terminal rejection). */
+export function isPortActionRequiredWebhook(body: Record<string, unknown>): boolean {
+  if (isPortRejectionWebhook(body)) return false
+  const eventType = extractEventType(body).toLowerCase()
+  if (eventType.includes("exception") || eventType.includes("action_required")) return true
+  if (eventType.includes("comment") && hasCarrierAgentAuthor(body)) return true
+  const comment = buildPortingNotificationText(body).trim()
+  if (comment && hasCarrierAgentAuthor(body)) return true
+  if (comment && looksLikeCarrierRejection(comment) && !looksLikePinPasscodeRejection(comment)) return true
   return false
 }
 
