@@ -13,7 +13,7 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { getUser } from "@/lib/db"
-import { isPlatformAdminUser } from "@/lib/platform-admin"
+import { globalPlatformSessionFields } from "@/lib/platform-admin"
 import {
   IMPERSONATION_ADMIN_COOKIE,
   IMPERSONATION_RETURN_COOKIE,
@@ -56,9 +56,14 @@ export async function GET(req: NextRequest) {
         answered_call_customer_popup_enabled: true,
         account_role: "owner" as const,
       }
+      const devGlobal = globalPlatformSessionFields(devUser)
       const res = NextResponse.json({
         data: {
-          user: { ...devUser, operator_access: isPlatformAdminUser(devUser) },
+          user: {
+            ...devUser,
+            operator_access: devGlobal.isPlatformAdmin,
+            ...devGlobal,
+          },
         },
       })
       res.cookies.set(getSessionCookieName(), newCookieValue, opts)
@@ -73,9 +78,14 @@ export async function GET(req: NextRequest) {
     const impersonatingAdminId = verifyImpersonationAdminCookie(impersonationRaw)
     const returnRaw = cookieStore.get(IMPERSONATION_RETURN_COOKIE)?.value
 
+    const globalFields = globalPlatformSessionFields(user)
     const res = NextResponse.json({
       data: {
-        user: { ...user, operator_access: isPlatformAdminUser(user) },
+        user: {
+          ...user,
+          operator_access: globalFields.isPlatformAdmin,
+          ...globalFields,
+        },
         impersonation: impersonatingAdminId
           ? {
               active: true,

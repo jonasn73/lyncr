@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { usePlatformAdmin } from "@/hooks/use-platform-admin"
 import type { FieldTechnician } from "@/lib/types"
 
 type AddMode = "invite" | "manual"
@@ -37,6 +38,7 @@ export type AddTechnicianModalProps = {
 }
 
 export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnicianModalProps) {
+  const { isPlatformAdmin } = usePlatformAdmin()
   const [mode, setMode] = useState<AddMode>("invite")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -55,11 +57,17 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
     }
   }, [open])
 
+  useEffect(() => {
+    if (!isPlatformAdmin && mode === "manual") {
+      setMode("invite")
+    }
+  }, [isPlatformAdmin, mode])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const isManual = mode === "manual"
+    const isManual = mode === "manual" && isPlatformAdmin
     try {
       const res = await fetch("/api/team/technicians", {
         method: "POST",
@@ -117,32 +125,34 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg border border-zinc-800 bg-zinc-950/80 p-1">
-          <button
-            type="button"
-            onClick={() => setMode("invite")}
-            className={cn(
-              "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
-              mode === "invite"
-                ? "bg-violet-600 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            )}
-          >
-            Send Invite Link
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("manual")}
-            className={cn(
-              "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
-              mode === "manual"
-                ? "bg-violet-600 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            )}
-          >
-            Create Manually
-          </button>
-        </div>
+        {isPlatformAdmin ? (
+          <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg border border-zinc-800 bg-zinc-950/80 p-1">
+            <button
+              type="button"
+              onClick={() => setMode("invite")}
+              className={cn(
+                "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
+                mode === "invite"
+                  ? "bg-violet-600 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              )}
+            >
+              Send Invite Link
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("manual")}
+              className={cn(
+                "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
+                mode === "manual"
+                  ? "bg-violet-600 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              )}
+            >
+              Create Manually
+            </button>
+          </div>
+        ) : null}
 
         <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
           <label className="block space-y-1.5">

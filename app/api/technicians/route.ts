@@ -10,6 +10,11 @@ import { getFieldTechnicianByIdForOwner, getUser, listFieldTechnicians } from "@
 import { TECH_INVITE_TTL_MS } from "@/lib/tech-invite"
 import { createManualFieldTechnician, createTechInviteStub } from "@/lib/tech-invite-stub"
 import { resolveAppBaseUrl, sendTechInviteSms } from "@/lib/tech-invite-sms"
+import { globalPlatformSessionFields, isGlobalPlatformAdmin } from "@/lib/platform-admin"
+import {
+  IMPERSONATION_ADMIN_COOKIE,
+  verifyImpersonationAdminCookie,
+} from "@/lib/admin-impersonation"
 
 export const dynamic = "force-dynamic"
 
@@ -54,6 +59,23 @@ export async function POST(req: NextRequest) {
   const phoneDigits = phone.replace(/\D/g, "")
   if (phoneDigits.length < 10) {
     return NextResponse.json({ error: "Enter a valid mobile phone number" }, { status: 400 })
+  }
+
+  if (isManual) {
+    const cookieHeader = req.headers.get("cookie") ?? ""
+    const impersonationMatch = cookieHeader.match(new RegExp(`${IMPERSONATION_ADMIN_COOKIE}=([^;]+)`))
+    const impersonatingAdminId = verifyImpersonationAdminCookie(impersonationMatch?.[1]?.trim())
+    const globalActor = impersonatingAdminId ? (await getUser(impersonatingAdminId)) ?? owner : owner
+    const sessionUser = {
+      ...globalPlatformSessionFields(globalActor),
+      email: globalActor.email,
+    }
+    if (!isGlobalPlatformAdmin(sessionUser)) {
+      return NextResponse.json(
+        { error: "Access Denied: Only a Platform Admin can manually override provisioning." },
+        { status: 403 }
+      )
+    }
   }
 
   try {
