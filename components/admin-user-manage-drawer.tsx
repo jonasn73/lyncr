@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Loader2, Phone, Wallet, Zap, Building2, Users, Mail, MessageSquare } from "lucide-react"
+import { Loader2, Phone, Wallet, Zap, Building2, Users, Mail, MessageSquare, HardHat } from "lucide-react"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
 import type { AdminTenantControls, LyncrAdminDirectoryRow, SmsRegistrationOrgStatus } from "@/lib/types"
 import { ACCOUNT_STATUSES, accountStatusLabel } from "@/lib/account-status"
@@ -22,6 +22,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { PortingControlDesk } from "@/components/admin/porting-control-desk"
+import {
+  AdminProvisionTechnicianModal,
+  resolveAdminProvisionWorkspaceId,
+} from "@/components/admin/admin-provision-technician-modal"
 
 const FEATURE_CONTROLS: { id: string; label: string; description: string }[] = [
   { id: "field_tech_hud", label: "Field Tech HUD", description: "Mobile technician console, dispatch + live tracking." },
@@ -106,6 +110,7 @@ export function AdminUserManageDrawer({
   const [controlsLoading, setControlsLoading] = useState(false)
   const [flagBusy, setFlagBusy] = useState<string | null>(null)
   const [releaseBusy, setReleaseBusy] = useState<string | null>(null)
+  const [provisionTechOpen, setProvisionTechOpen] = useState(false)
 
   const loadControls = useCallback(async (userId: string) => {
     setControlsLoading(true)
@@ -383,6 +388,26 @@ export function AdminUserManageDrawer({
               )}
             </div>
 
+            {/* Business actions — platform-admin manual field tech provisioning */}
+            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+              <div className="flex items-center gap-2">
+                <HardHat className="h-4 w-4 text-violet-300" aria-hidden />
+                <Label className="text-slate-200">Business actions</Label>
+              </div>
+              <p className="text-xs text-slate-500">
+                Provision an active field technician directly on this owner&apos;s roster — binds to their workspace
+                records without sending an SMS invite.
+              </p>
+              <Button
+                type="button"
+                className="w-full bg-violet-600 hover:bg-violet-500"
+                disabled={!row || controlsLoading}
+                onClick={() => setProvisionTechOpen(true)}
+              >
+                + Add Tech to this Business
+              </Button>
+            </div>
+
             {/* Active provisioned lines */}
             <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
               <div className="flex items-center gap-2">
@@ -601,6 +626,21 @@ export function AdminUserManageDrawer({
               </AlertDialog>
             </div>
           </form>
+        ) : null}
+
+        {row ? (
+          <AdminProvisionTechnicianModal
+            open={provisionTechOpen}
+            onOpenChange={setProvisionTechOpen}
+            ownerUserId={row.user_id}
+            workspaceId={resolveAdminProvisionWorkspaceId(row.user_id, controls?.organizations)}
+            ownerEmail={row.email}
+            onSuccess={() => {
+              toast.success("Field technician provisioned on this business roster")
+              void loadControls(row.user_id)
+              void fetchLatestAdminStats(true)
+            }}
+          />
         ) : null}
 
         <SheetFooter className="border-t border-slate-800 pt-4">
