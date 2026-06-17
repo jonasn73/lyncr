@@ -4928,6 +4928,44 @@ export async function insertFieldTechnician(params: {
   }
 }
 
+/** Fetch one roster row for an owner (used after manual create). */
+export async function getFieldTechnicianByIdForOwner(
+  ownerUserId: string,
+  technicianId: string
+): Promise<FieldTechnician | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
+             u.email AS email, u.invite_status AS invite_status
+      FROM field_technicians ft
+      LEFT JOIN users u ON u.id = ft.portal_user_id
+      WHERE ft.user_id = ${ownerUserId} AND ft.id = ${technicianId}
+      LIMIT 1
+    `
+    return rows[0] ? parseFieldTechnicianRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingFieldTechTableError(e)) return null
+    if (pgErrorCode(e) === "42703") {
+      try {
+        const rows = await sql`
+          SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
+                 u.email AS email
+          FROM field_technicians ft
+          LEFT JOIN users u ON u.id = ft.portal_user_id
+          WHERE ft.user_id = ${ownerUserId} AND ft.id = ${technicianId}
+          LIMIT 1
+        `
+        return rows[0] ? parseFieldTechnicianRow(rows[0] as Record<string, unknown>) : null
+      } catch (e2) {
+        if (isMissingFieldTechTableError(e2)) return null
+        throw e2
+      }
+    }
+    throw e
+  }
+}
+
 /** Resolve the tech roster row for a logged-in field_tech user (by their login id). */
 export async function getFieldTechnicianByPortalUserId(
   portalUserId: string

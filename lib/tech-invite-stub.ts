@@ -201,6 +201,89 @@ export async function activateTechInviteStub(params: {
 }
 
 /**
+ * Owner adds a technician directly (no SMS invite): active roster row + active login stub.
+ * The tech can set a password later; until then they appear as Active (not Setup pending).
+ */
+export async function createManualFieldTechnician(params: {
+  ownerUserId: string
+  ownerBusinessName: string
+  name: string
+  phone: string
+}): Promise<{ userId: string; rosterId: string; created: boolean }> {
+  const sql = getSql()
+  const email = syntheticTechEmail(params.phone)
+  const phoneE164 = toE164(params.phone)
+  const businessName = params.ownerBusinessName?.trim() || "Lyncr"
+
+  try {
+    const existing = (await sql`
+      SELECT id, invite_status FROM users WHERE lower(email) = ${email} LIMIT 1
+    `) as Record<string, unknown>[]
+
+    if (existing[0]) {
+      const status = String(existing[0].invite_status ?? "").toLowerCase()
+      if (status === "active") {
+        throw new Error("That mobile number already has a Lyncr technician login.")
+      }
+      const id = String(existing[0].id)
+      await sql`
+        UPDATE users
+        SET invite_status = 'active',
+            account_role = 'field_tech',
+            invitation_token = NULL,
+            invitation_expires_at = NULL,
+            name = ${params.name},
+            phone = ${phoneE164},
+            business_name = ${businessName}
+        WHERE id = ${id}
+      `
+      const roster = (await sql`
+        SELECT id FROM field_technicians WHERE portal_user_id = ${id} LIMIT 1
+      `) as Record<string, unknown>[]
+      if (roster[0]) {
+        const rosterId = String(roster[0].id)
+        await sql`
+          UPDATE field_technicians
+          SET name = ${params.name}, phone = ${phoneE164}, is_active = true
+          WHERE id = ${rosterId}
+        `
+        return { userId: id, rosterId, created: false }
+      }
+      const rosterId = crypto.randomUUID()
+      await sql`
+        INSERT INTO field_technicians (id, user_id, portal_user_id, name, phone, is_active, created_at)
+        VALUES (${rosterId}, ${params.ownerUserId}, ${id}, ${params.name}, ${phoneE164}, true, now())
+      `
+      return { userId: id, rosterId, created: false }
+    }
+
+    const userId = crypto.randomUUID()
+    const rosterId = crypto.randomUUID()
+    await sql.transaction([
+      sql`
+        INSERT INTO users (
+          id, email, name, phone, business_name, password_hash,
+          account_role, invite_status, invitation_token, invitation_expires_at, created_at
+        )
+        VALUES (
+          ${userId}, ${email}, ${params.name}, ${phoneE164}, ${businessName}, '',
+          'field_tech', 'active', NULL, NULL, now()
+        )
+      `,
+      sql`
+        INSERT INTO field_technicians (id, user_id, portal_user_id, name, phone, is_active, created_at)
+        VALUES (${rosterId}, ${params.ownerUserId}, ${userId}, ${params.name}, ${phoneE164}, true, now())
+      `,
+    ])
+    return { userId, rosterId, created: true }
+  } catch (e) {
+    const gap = schemaGapMessage(e)
+    if (gap) throw new Error(gap)
+    throw e
+  }
+}
+
+/**
  * Resend: mint a fresh token + expiry on an existing invited tech stub (by their roster's portal id).
  * Returns the new token + contact info, or null when there is no pending invite for that tech.
  */

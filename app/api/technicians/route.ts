@@ -1,16 +1,14 @@
 // ============================================
 // GET  /api/technicians   — list the owner's field techs
-// POST /api/technicians   — invite a field tech by mobile number (no password)
+// POST /api/technicians   — invite or manually add a field tech
+// POST /api/team/technicians — same handler (alias)
 // ============================================
-// Hands-free invite flow: the owner submits first name, last name and mobile number. We create a
-// passwordless stub login + roster row carrying a one-time token (48h), then text the tech a secure
-// /tech/setup link where they pick their own password. See lib/tech-invite-stub.ts.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getUser, listFieldTechnicians } from "@/lib/db"
+import { getFieldTechnicianByIdForOwner, getUser, listFieldTechnicians } from "@/lib/db"
 import { TECH_INVITE_TTL_MS } from "@/lib/tech-invite"
-import { createTechInviteStub } from "@/lib/tech-invite-stub"
+import { createManualFieldTechnician, createTechInviteStub } from "@/lib/tech-invite-stub"
 import { resolveAppBaseUrl, sendTechInviteSms } from "@/lib/tech-invite-sms"
 
 export const dynamic = "force-dynamic"
@@ -41,15 +39,17 @@ export async function POST(req: NextRequest) {
     lastName?: string
     name?: string
     phone?: string
+    email?: string
+    isManual?: boolean
   }
   const firstName = String(body.firstName || "").trim()
   const lastName = String(body.lastName || "").trim()
-  // Accept a combined `name` too, but prefer first + last.
   const name = (firstName || lastName ? `${firstName} ${lastName}` : String(body.name || "")).trim()
   const phone = String(body.phone || "").trim()
+  const isManual = body.isManual === true
 
   if (!name || name.length < 2) {
-    return NextResponse.json({ error: "First and last name are required" }, { status: 400 })
+    return NextResponse.json({ error: "Name is required (at least 2 characters)" }, { status: 400 })
   }
   const phoneDigits = phone.replace(/\D/g, "")
   if (phoneDigits.length < 10) {
@@ -57,10 +57,31 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    if (isManual) {
+      const { rosterId } = await createManualFieldTechnician({
+        ownerUserId: userId,
+        ownerBusinessName: owner.business_name,
+        name,
+        phone,
+      })
+      const technicians = await listFieldTechnicians(userId)
+      const technician =
+        (await getFieldTechnicianByIdForOwner(userId, rosterId)) ??
+        technicians.find((t) => t.id === rosterId) ??
+        null
+      if (!technician) {
+        return NextResponse.json({ error: "Technician was created but could not be loaded" }, { status: 500 })
+      }
+      return NextResponse.json({
+        success: true,
+        data: { technician, technicians },
+      })
+    }
+
     const token = crypto.randomUUID()
     const expiresAt = new Date(Date.now() + TECH_INVITE_TTL_MS).toISOString()
 
-    await createTechInviteStub({
+    const { userId: portalUserId } = await createTechInviteStub({
       ownerUserId: userId,
       ownerBusinessName: owner.business_name,
       name,
@@ -69,7 +90,6 @@ export async function POST(req: NextRequest) {
       expiresAt,
     })
 
-    // Fire the white-labeled invite SMS immediately.
     const baseUrl = resolveAppBaseUrl(req.nextUrl.origin)
     const sms = await sendTechInviteSms({
       ownerUserId: userId,
@@ -87,8 +107,9 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Return the refreshed roster so the UI updates, plus invite/SMS status.
     const technicians = await listFieldTechnicians(userId)
+    const technician =
+      technicians.find((t) => t.portal_user_id === portalUserId) ?? technicians[0] ?? null
     const inviteBase = {
       name,
       phone,
@@ -101,25 +122,28 @@ export async function POST(req: NextRequest) {
       message: sms.message,
     }
 
+    if (!technician) {
+      return NextResponse.json({ error: "Invite sent but technician row missing" }, { status: 500 })
+    }
+
     if (sms.errorType === "10DLC_BLOCK") {
       return NextResponse.json({
         success: false,
         errorType: "10DLC_BLOCK",
         message: sms.message,
-        data: { technicians, invite: inviteBase },
+        data: { technician, technicians, invite: inviteBase },
       })
     }
 
     return NextResponse.json({
       success: sms.success,
-      data: { technicians, invite: inviteBase },
+      data: { technician, technicians, invite: inviteBase },
     })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not invite technician"
+    const msg = e instanceof Error ? e.message : "Could not add technician"
     console.error("[POST /api/technicians] failed:", e)
-    // Surface friendly validation/migration errors to the owner.
     const isUserFacing = /already has|migration|missing (column|table)/i.test(msg)
-    return NextResponse.json({ error: isUserFacing ? msg : "Could not invite technician" }, {
+    return NextResponse.json({ error: isUserFacing ? msg : "Could not add technician" }, {
       status: isUserFacing ? 409 : 500,
     })
   }

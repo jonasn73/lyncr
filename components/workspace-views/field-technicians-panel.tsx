@@ -4,9 +4,10 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { HardHat, Loader2, Plus, UserPlus, MessageSquare, Send, Check } from "lucide-react"
+import { HardHat, Loader2, Plus, Send, Check } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
+import { AddTechnicianModal } from "@/components/team/add-technician-modal"
 import type { FieldTechnician } from "@/lib/types"
 
 type InviteResult = {
@@ -34,16 +35,10 @@ function formatPhoneDisplay(phone: string): string {
 export function FieldTechniciansPanel() {
   const [techs, setTechs] = useState<FieldTechnician[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   const [invite, setInvite] = useState<InviteResult | null>(null)
   const [resentId, setResentId] = useState<string | null>(null)
   const [resendError, setResendError] = useState<{ techId: string; message: string } | null>(null)
-
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
-  const [phone, setPhone] = useState("")
 
   const load = useCallback(() => {
     setLoading(true)
@@ -55,45 +50,6 @@ export function FieldTechniciansPanel() {
   }, [])
 
   useEffect(() => load(), [load])
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    setInvite(null)
-    try {
-      const res = await fetch("/api/technicians", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() }),
-      })
-      const j = (await res.json()) as {
-        error?: string
-        success?: boolean
-        errorType?: string
-        data?: { technicians?: FieldTechnician[]; invite?: InviteResult }
-      }
-      if (!res.ok) {
-        setError(j?.error || "Could not invite technician")
-        return
-      }
-      if (Array.isArray(j.data?.technicians)) setTechs(j.data.technicians)
-      if (j.data?.invite) setInvite(j.data.invite)
-      if (j.success === false || j.data?.invite?.success === false) {
-        setAdding(false)
-        return
-      }
-      setFirstName("")
-      setLastName("")
-      setPhone("")
-      setAdding(false)
-    } catch {
-      setError("Network error. Please try again.")
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function resend(tech: FieldTechnician) {
     setResentId(tech.id)
@@ -162,20 +118,18 @@ export function FieldTechniciansPanel() {
             <p className="mt-0.5 text-xs text-zinc-500">Road staff who get jobs on the Lyncr mobile console.</p>
           </div>
         </div>
-        {!adding && (
-          <button
-            onClick={() => {
-              setAdding(true)
-              setInvite(null)
-            }}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
-          >
-            <Plus className="h-4 w-4" /> Add technician
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            setModalOpen(true)
+            setInvite(null)
+          }}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
+        >
+          <Plus className="h-4 w-4" /> Add technician
+        </button>
       </div>
 
-      {/* 10DLC carrier block — do not show green "texted" success */}
       {invite?.errorType === "10DLC_BLOCK" && (
         <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
           <p className="text-sm font-semibold text-red-200">
@@ -193,11 +147,9 @@ export function FieldTechniciansPanel() {
         </div>
       )}
 
-      {/* Invite-sent confirmation (only when SMS actually succeeded) */}
       {invite && invite.errorType !== "10DLC_BLOCK" && invite.sms_sent && invite.success !== false && (
         <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
-            <MessageSquare className="h-4 w-4" />
             Invite texted to {invite.name}
           </p>
           <p className="mt-1 text-xs text-emerald-100/80">
@@ -208,7 +160,6 @@ export function FieldTechniciansPanel() {
         </div>
       )}
 
-      {/* Other SMS failures — neutral fallback with manual link */}
       {invite && invite.errorType !== "10DLC_BLOCK" && !invite.sms_sent && (
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
           <p className="text-sm font-semibold text-amber-200">Invite created for {invite.name}</p>
@@ -232,62 +183,6 @@ export function FieldTechniciansPanel() {
         </div>
       )}
 
-      {/* Invite form — first, last, mobile only */}
-      {adding && (
-        <form onSubmit={submit} className="mb-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="First name"
-              required
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
-            />
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Last name"
-              required
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
-            />
-          </div>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            type="tel"
-            inputMode="tel"
-            placeholder="Mobile phone number"
-            required
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
-          />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              Send invite
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAdding(false)
-                setError(null)
-              }}
-              className="rounded-lg px-3 py-2 text-sm text-zinc-400 hover:text-white"
-            >
-              Cancel
-            </button>
-          </div>
-          <p className="text-[11px] text-zinc-500">
-            We text them a secure link to set their own password — you never handle passwords.
-          </p>
-        </form>
-      )}
-
-      {/* Roster */}
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
           <Loader2 className="h-5 w-5 animate-spin" /> Loading technicians…
@@ -309,11 +204,15 @@ export function FieldTechniciansPanel() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{tech.name}</p>
-                  {tech.invite_pending && (
+                  {tech.invite_pending ? (
                     <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                       Setup pending
                     </span>
-                  )}
+                  ) : tech.is_active ? (
+                    <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                      Active
+                    </span>
+                  ) : null}
                 </div>
                 <p className="truncate text-xs text-zinc-500">
                   {tech.phone ? formatPhoneDisplay(tech.phone) : "—"}
@@ -322,6 +221,7 @@ export function FieldTechniciansPanel() {
               <div className="flex shrink-0 items-center gap-3">
                 {tech.invite_pending && (
                   <button
+                    type="button"
                     onClick={() => void resend(tech)}
                     disabled={resentId === tech.id}
                     className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
@@ -339,6 +239,15 @@ export function FieldTechniciansPanel() {
           ))}
         </div>
       )}
+
+      <AddTechnicianModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onSuccess={({ technicians, invite: inviteResult }) => {
+          setTechs(technicians)
+          if (inviteResult) setInvite(inviteResult)
+        }}
+      />
     </WorkspacePanel>
   )
 }
