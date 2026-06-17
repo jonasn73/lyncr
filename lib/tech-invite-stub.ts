@@ -244,7 +244,10 @@ export async function createManualFieldTechnician(params: {
         const rosterId = String(roster[0].id)
         await sql`
           UPDATE field_technicians
-          SET name = ${params.name}, phone = ${phoneE164}, is_active = true
+          SET user_id = ${params.ownerUserId},
+              name = ${params.name},
+              phone = ${phoneE164},
+              is_active = true
           WHERE id = ${rosterId}
         `
         return { userId: id, rosterId, created: false }

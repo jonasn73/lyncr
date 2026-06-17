@@ -3458,6 +3458,24 @@ export async function getOrganizationForOwner(
   }
 }
 
+/** Load a workspace row by id (any owner — used when binding technicians to a viewed workspace). */
+export async function getOrganizationById(organizationId: string): Promise<Organization | null> {
+  if (organizationId.startsWith("legacy-")) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, owner_user_id, name, is_default, created_at
+      FROM organizations
+      WHERE id = ${organizationId}
+      LIMIT 1
+    `
+    return rows[0] ? parseOrganizationRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingOrganizationsSchemaError(e)) return null
+    throw e
+  }
+}
+
 export async function getDefaultOrganizationForOwner(ownerUserId: string): Promise<Organization | null> {
   const list = await listOrganizationsForOwner(ownerUserId)
   return list.find((o) => o.is_default) ?? list[0] ?? null

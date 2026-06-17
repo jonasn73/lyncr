@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { usePlatformAdmin } from "@/hooks/use-platform-admin"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import type { FieldTechnician } from "@/lib/types"
 
 type AddMode = "invite" | "manual"
@@ -39,6 +41,7 @@ export type AddTechnicianModalProps = {
 
 export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnicianModalProps) {
   const { isPlatformAdmin } = usePlatformAdmin()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const [mode, setMode] = useState<AddMode>("invite")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -68,14 +71,19 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
     setBusy(true)
     setError(null)
     const isManual = mode === "manual" && isPlatformAdmin
+    const targetWorkspaceId = activeOrganizationId ?? readActiveOrganizationId()
     try {
       const res = await fetch("/api/team/technicians", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(targetWorkspaceId ? { "x-lyncr-workspace-id": targetWorkspaceId } : {}),
+        },
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
+          ...(targetWorkspaceId ? { workspaceId: targetWorkspaceId } : {}),
           ...(isManual ? { isManual: true } : {}),
           ...(!isManual && email.trim() ? { email: email.trim() } : {}),
         }),

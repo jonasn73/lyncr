@@ -15,6 +15,10 @@ import {
   IMPERSONATION_ADMIN_COOKIE,
   verifyImpersonationAdminCookie,
 } from "@/lib/admin-impersonation"
+import {
+  resolveTechnicianTargetWorkspace,
+  TechnicianWorkspaceError,
+} from "@/lib/technician-workspace-binding"
 
 export const dynamic = "force-dynamic"
 
@@ -34,9 +38,9 @@ export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
-  const owner = await getUser(userId)
-  if (!owner || owner.account_role !== "owner") {
-    return NextResponse.json({ error: "Only business owners can add technicians" }, { status: 403 })
+  const sessionUser = await getUser(userId)
+  if (!sessionUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 401 })
   }
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -46,12 +50,39 @@ export async function POST(req: NextRequest) {
     phone?: string
     email?: string
     isManual?: boolean
+    workspaceId?: string
+    businessId?: string
+    organization_id?: string
+    organizationId?: string
   }
   const firstName = String(body.firstName || "").trim()
   const lastName = String(body.lastName || "").trim()
   const name = (firstName || lastName ? `${firstName} ${lastName}` : String(body.name || "")).trim()
   const phone = String(body.phone || "").trim()
   const isManual = body.isManual === true
+
+  let targetWorkspace: Awaited<ReturnType<typeof resolveTechnicianTargetWorkspace>>
+  try {
+    targetWorkspace = await resolveTechnicianTargetWorkspace({
+      sessionUserId: userId,
+      workspaceId: body.workspaceId,
+      businessId: body.businessId,
+      organizationId: body.organizationId,
+      organization_id: body.organization_id,
+      headerWorkspaceId: req.headers.get("x-lyncr-workspace-id"),
+    })
+  } catch (e) {
+    if (e instanceof TechnicianWorkspaceError) {
+      return NextResponse.json({ error: e.message }, { status: e.status })
+    }
+    throw e
+  }
+
+  const { ownerUserId, workspaceId: targetWorkspaceId, owner } = targetWorkspace
+
+  if (!isManual && (sessionUser.account_role !== "owner" || ownerUserId !== userId)) {
+    return NextResponse.json({ error: "Only business owners can add technicians" }, { status: 403 })
+  }
 
   if (!name || name.length < 2) {
     return NextResponse.json({ error: "Name is required (at least 2 characters)" }, { status: 400 })
@@ -65,12 +96,12 @@ export async function POST(req: NextRequest) {
     const cookieHeader = req.headers.get("cookie") ?? ""
     const impersonationMatch = cookieHeader.match(new RegExp(`${IMPERSONATION_ADMIN_COOKIE}=([^;]+)`))
     const impersonatingAdminId = verifyImpersonationAdminCookie(impersonationMatch?.[1]?.trim())
-    const globalActor = impersonatingAdminId ? (await getUser(impersonatingAdminId)) ?? owner : owner
-    const sessionUser = {
+    const globalActor = impersonatingAdminId ? (await getUser(impersonatingAdminId)) ?? sessionUser : sessionUser
+    const platformActor = {
       ...globalPlatformSessionFields(globalActor),
       email: globalActor.email,
     }
-    if (!isGlobalPlatformAdmin(sessionUser)) {
+    if (!isGlobalPlatformAdmin(platformActor)) {
       return NextResponse.json(
         { error: "Access Denied: Only a Platform Admin can manually override provisioning." },
         { status: 403 }
@@ -81,14 +112,14 @@ export async function POST(req: NextRequest) {
   try {
     if (isManual) {
       const { rosterId } = await createManualFieldTechnician({
-        ownerUserId: userId,
+        ownerUserId,
         ownerBusinessName: owner.business_name,
         name,
         phone,
       })
-      const technicians = await listFieldTechnicians(userId)
+      const technicians = await listFieldTechnicians(ownerUserId)
       const technician =
-        (await getFieldTechnicianByIdForOwner(userId, rosterId)) ??
+        (await getFieldTechnicianByIdForOwner(ownerUserId, rosterId)) ??
         technicians.find((t) => t.id === rosterId) ??
         null
       if (!technician) {
@@ -96,7 +127,12 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({
         success: true,
-        data: { technician, technicians },
+        data: {
+          technician,
+          technicians,
+          workspaceId: targetWorkspaceId,
+          ownerUserId,
+        },
       })
     }
 
@@ -104,7 +140,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + TECH_INVITE_TTL_MS).toISOString()
 
     const { userId: portalUserId } = await createTechInviteStub({
-      ownerUserId: userId,
+      ownerUserId,
       ownerBusinessName: owner.business_name,
       name,
       phone,
@@ -114,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = resolveAppBaseUrl(req.nextUrl.origin)
     const sms = await sendTechInviteSms({
-      ownerUserId: userId,
+      ownerUserId,
       toPhone: phone,
       businessName: owner.business_name,
       token,
@@ -129,7 +165,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const technicians = await listFieldTechnicians(userId)
+    const technicians = await listFieldTechnicians(ownerUserId)
     const technician =
       technicians.find((t) => t.portal_user_id === portalUserId) ?? technicians[0] ?? null
     const inviteBase = {
