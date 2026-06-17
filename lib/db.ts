@@ -364,8 +364,11 @@ export function peekIncomingRoutingCache(toNumber: string): IncomingRoutingRow |
   return null
 }
 
-/** Minimal snapshot read — indexed exact match on business DID (no joins). */
-async function fetchInboundDialSnapshotSql(normalized: string): Promise<IncomingRoutingRow | null> {
+/** Minimal snapshot read — indexed match on business DID (exact E.164 or last-10 digits). */
+async function fetchInboundDialSnapshotSql(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingRow | null> {
   const sql = getSql()
   try {
     const rows = await sql`
@@ -386,7 +389,15 @@ async function fetchInboundDialSnapshotSql(normalized: string): Promise<Incoming
       FROM phone_numbers pn
       LEFT JOIN onboarding_profiles op ON op.user_id = pn.user_id
       WHERE pn.status = 'active'
-        AND pn.number = ${normalized}
+        AND (
+          pn.number = ${normalized}
+          OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+          OR (
+            length(${digitKey}) >= 10
+            AND length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
+            AND right(regexp_replace(pn.number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+          )
+        )
         AND pn.inbound_routing_updated_at IS NOT NULL
         AND NULLIF(trim(pn.inbound_dial_e164), '') IS NOT NULL
       LIMIT 1
@@ -438,7 +449,15 @@ async function fetchInboundDialSnapshotSql(normalized: string): Promise<Incoming
             to_jsonb(pn) ->> 'inbound_sip_username' AS inbound_sip_username
           FROM phone_numbers pn
           WHERE pn.status = 'active'
-            AND pn.number = ${normalized}
+            AND (
+              pn.number = ${normalized}
+              OR regexp_replace(pn.number, '\\D', '', 'g') = ${digitKey}
+              OR (
+                length(${digitKey}) >= 10
+                AND length(regexp_replace(pn.number, '\\D', '', 'g')) >= 10
+                AND right(regexp_replace(pn.number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+              )
+            )
             AND pn.inbound_routing_updated_at IS NOT NULL
             AND NULLIF(trim(pn.inbound_dial_e164), '') IS NOT NULL
           LIMIT 1
@@ -478,10 +497,13 @@ async function fetchInboundDialSnapshotSql(normalized: string): Promise<Incoming
   }
 }
 
-function getInboundSnapshotFromDataCache(normalized: string): Promise<IncomingRoutingRow | null> {
+function getInboundSnapshotFromDataCache(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingRow | null> {
   const run = unstable_cache(
-    async () => fetchInboundDialSnapshotSql(normalized),
-    ["inbound-snapshot-v2", normalized],
+    async () => fetchInboundDialSnapshotSql(normalized, digitKey),
+    ["inbound-snapshot-v3", normalized, digitKey],
     {
       revalidate: 300,
       tags: [INBOUND_SNAPSHOT_DATA_TAG, `inbound-snapshot-${normalized}`],
@@ -504,13 +526,23 @@ export async function getIncomingRoutingForVoiceWebhook(
   const mem = incomingRoutingCache.get(normalized)
   if (mem && mem.expiresAt > Date.now()) return mem.value
 
-  const snap = await fetchInboundDialSnapshotSql(normalized)
+  const snap = await fetchInboundDialSnapshotSql(normalized, digitKey)
   if (snap) {
     storeIncomingRoutingInMemory(normalized, snap)
     return snap
   }
 
   return fetchIncomingRoutingByNumberFromDb(normalized, digitKey)
+}
+
+/** Resolve inbound routing: active phone_numbers row first, then onboarding_profiles.reserved_number. */
+async function resolveIncomingRoutingFromDb(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingByNumber> {
+  const fromPhone = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
+  if (fromPhone) return fromPhone
+  return fetchIncomingRoutingByReservedNumberFromDb(normalized, digitKey)
 }
 
 // Normalize toward E.164 so values match `phone_numbers.number` and Telnyx `<Number>` dialing.
@@ -2021,8 +2053,10 @@ function mapIncomingRoutingRowFromDb(row: Record<string, unknown>): IncomingRout
   }
 }
 
-/** PSTN leg to ring on inbound — receptionist when assigned, otherwise owner cell. */
+/** PSTN leg to ring on inbound — admin override, then receptionist, then owner cell. */
 function resolveInboundSnapshotDialE164(row: IncomingRoutingRow): string | null {
+  const adminOverride = formatAdminRoutingOverridePhoneForTelnyx(row.admin_routing_override_phone)
+  if (adminOverride) return adminOverride
   if (row.receptionist_phone?.trim()) {
     const dial = normalizePhoneNumberE164(row.receptionist_phone)
     if (isReasonablePstnDialString(dial)) return dial
@@ -2125,7 +2159,7 @@ export async function syncInboundDialSnapshotForNumber(toNumber: string): Promis
   const normalized = normalizePhoneNumberE164(toNumber)
   if (!normalized) return
   const digitKey = phoneDigitsKey(toNumber)
-  let full = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
+  let full = await resolveIncomingRoutingFromDb(normalized, digitKey)
   if (full?.selected_receptionist_id?.trim() && !full.receptionist_phone?.trim()) {
     const rec = await getReceptionist(full.selected_receptionist_id)
     if (rec?.phone?.trim() && String(rec.user_id) === String(full.user_id)) {
@@ -2155,7 +2189,183 @@ export async function syncInboundDialSnapshotForNumber(toNumber: string): Promis
 export async function syncInboundDialSnapshotForUser(userId: string): Promise<void> {
   const numbers = await getPhoneNumbers(userId)
   const active = numbers.filter((n) => n.status === "active")
-  await Promise.all(active.map((n) => syncInboundDialSnapshotForNumber(n.number)))
+  if (active.length > 0) {
+    await Promise.all(active.map((n) => syncInboundDialSnapshotForNumber(n.number)))
+    return
+  }
+  const profile = await getOnboardingProfile(userId)
+  const reserved = profile?.reserved_number?.trim()
+  if (reserved) {
+    await syncInboundDialSnapshotForNumber(reserved)
+  }
+}
+
+/** Fallback when phone_numbers has no active row — match onboarding_profiles.reserved_number. */
+async function fetchIncomingRoutingByReservedNumberFromDb(
+  normalized: string,
+  digitKey: string
+): Promise<IncomingRoutingByNumber> {
+  if (digitKey.length < 10) return null
+  const sql = getSql()
+  let rows: Record<string, unknown>[]
+  try {
+    rows = await sql`
+    SELECT
+      u.id AS user_id,
+      u.name AS user_name,
+      COALESCE(NULLIF(trim(u.business_name), ''), 'My Business') AS business_name,
+      COALESCE(u.inbound_receptionist_whisper_enabled, true) AS inbound_receptionist_whisper_enabled,
+      u.phone AS owner_phone,
+      COALESCE(
+        CASE
+          WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+        END,
+        rc_def.selected_receptionist_id
+      ) AS selected_receptionist_id,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.fallback_type ELSE rc_def.fallback_type END,
+        'owner'
+      ) AS fallback_type,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.ring_timeout_seconds ELSE rc_def.ring_timeout_seconds END,
+        30
+      ) AS ring_timeout_seconds,
+      COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
+      reff.name AS receptionist_name,
+      reff.phone AS receptionist_phone,
+      to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,
+      to_jsonb(reff) ->> 'sip_username' AS receptionist_sip_username,
+      COALESCE(NULLIF(trim(pn.label), ''), 'Main Line') AS phone_line_label,
+      COALESCE(pn.friendly_name, '') AS phone_line_friendly_name,
+      COALESCE(op.account_status, 'active') AS account_status,
+      op.admin_routing_override_phone AS admin_routing_override_phone,
+      COALESCE(NULLIF(trim(pn.number), ''), op.reserved_number, '') AS primary_phone_number
+    FROM onboarding_profiles op
+    JOIN users u ON u.id = op.user_id
+    LEFT JOIN phone_numbers pn ON pn.user_id = u.id AND pn.status = 'active'
+    LEFT JOIN LATERAL (
+      SELECT rc.*
+      FROM routing_config rc
+      WHERE rc.user_id = u.id
+        AND rc.business_number IS NOT NULL
+        AND (
+          rc.business_number = COALESCE(pn.number, op.reserved_number)
+          OR regexp_replace(COALESCE(rc.business_number, ''), '\\D', '', 'g') = regexp_replace(COALESCE(pn.number, op.reserved_number), '\\D', '', 'g')
+          OR (
+            length(regexp_replace(COALESCE(rc.business_number, ''), '\\D', '', 'g')) >= 10
+            AND length(regexp_replace(COALESCE(pn.number, op.reserved_number), '\\D', '', 'g')) >= 10
+            AND right(regexp_replace(COALESCE(rc.business_number, ''), '\\D', '', 'g'), 10)
+              = right(regexp_replace(COALESCE(pn.number, op.reserved_number), '\\D', '', 'g'), 10)
+          )
+        )
+      ORDER BY rc.updated_at DESC NULLS LAST
+      LIMIT 1
+    ) rc_spec ON true
+    LEFT JOIN routing_config rc_def
+      ON rc_def.user_id = u.id
+      AND rc_def.business_number IS NULL
+    LEFT JOIN receptionists reff ON reff.id = COALESCE(
+      CASE
+        WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+      END,
+      rc_def.selected_receptionist_id
+    )
+    WHERE op.reserved_number IS NOT NULL
+      AND trim(op.reserved_number) <> ''
+      AND (
+        op.reserved_number = ${normalized}
+        OR regexp_replace(op.reserved_number, '\\D', '', 'g') = ${digitKey}
+        OR (
+          length(regexp_replace(op.reserved_number, '\\D', '', 'g')) >= 10
+          AND right(regexp_replace(op.reserved_number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+        )
+      )
+    ORDER BY pn.created_at DESC NULLS LAST
+    LIMIT 1
+  `
+  } catch (e) {
+    if (!isMissingInboundReceptionistWhisperColumnError(e)) throw e
+    rows = await sql`
+    SELECT
+      u.id AS user_id,
+      u.name AS user_name,
+      COALESCE(NULLIF(trim(u.business_name), ''), 'My Business') AS business_name,
+      u.phone AS owner_phone,
+      COALESCE(
+        CASE
+          WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+        END,
+        rc_def.selected_receptionist_id
+      ) AS selected_receptionist_id,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.fallback_type ELSE rc_def.fallback_type END,
+        'owner'
+      ) AS fallback_type,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.ring_timeout_seconds ELSE rc_def.ring_timeout_seconds END,
+        30
+      ) AS ring_timeout_seconds,
+      COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
+      reff.name AS receptionist_name,
+      reff.phone AS receptionist_phone,
+      to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,
+      to_jsonb(reff) ->> 'sip_username' AS receptionist_sip_username,
+      COALESCE(NULLIF(trim(pn.label), ''), 'Main Line') AS phone_line_label,
+      COALESCE(pn.friendly_name, '') AS phone_line_friendly_name,
+      COALESCE(op.account_status, 'active') AS account_status,
+      op.admin_routing_override_phone AS admin_routing_override_phone,
+      COALESCE(NULLIF(trim(pn.number), ''), op.reserved_number, '') AS primary_phone_number
+    FROM onboarding_profiles op
+    JOIN users u ON u.id = op.user_id
+    LEFT JOIN phone_numbers pn ON pn.user_id = u.id AND pn.status = 'active'
+    LEFT JOIN LATERAL (
+      SELECT rc.*
+      FROM routing_config rc
+      WHERE rc.user_id = u.id
+        AND rc.business_number IS NOT NULL
+        AND (
+          rc.business_number = COALESCE(pn.number, op.reserved_number)
+          OR regexp_replace(COALESCE(rc.business_number, ''), '\\D', '', 'g') = regexp_replace(COALESCE(pn.number, op.reserved_number), '\\D', '', 'g')
+          OR (
+            length(regexp_replace(COALESCE(rc.business_number, ''), '\\D', '', 'g')) >= 10
+            AND length(regexp_replace(COALESCE(pn.number, op.reserved_number), '\\D', '', 'g')) >= 10
+            AND right(regexp_replace(COALESCE(rc.business_number, ''), '\\D', '', 'g'), 10)
+              = right(regexp_replace(COALESCE(pn.number, op.reserved_number), '\\D', '', 'g'), 10)
+          )
+        )
+      ORDER BY rc.updated_at DESC NULLS LAST
+      LIMIT 1
+    ) rc_spec ON true
+    LEFT JOIN routing_config rc_def
+      ON rc_def.user_id = u.id
+      AND rc_def.business_number IS NULL
+    LEFT JOIN receptionists reff ON reff.id = COALESCE(
+      CASE
+        WHEN rc_spec.id IS NOT NULL AND rc_spec.selected_receptionist_id IS NOT NULL THEN rc_spec.selected_receptionist_id
+      END,
+      rc_def.selected_receptionist_id
+    )
+    WHERE op.reserved_number IS NOT NULL
+      AND trim(op.reserved_number) <> ''
+      AND (
+        op.reserved_number = ${normalized}
+        OR regexp_replace(op.reserved_number, '\\D', '', 'g') = ${digitKey}
+        OR (
+          length(regexp_replace(op.reserved_number, '\\D', '', 'g')) >= 10
+          AND right(regexp_replace(op.reserved_number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+        )
+      )
+    ORDER BY pn.created_at DESC NULLS LAST
+    LIMIT 1
+  `
+  }
+
+  const row = rows[0]
+  if (!row) return null
+
+  const value = mapIncomingRoutingRowFromDb(row as Record<string, unknown>)
+  storeIncomingRoutingInMemory(normalized, value)
+  return value
 }
 
 // Full routing lookup (joins routing_config + receptionists). Used to build snapshots and fallbacks.
@@ -2316,10 +2526,7 @@ async function fetchIncomingRoutingFullFromDb(
   }
 
   const row = rows[0]
-  if (!row) {
-    storeIncomingRoutingInMemory(normalized, null)
-    return null
-  }
+  if (!row) return null
 
   const value = mapIncomingRoutingRowFromDb(row as Record<string, unknown>)
   storeIncomingRoutingInMemory(normalized, value)
@@ -2331,14 +2538,17 @@ async function fetchIncomingRoutingByNumberFromDb(
   normalized: string,
   digitKey: string
 ): Promise<IncomingRoutingByNumber> {
-  const snap = await fetchInboundDialSnapshotSql(normalized)
+  const snap = await fetchInboundDialSnapshotSql(normalized, digitKey)
   if (snap) {
     storeIncomingRoutingInMemory(normalized, snap)
     return snap
   }
-  const full = await fetchIncomingRoutingFullFromDb(normalized, digitKey)
-  void writeInboundRoutingSnapshot(normalized, digitKey, full).catch(() => {})
-  return full
+  const resolved = await resolveIncomingRoutingFromDb(normalized, digitKey)
+  void writeInboundRoutingSnapshot(normalized, digitKey, resolved).catch(() => {})
+  if (!resolved) {
+    storeIncomingRoutingInMemory(normalized, null)
+  }
+  return resolved
 }
 
 function getIncomingRoutingFromDataCache(
@@ -2347,7 +2557,7 @@ function getIncomingRoutingFromDataCache(
 ): Promise<IncomingRoutingByNumber> {
   const run = unstable_cache(
     async () => fetchIncomingRoutingByNumberFromDb(normalized, digitKey),
-    ["incoming-routing-v4", normalized],
+    ["incoming-routing-v5", normalized, digitKey],
     {
       revalidate: 120,
       tags: [INCOMING_ROUTING_DATA_TAG, `incoming-routing-${normalized}`],
@@ -7035,6 +7245,44 @@ export async function getAccountStatusForInboundNumber(toNumber: string): Promis
 }
 
 /** Operator overrides: status, notes, manual DID, admin routing override, hard reset lines. */
+
+/** Ensure an active phone_numbers row exists when the account only has onboarding_profiles.reserved_number. */
+async function ensureActivePhoneNumberFromReserved(userId: string): Promise<void> {
+  const numbers = await getPhoneNumbers(userId)
+  if (numbers.some((p) => p.status === "active" && p.number?.trim())) return
+  const profile = await getOnboardingProfile(userId)
+  const raw = profile?.reserved_number?.trim()
+  if (!raw) return
+  const numberE164 = normalizePhoneNumberE164(raw)
+  if (!isReasonablePstnDialString(numberE164)) return
+  const sql = getSql()
+  const existing = numbers.find((p) => ["active", "pending", "porting"].includes(p.status))
+  if (existing) {
+    await sql`
+      UPDATE phone_numbers
+      SET number = ${numberE164}, friendly_name = ${numberE164}, status = 'active'
+      WHERE id = ${existing.id} AND user_id = ${userId}
+    `
+    return
+  }
+  const phoneId = crypto.randomUUID()
+  await sql`
+    INSERT INTO phone_numbers (id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
+    VALUES (
+      ${phoneId},
+      ${userId},
+      '',
+      '',
+      ${numberE164},
+      ${numberE164},
+      'Admin assigned',
+      'local',
+      'active',
+      now()
+    )
+  `
+}
+
 export async function adminApplyUserOverride(params: {
   userId: string
   targetStatus?: string
@@ -7178,6 +7426,7 @@ export async function adminApplyUserOverride(params: {
         throw e
       }
       clearIncomingRoutingCache()
+      await ensureActivePhoneNumberFromReserved(userId)
       void syncInboundDialSnapshotForUser(userId).catch(() => {})
     }
   }

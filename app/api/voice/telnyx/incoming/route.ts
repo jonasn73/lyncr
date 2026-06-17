@@ -64,7 +64,7 @@ import {
 } from "@/lib/telnyx-inbound-media-quality"
 import { buildRoutingPoolDialResponse, getAvailableReceptionistsForLine } from "@/lib/routing-pool"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
-import { buildAdminRoutingOverrideDial } from "@/lib/telnyx-admin-routing-override"
+import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "@/lib/telnyx-admin-routing-override"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -193,8 +193,9 @@ function resolveReceptionistDialE164(rawPhone: string): string {
   return ""
 }
 
-/** Snapshot already has a dialable PSTN leg (receptionist cell or owner) — skip skill-pool DB probe. */
+/** Snapshot already has a dialable PSTN leg (admin override, receptionist cell, or owner). */
 function hasDirectInboundPstnTarget(routing: IncomingRoutingRowNonNull): boolean {
+  if (resolveAdminRoutingOverrideE164(routing)) return true
   return Boolean(resolveReceptionistDialE164(routing.receptionist_phone || routing.owner_phone || ""))
 }
 
@@ -710,7 +711,7 @@ async function handleIncomingCall(
     const routing = await getIncomingRoutingForVoiceWebhook(calledNumber)
     if (!routing) {
       console.error(
-        "[Sigo] No user/routing for inbound — check phone_numbers row matches this line. Detail:",
+        "[Sigo] No user/routing for inbound — check phone_numbers or onboarding_profiles.reserved_number matches this line. Detail:",
         JSON.stringify({
           calledRaw: calledNumber,
           businessLineE164,
@@ -718,6 +719,7 @@ async function handleIncomingCall(
           callerRaw: callerNumber,
           callSid,
           webhookFieldKeys: webhookFieldKeys.slice(0, 40),
+          hint: "Ensure an active phone_numbers row or reserved_number exists for this DID; re-save admin override to sync.",
         })
       )
       texmlSayNatural(texml, "Sorry, this number is not configured. Goodbye.")
