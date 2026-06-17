@@ -4422,28 +4422,43 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
   const sql = getSql()
   const orgFilter =
     organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
+  const mapRows = (rows: unknown[]) => rows.map((r) => parsePhoneNumberRow(r as Record<string, unknown>))
   try {
-    const rows = orgFilter
-      ? await sql`
+    if (orgFilter) {
+      // Include lines stamped for this org plus legacy rows with no org (admin backfill / pre-065).
+      let rows = await sql`
+        SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+          industry_tag, routing_pool_mode, source_provider, external_verified, created_at
+        FROM phone_numbers
+        WHERE user_id = ${userId}
+          AND (organization_id = ${orgFilter} OR organization_id IS NULL)
+        ORDER BY created_at ASC
+      `
+      // Empty workspace (e.g. "Key Squad 502 Main" with no lines yet) — show all account lines so Call flow is not blank.
+      if (rows.length === 0) {
+        rows = await sql`
           SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
             industry_tag, routing_pool_mode, source_provider, external_verified, created_at
           FROM phone_numbers
-          WHERE user_id = ${userId} AND organization_id = ${orgFilter}
+          WHERE user_id = ${userId}
           ORDER BY created_at ASC
         `
-      : await sql`
-          SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
-            industry_tag, routing_pool_mode, source_provider, external_verified, created_at
-          FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
-        `
-    return rows.map((r) => parsePhoneNumberRow(r as Record<string, unknown>))
+      }
+      return mapRows(rows)
+    }
+    const rows = await sql`
+      SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+        industry_tag, routing_pool_mode, source_provider, external_verified, created_at
+      FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
+    `
+    return mapRows(rows)
   } catch (e) {
     if (!isMissingOrganizationsSchemaError(e)) throw e
     const rows = await sql`
       SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
       FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
     `
-    return rows.map((r) => parsePhoneNumberRow(r as Record<string, unknown>))
+    return mapRows(rows)
   }
 }
 
@@ -7255,22 +7270,30 @@ async function ensureActivePhoneNumberFromReserved(userId: string): Promise<void
   if (!raw) return
   const numberE164 = normalizePhoneNumberE164(raw)
   if (!isReasonablePstnDialString(numberE164)) return
+  const defaultOrg = await getDefaultOrganizationForOwner(userId)
+  const orgId =
+    defaultOrg && !defaultOrg.id.startsWith("legacy-") ? defaultOrg.id : null
   const sql = getSql()
   const existing = numbers.find((p) => ["active", "pending", "porting"].includes(p.status))
   if (existing) {
     await sql`
       UPDATE phone_numbers
-      SET number = ${numberE164}, friendly_name = ${numberE164}, status = 'active'
+      SET
+        number = ${numberE164},
+        friendly_name = ${numberE164},
+        status = 'active',
+        organization_id = COALESCE(organization_id, ${orgId})
       WHERE id = ${existing.id} AND user_id = ${userId}
     `
     return
   }
   const phoneId = crypto.randomUUID()
   await sql`
-    INSERT INTO phone_numbers (id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
+    INSERT INTO phone_numbers (id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
     VALUES (
       ${phoneId},
       ${userId},
+      ${orgId},
       '',
       '',
       ${numberE164},
