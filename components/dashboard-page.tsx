@@ -71,6 +71,7 @@ export function DashboardPage() {
   /** Hybrid-network routing (migrations 048/049) — drives the Call flow "Lyncr Network Pool" step. */
   const [routingStrategy, setRoutingStrategy] = useState<RoutingStrategy>("private_only")
   const [allowLyncrNetworkFallback, setAllowLyncrNetworkFallback] = useState(false)
+  const [adminRoutingOverridePhone, setAdminRoutingOverridePhone] = useState<string | null>(null)
 
   // AI assistant state
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
@@ -98,6 +99,24 @@ export function DashboardPage() {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) setSessionFetchDone(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Platform-admin inbound override (read-only notice on Call flow).
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/onboarding/profile", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { data?: { admin_routing_override_phone?: string | null } } | null) => {
+        if (cancelled) return
+        const raw = json?.data?.admin_routing_override_phone
+        setAdminRoutingOverridePhone(raw?.trim() ? String(raw).trim() : null)
+      })
+      .catch(() => {
+        if (!cancelled) setAdminRoutingOverridePhone(null)
       })
     return () => {
       cancelled = true
@@ -418,6 +437,7 @@ export function DashboardPage() {
         allowLyncrNetworkFallback={allowLyncrNetworkFallback}
         setRoutingStrategy={setRoutingStrategy}
         setAllowLyncrNetworkFallback={setAllowLyncrNetworkFallback}
+        adminRoutingOverridePhone={adminRoutingOverridePhone}
         receptionists={receptionists}
         selectedReceptionistId={selectedReceptionistId}
         clearReceptionist={clearReceptionist}

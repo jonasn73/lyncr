@@ -37,6 +37,7 @@ export type DashboardRoutingSurfaceProps = {
   setWhoAnswersOpen: (open: boolean) => void
   setRingBackupOpen: (open: boolean) => void
   setShowFallbackSettings: (open: boolean) => void
+  adminRoutingOverridePhone?: string | null
 }
 
 /** Call flow + setup checklist — isolated from sheet open state so drawers do not re-render this tree. */
@@ -61,6 +62,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   setWhoAnswersOpen,
   setRingBackupOpen,
   setShowFallbackSettings,
+  adminRoutingOverridePhone,
 }: DashboardRoutingSurfaceProps) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
 
@@ -194,6 +196,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
         setWhoAnswersOpen={setWhoAnswersOpen}
         setRingBackupOpen={setRingBackupOpen}
         setShowFallbackSettings={setShowFallbackSettings}
+        adminRoutingOverridePhone={adminRoutingOverridePhone}
       />
 
       <section className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-2xl border border-border/70 bg-muted/10 px-5 py-4 text-xs font-semibold sm:text-sm">

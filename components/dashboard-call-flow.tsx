@@ -148,6 +148,8 @@ export type DashboardCallFlowProps = {
   setWhoAnswersOpen: (v: boolean) => void
   setRingBackupOpen: (v: boolean) => void
   setShowFallbackSettings: (v: boolean) => void
+  /** When set, platform admin has forced inbound calls to this PSTN number (read-only notice). */
+  adminRoutingOverridePhone?: string | null
 }
 
 /** True when the shared Lyncr network participates in this line's call flow. */
@@ -255,6 +257,23 @@ export function buildCallFlowNodes(params: {
   return nodes
 }
 
+function AdminRoutingOverrideNotice({ phone }: { phone: string }) {
+  return (
+    <div
+      role="status"
+      className="rounded-xl border border-purple-500/50 bg-purple-950/40 px-4 py-3 text-sm leading-relaxed text-purple-100"
+    >
+      <p>
+        <span aria-hidden>⚠️ </span>
+        <span className="font-semibold text-purple-50">System Notice:</span> Platform Admin has configured
+        direct routing override to{" "}
+        <span className="font-mono font-semibold text-purple-50">{formatPhoneDisplay(phone)}</span>. Standard
+        routing rules are temporarily bypassed.
+      </p>
+    </div>
+  )
+}
+
 export const DashboardCallFlow = memo(function DashboardCallFlow({
   businessNumbers,
   routingBusinessNumber,
@@ -273,6 +292,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   setWhoAnswersOpen,
   setRingBackupOpen,
   setShowFallbackSettings,
+  adminRoutingOverridePhone,
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const activation = useDashboardActivationOptional()
@@ -298,6 +318,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     openVoiceAi: () => setShowFallbackSettings(true),
     configureStrategy: onConfigureStrategy,
   })
+
+  const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
   return (
     <section
@@ -364,29 +386,34 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             </div>
           </div>
         ) : (
-          <div
-            className={cn(
-              "sigo-bloom-in-stagger flex flex-col gap-4 lg:flex-row lg:items-stretch",
-              CALL_FLOW_STEPS_MIN_H,
-              routingLineDetailLoading && "opacity-60"
-            )}
-            aria-label="Call handling steps"
-          >
-            {flowNodes.map((node, i) => (
-              <Fragment key={node.key}>
-                {i > 0 ? <FlowConnector /> : null}
-                <FlowStepCard
-                  step={String(i + 2)}
-                  title={node.title}
-                  icon={node.icon}
-                  value={node.value}
-                  detail={node.detail}
-                  onOpen={node.onOpen}
-                  loading={routingLineDetailLoading}
-                  accent={node.accent}
-                />
-              </Fragment>
-            ))}
+          <div className="space-y-4">
+            {adminOverrideActive ? (
+              <AdminRoutingOverrideNotice phone={adminRoutingOverridePhone!.trim()} />
+            ) : null}
+            <div
+              className={cn(
+                "sigo-bloom-in-stagger flex flex-col gap-4 lg:flex-row lg:items-stretch",
+                CALL_FLOW_STEPS_MIN_H,
+                routingLineDetailLoading && "opacity-60"
+              )}
+              aria-label="Call handling steps"
+            >
+              {flowNodes.map((node, i) => (
+                <Fragment key={node.key}>
+                  {i > 0 ? <FlowConnector /> : null}
+                  <FlowStepCard
+                    step={String(i + 2)}
+                    title={node.title}
+                    icon={node.icon}
+                    value={node.value}
+                    detail={node.detail}
+                    onOpen={node.onOpen}
+                    loading={routingLineDetailLoading}
+                    accent={node.accent}
+                  />
+                </Fragment>
+              ))}
+            </div>
           </div>
         )}
       </div>

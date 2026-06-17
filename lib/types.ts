@@ -157,6 +157,8 @@ export interface OnboardingProfile {
   notification_phone: string | null
   /** Dedicated dispatch SMS target — overrides notification_phone for lead texts (`045`). */
   dispatch_sms_phone: string | null
+  /** Platform-admin PSTN override — inbound calls bypass standard routing when set (`072`). */
+  admin_routing_override_phone?: string | null
   updated_at: string
 }
 

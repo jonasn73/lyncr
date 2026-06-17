@@ -69,6 +69,7 @@ export function DashboardRoutingWithSheets(props: Props) {
     setWhoAnswersOpen,
     setRingBackupOpen,
     setShowFallbackSettings,
+    adminRoutingOverridePhone: props.adminRoutingOverridePhone,
   }
 
   return (

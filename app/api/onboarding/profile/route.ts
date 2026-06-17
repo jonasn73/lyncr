@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getOnboardingProfile, getPhoneNumbers, normalizePhoneNumberE164, updateOnboardingProfile } from "@/lib/db"
+import { getOnboardingProfile, getPhoneNumbers, getAdminRoutingOverridePhone, normalizePhoneNumberE164, updateOnboardingProfile } from "@/lib/db"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { isAnyLineCarrierLive, isPhoneNumberCarrierLive, isReservedLineCarrierLive } from "@/lib/onboarding-line-carrier-status"
 import type { UpdateOnboardingProfileRequest } from "@/lib/types"
@@ -73,8 +73,14 @@ export async function GET(req: NextRequest) {
     const carrier_live =
       (await isAnyLineCarrierLive(userId)) ||
       (profile?.reserved_number ? await isReservedLineCarrierLive(userId, profile.reserved_number) : false)
+    const admin_routing_override_phone = await getAdminRoutingOverridePhone(userId)
+    const data = profile
+      ? { ...profile, admin_routing_override_phone }
+      : admin_routing_override_phone
+        ? { user_id: userId, admin_routing_override_phone }
+        : null
     return NextResponse.json(
-      { data: profile, carrier_live },
+      { data, carrier_live },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
