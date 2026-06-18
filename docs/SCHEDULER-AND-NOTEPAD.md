@@ -59,7 +59,7 @@ Owner and receptionist are **separate apps** — receptionists never see `/dashb
 - **URL:** `/dashboard/scheduler`
 - **File:** `app/dashboard/scheduler/page.tsx`
 - **UI:** `components/workspace-views/scheduler-workspace-view.tsx`
-- **Navigation:** ⌘K jump palette + account menu (secondary route — not a bottom tab)
+- **Navigation:** Bottom tab bar (between Activity and Leads), ⌘K jump palette, and account menu
 
 ### API
 

@@ -1,6 +1,8 @@
 "use client"
 
 import { memo, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
+import { CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
@@ -398,12 +400,21 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         eyebrow="Live"
         title="Activity"
         action={
-          activeLine ? (
-            <p className="text-xs text-zinc-500">
-              Filtered to active line ·{" "}
-              <span className="font-medium text-zinc-300">{resolveBusinessLineLabel(activeLine, lineLabelMap)}</span>
-            </p>
-          ) : null
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/dashboard/scheduler"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/15"
+            >
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+              Job scheduler
+            </Link>
+            {activeLine ? (
+              <p className="text-xs text-zinc-500">
+                Filtered to active line ·{" "}
+                <span className="font-medium text-zinc-300">{resolveBusinessLineLabel(activeLine, lineLabelMap)}</span>
+              </p>
+            ) : null}
+          </div>
         }
       />
 

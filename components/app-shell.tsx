@@ -53,10 +53,11 @@ export type PageId =
   | "scheduler"
   | "help"
 
-/** Primary tabs only — fewer taps; Help stays in the account menu and ⌘K jump palette. */
+/** Primary tabs — Scheduler sits between Activity and Leads (booked / pending jobs). */
 const bottomNavItems = [
   { id: "dashboard" as const, label: "Routing", icon: Zap },
   { id: "activity" as const, label: "Activity", icon: ClipboardList },
+  { id: "scheduler" as const, label: "Scheduler", icon: CalendarDays },
   { id: "leads" as const, label: "Leads", icon: Inbox },
   { id: "contacts" as const, label: "Team", icon: Users },
   { id: "pay" as const, label: "Pay", icon: BarChart3 },
