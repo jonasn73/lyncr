@@ -1,0 +1,84 @@
+// NHTSA vPIC vehicle catalog helpers (free, no API key).
+
+const VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles"
+
+let makesCache: { at: number; makes: string[] } | null = null
+const MODELS_CACHE = new Map<string, { at: number; models: string[] }>()
+const CACHE_MS = 1000 * 60 * 60 * 12
+
+export function vehicleYearOptions(): number[] {
+  const now = new Date().getFullYear() + 1
+  const years: number[] = []
+  for (let y = now; y >= 1985; y -= 1) years.push(y)
+  return years
+}
+
+export async function fetchAllMakes(): Promise<string[]> {
+  if (makesCache && Date.now() - makesCache.at < CACHE_MS) return makesCache.makes
+  const res = await fetch(`${VPIC}/getallmakes?format=json`, { cache: "no-store" })
+  if (!res.ok) return []
+  const data = (await res.json()) as { Results?: Array<{ Make_Name?: string }> }
+  const makes = (data.Results ?? [])
+    .map((r) => r.Make_Name?.trim())
+    .filter((m): m is string => Boolean(m))
+    .sort((a, b) => a.localeCompare(b))
+  makesCache = { at: Date.now(), makes }
+  return makes
+}
+
+export async function fetchModelsForMakeYear(make: string, year: number): Promise<string[]> {
+  const key = `${make.toLowerCase()}::${year}`
+  const hit = MODELS_CACHE.get(key)
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.models
+  const url = `${VPIC}/getmodelsformakeyear/make/${encodeURIComponent(make)}/modelyear/${year}?format=json`
+  const res = await fetch(url, { cache: "no-store" })
+  if (!res.ok) return []
+  const data = (await res.json()) as { Results?: Array<{ Model_Name?: string }> }
+  const models = (data.Results ?? [])
+    .map((r) => r.Model_Name?.trim())
+    .filter((m): m is string => Boolean(m))
+    .sort((a, b) => a.localeCompare(b))
+  MODELS_CACHE.set(key, { at: Date.now(), models })
+  return models
+}
+
+export type VinDecodeResult = {
+  vin: string
+  vehicle_year: string | null
+  vehicle_make: string | null
+  vehicle_model: string | null
+  error?: string | null
+}
+
+export function normalizeVin(raw: string): string {
+  return raw.trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "")
+}
+
+export async function decodeVin(vinRaw: string): Promise<VinDecodeResult> {
+  const vin = normalizeVin(vinRaw)
+  if (vin.length !== 17) {
+    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: "VIN must be 17 characters." }
+  }
+  const url = `${VPIC}/decodevinvalues/${encodeURIComponent(vin)}?format=json`
+  const res = await fetch(url, { cache: "no-store" })
+  if (!res.ok) {
+    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: "VIN lookup failed." }
+  }
+  const data = (await res.json()) as {
+    Results?: Array<{ ModelYear?: string; Make?: string; Model?: string; ErrorText?: string }>
+  }
+  const row = data.Results?.[0]
+  if (!row) {
+    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: "No vehicle found for VIN." }
+  }
+  if (row.ErrorText && row.ErrorText !== "0 - VIN decoded clean.") {
+    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: row.ErrorText }
+  }
+  return {
+    vin,
+    vehicle_year: row.ModelYear?.trim() || null,
+    vehicle_make: row.Make?.trim() || null,
+    vehicle_model: row.Model?.trim() || null,
+    error: null,
+  }
+}

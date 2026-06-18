@@ -1,12 +1,29 @@
 "use client"
 
-// Owner job scheduler — month calendar + hourly day grid with manual booking.
+// Owner job scheduler — month calendar, hourly grid or map route view, manual booking.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Clock, Loader2, MapPin, Phone, Plus, User } from "lucide-react"
+import { Car, Clock, LayoutGrid, Loader2, Map, MapPin, Phone, Plus, User } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
-import { SchedulerBookingDialog } from "@/components/scheduler-booking-dialog"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  IndustryIntakeFormFields,
+  intakeFieldsFromWorkspaceContext,
+  intakeTitleFromWorkspaceContext,
+  intakeValuesComplete,
+  serializeIntakeValues,
+  type IntakeFormValues,
+} from "@/components/industry-intake-form-fields"
+import { SchedulerRouteMap } from "@/components/scheduler-route-map"
 import {
   WorkspacePage,
   WorkspacePageHeader,
@@ -14,7 +31,9 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { cn } from "@/lib/utils"
+import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
+  SCHEDULER_DURATION_OPTIONS,
   SCHEDULER_GRID_END_HOUR,
   SCHEDULER_GRID_START_HOUR,
   SCHEDULER_HOUR_ROW_PX,
@@ -26,6 +45,11 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import type { FieldTechnician, SchedulerEvent } from "@/lib/types"
+
+type SchedulerViewMode = "grid" | "map"
+
+const bookingInputClass =
+  "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 
 function formatPhone(num: string | null): string {
   if (!num) return "—"
@@ -41,6 +65,11 @@ function formatBlockTime(iso: string): string {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
 }
 
+function formatVehicle(ev: SchedulerEvent): string | null {
+  const parts = [ev.vehicle_year, ev.vehicle_make, ev.vehicle_model].filter(Boolean)
+  return parts.length ? parts.join(" ") : null
+}
+
 const DISPOSITION_STYLE: Record<string, string> = {
   BOOKED: "border-emerald-500/50 bg-emerald-500/15 text-emerald-100",
   PENDING_TIME: "border-amber-500/50 bg-amber-500/15 text-amber-100",
@@ -51,6 +80,7 @@ function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
 }
 
 function AppointmentBlock({ ev }: { ev: SchedulerEvent }) {
+  const vehicle = formatVehicle(ev)
   const { topPx, heightPx } = schedulerEventPlacement(
     ev.scheduled_at,
     ev.duration_minutes,
@@ -68,7 +98,7 @@ function AppointmentBlock({ ev }: { ev: SchedulerEvent }) {
         {ev.customer_name || formatPhone(ev.customer_phone) || "Customer"}
       </p>
       <p className="truncate text-[10px] opacity-90">
-        {ev.job_type || ev.summary || "Appointment"}
+        {vehicle || ev.job_type || ev.summary || "Appointment"}
         {ev.assigned_tech_name ? ` · ${ev.assigned_tech_name}` : ""}
       </p>
       <p className="text-[10px] opacity-75">
@@ -79,20 +109,139 @@ function AppointmentBlock({ ev }: { ev: SchedulerEvent }) {
   )
 }
 
+function DayRouteList({ events }: { events: SchedulerEvent[] }) {
+  const sorted = useMemo(() => [...events].sort(sortEventsByTime), [events])
+  if (sorted.length === 0) {
+    return (
+      <p className="p-6 text-center text-sm text-zinc-500">
+        No appointments on this day — use Create appointment to book a route stop.
+      </p>
+    )
+  }
+  return (
+    <ul className="divide-y divide-border/50">
+      {sorted.map((ev, idx) => {
+        const vehicle = formatVehicle(ev)
+        const hasCoords = typeof ev.latitude === "number" && typeof ev.longitude === "number"
+        return (
+          <li key={ev.id} className="flex gap-3 px-4 py-3">
+            <span
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                hasCoords ? "bg-emerald-500/20 text-emerald-200" : "bg-muted text-zinc-500"
+              )}
+            >
+              {idx + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                {formatBlockTime(ev.scheduled_at)}
+                <span className="ml-2 font-normal text-zinc-400">
+                  {ev.customer_name || formatPhone(ev.customer_phone)}
+                </span>
+              </p>
+              {vehicle ? (
+                <p className="mt-0.5 flex items-center gap-1 text-xs text-zinc-400">
+                  <Car className="h-3 w-3 shrink-0" aria-hidden />
+                  {vehicle}
+                </p>
+              ) : null}
+              {ev.job_type ? <p className="mt-0.5 text-xs text-zinc-500">{ev.job_type}</p> : null}
+              {ev.location ? (
+                <p className="mt-0.5 flex items-start gap-1 text-xs text-zinc-500">
+                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                  <span className="line-clamp-2">{ev.location}</span>
+                </p>
+              ) : null}
+              {ev.job_notes ? (
+                <p className="mt-1 line-clamp-2 text-[11px] text-zinc-600">{ev.job_notes}</p>
+              ) : null}
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export function SchedulerWorkspaceView() {
-  const { activeOrganizationId } = useDashboardWorkspace()
+  const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [technicians, setTechnicians] = useState<FieldTechnician[]>([])
+  const [lineIndustryTags, setLineIndustryTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingStart, setBookingStart] = useState(() => toDatetimeLocalValue(new Date()))
+  const [viewMode, setViewMode] = useState<SchedulerViewMode>("grid")
+  const [customerName, setCustomerName] = useState("")
+  const [customerPhone, setCustomerPhone] = useState("")
+  const [intakeValues, setIntakeValues] = useState<IntakeFormValues>({})
+  const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60)
+  const [assignedTechId, setAssignedTechId] = useState("")
+  const [bookingSaving, setBookingSaving] = useState(false)
+  const [bookingError, setBookingError] = useState<string | null>(null)
 
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
+
+  const activeOrgName = useMemo(
+    () => organizations.find((o) => o.id === orgId)?.name ?? null,
+    [organizations, orgId]
+  )
+
+  const intakeProfile = useMemo(
+    () =>
+      resolveWorkspaceIntakeProfile({
+        organizationName: activeOrgName,
+        industryTags: lineIndustryTags,
+      }),
+    [activeOrgName, lineIndustryTags]
+  )
+
+  const intakeFields = useMemo(
+    () =>
+      intakeFieldsFromWorkspaceContext({
+        intakeProfile,
+        organizationName: activeOrgName,
+        industryTags: lineIndustryTags,
+      }),
+    [intakeProfile, activeOrgName, lineIndustryTags]
+  )
+
+  const intakeModalTitle = useMemo(
+    () =>
+      intakeTitleFromWorkspaceContext({
+        intakeProfile,
+        organizationName: activeOrgName,
+        industryTags: lineIndustryTags,
+      }),
+    [intakeProfile, activeOrgName, lineIndustryTags]
+  )
+
+  const assignableTechs = useMemo(
+    () => technicians.filter((t) => t.is_active && t.portal_user_id),
+    [technicians]
+  )
+
+  const canSaveBooking =
+    customerName.trim() &&
+    customerPhone.trim() &&
+    intakeValuesComplete(intakeFields, intakeValues)
+
+  useEffect(() => {
+    if (bookingOpen) {
+      setBookingError(null)
+    } else {
+      setCustomerName("")
+      setCustomerPhone("")
+      setIntakeValues({})
+      setAssignedTechId("")
+    }
+  }, [bookingOpen])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -121,6 +270,20 @@ export function SchedulerWorkspaceView() {
       .catch(() => setTechnicians([]))
   }, [])
 
+  useEffect(() => {
+    const base = "/api/numbers/mine"
+    const url = orgId ? `${base}?organization_id=${encodeURIComponent(orgId)}` : base
+    fetch(url, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("lines"))))
+      .then((j: { numbers?: Array<{ industry_tag?: string | null }> }) => {
+        const tags = (Array.isArray(j.numbers) ? j.numbers : [])
+          .map((n) => n.industry_tag?.trim())
+          .filter((t): t is string => Boolean(t))
+        setLineIndustryTags(tags)
+      })
+      .catch(() => setLineIndustryTags([]))
+  }, [orgId])
+
   const eventsByDay = useMemo(() => {
     const map = new Map<string, SchedulerEvent[]>()
     for (const ev of events) {
@@ -146,6 +309,11 @@ export function SchedulerWorkspaceView() {
   const dayEvents = eventsByDay.get(selectedKey) ?? []
   const hourSlots = schedulerHourSlots()
   const gridHeightPx = hourSlots.length * SCHEDULER_HOUR_ROW_PX
+  const selectedDayLabel = selectedDay.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })
 
   function openBookingAtHour(hour24: number) {
     setBookingStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
@@ -171,21 +339,107 @@ export function SchedulerWorkspaceView() {
     }
   }
 
+  function setIntakeField(
+    name: string,
+    value: string | boolean | import("@/lib/structured-address").StructuredAddress | null
+  ) {
+    setIntakeValues((prev) => ({ ...prev, [name]: value }))
+  }
+
+  async function saveBooking() {
+    setBookingSaving(true)
+    setBookingError(null)
+    try {
+      const serialized = serializeIntakeValues(intakeValues)
+      const res = await fetch("/api/owner/scheduler", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          scheduled_at: new Date(bookingStart).toISOString(),
+          duration_minutes: bookingDurationMinutes,
+          assigned_tech_id: assignedTechId.trim() || null,
+          organization_id: orgId,
+          job_type: String(serialized.job_type ?? "Other"),
+          vehicle_year: serialized.vehicle_year ?? null,
+          vehicle_make: serialized.vehicle_make ?? null,
+          vehicle_model: serialized.vehicle_model ?? null,
+          job_notes: serialized.job_notes ?? null,
+          structured_address: intakeValues.job_address ?? null,
+          intake_fields: serialized,
+        }),
+      })
+      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+      if (!res.ok) throw new Error(json.error ?? "Could not save appointment")
+      const event = json.data?.event
+      if (!event) throw new Error("No event returned")
+      handleAppointmentCreated(event)
+      setBookingOpen(false)
+    } catch (e) {
+      setBookingError(e instanceof Error ? e.message : "Could not save appointment")
+    } finally {
+      setBookingSaving(false)
+    }
+  }
+
+  const headerAction = (
+    <div className="flex flex-wrap items-center gap-2">
+      <ToggleGroup
+        type="single"
+        value={viewMode}
+        onValueChange={(v) => v && setViewMode(v as SchedulerViewMode)}
+        variant="outline"
+        size="sm"
+        className="hidden sm:flex"
+      >
+        <ToggleGroupItem value="grid" aria-label="Grid view" className="gap-1.5 px-3 text-xs">
+          <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+          Grid View
+        </ToggleGroupItem>
+        <ToggleGroupItem value="map" aria-label="Map route view" className="gap-1.5 px-3 text-xs">
+          <Map className="h-3.5 w-3.5" aria-hidden />
+          Map Route View
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <Button type="button" size="sm" className="gap-1.5" onClick={openBookingDefault}>
+        <Plus className="h-4 w-4" aria-hidden />
+        Create appointment
+      </Button>
+    </div>
+  )
+
   return (
     <WorkspacePage>
-      <WorkspacePageHeader
-        eyebrow="Dispatch"
-        title="Scheduler"
-        action={
-          <Button type="button" size="sm" className="gap-1.5" onClick={openBookingDefault}>
-            <Plus className="h-4 w-4" aria-hidden />
-            Create appointment
-          </Button>
-        }
-      />
+      <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" action={headerAction} />
       <p className="-mt-4 text-sm text-zinc-500">
-        Click an empty hour block or use Create appointment to book manually. Receptionist dispositions appear here too.
+        {intakeProfile === "locksmith"
+          ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
+          : intakeProfile === "detailing"
+            ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
+            : "Automotive field jobs with industry-specific intake fields and route map."}
       </p>
+
+      <div className="flex gap-2 sm:hidden">
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(v) => v && setViewMode(v as SchedulerViewMode)}
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
+          <ToggleGroupItem value="grid" className="flex-1 gap-1 text-xs">
+            <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+            Grid
+          </ToggleGroupItem>
+          <ToggleGroupItem value="map" className="flex-1 gap-1 text-xs">
+            <Map className="h-3.5 w-3.5" aria-hidden />
+            Map
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
         <WorkspacePanel className="p-3">
@@ -221,8 +475,16 @@ export function SchedulerWorkspaceView() {
                 {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
               </h2>
               <p className="mt-1 text-xs text-zinc-500">
-                {formatHourLabel(SCHEDULER_GRID_START_HOUR)} – {formatHourLabel(SCHEDULER_GRID_END_HOUR)} ·{" "}
-                {dayEvents.length} appointment{dayEvents.length === 1 ? "" : "s"}
+                {viewMode === "grid" ? (
+                  <>
+                    {formatHourLabel(SCHEDULER_GRID_START_HOUR)} – {formatHourLabel(SCHEDULER_GRID_END_HOUR)} ·{" "}
+                    {dayEvents.length} appointment{dayEvents.length === 1 ? "" : "s"}
+                  </>
+                ) : (
+                  <>
+                    Map route · {dayEvents.length} stop{dayEvents.length === 1 ? "" : "s"} in chronological order
+                  </>
+                )}
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
@@ -231,98 +493,211 @@ export function SchedulerWorkspaceView() {
             </Button>
           </div>
 
-          <div className="max-h-[min(720px,70vh)] flex-1 overflow-y-auto">
-            <div className="flex min-h-0">
-              <div className="w-16 shrink-0 border-r border-border/40 bg-muted/20">
-                {hourSlots.map((hour) => (
-                  <div
-                    key={hour}
-                    className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-zinc-500"
-                    style={{ height: SCHEDULER_HOUR_ROW_PX }}
-                  >
-                    {formatHourLabel(hour)}
+          {viewMode === "grid" ? (
+            <>
+              <div className="max-h-[min(720px,70vh)] flex-1 overflow-y-auto">
+                <div className="flex min-h-0">
+                  <div className="w-16 shrink-0 border-r border-border/40 bg-muted/20">
+                    {hourSlots.map((hour) => (
+                      <div
+                        key={hour}
+                        className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-zinc-500"
+                        style={{ height: SCHEDULER_HOUR_ROW_PX }}
+                      >
+                        {formatHourLabel(hour)}
+                      </div>
+                    ))}
                   </div>
-                ))}
+
+                  <div className="relative min-w-0 flex-1" style={{ height: gridHeightPx }}>
+                    {hourSlots.map((hour) => (
+                      <button
+                        key={hour}
+                        type="button"
+                        aria-label={`Book appointment at ${formatHourLabel(hour)}`}
+                        className="absolute left-0 right-0 border-b border-border/30 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        style={{
+                          top: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_ROW_PX,
+                          height: SCHEDULER_HOUR_ROW_PX,
+                        }}
+                        onClick={() => openBookingAtHour(hour)}
+                      />
+                    ))}
+
+                    {dayEvents.map((ev) => (
+                      <AppointmentBlock key={ev.id} ev={ev} />
+                    ))}
+
+                    {dayEvents.length === 0 && !loading ? (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+                        <p className="max-w-xs text-center text-sm text-zinc-500">
+                          No appointments yet — click any hour row to book, or use Create appointment above.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
-              <div className="relative min-w-0 flex-1" style={{ height: gridHeightPx }}>
-                {hourSlots.map((hour) => (
-                  <button
-                    key={hour}
-                    type="button"
-                    aria-label={`Book appointment at ${formatHourLabel(hour)}`}
-                    className="absolute left-0 right-0 border-b border-border/30 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    style={{
-                      top: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_ROW_PX,
-                      height: SCHEDULER_HOUR_ROW_PX,
-                    }}
-                    onClick={() => openBookingAtHour(hour)}
-                  />
-                ))}
-
-                {dayEvents.map((ev) => (
-                  <AppointmentBlock key={ev.id} ev={ev} />
-                ))}
-
-                {dayEvents.length === 0 && !loading ? (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-                    <p className="max-w-xs text-center text-sm text-zinc-500">
-                      No appointments yet — click any hour row to book, or use Create appointment above.
-                    </p>
-                  </div>
-                ) : null}
+              {dayEvents.length > 0 ? (
+                <div className="border-t border-border/60 px-5 py-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Day summary</p>
+                  <ul className="flex flex-wrap gap-2">
+                    {dayEvents.map((ev) => (
+                      <li
+                        key={`sum-${ev.id}`}
+                        className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2 py-1 text-xs text-zinc-400"
+                      >
+                        <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                        <span className="truncate">{formatBlockTime(ev.scheduled_at)}</span>
+                        <span className="truncate font-medium text-zinc-300">
+                          {ev.customer_name || formatPhone(ev.customer_phone)}
+                        </span>
+                        {formatVehicle(ev) ? (
+                          <span className="inline-flex items-center gap-0.5 truncate">
+                            <Car className="h-3 w-3" aria-hidden />
+                            {formatVehicle(ev)}
+                          </span>
+                        ) : null}
+                        {ev.customer_phone ? (
+                          <span className="inline-flex items-center gap-0.5 truncate">
+                            <Phone className="h-3 w-3" aria-hidden />
+                            {formatPhone(ev.customer_phone)}
+                          </span>
+                        ) : null}
+                        {ev.assigned_tech_name ? (
+                          <span className="inline-flex items-center gap-0.5 truncate">
+                            <User className="h-3 w-3" aria-hidden />
+                            {ev.assigned_tech_name}
+                          </span>
+                        ) : null}
+                        {ev.location ? (
+                          <span className="inline-flex items-center gap-0.5 truncate">
+                            <MapPin className="h-3 w-3" aria-hidden />
+                            {ev.location}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="grid min-h-[min(720px,70vh)] flex-1 grid-cols-1 divide-y divide-border/60 md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="max-h-[min(720px,70vh)] overflow-y-auto">
+                <DayRouteList events={dayEvents} />
+              </div>
+              <div className="min-h-[320px] md:min-h-0">
+                <SchedulerRouteMap events={dayEvents} selectedDayLabel={selectedDayLabel} />
               </div>
             </div>
-          </div>
-
-          {dayEvents.length > 0 ? (
-            <div className="border-t border-border/60 px-5 py-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Day summary</p>
-              <ul className="flex flex-wrap gap-2">
-                {dayEvents.map((ev) => (
-                  <li
-                    key={`sum-${ev.id}`}
-                    className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2 py-1 text-xs text-zinc-400"
-                  >
-                    <Clock className="h-3 w-3 shrink-0" aria-hidden />
-                    <span className="truncate">{formatBlockTime(ev.scheduled_at)}</span>
-                    <span className="truncate font-medium text-zinc-300">
-                      {ev.customer_name || formatPhone(ev.customer_phone)}
-                    </span>
-                    {ev.customer_phone ? (
-                      <span className="inline-flex items-center gap-0.5 truncate">
-                        <Phone className="h-3 w-3" aria-hidden />
-                        {formatPhone(ev.customer_phone)}
-                      </span>
-                    ) : null}
-                    {ev.assigned_tech_name ? (
-                      <span className="inline-flex items-center gap-0.5 truncate">
-                        <User className="h-3 w-3" aria-hidden />
-                        {ev.assigned_tech_name}
-                      </span>
-                    ) : null}
-                    {ev.location ? (
-                      <span className="inline-flex items-center gap-0.5 truncate">
-                        <MapPin className="h-3 w-3" aria-hidden />
-                        {ev.location}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          )}
         </WorkspacePanel>
       </div>
 
-      <SchedulerBookingDialog
-        open={bookingOpen}
-        onOpenChange={setBookingOpen}
-        initialStart={bookingStart}
-        organizationId={orgId}
-        technicians={technicians}
-        onCreated={handleAppointmentCreated}
-      />
+      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create appointment</DialogTitle>
+            <DialogDescription>
+              {intakeModalTitle}
+              {activeOrgName ? ` · ${activeOrgName}` : ""}
+              {lineIndustryTags[0] ? ` (${lineIndustryTags[0]})` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <label className="grid gap-1.5 text-sm">
+              <span className="font-medium text-foreground">Customer name</span>
+              <input
+                className={bookingInputClass}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Jane Smith"
+              />
+            </label>
+
+            <label className="grid gap-1.5 text-sm">
+              <span className="font-medium text-foreground">Phone number</span>
+              <input
+                className={bookingInputClass}
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="(502) 555-0100"
+              />
+            </label>
+
+            <IndustryIntakeFormFields
+              intakeProfile={intakeProfile}
+              organizationName={activeOrgName}
+              industryTags={lineIndustryTags}
+              values={intakeValues}
+              onChange={setIntakeField}
+              gridClassName="grid gap-4"
+            />
+
+            <label className="grid gap-1.5 text-sm">
+              <span className="font-medium text-foreground">Assigned tech</span>
+              <select
+                className={bookingInputClass}
+                value={assignedTechId}
+                onChange={(e) => setAssignedTechId(e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {assignableTechs.map((t) => (
+                  <option key={t.id} value={t.portal_user_id!}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-medium text-foreground">Start time</span>
+                <input
+                  className={bookingInputClass}
+                  type="datetime-local"
+                  value={bookingStart}
+                  onChange={(e) => setBookingStart(e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-medium text-foreground">Duration</span>
+                <select
+                  className={bookingInputClass}
+                  value={bookingDurationMinutes}
+                  onChange={(e) => setBookingDurationMinutes(Number(e.target.value))}
+                >
+                  {SCHEDULER_DURATION_OPTIONS.map((o) => (
+                    <option key={o.minutes} value={o.minutes}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {bookingError ? (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {bookingError}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setBookingOpen(false)} disabled={bookingSaving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void saveBooking()} disabled={bookingSaving || !canSaveBooking}>
+              {bookingSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+              Save appointment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </WorkspacePage>
   )
 }

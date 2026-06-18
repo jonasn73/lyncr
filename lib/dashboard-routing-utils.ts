@@ -21,6 +21,8 @@ export interface DashboardBusinessNumber {
   label?: string
   organization_id?: string | null
   source_provider?: "telnyx" | "external"
+  /** Per-line industry tag for skill-pool routing (`042`). */
+  industry_tag?: string | null
   routing_summary?: PhoneNumberRoutingSummary
   /** Effective admin PSTN override for this line (line-level, else workspace-level). */
   admin_routing_override_phone?: string | null

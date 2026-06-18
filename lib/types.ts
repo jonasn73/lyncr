@@ -109,6 +109,16 @@ export interface SchedulerEvent {
   /** Assigned field tech login user id. */
   assigned_tech_id: string | null
   assigned_tech_name: string | null
+  /** Vehicle year (e.g. 2021). */
+  vehicle_year: string | null
+  vehicle_make: string | null
+  vehicle_model: string | null
+  /** Free-text job site notes from intake or manual booking. */
+  job_notes: string | null
+  /** Geocoded job site latitude (from collected.customer_lat). */
+  latitude: number | null
+  /** Geocoded job site longitude (from collected.customer_lng). */
+  longitude: number | null
 }
 
 /** A field tech's last-known live position for the owner's dispatch map. */

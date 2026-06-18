@@ -2,10 +2,12 @@
 // during an active call. Saves an AI-lead-style intake under the owner's account and
 // fires the SMS lead alert (subject to 10DLC delivery).
 
+import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import { saveCallIntake } from "@/lib/intake-engine"
+import { persistLeadAddressFromFields } from "@/lib/geocode"
 
 type IntakeBody = {
   callLogId?: string
@@ -55,6 +57,14 @@ export async function POST(req: NextRequest) {
       },
       summary: body.summary?.trim() || `Live intake captured by ${ctx.receptionist.name}.`,
       vapi_call_id: body.callLogId ? `${body.callLogId}-live-intake` : null,
+    })
+
+    after(async () => {
+      try {
+        await persistLeadAddressFromFields(result.id, fields)
+      } catch (e) {
+        console.error("[receptionist/intake] address persist failed:", e)
+      }
     })
 
     return NextResponse.json({

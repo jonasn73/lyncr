@@ -66,7 +66,7 @@ Owner and receptionist are **separate apps** — receptionists never see `/dashb
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/api/owner/scheduler?from=&to=&organization_id=` | List calendar events in date range |
-| `POST` | `/api/owner/scheduler` | Create manual appointment (customer, job type, tech, start, duration) |
+| `POST` | `/api/owner/scheduler` | Create manual appointment (customer, vehicle, job address/notes, tech, start, duration) |
 | `PATCH` | `/api/owner/scheduler/[id]` | Set `{ scheduled_at: ISO8601 }` on a lead |
 
 ### Data query
@@ -81,6 +81,26 @@ Owner and receptionist are **separate apps** — receptionists never see `/dashb
 
 Uses `DashboardWorkspaceProvider.activeOrganizationId` — same pattern as Routing tab (`?organization_id=` on API calls).
 
+### Automotive field services UI
+
+| View | Purpose |
+|------|---------|
+| **Grid View** | Hourly timeline (7 AM–7 PM) with click-to-book |
+| **Map Route View** | Split pane: chronological stop list + Leaflet map with numbered pins (1, 2, 3…) and dashed route line |
+
+**Create appointment** modal fields (stored in `ai_leads.collected`):
+
+| Field | JSON keys |
+|-------|-----------|
+| Vehicle year / make / model | `vehicle_year`, `vehicle_make`, `vehicle_model` |
+| Job type | `job_type` |
+| Job address | `job_address` (+ `location`, `service_address` aliases) |
+| Job notes | `job_notes` |
+
+Address autocomplete: `GET /api/geocode/autocomplete?q=` (Nominatim; Google Places if `GOOGLE_MAPS_API_KEY` is set). On save, `POST /api/owner/scheduler` geocodes the address and writes `customer_lat` / `customer_lng` for the map.
+
+Shared field schema: `lib/field-service-intake.ts` — used by both scheduler booking and receptionist notepad.
+
 ---
 
 ## Receptionist: Call Notepad / Lead Dispatcher
@@ -92,8 +112,8 @@ Uses `DashboardWorkspaceProvider.activeOrganizationId` — same pattern as Routi
 
 ### Flow
 
-1. Call connects → intake form opens with vertical-specific fields (locksmith, detailing, auto repair, generic).
-2. Receptionist fills caller details, address, preferred time, notes.
+1. Call connects → intake form opens with **unified automotive dispatch fields** (same as owner scheduler).
+2. Receptionist fills vehicle year/make/model, job address (autocomplete), job notes, preferred time.
 3. **Draft autosave:** `sessionStorage` keyed by `callLogId` so a refresh does not lose notes.
 4. **Disposition buttons** submit to `POST /api/receptionist/log-job`:
 
@@ -117,6 +137,8 @@ All dispositions write:
 
 If intake includes a parseable `preferred_time`, `scheduled_at` is set on the lead (requires migration 074).
 
+When a job address is present, **background geocoding** runs on both `log-job` and `intake` saves (`after()` → `geocodeAddress` → `setLeadCoordinates`) so the owner scheduler map route populates without a manual refresh.
+
 ---
 
 ## File index
@@ -128,6 +150,10 @@ If intake includes a parseable `preferred_time`, `scheduled_at` is set on the le
 | Scheduler DB | `lib/db.ts` — `listOwnerSchedulerEvents`, `updateLeadScheduledAt` |
 | Scheduler API | `app/api/owner/scheduler/route.ts`, `app/api/owner/scheduler/[id]/route.ts` |
 | Scheduler UI | `components/workspace-views/scheduler-workspace-view.tsx` |
+| Scheduler map | `components/scheduler-route-map.tsx` |
+| Address autocomplete | `components/job-address-autocomplete.tsx`, `app/api/geocode/autocomplete/route.ts` |
+| Shared intake schema | `lib/field-service-intake.ts` |
+| Booking modal | `components/scheduler-booking-dialog.tsx` |
 | Scheduler route | `app/dashboard/scheduler/page.tsx` |
 | Notepad UI | `components/receptionist-live-intake.tsx` |
 | Notepad API | `app/api/receptionist/log-job/route.ts` |
@@ -142,8 +168,8 @@ If intake includes a parseable `preferred_time`, `scheduled_at` is set on the le
 
 1. Log in as owner → ⌘K → “Scheduler” → `/dashboard/scheduler`
 2. Book a job from receptionist portal → event appears on calendar
-3. Click a day → see jobs for that day
-4. PATCH reschedule (if UI exposes edit) → `scheduled_at` updates in Neon
+3. Toggle **Map Route View** → numbered stops appear on map when address was geocoded
+4. Create appointment with vehicle + address → pin appears on route map
 
 ### Receptionist notepad
 

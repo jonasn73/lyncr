@@ -48,6 +48,7 @@ export function DashboardPage() {
           status: String(n.status),
           label: n.label != null ? String(n.label) : undefined,
           organization_id: n.organization_id != null ? String(n.organization_id) : null,
+          industry_tag: n.industry_tag != null ? String(n.industry_tag) : null,
           source_provider: n.source_provider === "external" ? "external" as const : "telnyx" as const,
           routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
           admin_routing_override_phone:

@@ -11,8 +11,16 @@ import {
   listFieldTechnicians,
   listOwnerSchedulerEvents,
   normalizePhoneNumberE164,
+  setLeadStructuredAddress,
 } from "@/lib/db"
+import { geocodeAddress, persistLeadAddressFromFields } from "@/lib/geocode"
 import { monthRangeUtc, parseIsoDateParam } from "@/lib/scheduler-utils"
+import {
+  isCompleteStructuredAddress,
+  structuredAddressValidationError,
+  type StructuredAddress,
+} from "@/lib/structured-address"
+import type { SchedulerEvent } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -69,6 +77,12 @@ type CreateSchedulerBody = {
   duration_minutes?: number
   assigned_tech_id?: string | null
   organization_id?: string | null
+  vehicle_year?: string
+  vehicle_make?: string
+  vehicle_model?: string
+  job_notes?: string
+  structured_address?: Partial<StructuredAddress> | null
+  intake_fields?: Record<string, unknown>
 }
 
 export async function POST(req: NextRequest) {
@@ -83,6 +97,17 @@ export async function POST(req: NextRequest) {
   const durationMinutes = Number(body.duration_minutes ?? 60) || 60
   const assignedTechId = body.assigned_tech_id?.trim() || null
   const organizationId = body.organization_id?.trim() || null
+  const vehicleYear = String(body.vehicle_year ?? "").trim() || null
+  const vehicleMake = String(body.vehicle_make ?? "").trim() || null
+  const vehicleModel = String(body.vehicle_model ?? "").trim() || null
+  const jobNotes = String(body.job_notes ?? "").trim() || null
+  const structuredAddress = isCompleteStructuredAddress(body.structured_address) ? body.structured_address : null
+  const extraCollected = body.intake_fields && typeof body.intake_fields === "object" ? body.intake_fields : {}
+
+  const addressError = structuredAddressValidationError(structuredAddress)
+  if (addressError) {
+    return NextResponse.json({ error: addressError }, { status: 400 })
+  }
 
   if (!customerName) {
     return NextResponse.json({ error: "Customer name is required" }, { status: 400 })
@@ -110,7 +135,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const event = await createOwnerSchedulerAppointment({
+    let event = await createOwnerSchedulerAppointment({
       ownerUserId: userId,
       organizationId: organizationId && !organizationId.startsWith("legacy-") ? organizationId : null,
       customerName,
@@ -120,7 +145,33 @@ export async function POST(req: NextRequest) {
       durationMinutes,
       assignedTechPortalUserId: assignedTechId,
       assignedTechName,
+      vehicleYear,
+      vehicleMake,
+      vehicleModel,
+      jobAddress: structuredAddress?.formatted ?? null,
+      jobNotes,
+      structuredAddress,
+      extraCollected,
     })
+
+    if (structuredAddress) {
+      let lat = structuredAddress.lat
+      let lng = structuredAddress.lng
+      if (lat == null || lng == null) {
+        const coords = await geocodeAddress(structuredAddress.formatted)
+        if (coords) {
+          lat = coords.lat
+          lng = coords.lng
+        }
+      }
+      await setLeadStructuredAddress(event.id, { ...structuredAddress, lat, lng })
+      if (lat != null && lng != null) {
+        event = { ...event, latitude: lat, longitude: lng } satisfies SchedulerEvent
+      }
+    } else {
+      await persistLeadAddressFromFields(event.id, extraCollected)
+    }
+
     return NextResponse.json({ data: { event } })
   } catch (e) {
     console.error("[POST /api/owner/scheduler]", e)

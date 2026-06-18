@@ -7,6 +7,14 @@ import { useEffect, useMemo, useState } from "react"
 import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
+import {
+  IndustryIntakeFormFields,
+  intakeValuesComplete,
+  serializeIntakeValues,
+  type IntakeFormValues,
+} from "@/components/industry-intake-form-fields"
+import { buildFieldServiceSummary, intakeFieldsForProfile, intakeTitleForProfile } from "@/lib/field-service-intake"
+import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 
 export type LiveCallSession = {
   callLogId: string
@@ -17,82 +25,16 @@ export type LiveCallSession = {
   startedAt: string
 }
 
-type FieldDef = {
-  name: string
-  label: string
-  type: "text" | "textarea" | "select" | "toggle"
-  placeholder?: string
-  options?: string[]
-  required?: boolean
-  full?: boolean
-}
-
-// Field layouts per vertical. Locksmith mirrors the automotive AKL intake we already store.
-const FIELD_SETS: Record<LiveCallSession["businessType"], { title: string; fields: FieldDef[] }> = {
-  locksmith: {
-    title: "Locksmith call intake",
-    fields: [
-      { name: "year", label: "Vehicle year", type: "text", placeholder: "2019", required: true },
-      { name: "make", label: "Make", type: "text", placeholder: "Toyota", required: true },
-      { name: "model", label: "Model", type: "text", placeholder: "Camry", required: true },
-      {
-        name: "key_type",
-        label: "Key type",
-        type: "select",
-        options: ["transponder", "proximity (smart key)", "standard / metal", "high-security"],
-      },
-      { name: "akl", label: "All keys lost?", type: "toggle" },
-      { name: "vin", label: "VIN (optional)", type: "text", placeholder: "1HGCM82633A004352" },
-      { name: "location", label: "Vehicle location / address", type: "text", placeholder: "123 Main St", full: true },
-      { name: "notes", label: "Notes", type: "textarea", placeholder: "Anything else the tech should know…", full: true },
-    ],
-  },
-  detailing: {
-    title: "Detailing call intake",
-    fields: [
-      { name: "vehicle", label: "Vehicle (year / make / model)", type: "text", placeholder: "2021 Tesla Model 3", required: true, full: true },
-      {
-        name: "service_package",
-        label: "Service package",
-        type: "select",
-        options: ["Interior only", "Exterior only", "Full detail", "Ceramic coating"],
-      },
-      {
-        name: "condition",
-        label: "Vehicle condition",
-        type: "select",
-        options: ["Light", "Moderate", "Heavy"],
-      },
-      { name: "service_address", label: "Service address", type: "text", placeholder: "123 Main St", full: true },
-      { name: "preferred_time", label: "Preferred date / time", type: "text", placeholder: "Sat morning" },
-      { name: "notes", label: "Notes", type: "textarea", placeholder: "Pet hair, stains, etc.", full: true },
-    ],
-  },
-  auto_repair: {
-    title: "Auto repair call intake",
-    fields: [
-      { name: "vehicle", label: "Vehicle (year / make / model)", type: "text", placeholder: "2018 Honda Accord", required: true, full: true },
-      { name: "mileage", label: "Mileage (optional)", type: "text", placeholder: "84,000" },
-      {
-        name: "service_type",
-        label: "Service needed",
-        type: "select",
-        options: ["Diagnostic / check engine", "Brakes", "Oil change", "Tires / alignment", "Engine / transmission", "Other"],
-      },
-      { name: "symptoms", label: "Symptoms / issue", type: "text", placeholder: "Grinding noise when braking", full: true },
-      { name: "drivable", label: "Is the vehicle drivable?", type: "toggle" },
-      { name: "preferred_time", label: "Preferred drop-off date / time", type: "text", placeholder: "Mon morning" },
-      { name: "notes", label: "Notes", type: "textarea", placeholder: "Anything else the shop should know…", full: true },
-    ],
-  },
-  generic: {
-    title: "Call intake",
-    fields: [
-      { name: "reason", label: "Reason for call", type: "text", placeholder: "What does the caller need?", required: true, full: true },
-      { name: "address", label: "Address (optional)", type: "text", placeholder: "123 Main St", full: true },
-      { name: "notes", label: "Notes", type: "textarea", placeholder: "Anything else…", full: true },
-    ],
-  },
+function intakeConfigFor(session: LiveCallSession) {
+  const profile = resolveWorkspaceIntakeProfile({
+    organizationName: session.businessName,
+    callBusinessType: session.businessType,
+  })
+  return {
+    profile,
+    title: intakeTitleForProfile(profile),
+    fields: intakeFieldsForProfile(profile),
+  }
 }
 
 function formatPhoneDisplay(phone: string): string {
@@ -116,9 +58,6 @@ function ElapsedTimer({ startedAt }: { startedAt: string }) {
   return <span className="tabular-nums">{`${mm}:${ss.toString().padStart(2, "0")}`}</span>
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-
 function intakeDraftKey(callLogId: string): string {
   return `lyncr-intake-draft-${callLogId}`
 }
@@ -141,8 +80,8 @@ export function ReceptionistLiveIntake({
   callerNameFallback?: string | null
   onDismiss: (reason: "saved" | "dismissed") => void
 }) {
-  const config = FIELD_SETS[session.businessType] ?? FIELD_SETS.generic
-  const [values, setValues] = useState<Record<string, string | boolean>>({})
+  const config = intakeConfigFor(session)
+  const [values, setValues] = useState<IntakeFormValues>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
@@ -155,7 +94,7 @@ export function ReceptionistLiveIntake({
     try {
       const raw = sessionStorage.getItem(draftKey)
       if (!raw) return
-      const parsed = JSON.parse(raw) as Record<string, string | boolean>
+      const parsed = JSON.parse(raw) as IntakeFormValues
       if (parsed && typeof parsed === "object") setValues(parsed)
     } catch {
       /* ignore corrupt draft */
@@ -170,25 +109,16 @@ export function ReceptionistLiveIntake({
     }
   }, [draftKey, values])
 
-  const setField = (name: string, value: string | boolean) =>
+  const setField = (name: string, value: string | boolean | import("@/lib/structured-address").StructuredAddress | null) =>
     setValues((prev) => ({ ...prev, [name]: value }))
 
   const missingRequired = useMemo(
-    () => config.fields.filter((f) => f.required).some((f) => !String(values[f.name] ?? "").trim()),
+    () => !intakeValuesComplete(config.fields, values),
     [config.fields, values]
   )
 
   function buildSummary(): string {
-    return (
-      config.fields
-        .map((f) => {
-          const v = values[f.name]
-          if (v === undefined || v === "" || v === false) return null
-          return `${f.label}: ${v === true ? "Yes" : v}`
-        })
-        .filter(Boolean)
-        .join(" · ") || ""
-    )
+    return buildFieldServiceSummary(serializeIntakeValues(values), { customerName: callerName })
   }
 
   // Job disposition → owner pipeline (BOOKED, PENDING_TIME, PRICE_REJECTED, FAILED).
@@ -207,7 +137,7 @@ export function ReceptionistLiveIntake({
           callerNumber,
           callerName,
           summary: buildSummary() || null,
-          fields: values,
+          fields: serializeIntakeValues(values),
         }),
       })
       const json = (await res.json()) as { error?: string }
@@ -230,13 +160,7 @@ export function ReceptionistLiveIntake({
     setSaving(true)
     setError(null)
     try {
-      const summaryBits = config.fields
-        .map((f) => {
-          const v = values[f.name]
-          if (v === undefined || v === "" || v === false) return null
-          return `${f.label}: ${v === true ? "Yes" : v}`
-        })
-        .filter(Boolean)
+      const summaryBits = buildSummary()
       const res = await fetch("/api/receptionist/intake", {
         method: "POST",
         credentials: "include",
@@ -246,8 +170,8 @@ export function ReceptionistLiveIntake({
           businessType: session.businessType,
           callerNumber,
           callerName,
-          summary: summaryBits.join(" · ") || null,
-          fields: values,
+          summary: summaryBits || null,
+          fields: serializeIntakeValues(values),
         }),
       })
       const json = (await res.json()) as { error?: string; data?: { sms_sent: boolean; sms_error: string | null } }
@@ -303,65 +227,8 @@ export function ReceptionistLiveIntake({
         <h2 className="text-sm font-semibold text-foreground">{config.title}</h2>
         <p className="mt-1 text-xs text-zinc-500">Fill this in while you talk — it texts the owner the moment you save.</p>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {config.fields.map((field) => (
-            <div key={field.name} className={cn(field.full ? "sm:col-span-2" : "")}>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-                {field.label}
-                {field.required ? <span className="text-emerald-400"> *</span> : null}
-              </label>
-              {field.type === "textarea" ? (
-                <textarea
-                  className={cn(inputClass, "min-h-[70px] resize-y")}
-                  placeholder={field.placeholder}
-                  value={String(values[field.name] ?? "")}
-                  onChange={(e) => setField(field.name, e.target.value)}
-                />
-              ) : field.type === "select" ? (
-                <select
-                  className={inputClass}
-                  value={String(values[field.name] ?? "")}
-                  onChange={(e) => setField(field.name, e.target.value)}
-                >
-                  <option value="">Select…</option>
-                  {field.options?.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              ) : field.type === "toggle" ? (
-                <button
-                  type="button"
-                  onClick={() => setField(field.name, !(values[field.name] === true))}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
-                    values[field.name] === true
-                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
-                      : "border-border/70 bg-background text-zinc-400"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-full border",
-                      values[field.name] === true ? "border-emerald-400 bg-emerald-400 text-emerald-950" : "border-zinc-600"
-                    )}
-                  >
-                    {values[field.name] === true ? <Check className="h-3 w-3" aria-hidden /> : null}
-                  </span>
-                  {values[field.name] === true ? "Yes" : "No"}
-                </button>
-              ) : (
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder={field.placeholder}
-                  value={String(values[field.name] ?? "")}
-                  onChange={(e) => setField(field.name, e.target.value)}
-                />
-              )}
-            </div>
-          ))}
+        <div className="mt-4">
+          <IndustryIntakeFormFields fields={config.fields} values={values} onChange={setField} />
         </div>
 
         {error ? (

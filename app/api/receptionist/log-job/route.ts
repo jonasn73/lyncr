@@ -22,7 +22,6 @@ import {
   assignJobToTech,
   resolveDispatchTechForOwner,
   setCallLogDisposition,
-  setLeadCoordinates,
   setLeadDispatchStatus,
   setLeadScheduledAt,
   type LeadDisposition,
@@ -31,7 +30,7 @@ import { DISPOSITION_LABEL, dispatchStateFor } from "@/lib/call-disposition"
 import { parseScheduledAtFromFields } from "@/lib/scheduler-utils"
 import { publishOwnerEvent, publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 import { onJobStateChange } from "@/lib/sms-pipeline"
-import { geocodeAddress, pickAddressFromFields } from "@/lib/geocode"
+import { persistLeadAddressFromFields } from "@/lib/geocode"
 
 type LogJobBody = {
   callLogId?: string
@@ -149,16 +148,10 @@ export async function POST(req: NextRequest) {
     }
 
     after(async () => {
-      if (isBooked) {
-        const address = pickAddressFromFields(fields)
-        if (address) {
-          try {
-            const coords = await geocodeAddress(address)
-            if (coords) await setLeadCoordinates(result.id, coords.lat, coords.lng)
-          } catch (e) {
-            console.error("[receptionist/log-job] geocode failed:", e)
-          }
-        }
+      try {
+        await persistLeadAddressFromFields(result.id, fields)
+      } catch (e) {
+        console.error("[receptionist/log-job] address persist failed:", e)
       }
 
       try {

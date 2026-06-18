@@ -7,6 +7,9 @@
 //   - Otherwise → OpenStreetMap Nominatim (free, no key; fine for low call volume).
 // Always returns null on any failure so callers can no-op safely.
 
+import { isCompleteStructuredAddress, type StructuredAddress } from "@/lib/structured-address"
+import { setLeadCoordinates, setLeadStructuredAddress } from "@/lib/db"
+
 export interface GeoPoint {
   lat: number
   lng: number
@@ -14,12 +17,59 @@ export interface GeoPoint {
 
 /** Pull the most address-like value out of an operator's captured job fields. */
 export function pickAddressFromFields(fields: Record<string, unknown>): string | null {
-  const keys = ["service_address", "address", "job_address", "location", "address_line1", "street_address"]
+  const keys = ["job_address_full", "job_address", "service_address", "address", "location", "address_line1", "street_address"]
   for (const k of keys) {
     const v = fields[k]
     if (typeof v === "string" && v.trim().length >= 5) return v.trim()
   }
   return null
+}
+
+/** Try to rebuild a validated structured address from collected intake fields. */
+export function structuredAddressFromCollected(fields: Record<string, unknown>): StructuredAddress | null {
+  const formatted = String(fields.job_address_full ?? fields.job_address ?? "").trim()
+  const street_number = String(fields.job_address_street_number ?? "").trim()
+  const route = String(fields.job_address_route ?? "").trim()
+  const locality = String(fields.job_address_locality ?? "").trim()
+  const postal_code = String(fields.job_address_postal_code ?? "").trim()
+  const admin_area = String(fields.job_address_admin_area ?? "").trim()
+  const latRaw = fields.customer_lat
+  const lngRaw = fields.customer_lng
+  const lat = typeof latRaw === "number" ? latRaw : latRaw != null ? Number(latRaw) : null
+  const lng = typeof lngRaw === "number" ? lngRaw : lngRaw != null ? Number(lngRaw) : null
+  const candidate = {
+    formatted,
+    street_number,
+    route,
+    locality,
+    postal_code,
+    admin_area,
+    lat: lat != null && Number.isFinite(lat) ? lat : null,
+    lng: lng != null && Number.isFinite(lng) ? lng : null,
+  }
+  return isCompleteStructuredAddress(candidate) ? candidate : null
+}
+
+/** Background geocode + persist structured address on a lead. */
+export async function persistLeadAddressFromFields(leadId: string, fields: Record<string, unknown>): Promise<void> {
+  const structured = structuredAddressFromCollected(fields)
+  if (structured) {
+    let lat = structured.lat
+    let lng = structured.lng
+    if (lat == null || lng == null) {
+      const coords = await geocodeAddress(structured.formatted)
+      if (coords) {
+        lat = coords.lat
+        lng = coords.lng
+      }
+    }
+    await setLeadStructuredAddress(leadId, { ...structured, lat, lng })
+    return
+  }
+  const address = pickAddressFromFields(fields)
+  if (!address) return
+  const coords = await geocodeAddress(address)
+  if (coords) await setLeadCoordinates(leadId, coords.lat, coords.lng)
 }
 
 function googleKey(): string | null {
@@ -47,7 +97,6 @@ async function geocodeWithNominatim(address: string): Promise<GeoPoint | null> {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
   const res = await fetch(url, {
     cache: "no-store",
-    // Nominatim's usage policy requires an identifying User-Agent.
     headers: { "User-Agent": "lyncr/1.0 (dispatch geofence; support@getzingapp.com)" },
   })
   if (!res.ok) return null

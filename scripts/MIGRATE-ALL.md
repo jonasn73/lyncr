@@ -77,6 +77,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 72 | `072-admin-routing-override-phone.sql` | **Admin inbound routing override (legacy).** Adds **`onboarding_profiles.admin_routing_override_phone`** — superseded by **073** (scoped per line/workspace). |
 | 73 | `073-scoped-admin-routing-override.sql` | **Scoped admin routing override.** Adds **`phone_numbers.admin_routing_override_phone`** and **`organizations.admin_routing_override_phone`**. Line override wins; migrates legacy global override onto the reserved-number line only. **Required** for per-workspace admin forwarding. |
 | 74 | `074-scheduler-events.sql` | **Owner job scheduler.** Adds **`ai_leads.scheduled_at`** and **`ai_leads.organization_id`** for the `/dashboard/scheduler` calendar and workspace-scoped events. **Required** for structured appointment rescheduling; scheduler v1 still works without it (falls back to `created_at`). |
+| 75 | `075-structured-job-address.sql` | **Structured job-site addresses.** Adds **`job_address_*`** columns on **`ai_leads`** (street number, route, city, ZIP, state) for map-precision scheduling. **Optional** — app also stores the same keys in `collected` JSONB; columns enable indexing/reporting. |
 
 ## Platform admin (`admin@lyncr.app`)
 

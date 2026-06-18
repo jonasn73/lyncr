@@ -5577,13 +5577,27 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     typeof durationRaw === "number" && Number.isFinite(durationRaw)
       ? durationRaw
       : parseInt(String(durationRaw ?? "60"), 10) || 60
+  const latRaw = collected.customer_lat
+  const lngRaw = collected.customer_lng
+  const latitude =
+    typeof latRaw === "number" && Number.isFinite(latRaw)
+      ? latRaw
+      : latRaw != null && String(latRaw).trim()
+        ? Number(latRaw)
+        : null
+  const longitude =
+    typeof lngRaw === "number" && Number.isFinite(lngRaw)
+      ? lngRaw
+      : lngRaw != null && String(lngRaw).trim()
+        ? Number(lngRaw)
+        : null
   return {
     id: String(row.id),
     customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
     customer_phone:
       pick(["callback_number", "caller_number", "phone", "callback"]) ||
       (row.caller_e164 != null ? String(row.caller_e164) : null),
-    location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
+    location: pick(["job_address", "location", "service_address", "address", "address_line1"]),
     summary: row.summary != null ? String(row.summary) : null,
     disposition,
     scheduled_at: scheduledAt,
@@ -5599,6 +5613,12 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
       row.assigned_tech_name != null && String(row.assigned_tech_name).trim()
         ? String(row.assigned_tech_name)
         : pick(["assigned_tech_name"]),
+    vehicle_year: pick(["vehicle_year", "year"]),
+    vehicle_make: pick(["vehicle_make", "make"]),
+    vehicle_model: pick(["vehicle_model", "model"]),
+    job_notes: pick(["job_notes", "notes", "symptoms"]),
+    latitude: latitude != null && Number.isFinite(latitude) ? latitude : null,
+    longitude: longitude != null && Number.isFinite(longitude) ? longitude : null,
   }
 }
 
@@ -5743,13 +5763,35 @@ export async function createOwnerSchedulerAppointment(params: {
   durationMinutes: number
   assignedTechPortalUserId?: string | null
   assignedTechName?: string | null
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  jobAddress?: string | null
+  jobNotes?: string | null
+  structuredAddress?: {
+    formatted: string
+    street_number: string
+    route: string
+    locality: string
+    postal_code: string
+    admin_area: string
+    lat?: number | null
+    lng?: number | null
+  } | null
+  extraCollected?: Record<string, unknown>
 }): Promise<import("@/lib/types").SchedulerEvent> {
   const sql = getSql()
   const id = crypto.randomUUID()
   const duration = Math.min(Math.max(params.durationMinutes, 15), 480)
   const jobType = params.jobType.trim() || "Other"
   const customerName = params.customerName.trim()
-  const summary = `${jobType} — ${customerName}`
+  const vehicleYear = params.vehicleYear?.trim() || null
+  const vehicleMake = params.vehicleMake?.trim() || null
+  const vehicleModel = params.vehicleModel?.trim() || null
+  const jobAddress = params.structuredAddress?.formatted?.trim() || params.jobAddress?.trim() || null
+  const jobNotes = params.jobNotes?.trim() || null
+  const vehicleLabel = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")
+  const summary = [jobType, vehicleLabel || null, customerName].filter(Boolean).join(" — ")
   const techId = params.assignedTechPortalUserId?.trim() || null
   const collected = {
     customer_name: customerName,
@@ -5759,6 +5801,24 @@ export async function createOwnerSchedulerAppointment(params: {
     dispatch_status: "pending_review",
     is_salvageable: false,
     source: "owner_manual_scheduler",
+    ...(vehicleYear ? { vehicle_year: vehicleYear, year: vehicleYear } : {}),
+    ...(vehicleMake ? { vehicle_make: vehicleMake, make: vehicleMake } : {}),
+    ...(vehicleModel ? { vehicle_model: vehicleModel, model: vehicleModel } : {}),
+    ...(jobAddress ? { job_address: jobAddress, location: jobAddress, service_address: jobAddress } : {}),
+    ...(params.structuredAddress
+      ? {
+          job_address_full: params.structuredAddress.formatted,
+          job_address_street_number: params.structuredAddress.street_number,
+          job_address_route: params.structuredAddress.route,
+          job_address_locality: params.structuredAddress.locality,
+          job_address_postal_code: params.structuredAddress.postal_code,
+          job_address_admin_area: params.structuredAddress.admin_area,
+          ...(params.structuredAddress.lat != null ? { customer_lat: params.structuredAddress.lat } : {}),
+          ...(params.structuredAddress.lng != null ? { customer_lng: params.structuredAddress.lng } : {}),
+        }
+      : {}),
+    ...(jobNotes ? { job_notes: jobNotes, notes: jobNotes } : {}),
+    ...(params.extraCollected ?? {}),
     ...(techId ? { assigned_tech_id: techId } : {}),
     ...(params.assignedTechName?.trim() ? { assigned_tech_name: params.assignedTechName.trim() } : {}),
   }
@@ -5843,6 +5903,12 @@ export async function createOwnerSchedulerAppointment(params: {
       duration_minutes: duration,
       assigned_tech_id: techId,
       assigned_tech_name: params.assignedTechName ?? null,
+      vehicle_year: vehicleYear,
+      vehicle_make: vehicleMake,
+      vehicle_model: vehicleModel,
+      job_notes: jobNotes,
+      latitude: null,
+      longitude: null,
     }
   }
   return schedulerEventFromRow(row)
@@ -5958,6 +6024,64 @@ export async function setLeadDispatchStatus(leadId: string, dispatchStatus: stri
       WHERE id = ${leadId}
     `
   } catch (e) {
+    if (!isUndefinedRelationError(e, "ai_leads")) throw e
+  }
+}
+
+/** Persist geocoded coordinates + structured address columns on ai_leads. */
+export async function setLeadStructuredAddress(
+  leadId: string,
+  addr: {
+    formatted: string
+    street_number: string
+    route: string
+    locality: string
+    postal_code: string
+    admin_area: string
+    lat?: number | null
+    lng?: number | null
+  }
+): Promise<void> {
+  const sql = getSql()
+  const patch: Record<string, unknown> = {
+    job_address: addr.formatted,
+    job_address_full: addr.formatted,
+    location: addr.formatted,
+    service_address: addr.formatted,
+    job_address_street_number: addr.street_number,
+    job_address_route: addr.route,
+    job_address_locality: addr.locality,
+    job_address_postal_code: addr.postal_code,
+    job_address_admin_area: addr.admin_area,
+  }
+  if (addr.lat != null && Number.isFinite(addr.lat)) patch.customer_lat = addr.lat
+  if (addr.lng != null && Number.isFinite(addr.lng)) patch.customer_lng = addr.lng
+  const patchJson = JSON.stringify(patch)
+  try {
+    await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${patchJson}::jsonb,
+          job_address_full = ${addr.formatted},
+          job_address_street_number = ${addr.street_number},
+          job_address_route = ${addr.route},
+          job_address_locality = ${addr.locality},
+          job_address_postal_code = ${addr.postal_code},
+          job_address_admin_area = ${addr.admin_area}
+      WHERE id = ${leadId}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      try {
+        await sql`
+          UPDATE ai_leads
+          SET collected = coalesce(collected, '{}'::jsonb) || ${patchJson}::jsonb
+          WHERE id = ${leadId}
+        `
+      } catch (e2) {
+        if (!isUndefinedRelationError(e2, "ai_leads")) throw e2
+      }
+      return
+    }
     if (!isUndefinedRelationError(e, "ai_leads")) throw e
   }
 }

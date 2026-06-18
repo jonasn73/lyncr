@@ -1,8 +1,8 @@
 "use client"
 
-// Manual appointment booking modal for the owner scheduler.
+// Manual appointment booking — industry-specific fields per active workspace.
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Loader2 } from "lucide-react"
 import {
   Dialog,
@@ -14,9 +14,14 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import {
-  SCHEDULER_DURATION_OPTIONS,
-  SCHEDULER_JOB_TYPES,
-} from "@/lib/scheduler-utils"
+  IndustryIntakeFormFields,
+  intakeValuesComplete,
+  serializeIntakeValues,
+  type IntakeFormValues,
+} from "@/components/industry-intake-form-fields"
+import { intakeFieldsForProfile, intakeTitleForProfile } from "@/lib/field-service-intake"
+import { SCHEDULER_DURATION_OPTIONS } from "@/lib/scheduler-utils"
+import type { IntakeWorkspaceProfile } from "@/lib/workspace-intake-profile"
 import type { FieldTechnician, SchedulerEvent } from "@/lib/types"
 
 type SchedulerBookingDialogProps = {
@@ -24,6 +29,7 @@ type SchedulerBookingDialogProps = {
   onOpenChange: (open: boolean) => void
   initialStart: string
   organizationId: string | null
+  intakeProfile: IntakeWorkspaceProfile
   technicians: FieldTechnician[]
   onCreated: (event: SchedulerEvent) => void
 }
@@ -36,17 +42,21 @@ export function SchedulerBookingDialog({
   onOpenChange,
   initialStart,
   organizationId,
+  intakeProfile,
   technicians,
   onCreated,
 }: SchedulerBookingDialogProps) {
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
-  const [jobType, setJobType] = useState<string>(SCHEDULER_JOB_TYPES[0])
+  const [intakeValues, setIntakeValues] = useState<IntakeFormValues>({})
   const [startLocal, setStartLocal] = useState(initialStart)
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [assignedTechId, setAssignedTechId] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const fields = useMemo(() => intakeFieldsForProfile(intakeProfile), [intakeProfile])
+  const title = intakeTitleForProfile(intakeProfile)
 
   useEffect(() => {
     if (open) {
@@ -55,12 +65,21 @@ export function SchedulerBookingDialog({
     }
   }, [open, initialStart])
 
+  const setIntakeField = useCallback((name: string, value: string | boolean | import("@/lib/structured-address").StructuredAddress | null) => {
+    setIntakeValues((prev) => ({ ...prev, [name]: value }))
+  }, [])
+
   const assignableTechs = technicians.filter((t) => t.is_active && t.portal_user_id)
+  const canSave =
+    customerName.trim() &&
+    customerPhone.trim() &&
+    intakeValuesComplete(fields, intakeValues)
 
   async function handleSave() {
     setSaving(true)
     setError(null)
     try {
+      const serialized = serializeIntakeValues(intakeValues)
       const res = await fetch("/api/owner/scheduler", {
         method: "POST",
         credentials: "include",
@@ -68,11 +87,17 @@ export function SchedulerBookingDialog({
         body: JSON.stringify({
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          job_type: jobType,
           scheduled_at: new Date(startLocal).toISOString(),
           duration_minutes: durationMinutes,
           assigned_tech_id: assignedTechId.trim() || null,
           organization_id: organizationId,
+          job_type: String(serialized.job_type ?? "Other"),
+          vehicle_year: serialized.vehicle_year ?? null,
+          vehicle_make: serialized.vehicle_make ?? null,
+          vehicle_model: serialized.vehicle_model ?? null,
+          job_notes: serialized.job_notes ?? null,
+          structured_address: intakeValues.job_address ?? null,
+          intake_fields: serialized,
         }),
       })
       const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
@@ -82,7 +107,7 @@ export function SchedulerBookingDialog({
       onCreated(event)
       setCustomerName("")
       setCustomerPhone("")
-      setJobType(SCHEDULER_JOB_TYPES[0])
+      setIntakeValues({})
       setAssignedTechId("")
       onOpenChange(false)
     } catch (e) {
@@ -94,11 +119,11 @@ export function SchedulerBookingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-card sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create appointment</DialogTitle>
           <DialogDescription>
-            Book a job on the calendar. It appears on the hourly grid immediately after saving.
+            {title} — vehicle, validated job address, and notes sync with the receptionist notepad.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,16 +149,12 @@ export function SchedulerBookingDialog({
             />
           </label>
 
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-medium text-foreground">Job type</span>
-            <select className={inputClass} value={jobType} onChange={(e) => setJobType(e.target.value)}>
-              {SCHEDULER_JOB_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
+          <IndustryIntakeFormFields
+            intakeProfile={intakeProfile}
+            values={intakeValues}
+            onChange={setIntakeField}
+            gridClassName="grid gap-4"
+          />
 
           <label className="grid gap-1.5 text-sm">
             <span className="font-medium text-foreground">Assigned tech</span>
@@ -188,11 +209,7 @@ export function SchedulerBookingDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving || !customerName.trim() || !customerPhone.trim()}
-          >
+          <Button type="button" onClick={() => void handleSave()} disabled={saving || !canSave}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Save appointment
           </Button>
