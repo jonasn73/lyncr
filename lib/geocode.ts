@@ -1,14 +1,9 @@
 // ============================================
 // Address → coordinates (geocoding)
 // ============================================
-// Turns a free-text service address into { lat, lng } so the field-tech 50m geofence can detect
-// "arrived on site". Pluggable provider:
-//   - If GOOGLE_GEOCODING_API_KEY / GOOGLE_MAPS_API_KEY is set → Google Geocoding API (most accurate).
-//   - Otherwise → OpenStreetMap Nominatim (free, no key; fine for low call volume).
-// Always returns null on any failure so callers can no-op safely.
+// Client-safe module — no database imports.
 
 import { isCompleteStructuredAddress, type StructuredAddress } from "@/lib/structured-address"
-import { setLeadCoordinates, setLeadStructuredAddress } from "@/lib/db"
 
 export interface GeoPoint {
   lat: number
@@ -48,28 +43,6 @@ export function structuredAddressFromCollected(fields: Record<string, unknown>):
     lng: lng != null && Number.isFinite(lng) ? lng : null,
   }
   return isCompleteStructuredAddress(candidate) ? candidate : null
-}
-
-/** Background geocode + persist structured address on a lead. */
-export async function persistLeadAddressFromFields(leadId: string, fields: Record<string, unknown>): Promise<void> {
-  const structured = structuredAddressFromCollected(fields)
-  if (structured) {
-    let lat = structured.lat
-    let lng = structured.lng
-    if (lat == null || lng == null) {
-      const coords = await geocodeAddress(structured.formatted)
-      if (coords) {
-        lat = coords.lat
-        lng = coords.lng
-      }
-    }
-    await setLeadStructuredAddress(leadId, { ...structured, lat, lng })
-    return
-  }
-  const address = pickAddressFromFields(fields)
-  if (!address) return
-  const coords = await geocodeAddress(address)
-  if (coords) await setLeadCoordinates(leadId, coords.lat, coords.lng)
 }
 
 function googleKey(): string | null {

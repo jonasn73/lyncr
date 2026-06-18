@@ -2,11 +2,11 @@
 
 // Owner job scheduler — month calendar, hourly grid or map route view, manual booking.
 
+import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Car, Clock, LayoutGrid, Loader2, Map, MapPin, Phone, Plus, User } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Dialog,
   DialogContent,
@@ -16,14 +16,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  IndustryIntakeFormFields,
   intakeFieldsFromWorkspaceContext,
   intakeTitleFromWorkspaceContext,
   intakeValuesComplete,
   serializeIntakeValues,
   type IntakeFormValues,
-} from "@/components/industry-intake-form-fields"
-import { SchedulerRouteMap } from "@/components/scheduler-route-map"
+} from "@/lib/intake-form-helpers"
 import {
   WorkspacePage,
   WorkspacePageHeader,
@@ -45,6 +43,33 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import type { FieldTechnician, SchedulerEvent } from "@/lib/types"
+
+const IndustryIntakeFormFields = dynamic(
+  () =>
+    import("@/components/industry-intake-form-fields").then((m) => ({
+      default: m.IndustryIntakeFormFields,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-zinc-500" aria-hidden />
+      </div>
+    ),
+  }
+)
+
+const SchedulerRouteMap = dynamic(
+  () => import("@/components/scheduler-route-map").then((m) => ({ default: m.SchedulerRouteMap })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-[320px] items-center justify-center bg-zinc-950">
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" aria-hidden />
+      </div>
+    ),
+  }
+)
 
 type SchedulerViewMode = "grid" | "map"
 
@@ -386,23 +411,28 @@ export function SchedulerWorkspaceView() {
 
   const headerAction = (
     <div className="flex flex-wrap items-center gap-2">
-      <ToggleGroup
-        type="single"
-        value={viewMode}
-        onValueChange={(v) => v && setViewMode(v as SchedulerViewMode)}
-        variant="outline"
-        size="sm"
-        className="hidden sm:flex"
-      >
-        <ToggleGroupItem value="grid" aria-label="Grid view" className="gap-1.5 px-3 text-xs">
+      <div className="hidden rounded-md border border-border/70 p-0.5 sm:flex">
+        <Button
+          type="button"
+          size="sm"
+          variant={viewMode === "grid" ? "default" : "ghost"}
+          className="gap-1.5 px-3 text-xs"
+          onClick={() => setViewMode("grid")}
+        >
           <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
           Grid View
-        </ToggleGroupItem>
-        <ToggleGroupItem value="map" aria-label="Map route view" className="gap-1.5 px-3 text-xs">
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={viewMode === "map" ? "default" : "ghost"}
+          className="gap-1.5 px-3 text-xs"
+          onClick={() => setViewMode("map")}
+        >
           <Map className="h-3.5 w-3.5" aria-hidden />
           Map Route View
-        </ToggleGroupItem>
-      </ToggleGroup>
+        </Button>
+      </div>
       <Button type="button" size="sm" className="gap-1.5" onClick={openBookingDefault}>
         <Plus className="h-4 w-4" aria-hidden />
         Create appointment
@@ -422,23 +452,28 @@ export function SchedulerWorkspaceView() {
       </p>
 
       <div className="flex gap-2 sm:hidden">
-        <ToggleGroup
-          type="single"
-          value={viewMode}
-          onValueChange={(v) => v && setViewMode(v as SchedulerViewMode)}
-          variant="outline"
-          size="sm"
-          className="w-full"
-        >
-          <ToggleGroupItem value="grid" className="flex-1 gap-1 text-xs">
+        <div className="flex w-full rounded-md border border-border/70 p-0.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "grid" ? "default" : "ghost"}
+            className="flex-1 gap-1 text-xs"
+            onClick={() => setViewMode("grid")}
+          >
             <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
             Grid
-          </ToggleGroupItem>
-          <ToggleGroupItem value="map" className="flex-1 gap-1 text-xs">
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "map" ? "default" : "ghost"}
+            className="flex-1 gap-1 text-xs"
+            onClick={() => setViewMode("map")}
+          >
             <Map className="h-3.5 w-3.5" aria-hidden />
             Map
-          </ToggleGroupItem>
-        </ToggleGroup>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
@@ -596,108 +631,110 @@ export function SchedulerWorkspaceView() {
         </WorkspacePanel>
       </div>
 
-      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create appointment</DialogTitle>
-            <DialogDescription>
-              {intakeModalTitle}
-              {activeOrgName ? ` · ${activeOrgName}` : ""}
-              {lineIndustryTags[0] ? ` (${lineIndustryTags[0]})` : ""}
-            </DialogDescription>
-          </DialogHeader>
+      {bookingOpen ? (
+        <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create appointment</DialogTitle>
+              <DialogDescription>
+                {intakeModalTitle}
+                {activeOrgName ? ` · ${activeOrgName}` : ""}
+                {lineIndustryTags[0] ? ` (${lineIndustryTags[0]})` : ""}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-4 py-2">
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-medium text-foreground">Customer name</span>
-              <input
-                className={bookingInputClass}
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Jane Smith"
-              />
-            </label>
-
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-medium text-foreground">Phone number</span>
-              <input
-                className={bookingInputClass}
-                type="tel"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder="(502) 555-0100"
-              />
-            </label>
-
-            <IndustryIntakeFormFields
-              intakeProfile={intakeProfile}
-              organizationName={activeOrgName}
-              industryTags={lineIndustryTags}
-              values={intakeValues}
-              onChange={setIntakeField}
-              gridClassName="grid gap-4"
-            />
-
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-medium text-foreground">Assigned tech</span>
-              <select
-                className={bookingInputClass}
-                value={assignedTechId}
-                onChange={(e) => setAssignedTechId(e.target.value)}
-              >
-                <option value="">Unassigned</option>
-                {assignableTechs.map((t) => (
-                  <option key={t.id} value={t.portal_user_id!}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 py-2">
               <label className="grid gap-1.5 text-sm">
-                <span className="font-medium text-foreground">Start time</span>
+                <span className="font-medium text-foreground">Customer name</span>
                 <input
                   className={bookingInputClass}
-                  type="datetime-local"
-                  value={bookingStart}
-                  onChange={(e) => setBookingStart(e.target.value)}
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Jane Smith"
                 />
               </label>
+
               <label className="grid gap-1.5 text-sm">
-                <span className="font-medium text-foreground">Duration</span>
+                <span className="font-medium text-foreground">Phone number</span>
+                <input
+                  className={bookingInputClass}
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="(502) 555-0100"
+                />
+              </label>
+
+              <IndustryIntakeFormFields
+                intakeProfile={intakeProfile}
+                organizationName={activeOrgName}
+                industryTags={lineIndustryTags}
+                values={intakeValues}
+                onChange={setIntakeField}
+                gridClassName="grid gap-4"
+              />
+
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-medium text-foreground">Assigned tech</span>
                 <select
                   className={bookingInputClass}
-                  value={bookingDurationMinutes}
-                  onChange={(e) => setBookingDurationMinutes(Number(e.target.value))}
+                  value={assignedTechId}
+                  onChange={(e) => setAssignedTechId(e.target.value)}
                 >
-                  {SCHEDULER_DURATION_OPTIONS.map((o) => (
-                    <option key={o.minutes} value={o.minutes}>
-                      {o.label}
+                  <option value="">Unassigned</option>
+                  {assignableTechs.map((t) => (
+                    <option key={t.id} value={t.portal_user_id!}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
               </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-medium text-foreground">Start time</span>
+                  <input
+                    className={bookingInputClass}
+                    type="datetime-local"
+                    value={bookingStart}
+                    onChange={(e) => setBookingStart(e.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-medium text-foreground">Duration</span>
+                  <select
+                    className={bookingInputClass}
+                    value={bookingDurationMinutes}
+                    onChange={(e) => setBookingDurationMinutes(Number(e.target.value))}
+                  >
+                    {SCHEDULER_DURATION_OPTIONS.map((o) => (
+                      <option key={o.minutes} value={o.minutes}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {bookingError ? (
+                <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {bookingError}
+                </p>
+              ) : null}
             </div>
 
-            {bookingError ? (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {bookingError}
-              </p>
-            ) : null}
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => setBookingOpen(false)} disabled={bookingSaving}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={() => void saveBooking()} disabled={bookingSaving || !canSaveBooking}>
-              {bookingSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              Save appointment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setBookingOpen(false)} disabled={bookingSaving}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void saveBooking()} disabled={bookingSaving || !canSaveBooking}>
+                {bookingSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                Save appointment
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </WorkspacePage>
   )
 }

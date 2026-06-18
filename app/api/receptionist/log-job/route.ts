@@ -30,7 +30,7 @@ import { DISPOSITION_LABEL, dispatchStateFor } from "@/lib/call-disposition"
 import { parseScheduledAtFromFields } from "@/lib/scheduler-utils"
 import { publishOwnerEvent, publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 import { onJobStateChange } from "@/lib/sms-pipeline"
-import { persistLeadAddressFromFields } from "@/lib/geocode"
+import { persistLeadAddressFromFields } from "@/lib/geocode-persist"
 
 type LogJobBody = {
   callLogId?: string

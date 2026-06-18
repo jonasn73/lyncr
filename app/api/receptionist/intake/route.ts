@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import { saveCallIntake } from "@/lib/intake-engine"
-import { persistLeadAddressFromFields } from "@/lib/geocode"
+import { persistLeadAddressFromFields } from "@/lib/geocode-persist"
 
 type IntakeBody = {
   callLogId?: string

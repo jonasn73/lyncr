@@ -13,7 +13,8 @@ import {
   normalizePhoneNumberE164,
   setLeadStructuredAddress,
 } from "@/lib/db"
-import { geocodeAddress, persistLeadAddressFromFields } from "@/lib/geocode"
+import { geocodeAddress } from "@/lib/geocode"
+import { persistLeadAddressFromFields } from "@/lib/geocode-persist"
 import { monthRangeUtc, parseIsoDateParam } from "@/lib/scheduler-utils"
 import {
   isCompleteStructuredAddress,

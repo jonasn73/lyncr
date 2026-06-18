@@ -19,6 +19,8 @@ const TECH_COLOR: Record<string, string> = {
   idle: "#a1a1aa", // zinc
 }
 
+import { loadLeafletClient } from "@/lib/leaflet-client"
+
 type LeafletModule = typeof import("leaflet")
 
 /** Branded HTML marker icons (no external image assets → no bundler icon-path issues). */
@@ -125,7 +127,7 @@ export function DispatchLiveMap() {
     let cancelled = false
     let created: LeafletMap | null = null
     void (async () => {
-      const L = (await import("leaflet")).default
+      const L = await loadLeafletClient()
       if (cancelled || !containerRef.current || mapRef.current) return
       leafletRef.current = L
       created = L.map(containerRef.current, { zoomControl: true, attributionControl: true }).setView(

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Loader2, MapPinned } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 import type { Map as LeafletMap, Marker, Polyline } from "leaflet"
+import { loadLeafletClient } from "@/lib/leaflet-client"
 import type { SchedulerEvent } from "@/lib/types"
 
 type LeafletModule = typeof import("leaflet")
@@ -57,7 +58,7 @@ export function SchedulerRouteMap({ events, selectedDayLabel }: SchedulerRouteMa
     let cancelled = false
     let created: LeafletMap | null = null
     void (async () => {
-      const L = (await import("leaflet")).default
+      const L = await loadLeafletClient()
       if (cancelled || !containerRef.current || mapRef.current) return
       leafletRef.current = L
       created = L.map(containerRef.current, { zoomControl: true, attributionControl: true }).setView(
