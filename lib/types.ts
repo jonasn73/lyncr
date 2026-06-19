@@ -121,6 +121,33 @@ export interface SchedulerEvent {
   longitude: number | null
 }
 
+/** Job waiting in the unassigned pool (no tech yet). */
+export interface UnassignedPoolJob {
+  id: string
+  customer_name: string | null
+  customer_phone: string | null
+  location: string | null
+  neighborhood: string | null
+  summary: string | null
+  job_type: string | null
+  vehicle_year: string | null
+  vehicle_make: string | null
+  vehicle_model: string | null
+  job_notes: string | null
+  scheduled_at: string | null
+  duration_minutes: number
+  dispatch_status: string | null
+  created_at: string
+  latitude: number | null
+  longitude: number | null
+}
+
+/** Phone lookup hits across pool + calendar. */
+export interface SchedulerPhoneLookupResult {
+  pool: UnassignedPoolJob[]
+  scheduled: SchedulerEvent[]
+}
+
 /** A field tech's last-known live position for the owner's dispatch map. */
 export interface TechLiveLocation {
   tech_user_id: string

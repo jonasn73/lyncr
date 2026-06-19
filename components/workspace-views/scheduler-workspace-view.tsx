@@ -42,7 +42,17 @@ import {
   schedulerHourSlots,
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
-import type { FieldTechnician, SchedulerEvent } from "@/lib/types"
+import { HOPPER_DRAG_MIME } from "@/components/scheduler/job-pool-card"
+import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
+import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
+import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
+import { PoolScheduleDialog } from "@/components/scheduler/pool-schedule-dialog"
+import type {
+  FieldTechnician,
+  SchedulerEvent,
+  SchedulerPhoneLookupResult,
+  UnassignedPoolJob,
+} from "@/lib/types"
 
 const IndustryIntakeFormFields = dynamic(
   () =>
@@ -104,7 +114,15 @@ function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
   return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
 }
 
-function AppointmentBlock({ ev }: { ev: SchedulerEvent }) {
+function AppointmentBlock({
+  ev,
+  highlighted,
+  onSelect,
+}: {
+  ev: SchedulerEvent
+  highlighted?: boolean
+  onSelect?: () => void
+}) {
   const vehicle = formatVehicle(ev)
   const { topPx, heightPx } = schedulerEventPlacement(
     ev.scheduled_at,
@@ -113,8 +131,23 @@ function AppointmentBlock({ ev }: { ev: SchedulerEvent }) {
   )
   return (
     <div
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onSelect()
+              }
+            }
+          : undefined
+      }
       className={cn(
-        "pointer-events-none absolute left-2 right-2 z-10 overflow-hidden rounded-lg border px-2 py-1.5 shadow-md",
+        "absolute left-2 right-2 z-10 overflow-hidden rounded-lg border px-2 py-1.5 shadow-md",
+        onSelect ? "pointer-events-auto cursor-pointer" : "pointer-events-none",
+        highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         DISPOSITION_STYLE[ev.disposition ?? ""] ?? "border-primary/40 bg-primary/15 text-foreground"
       )}
       style={{ top: topPx, height: heightPx, minHeight: 36 }}
@@ -207,6 +240,18 @@ export function SchedulerWorkspaceView() {
   const [assignedTechId, setAssignedTechId] = useState("")
   const [bookingSaving, setBookingSaving] = useState(false)
   const [bookingError, setBookingError] = useState<string | null>(null)
+  const [poolJobs, setPoolJobs] = useState<UnassignedPoolJob[]>([])
+  const [poolLoading, setPoolLoading] = useState(true)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [drawerPoolJob, setDrawerPoolJob] = useState<UnassignedPoolJob | null>(null)
+  const [drawerScheduledEvent, setDrawerScheduledEvent] = useState<SchedulerEvent | null>(null)
+  const [poolScheduleOpen, setPoolScheduleOpen] = useState(false)
+  const [poolScheduleJob, setPoolScheduleJob] = useState<UnassignedPoolJob | null>(null)
+  const [poolScheduleStart, setPoolScheduleStart] = useState(() => toDatetimeLocalValue(new Date()))
+  const [poolScheduleTechId, setPoolScheduleTechId] = useState("")
+  const [poolScheduleSaving, setPoolScheduleSaving] = useState(false)
+  const [poolScheduleError, setPoolScheduleError] = useState<string | null>(null)
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null)
 
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
   const orgId =
@@ -286,6 +331,24 @@ export function SchedulerWorkspaceView() {
     load()
   }, [load])
 
+  const loadPool = useCallback(() => {
+    setPoolLoading(true)
+    const poolUrl = orgId
+      ? `/api/owner/jobs/pool?organization_id=${encodeURIComponent(orgId)}`
+      : "/api/owner/jobs/pool"
+    fetch(poolUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("pool"))))
+      .then((j: { data?: { jobs?: UnassignedPoolJob[] } }) => {
+        setPoolJobs(Array.isArray(j.data?.jobs) ? j.data!.jobs! : [])
+      })
+      .catch(() => setPoolJobs([]))
+      .finally(() => setPoolLoading(false))
+  }, [orgId])
+
+  useEffect(() => {
+    loadPool()
+  }, [loadPool])
+
   useEffect(() => {
     fetch("/api/technicians", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("techs"))))
@@ -343,6 +406,100 @@ export function SchedulerWorkspaceView() {
   function openBookingAtHour(hour24: number) {
     setBookingStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
     setBookingOpen(true)
+  }
+
+  function openPoolScheduleAtHour(hour24: number, job: UnassignedPoolJob) {
+    setPoolScheduleJob(job)
+    setPoolScheduleStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
+    setPoolScheduleTechId("")
+    setPoolScheduleError(null)
+    setPoolScheduleOpen(true)
+  }
+
+  function closePoolScheduleDialog() {
+    if (poolScheduleSaving) return
+    setPoolScheduleOpen(false)
+    setPoolScheduleJob(null)
+    setPoolScheduleError(null)
+  }
+
+  function openPoolJobDrawer(job: UnassignedPoolJob) {
+    setHighlightId(job.id)
+    setDrawerPoolJob(job)
+    setDrawerScheduledEvent(null)
+  }
+
+  function openScheduledJobDrawer(ev: SchedulerEvent) {
+    setHighlightId(ev.id)
+    setDrawerScheduledEvent(ev)
+    setDrawerPoolJob(null)
+  }
+
+  function closeJobDrawer() {
+    setDrawerPoolJob(null)
+    setDrawerScheduledEvent(null)
+    setHighlightId(null)
+  }
+
+  const handlePhoneLookupResults = useCallback(
+    (result: SchedulerPhoneLookupResult | null) => {
+      if (!result || (result.pool.length === 0 && result.scheduled.length === 0)) {
+        setHighlightId(null)
+        closeJobDrawer()
+        return
+      }
+      const poolMatch = result.pool[0]
+      if (poolMatch) {
+        setHighlightId(poolMatch.id)
+        setDrawerPoolJob(poolMatch)
+        setDrawerScheduledEvent(null)
+        return
+      }
+      const scheduledMatch = result.scheduled[0]
+      if (scheduledMatch) {
+        setHighlightId(scheduledMatch.id)
+        setDrawerScheduledEvent(scheduledMatch)
+        setDrawerPoolJob(null)
+        const eventDay = dayKeyLocal(new Date(scheduledMatch.scheduled_at))
+        const currentKey = dayKeyLocal(selectedDay)
+        if (eventDay !== currentKey) {
+          const d = new Date(scheduledMatch.scheduled_at)
+          setSelectedDay(d)
+          setVisibleMonth(d)
+        }
+      }
+    },
+    [selectedDay]
+  )
+
+  async function confirmPoolSchedule() {
+    if (!poolScheduleJob || !poolScheduleTechId) return
+    setPoolScheduleSaving(true)
+    setPoolScheduleError(null)
+    try {
+      const res = await fetch(`/api/owner/jobs/pool/${poolScheduleJob.id}/schedule`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduled_at: new Date(poolScheduleStart).toISOString(),
+          assigned_tech_id: poolScheduleTechId,
+        }),
+      })
+      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+      if (!res.ok) throw new Error(json.error ?? "Could not schedule job")
+      const event = json.data?.event
+      if (!event) throw new Error("No event returned")
+      setPoolJobs((prev) => prev.filter((j) => j.id !== poolScheduleJob.id))
+      handleAppointmentCreated(event)
+      setPoolScheduleOpen(false)
+      setPoolScheduleJob(null)
+      loadPool()
+    } catch (e) {
+      setPoolScheduleError(e instanceof Error ? e.message : "Could not schedule job")
+    } finally {
+      setPoolScheduleSaving(false)
+    }
   }
 
   function openBookingDefault() {
@@ -410,7 +567,8 @@ export function SchedulerWorkspaceView() {
   }
 
   const headerAction = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+      <PhoneLookupBar organizationId={orgId} onResults={handlePhoneLookupResults} className="order-first w-full sm:order-none sm:mr-1" />
       <div className="hidden rounded-md border border-border/70 p-0.5 sm:flex">
         <Button
           type="button"
@@ -475,6 +633,13 @@ export function SchedulerWorkspaceView() {
           </Button>
         </div>
       </div>
+
+      <JobPoolTray
+        jobs={poolJobs}
+        loading={poolLoading}
+        highlightId={highlightId}
+        onSelectJob={openPoolJobDrawer}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
         <WorkspacePanel className="p-3">
@@ -550,23 +715,46 @@ export function SchedulerWorkspaceView() {
                         key={hour}
                         type="button"
                         aria-label={`Book appointment at ${formatHourLabel(hour)}`}
-                        className="absolute left-0 right-0 border-b border-border/30 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        className={cn(
+                          "absolute left-0 right-0 border-b border-border/30 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          dragOverHour === hour && "bg-primary/15 ring-2 ring-inset ring-primary/50"
+                        )}
                         style={{
                           top: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_ROW_PX,
                           height: SCHEDULER_HOUR_ROW_PX,
                         }}
                         onClick={() => openBookingAtHour(hour)}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = "move"
+                          setDragOverHour(hour)
+                        }}
+                        onDragLeave={() => setDragOverHour((h) => (h === hour ? null : h))}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setDragOverHour(null)
+                          const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
+                          if (!jobId) return
+                          const job = poolJobs.find((j) => j.id === jobId)
+                          if (!job) return
+                          openPoolScheduleAtHour(hour, job)
+                        }}
                       />
                     ))}
 
                     {dayEvents.map((ev) => (
-                      <AppointmentBlock key={ev.id} ev={ev} />
+                      <AppointmentBlock
+                        key={ev.id}
+                        ev={ev}
+                        highlighted={highlightId === ev.id}
+                        onSelect={() => openScheduledJobDrawer(ev)}
+                      />
                     ))}
 
                     {dayEvents.length === 0 && !loading ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
                         <p className="max-w-xs text-center text-sm text-zinc-500">
-                          No appointments yet — click any hour row to book, or use Create appointment above.
+                          No appointments yet — drag from the pool above, click an hour row, or use Create appointment.
                         </p>
                       </div>
                     ) : null}
@@ -735,6 +923,27 @@ export function SchedulerWorkspaceView() {
           </DialogContent>
         </Dialog>
       ) : null}
+
+      <PoolScheduleDialog
+        open={poolScheduleOpen}
+        job={poolScheduleJob}
+        scheduledAtLocal={poolScheduleStart}
+        technicians={technicians}
+        techId={poolScheduleTechId}
+        saving={poolScheduleSaving}
+        error={poolScheduleError}
+        onTechChange={setPoolScheduleTechId}
+        onScheduledChange={setPoolScheduleStart}
+        onClose={closePoolScheduleDialog}
+        onConfirm={() => void confirmPoolSchedule()}
+      />
+
+      <JobDetailDrawer
+        open={Boolean(drawerPoolJob || drawerScheduledEvent)}
+        poolJob={drawerPoolJob}
+        scheduledEvent={drawerScheduledEvent}
+        onClose={closeJobDrawer}
+      />
     </WorkspacePage>
   )
 }

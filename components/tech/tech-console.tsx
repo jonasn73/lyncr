@@ -7,11 +7,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route } from "lucide-react"
+import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route, Inbox, Car } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { InvoiceModal } from "@/components/tech/invoice-modal"
+import { vehicleLabelFromParts } from "@/lib/job-pool"
 import type { TechBadge } from "@/lib/tech-badges"
-import type { DispatchJob } from "@/lib/types"
+import type { DispatchJob, UnassignedPoolJob } from "@/lib/types"
 
 /** Universal maps link — opens the default navigation app on iOS/Android. */
 function mapsLink(address: string): string {
@@ -52,16 +53,25 @@ export function TechConsole(props: {
   const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [invoiceJob, setInvoiceJob] = useState<DispatchJob | null>(null)
+  const [poolJobs, setPoolJobs] = useState<UnassignedPoolJob[]>([])
+  const [claimBusyId, setClaimBusyId] = useState<string | null>(null)
   const mounted = useRef(true)
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true)
     try {
-      const res = await fetch("/api/tech/jobs", { credentials: "include", cache: "no-store" })
-      const json = await res.json()
-      if (mounted.current && json?.data) {
-        if (json.data.jobs) setJobs(json.data.jobs as DispatchJob[])
-        if (json.data.badges) setBadges(json.data.badges as TechBadge[])
+      const [jobsRes, poolRes] = await Promise.all([
+        fetch("/api/tech/jobs", { credentials: "include", cache: "no-store" }),
+        fetch("/api/tech/jobs/pool", { credentials: "include", cache: "no-store" }),
+      ])
+      const jobsJson = await jobsRes.json()
+      const poolJson = await poolRes.json()
+      if (mounted.current && jobsJson?.data) {
+        if (jobsJson.data.jobs) setJobs(jobsJson.data.jobs as DispatchJob[])
+        if (jobsJson.data.badges) setBadges(jobsJson.data.badges as TechBadge[])
+      }
+      if (mounted.current && poolJson?.data) {
+        setPoolJobs(Array.isArray(poolJson.data.jobs) ? (poolJson.data.jobs as UnassignedPoolJob[]) : [])
       }
     } catch {
       /* keep last jobs on transient error */
@@ -167,6 +177,26 @@ export function TechConsole(props: {
     router.replace("/tech/login")
   }
 
+  async function claimPoolJob(jobId: string) {
+    setClaimBusyId(jobId)
+    try {
+      const res = await fetch(`/api/tech/jobs/${jobId}/claim`, {
+        method: "PATCH",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(json.error ?? "Could not claim job")
+      }
+      setPoolJobs((prev) => prev.filter((j) => j.id !== jobId))
+      await load()
+    } catch {
+      await load()
+    } finally {
+      setClaimBusyId(null)
+    }
+  }
+
   const active = jobs.filter((j) => j.job_status !== "completed")
   const done = jobs.filter((j) => j.job_status === "completed")
 
@@ -199,6 +229,10 @@ export function TechConsole(props: {
       <main className="flex-1 space-y-3 px-4 py-5">
         {!loading && <BadgesStrip badges={badges} />}
 
+        {!loading && poolJobs.length > 0 ? (
+          <HopperPoolSection jobs={poolJobs} claimBusyId={claimBusyId} onClaim={claimPoolJob} />
+        ) : null}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-zinc-500">
             <Loader2 className="h-7 w-7 animate-spin" />
@@ -207,8 +241,14 @@ export function TechConsole(props: {
         ) : active.length === 0 && done.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center text-zinc-500">
             <CheckCircle2 className="h-10 w-10 text-zinc-700" />
-            <p className="mt-3 text-sm font-medium text-zinc-400">No jobs assigned yet</p>
-            <p className="mt-1 text-xs text-zinc-600">New dispatches appear here automatically.</p>
+            <p className="mt-3 text-sm font-medium text-zinc-400">
+              {poolJobs.length > 0 ? "Claim a job from the pool above" : "No jobs assigned yet"}
+            </p>
+            <p className="mt-1 text-xs text-zinc-600">
+              {poolJobs.length > 0
+                ? "Tap Claim to add an unassigned job to your route."
+                : "New dispatches appear here automatically."}
+            </p>
           </div>
         ) : (
           <>
@@ -259,6 +299,65 @@ export function TechConsole(props: {
         />
       )}
     </div>
+  )
+}
+
+function HopperPoolSection(props: {
+  jobs: UnassignedPoolJob[]
+  claimBusyId: string | null
+  onClaim: (jobId: string) => void
+}) {
+  return (
+    <section className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 to-zinc-900/40 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-amber-200">
+          <Inbox className="h-4 w-4" aria-hidden />
+        </span>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Unassigned pool</p>
+          <p className="text-[11px] text-zinc-500">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
+        </div>
+      </div>
+      <ul className="space-y-2">
+        {props.jobs.map((job) => {
+          const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
+          const busy = props.claimBusyId === job.id
+          return (
+            <li
+              key={job.id}
+              className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">
+                  {job.customer_name || job.customer_phone || "Customer"}
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-400">{job.job_type || "Service call"}</p>
+                {vehicle ? (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-zinc-500">
+                    <Car className="h-3 w-3 shrink-0" aria-hidden />
+                    {vehicle}
+                  </p>
+                ) : null}
+                {job.neighborhood || job.location ? (
+                  <p className="mt-1 flex items-start gap-1 text-[11px] text-zinc-600">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                    <span className="line-clamp-2">{job.neighborhood || job.location}</span>
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                disabled={busy || Boolean(props.claimBusyId)}
+                onClick={() => props.onClaim(job.id)}
+                className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-zinc-950 transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Claim"}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

@@ -7,6 +7,7 @@
 
 import { neon } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
+import { neighborhoodFromLocation } from "@/lib/job-pool"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOverrideE164 } from "@/lib/phone-e164"
 import { SITE_NAME } from "@/lib/brand"
@@ -5561,13 +5562,17 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
   }
   const createdAt =
     row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? "")
-  const scheduledRaw = row.scheduled_at
+  const scheduledRaw = row.scheduled_at ?? collected.scheduled_at ?? collected.preferred_time
   const scheduledAt =
     scheduledRaw instanceof Date
       ? scheduledRaw.toISOString()
       : scheduledRaw != null && String(scheduledRaw).trim()
         ? String(scheduledRaw)
         : createdAt
+  const hasStructuredSchedule =
+    row.scheduled_at != null && String(row.scheduled_at).trim() !== ""
+      ? true
+      : pick(["scheduled_at", "preferred_time"]) != null
   const disposition =
     row.disposition != null && String(row.disposition).trim()
       ? String(row.disposition)
@@ -5601,7 +5606,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     summary: row.summary != null ? String(row.summary) : null,
     disposition,
     scheduled_at: scheduledAt,
-    scheduled_tentative: scheduledRaw == null || String(scheduledRaw).trim() === "",
+    scheduled_tentative: !hasStructuredSchedule,
     created_at: createdAt,
     job_type: pick(["job_type", "service_type", "service_package"]),
     duration_minutes: durationMinutes,
@@ -5626,6 +5631,87 @@ function isMissingSchedulerColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   const msg = pgErrorMessage(e)
   return msg.includes("scheduled_at") || msg.includes("organization_id")
+}
+
+/** Load one scheduler lead row — works before scripts/074 (no scheduled_at column). */
+async function selectSchedulerLeadById(
+  sql: ReturnType<typeof neon>,
+  leadId: string
+): Promise<Record<string, unknown> | undefined> {
+  try {
+    const rows = await sql`
+      SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+             l.assigned_tech_id, t.name AS assigned_tech_name
+      FROM ai_leads l
+      LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+      WHERE l.id = ${leadId}
+      LIMIT 1
+    `
+    return rows[0] as Record<string, unknown> | undefined
+  } catch (e) {
+    if (!isMissingSchedulerColumnError(e) && pgErrorCode(e) !== "42703") throw e
+    try {
+      const rows = await sql`
+        SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.created_at,
+               l.assigned_tech_id, t.name AS assigned_tech_name
+        FROM ai_leads l
+        LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+        WHERE l.id = ${leadId}
+        LIMIT 1
+      `
+      return rows[0] as Record<string, unknown> | undefined
+    } catch (e2) {
+      if (isMissingAssignedTechColumnError(e2) || pgErrorCode(e2) === "42703") {
+        const rows = await sql`
+          SELECT id, caller_e164, collected, summary, disposition, created_at
+          FROM ai_leads
+          WHERE id = ${leadId}
+          LIMIT 1
+        `
+        return rows[0] as Record<string, unknown> | undefined
+      }
+      throw e2
+    }
+  }
+}
+
+function syntheticSchedulerEventFromCreate(params: {
+  id: string
+  customerName: string
+  customerPhoneE164: string
+  summary: string
+  jobType: string
+  duration: number
+  scheduledAtIso: string
+  techId: string | null
+  assignedTechName: string | null
+  vehicleYear: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  jobNotes: string | null
+  jobAddress: string | null
+}): import("@/lib/types").SchedulerEvent {
+  return {
+    id: params.id,
+    customer_name: params.customerName,
+    customer_phone: params.customerPhoneE164,
+    location: params.jobAddress,
+    summary: params.summary,
+    disposition: "BOOKED",
+    scheduled_at: params.scheduledAtIso,
+    scheduled_tentative: false,
+    created_at: new Date().toISOString(),
+    job_type: params.jobType,
+    duration_minutes: params.duration,
+    assigned_tech_id: params.techId,
+    assigned_tech_name: params.assignedTechName,
+    vehicle_year: params.vehicleYear,
+    vehicle_make: params.vehicleMake,
+    vehicle_model: params.vehicleModel,
+    job_notes: params.jobNotes,
+    latitude: null,
+    longitude: null,
+  }
 }
 
 /** Calendar events for the owner scheduler (BOOKED + PENDING_TIME in date range). */
@@ -5793,14 +5879,16 @@ export async function createOwnerSchedulerAppointment(params: {
   const vehicleLabel = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")
   const summary = [jobType, vehicleLabel || null, customerName].filter(Boolean).join(" — ")
   const techId = params.assignedTechPortalUserId?.trim() || null
+  const dispatchStatus = techId ? "DISPATCHED" : "unassigned_pool"
   const collected = {
     customer_name: customerName,
     job_type: jobType,
     duration_minutes: duration,
     disposition: "BOOKED",
-    dispatch_status: "pending_review",
+    dispatch_status: dispatchStatus,
     is_salvageable: false,
     source: "owner_manual_scheduler",
+    scheduled_at: params.scheduledAtIso,
     ...(vehicleYear ? { vehicle_year: vehicleYear, year: vehicleYear } : {}),
     ...(vehicleMake ? { vehicle_make: vehicleMake, make: vehicleMake } : {}),
     ...(vehicleModel ? { vehicle_model: vehicleModel, model: vehicleModel } : {}),
@@ -5835,7 +5923,7 @@ export async function createOwnerSchedulerAppointment(params: {
         ) VALUES (
           ${id}, ${params.ownerUserId}, ${orgId}::uuid, ${params.customerPhoneE164},
           'owner_manual_scheduler', ${collectedJson}::jsonb, ${summary},
-          'BOOKED', 'pending_review', false, ${params.scheduledAtIso}::timestamptz,
+          'BOOKED', ${dispatchStatus}, false, ${params.scheduledAtIso}::timestamptz,
           ${techId}, ${techId ? "assigned" : null}, false, null, ${`${id}-manual`}, now()
         )
       `
@@ -5848,7 +5936,7 @@ export async function createOwnerSchedulerAppointment(params: {
         ) VALUES (
           ${id}, ${params.ownerUserId}, ${params.customerPhoneE164},
           'owner_manual_scheduler', ${collectedJson}::jsonb, ${summary},
-          'BOOKED', 'pending_review', false, ${params.scheduledAtIso}::timestamptz,
+          'BOOKED', ${dispatchStatus}, false, ${params.scheduledAtIso}::timestamptz,
           ${techId}, ${techId ? "assigned" : null}, false, null, ${`${id}-manual`}, now()
         )
       `
@@ -5865,11 +5953,47 @@ export async function createOwnerSchedulerAppointment(params: {
       `
       await applyLeadDisposition(id, {
         disposition: "BOOKED",
-        dispatch_status: "pending_review",
+        dispatch_status: dispatchStatus,
         is_salvageable: false,
       })
       await setLeadScheduledAt(id, params.scheduledAtIso)
       if (techId) await assignJobToTech(params.ownerUserId, id, techId)
+      else await setLeadDispatchStatus(id, dispatchStatus)
+    } else if (pgErrorCode(e) === "23503" && orgId && pgErrorMessage(e).includes("organization_id")) {
+      // Workspace FK missing — save without organization_id so booking still succeeds.
+      await sql`
+        INSERT INTO ai_leads (
+          id, user_id, caller_e164, intent_slug, collected, summary,
+          disposition, dispatch_status, is_salvageable, scheduled_at,
+          assigned_tech_id, job_status, sms_sent, sms_error, vapi_call_id, created_at
+        ) VALUES (
+          ${id}, ${params.ownerUserId}, ${params.customerPhoneE164},
+          'owner_manual_scheduler', ${collectedJson}::jsonb, ${summary},
+          'BOOKED', ${dispatchStatus}, false, ${params.scheduledAtIso}::timestamptz,
+          ${techId}, ${techId ? "assigned" : null}, false, null, ${`${id}-manual`}, now()
+        )
+      `.catch(async (e2) => {
+        if (isMissingSchedulerColumnError(e2) || pgErrorCode(e2) === "42703") {
+          await sql`
+            INSERT INTO ai_leads (
+              id, user_id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, vapi_call_id, created_at
+            ) VALUES (
+              ${id}, ${params.ownerUserId}, ${params.customerPhoneE164},
+              'owner_manual_scheduler', ${collectedJson}::jsonb, ${summary}, false, null, ${`${id}-manual`}, now()
+            )
+          `
+          await applyLeadDisposition(id, {
+            disposition: "BOOKED",
+            dispatch_status: dispatchStatus,
+            is_salvageable: false,
+          })
+          await setLeadScheduledAt(id, params.scheduledAtIso)
+          if (techId) await assignJobToTech(params.ownerUserId, id, techId)
+          else await setLeadDispatchStatus(id, dispatchStatus)
+          return
+        }
+        throw e2
+      })
     } else {
       throw e
     }
@@ -5877,39 +6001,28 @@ export async function createOwnerSchedulerAppointment(params: {
 
   if (techId) {
     await assignJobToTech(params.ownerUserId, id, techId).catch(() => {})
+  } else {
+    await setLeadDispatchStatus(id, dispatchStatus).catch(() => {})
   }
 
-  const rows = await sql`
-    SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
-           l.assigned_tech_id, t.name AS assigned_tech_name
-    FROM ai_leads l
-    LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
-    WHERE l.id = ${id}
-    LIMIT 1
-  `
-  const row = rows[0] as Record<string, unknown> | undefined
+  const row = await selectSchedulerLeadById(sql, id)
   if (!row) {
-    return {
+    return syntheticSchedulerEventFromCreate({
       id,
-      customer_name: customerName,
-      customer_phone: params.customerPhoneE164,
-      location: null,
+      customerName,
+      customerPhoneE164: params.customerPhoneE164,
       summary,
-      disposition: "BOOKED",
-      scheduled_at: params.scheduledAtIso,
-      scheduled_tentative: false,
-      created_at: new Date().toISOString(),
-      job_type: jobType,
-      duration_minutes: duration,
-      assigned_tech_id: techId,
-      assigned_tech_name: params.assignedTechName ?? null,
-      vehicle_year: vehicleYear,
-      vehicle_make: vehicleMake,
-      vehicle_model: vehicleModel,
-      job_notes: jobNotes,
-      latitude: null,
-      longitude: null,
-    }
+      jobType,
+      duration,
+      scheduledAtIso: params.scheduledAtIso,
+      techId,
+      assignedTechName: params.assignedTechName ?? null,
+      vehicleYear,
+      vehicleMake,
+      vehicleModel,
+      jobNotes,
+      jobAddress,
+    })
   }
   return schedulerEventFromRow(row)
 }
@@ -5947,7 +6060,315 @@ export async function assignJobToTech(
     WHERE id = ${leadId} AND user_id = ${ownerUserId}
     RETURNING id
   `
-  return rows.length > 0
+  if (rows.length === 0) return false
+  const dispatchStatus = techUserId ? "DISPATCHED" : "unassigned_pool"
+  await setLeadDispatchStatus(leadId, dispatchStatus)
+  const patch = techUserId
+    ? { assigned_tech_id: techUserId, dispatch_status: dispatchStatus }
+    : { assigned_tech_id: null, assigned_tech_name: null, dispatch_status: dispatchStatus }
+  try {
+    await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+      WHERE id = ${leadId}
+    `
+  } catch {
+    /* collected mirror optional */
+  }
+  return true
+}
+
+function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").UnassignedPoolJob {
+  const ev = schedulerEventFromRow(row)
+  return {
+    id: ev.id,
+    customer_name: ev.customer_name,
+    customer_phone: ev.customer_phone,
+    location: ev.location,
+    neighborhood: neighborhoodFromLocation(ev.location),
+    summary: ev.summary,
+    job_type: ev.job_type,
+    vehicle_year: ev.vehicle_year,
+    vehicle_make: ev.vehicle_make,
+    vehicle_model: ev.vehicle_model,
+    job_notes: ev.job_notes,
+    scheduled_at: ev.scheduled_tentative ? null : ev.scheduled_at,
+    duration_minutes: ev.duration_minutes,
+    dispatch_status:
+      row.dispatch_status != null && String(row.dispatch_status).trim()
+        ? String(row.dispatch_status)
+        : "unassigned_pool",
+    created_at: ev.created_at,
+    latitude: ev.latitude,
+    longitude: ev.longitude,
+  }
+}
+
+/** Active unassigned jobs in the hopper for one owner workspace. */
+export async function listOwnerUnassignedPoolJobs(params: {
+  ownerUserId: string
+  organizationId?: string | null
+  limit?: number
+}): Promise<import("@/lib/types").UnassignedPoolJob[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(params.limit ?? 100, 1), 200)
+  const orgId = params.organizationId?.trim() || null
+  try {
+    const rows = orgId
+      ? await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${params.ownerUserId}
+            AND l.assigned_tech_id IS NULL
+            AND (l.job_status IS NULL OR l.job_status <> 'completed')
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+            AND (
+              l.dispatch_status = 'unassigned_pool'
+              OR l.dispatch_status IS NULL
+              OR l.collected->>'dispatch_status' = 'unassigned_pool'
+            )
+            AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
+          ORDER BY l.created_at DESC
+          LIMIT ${lim}
+        `
+      : await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${params.ownerUserId}
+            AND l.assigned_tech_id IS NULL
+            AND (l.job_status IS NULL OR l.job_status <> 'completed')
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+            AND (
+              l.dispatch_status = 'unassigned_pool'
+              OR l.dispatch_status IS NULL
+              OR l.collected->>'dispatch_status' = 'unassigned_pool'
+            )
+          ORDER BY l.created_at DESC
+          LIMIT ${lim}
+        `
+    return rows.map((r) => poolJobFromRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingSchedulerColumnError(e) || isMissingAssignedTechColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, caller_e164, collected, summary, disposition, created_at
+          FROM ai_leads
+          WHERE user_id = ${params.ownerUserId}
+            AND collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            AND (collected->>'assigned_tech_id' IS NULL OR collected->>'assigned_tech_id' = '')
+          ORDER BY created_at DESC
+          LIMIT ${lim}
+        `
+        return rows.map((r) => poolJobFromRow(r as Record<string, unknown>))
+      } catch (e2) {
+        if (isUndefinedRelationError(e2, "ai_leads")) return []
+        throw e2
+      }
+    }
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
+/** Unassigned pool jobs visible to a field tech (same owner roster). */
+export async function listUnassignedPoolForTech(techUserId: string, limit = 30): Promise<import("@/lib/types").UnassignedPoolJob[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+             l.assigned_tech_id, l.dispatch_status, NULL::text AS assigned_tech_name
+      FROM ai_leads l
+      INNER JOIN field_technicians ft ON ft.user_id = l.user_id AND ft.portal_user_id = ${techUserId} AND ft.is_active = true
+      WHERE l.assigned_tech_id IS NULL
+        AND (l.job_status IS NULL OR l.job_status <> 'completed')
+        AND (
+          l.disposition IN ('BOOKED', 'PENDING_TIME')
+          OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+        )
+        AND (
+          l.dispatch_status = 'unassigned_pool'
+          OR l.dispatch_status IS NULL
+          OR l.collected->>'dispatch_status' = 'unassigned_pool'
+        )
+      ORDER BY l.created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map((r) => poolJobFromRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingAssignedTechColumnError(e) || isUndefinedRelationError(e, "ai_leads")) return []
+    throw e
+  }
+}
+
+/** Tech claims an unassigned hopper job (atomic — fails if already taken). */
+export async function claimUnassignedJobForTech(
+  techUserId: string,
+  leadId: string
+): Promise<{ ok: boolean; ownerUserId: string | null; techName: string | null }> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE ai_leads l
+      SET assigned_tech_id = ${techUserId},
+          job_status = 'assigned',
+          dispatch_status = 'DISPATCHED',
+          collected = jsonb_set(
+            jsonb_set(
+              coalesce(l.collected, '{}'::jsonb),
+              '{assigned_tech_id}',
+              to_jsonb(${techUserId}::text),
+              true
+            ),
+            '{dispatch_status}',
+            '"DISPATCHED"'::jsonb,
+            true
+          )
+      FROM field_technicians ft
+      WHERE l.id = ${leadId}
+        AND l.assigned_tech_id IS NULL
+        AND (l.job_status IS NULL OR l.job_status <> 'completed')
+        AND ft.user_id = l.user_id
+        AND ft.portal_user_id = ${techUserId}
+        AND ft.is_active = true
+      RETURNING l.user_id AS owner_user_id, ft.name AS tech_name
+    `
+    const row = rows[0] as { owner_user_id?: string; tech_name?: string } | undefined
+    if (!row?.owner_user_id) return { ok: false, ownerUserId: null, techName: null }
+    const techName = row.tech_name != null ? String(row.tech_name) : null
+    if (techName) {
+      await sql`
+        UPDATE ai_leads
+        SET collected = jsonb_set(
+          coalesce(collected, '{}'::jsonb),
+          '{assigned_tech_name}',
+          to_jsonb(${techName}::text),
+          true
+        )
+        WHERE id = ${leadId}
+      `
+    }
+    return { ok: true, ownerUserId: String(row.owner_user_id), techName }
+  } catch (e) {
+    if (isMissingAssignedTechColumnError(e)) return { ok: false, ownerUserId: null, techName: null }
+    throw e
+  }
+}
+
+/** Owner schedules a hopper job onto the calendar and assigns a tech in one step. */
+export async function schedulePoolJobAndAssign(params: {
+  ownerUserId: string
+  leadId: string
+  scheduledAtIso: string
+  techUserId: string
+  techName: string
+}): Promise<import("@/lib/types").SchedulerEvent | null> {
+  const ok = await updateLeadScheduledAt(params.ownerUserId, params.leadId, params.scheduledAtIso)
+  if (!ok) return null
+  const assigned = await assignJobToTech(params.ownerUserId, params.leadId, params.techUserId)
+  if (!assigned) return null
+  const patch = {
+    assigned_tech_id: params.techUserId,
+    assigned_tech_name: params.techName,
+    dispatch_status: "DISPATCHED",
+  }
+  const sql = getSql()
+  await sql`
+    UPDATE ai_leads
+    SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+    WHERE id = ${params.leadId}
+  `
+  const rows = await sql`
+    SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+           l.assigned_tech_id, t.name AS assigned_tech_name
+    FROM ai_leads l
+    LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+    WHERE l.id = ${params.leadId} AND l.user_id = ${params.ownerUserId}
+    LIMIT 1
+  `
+  const row = rows[0] as Record<string, unknown> | undefined
+  return row ? schedulerEventFromRow(row) : null
+}
+
+/** Search pool + scheduled jobs by customer phone (E.164 or digits). */
+export async function searchOwnerJobsByPhone(params: {
+  ownerUserId: string
+  phoneQuery: string
+  organizationId?: string | null
+}): Promise<import("@/lib/types").SchedulerPhoneLookupResult> {
+  const e164 = normalizePhoneNumberE164(params.phoneQuery)
+  const digits = phoneDigitsKey(e164 || params.phoneQuery)
+  if (digits.length < 7) return { pool: [], scheduled: [] }
+
+  const sql = getSql()
+  const orgId = params.organizationId?.trim() || null
+  const phonePattern = `%${digits.slice(-10)}%`
+
+  try {
+    const rows = orgId
+      ? await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${params.ownerUserId}
+            AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
+            AND (
+              l.caller_e164 = ${e164}
+              OR regexp_replace(l.caller_e164, '\\D', '', 'g') LIKE ${phonePattern}
+              OR regexp_replace(coalesce(l.collected->>'callback_number', ''), '\\D', '', 'g') LIKE ${phonePattern}
+              OR regexp_replace(coalesce(l.collected->>'phone', ''), '\\D', '', 'g') LIKE ${phonePattern}
+            )
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+          ORDER BY coalesce(l.scheduled_at, l.created_at) DESC
+          LIMIT 40
+        `
+      : await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${params.ownerUserId}
+            AND (
+              l.caller_e164 = ${e164}
+              OR regexp_replace(l.caller_e164, '\\D', '', 'g') LIKE ${phonePattern}
+              OR regexp_replace(coalesce(l.collected->>'callback_number', ''), '\\D', '', 'g') LIKE ${phonePattern}
+              OR regexp_replace(coalesce(l.collected->>'phone', ''), '\\D', '', 'g') LIKE ${phonePattern}
+            )
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+          ORDER BY coalesce(l.scheduled_at, l.created_at) DESC
+          LIMIT 40
+        `
+    const pool: import("@/lib/types").UnassignedPoolJob[] = []
+    const scheduled: import("@/lib/types").SchedulerEvent[] = []
+    for (const r of rows) {
+      const row = r as Record<string, unknown>
+      const hasTech =
+        row.assigned_tech_id != null && String(row.assigned_tech_id).trim() !== ""
+      if (hasTech) scheduled.push(schedulerEventFromRow(row))
+      else pool.push(poolJobFromRow(row))
+    }
+    return { pool, scheduled }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return { pool: [], scheduled: [] }
+    throw e
+  }
 }
 
 /** Tech updates field progress on a job assigned to them. Returns false if not their job. */

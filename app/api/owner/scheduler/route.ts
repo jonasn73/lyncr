@@ -165,12 +165,20 @@ export async function POST(req: NextRequest) {
           lng = coords.lng
         }
       }
-      await setLeadStructuredAddress(event.id, { ...structuredAddress, lat, lng })
-      if (lat != null && lng != null) {
-        event = { ...event, latitude: lat, longitude: lng } satisfies SchedulerEvent
+      try {
+        await setLeadStructuredAddress(event.id, { ...structuredAddress, lat, lng })
+        if (lat != null && lng != null) {
+          event = { ...event, latitude: lat, longitude: lng } satisfies SchedulerEvent
+        }
+      } catch (addrErr) {
+        console.warn("[POST /api/owner/scheduler] address persist skipped:", addrErr)
       }
     } else {
-      await persistLeadAddressFromFields(event.id, extraCollected)
+      try {
+        await persistLeadAddressFromFields(event.id, extraCollected)
+      } catch (addrErr) {
+        console.warn("[POST /api/owner/scheduler] geocode persist skipped:", addrErr)
+      }
     }
 
     return NextResponse.json({ data: { event } })
