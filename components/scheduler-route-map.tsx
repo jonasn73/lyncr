@@ -14,7 +14,7 @@ import {
   isActiveMapJob,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
-import { spreadOverlappingPins } from "@/lib/map-pin-spread"
+import { expandBoundsForPins, spreadOverlappingPins } from "@/lib/map-pin-spread"
 import type { SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 type LeafletModule = typeof import("leaflet")
@@ -45,10 +45,10 @@ function routeStopIcon(L: LeafletModule, order: number, color: string) {
 
 function poolHopperIcon(L: LeafletModule, label: string) {
   return L.divIcon({
-    className: "hopper-pool-marker",
-    html: `<span class="hopper-pulse" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#a1a1aa,#78716c);border:2px solid #eab308;color:#fef9c3;font-size:10px;font-weight:800;box-shadow:0 0 0 0 rgba(234,179,8,0.55)">${label}</span>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    className: "",
+    html: `<span class="hopper-pulse" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#a1a1aa,#78716c);border:2px solid #eab308;color:#fef9c3;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.45)">${label}</span>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   })
 }
 
@@ -158,6 +158,7 @@ export function SchedulerRouteMap({
       const highlighted = highlightId === pin.job.id
       const marker = L.marker([pin.lat, pin.lng], {
         icon: poolHopperIcon(L, String(pin.poolIndex)),
+        zIndexOffset: pin.poolIndex * 250,
       })
         .bindPopup(
           `<strong>Pool #${pin.poolIndex}</strong> ${pin.job.customer_name ?? "Customer"}<br/>${pin.job.job_type ?? ""}<br/>${pin.job.neighborhood || pin.job.location || ""}`
@@ -197,8 +198,8 @@ export function SchedulerRouteMap({
     }
 
     if (latLngs.length > 0) {
-      const bounds = L.latLngBounds(latLngs)
-      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 })
+      const bounds = L.latLngBounds(expandBoundsForPins(latLngs))
+      map.fitBounds(bounds, { padding: [56, 56], maxZoom: poolPins.length > 1 && stops.length === 0 ? 12 : 14 })
     } else {
       map.setView([LOUISVILLE_MAP_CENTER.lat, LOUISVILLE_MAP_CENTER.lng], LOUISVILLE_DEFAULT_ZOOM)
     }
