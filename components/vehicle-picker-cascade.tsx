@@ -29,13 +29,17 @@ export function VehiclePickerCascade({ value, onChange, disabled }: VehiclePicke
   const years = vehicleYearOptions()
 
   useEffect(() => {
+    if (!value.vehicle_year) {
+      setMakes([])
+      return
+    }
     setLoadingMakes(true)
     void fetch("/api/vehicle/makes", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("makes"))))
       .then((j: { data?: { makes?: string[] } }) => setMakes(Array.isArray(j.data?.makes) ? j.data!.makes! : []))
       .catch(() => setMakes([]))
       .finally(() => setLoadingMakes(false))
-  }, [])
+  }, [value.vehicle_year])
 
   useEffect(() => {
     if (!value.vehicle_year || !value.vehicle_make) {
