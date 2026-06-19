@@ -49,7 +49,7 @@ const CACHE_MS = 1000 * 60 * 60 * 12
 
 /** NHTSA sometimes lists trailer/fabrication businesses under major make names — drop those. */
 const MODEL_JUNK_RE =
-  /\btrailer\b|trailers|\bllc\b|\binc\.?\b|\bmfg\b|manufactur|fabricat|\btanks\b|pipe\s*&|\bsupply\b|\bsteel\b|radiator|\bsales\b|motorhome|commercial chassis|travel park|aluminum|\bbuilt\b|\bsedan$/i|#\d/i
+  /\btrailer\b|trailers|\bllc\b|\binc\.?\b|\bmfg\b|manufactur|fabricat|\btanks\b|pipe\s*&|\bsupply\b|\bsteel\b|radiator|\bsales\b|motorhome|commercial chassis|travel park|aluminum|\bbuilt\b|\bsedan$|#\d/i
 
 export function vehicleYearOptions(): number[] {
   const now = new Date().getFullYear() + 1
