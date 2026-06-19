@@ -733,7 +733,10 @@ export function SchedulerWorkspaceView() {
             </p>
           ) : (
             <p className="mt-2 text-center text-xs text-zinc-500">
-              {events.length} job{events.length === 1 ? "" : "s"} this month
+              {events.length} scheduled this month
+              {poolJobs.length > 0
+                ? ` · ${poolJobs.length} in hopper`
+                : ""}
             </p>
           )}
         </WorkspacePanel>

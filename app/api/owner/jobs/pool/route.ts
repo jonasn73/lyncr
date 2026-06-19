@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { listOwnerUnassignedPoolJobs, setLeadCoordinates } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
+import { geocodeQueryForPoolLocation } from "@/lib/map-pin-spread"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     for (let i = 0; i < updated.length && geocoded < 5; i++) {
       const job = updated[i]
       if (job.latitude != null && job.longitude != null) continue
-      const address = job.location?.trim()
+      const address = geocodeQueryForPoolLocation(job.location)
       if (!address) continue
       const coords = await geocodeAddress(address)
       if (!coords) continue

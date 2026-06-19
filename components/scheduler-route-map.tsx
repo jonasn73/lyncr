@@ -14,6 +14,7 @@ import {
   isActiveMapJob,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
+import { spreadOverlappingPins } from "@/lib/map-pin-spread"
 import type { SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 type LeafletModule = typeof import("leaflet")
@@ -30,6 +31,7 @@ type PoolPin = {
   job: UnassignedPoolJob
   lat: number
   lng: number
+  poolIndex: number
 }
 
 function routeStopIcon(L: LeafletModule, order: number, color: string) {
@@ -41,12 +43,12 @@ function routeStopIcon(L: LeafletModule, order: number, color: string) {
   })
 }
 
-function poolHopperIcon(L: LeafletModule) {
+function poolHopperIcon(L: LeafletModule, label: string) {
   return L.divIcon({
     className: "hopper-pool-marker",
-    html: `<span class="hopper-pulse" style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#a1a1aa;border:2px solid #eab308;color:#fef9c3;font-size:10px;font-weight:800;box-shadow:0 0 0 0 rgba(234,179,8,0.55)">?</span>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
+    html: `<span class="hopper-pulse" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#a1a1aa,#78716c);border:2px solid #eab308;color:#fef9c3;font-size:10px;font-weight:800;box-shadow:0 0 0 0 rgba(234,179,8,0.55)">${label}</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   })
 }
 
@@ -95,10 +97,20 @@ export function SchedulerRouteMap({
   }, [events])
 
   const poolPins = useMemo((): PoolPin[] => {
-    return poolJobs
+    const mapped = poolJobs
       .filter((j) => typeof j.latitude === "number" && typeof j.longitude === "number")
-      .map((j) => ({ job: j, lat: j.latitude!, lng: j.longitude! }))
+      .map((j, idx) => ({ job: j, lat: j.latitude!, lng: j.longitude!, poolIndex: idx + 1 }))
+
+    return spreadOverlappingPins(mapped.map((p) => ({ lat: p.lat, lng: p.lng, data: p }))).map(
+      (spread) => spread.data
+    )
   }, [poolJobs])
+
+  const scheduledPins = useMemo(() => {
+    return spreadOverlappingPins(
+      stops.map((s) => ({ lat: s.lat, lng: s.lng, data: s }))
+    ).map((spread) => spread.data)
+  }, [stops])
 
   useEffect(() => {
     let cancelled = false
@@ -144,9 +156,11 @@ export function SchedulerRouteMap({
 
     for (const pin of poolPins) {
       const highlighted = highlightId === pin.job.id
-      const marker = L.marker([pin.lat, pin.lng], { icon: poolHopperIcon(L) })
+      const marker = L.marker([pin.lat, pin.lng], {
+        icon: poolHopperIcon(L, String(pin.poolIndex)),
+      })
         .bindPopup(
-          `<strong>Pool</strong> ${pin.job.customer_name ?? "Customer"}<br/>${pin.job.job_type ?? ""}<br/>${pin.job.neighborhood || pin.job.location || ""}`
+          `<strong>Pool #${pin.poolIndex}</strong> ${pin.job.customer_name ?? "Customer"}<br/>${pin.job.job_type ?? ""}<br/>${pin.job.neighborhood || pin.job.location || ""}`
         )
         .addTo(map)
       if (highlighted) marker.openPopup()
@@ -155,7 +169,7 @@ export function SchedulerRouteMap({
       latLngs.push([pin.lat, pin.lng])
     }
 
-    for (const stop of stops) {
+    for (const stop of scheduledPins) {
       const color = SCHEDULER_MAP_PIN_COLOR[stop.phase]
       const highlighted = highlightId === stop.event.id
       const marker = L.marker([stop.lat, stop.lng], { icon: routeStopIcon(L, stop.order, color) })
@@ -170,7 +184,10 @@ export function SchedulerRouteMap({
     }
 
     if (stops.length >= 2) {
-      const routeLatLngs = stops.map((s) => [s.lat, s.lng] as [number, number])
+      const routeLatLngs = scheduledPins
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((s) => [s.lat, s.lng] as [number, number])
       lineRef.current = L.polyline(routeLatLngs, {
         color: "#14b8a6",
         weight: 3,
@@ -185,7 +202,12 @@ export function SchedulerRouteMap({
     } else {
       map.setView([LOUISVILLE_MAP_CENTER.lat, LOUISVILLE_MAP_CENTER.lng], LOUISVILLE_DEFAULT_ZOOM)
     }
-  }, [stops, poolPins, ready, highlightId, onSelectEvent, onSelectPoolJob])
+  }, [stops, scheduledPins, poolPins, ready, highlightId, onSelectEvent, onSelectPoolJob])
+
+  const mappedPoolCount = poolJobs.filter(
+    (j) => typeof j.latitude === "number" && typeof j.longitude === "number"
+  ).length
+  const unmappedPoolCount = poolJobs.length - mappedPoolCount
 
   const activeEvents = events.filter((ev) =>
     isActiveMapJob(
@@ -217,8 +239,9 @@ export function SchedulerRouteMap({
           Route — {selectedDayLabel}
         </p>
         <p className="text-[10px] text-zinc-500">
-          {stops.length} scheduled · {poolPins.length} in pool
-          {missingCoords > 0 ? ` · ${missingCoords} awaiting geocode` : ""}
+          {stops.length} scheduled · {mappedPoolCount}/{poolJobs.length} pool on map
+          {unmappedPoolCount > 0 ? ` · ${unmappedPoolCount} geocoding` : ""}
+          {missingCoords > 0 ? ` · ${missingCoords} awaiting address` : ""}
         </p>
       </div>
       <div ref={containerRef} className="min-h-0 flex-1 bg-zinc-950" />
