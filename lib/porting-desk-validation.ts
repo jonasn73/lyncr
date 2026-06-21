@@ -32,6 +32,19 @@ export function portingPinPatternForOrder(order: PortingOrder): RegExp {
   return PORTING_PIN_FLEX_PATTERN
 }
 
+/**
+ * Value safe to show in the PIN field — ignores account SIDs, hashes, and other
+ * non-PIN data stored in porting_orders.pin_or_sid.
+ */
+export function storedPortingPinForDesk(order: PortingOrder): string {
+  const stored = (order.pin_or_sid ?? "").trim()
+  if (!stored) return ""
+  const pattern = portingPinPatternForOrder(order)
+  if (pattern.test(stored)) return stored
+  if (PORTING_PIN_FLEX_PATTERN.test(stored)) return stored
+  return ""
+}
+
 export function validatePortingDeskPin(pin: string, order: PortingOrder): PortingDeskValidationResult {
   const trimmed = pin.trim()
   if (!trimmed) {

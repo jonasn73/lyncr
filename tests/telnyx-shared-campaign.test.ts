@@ -10,6 +10,7 @@ import {
   requiresExactEightDigitWirelessPin,
   validatePortingDeskPin,
   validatePortingDeskSubmission,
+  storedPortingPinForDesk,
 } from "@/lib/porting-desk-validation"
 import type { PortingOrder } from "@/lib/types"
 
@@ -69,6 +70,13 @@ describe("porting-desk-validation", () => {
       message: "",
     })
     expect(result.ok).toBe(false)
+  })
+
+  it("does not treat Twilio SID / hash as a stored PIN for desk prefill", () => {
+    const order = { pin_or_sid: "64d4f49a0932d68b4c9d4b54c288e178" } as PortingOrder
+    expect(storedPortingPinForDesk(order)).toBe("")
+    const withPin = { pin_or_sid: "1234" } as PortingOrder
+    expect(storedPortingPinForDesk(withPin)).toBe("1234")
   })
 })
 

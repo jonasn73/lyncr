@@ -2,11 +2,12 @@
 
 // Carrier Transfer Desk — correction form with strict regex validation before Telnyx submit.
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Loader2, Send } from "lucide-react"
 import {
   portingPinPatternForOrder,
   requiresExactEightDigitWirelessPin,
+  storedPortingPinForDesk,
   validatePortingDeskSubmission,
 } from "@/lib/porting-desk-validation"
 import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
@@ -33,9 +34,14 @@ export function CarrierTransferDesk({
   conversationSnippets = [],
   onSubmit,
 }: Props) {
+  const initialPin = useMemo(() => storedPortingPinForDesk(order), [order])
   const [reply, setReply] = useState("")
-  const [pin, setPin] = useState(order.pin_or_sid ?? "")
+  const [pin, setPin] = useState(initialPin)
   const [fieldError, setFieldError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPin(storedPortingPinForDesk(order))
+  }, [order.id, order.pin_or_sid, order.updated_at, order])
 
   const pinRequired =
     pinCorrectionRequired ?? orderRequiresPinCorrection(order, conversationSnippets)
@@ -80,6 +86,7 @@ export function CarrierTransferDesk({
             type="text"
             inputMode="numeric"
             autoComplete="off"
+            name="lyncr-porting-pin"
             maxLength={8}
             value={pin}
             onChange={(e) => {
