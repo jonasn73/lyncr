@@ -3806,6 +3806,88 @@ export async function getDefaultOrganizationForOwner(ownerUserId: string): Promi
   return list.find((o) => o.is_default) ?? list[0] ?? null
 }
 
+/** Real workspace rows (excludes synthetic legacy-* placeholder). */
+export async function countRealOrganizationsForOwner(ownerUserId: string): Promise<number> {
+  const list = await listOrganizationsForOwner(ownerUserId)
+  return list.filter((o) => !o.id.startsWith("legacy-")).length
+}
+
+/**
+ * Pick organization_id for a new phone line.
+ * Multi-workspace owners must pass an explicit org — we do not silently attach to the default business.
+ */
+export async function resolveOrganizationIdForNewPhoneLine(
+  ownerUserId: string,
+  explicitOrganizationId?: string | null,
+  options?: { assignDefaultOrganization?: boolean }
+): Promise<string | null> {
+  if (explicitOrganizationId?.trim() && !explicitOrganizationId.startsWith("legacy-")) {
+    return explicitOrganizationId.trim()
+  }
+  if (options?.assignDefaultOrganization === false) return null
+  const realOrgCount = await countRealOrganizationsForOwner(ownerUserId)
+  if (realOrgCount > 1) return null
+  const def = await getDefaultOrganizationForOwner(ownerUserId)
+  if (def && !def.id.startsWith("legacy-")) return def.id
+  return null
+}
+
+/**
+ * Move auto-synced "Business Line" rows off the default workspace when they are not tied to that workspace.
+ * Runs once per GET /api/numbers/mine for multi-workspace accounts.
+ */
+export async function repairMisassignedDefaultOrgPhoneLines(ownerUserId: string): Promise<number> {
+  const realOrgCount = await countRealOrganizationsForOwner(ownerUserId)
+  if (realOrgCount <= 1) return 0
+
+  const defaultOrg = await getDefaultOrganizationForOwner(ownerUserId)
+  if (!defaultOrg || defaultOrg.id.startsWith("legacy-")) return 0
+
+  const sql = getSql()
+  const ports = await listPortingOrdersForOwner(ownerUserId)
+  const portOrgByNumber = new Map<string, string>()
+  for (const port of ports) {
+    const e164 = normalizePhoneNumberE164(port.phone_number)
+    if (!e164) continue
+    const orgId = port.organization_id?.trim()
+    if (orgId && !orgId.startsWith("legacy-")) portOrgByNumber.set(e164, orgId)
+  }
+
+  const numbers = await getPhoneNumbers(ownerUserId)
+  let fixed = 0
+  for (const row of numbers) {
+    if (row.organization_id !== defaultOrg.id) continue
+    const label = row.label?.trim() || "Business Line"
+    if (label !== "Business Line") continue
+
+    const e164 = normalizePhoneNumberE164(row.number)
+    const portOrg = portOrgByNumber.get(e164)
+    if (portOrg === defaultOrg.id) continue
+
+    if (portOrg) {
+      const moved = await sql`
+        UPDATE phone_numbers
+        SET organization_id = ${portOrg}
+        WHERE id = ${row.id} AND user_id = ${ownerUserId}
+        RETURNING id
+      `
+      if (moved.length > 0) fixed += 1
+      continue
+    }
+
+    const cleared = await sql`
+      UPDATE phone_numbers
+      SET organization_id = NULL
+      WHERE id = ${row.id} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    if (cleared.length > 0) fixed += 1
+  }
+
+  if (fixed > 0) clearIncomingRoutingCache()
+  return fixed
+}
+
 function isMissingSmsRegistrationsTableError(e: unknown): boolean {
   return isUndefinedRelationError(e, "sms_registrations")
 }
@@ -4791,15 +4873,17 @@ export async function insertPhoneNumber(params: {
   organization_id?: string | null
   source_provider?: "telnyx" | "external"
   external_verified?: boolean
+  /** When false, leave organization_id null unless explicitly passed (multi-workspace safe). */
+  assign_default_organization?: boolean
 }): Promise<PhoneNumber> {
   const sql = getSql()
   const id = crypto.randomUUID()
   const numberE164 = normalizePhoneNumberE164(params.number)
-  let organizationId = params.organization_id ?? null
-  if (!organizationId) {
-    const def = await getDefaultOrganizationForOwner(params.user_id)
-    if (def && !def.id.startsWith("legacy-")) organizationId = def.id
-  }
+  const organizationId = await resolveOrganizationIdForNewPhoneLine(
+    params.user_id,
+    params.organization_id ?? null,
+    { assignDefaultOrganization: params.assign_default_organization !== false }
+  )
   const source = params.source_provider ?? "telnyx"
   const extVerified = params.external_verified ?? source === "external"
   try {
@@ -4932,11 +5016,10 @@ export async function ensurePortingLineRecord(params: {
     return
   }
   if (porting) return
-  let organizationId = params.organization_id ?? null
-  if (!organizationId) {
-    const def = await getDefaultOrganizationForOwner(params.user_id)
-    if (def && !def.id.startsWith("legacy-")) organizationId = def.id
-  }
+  const organizationId = await resolveOrganizationIdForNewPhoneLine(
+    params.user_id,
+    params.organization_id ?? null
+  )
   await insertPhoneNumber({
     user_id: params.user_id,
     organization_id: organizationId,
@@ -5046,17 +5129,57 @@ export async function upsertCertificationModule(params: {
 export async function patchPhoneNumberForUser(
   phoneNumberId: string, // `phone_numbers.id` UUID
   userId: string, // Owner id — UPDATE is scoped so you cannot edit someone else’s number
-  updates: Partial<Pick<PhoneNumber, "label" | "friendly_name">> // At least one field should be set by the caller
+  updates: Partial<Pick<PhoneNumber, "label" | "friendly_name" | "organization_id">> // At least one field should be set by the caller
 ): Promise<boolean> {
   const sql = getSql() // Shared SQL client (Neon serverless)
-  if (updates.label === undefined && updates.friendly_name === undefined) {
+  if (
+    updates.label === undefined &&
+    updates.friendly_name === undefined &&
+    updates.organization_id === undefined
+  ) {
     return false // Nothing to write — treat as failed patch
   }
+  if (updates.organization_id !== undefined && updates.organization_id !== null) {
+    const org = await getOrganizationForOwner(updates.organization_id, userId)
+    if (!org || org.id.startsWith("legacy-")) return false
+  }
   let rows: { id: string }[] // Rows returned by RETURNING id (empty array ⇒ no permission / wrong id)
-  if (updates.label !== undefined && updates.friendly_name !== undefined) {
+  if (
+    updates.label !== undefined &&
+    updates.friendly_name !== undefined &&
+    updates.organization_id !== undefined
+  ) {
+    rows = await sql`
+      UPDATE phone_numbers
+      SET label = ${updates.label}, friendly_name = ${updates.friendly_name}, organization_id = ${updates.organization_id ?? null}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  } else if (updates.label !== undefined && updates.friendly_name !== undefined) {
     rows = await sql`
       UPDATE phone_numbers
       SET label = ${updates.label}, friendly_name = ${updates.friendly_name}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  } else if (updates.label !== undefined && updates.organization_id !== undefined) {
+    rows = await sql`
+      UPDATE phone_numbers
+      SET label = ${updates.label}, organization_id = ${updates.organization_id ?? null}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  } else if (updates.friendly_name !== undefined && updates.organization_id !== undefined) {
+    rows = await sql`
+      UPDATE phone_numbers
+      SET friendly_name = ${updates.friendly_name}, organization_id = ${updates.organization_id ?? null}
+      WHERE id = ${phoneNumberId} AND user_id = ${userId}
+      RETURNING id
+    `
+  } else if (updates.organization_id !== undefined) {
+    rows = await sql`
+      UPDATE phone_numbers
+      SET organization_id = ${updates.organization_id ?? null}
       WHERE id = ${phoneNumberId} AND user_id = ${userId}
       RETURNING id
     `

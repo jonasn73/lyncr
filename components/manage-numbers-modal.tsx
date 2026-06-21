@@ -36,6 +36,8 @@ type OwnedLine = {
   status: string
   /** phone_numbers.label — whisper name for this line */
   line_business_name: string
+  /** Workspace this line belongs to — null means unassigned */
+  organization_id: string | null
 }
 
 const DEFAULT_LINE_LABEL = "Main Line"
@@ -301,7 +303,9 @@ export function ManageNumbersModal({
   onBuyAnother?: () => void
 }) {
   const { toast } = useToast()
-  const { activeOrganizationId } = useDashboardWorkspace()
+  const { activeOrganizationId, organizations } = useDashboardWorkspace()
+  const realOrganizations = organizations.filter((org) => !org.id.startsWith("legacy-"))
+  const showWorkspacePicker = realOrganizations.length > 1
   const [lines, setLines] = useState<OwnedLine[]>([])
   const [loading, setLoading] = useState(false)
   const [billingCycleEnd, setBillingCycleEnd] = useState<string | null>(null)
@@ -315,15 +319,56 @@ export function ManageNumbersModal({
     )
   }, [])
 
+  const applyLineOrganization = useCallback((lineId: string, organizationId: string | null) => {
+    setLines((prev) =>
+      prev.map((line) => (line.id === lineId ? { ...line, organization_id: organizationId } : line))
+    )
+  }, [])
+
+  async function saveLineWorkspace(
+    lineId: string,
+    organizationId: string | null,
+    previousOrganizationId: string | null
+  ) {
+    applyLineOrganization(lineId, organizationId)
+    try {
+      const res = await fetch(`/api/numbers/${encodeURIComponent(lineId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(data.error || "Could not move line")
+      toast({
+        title: "Line moved",
+        description: organizationId
+          ? "This number now belongs to the selected business."
+          : "This number is unassigned — pick a business to show it on the Routing screen.",
+      })
+      dispatchBusinessNumbersChanged()
+    } catch (e) {
+      applyLineOrganization(lineId, previousOrganizationId)
+      toast({
+        variant: "destructive",
+        title: "Could not move line",
+        description: e instanceof Error ? e.message : "Try again in a moment.",
+      })
+    }
+  }
+
   const loadLines = useCallback(() => {
     setLoading(true)
     const orgQs = organizationQueryString(activeOrganizationId)
     void fetchOnboardingProfile()
       .then(({ profile }) => setBillingCycleEnd(profile?.billing_cycle_end?.trim() || null))
       .catch(() => setBillingCycleEnd(null))
-    fetch(`/api/numbers/mine${orgQs}`, { credentials: "include" })
+    fetch(`/api/numbers/mine`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
-      .then((data: { numbers?: { id?: string; number: string; status: string; label?: string }[] }) => {
+      .then(
+        (data: {
+          numbers?: { id?: string; number: string; status: string; label?: string; organization_id?: string | null }[]
+        }) => {
         const rows = Array.isArray(data.numbers) ? data.numbers : []
         setLines(
           rows
@@ -333,6 +378,7 @@ export function ManageNumbersModal({
               number: String(n.number),
               status: String(n.status),
               line_business_name: n.label?.trim() || DEFAULT_LINE_LABEL,
+              organization_id: n.organization_id != null ? String(n.organization_id) : null,
             }))
         )
       })
@@ -436,6 +482,27 @@ export function ManageNumbersModal({
                         onSaved={applyLineLabel}
                         onRevert={applyLineLabel}
                       />
+                      {showWorkspacePicker ? (
+                        <label className="mt-2 block text-[10px] text-zinc-500">
+                          Business
+                          <select
+                            value={line.organization_id ?? ""}
+                            disabled={releasingId != null}
+                            onChange={(e) => {
+                              const next = e.target.value.trim()
+                              void saveLineWorkspace(line.id, next ? next : null, line.organization_id)
+                            }}
+                            className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          >
+                            <option value="">Unassigned</option>
+                            {realOrganizations.map((org) => (
+                              <option key={org.id} value={org.id}>
+                                {org.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">

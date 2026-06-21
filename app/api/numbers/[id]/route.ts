@@ -59,16 +59,25 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing number id" }, { status: 400 }) // Path must include an id
   }
   try {
-    const body = (await req.json()) as Record<string, unknown> // Parse JSON: { label?, friendly_name? }
-    const patch: { label?: string; friendly_name?: string } = {} // Only fields we will send to the DB layer
+    const body = (await req.json()) as Record<string, unknown> // Parse JSON: { label?, friendly_name?, organization_id? }
+    const patch: { label?: string; friendly_name?: string; organization_id?: string | null } = {} // Only fields we will send to the DB layer
     if (typeof body?.label === "string") {
       patch.label = body.label.trim().slice(0, MAX_LINE_LABEL_LEN) // Normalize + cap length for safety
     }
     if (typeof body?.friendly_name === "string") {
       patch.friendly_name = body.friendly_name.trim().slice(0, 80) // Optional display form of the DID
     }
-    if (patch.label === undefined && patch.friendly_name === undefined) {
-      return NextResponse.json({ error: "Provide label and/or friendly_name" }, { status: 400 }) // Nothing to update
+    if (body?.organization_id === null) {
+      patch.organization_id = null
+    } else if (typeof body?.organization_id === "string" && body.organization_id.trim()) {
+      patch.organization_id = body.organization_id.trim()
+    }
+    if (
+      patch.label === undefined &&
+      patch.friendly_name === undefined &&
+      patch.organization_id === undefined
+    ) {
+      return NextResponse.json({ error: "Provide label, friendly_name, and/or organization_id" }, { status: 400 }) // Nothing to update
     }
     const ok = await patchPhoneNumberForUser(id, userId, patch) // false if id not owned by this user
     if (!ok) {

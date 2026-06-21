@@ -13,6 +13,7 @@ import {
   ensureOnboardingLineFromProfile,
   retryProvisionOnboardingBuyLine,
   effectiveAdminRoutingOverrideForPhoneLine,
+  repairMisassignedDefaultOrgPhoneLines,
 } from "@/lib/db"
 import { syncMissingTelnyxNumbersForUser } from "@/lib/telnyx-number-sync"
 import type { FallbackType, PhoneNumberRoutingSummary } from "@/lib/types"
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
     })
     await syncMissingTelnyxNumbersForUser(userId).catch((e) => {
       console.error("[numbers/mine] Telnyx→Neon number sync:", e)
+    })
+    await repairMisassignedDefaultOrgPhoneLines(userId).catch((e) => {
+      console.error("[numbers/mine] phone line workspace repair:", e)
     })
     await retryProvisionOnboardingBuyLine(userId)
     const orgParam = req.nextUrl.searchParams.get("organization_id")?.trim() || null
