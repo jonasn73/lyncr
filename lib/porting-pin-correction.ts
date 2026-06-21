@@ -1,6 +1,10 @@
 // PIN / passcode correction helpers for wireless port exceptions.
 
-import { validatePortingDeskPin, PORTING_PIN_FLEX_PATTERN } from "@/lib/porting-desk-validation"
+import {
+  storedPortingPinForDesk,
+  validatePortingDeskPin,
+  PORTING_PIN_FLEX_PATTERN,
+} from "@/lib/porting-desk-validation"
 import { looksLikePinPasscodeRejection } from "@/lib/telnyx-porting-webhook"
 import type { PortingOrder } from "@/lib/types"
 
@@ -39,4 +43,15 @@ export function orderRequiresPinCorrection(
   }
 
   return false
+}
+
+/** PIN already saved on the order while Telnyx is still re-reviewing an exception. */
+export function orderPinSavedAwaitingCarrierReview(
+  order: PortingOrder,
+  conversationSnippets: string[] = []
+): boolean {
+  if (!storedPortingPinForDesk(order)) return false
+  const telnyx = (order.telnyx_status ?? "").toLowerCase()
+  if (!telnyx.includes("exception")) return false
+  return orderRequiresPinCorrection(order, conversationSnippets)
 }

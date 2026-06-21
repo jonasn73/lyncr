@@ -13,10 +13,10 @@ import {
 } from "@/lib/porting-display"
 import { dedupePortingConversationItems } from "@/lib/porting-conversation-dedupe"
 import { buildCarrierLookupBanner } from "@/lib/porting-carrier-lookup-guide"
+import { toast } from "sonner"
 import { CarrierTransferDesk } from "@/components/dashboard/carrier-transfer-desk"
 import { dispatchPortingOrdersChanged } from "@/components/dashboard-numbers-modal-context"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
 import type { OwnerPortingDeskDetail, PortingConversationItem } from "@/lib/types"
 
 type Props = {
@@ -174,10 +174,10 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
 }
 
 export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props) {
-  const { toast } = useToast()
   const [detail, setDetail] = useState<OwnerPortingDeskDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | null>(null)
 
   const loadDesk = useCallback(async () => {
     if (!orderId) return
@@ -192,20 +192,19 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
       setDetail(json.data as OwnerPortingDeskDetail)
       dispatchPortingOrdersChanged()
     } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Could not open transfer desk",
+      toast.error("Could not open transfer desk", {
         description: e instanceof Error ? e.message : "Try again.",
       })
     } finally {
       setLoading(false)
     }
-  }, [orderId, toast])
+  }, [orderId])
 
   useEffect(() => {
     if (open && orderId) void loadDesk()
     if (!open) {
       setDetail(null)
+      setSubmitSuccessMessage(null)
     }
   }, [open, orderId, loadDesk])
 
@@ -229,20 +228,19 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || "Send failed")
-      toast({
-        title: payload.pin ? "PIN saved to carrier" : "Correction submitted",
-        description:
-          json.message ||
-          (payload.pin
-            ? "Telnyx accepted your PIN — the port should move back into review shortly."
-            : "Carrier desk received your update for this line."),
+      const successText =
+        json.message ||
+        (payload.pin
+          ? "PIN saved on your port order. Telnyx is re-reviewing your transfer."
+          : "Carrier desk received your update for this line.")
+      setSubmitSuccessMessage(successText)
+      toast.success(payload.pin ? "PIN saved to carrier" : "Correction submitted", {
+        description: successText,
       })
       dispatchPortingOrdersChanged()
       await loadDesk()
     } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Could not send",
+      toast.error("Could not send correction", {
         description: e instanceof Error ? e.message : "Try again.",
       })
     } finally {
@@ -288,6 +286,8 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
                 order={detail.order}
                 sending={sending}
                 pinCorrectionRequired={detail.pin_correction_required}
+                pinSavedPendingReview={detail.pin_saved_pending_review}
+                submitSuccessMessage={submitSuccessMessage}
                 conversationSnippets={detail.conversation.slice(-8).map((item) => item.body)}
                 onSubmit={submitCorrection}
               />

@@ -3,7 +3,7 @@
 // Carrier Transfer Desk — correction form with strict regex validation before Telnyx submit.
 
 import { useEffect, useMemo, useState } from "react"
-import { Loader2, Send } from "lucide-react"
+import { Loader2, Send, CheckCircle2 } from "lucide-react"
 import {
   portingPinPatternForOrder,
   requiresExactEightDigitWirelessPin,
@@ -23,6 +23,8 @@ type Props = {
   order: PortingOrder
   sending: boolean
   pinCorrectionRequired?: boolean
+  pinSavedPendingReview?: boolean
+  submitSuccessMessage?: string | null
   conversationSnippets?: string[]
   onSubmit: (payload: CarrierTransferDeskSubmitPayload) => void | Promise<void>
 }
@@ -31,6 +33,8 @@ export function CarrierTransferDesk({
   order,
   sending,
   pinCorrectionRequired,
+  pinSavedPendingReview,
+  submitSuccessMessage,
   conversationSnippets = [],
   onSubmit,
 }: Props) {
@@ -38,6 +42,7 @@ export function CarrierTransferDesk({
   const [reply, setReply] = useState("")
   const [pin, setPin] = useState(initialPin)
   const [fieldError, setFieldError] = useState<string | null>(null)
+  const [showPinEditor, setShowPinEditor] = useState(false)
 
   useEffect(() => {
     setPin(storedPortingPinForDesk(order))
@@ -45,6 +50,12 @@ export function CarrierTransferDesk({
 
   const pinRequired =
     pinCorrectionRequired ?? orderRequiresPinCorrection(order, conversationSnippets)
+  const pinPendingReview =
+    pinSavedPendingReview ??
+    (Boolean(storedPortingPinForDesk(order)) &&
+      (order.telnyx_status ?? "").toLowerCase().includes("exception") &&
+      pinRequired === false)
+  const showPinForm = pinRequired || (pinPendingReview && showPinEditor)
   const pinPattern = useMemo(() => portingPinPatternForOrder(order), [order])
   const exactEight = requiresExactEightDigitWirelessPin(order)
   const pinHint = exactEight
@@ -54,9 +65,10 @@ export function CarrierTransferDesk({
       : "4–8 digits if correcting a PIN/passcode."
 
   function handleSubmit() {
+    const needsPin = pinRequired || (pinPendingReview && showPinEditor)
     const validation = validatePortingDeskSubmission({
       order,
-      pinRequired,
+      pinRequired: needsPin,
       pin,
       message: reply,
     })
@@ -69,17 +81,46 @@ export function CarrierTransferDesk({
     const messageTrimmed = reply.trim()
     void onSubmit({
       pin: pinTrimmed || undefined,
-      message: pinRequired ? undefined : messageTrimmed || undefined,
+      message: needsPin ? undefined : messageTrimmed || undefined,
     })
   }
 
   const pinTrimmed = pin.trim()
   const pinInvalid = pinTrimmed.length > 0 && !pinPattern.test(pinTrimmed)
-  const submitBlocked = pinRequired && !pinPattern.test(pinTrimmed)
+  const submitBlocked = (pinRequired || (pinPendingReview && showPinEditor)) && !pinPattern.test(pinTrimmed)
 
   return (
     <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-      {pinRequired || order.status === "rejected" ? (
+      {submitSuccessMessage ? (
+        <div
+          className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-3 py-2.5 text-xs text-emerald-100"
+          role="status"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+          <p>{submitSuccessMessage}</p>
+        </div>
+      ) : null}
+
+      {pinPendingReview && !showPinForm ? (
+        <div className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-3 py-3">
+          <p className="text-xs font-medium text-emerald-100">
+            PIN on file — carrier is re-reviewing your transfer
+          </p>
+          <p className="text-[11px] leading-snug text-emerald-200/80">
+            Telnyx may still show a red PIN warning for a few minutes while they process your correction.
+            You do not need to submit again unless the carrier rejects a different PIN.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowPinEditor(true)}
+            className="text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline"
+          >
+            Use a different PIN
+          </button>
+        </div>
+      ) : null}
+
+      {showPinForm || order.status === "rejected" ? (
         <label className="block text-xs font-medium text-red-200/90">
           Correct Account PIN/Passcode
           <input
@@ -99,14 +140,16 @@ export function CarrierTransferDesk({
               "mt-1 w-full rounded-lg border bg-zinc-950 px-3 py-2 text-sm text-foreground",
               pinInvalid || fieldError?.toLowerCase().includes("pin")
                 ? "border-red-500 ring-1 ring-red-500/40"
-                : "border-red-500/40"
+                : pinPendingReview
+                  ? "border-emerald-500/40"
+                  : "border-red-500/40"
             )}
           />
           <span className="mt-1 block text-[10px] text-red-200/70">{pinHint}</span>
         </label>
       ) : null}
 
-      {!pinRequired ? (
+      {!pinRequired && !pinPendingReview ? (
         <label className="block text-xs font-medium text-zinc-400">
           Reply / Provide Missing Info to Carrier Desk
           <textarea
@@ -142,6 +185,7 @@ export function CarrierTransferDesk({
         </p>
       ) : null}
 
+      {!(pinPendingReview && !showPinForm) ? (
       <button
         type="button"
         disabled={sending || !order.id || submitBlocked}
@@ -151,6 +195,7 @@ export function CarrierTransferDesk({
         {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
         Submit Correction to Carrier
       </button>
+      ) : null}
     </div>
   )
 }

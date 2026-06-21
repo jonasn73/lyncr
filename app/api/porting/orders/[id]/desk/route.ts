@@ -10,7 +10,10 @@ import {
 } from "@/lib/db"
 import { buildPortingConversationFeed } from "@/lib/porting-conversation-feed"
 import { buildOwnerPortingPipeline, getPortingBannerPhase } from "@/lib/porting-lifecycle"
-import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
+import {
+  orderPinSavedAwaitingCarrierReview,
+  orderRequiresPinCorrection,
+} from "@/lib/porting-pin-correction"
 import {
   backfillPortingNotificationsFromTelnyxComments,
   backfillPortingExceptionsFromTelnyxOrder,
@@ -61,7 +64,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const conversation = buildPortingConversationFeed(notifications, telnyxComments)
   const conversationSnippets = conversation.slice(-8).map((item) => item.body)
-  const pin_correction_required = orderRequiresPinCorrection(order, conversationSnippets)
+  const pin_saved_pending_review = orderPinSavedAwaitingCarrierReview(order, conversationSnippets)
+  const pin_correction_required =
+    orderRequiresPinCorrection(order, conversationSnippets) && !pin_saved_pending_review
 
   const detail: OwnerPortingDeskDetail = {
     order,
@@ -71,6 +76,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     unread_count: unreadCount,
     banner_phase: getPortingBannerPhase(order, unreadCount),
     pin_correction_required,
+    pin_saved_pending_review,
   }
 
   if (req.nextUrl.searchParams.get("mark_read") === "1" && notifications.length > 0) {

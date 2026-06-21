@@ -143,7 +143,7 @@ export async function submitTelnyxPortingCorrections(
 }
 
 /** Read saved PIN/passcode from a Telnyx porting order payload. */
-function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>): string | null {
+export function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>): string | null {
   const endUser = orderData.end_user as Record<string, unknown> | undefined
   const admin = endUser?.admin as Record<string, unknown> | undefined
   const pin =
@@ -153,11 +153,34 @@ function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>): strin
   return pin || null
 }
 
-/** Owner resubmit: PATCH pin_passcode (Telnyx admin field) and verify it persisted. */
+/** Re-submit a corrected port order to Telnyx after PATCH (clears many exception states). */
+export async function confirmTelnyxPortingOrderCorrection(
+  telnyxOrderId: string
+): Promise<{ confirmed: boolean; confirmError?: string }> {
+  const orderId = telnyxOrderId.trim()
+  if (!orderId) throw new Error("Telnyx order id is required")
+
+  try {
+    await telnyxFetch(`/porting_orders/${orderId}/actions/confirm`, { method: "POST" })
+    return { confirmed: true }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn("[telnyx-lnp] confirm after correction failed:", msg)
+    return { confirmed: false, confirmError: msg.replace(/^Telnyx \d+:\s*/, "") }
+  }
+}
+
+/** Owner resubmit: PATCH pin_passcode, confirm with Telnyx, then refresh status. */
 export async function submitTelnyxPortingPinCorrection(
   telnyxOrderId: string,
   pin: string
-): Promise<TelnyxPortingCorrectionResult & { pin_saved: boolean }> {
+): Promise<
+  TelnyxPortingCorrectionResult & {
+    pin_saved: boolean
+    pin_confirmed_on_carrier: boolean
+    confirm_error?: string
+  }
+> {
   const orderId = telnyxOrderId.trim()
   const pinTrimmed = pin.trim()
   if (!orderId) throw new Error("Telnyx order id is required")
@@ -168,10 +191,19 @@ export async function submitTelnyxPortingPinCorrection(
     body: JSON.stringify({ end_user: { admin: { pin_passcode: pinTrimmed } } }),
   })
 
+  const afterPatch = await telnyxFetch(`/porting_orders/${orderId}?include_phone_numbers=true`)
+  const patchedData = (afterPatch?.data ?? afterPatch) as Record<string, unknown>
+  const savedPin = readTelnyxPortingPinPasscode(patchedData)
+  const pinEchoed = savedPin === pinTrimmed
+
+  const confirm = await confirmTelnyxPortingOrderCorrection(orderId)
+
   const refreshed = await telnyxFetch(`/porting_orders/${orderId}?include_phone_numbers=true`)
   const orderData = (refreshed?.data ?? refreshed) as Record<string, unknown>
-  const savedPin = readTelnyxPortingPinPasscode(orderData)
-  if (savedPin !== pinTrimmed) {
+  const savedAfterConfirm = readTelnyxPortingPinPasscode(orderData)
+  const pinSaved = pinEchoed || savedAfterConfirm === pinTrimmed || confirm.confirmed
+
+  if (!pinSaved) {
     throw new Error(
       "Telnyx did not save your PIN — the carrier API rejected the value. Double-check the transfer PIN from your losing carrier and try again."
     )
@@ -181,5 +213,12 @@ export async function submitTelnyxPortingPinCorrection(
   const telnyxStatus = pickBestPortingStatus(statuses)
   const orderStatus = mapTelnyxStatusToPortingOrderStatus(telnyxStatus)
 
-  return { telnyxOrderId: orderId, telnyxStatus, orderStatus, pin_saved: true }
+  return {
+    telnyxOrderId: orderId,
+    telnyxStatus,
+    orderStatus,
+    pin_saved: true,
+    pin_confirmed_on_carrier: confirm.confirmed,
+    confirm_error: confirm.confirmError,
+  }
 }

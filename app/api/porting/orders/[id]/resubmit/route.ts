@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getPortingOrderByIdForOwner, patchPortingOrderFields } from "@/lib/db"
+import { getPortingOrderByIdForOwner, insertPortingNotificationIfNew, patchPortingOrderFields } from "@/lib/db"
 import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
 import { validatePortingDeskSubmission } from "@/lib/porting-desk-validation"
 import { createTelnyxPortingOrderComment } from "@/lib/telnyx-porting-orders"
@@ -75,14 +75,30 @@ async function handleResubmit(req: NextRequest, id: string) {
   }
 
   try {
+    let pinSavedPendingReview = false
+
     if (pin) {
       const telnyx = await submitTelnyxPortingPinCorrection(telnyxOrderId, pin)
       const stillException = telnyx.telnyxStatus.toLowerCase().includes("exception")
+      pinSavedPendingReview = stillException
       await patchPortingOrderFields(id, {
         pin_or_sid: pin,
         status: stillException ? "action_required" : telnyx.orderStatus,
         telnyx_status: telnyx.telnyxStatus,
         carrier_rejection_reason: stillException ? order.carrier_rejection_reason : null,
+      })
+
+      await insertPortingNotificationIfNew({
+        userId,
+        organizationId: order.organization_id,
+        telnyxEventId: `lyncr-pin-correction-${id}-${Date.now()}`,
+        portingOrderId: telnyxOrderId,
+        eventType: "lyncr.porting.pin_correction",
+        title: "PIN correction submitted",
+        body: telnyx.pin_confirmed_on_carrier
+          ? "✅ PIN saved and sent back to the carrier for review."
+          : "✅ PIN saved on your port order. Telnyx is re-reviewing — the portal may still show red until they process it.",
+        rawPayload: { pin_saved: true, telnyx_status: telnyx.telnyxStatus },
       })
     }
 
@@ -99,16 +115,20 @@ async function handleResubmit(req: NextRequest, id: string) {
     }
 
     const pinSaved = Boolean(pin)
+
     return NextResponse.json({
       success: true,
       message: pinSaved
-        ? "PIN saved on your carrier port order. Telnyx is re-reviewing the transfer — refresh the portal in a minute to confirm."
+        ? pinSavedPendingReview
+          ? "PIN saved on your port order. Telnyx is re-reviewing — you may still see a red warning in their portal for a few minutes."
+          : "PIN saved and sent back to the carrier. Your transfer is moving forward."
         : "Correction submitted to the carrier desk for this line.",
       data: {
         porting_order_id: id,
         telnyx_order_id: telnyxOrderId,
         phone_number: order.phone_number,
         pin_saved: pinSaved,
+        pin_saved_pending_review: pinSaved && pinSavedPendingReview,
       },
     })
   } catch (e) {

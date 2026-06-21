@@ -913,6 +913,8 @@ export interface OwnerPortingDeskDetail {
   banner_phase: "in_progress" | "action_needed" | "rejected"
   /** True when UI should show PIN field + block chat-only resubmit. */
   pin_correction_required: boolean
+  /** True when PIN is on file but Telnyx still shows a PIN exception (awaiting re-review). */
+  pin_saved_pending_review: boolean
 }
 
 /** Admin porting desk — order detail bundle for GET /api/admin/porting/[id]. */
