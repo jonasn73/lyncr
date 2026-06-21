@@ -10,6 +10,7 @@ import {
   FileUp,
   Loader2,
   MessageSquare,
+  RefreshCw,
   Send,
 } from "lucide-react"
 import type { AdminPortingDeskDetail, PortingOrder } from "@/lib/types"
@@ -57,6 +58,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
   const [detail, setDetail] = useState<AdminPortingDeskDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const [accountNumber, setAccountNumber] = useState("")
   const [pin, setPin] = useState("")
@@ -177,11 +179,36 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
     }
   }
 
+  async function refreshDesk() {
+    setRefreshing(true)
+    try {
+      await loadOrders()
+      if (selectedId) await loadDetail(selectedId)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   return (
     <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-      <div className="flex items-center gap-2">
-        <ArrowRightLeft className="h-4 w-4 text-orange-300" aria-hidden />
-        <Label className="text-slate-200">Porting control desk</Label>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ArrowRightLeft className="h-4 w-4 text-orange-300" aria-hidden />
+          <Label className="text-slate-200">Porting control desk</Label>
+        </div>
+        {orders.length > 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-[10px] text-slate-400 hover:text-slate-200"
+            disabled={refreshing || ordersLoading || detailLoading}
+            onClick={() => void refreshDesk()}
+          >
+            <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} aria-hidden />
+            Refresh from Telnyx
+          </Button>
+        ) : null}
       </div>
 
       {ordersLoading ? (

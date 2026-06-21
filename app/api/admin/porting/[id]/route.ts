@@ -13,7 +13,15 @@ import {
   isPortingNotificationActionNeeded,
   latestActionNeededNotification,
 } from "@/lib/porting-notification-ui"
-import { labelForPortingStatus } from "@/lib/telnyx-porting-status"
+import {
+  backfillPortingExceptionsFromTelnyxOrder,
+  backfillPortingNotificationsFromTelnyxComments,
+  syncPortingOrderFromTelnyxLive,
+} from "@/lib/porting-telnyx-sync"
+import {
+  labelForPortingStatus,
+  resolveLiveTelnyxPortStatus,
+} from "@/lib/telnyx-porting-status"
 import { submitTelnyxPortingCorrections } from "@/lib/telnyx-lnp-update"
 import {
   createTelnyxPortingOrderComment,
@@ -25,10 +33,28 @@ import type { AdminPortingCorrectionRequest, AdminPortingDeskDetail } from "@/li
 export const dynamic = "force-dynamic"
 
 async function loadDeskDetail(orderId: string): Promise<AdminPortingDeskDetail | null> {
-  const order = await getPortingOrderById(orderId)
+  let order = await getPortingOrderById(orderId)
   if (!order) return null
 
   const telnyxOrderId = order.telnyx_order_id?.trim() || ""
+
+  // Pull live Telnyx state when webhooks lag (also fixes stale DB status in admin desk).
+  order = await syncPortingOrderFromTelnyxLive(order)
+
+  if (telnyxOrderId) {
+    await Promise.all([
+      backfillPortingNotificationsFromTelnyxComments({
+        ownerUserId: order.owner_user_id,
+        telnyxOrderId,
+      }),
+      backfillPortingExceptionsFromTelnyxOrder({
+        ownerUserId: order.owner_user_id,
+        telnyxOrderId,
+        organizationId: order.organization_id,
+      }),
+    ]).catch((e) => console.warn("[admin/porting] notification backfill:", e))
+  }
+
   const [notifications, telnyxComments, telnyxLive] = await Promise.all([
     telnyxOrderId
       ? listPortingNotificationsChronological(order.owner_user_id, telnyxOrderId)
@@ -39,10 +65,7 @@ async function loadDeskDetail(orderId: string): Promise<AdminPortingDeskDetail |
     telnyxOrderId ? fetchTelnyxPortingOrderById(telnyxOrderId) : Promise.resolve(null),
   ])
 
-  const liveStatus =
-    telnyxLive != null
-      ? String(telnyxLive.porting_order_status ?? telnyxLive.status ?? order.telnyx_status ?? "")
-      : order.telnyx_status
+  const liveStatus = resolveLiveTelnyxPortStatus(telnyxLive, order.telnyx_status)
 
   const actionAlerts = notifications.filter((n) =>
     isPortingNotificationActionNeeded(n.event_type, n.title)
@@ -58,9 +81,9 @@ async function loadDeskDetail(orderId: string): Promise<AdminPortingDeskDetail |
     telnyx_comments: [...telnyxComments].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     ),
-    telnyx_live_status: liveStatus || null,
-    telnyx_status_label: labelForPortingStatus(String(liveStatus ?? "draft").toLowerCase().replace(/_/g, "-")),
-    pipeline_steps: buildAdminPortingPipeline(order),
+    telnyx_live_status: liveStatus,
+    telnyx_status_label: labelForPortingStatus(liveStatus),
+    pipeline_steps: buildAdminPortingPipeline({ ...order, telnyx_status: liveStatus }),
     action_alerts: actionAlerts,
   }
 }

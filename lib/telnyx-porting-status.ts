@@ -108,5 +108,19 @@ export function pickBestPortingStatus(statuses: string[]): string {
 }
 
 export function labelForPortingStatus(status: string): string {
-  return PORTING_STATUS_LABELS[status] || status.replace(/-/g, " ")
+  const normalized = normalizeTelnyxPortStatus(status)
+  return PORTING_STATUS_LABELS[normalized] || normalized.replace(/-/g, " ")
+}
+
+/** Merge live Telnyx order payload into one normalized status string (never "[object Object]"). */
+export function resolveLiveTelnyxPortStatus(
+  telnyxOrder: Record<string, unknown> | null | undefined,
+  fallback?: string | null
+): string {
+  if (telnyxOrder) {
+    const statuses = collectPortingStatuses(telnyxOrder)
+    if (statuses.length > 0) return pickBestPortingStatus(statuses)
+  }
+  const fb = fallback?.trim()
+  return fb ? normalizeTelnyxPortStatus(fb) : "draft"
 }

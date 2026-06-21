@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { shouldAdvancePortingOrderStatus, shouldUpdateTelnyxStatus } from "@/lib/porting-order-sync"
 import { extractPortingOrderRecord } from "@/lib/telnyx-porting-webhook"
-import { collectPortingStatuses, pickBestPortingStatus } from "@/lib/telnyx-porting-status"
+import { collectPortingStatuses, pickBestPortingStatus, resolveLiveTelnyxPortStatus, labelForPortingStatus } from "@/lib/telnyx-porting-status"
 import { mapTelnyxStatusToPortingOrderStatus } from "@/lib/db"
 
 describe("porting-order-sync", () => {
@@ -38,5 +38,16 @@ describe("porting-order-sync", () => {
   it("does not regress telnyx_status from ported to draft", () => {
     expect(shouldUpdateTelnyxStatus("ported", "draft")).toBe(false)
     expect(shouldUpdateTelnyxStatus("in-process", "foc-date-confirmed")).toBe(true)
+  })
+
+  it("resolves object porting_order_status without [object Object]", () => {
+    const live = {
+      porting_order_status: {
+        value: "exception",
+        details: [{ description: "Passcode/pin must be provided for wireless port." }],
+      },
+    }
+    expect(resolveLiveTelnyxPortStatus(live)).toBe("exception")
+    expect(labelForPortingStatus(resolveLiveTelnyxPortStatus(live))).toBe("Rejected or action needed")
   })
 })
