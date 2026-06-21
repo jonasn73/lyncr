@@ -1,5 +1,6 @@
 // Owner-facing porting lifecycle — banner phases, pipeline steps, active-order filters.
 
+import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
 import type { PortingOrder, PortingOrderStatus } from "@/lib/types"
 
 export type PortingBannerPhase = "in_progress" | "action_needed" | "rejected"
@@ -25,10 +26,11 @@ export function isActivePortingOrder(order: PortingOrder): boolean {
   return !TERMINAL_STATUSES.includes(order.status)
 }
 
-/** Banner priority: rejected > action_needed > in_progress. */
+/** Banner priority: rejected > action_needed (incl. PIN) > in_progress. */
 export function getPortingBannerPhase(order: PortingOrder, unreadNotificationCount: number): PortingBannerPhase {
   if (order.status === "rejected") return "rejected"
   if (
+    orderRequiresPinCorrection(order) ||
     order.status === "action_required" ||
     order.status === "pending_info" ||
     unreadNotificationCount > 0

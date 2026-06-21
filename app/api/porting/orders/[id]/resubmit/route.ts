@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getPortingOrderByIdForOwner, patchPortingOrderFields } from "@/lib/db"
+import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
+import { validatePortingDeskSubmission } from "@/lib/porting-desk-validation"
 import { createTelnyxPortingOrderComment } from "@/lib/telnyx-porting-orders"
 import { submitTelnyxPortingPinCorrection } from "@/lib/telnyx-lnp-update"
 
@@ -49,6 +51,24 @@ async function handleResubmit(req: NextRequest, id: string) {
 
   const message = String(body.message ?? body.body ?? "").trim()
   const pin = String(body.pin ?? body.pin_or_sid ?? "").trim()
+  const pinRequired = orderRequiresPinCorrection(order)
+
+  const deskValidation = validatePortingDeskSubmission({
+    order,
+    pinRequired,
+    pin,
+    message,
+  })
+  if (!deskValidation.ok) {
+    return NextResponse.json({ error: deskValidation.message }, { status: 400 })
+  }
+
+  if (pinRequired && !pin) {
+    return NextResponse.json(
+      { error: "Enter your 4–8 digit transfer PIN to clear this carrier exception." },
+      { status: 400 }
+    )
+  }
 
   if (!message && !pin) {
     return NextResponse.json({ error: "Enter a correction message or updated PIN" }, { status: 400 })
@@ -59,13 +79,20 @@ async function handleResubmit(req: NextRequest, id: string) {
       const telnyx = await submitTelnyxPortingPinCorrection(telnyxOrderId, pin)
       await patchPortingOrderFields(id, {
         pin_or_sid: pin,
-        status: telnyx.orderStatus === "rejected" ? "action_required" : telnyx.orderStatus,
+        status:
+          telnyx.orderStatus === "rejected" && pinRequired
+            ? "action_required"
+            : telnyx.orderStatus === "rejected"
+              ? "action_required"
+              : telnyx.orderStatus,
         telnyx_status: telnyx.telnyxStatus,
-        carrier_rejection_reason: null,
+        carrier_rejection_reason: telnyx.telnyxStatus.toLowerCase().includes("exception")
+          ? order.carrier_rejection_reason
+          : null,
       })
     }
 
-    if (message) {
+    if (message && !pinRequired) {
       if (message.length > 8000) {
         return NextResponse.json({ error: "Message too long" }, { status: 400 })
       }

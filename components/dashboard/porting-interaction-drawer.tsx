@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Check, Lightbulb, Loader2, MessageSquare, Send, Truck } from "lucide-react"
+import { Check, Lightbulb, Loader2, MessageSquare, Truck } from "lucide-react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { DrawerScrollBody, DrawerStepHeader } from "@/components/dashboard-routing-drawer-shared"
@@ -13,6 +13,7 @@ import {
 } from "@/lib/porting-display"
 import { dedupePortingConversationItems } from "@/lib/porting-conversation-dedupe"
 import { buildCarrierLookupBanner } from "@/lib/porting-carrier-lookup-guide"
+import { CarrierTransferDesk } from "@/components/dashboard/carrier-transfer-desk"
 import { dispatchPortingOrdersChanged } from "@/components/dashboard-numbers-modal-context"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -176,8 +177,6 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
   const { toast } = useToast()
   const [detail, setDetail] = useState<OwnerPortingDeskDetail | null>(null)
   const [loading, setLoading] = useState(false)
-  const [reply, setReply] = useState("")
-  const [pin, setPin] = useState("")
   const [sending, setSending] = useState(false)
 
   const loadDesk = useCallback(async () => {
@@ -191,7 +190,6 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || "Could not load transfer details")
       setDetail(json.data as OwnerPortingDeskDetail)
-      setPin(json.data?.order?.pin_or_sid ?? "")
       dispatchPortingOrdersChanged()
     } catch (e) {
       toast({
@@ -208,19 +206,13 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
     if (open && orderId) void loadDesk()
     if (!open) {
       setDetail(null)
-      setReply("")
     }
   }, [open, orderId, loadDesk])
 
-  async function sendUpdate() {
+  async function submitCorrection(payload: { pin?: string; message?: string }) {
     const target = detail?.order
     if (!orderId || !target?.id) return
-    const message = reply.trim()
-    const pinTrimmed = pin.trim()
-    if (!message && !pinTrimmed) {
-      toast({ variant: "destructive", title: "Add a reply or corrected PIN" })
-      return
-    }
+
     setSending(true)
     try {
       const res = await fetch(`/api/porting/orders/${encodeURIComponent(target.id)}/resubmit`, {
@@ -229,19 +221,22 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           porting_order_id: target.id,
-          telnyx_order_id: target.telnyx_order_id,
+          telnyx_order_id: target.telnyx_order_id ?? undefined,
           phone_number: target.phone_number,
-          message: message || undefined,
-          pin: pinTrimmed || undefined,
+          pin: payload.pin,
+          message: payload.message,
         }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || "Send failed")
       toast({
-        title: "Correction submitted",
-        description: json.message || "Carrier desk received your update for this line.",
+        title: payload.pin ? "PIN sent to carrier" : "Correction submitted",
+        description:
+          json.message ||
+          (payload.pin
+            ? "Carrier is re-reviewing your transfer with the updated PIN."
+            : "Carrier desk received your update for this line."),
       })
-      setReply("")
       dispatchPortingOrdersChanged()
       await loadDesk()
     } catch (e) {
@@ -288,42 +283,12 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
 
               <CarrierLookupGuideBanner order={detail.order} conversation={detail.conversation} />
 
-              <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-                {detail.order.status === "rejected" ? (
-                  <label className="block text-xs font-medium text-red-200/90">
-                    Correct Account PIN/Passcode
-                    <input
-                      type="text"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-red-500/40 bg-zinc-950 px-3 py-2 text-sm text-foreground"
-                    />
-                  </label>
-                ) : null}
-                <label className="block text-xs font-medium text-zinc-400">
-                  Reply / Provide Missing Info to Carrier Desk
-                  <textarea
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    rows={4}
-                    placeholder="Answer the carrier desk (account number, invoice, LOA details, etc.)"
-                    className="mt-1 w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-sm text-foreground placeholder:text-zinc-600"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={sending || !detail.order.id}
-                  onClick={() => void sendUpdate()}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Send className="h-4 w-4" aria-hidden />
-                  )}
-                  Submit Correction to Carrier
-                </button>
-              </div>
+              <CarrierTransferDesk
+                key={detail.order.id + detail.order.updated_at}
+                order={detail.order}
+                sending={sending}
+                onSubmit={submitCorrection}
+              />
             </>
           ) : (
             <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-zinc-500">

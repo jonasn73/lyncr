@@ -91,6 +91,16 @@ export async function purchaseAndConfigureTelnyxLine(
     console.error("[Telnyx] messaging profile assignment failed (number still purchased):", messagingErr)
   }
 
+  try {
+    const { provisionLocalDidOnSharedPlatformCampaign } = await import("@/lib/telnyx-shared-campaign")
+    const shared = await provisionLocalDidOnSharedPlatformCampaign(boughtNumber)
+    if (shared.error) {
+      console.warn("[Telnyx] shared 10DLC campaign assignment:", shared.error)
+    }
+  } catch (campaignErr) {
+    console.error("[Telnyx] shared 10DLC campaign assignment failed (number still purchased):", campaignErr)
+  }
+
   console.log(`[Telnyx] Purchased and configured ${boughtNumber} (order ${orderId})`)
   return { ok: true, phone_number: boughtNumber, order_id: orderId }
 }

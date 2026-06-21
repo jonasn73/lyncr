@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
 
     const telnyx = await submitTelnyxLnpPort({
       userId,
+      organizationId: orgUuid ?? organizationId,
       phoneNumber: rawNumber,
       accountName: owner.business_name?.trim() || owner.name || org.name,
       authorizedPerson: owner.name || org.name,

@@ -79,6 +79,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 74 | `074-scheduler-events.sql` | **Owner job scheduler.** Adds **`ai_leads.scheduled_at`** and **`ai_leads.organization_id`** for the `/dashboard/scheduler` calendar and workspace-scoped events. **Required** for structured appointment rescheduling; scheduler v1 still works without it (falls back to `created_at`). |
 | 75 | `075-structured-job-address.sql` | **Structured job-site addresses.** Adds **`job_address_*`** columns on **`ai_leads`** (street number, route, city, ZIP, state) for map-precision scheduling. **Optional** — app also stores the same keys in `collected` JSONB; columns enable indexing/reporting. |
 | 76 | `076-unassigned-job-pool.sql` | **Unassigned Job Pool (Hopper).** Index on unassigned active jobs + backfills **`dispatch_status = 'unassigned_pool'`** for BOOKED/PENDING_TIME rows with no tech. **Required** for `/api/owner/jobs/pool` and tech claim; app sets the flag on new saves even before this runs. |
+| 77 | `077-porting-notifications-organization.sql` | **Porting webhook workspace scope.** Adds **`porting_notifications.organization_id`** so carrier transfer desk alerts (PIN exceptions, etc.) stay isolated per business workspace. **Recommended** for multi-org owners. |
 
 ## Platform admin (`admin@lyncr.app`)
 

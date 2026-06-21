@@ -2,12 +2,14 @@
 
 import { getAppUrl } from "@/lib/telnyx"
 import { mapTelnyxStatusToPortingOrderStatus } from "@/lib/db"
+import { buildZingCustomerReference } from "@/lib/telnyx-customer-reference"
 import type { PortingOrderStatus } from "@/lib/types"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
 export type TelnyxLnpSubmitInput = {
   userId: string
+  organizationId?: string | null
   phoneNumber: string
   accountName: string
   authorizedPerson: string
@@ -172,11 +174,11 @@ export async function submitTelnyxLnpPort(input: TelnyxLnpSubmitInput): Promise<
           country_code: "US",
         },
       },
-      customer_reference: `zing-${input.userId}`,
+      customer_reference: buildZingCustomerReference(input.userId, input.organizationId),
     }),
   })
 
-  const portingWebhookUrl = `${getAppUrl().replace(/\/$/, "")}/api/webhooks/telnyx/porting`
+  const portingWebhookUrl = `${getAppUrl().replace(/\/$/, "")}/api/webhooks/telnyx`
   try {
     await telnyxFetch(`/porting_orders/${orderId}`, {
       method: "PATCH",

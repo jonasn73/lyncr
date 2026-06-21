@@ -6,6 +6,7 @@ import {
   updatePhoneNumber,
 } from "@/lib/db"
 import { configureNumberMessaging } from "@/lib/telnyx-messaging-config"
+import { provisionLocalDidOnSharedPlatformCampaign } from "@/lib/telnyx-shared-campaign"
 import { configureNumberVoice, getOrCreateTexmlApp } from "@/lib/telnyx-config"
 
 export type FinalizePortedNumberResult = {
@@ -56,6 +57,13 @@ export async function finalizePortedNumber(params: {
 
     await configureNumberMessaging(e164)
     messagingConfigured = true
+
+    const shared = await provisionLocalDidOnSharedPlatformCampaign(e164)
+    if (shared.error) {
+      console.warn("[port-finalize] shared 10DLC:", shared.error)
+    } else if (shared.campaign_assigned) {
+      console.log("[port-finalize] shared 10DLC campaign assigned", shared.campaign_id)
+    }
 
     console.log(
       JSON.stringify({

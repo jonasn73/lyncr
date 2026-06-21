@@ -4,7 +4,9 @@ import {
   getMessaging10DlcRegistration,
   getOrganizationSmsRegistrationStatus,
   getSmsRegistrationForOwner,
+  getPhoneNumbers,
 } from "@/lib/db"
+import { getPlatform10DlcCampaignId, isUsLocalDid } from "@/lib/telnyx-shared-campaign"
 import type { Messaging10DlcRegistration, SmsRegistration, SmsRegistrationOrgStatus } from "@/lib/types"
 
 const TELNYX_PENDING_STATUSES = new Set(["paid", "submitted", "pending_review"])
@@ -48,7 +50,20 @@ export async function getWorkspace10DlcCompliance(
     registration?.status === "APPROVED" || organization_status === "APPROVED"
   const telnyxReady =
     telnyx?.status === "approved" && Boolean(telnyx.assigned_number?.trim())
-  const sms_ready = dashboardApproved || telnyxReady
+
+  let sharedCampaignReady = false
+  const platformCampaignId = getPlatform10DlcCampaignId()
+  if (platformCampaignId && orgUuid) {
+    const lines = await getPhoneNumbers(ownerUserId, orgUuid)
+    sharedCampaignReady = lines.some(
+      (line) =>
+        line.status === "active" &&
+        line.type === "local" &&
+        isUsLocalDid(line.number)
+    )
+  }
+
+  const sms_ready = dashboardApproved || telnyxReady || sharedCampaignReady
 
   const pending_approval =
     !sms_ready &&

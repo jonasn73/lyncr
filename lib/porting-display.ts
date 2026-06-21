@@ -119,6 +119,7 @@ export function isPortingSystemStatusMessage(title: string, body: string, author
   if (author === "porting_desk" || author === "customer") return false
   const trimmed = body.trim()
   if (trimmed.startsWith("System Update:")) return true
+  if (trimmed.startsWith("🔴 Carrier Rejected Correction:")) return true
   if (trimmed.startsWith("Losing Carrier")) return false
   const blob = `${title} ${body}`.toLowerCase()
   if (blob.includes("new comment") || blob.includes("carrier core desk")) return false

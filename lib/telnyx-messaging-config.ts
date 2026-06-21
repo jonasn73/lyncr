@@ -1,6 +1,7 @@
 // Telnyx messaging profile + assign purchased numbers for outbound SMS lead alerts.
 
 import { normalizePhoneNumberE164 } from "@/lib/db"
+import { getPlatform10DlcCampaignId, isUsLocalDid } from "@/lib/telnyx-shared-campaign"
 import { getAppUrl } from "@/lib/telnyx"
 import { SITE_NAME } from "@/lib/brand"
 import { findTelnyxPhoneNumberId, getTelnyxApiKey, telnyxHeaders } from "@/lib/telnyx-config"
@@ -192,6 +193,11 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
   const target = normalizePhoneNumberE164(e164.trim())
   if (!target.startsWith("+1") || target.length < 12) {
     return { assigned: true, campaign_id: null, detail: null }
+  }
+
+  const platformCampaignId = getPlatform10DlcCampaignId()
+  if (platformCampaignId && isUsLocalDid(target)) {
+    return { assigned: true, campaign_id: platformCampaignId, detail: null }
   }
 
   try {

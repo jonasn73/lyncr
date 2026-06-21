@@ -1,7 +1,12 @@
 // ============================================
-// POST /api/webhooks/telnyx/porting
+// POST /api/webhooks/telnyx
 // ============================================
-// Legacy alias — delegates to the shared porting webhook handler.
+// Primary Telnyx webhook entry for port-in lifecycle events:
+//   - porting_order.status_changed
+//   - porting_order.comment_created
+//   - sub_request.exception
+//
+// Per-order webhook_url is set on create in lib/telnyx-lnp-submit.ts.
 
 import { NextRequest } from "next/server"
 import { processTelnyxPortingWebhook } from "@/lib/telnyx-porting-webhook-handler"
@@ -21,7 +26,7 @@ export async function POST(req: NextRequest) {
   try {
     return await processTelnyxPortingWebhook(body)
   } catch (e) {
-    console.error("[telnyx/porting webhook] error:", e)
+    console.error("[telnyx/webhook] porting handler error:", e)
     return Response.json({ error: "Storage failed" }, { status: 500 })
   }
 }

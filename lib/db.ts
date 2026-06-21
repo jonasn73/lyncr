@@ -4332,6 +4332,81 @@ export async function getPortingOrderByTelnyxOrderId(
   }
 }
 
+/** Webhook fallback — match any in-flight order by Telnyx ticket id (no owner filter). */
+export async function getPortingOrderByTelnyxOrderIdGlobal(
+  telnyxOrderId: string
+): Promise<PortingOrder | null> {
+  const sql = getSql()
+  const id = telnyxOrderId.trim()
+  if (!id) return null
+  try {
+    const rows = await sql`
+      SELECT * FROM porting_orders
+      WHERE telnyx_order_id = ${id}
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    throw e
+  }
+}
+
+/** Webhook fallback — match in-flight port by E.164 billing / port line (owner-scoped). */
+export async function getPortingOrderByPhoneNumberForOwner(
+  ownerUserId: string,
+  phoneNumber: string,
+  organizationId?: string | null
+): Promise<PortingOrder | null> {
+  const sql = getSql()
+  const e164 = normalizePhoneNumberE164(phoneNumber)
+  const owner = ownerUserId.trim()
+  if (!e164 || !owner) return null
+  const orgUuid = organizationId?.trim() && !organizationId.startsWith("legacy-") ? organizationId.trim() : null
+  try {
+    const rows = orgUuid
+      ? await sql`
+          SELECT * FROM porting_orders
+          WHERE owner_user_id = ${owner}
+            AND phone_number = ${e164}
+            AND organization_id = ${orgUuid}
+            AND status <> 'completed'
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+      : await sql`
+          SELECT * FROM porting_orders
+          WHERE owner_user_id = ${owner} AND phone_number = ${e164} AND status <> 'completed'
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    throw e
+  }
+}
+
+/** @deprecated Use getPortingOrderByPhoneNumberForOwner — global phone lookup (last resort). */
+export async function getPortingOrderByPhoneNumber(phoneNumber: string): Promise<PortingOrder | null> {
+  const sql = getSql()
+  const e164 = normalizePhoneNumberE164(phoneNumber)
+  if (!e164) return null
+  try {
+    const rows = await sql`
+      SELECT * FROM porting_orders
+      WHERE phone_number = ${e164} AND status <> 'completed'
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    throw e
+  }
+}
+
 export async function updatePortingOrderByTelnyxOrderId(
   ownerUserId: string,
   telnyxOrderId: string,
@@ -7501,6 +7576,7 @@ export async function isTelnyxInboundDialCallerLegDone(providerCallSid: string):
  */
 export async function insertPortingNotificationIfNew(params: {
   userId: string
+  organizationId?: string | null
   telnyxEventId: string
   portingOrderId: string | null
   eventType: string
@@ -7510,27 +7586,68 @@ export async function insertPortingNotificationIfNew(params: {
 }): Promise<boolean> {
   const sql = getSql()
   const rawJson = JSON.stringify(params.rawPayload ?? null)
+  const orgId = params.organizationId?.trim() || null
   try {
-    const rows = await sql`
-      INSERT INTO porting_notifications (
-        user_id, telnyx_event_id, porting_order_id, event_type, title, body, raw_payload
-      ) VALUES (
-        ${params.userId},
-        ${params.telnyxEventId},
-        ${params.portingOrderId},
-        ${params.eventType},
-        ${params.title},
-        ${params.body},
-        ${rawJson}::jsonb
-      )
-      ON CONFLICT (telnyx_event_id) DO NOTHING
-      RETURNING id
-    `
+    const rows = orgId
+      ? await sql`
+          INSERT INTO porting_notifications (
+            user_id, organization_id, telnyx_event_id, porting_order_id, event_type, title, body, raw_payload
+          ) VALUES (
+            ${params.userId},
+            ${orgId},
+            ${params.telnyxEventId},
+            ${params.portingOrderId},
+            ${params.eventType},
+            ${params.title},
+            ${params.body},
+            ${rawJson}::jsonb
+          )
+          ON CONFLICT (telnyx_event_id) DO NOTHING
+          RETURNING id
+        `
+      : await sql`
+          INSERT INTO porting_notifications (
+            user_id, telnyx_event_id, porting_order_id, event_type, title, body, raw_payload
+          ) VALUES (
+            ${params.userId},
+            ${params.telnyxEventId},
+            ${params.portingOrderId},
+            ${params.eventType},
+            ${params.title},
+            ${params.body},
+            ${rawJson}::jsonb
+          )
+          ON CONFLICT (telnyx_event_id) DO NOTHING
+          RETURNING id
+        `
     return Array.isArray(rows) && rows.length > 0
   } catch (e) {
     if (isUndefinedRelationError(e, "porting_notifications")) {
       console.warn("[db] porting_notifications missing — run scripts/016-porting-notifications.sql in Neon.")
       return false
+    }
+    if (isUndefinedRelationError(e, "organization_id") || String(e).includes("organization_id")) {
+      try {
+        const rows = await sql`
+          INSERT INTO porting_notifications (
+            user_id, telnyx_event_id, porting_order_id, event_type, title, body, raw_payload
+          ) VALUES (
+            ${params.userId},
+            ${params.telnyxEventId},
+            ${params.portingOrderId},
+            ${params.eventType},
+            ${params.title},
+            ${params.body},
+            ${rawJson}::jsonb
+          )
+          ON CONFLICT (telnyx_event_id) DO NOTHING
+          RETURNING id
+        `
+        return Array.isArray(rows) && rows.length > 0
+      } catch (retryErr) {
+        if (isUndefinedRelationError(retryErr, "porting_notifications")) return false
+        throw retryErr
+      }
     }
     throw e
   }

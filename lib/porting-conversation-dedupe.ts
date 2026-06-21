@@ -35,6 +35,10 @@ export function portingMessageDedupeKey(body: string): string {
 
   if (formatted.startsWith("System Update:")) return normalized
 
+  if (formatted.startsWith("🔴 Carrier Rejected Correction:")) {
+    return "::carrier-rejected-correction::"
+  }
+
   return normalized
 }
 

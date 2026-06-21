@@ -90,6 +90,16 @@ function deepFindCarrierName(obj: unknown, depth = 0): string | null {
 }
 
 function collectExceptionTextsFromObject(obj: Record<string, unknown>, out: string[]): void {
+  const pos = obj.porting_order_status
+  if (pos && typeof pos === "object" && !Array.isArray(pos)) {
+    const details = (pos as Record<string, unknown>).details
+    if (Array.isArray(details)) {
+      for (const item of details) {
+        const text = textFromExceptionItem(item)
+        if (text) out.push(text)
+      }
+    }
+  }
   const arrays = [
     obj.exceptions,
     obj.errors,
@@ -185,6 +195,12 @@ export function extractPortingCarrierRequirementLogBody(body: Record<string, unk
   const requirement = extractPortingCarrierRequirement(body)
   if (!requirement) return null
   return formatLosingCarrierRequirement(requirement.losing_carrier_name, requirement.exception_text)
+}
+
+/** Centered systemic feed line for Telnyx `exception` / sub-request failures. */
+export function formatPortingExceptionSystemMessage(exceptionText: string): string {
+  const cleaned = (cleansePortingHumanComment(exceptionText) || exceptionText).trim().replace(/\.$/, "")
+  return `🔴 Carrier Rejected Correction: ${cleaned}.`
 }
 
 /** Detect wireless/mobile port context for PIN helper tips. */

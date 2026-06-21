@@ -1,7 +1,9 @@
 // Build sanitized porting_notifications body text from Telnyx webhook payloads.
 
 import {
+  extractPortingCarrierRequirement,
   extractPortingCarrierRequirementLogBody,
+  formatPortingExceptionSystemMessage,
   hasPortingCarrierExceptions,
 } from "@/lib/porting-carrier-exceptions"
 import { cleansePortingHumanComment } from "@/lib/porting-display"
@@ -72,6 +74,18 @@ export function buildPortingNotificationLogBody(
   const et = (eventType ?? extractEventType(body)).toLowerCase()
 
   if (hasPortingCarrierExceptions(body)) {
+    const et = (eventType ?? extractEventType(body)).toLowerCase()
+    const statusKeyword = extractPortingStatusKeyword(body)
+    const isException =
+      statusKeyword === "exception" ||
+      et.includes("sub_request.exception") ||
+      et.endsWith(".exception")
+    if (isException) {
+      const requirement = extractPortingCarrierRequirement(body)
+      if (requirement?.exception_text) {
+        return formatPortingExceptionSystemMessage(requirement.exception_text)
+      }
+    }
     const carrierRequirement = extractPortingCarrierRequirementLogBody(body)
     if (carrierRequirement) return carrierRequirement
   }

@@ -57,7 +57,14 @@ export function collectPortingStatuses(order: Record<string, unknown>): string[]
     if (v == null || v === "") return
     if (typeof v === "string") out.push(normalizeTelnyxPortStatus(v))
   }
-  push(order.porting_order_status)
+  const pos = order.porting_order_status
+  if (pos && typeof pos === "object" && !Array.isArray(pos)) {
+    const row = pos as Record<string, unknown>
+    push(row.value)
+    push(row.status)
+  } else {
+    push(pos)
+  }
   push(order.status)
   const phones = order.phone_numbers
   if (Array.isArray(phones)) {

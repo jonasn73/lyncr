@@ -13,6 +13,7 @@ import {
   sortPortingOrdersForBanner,
   type PortingBannerPhase,
 } from "@/lib/porting-lifecycle"
+import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import type { PortingOrder } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -41,6 +42,9 @@ function bannerTone(phase: PortingBannerPhase): string {
 
 function buildDisplayMessage(order: PortingOrderRow, phase: PortingBannerPhase): string {
   const phone = formatPhoneDisplay(order.phone_number)
+  if (orderRequiresPinCorrection(order)) {
+    return `🔴 PIN Required: Carrier rejected correction for ${phone} — enter your 4–8 digit transfer PIN in the transfer desk.`
+  }
   if (phase === "rejected") {
     return `❌ Transfer Overdue/Rejected: Click to fix credentials and resubmit.`
   }

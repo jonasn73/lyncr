@@ -9,35 +9,32 @@ import {
   extractPortingCarrierRequirementLogBody,
   hasPortingCarrierExceptions,
 } from "@/lib/porting-carrier-exceptions"
+import {
+  findZingCustomerReferenceInPayload,
+  parseZingCustomerReference,
+} from "@/lib/telnyx-customer-reference"
+
+/** Telnyx porting webhook event types we handle in Lyncr. */
+export const TELNYX_PORTING_WEBHOOK_EVENTS = new Set([
+  "porting_order.status_changed",
+  "porting_order.comment_created",
+  "sub_request.exception",
+])
+
+/** True for port-in lifecycle webhooks (not SMS/voice). */
+export function isTelnyxPortingWebhookEvent(eventType: string): boolean {
+  const lower = eventType.toLowerCase().trim()
+  if (TELNYX_PORTING_WEBHOOK_EVENTS.has(lower)) return true
+  return lower.startsWith("porting_order.") || lower.includes("sub_request")
+}
 
 /** Find `customer_reference` like `zing-<uuid>` anywhere in the payload. */
 export function findZingCustomerReference(obj: unknown): string | null {
-  if (obj == null) return null
-  if (typeof obj === "string") return null
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      const r = findZingCustomerReference(item)
-      if (r) return r
-    }
-    return null
-  }
-  if (typeof obj === "object") {
-    const o = obj as Record<string, unknown>
-    const cr = o.customer_reference
-    if (typeof cr === "string" && cr.startsWith("zing-")) return cr
-    for (const k of Object.keys(o)) {
-      const r = findZingCustomerReference(o[k])
-      if (r) return r
-    }
-  }
-  return null
+  return findZingCustomerReferenceInPayload(obj)
 }
 
 export function customerRefToUserId(ref: string): string | null {
-  const t = ref.trim()
-  if (!t.startsWith("zing-")) return null
-  const id = t.slice(5).trim()
-  return id.length > 0 ? id : null
+  return parseZingCustomerReference(ref)?.userId ?? null
 }
 
 /** Best-effort porting order id from nested objects. */
@@ -290,6 +287,43 @@ export function isPortActionRequiredWebhook(body: Record<string, unknown>): bool
   if (comment && hasCarrierAgentAuthor(body)) return true
   if (comment && looksLikeCarrierRejection(comment) && !looksLikePinPasscodeRejection(comment)) return true
   return false
+}
+
+const BILLING_PHONE_KEYS = [
+  "billing_telephone_number",
+  "billing_phone_number",
+  "btn",
+  "billing_telephone",
+] as const
+
+function deepFindBillingPhone(obj: unknown, depth = 0): string | null {
+  if (depth > 14 || obj == null) return null
+  if (typeof obj === "object" && !Array.isArray(obj)) {
+    const o = obj as Record<string, unknown>
+    for (const key of BILLING_PHONE_KEYS) {
+      const value = o[key]
+      if (typeof value === "string" && value.replace(/\D/g, "").length >= 10) return value.trim()
+    }
+    for (const value of Object.values(o)) {
+      const found = deepFindBillingPhone(value, depth + 1)
+      if (found) return found
+    }
+  }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const found = deepFindBillingPhone(item, depth + 1)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** BTN / billing line from nested Telnyx porting payloads (e.g. +15025571219). */
+export function extractBillingTelephoneNumber(body: Record<string, unknown>): string | null {
+  const direct = deepFindBillingPhone(body)
+  if (direct) return direct
+  const nums = extractPortingPhoneNumbers(body)
+  return nums[0] ?? null
 }
 
 /** Phone numbers listed on a Telnyx porting order payload. */
