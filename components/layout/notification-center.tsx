@@ -26,7 +26,10 @@ import {
 import { orderPinSavedAwaitingCarrierReview, orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
 import { storedPortingPinForDesk } from "@/lib/porting-desk-validation"
 import { organizationQueryString, readActiveOrganizationId } from "@/lib/workspace-organizations"
-import { openCarrierRegistrationModal } from "@/lib/settings-modals-events"
+import {
+  CARRIER_REGISTRATION_UPDATED_EVENT,
+  openCarrierRegistrationModal,
+} from "@/lib/settings-modals-events"
 import type { PortingOrder } from "@/lib/types"
 
 type NotificationTone = "critical" | "warning" | "info" | "success"
@@ -49,6 +52,53 @@ type BannerView = {
   pending_approval?: boolean
   organization_status?: string
   registration?: { status?: string } | null
+  legacy_registration?: { status?: string; status_detail?: string | null } | null
+  submission_summary?: {
+    lifecycle_stage?: string
+    telnyx_status?: string | null
+    rejection_reason?: string | null
+  } | null
+}
+
+function truncateNotice(text: string, max = 140): string {
+  const t = text.trim()
+  if (t.length <= max) return t
+  return `${t.slice(0, max - 1)}…`
+}
+
+/** Match the carrier registration modal — failed/rejected beats generic "pending review". */
+function resolveSmsNoticeState(view: BannerView): "ready" | "rejected" | "pending" | "setup" {
+  if (view.sms_ready) return "ready"
+  const telnyxStatus = (
+    view.submission_summary?.telnyx_status ??
+    view.legacy_registration?.status ??
+    ""
+  )
+    .trim()
+    .toLowerCase()
+  const regStatus = view.registration?.status ?? ""
+  const orgStatus = view.organization_status ?? ""
+  const stage = view.submission_summary?.lifecycle_stage ?? ""
+
+  if (
+    stage === "rejected" ||
+    regStatus === "REJECTED" ||
+    orgStatus === "REJECTED" ||
+    telnyxStatus === "failed" ||
+    telnyxStatus === "rejected"
+  ) {
+    return "rejected"
+  }
+
+  const isPending =
+    view.pending_approval === true ||
+    orgStatus === "PENDING_APPROVAL" ||
+    regStatus === "PENDING_APPROVAL" ||
+    stage === "carrier_review" ||
+    ["paid", "submitted", "pending_review"].includes(telnyxStatus)
+
+  if (isPending) return "pending"
+  return "setup"
 }
 
 function dismissStorageKey(organizationId: string | null): string {
@@ -174,10 +224,12 @@ export const NotificationCenter = memo(function NotificationCenter() {
     window.addEventListener("lyncr-organization-changed", onChanged)
     window.addEventListener("lyncr-workspace-data-changed", onChanged)
     window.addEventListener("zing-porting-orders-changed", onChanged)
+    window.addEventListener(CARRIER_REGISTRATION_UPDATED_EVENT, onChanged)
     return () => {
       window.removeEventListener("lyncr-organization-changed", onChanged)
       window.removeEventListener("lyncr-workspace-data-changed", onChanged)
       window.removeEventListener("zing-porting-orders-changed", onChanged)
+      window.removeEventListener(CARRIER_REGISTRATION_UPDATED_EVENT, onChanged)
     }
   }, [refreshPorting, loadSms])
 
@@ -255,23 +307,24 @@ export const NotificationCenter = memo(function NotificationCenter() {
     }
 
     if (smsView && !smsView.sms_ready) {
-      const regStatus = smsView.registration?.status ?? ""
-      const orgPending = smsView.organization_status === "PENDING_APPROVAL"
-      const isPending =
-        smsView.pending_approval === true ||
-        orgPending ||
-        regStatus === "PENDING_APPROVAL" ||
-        ["paid", "submitted", "pending_review"].includes(regStatus)
-      const needsAttention = regStatus === "REJECTED" || smsView.organization_status === "REJECTED"
+      const smsState = resolveSmsNoticeState(smsView)
+      const rejectionReason =
+        smsView.submission_summary?.rejection_reason?.trim() ||
+        smsView.legacy_registration?.status_detail?.trim() ||
+        null
+      const isPending = smsState === "pending"
+      const needsAttention = smsState === "rejected"
 
       if (!(isPending && smsDismissed && !needsAttention)) {
         list.push({
           id: "sms-10dlc",
           tone: needsAttention ? "critical" : isPending ? "warning" : "info",
           icon: MessageSquareWarning,
-          title: "SMS registration",
+          title: needsAttention ? "SMS registration failed" : "SMS registration",
           message: needsAttention
-            ? "Your SMS registration needs attention — lead-alert texts cannot send until resolved."
+            ? rejectionReason
+              ? truncateNotice(`Carrier rejection: ${rejectionReason}`)
+              : "Your 10DLC registration failed at the carrier. Update and resubmit to unlock business texts."
             : isPending
               ? "SMS business registration is undergoing carrier review. Alerts will unlock shortly."
               : "Register your business for SMS lead alerts (one-time carrier requirement).",
