@@ -49,6 +49,21 @@ export function CarrierRegistrationModal({ open, onOpenChange }: Props) {
     }
   }, [])
 
+  const refreshFromCarrier = useCallback(async () => {
+    const orgId = readActiveOrganizationId()
+    try {
+      await fetch("/api/messaging/10dlc/refresh", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: orgId ?? undefined }),
+      })
+    } catch {
+      // load() still refreshes dashboard copy from GET /api/settings/10dlc
+    }
+    await load()
+  }, [load])
+
   useEffect(() => {
     if (!open) {
       setForceForm(false)
@@ -101,7 +116,7 @@ export function CarrierRegistrationModal({ open, onOpenChange }: Props) {
               summary={summary}
               loading={loading}
               variant="modal"
-              onRefresh={() => void load()}
+              onRefresh={() => void refreshFromCarrier()}
               onEdit={summary.lifecycle_stage === "rejected" ? () => setForceForm(true) : undefined}
             />
           ) : (

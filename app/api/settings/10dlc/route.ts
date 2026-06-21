@@ -10,6 +10,7 @@ import {
 } from "@/lib/db"
 import { submitSmsRegistrationForOwner, type SmsRegistrationFormInput } from "@/lib/sms-registration-service"
 import { buildSmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary"
+import { refreshMessaging10DlcStatus, ensureMessaging10DlcSubmittedToCarrier } from "@/lib/messaging-10dlc"
 import { getWorkspace10DlcCompliance } from "@/lib/workspace-10dlc-compliance"
 
 export const dynamic = "force-dynamic"
@@ -38,6 +39,15 @@ export async function GET(req: NextRequest) {
       userId,
       req.nextUrl.searchParams.get("organization_id")
     )
+
+    // Backfill + poll when a workspace shows pending but never received a carrier campaign id.
+    try {
+      await ensureMessaging10DlcSubmittedToCarrier(userId, organizationId)
+      await refreshMessaging10DlcStatus(userId, organizationId)
+    } catch (syncErr) {
+      console.warn("[GET /api/settings/10dlc] carrier sync:", syncErr)
+    }
+
     const compliance = await getWorkspace10DlcCompliance(userId, organizationId)
     const submission_summary = await buildSmsRegistrationSubmissionSummary(userId, compliance)
 

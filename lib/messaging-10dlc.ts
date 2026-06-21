@@ -5,7 +5,8 @@ import {
   getMessaging10DlcRegistration,
   upsertMessaging10DlcRegistration,
   getUser,
-  getProviderLinkedActiveNumber,
+  getPhoneNumbers,
+  setOrganizationSmsRegistrationStatus,
 } from "@/lib/db"
 import {
   TEN_DLC_USE_CASES,
@@ -67,7 +68,7 @@ export type TenDlcActionResult =
   | { ok: true; registration: Messaging10DlcRegistration }
   | { ok: false; error: string }
 
-function defaultCampaignCopy(displayName: string): {
+export function defaultCampaignCopy(displayName: string): {
   description: string
   sample1: string
   sample2: string
@@ -80,6 +81,42 @@ function defaultCampaignCopy(displayName: string): {
     sample2: `${biz}: Reminder — your appointment is confirmed for 2:00 PM today. Reply HELP for help, STOP to unsubscribe.`,
     messageFlow: `Recipients (the business owner and staff) opt in when they create their ${biz} account and provide their mobile number to receive lead and appointment notifications. They can reply STOP at any time to unsubscribe.`,
   }
+}
+
+const SUBMITTED_TO_CARRIER_STATUSES = new Set(["paid", "submitted", "pending_review"])
+
+async function upsert10(
+  userId: string,
+  organizationId: string | null | undefined,
+  fields: Parameters<typeof upsertMessaging10DlcRegistration>[1]
+): Promise<Messaging10DlcRegistration> {
+  return upsertMessaging10DlcRegistration(userId, fields, organizationId ?? undefined)
+}
+
+async function activeLineFor10Dlc(
+  userId: string,
+  organizationId?: string | null
+): Promise<string | null> {
+  const lines = await getPhoneNumbers(userId, organizationId ?? undefined)
+  const active = lines.find(
+    (line) =>
+      line.status === "active" &&
+      Boolean(line.provider_number_sid?.trim() || line.twilio_sid?.trim())
+  )
+  return active?.number?.trim() || null
+}
+
+/** Backfill dashboard submissions that never reached the carrier API (no campaign_id). */
+export async function ensureMessaging10DlcSubmittedToCarrier(
+  userId: string,
+  organizationId?: string | null
+): Promise<TenDlcActionResult | null> {
+  const reg = await getMessaging10DlcRegistration(userId, organizationId)
+  if (!reg) return null
+  const orgId = organizationId ?? reg.organization_id ?? null
+  if (reg.campaign_id?.trim()) return { ok: true, registration: reg }
+  if (!SUBMITTED_TO_CARRIER_STATUSES.has(reg.status ?? "")) return { ok: true, registration: reg }
+  return submitMessaging10DlcToTelnyx(userId, orgId)
 }
 
 /** Validate + save the draft and compute the pass-through fee. Status → pending_payment. */
@@ -189,18 +226,30 @@ export async function createMessaging10DlcCheckout(
  * After payment confirms, submit the brand + campaign to Telnyx/TCR.
  * Idempotent: skips brand/campaign creation if already present.
  */
-export async function submitMessaging10DlcToTelnyx(userId: string): Promise<TenDlcActionResult> {
-  const reg = await getMessaging10DlcRegistration(userId)
+export async function submitMessaging10DlcToTelnyx(
+  userId: string,
+  organizationId?: string | null
+): Promise<TenDlcActionResult> {
+  const orgId = organizationId ?? undefined
+  const reg = await getMessaging10DlcRegistration(userId, orgId)
   if (!reg) return { ok: false, error: "No registration found." }
   const meta = tenDlcUseCaseMeta(reg.use_case)
   if (!meta) return { ok: false, error: "Invalid registration type." }
+
+  const displayName = reg.display_name?.trim() || reg.legal_company_name?.trim() || "Business"
+  const copy = defaultCampaignCopy(displayName)
+  const campaignDescription = reg.campaign_description?.trim() || copy.description
+  const sample1 = reg.sample_message_1?.trim() || copy.sample1
+  const sample2 = reg.sample_message_2?.trim() || copy.sample2
+  const messageFlow = reg.message_flow?.trim() || copy.messageFlow
+  const resolvedOrgId = orgId ?? reg.organization_id ?? null
 
   // 1) Brand
   let brandId = reg.brand_id
   if (!brandId) {
     const brand = await createTelnyx10DlcBrand({
       entityType: meta.entityType,
-      displayName: reg.display_name ?? "",
+      displayName,
       legalCompanyName: reg.legal_company_name,
       ein: reg.ein,
       vertical: reg.vertical ?? "PROFESSIONAL",
@@ -216,14 +265,14 @@ export async function submitMessaging10DlcToTelnyx(userId: string): Promise<TenD
       country: reg.country ?? "US",
     })
     if (!brand.ok) {
-      const failed = await upsertMessaging10DlcRegistration(userId, {
+      const failed = await upsert10(userId, resolvedOrgId, {
         status: "failed",
         status_detail: `Brand registration failed: ${brand.error}`,
       })
       return { ok: true, registration: failed }
     }
     brandId = brand.brandId
-    await upsertMessaging10DlcRegistration(userId, { brand_id: brandId })
+    await upsert10(userId, resolvedOrgId, { brand_id: brandId })
   }
 
   // 2) Campaign
@@ -232,13 +281,13 @@ export async function submitMessaging10DlcToTelnyx(userId: string): Promise<TenD
     const campaign = await createTelnyx10DlcCampaign({
       brandId,
       useCase: meta.key as TenDlcUseCaseKey,
-      description: reg.campaign_description ?? "",
-      sample1: reg.sample_message_1 ?? "",
-      sample2: reg.sample_message_2,
-      messageFlow: reg.message_flow ?? "",
+      description: campaignDescription,
+      sample1,
+      sample2,
+      messageFlow,
     })
     if (!campaign.ok) {
-      const failed = await upsertMessaging10DlcRegistration(userId, {
+      const failed = await upsert10(userId, resolvedOrgId, {
         status: "failed",
         status_detail: `Campaign registration failed: ${campaign.error}`,
       })
@@ -247,9 +296,13 @@ export async function submitMessaging10DlcToTelnyx(userId: string): Promise<TenD
     campaignId = campaign.campaignId
   }
 
-  const updated = await upsertMessaging10DlcRegistration(userId, {
+  const updated = await upsert10(userId, resolvedOrgId, {
     brand_id: brandId,
     campaign_id: campaignId,
+    campaign_description: campaignDescription,
+    sample_message_1: sample1,
+    sample_message_2: sample2,
+    message_flow: messageFlow,
     status: "pending_review",
     status_detail:
       "Submitted to The Campaign Registry. Carrier review typically takes 5–10 business days.",
@@ -268,13 +321,20 @@ export async function handleMessaging10DlcPaid(userId: string, sessionId: string
     stripe_session_id: sessionId,
     status_detail: "Payment received — submitting your registration to carriers.",
   })
-  await submitMessaging10DlcToTelnyx(userId)
+  await submitMessaging10DlcToTelnyx(userId, reg.organization_id)
 }
 
-/** Poll Telnyx for campaign status; auto-assign the business line once approved. */
-export async function refreshMessaging10DlcStatus(userId: string): Promise<TenDlcActionResult> {
-  const reg = await getMessaging10DlcRegistration(userId)
+/** Poll carrier campaign status; auto-submit stuck rows, then assign the line when approved. */
+export async function refreshMessaging10DlcStatus(
+  userId: string,
+  organizationId?: string | null
+): Promise<TenDlcActionResult> {
+  await ensureMessaging10DlcSubmittedToCarrier(userId, organizationId)
+
+  const reg = await getMessaging10DlcRegistration(userId, organizationId)
   if (!reg) return { ok: false, error: "No registration found." }
+  const resolvedOrgId = organizationId ?? reg.organization_id ?? null
+
   if (!reg.campaign_id) {
     return { ok: true, registration: reg }
   }
@@ -283,11 +343,10 @@ export async function refreshMessaging10DlcStatus(userId: string): Promise<TenDl
   if (!status) return { ok: true, registration: reg }
 
   if (status.normalized === "approved") {
-    // Assign the business's active Telnyx line to the approved campaign.
     let assigned = reg.assigned_number
     let detail = "Approved — your line can now send SMS lead alerts."
     if (!assigned) {
-      const line = await getProviderLinkedActiveNumber(userId)
+      const line = await activeLineFor10Dlc(userId, resolvedOrgId)
       if (line) {
         const res = await assignNumberToTelnyx10DlcCampaign(line, reg.campaign_id)
         if (res.ok) {
@@ -296,22 +355,28 @@ export async function refreshMessaging10DlcStatus(userId: string): Promise<TenDl
           detail = `Approved, but number assignment needs a retry: ${res.error}`
         }
       } else {
-        detail = "Approved — buy/port a Telnyx line, then refresh to attach it to your campaign."
+        detail = "Approved — activate a business line, then refresh to attach it to your campaign."
       }
     }
-    const updated = await upsertMessaging10DlcRegistration(userId, {
+    const updated = await upsert10(userId, resolvedOrgId, {
       status: "approved",
       assigned_number: assigned,
       status_detail: detail,
     })
+    if (resolvedOrgId && !resolvedOrgId.startsWith("legacy-")) {
+      await setOrganizationSmsRegistrationStatus(resolvedOrgId, userId, "APPROVED").catch(() => {})
+    }
     return { ok: true, registration: updated }
   }
 
   if (status.normalized === "rejected") {
-    const updated = await upsertMessaging10DlcRegistration(userId, {
+    const updated = await upsert10(userId, resolvedOrgId, {
       status: "rejected",
       status_detail: status.detail || `Carrier registration was rejected (${status.raw}).`,
     })
+    if (resolvedOrgId && !resolvedOrgId.startsWith("legacy-")) {
+      await setOrganizationSmsRegistrationStatus(resolvedOrgId, userId, "REJECTED").catch(() => {})
+    }
     return { ok: true, registration: updated }
   }
 

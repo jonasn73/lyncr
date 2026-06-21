@@ -17,8 +17,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
   try {
-    const body = (await req.json().catch(() => ({}))) as { session_id?: string }
+    const body = (await req.json().catch(() => ({}))) as { session_id?: string; organization_id?: string }
     const sessionId = body.session_id?.trim()
+    const organizationId = body.organization_id?.trim() || undefined
 
     // If returning from Stripe checkout, confirm payment and kick off submission.
     if (sessionId) {
@@ -31,8 +32,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await refreshMessaging10DlcStatus(userId)
-    const view = await getMessaging10DlcView(userId)
+    await refreshMessaging10DlcStatus(userId, organizationId)
+    const view = await getMessaging10DlcView(userId, organizationId)
     return NextResponse.json({ data: view })
   } catch (e) {
     console.error("[10dlc] refresh:", e)

@@ -14,6 +14,7 @@ import {
   validateSmsRegistrationInput,
   type SmsRegistrationFormInput,
 } from "@/lib/sms-registration-constants"
+import { defaultCampaignCopy, submitMessaging10DlcToTelnyx } from "@/lib/messaging-10dlc"
 import type { SmsRegistration, SmsRegistrationOrgStatus } from "@/lib/types"
 
 export type { SmsRegistrationFormInput } from "@/lib/sms-registration-constants"
@@ -62,6 +63,9 @@ export async function submitSmsRegistrationForOwner(
 
   const tenDlcEntity = mapEntityTypeToTenDlc(input.entity_type)
   const displayName = input.legal_business_name.trim()
+  const copy = defaultCampaignCopy(displayName)
+  const useCase = tenDlcEntity === "SOLE_PROPRIETOR" ? "SOLE_PROPRIETOR" : "LOW_VOLUME"
+
   await upsertMessaging10DlcRegistration(
     ownerUserId,
     {
@@ -77,13 +81,25 @@ export async function submitSmsRegistrationForOwner(
       state: input.state.trim().toUpperCase().slice(0, 2),
       postal_code: input.postal_code.trim(),
       country: "US",
-      use_case: tenDlcEntity === "SOLE_PROPRIETOR" ? "SOLE_PROPRIETOR" : "LOW_VOLUME",
-      campaign_description: input.use_case_description.trim(),
+      use_case: useCase,
+      campaign_description: input.use_case_description.trim() || copy.description,
+      sample_message_1: copy.sample1,
+      sample_message_2: copy.sample2,
+      message_flow: copy.messageFlow,
+      fee_paid: true,
       status: "pending_review",
-      status_detail: "Submitted from dashboard SMS registration form — awaiting carrier review.",
+      status_detail: "Submitting your registration to US carriers…",
     },
     orgUuid
   )
+
+  const carrier = await submitMessaging10DlcToTelnyx(ownerUserId, orgUuid)
+  if (!carrier.ok) {
+    throw new Error(carrier.error)
+  }
+  if (carrier.registration.status === "failed") {
+    throw new Error(carrier.registration.status_detail || "Carrier rejected the SMS registration.")
+  }
 
   return { registration, org_status: "PENDING_APPROVAL" }
 }
