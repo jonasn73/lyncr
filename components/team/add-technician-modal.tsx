@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { usePlatformAdmin } from "@/hooks/use-platform-admin"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
+import type { TechInviteSmsErrorType } from "@/lib/tech-invite-sms-types"
 import type { FieldTechnician } from "@/lib/types"
 
 type AddMode = "invite" | "manual"
@@ -24,7 +25,7 @@ type InviteResult = {
   sms_sent: boolean
   sms_error: string | null
   success?: boolean
-  errorType?: "10DLC_BLOCK" | "OTHER"
+  errorType?: TechInviteSmsErrorType
   message?: string
 }
 

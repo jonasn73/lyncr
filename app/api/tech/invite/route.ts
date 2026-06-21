@@ -6,12 +6,32 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getUser, listFieldTechnicians } from "@/lib/db"
+import { getFieldTechnicianByIdForOwner, getUser } from "@/lib/db"
 import { TECH_INVITE_TTL_MS } from "@/lib/tech-invite"
 import { refreshTechInviteStub } from "@/lib/tech-invite-stub"
 import { resolveAppBaseUrl, sendTechInviteSms } from "@/lib/tech-invite-sms"
+import type { TechInviteSmsErrorType } from "@/lib/tech-invite-sms-types"
 
 export const dynamic = "force-dynamic"
+
+function inviteSmsFailureResponse(params: {
+  errorType: TechInviteSmsErrorType
+  message?: string
+  sms: Awaited<ReturnType<typeof sendTechInviteSms>>
+  expiresAt: string
+}) {
+  return NextResponse.json({
+    success: false,
+    errorType: params.errorType,
+    message: params.message ?? params.sms.message ?? params.sms.error,
+    data: {
+      sms_sent: false,
+      sms_error: params.sms.error,
+      setup_url: params.sms.setupUrl,
+      expires_at: params.expiresAt,
+    },
+  })
+}
 
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -28,9 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "technicianId is required" }, { status: 400 })
   }
 
-  // The tech must belong to this owner; resolve their login (portal_user_id) from the roster.
-  const roster = await listFieldTechnicians(userId)
-  const tech = roster.find((t) => t.id === technicianId)
+  const tech = await getFieldTechnicianByIdForOwner(userId, technicianId)
   if (!tech || !tech.portal_user_id) {
     return NextResponse.json({ error: "Technician not found" }, { status: 404 })
   }
@@ -48,8 +66,9 @@ export async function POST(req: NextRequest) {
 
     const sms = await sendTechInviteSms({
       ownerUserId: userId,
+      organizationId: tech.organization_id,
       toPhone: stub.phone || tech.phone,
-      businessName: owner.business_name,
+      businessName: stub.businessName || owner.business_name,
       token,
       baseUrl: resolveAppBaseUrl(req.nextUrl.origin),
     })
@@ -57,23 +76,19 @@ export async function POST(req: NextRequest) {
     if (!sms.success) {
       console.error("[POST /api/tech/invite] SMS dispatch failed:", {
         technicianId,
+        organizationId: tech.organization_id,
+        from: sms.from_e164,
         errorType: sms.errorType,
         error: sms.error,
       })
     }
 
-    // Surface carrier blocks (e.g. Telnyx 40011 / missing 10DLC) — do not imply delivery succeeded.
-    if (sms.errorType === "10DLC_BLOCK") {
-      return NextResponse.json({
-        success: false,
-        errorType: "10DLC_BLOCK",
+    if (!sms.success && sms.errorType) {
+      return inviteSmsFailureResponse({
+        errorType: sms.errorType,
         message: sms.message,
-        data: {
-          sms_sent: false,
-          sms_error: sms.error,
-          setup_url: sms.setupUrl,
-          expires_at: expiresAt,
-        },
+        sms,
+        expiresAt,
       })
     }
 
@@ -81,7 +96,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          errorType: sms.errorType ?? "OTHER",
+          errorType: "OTHER" satisfies TechInviteSmsErrorType,
           message: sms.message ?? sms.error ?? "Could not send invite text",
           data: {
             sms_sent: false,

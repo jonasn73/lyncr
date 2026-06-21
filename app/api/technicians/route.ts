@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
     const baseUrl = resolveAppBaseUrl(req.nextUrl.origin)
     const sms = await sendTechInviteSms({
       ownerUserId,
+      organizationId: targetWorkspaceId,
       toPhone: phone,
       businessName: owner.business_name,
       token,
@@ -191,6 +192,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         errorType: "10DLC_BLOCK",
+        message: sms.message,
+        data: { technician, technicians, invite: inviteBase },
+      })
+    }
+
+    if (!sms.success && sms.errorType && sms.errorType !== "OTHER") {
+      return NextResponse.json({
+        success: false,
+        errorType: sms.errorType,
         message: sms.message,
         data: { technician, technicians, invite: inviteBase },
       })

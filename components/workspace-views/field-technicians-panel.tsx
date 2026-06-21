@@ -8,8 +8,10 @@ import { HardHat, Loader2, Plus, Send, Check } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import { AddTechnicianModal } from "@/components/team/add-technician-modal"
+import { TechInviteSmsAlert } from "@/components/team/tech-invite-sms-alert"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { organizationQueryString } from "@/lib/workspace-organizations"
+import type { TechInviteSmsErrorType } from "@/lib/tech-invite-sms-types"
 import type { FieldTechnician } from "@/lib/types"
 
 type InviteResult = {
@@ -20,12 +22,9 @@ type InviteResult = {
   sms_sent: boolean
   sms_error: string | null
   success?: boolean
-  errorType?: "10DLC_BLOCK" | "OTHER"
+  errorType?: TechInviteSmsErrorType
   message?: string
 }
-
-const TEN_DLC_BANNER_HEADLINE =
-  "Delivery Failed: This system's outbound number is missing 10DLC profile registration. Carrier spam filters are blocking URLs."
 
 function formatPhoneDisplay(phone: string): string {
   const d = phone.replace(/\D/g, "")
@@ -77,19 +76,27 @@ export function FieldTechniciansPanel() {
       })
       const j = (await res.json().catch(() => ({}))) as {
         success?: boolean
-        errorType?: string
+        errorType?: TechInviteSmsErrorType
         message?: string
-        data?: { setup_url?: string; sms_error?: string | null }
-      }
-      if (j.errorType === "10DLC_BLOCK") {
-        setResendError({
-          techId: tech.id,
-          message: TEN_DLC_BANNER_HEADLINE,
-        })
-        setResentId(null)
-        return
+        data?: { setup_url?: string; sms_error?: string | null; expires_at?: string }
       }
       if (!res.ok || j.success === false) {
+        const setupUrl = j.data?.setup_url
+        if (setupUrl && j.errorType) {
+          setInvite({
+            name: tech.name,
+            phone: tech.phone,
+            expires_at: j.data?.expires_at ?? "",
+            setup_url: setupUrl,
+            sms_sent: false,
+            sms_error: j.data?.sms_error ?? null,
+            success: false,
+            errorType: j.errorType,
+            message: j.message,
+          })
+          setResentId(null)
+          return
+        }
         setResendError({
           techId: tech.id,
           message: j.message || "Could not resend invite text. Try again or share the setup link manually.",
@@ -170,58 +177,26 @@ export function FieldTechniciansPanel() {
         </button>
       </div>
 
-      {invite?.errorType === "10DLC_BLOCK" && (
-        <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
-          <p className="text-sm font-semibold text-red-200">
-            ⚠️ {TEN_DLC_BANNER_HEADLINE}
-          </p>
-          <p className="mt-2 text-xs text-red-100/80">
-            Technician <span className="font-medium text-red-100">{invite.name}</span> was added, but the
-            invite text did not leave our system. Register 10DLC under Settings → SMS lead-alert registration,
-            or share this setup link manually:
-          </p>
-          <p className="mt-2 break-all rounded-lg bg-black/40 p-2 font-mono text-[11px] text-red-100/90">
-            {invite.setup_url}
-          </p>
-          <p className="mt-2 text-[11px] text-red-200/60">Link expires in 48 hours.</p>
-        </div>
-      )}
+      {invite ? (
+        <TechInviteSmsAlert
+          name={invite.name}
+          phone={invite.phone}
+          setupUrl={invite.setup_url}
+          smsSent={invite.sms_sent}
+          success={invite.success}
+          errorType={invite.errorType}
+          message={invite.message}
+          smsError={invite.sms_error}
+        />
+      ) : null}
 
-      {invite && invite.errorType !== "10DLC_BLOCK" && invite.sms_sent && invite.success !== false && (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
-            Invite texted to {invite.name}
-          </p>
-          <p className="mt-1 text-xs text-emerald-100/80">
-            We sent a secure setup link to {formatPhoneDisplay(invite.phone)}. They tap it, pick a password,
-            and they&apos;re in — no password for you to manage.
-          </p>
-          <p className="mt-2 text-[11px] text-emerald-100/60">Link expires in 48 hours.</p>
-        </div>
-      )}
-
-      {invite && invite.errorType !== "10DLC_BLOCK" && !invite.sms_sent && (
-        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-          <p className="text-sm font-semibold text-amber-200">Invite created for {invite.name}</p>
-          <p className="mt-1 text-xs text-amber-100/80">
-            We couldn&apos;t send the SMS automatically
-            {invite.sms_error || invite.message ? ` (${invite.message || invite.sms_error})` : ""}. Share this
-            setup link with them directly:
-          </p>
-          <p className="mt-2 break-all rounded-lg bg-black/30 p-2 font-mono text-[11px] text-amber-100">
-            {invite.setup_url}
-          </p>
-          <p className="mt-2 text-[11px] text-amber-100/60">Link expires in 48 hours.</p>
-        </div>
-      )}
-
-      {resendError && (
+      {resendError && !invite ? (
         <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
           <p className="text-sm font-semibold text-red-200">
             ⚠️ {resendError.message.includes("10DLC") ? resendError.message : `Resend failed: ${resendError.message}`}
           </p>
         </div>
-      )}
+      ) : null}
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
