@@ -164,7 +164,7 @@ export async function submitTelnyxLnpPort(input: TelnyxLnpSubmitInput): Promise<
           auth_person_name: input.authorizedPerson,
           billing_phone_number: e164,
           account_number: input.accountNumber || undefined,
-          pin: input.pin || undefined,
+          pin_passcode: input.pin || undefined,
         },
         location: {
           street_address: input.streetAddress,

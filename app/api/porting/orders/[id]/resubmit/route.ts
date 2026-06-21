@@ -77,18 +77,12 @@ async function handleResubmit(req: NextRequest, id: string) {
   try {
     if (pin) {
       const telnyx = await submitTelnyxPortingPinCorrection(telnyxOrderId, pin)
+      const stillException = telnyx.telnyxStatus.toLowerCase().includes("exception")
       await patchPortingOrderFields(id, {
         pin_or_sid: pin,
-        status:
-          telnyx.orderStatus === "rejected" && pinRequired
-            ? "action_required"
-            : telnyx.orderStatus === "rejected"
-              ? "action_required"
-              : telnyx.orderStatus,
+        status: stillException ? "action_required" : telnyx.orderStatus,
         telnyx_status: telnyx.telnyxStatus,
-        carrier_rejection_reason: telnyx.telnyxStatus.toLowerCase().includes("exception")
-          ? order.carrier_rejection_reason
-          : null,
+        carrier_rejection_reason: stillException ? order.carrier_rejection_reason : null,
       })
     }
 
@@ -104,13 +98,17 @@ async function handleResubmit(req: NextRequest, id: string) {
       }
     }
 
+    const pinSaved = Boolean(pin)
     return NextResponse.json({
       success: true,
-      message: "Correction submitted to the carrier desk for this line.",
+      message: pinSaved
+        ? "PIN saved on your carrier port order. Telnyx is re-reviewing the transfer — refresh the portal in a minute to confirm."
+        : "Correction submitted to the carrier desk for this line.",
       data: {
         porting_order_id: id,
         telnyx_order_id: telnyxOrderId,
         phone_number: order.phone_number,
+        pin_saved: pinSaved,
       },
     })
   } catch (e) {

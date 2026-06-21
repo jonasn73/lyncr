@@ -230,11 +230,11 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || "Send failed")
       toast({
-        title: payload.pin ? "PIN sent to carrier" : "Correction submitted",
+        title: payload.pin ? "PIN saved to carrier" : "Correction submitted",
         description:
           json.message ||
           (payload.pin
-            ? "Carrier is re-reviewing your transfer with the updated PIN."
+            ? "Telnyx accepted your PIN — the port should move back into review shortly."
             : "Carrier desk received your update for this line."),
       })
       dispatchPortingOrdersChanged()

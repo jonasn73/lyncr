@@ -90,7 +90,7 @@ export async function submitTelnyxPortingCorrections(
   const location: Record<string, string> = {}
 
   if (input.accountNumber?.trim()) admin.account_number = input.accountNumber.trim()
-  if (input.pin?.trim()) admin.pin = input.pin.trim()
+  if (input.pin?.trim()) admin.pin_passcode = input.pin.trim()
   if (input.entityName?.trim()) admin.entity_name = input.entityName.trim()
   if (input.authorizedPerson?.trim()) admin.auth_person_name = input.authorizedPerson.trim()
   if (input.streetAddress?.trim()) location.street_address = input.streetAddress.trim()
@@ -142,11 +142,22 @@ export async function submitTelnyxPortingCorrections(
   return { telnyxOrderId: orderId, telnyxStatus, orderStatus }
 }
 
-/** Owner resubmit: PATCH only the account PIN and refresh Telnyx status. */
+/** Read saved PIN/passcode from a Telnyx porting order payload. */
+function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>): string | null {
+  const endUser = orderData.end_user as Record<string, unknown> | undefined
+  const admin = endUser?.admin as Record<string, unknown> | undefined
+  const pin =
+    (typeof admin?.pin_passcode === "string" && admin.pin_passcode.trim()) ||
+    (typeof admin?.pin === "string" && admin.pin.trim()) ||
+    null
+  return pin || null
+}
+
+/** Owner resubmit: PATCH pin_passcode (Telnyx admin field) and verify it persisted. */
 export async function submitTelnyxPortingPinCorrection(
   telnyxOrderId: string,
   pin: string
-): Promise<TelnyxPortingCorrectionResult> {
+): Promise<TelnyxPortingCorrectionResult & { pin_saved: boolean }> {
   const orderId = telnyxOrderId.trim()
   const pinTrimmed = pin.trim()
   if (!orderId) throw new Error("Telnyx order id is required")
@@ -154,14 +165,21 @@ export async function submitTelnyxPortingPinCorrection(
 
   await telnyxFetch(`/porting_orders/${orderId}`, {
     method: "PATCH",
-    body: JSON.stringify({ end_user: { admin: { pin: pinTrimmed } } }),
+    body: JSON.stringify({ end_user: { admin: { pin_passcode: pinTrimmed } } }),
   })
 
   const refreshed = await telnyxFetch(`/porting_orders/${orderId}?include_phone_numbers=true`)
   const orderData = (refreshed?.data ?? refreshed) as Record<string, unknown>
+  const savedPin = readTelnyxPortingPinPasscode(orderData)
+  if (savedPin !== pinTrimmed) {
+    throw new Error(
+      "Telnyx did not save your PIN — the carrier API rejected the value. Double-check the transfer PIN from your losing carrier and try again."
+    )
+  }
+
   const statuses = collectPortingStatuses(orderData)
   const telnyxStatus = pickBestPortingStatus(statuses)
   const orderStatus = mapTelnyxStatusToPortingOrderStatus(telnyxStatus)
 
-  return { telnyxOrderId: orderId, telnyxStatus, orderStatus }
+  return { telnyxOrderId: orderId, telnyxStatus, orderStatus, pin_saved: true }
 }
