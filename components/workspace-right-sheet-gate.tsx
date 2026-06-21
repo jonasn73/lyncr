@@ -32,7 +32,7 @@ export function WorkspaceRightSheetGate<T>({
   return (
     <>
       <OpenContext.Provider value={open as (value: unknown) => void}>{children}</OpenContext.Provider>
-      <Sheet open={value != null} onOpenChange={(o) => !o && close()} modal>
+      <Sheet open={value != null} onOpenChange={(o) => !o && close()} modal={false}>
         <SheetContent side="right" variant="drawer" className={sheetClassName}>
           {value != null ? render(value, close) : null}
         </SheetContent>

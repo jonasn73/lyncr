@@ -11,18 +11,13 @@ import {
 } from "react"
 import Link from "next/link"
 import {
-  Users,
-  BarChart3,
-  Settings,
-  Zap,
-  ClipboardList,
-  Inbox,
   LifeBuoy,
   LogOut,
   Loader2,
   ChevronDown,
   Search,
   CalendarDays,
+  Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
@@ -39,48 +34,16 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
-import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
+import { CommandDock } from "@/components/layout/command-dock"
+import { NotificationCenter } from "@/components/layout/notification-center"
+import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 
-/** All dashboard segments we recognize for highlighting and deep links (Help is not a bottom tab). */
-export type PageId =
-  | "dashboard"
-  | "activity"
-  | "leads"
-  | "customers"
-  | "contacts"
-  | "pay"
-  | "settings"
-  | "scheduler"
-  | "help"
-
-/** Primary tabs — Scheduler sits between Activity and Leads (booked / pending jobs). */
-const bottomNavItems = [
-  { id: "dashboard" as const, label: "Routing", icon: Zap },
-  { id: "activity" as const, label: "Activity", icon: ClipboardList },
-  { id: "scheduler" as const, label: "Scheduler", icon: CalendarDays },
-  { id: "leads" as const, label: "Leads", icon: Inbox },
-  { id: "contacts" as const, label: "Team", icon: Users },
-  { id: "pay" as const, label: "Pay", icon: BarChart3 },
-  { id: "settings" as const, label: "Settings", icon: Settings },
-] as const
+export type { PageId }
 
 /** Session snapshot for the header account menu (dashboard only). */
 export type AccountHeaderState =
   | { kind: "loading" }
   | { kind: "ready"; name: string; email: string; answeredCallCustomerPopupEnabled: boolean }
-
-/** Href for each tab — use Link (not router.push) so App Router always swaps the page under this client layout. */
-const PAGE_HREF: Record<PageId, string> = {
-  dashboard: "/dashboard",
-  activity: "/dashboard/activity",
-  leads: "/dashboard/leads",
-  customers: "/dashboard/customers",
-  contacts: "/dashboard/contacts",
-  pay: "/dashboard/pay",
-  settings: "/dashboard/settings",
-  scheduler: "/dashboard/scheduler",
-  help: "/dashboard/help",
-}
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -88,80 +51,6 @@ function initialsFromName(name: string): string {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
-
-const AppShellBottomNav = memo(function AppShellBottomNav({
-  activePage,
-  useLinks,
-  onNavigate,
-}: {
-  activePage: PageId
-  useLinks: boolean
-  onNavigate?: (page: PageId) => void
-}) {
-  return (
-    <nav
-      className="sticky bottom-0 z-40 shrink-0 border-t border-border/70 bg-background pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
-      role="navigation"
-      aria-label="Main navigation"
-    >
-      <p className="sr-only">
-        Use the tabs below for the main sections. Press ⌘K or Ctrl+K to jump anywhere. Account menu at the top right
-        includes settings, help, and sign out.
-      </p>
-      <div className="mx-2 flex max-w-full items-center justify-around gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card px-1.5 py-2 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.25)] sm:mx-3 sm:gap-1 sm:px-2.5">
-        {bottomNavItems.map((item) => {
-          const Icon = item.icon
-          const isActive = activePage === item.id
-          const className = cn(
-            "flex min-h-11 min-w-[52px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center sm:min-w-[58px] sm:px-3",
-            "transition-[background-color,color,transform] duration-200 ease-out motion-safe:active:scale-[0.96]",
-            isActive
-              ? "bg-primary/15 text-primary shadow-[var(--electric-glow)] ring-1 ring-primary/40"
-              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-          )
-          const inner = (
-            <>
-              <Icon
-                className={cn(
-                  "h-5 w-5 transition-transform duration-200 ease-out",
-                  isActive && "scale-105"
-                )}
-              />
-              <span className="w-full text-center text-[11px] font-medium leading-tight">{item.label}</span>
-            </>
-          )
-          if (useLinks) {
-            return (
-              <Link
-                key={item.id}
-                href={PAGE_HREF[item.id]}
-                prefetch
-                scroll={false}
-                className={className}
-                aria-current={isActive ? "page" : undefined}
-                title={item.label}
-              >
-                {inner}
-              </Link>
-            )
-          }
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onNavigate?.(item.id)}
-              className={className}
-              aria-current={isActive ? "page" : undefined}
-              title={item.label}
-            >
-              {inner}
-            </button>
-          )
-        })}
-      </div>
-    </nav>
-  )
-})
 
 const AppShellHeader = memo(function AppShellHeader({
   useLinks,
@@ -180,7 +69,7 @@ const AppShellHeader = memo(function AppShellHeader({
   headerCenter?: ReactNode
 }) {
   return (
-    <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background px-3 py-3 sm:px-5 sm:py-3.5">
+    <header className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background/80 px-3 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
       {useLinks ? (
         <Link
           href="/dashboard"
@@ -190,7 +79,7 @@ const AppShellHeader = memo(function AppShellHeader({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
-          <BrandWordmark size="md" />
+          <BrandWordmark size="md" className="hidden sm:inline-flex" />
         </Link>
       ) : (
         <button
@@ -202,7 +91,7 @@ const AppShellHeader = memo(function AppShellHeader({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
-          <BrandWordmark size="md" />
+          <BrandWordmark size="md" className="hidden sm:inline-flex" />
         </button>
       )}
 
@@ -225,6 +114,7 @@ const AppShellHeader = memo(function AppShellHeader({
             <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={onCommandOpenChange} />
           </>
         )}
+        {useLinks ? <NotificationCenter /> : null}
         {useLinks && accountHeader?.kind === "loading" && (
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
         )}
@@ -269,19 +159,19 @@ const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { nam
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/dashboard/settings" className="cursor-pointer">
+          <Link href={DASHBOARD_PAGE_HREF.settings} className="cursor-pointer">
             <Settings className="size-4" />
             Settings
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/dashboard/scheduler" className="cursor-pointer">
+          <Link href={DASHBOARD_PAGE_HREF.scheduler} className="cursor-pointer">
             <CalendarDays className="size-4" />
             Scheduler
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/dashboard/help" className="cursor-pointer">
+          <Link href={DASHBOARD_PAGE_HREF.help} className="cursor-pointer">
             <LifeBuoy className="size-4" />
             Help & feedback
           </Link>
@@ -308,19 +198,15 @@ function AppShellInner({
   pathname,
   accountHeader,
   onNavigate,
-  topBanner,
   headerCenter,
   children,
 }: {
   pathname?: string
   accountHeader?: AccountHeaderState
   onNavigate?: (page: PageId) => void
-  /** Renders above the sticky Lyncr header (e.g. sandbox trial alert). */
-  topBanner?: ReactNode
   headerCenter?: ReactNode
   children: ReactNode
 }) {
-  const activePage = useDashboardActivePage()
   const useLinks = Boolean(pathname)
   const mainRef = useRef<HTMLElement>(null)
   const [commandOpen, setCommandOpen] = useState(false)
@@ -345,25 +231,29 @@ function AppShellInner({
   }, [useLinks])
 
   return (
-    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background">
-      {topBanner}
-      <AppShellHeader
-        useLinks={useLinks}
-        accountHeader={accountHeader}
-        onNavigate={onNavigate}
-        commandOpen={commandOpen}
-        onCommandOpenChange={handleCommandOpenChange}
-        headerCenter={headerCenter}
-      />
+    <div className="flex h-dvh max-h-dvh overflow-hidden bg-background">
+      <CommandDock useLinks={useLinks} onNavigate={onNavigate} />
 
-      <main
-        ref={mainRef}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-gradient-to-b from-background to-muted/15 pb-[max(env(safe-area-inset-bottom),0px)]"
-      >
-        {children}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col pl-[4.25rem]">
+        <AppShellHeader
+          useLinks={useLinks}
+          accountHeader={accountHeader}
+          onNavigate={onNavigate}
+          commandOpen={commandOpen}
+          onCommandOpenChange={handleCommandOpenChange}
+          headerCenter={headerCenter}
+        />
 
-      <AppShellBottomNav activePage={activePage} useLinks={useLinks} onNavigate={onNavigate} />
+        <main
+          ref={mainRef}
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain",
+            "bg-gradient-to-b from-background to-muted/15"
+          )}
+        >
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

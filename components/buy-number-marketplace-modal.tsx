@@ -5,12 +5,13 @@ import { Hash, Loader2, Zap } from "lucide-react"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { fetchNumberEntitlements } from "@/lib/number-entitlements-client"
 import { dispatchBusinessNumbersChanged } from "@/components/dashboard-numbers-modal-context"
@@ -305,13 +306,11 @@ export function BuyNumberMarketplaceModal({
     searchMeta?.has_more
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className={cn(
-          "sigo-marketplace-dialog flex max-h-[min(92dvh,720px)] flex-col gap-0 overflow-hidden border-border/60 p-0 sm:max-w-lg",
-          "transform-gpu will-change-transform backface-hidden"
-        )}
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        side="right"
+        variant="drawer"
+        className={cn(WORKSPACE_SHEET_CLASS, "sm:max-w-lg")}
       >
         {panelView === "port" ? (
           <PortNumberModal
@@ -324,12 +323,12 @@ export function BuyNumberMarketplaceModal({
           />
         ) : (
           <>
-        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-5 text-left">
-          <DialogTitle className="text-xl font-semibold tracking-tight">Buy a number</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+        <SheetHeader className="shrink-0 border-b border-border/60 px-6 py-5 text-left">
+          <SheetTitle className="text-xl font-semibold tracking-tight">Buy a number</SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground">
             Search live inventory by area code — only real, purchasable lines are shown.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col">
           {entitlementsBlocked ? (
@@ -509,7 +508,7 @@ export function BuyNumberMarketplaceModal({
         </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

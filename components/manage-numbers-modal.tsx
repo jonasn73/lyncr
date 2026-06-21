@@ -5,12 +5,13 @@ import { ArrowRightLeft, Hourglass, Loader2, Pencil, Phone, Plus, Trash2 } from 
 import { cn } from "@/lib/utils"
 import type { PortingOrder } from "@/lib/types"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -431,21 +432,15 @@ export function ManageNumbersModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          showCloseButton
-          className={cn(
-            "sigo-marketplace-dialog gap-0 overflow-hidden border-border/60 p-0 sm:max-w-md",
-            "transform-gpu will-change-transform backface-hidden"
-          )}
-        >
-          <DialogHeader className="border-b border-border/60 px-6 py-5 text-left">
-            <DialogTitle className="text-xl font-semibold tracking-tight">Lines & numbers</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
+      <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+        <SheetContent side="right" variant="drawer" className={cn(WORKSPACE_SHEET_CLASS, "sm:max-w-md")}>
+          <SheetHeader className="border-b border-border/60 px-6 py-5 text-left">
+            <SheetTitle className="text-xl font-semibold tracking-tight">Lines & numbers</SheetTitle>
+            <SheetDescription className="text-sm text-muted-foreground">
               Published business numbers on your account. Release a line you no longer want — carrier credit is not
               refunded.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
           {billingCycleEnd ? (
             <p className="border-b border-border/60 px-6 py-3 text-xs text-muted-foreground">
@@ -454,7 +449,7 @@ export function ManageNumbersModal({
             </p>
           ) : null}
 
-          <div className="max-h-[min(55vh,24rem)] overflow-y-auto overscroll-contain px-6 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
             {loading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading lines" />
@@ -620,8 +615,8 @@ export function ManageNumbersModal({
               </button>
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={releaseTarget != null} onOpenChange={(next) => !next && setReleaseTarget(null)}>
         <AlertDialogContent className="border-border/60 bg-card">

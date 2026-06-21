@@ -76,7 +76,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   activePage: DashboardPresencePageId
 }) {
   return (
-    <div className="relative w-full min-h-[calc(100dvh-7.5rem)]">
+    <div className="relative w-full min-h-[calc(100dvh-4rem)]">
       <Suspense fallback={null}>
         <DashboardSettingsModalsHost />
       </Suspense>

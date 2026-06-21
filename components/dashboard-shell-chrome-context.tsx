@@ -5,7 +5,7 @@ import type { PageId } from "@/components/app-shell"
 
 const ActivePageContext = createContext<PageId>("dashboard")
 
-/** Lets bottom nav read active tab without re-rendering main content children. */
+/** Lets command dock read active tab without re-rendering main content children. */
 export function DashboardChromeProvider({
   activePage,
   children,

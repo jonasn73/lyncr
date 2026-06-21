@@ -11,8 +11,6 @@ import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-con
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
 import { DashboardActivationProvider } from "@/components/dashboard-activation-context"
-import { DashboardActivationBanner } from "@/components/dashboard-activation-banner"
-import { AdminImpersonationBanner } from "@/components/admin-impersonation-banner"
 import {
   DashboardHeaderWorkspace,
   DashboardOrganizationsBootstrap,
@@ -116,12 +114,6 @@ export function DashboardShell({
                 pathname={pathname}
                 accountHeader={accountHeader}
                 headerCenter={<DashboardHeaderWorkspace />}
-                topBanner={
-                  <>
-                    <AdminImpersonationBanner />
-                    <DashboardActivationBanner />
-                  </>
-                }
               >
                 <DashboardMainContent activePage={activePage} routedChildren={children} />
                 <DashboardAnsweredCallPopup enabled={popupEnabled} />

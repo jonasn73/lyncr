@@ -255,7 +255,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
     : "Your number"
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="right" variant="drawer" className={WORKSPACE_SHEET_CLASS}>
         <DrawerStepHeader
           step="Number transfer"
