@@ -5,9 +5,10 @@ import {
   getMessaging10DlcRegistration,
   upsertMessaging10DlcRegistration,
   getUser,
-  getPhoneNumbers,
   setOrganizationSmsRegistrationStatus,
+  normalizePhoneNumberE164,
 } from "@/lib/db"
+import { resolveActiveLineFor10DlcAssignment } from "@/lib/primary-business-line"
 import {
   TEN_DLC_USE_CASES,
   tenDlcUseCaseMeta,
@@ -97,13 +98,7 @@ async function activeLineFor10Dlc(
   userId: string,
   organizationId?: string | null
 ): Promise<string | null> {
-  const lines = await getPhoneNumbers(userId, organizationId ?? undefined)
-  const active = lines.find(
-    (line) =>
-      line.status === "active" &&
-      Boolean(line.provider_number_sid?.trim() || line.twilio_sid?.trim())
-  )
-  return active?.number?.trim() || null
+  return resolveActiveLineFor10DlcAssignment(userId, organizationId)
 }
 
 /** Backfill dashboard submissions that never reached the carrier API (no campaign_id). */
@@ -345,17 +340,20 @@ export async function refreshMessaging10DlcStatus(
   if (status.normalized === "approved") {
     let assigned = reg.assigned_number
     let detail = "Approved — your line can now send SMS lead alerts."
+    const targetLine = await activeLineFor10Dlc(userId, resolvedOrgId)
+    if (targetLine && normalizePhoneNumberE164(targetLine) !== normalizePhoneNumberE164(assigned ?? "")) {
+      assigned = null
+    }
     if (!assigned) {
-      const line = await activeLineFor10Dlc(userId, resolvedOrgId)
-      if (line) {
-        const res = await assignNumberToTelnyx10DlcCampaign(line, reg.campaign_id)
+      if (targetLine) {
+        const res = await assignNumberToTelnyx10DlcCampaign(targetLine, reg.campaign_id)
         if (res.ok) {
-          assigned = line
+          assigned = targetLine
         } else {
           detail = `Approved, but number assignment needs a retry: ${res.error}`
         }
       } else {
-        detail = "Approved — activate a business line, then refresh to attach it to your campaign."
+        detail = "Approved — your main line is still porting. Refresh after it is live to attach SMS."
       }
     }
     const updated = await upsert10(userId, resolvedOrgId, {

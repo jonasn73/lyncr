@@ -1,6 +1,6 @@
 // Server-only: build structured carrier submission summary for the 10DLC status modal.
 
-import { getPhoneNumbers, listPortingOrdersForOwner } from "@/lib/db"
+import { resolvePrimaryBusinessLineForOrganization } from "@/lib/primary-business-line"
 import type {
   SmsRegistrationLifecycleStage,
   SmsRegistrationSubmissionSummary,
@@ -60,53 +60,6 @@ function resolveLifecycleStage(
   return "submitted"
 }
 
-async function resolveTargetPhoneLine(
-  ownerUserId: string,
-  organizationId: string | null,
-  assignedNumber: string | null | undefined
-): Promise<{ number: string | null; label: string | null }> {
-  if (assignedNumber?.trim()) {
-    return { number: assignedNumber.trim(), label: null }
-  }
-
-  if (organizationId) {
-    const [numbers, portOrders] = await Promise.all([
-      getPhoneNumbers(ownerUserId, organizationId),
-      listPortingOrdersForOwner(ownerUserId, organizationId),
-    ])
-
-    const active = numbers.find((n) => n.status === "active")
-    if (active) {
-      return {
-        number: active.number,
-        label: active.label?.trim() || active.friendly_name?.trim() || null,
-      }
-    }
-
-    const porting = numbers.find((n) => n.status === "porting")
-    if (porting) {
-      return {
-        number: porting.number,
-        label: porting.label?.trim() || porting.friendly_name?.trim() || "Port in progress",
-      }
-    }
-
-    const openPort = portOrders.find((o) => o.status === "pending" || o.status === "processing")
-    if (openPort) {
-      return { number: openPort.phone_number, label: "Number transfer in progress" }
-    }
-
-    if (numbers[0]) {
-      return {
-        number: numbers[0].number,
-        label: numbers[0].label?.trim() || numbers[0].friendly_name?.trim() || null,
-      }
-    }
-  }
-
-  return { number: null, label: null }
-}
-
 /** Load submission summary for pending / review / rejected / approved states. */
 export async function buildSmsRegistrationSubmissionSummary(
   ownerUserId: string,
@@ -123,7 +76,7 @@ export async function buildSmsRegistrationSubmissionSummary(
     return null
   }
 
-  const phone = await resolveTargetPhoneLine(
+  const phone = await resolvePrimaryBusinessLineForOrganization(
     ownerUserId,
     compliance.organization_id,
     telnyx?.assigned_number
