@@ -77,13 +77,40 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
     return map
   }, [portOrders])
 
+  const hasLines = visibleLines.length > 0 || Boolean(activeLineDisplay)
+
+  /** Open the right-side carrier desk sheet for a line in port. Refreshes orders if the map is stale. */
+  const openCarrierDeskForLine = useCallback(
+    async (line: DashboardBusinessNumber) => {
+      const phoneKey = phoneDigits10(line.number)
+      let portOrder = portOrderByPhone.get(phoneKey)
+      if (portOrder?.id) {
+        openPortingDrawer(portOrder.id)
+        return
+      }
+      const orgQs = organizationQueryString(activeOrganizationId)
+      try {
+        const res = await fetch(`/api/porting/orders${orgQs}`, { credentials: "include" })
+        if (!res.ok) return
+        const data = (await res.json()) as { data?: { orders?: PortingOrder[] } }
+        const orders = Array.isArray(data.data?.orders) ? data.data.orders.filter(isActivePortingOrder) : []
+        setPortOrders(orders)
+        portOrder = orders.find((o) => phoneDigits10(o.phone_number) === phoneKey)
+        if (portOrder?.id) {
+          openPortingDrawer(portOrder.id)
+        }
+      } catch {
+        /* drawer stays closed if refresh fails */
+      }
+    },
+    [activeOrganizationId, openPortingDrawer, portOrderByPhone]
+  )
+
   function handleLinePress(line: DashboardBusinessNumber) {
     setActiveLine(line.number)
     const portOrder = portOrderByPhone.get(phoneDigits10(line.number))
     if (line.status === "porting" || portOrder) {
-      if (portOrder?.id) {
-        openPortingDrawer(portOrder.id)
-      }
+      void openCarrierDeskForLine(line)
       return
     }
     setIntakeLine(line)
@@ -112,15 +139,6 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={openBuyModal}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90 motion-safe:active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          Add business number
-        </button>
-
         {visibleLines.length > 0 ? (
           <ul className="mt-4 flex flex-col gap-2" aria-label="Your business lines">
             {visibleLines.map((line) => {
@@ -131,12 +149,9 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
               const transferInProgress = line.status === "porting" || Boolean(portOrder)
               return (
                 <li key={line.number}>
-                  <button
-                    type="button"
-                    onClick={() => handleLinePress(line)}
+                  <div
                     className={cn(
-                      "relative w-full rounded-xl border px-3 py-3 text-left transition-[border-color,background-color,transform,box-shadow] duration-200",
-                      "motion-safe:active:scale-[0.99]",
+                      "relative w-full overflow-hidden rounded-xl border transition-[border-color,background-color,box-shadow] duration-200",
                       isActive
                         ? poolRouting
                           ? "border-violet-500/45 bg-violet-500/5 ring-1 ring-violet-500/15"
@@ -144,35 +159,61 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
                         : "border-white/8 bg-neutral-950/30 hover:border-teal-500/25 hover:bg-white/[0.03]"
                     )}
                   >
-                    <span
+                    <button
+                      type="button"
+                      onClick={() => handleLinePress(line)}
                       className={cn(
-                        "text-[10px] font-bold uppercase tracking-wider",
-                        isActive
-                          ? poolRouting
-                            ? "text-violet-300/85"
-                            : "text-primary/80"
-                          : "text-muted-foreground"
+                        "w-full px-3 py-3 text-left transition-transform motion-safe:active:scale-[0.99]",
+                        transferInProgress ? "pb-1.5" : undefined
                       )}
                     >
-                      {label}
-                    </span>
-                    <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
-                      {formatPhoneDisplay(line.number)}
-                    </p>
-                    {transferInProgress ? (
-                      <p className="mt-0.5 text-[10px] font-medium text-amber-400/90">
-                        Transfer in progress — tap for carrier desk
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          isActive
+                            ? poolRouting
+                              ? "text-violet-300/85"
+                              : "text-primary/80"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {label}
+                      </span>
+                      <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                        {formatPhoneDisplay(line.number)}
                       </p>
+                      {isActive && !transferInProgress ? (
+                        <LineRoutingStatus
+                          routingStrategy={routingStrategy}
+                          subscriptionActive={subscriptionActive}
+                          lineCarrierLive={lineCarrierLive}
+                          className="mt-1"
+                        />
+                      ) : null}
+                    </button>
+                    {transferInProgress ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setActiveLine(line.number)
+                          void openCarrierDeskForLine(line)
+                        }}
+                        className="w-full px-3 pb-3 text-left text-[10px] font-medium text-amber-400/90 underline-offset-2 transition-colors hover:text-amber-300 hover:underline"
+                      >
+                        Transfer in progress — tap for carrier desk
+                      </button>
                     ) : null}
-                    {isActive ? (
-                      <LineRoutingStatus
-                        routingStrategy={routingStrategy}
-                        subscriptionActive={subscriptionActive}
-                        lineCarrierLive={lineCarrierLive}
-                        className="mt-1"
-                      />
+                    {isActive && transferInProgress ? (
+                      <div className="px-3 pb-3">
+                        <LineRoutingStatus
+                          routingStrategy={routingStrategy}
+                          subscriptionActive={subscriptionActive}
+                          lineCarrierLive={lineCarrierLive}
+                        />
+                      </div>
                     ) : null}
-                  </button>
+                  </div>
                 </li>
               )
             })}
@@ -203,6 +244,26 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
             />
           </div>
         ) : null}
+
+        {hasLines ? (
+          <button
+            type="button"
+            onClick={openBuyModal}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-transparent px-4 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/8"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            Add business number
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={openBuyModal}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90 motion-safe:active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Add business number
+          </button>
+        )}
 
         <nav className="mt-5 flex flex-col gap-1" aria-label="Number shortcuts">
           <button
