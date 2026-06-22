@@ -199,6 +199,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
                           setActiveLine(line.number)
                           void openCarrierDeskForLine(line)
                         }}
+                        aria-label={`Open carrier transfer desk for ${formatPhoneDisplay(line.number)}`}
                         className="w-full px-3 pb-3 text-left text-[10px] font-medium text-amber-400/90 underline-offset-2 transition-colors hover:text-amber-300 hover:underline"
                       >
                         Transfer in progress — tap for carrier desk
@@ -245,16 +246,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           </div>
         ) : null}
 
-        {hasLines ? (
-          <button
-            type="button"
-            onClick={openBuyModal}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-transparent px-4 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/50 hover:bg-primary/8"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-            Add business number
-          </button>
-        ) : (
+        {!hasLines ? (
           <button
             type="button"
             onClick={openBuyModal}
@@ -263,7 +255,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
             <Plus className="h-4 w-4" aria-hidden />
             Add business number
           </button>
-        )}
+        ) : null}
 
         <nav className="mt-5 flex flex-col gap-1" aria-label="Number shortcuts">
           <button
@@ -279,8 +271,16 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
             onClick={openBuyModal}
             className="group flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-white/5"
           >
-            <span>Buy / manage numbers</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span>Buy / manage numbers</span>
+              {hasLines ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                  <Plus className="h-3 w-3" aria-hidden />
+                  Add
+                </span>
+              ) : null}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
           </button>
         </nav>
       </aside>
