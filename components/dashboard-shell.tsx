@@ -22,6 +22,8 @@ import {
   DashboardOrganizationsBootstrap,
 } from "@/components/dashboard-header-workspace"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
+import type { LeadsWorkspaceCache } from "@/lib/leads-cache"
+import { LeadsWorkspaceInitialProvider } from "@/components/leads-workspace-initial-context"
 import { DashboardBootstrapShellGate } from "@/components/dashboard-bootstrap-context"
 import { DashboardMainStreamGate } from "@/components/dashboard-main-stream-gate"
 import { DashboardSettingsModalsLazyHost } from "@/components/dashboard/settings-modals-lazy-host"
@@ -52,6 +54,7 @@ export function DashboardShell({
   sessionBusinessName,
   sessionAccount,
   initialBootstrap,
+  initialLeadsCache,
 }: {
   children: React.ReactNode
   pathnameFromRequest: string | null
@@ -59,6 +62,8 @@ export function DashboardShell({
   sessionBusinessName?: string
   /** Server-resolved routing bootstrap — matches SSR HTML to client on hard refresh. */
   initialBootstrap?: DashboardMainBootstrap | null
+  /** Server-resolved leads for /dashboard/leads hard refresh. */
+  initialLeadsCache?: LeadsWorkspaceCache | null
   /** Server session snapshot — avoids header width jump while /api/auth/session loads. */
   sessionAccount?: {
     name: string
@@ -191,16 +196,18 @@ export function DashboardShell({
                   <DashboardSettingsModalsLazyHost sessionSeed={settingsSessionSeed} />
                 </Suspense>
                 <DashboardBootstrapShellGate initialBootstrap={initialBootstrap}>
-                  <AppShell
-                    pathname={pathname}
-                    accountHeader={accountHeader}
-                    headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
-                  >
-                    <DashboardMainStreamGate activePage={activePage}>
-                      <DashboardMainContent activePage={activePage} routedChildren={children} />
-                    </DashboardMainStreamGate>
-                    <DashboardAnsweredCallPopup enabled={popupEnabled} />
-                  </AppShell>
+                  <LeadsWorkspaceInitialProvider initial={initialLeadsCache}>
+                    <AppShell
+                      pathname={pathname}
+                      accountHeader={accountHeader}
+                      headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
+                    >
+                      <DashboardMainStreamGate activePage={activePage}>
+                        <DashboardMainContent activePage={activePage} routedChildren={children} />
+                      </DashboardMainStreamGate>
+                      <DashboardAnsweredCallPopup enabled={popupEnabled} />
+                    </AppShell>
+                  </LeadsWorkspaceInitialProvider>
                 </DashboardBootstrapShellGate>
               </DashboardNumbersModalProvider>
             </DashboardWorkspaceProvider>

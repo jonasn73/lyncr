@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useEffect, useState } from "react"
+import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { LifeBuoy, Loader2, PhoneOutgoing } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -21,10 +21,16 @@ import {
 } from "@/components/workspace-right-sheet-gate"
 
 import {
+  useLeadsWorkspaceInitial,
+  useLeadsWorkspaceCacheSnapshot,
+} from "@/components/leads-workspace-initial-context"
+import {
   readLeadsWorkspaceCache,
   refreshLeadsWorkspaceCache,
+  writeLeadsWorkspaceCache,
   type CachedLeadRow,
   type CachedSalvageLead,
+  type LeadsWorkspaceCache,
 } from "@/lib/leads-cache"
 
 type LeadRow = CachedLeadRow
@@ -410,40 +416,43 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 })
 
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
-  const [apiLeads, setApiLeads] = useState<LeadRow[]>(() => readLeadsWorkspaceCache()?.leads ?? [])
-  const [leads, setLeads] = useState<DisplayLead[]>([])
-  const [salvageLeads, setSalvageLeads] = useState<SalvageLead[]>(
-    () => readLeadsWorkspaceCache()?.salvageLeads ?? []
-  )
-  const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
-  const [loading, setLoading] = useState(() => readLeadsWorkspaceCache() === undefined)
+  const initial = useLeadsWorkspaceInitial()
+  const cached = useLeadsWorkspaceCacheSnapshot()
+  const [fresh, setFresh] = useState<LeadsWorkspaceCache | null>(null)
+  const [fetchDone, setFetchDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
+
+  const payload = fresh ?? initial ?? cached ?? null
+
+  useLayoutEffect(() => {
+    if (initial) writeLeadsWorkspaceCache(initial)
+  }, [initial])
 
   useEffect(() => {
     let cancelled = false
     void refreshLeadsWorkspaceCache()
       .then((data) => {
         if (cancelled) return
-        setApiLeads(data.leads)
-        setSalvageLeads(data.salvageLeads)
+        setFresh(data)
         setError(null)
       })
       .catch((e) => {
         if (cancelled) return
-        if (readLeadsWorkspaceCache()) return
+        if (readLeadsWorkspaceCache() || initial || cached) return
         setError(e instanceof Error ? e.message : "Error")
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setFetchDone(true)
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  useEffect(() => {
-    setLeads(apiLeads.map(apiLeadToDisplay))
-  }, [apiLeads])
+  const leads = useMemo(() => (payload?.leads ?? []).map(apiLeadToDisplay), [payload?.leads])
+  const salvageLeads = payload?.salvageLeads ?? []
+  const showSpinner = !payload && !fetchDone
 
   const usingDemo = false
 
@@ -461,7 +470,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
       )}
     >
       <LeadsWorkspaceBody
-        loading={loading}
+        loading={showSpinner}
         error={error}
         leads={leads}
         salvageLeads={salvageLeads}
