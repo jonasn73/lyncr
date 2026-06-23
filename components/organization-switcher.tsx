@@ -49,6 +49,40 @@ type Props = {
   className?: string
   onOrganizationChange?: (organizationId: string | null) => void
   onOrganizationsLoaded?: (organizations: Organization[]) => void
+  /** Preloaded rows from the server stream — skips the first client fetch. */
+  seedOrganizations?: Organization[]
+  /** When true, do not call GET /api/organizations on mount (stream already supplied rows). */
+  skipInitialFetch?: boolean
+  /** Account business name — used as a placeholder label while orgs load on client nav. */
+  sessionBusinessName?: string
+}
+
+/** Static header chip shown while streamed organizations resolve (looks like the real switcher). */
+export function OrganizationSwitcherPlaceholder({
+  label,
+  className,
+}: {
+  label: string
+  className?: string
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled
+      aria-busy="true"
+      aria-label="Loading business workspace"
+      className={cn(
+        "h-9 max-w-[min(100%,14rem)] gap-1.5 border-border/70 bg-card/80 px-2.5 text-xs font-medium sm:max-w-[16rem] sm:px-3",
+        className
+      )}
+    >
+      <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+      <span className="truncate">{label}</span>
+      <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+    </Button>
+  )
 }
 
 type ServiceContextPayload = {
@@ -63,10 +97,17 @@ function isEditableWorkspace(org: Organization): boolean {
   return !org.id.startsWith("legacy-")
 }
 
-export function OrganizationSwitcher({ className, onOrganizationChange, onOrganizationsLoaded }: Props) {
-  const [organizations, setOrganizations] = useState<Organization[]>([])
+export function OrganizationSwitcher({
+  className,
+  onOrganizationChange,
+  onOrganizationsLoaded,
+  seedOrganizations,
+  skipInitialFetch = false,
+  sessionBusinessName,
+}: Props) {
+  const [organizations, setOrganizations] = useState<Organization[]>(() => seedOrganizations ?? [])
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !skipInitialFetch && (seedOrganizations?.length ?? 0) === 0)
   const [creating, setCreating] = useState(false)
   const [canAddWorkspace, setCanAddWorkspace] = useState(false)
   const [serviceTier, setServiceTier] = useState<SubscriptionTier>("starter")
@@ -133,6 +174,7 @@ export function OrganizationSwitcher({ className, onOrganizationChange, onOrgani
   )
 
   useEffect(() => {
+    if (skipInitialFetch) return
     load()
     loadServiceContext()
     const onChanged = () => {
@@ -142,7 +184,17 @@ export function OrganizationSwitcher({ className, onOrganizationChange, onOrgani
     }
     window.addEventListener("lyncr-organization-changed", onChanged)
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
-  }, [load, loadServiceContext])
+  }, [load, loadServiceContext, skipInitialFetch])
+
+  useEffect(() => {
+    if (!skipInitialFetch) return
+    loadServiceContext()
+  }, [loadServiceContext, skipInitialFetch])
+
+  useEffect(() => {
+    if (!seedOrganizations?.length) return
+    applyOrganizations(seedOrganizations)
+  }, [applyOrganizations, seedOrganizations])
 
   const active = organizations.find((o) => o.id === activeId) ?? organizations[0]
   const realWorkspaceCount = organizations.filter(isEditableWorkspace).length
@@ -276,10 +328,10 @@ export function OrganizationSwitcher({ className, onOrganizationChange, onOrgani
 
   if (loading) {
     return (
-      <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}>
-        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-        <span className="hidden sm:inline">Loading…</span>
-      </div>
+      <OrganizationSwitcherPlaceholder
+        label={sessionBusinessName?.trim() || "Business"}
+        className={className}
+      />
     )
   }
 

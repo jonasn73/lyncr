@@ -10,6 +10,7 @@ import { userMayAccessDashboard } from "@/lib/server-onboarding-guard"
 import {
   activePipelinePromise,
   jobPoolPromise,
+  organizationsPromise,
   phoneLinesPromise,
   routingBootstrapPromise,
 } from "@/lib/server/streamed-dashboard-data"
@@ -57,6 +58,7 @@ export default async function DashboardLayout({
 
   const linesPromise = phoneLinesPromise(user)
   const routingPromise = isMainRoutingDashboard ? routingBootstrapPromise(user) : undefined
+  const orgsPromise = organizationsPromise(user)
   const hopperPromise = isSchedulerRoute ? jobPoolPromise(user) : undefined
   const pipelinePromise = isSchedulerRoute ? activePipelinePromise(user) : undefined
 
@@ -64,10 +66,11 @@ export default async function DashboardLayout({
     <DashboardStreamProvider
       phoneLinesPromise={linesPromise}
       routingBootstrapPromise={routingPromise}
+      organizationsPromise={orgsPromise}
       jobPoolPromise={hopperPromise}
       activePipelinePromise={pipelinePromise}
     >
-      <DashboardShell pathnameFromRequest={pathnameFromRequest}>
+      <DashboardShell pathnameFromRequest={pathnameFromRequest} sessionBusinessName={user.business_name}>
         <Suspense fallback={null}>
           <DashboardOnboardingGuard user={user} />
         </Suspense>

@@ -37,9 +37,12 @@ const DashboardAnsweredCallPopup = memo(function DashboardAnsweredCallPopup({
 export function DashboardShell({
   children,
   pathnameFromRequest,
+  sessionBusinessName,
 }: {
   children: React.ReactNode
   pathnameFromRequest: string | null
+  /** Shown in the header workspace slot while orgs stream in on hard refresh. */
+  sessionBusinessName?: string
 }) {
   const clientPathname = usePathname()
   const router = useRouter()
@@ -117,7 +120,7 @@ export function DashboardShell({
               <AppShell
                 pathname={pathname}
                 accountHeader={accountHeader}
-                headerCenter={<DashboardHeaderWorkspace />}
+                headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
               >
                 <DashboardMainContent activePage={activePage} routedChildren={children} />
                 <DashboardAnsweredCallPopup enabled={popupEnabled} />

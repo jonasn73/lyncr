@@ -10,12 +10,14 @@ import { dayKeyLocal } from "@/lib/scheduler-utils"
 import { requireSessionUser } from "@/lib/server/require-session-user"
 import {
   getCachedAllRoutingConfigs,
+  getCachedOrganizations,
   getCachedPhoneNumbers,
   getCachedReceptionists,
 } from "@/lib/server/cached-db"
 import type {
   ActivePipelineJob,
   FallbackType,
+  Organization,
   PhoneNumberRoutingSummary,
   RoutingConfig,
   UnassignedPoolJob,
@@ -148,6 +150,12 @@ async function loadRoutingBootstrap(user: User): Promise<DashboardRoutingBootstr
 export function phoneLinesPromise(user?: User): Promise<DashboardBusinessNumber[]> {
   if (user) return mapBusinessNumbers(user.id, user)
   return requireSessionUser().then((u) => mapBusinessNumbers(u.id, u))
+}
+
+/** Non-blocking promise for the header workspace switcher. */
+export function organizationsPromise(user?: User): Promise<Organization[]> {
+  if (user) return getCachedOrganizations(user.id)
+  return requireSessionUser().then((u) => getCachedOrganizations(u.id))
 }
 
 /** Session + team + routing for the call-flow panel (streamed via Suspense). */
