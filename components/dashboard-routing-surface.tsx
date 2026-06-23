@@ -79,10 +79,8 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
     <div className="mx-auto w-full max-w-7xl">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
         <DashboardRoutingSidebar
-          lineCount={businessNumbers.length}
           activeLineDisplay={activeLineDisplay}
           routingStrategy={routingStrategy}
-          businessNumbers={businessNumbers}
           className="lg:sticky lg:top-24"
           onConfigureRouting={() => setWhoAnswersOpen(true)}
         />

@@ -98,6 +98,41 @@ export function useBusinessNumbersQuery(activeOrganizationId: string | null) {
   }
 }
 
+/** Suspense-friendly variant — throws the SWR promise until phone lines resolve. */
+export function useBusinessNumbersSuspenseQuery(activeOrganizationId: string | null) {
+  const url = businessNumbersMineUrl(activeOrganizationId)
+  const cacheKey = persistedCacheKey("business-numbers", activeOrganizationId ?? "default")
+
+  const fallbackData = useMemo(
+    () => readPersistedCache<BusinessNumbersQueryResult>(cacheKey),
+    [cacheKey]
+  )
+
+  const { data } = useSWR(
+    url,
+    (key: string) =>
+      swrJsonFetcher<NumbersMineResponse>(key).then((json) => {
+        const mapped = mapNumbersResponse(json)
+        writePersistedCache(cacheKey, mapped)
+        return mapped
+      }),
+    {
+      ...defaultSwrConfig,
+      keepPreviousData: false,
+      fallbackData,
+      suspense: true,
+    }
+  )
+
+  const numbers = useMemo(
+    () => data?.numbers ?? fallbackData?.numbers ?? EMPTY_BUSINESS_NUMBERS,
+    [data, fallbackData]
+  )
+  const reservedNumber = data?.reservedNumber ?? fallbackData?.reservedNumber ?? null
+
+  return { numbers, reservedNumber }
+}
+
 /** Pick active line from reserved hint + current selection. */
 export function resolveActiveLineAfterNumbers(
   numbers: DashboardBusinessNumber[],

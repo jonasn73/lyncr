@@ -59,6 +59,26 @@ export function useJobPoolQuery(activeOrganizationId: string | null) {
   }
 }
 
+export function useJobPoolSuspenseQuery(activeOrganizationId: string | null) {
+  const url = poolHopperUrl(activeOrganizationId)
+  const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
+  const fallbackData = useMemo(
+    () => readPersistedCache<UnassignedPoolJob[]>(cacheKey),
+    [cacheKey]
+  )
+  const { data } = useSWR(
+    url,
+    (key: string) =>
+      swrJsonFetcher<PoolResponse<UnassignedPoolJob>>(key).then((json) => {
+        const jobs = Array.isArray(json.data?.jobs) ? json.data!.jobs! : []
+        writePersistedCache(cacheKey, jobs)
+        return jobs
+      }),
+    { ...defaultSwrConfig, fallbackData, suspense: true }
+  )
+  return useMemo(() => data ?? fallbackData ?? EMPTY_POOL_JOBS, [data, fallbackData])
+}
+
 export function useActivePipelineQuery(
   activeOrganizationId: string | null,
   dayKey: string,
@@ -99,4 +119,31 @@ export function useActivePipelineQuery(
     isValidating,
     mutate,
   }
+}
+
+export function useActivePipelineSuspenseQuery(
+  activeOrganizationId: string | null,
+  dayKey: string,
+  enabled = true
+) {
+  const url = enabled ? poolActiveUrl(activeOrganizationId, dayKey) : null
+  const cacheKey = persistedCacheKey(
+    "job-pool-active",
+    `${activeOrganizationId ?? "default"}:${dayKey}`
+  )
+  const fallbackData = useMemo(
+    () => readPersistedCache<ActivePipelineJob[]>(cacheKey),
+    [cacheKey]
+  )
+  const { data } = useSWR(
+    url,
+    (key: string) =>
+      swrJsonFetcher<PoolResponse<ActivePipelineJob>>(key).then((json) => {
+        const jobs = Array.isArray(json.data?.jobs) ? json.data!.jobs! : []
+        writePersistedCache(cacheKey, jobs)
+        return jobs
+      }),
+    { ...defaultSwrConfig, fallbackData, suspense: true }
+  )
+  return useMemo(() => data ?? fallbackData ?? EMPTY_PIPELINE_JOBS, [data, fallbackData])
 }

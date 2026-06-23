@@ -3,7 +3,7 @@
 // Owner job scheduler — month calendar, tech swimlanes or map route view, manual booking.
 
 import dynamic from "next/dynamic"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { LayoutGrid, Loader2, Map as MapIcon, Plus } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
@@ -39,8 +39,14 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import { useActivePipelineQuery, useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
-import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
-import { ActivePipelinePanel } from "@/components/scheduler/active-pipeline-panel"
+import { JobPoolFromPromise } from "@/components/scheduler/job-pool-from-promise"
+import { JobPoolList } from "@/components/scheduler/job-pool-list"
+import { ActivePipelineFromPromise } from "@/components/scheduler/active-pipeline-from-promise"
+import { ActivePipelineList } from "@/components/scheduler/active-pipeline-list"
+import {
+  ActivePipelinePanelSkeleton,
+  JobPoolPanelSkeleton,
+} from "@/components/scheduler/scheduler-panel-skeletons"
 import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
@@ -102,7 +108,17 @@ function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
   return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
 }
 
-export function SchedulerWorkspaceView() {
+export type SchedulerWorkspaceViewProps = {
+  /** Server-started promise — streams hopper jobs without blocking the page shell. */
+  jobPoolPromise?: Promise<UnassignedPoolJob[]>
+  /** Server-started promise — streams today's active pipeline for the map panel. */
+  activePipelinePromise?: Promise<ActivePipelineJob[]>
+}
+
+export function SchedulerWorkspaceView({
+  jobPoolPromise,
+  activePipelinePromise,
+}: SchedulerWorkspaceViewProps = {}) {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
@@ -136,14 +152,16 @@ export function SchedulerWorkspaceView() {
 
   const {
     jobs: poolJobs,
-    isLoading: poolLoading,
     mutate: mutatePool,
   } = useJobPoolQuery(activeOrganizationId)
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
+  const streamedPipelineDayKey = dayKeyLocal(new Date())
+  const useStreamedPipeline =
+    Boolean(activePipelinePromise) && pipelineDayKey === streamedPipelineDayKey
+
   const {
     jobs: activePipelineJobs,
-    isLoading: activePipelineLoading,
     mutate: mutateActivePipeline,
   } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, viewMode === "map")
 
@@ -661,12 +679,17 @@ export function SchedulerWorkspaceView() {
       </div>
 
       {viewMode === "grid" ? (
-        <JobPoolTray
-          jobs={poolJobs}
-          loading={poolLoading}
-          highlightId={highlightId}
-          onSelectJob={openPoolJobDrawer}
-        />
+        jobPoolPromise ? (
+          <Suspense fallback={<JobPoolPanelSkeleton />}>
+            <JobPoolFromPromise
+              jobsPromise={jobPoolPromise}
+              highlightId={highlightId}
+              onSelectJob={openPoolJobDrawer}
+            />
+          </Suspense>
+        ) : (
+          <JobPoolList highlightId={highlightId} onSelectJob={openPoolJobDrawer} />
+        )
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
@@ -747,12 +770,21 @@ export function SchedulerWorkspaceView() {
           ) : (
             <div className="flex min-h-[min(720px,70vh)] flex-1 flex-col lg:flex-row">
               <div className="max-h-[min(360px,45vh)] w-full shrink-0 overflow-y-auto border-b border-border/60 bg-card/40 lg:max-h-none lg:w-[40%] lg:border-b-0 lg:border-r">
-                <ActivePipelinePanel
-                  jobs={activePipelineJobs}
-                  loading={activePipelineLoading}
-                  highlightId={highlightId}
-                  onFocusJob={focusPipelineJob}
-                />
+                {useStreamedPipeline && activePipelinePromise ? (
+                  <Suspense fallback={<ActivePipelinePanelSkeleton />}>
+                    <ActivePipelineFromPromise
+                      jobsPromise={activePipelinePromise}
+                      highlightId={highlightId}
+                      onFocusJob={focusPipelineJob}
+                    />
+                  </Suspense>
+                ) : (
+                  <ActivePipelineList
+                    dayKey={pipelineDayKey}
+                    highlightId={highlightId}
+                    onFocusJob={focusPipelineJob}
+                  />
+                )}
               </div>
               <div className="min-h-[320px] min-w-0 flex-1 lg:min-h-0">
                 <SchedulerRouteMap
