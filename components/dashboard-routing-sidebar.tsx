@@ -1,6 +1,6 @@
 "use client"
 
-import { memo } from "react"
+import { Suspense, memo } from "react"
 import { ChevronRight, Hash, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
@@ -11,6 +11,7 @@ import {
   phoneLinesHasLines,
   phoneLinesSubtitle,
 } from "@/components/dashboard/phone-lines-list"
+import { PhoneLinesSkeleton } from "@/components/dashboard/phone-lines-skeleton"
 import type { RoutingStrategy } from "@/lib/types"
 
 export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
@@ -54,13 +55,15 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           </div>
         </div>
 
-        <PhoneLinesList
-          routingStrategy={routingStrategy}
-          activeLineDisplay={activeLineDisplay}
-          onConfigureRouting={onConfigureRouting}
-          subscriptionActive={subscriptionActive}
-          lineCarrierLive={lineCarrierLive}
-        />
+        <Suspense fallback={<PhoneLinesSkeleton />}>
+          <PhoneLinesList
+            routingStrategy={routingStrategy}
+            activeLineDisplay={activeLineDisplay}
+            onConfigureRouting={onConfigureRouting}
+            subscriptionActive={subscriptionActive}
+            lineCarrierLive={lineCarrierLive}
+          />
+        </Suspense>
 
         {showEmptyState ? (
           <button

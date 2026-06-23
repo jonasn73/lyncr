@@ -7,11 +7,11 @@ export async function userMayAccessDashboard(user: User): Promise<boolean> {
     return true
   }
   try {
-    const profile = await getOnboardingProfile(user.id)
+    const [profile, numbers] = await Promise.all([
+      getOnboardingProfile(user.id),
+      getPhoneNumbers(user.id),
+    ])
     if (profile?.reserved_number?.trim()) return true
-
-    // Legacy/test accounts may have phone_numbers rows but a cleared onboarding profile.
-    const numbers = await getPhoneNumbers(user.id)
     if (numbers.some((row) => row.status === "active" || row.status === "porting")) {
       return true
     }

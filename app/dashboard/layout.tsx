@@ -4,10 +4,14 @@ import { headers } from "next/headers"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
-import { getSessionUser } from "@/lib/server-session-user"
+import { getCachedSessionUser } from "@/lib/server/cached-session"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { userMayAccessDashboard } from "@/lib/server-onboarding-guard"
-import { phoneLinesPromise } from "@/lib/server/streamed-dashboard-data"
+import {
+  activePipelinePromise,
+  jobPoolPromise,
+  phoneLinesPromise,
+} from "@/lib/server/streamed-dashboard-data"
 import type { User } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -28,8 +32,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [user, h] = await Promise.all([getSessionUser(), headers()])
+  const [user, h] = await Promise.all([getCachedSessionUser(), headers()])
   const pathnameFromRequest = h.get("x-sigo-pathname")
+  const isSchedulerRoute = pathnameFromRequest?.startsWith("/dashboard/scheduler") ?? false
 
   if (!user) {
     const next =
@@ -45,10 +50,16 @@ export default async function DashboardLayout({
   }
   if (isPlatformAdminUser(user)) redirect("/admin")
 
-  const linesPromise = phoneLinesPromise()
+  const linesPromise = phoneLinesPromise(user)
+  const hopperPromise = isSchedulerRoute ? jobPoolPromise(user) : undefined
+  const pipelinePromise = isSchedulerRoute ? activePipelinePromise(user) : undefined
 
   return (
-    <DashboardStreamProvider phoneLinesPromise={linesPromise}>
+    <DashboardStreamProvider
+      phoneLinesPromise={linesPromise}
+      jobPoolPromise={hopperPromise}
+      activePipelinePromise={pipelinePromise}
+    >
       <DashboardShell pathnameFromRequest={pathnameFromRequest}>
         <Suspense fallback={null}>
           <DashboardOnboardingGuard user={user} />

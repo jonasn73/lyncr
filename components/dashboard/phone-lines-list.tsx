@@ -166,20 +166,22 @@ function PhoneLinesStreamInner({
 
 export type PhoneLinesListProps = Omit<PhoneLinesListContentWrapperProps, "numbers">
 
+/** Suspends until phone lines resolve — wrap in `<Suspense fallback={<PhoneLinesSkeleton />}>`. */
 export function PhoneLinesList(props: PhoneLinesListProps) {
   const { phoneLinesPromise } = useDashboardStream()
 
   if (phoneLinesPromise) {
-    return (
-      <Suspense fallback={<PhoneLinesSkeleton />}>
-        <PhoneLinesStreamInner numbersPromise={phoneLinesPromise} {...props} />
-      </Suspense>
-    )
+    return <PhoneLinesStreamInner numbersPromise={phoneLinesPromise} {...props} />
   }
 
+  return <PhoneLinesSwrInner {...props} />
+}
+
+/** Self-contained list with its own Suspense boundary (e.g. outside the routing sidebar). */
+export function PhoneLinesListWithSuspense(props: PhoneLinesListProps) {
   return (
     <Suspense fallback={<PhoneLinesSkeleton />}>
-      <PhoneLinesSwrInner {...props} />
+      <PhoneLinesList {...props} />
     </Suspense>
   )
 }

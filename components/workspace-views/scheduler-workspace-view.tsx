@@ -3,7 +3,7 @@
 // Owner job scheduler — month calendar, tech swimlanes or map route view, manual booking.
 
 import dynamic from "next/dynamic"
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { LayoutGrid, Loader2, Map as MapIcon, Plus } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
@@ -39,14 +39,9 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import { useActivePipelineQuery, useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
-import { JobPoolFromPromise } from "@/components/scheduler/job-pool-from-promise"
-import { JobPoolList } from "@/components/scheduler/job-pool-list"
-import { ActivePipelineFromPromise } from "@/components/scheduler/active-pipeline-from-promise"
-import { ActivePipelineList } from "@/components/scheduler/active-pipeline-list"
-import {
-  ActivePipelinePanelSkeleton,
-  JobPoolPanelSkeleton,
-} from "@/components/scheduler/scheduler-panel-skeletons"
+import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
+import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
+import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
@@ -108,17 +103,7 @@ function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
   return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
 }
 
-export type SchedulerWorkspaceViewProps = {
-  /** Server-started promise — streams hopper jobs without blocking the page shell. */
-  jobPoolPromise?: Promise<UnassignedPoolJob[]>
-  /** Server-started promise — streams today's active pipeline for the map panel. */
-  activePipelinePromise?: Promise<ActivePipelineJob[]>
-}
-
-export function SchedulerWorkspaceView({
-  jobPoolPromise,
-  activePipelinePromise,
-}: SchedulerWorkspaceViewProps = {}) {
+export function SchedulerWorkspaceView() {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
@@ -157,8 +142,7 @@ export function SchedulerWorkspaceView({
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
   const streamedPipelineDayKey = dayKeyLocal(new Date())
-  const useStreamedPipeline =
-    Boolean(activePipelinePromise) && pipelineDayKey === streamedPipelineDayKey
+  const useStreamedPipeline = pipelineDayKey === streamedPipelineDayKey
 
   const {
     jobs: activePipelineJobs,
@@ -679,17 +663,7 @@ export function SchedulerWorkspaceView({
       </div>
 
       {viewMode === "grid" ? (
-        jobPoolPromise ? (
-          <Suspense fallback={<JobPoolPanelSkeleton />}>
-            <JobPoolFromPromise
-              jobsPromise={jobPoolPromise}
-              highlightId={highlightId}
-              onSelectJob={openPoolJobDrawer}
-            />
-          </Suspense>
-        ) : (
-          <JobPoolList highlightId={highlightId} onSelectJob={openPoolJobDrawer} />
-        )
+        <JobPoolPanel highlightId={highlightId} onSelectJob={openPoolJobDrawer} />
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
@@ -708,10 +682,7 @@ export function SchedulerWorkspaceView({
             className="mx-auto"
           />
           {loading ? (
-            <p className="mt-2 flex items-center justify-center gap-2 text-xs text-zinc-500">
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-              Loading…
-            </p>
+            <SchedulerCalendarStatsSkeleton />
           ) : (
             <p className="mt-2 text-center text-xs text-zinc-500">
               {events.length} scheduled this month
@@ -770,21 +741,12 @@ export function SchedulerWorkspaceView({
           ) : (
             <div className="flex min-h-[min(720px,70vh)] flex-1 flex-col lg:flex-row">
               <div className="max-h-[min(360px,45vh)] w-full shrink-0 overflow-y-auto border-b border-border/60 bg-card/40 lg:max-h-none lg:w-[40%] lg:border-b-0 lg:border-r">
-                {useStreamedPipeline && activePipelinePromise ? (
-                  <Suspense fallback={<ActivePipelinePanelSkeleton />}>
-                    <ActivePipelineFromPromise
-                      jobsPromise={activePipelinePromise}
-                      highlightId={highlightId}
-                      onFocusJob={focusPipelineJob}
-                    />
-                  </Suspense>
-                ) : (
-                  <ActivePipelineList
-                    dayKey={pipelineDayKey}
-                    highlightId={highlightId}
-                    onFocusJob={focusPipelineJob}
-                  />
-                )}
+                <ActivePipelinePanelStream
+                  dayKey={pipelineDayKey}
+                  useStreamedInitialDay={useStreamedPipeline}
+                  highlightId={highlightId}
+                  onFocusJob={focusPipelineJob}
+                />
               </div>
               <div className="min-h-[320px] min-w-0 flex-1 lg:min-h-0">
                 <SchedulerRouteMap
