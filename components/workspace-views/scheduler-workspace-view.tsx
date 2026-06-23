@@ -1121,7 +1121,23 @@ export function SchedulerWorkspaceView() {
         open={Boolean(drawerPoolJob || drawerScheduledEvent)}
         poolJob={drawerPoolJob}
         scheduledEvent={drawerScheduledEvent}
+        technicians={technicians}
         onClose={closeJobDrawer}
+        onSaved={(event) => {
+          setDrawerScheduledEvent(event)
+          setDrawerPoolJob(null)
+          setEvents((prev) => {
+            const idx = prev.findIndex((ev) => ev.id === event.id)
+            if (idx === -1) return prev
+            const next = [...prev]
+            next[idx] = event
+            return next
+          })
+          if (typeof event.latitude === "number" && typeof event.longitude === "number") {
+            mapRef.current?.panTo(event.latitude, event.longitude, 15)
+          }
+          refreshSchedulerData()
+        }}
       />
     </WorkspacePage>
   )

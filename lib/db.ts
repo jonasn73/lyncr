@@ -6263,6 +6263,171 @@ export async function updateLeadScheduledAt(
   }
 }
 
+/** Fetch one scheduler lead for the owner (pool or calendar). */
+export async function getOwnerSchedulerEventById(
+  ownerUserId: string,
+  leadId: string
+): Promise<import("@/lib/types").SchedulerEvent | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+             l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
+      FROM ai_leads l
+      LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+      WHERE l.id = ${leadId} AND l.user_id = ${ownerUserId}
+      LIMIT 1
+    `
+    if (rows.length === 0) return null
+    return schedulerEventFromRow(rows[0] as Record<string, unknown>)
+  } catch (e) {
+    if (isMissingSchedulerColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, caller_e164, collected, summary, disposition, created_at
+          FROM ai_leads
+          WHERE id = ${leadId} AND user_id = ${ownerUserId}
+          LIMIT 1
+        `
+        if (rows.length === 0) return null
+        return schedulerEventFromRow(rows[0] as Record<string, unknown>)
+      } catch (e2) {
+        if (isUndefinedRelationError(e2, "ai_leads")) return null
+        throw e2
+      }
+    }
+    if (isUndefinedRelationError(e, "ai_leads")) return null
+    throw e
+  }
+}
+
+/** Owner edits job details from the scheduler detail drawer. */
+export async function updateOwnerSchedulerJob(params: {
+  ownerUserId: string
+  leadId: string
+  customerName: string
+  customerPhoneE164: string
+  jobType: string
+  scheduledAtIso?: string | null
+  durationMinutes?: number
+  assignedTechPortalUserId?: string | null
+  assignedTechName?: string | null
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  jobAddress?: string | null
+  jobNotes?: string | null
+}): Promise<import("@/lib/types").SchedulerEvent | null> {
+  const sql = getSql()
+  const existingRows = await sql`
+    SELECT id, assigned_tech_id
+    FROM ai_leads
+    WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+    LIMIT 1
+  `
+  if (existingRows.length === 0) return null
+
+  const existingTechId =
+    existingRows[0].assigned_tech_id != null && String(existingRows[0].assigned_tech_id).trim()
+      ? String(existingRows[0].assigned_tech_id)
+      : null
+  const techIdProvided = params.assignedTechPortalUserId !== undefined
+  const newTechId = techIdProvided ? params.assignedTechPortalUserId?.trim() || null : existingTechId
+
+  const customerName = params.customerName.trim()
+  const jobType = params.jobType.trim() || "Other"
+  const vehicleYear = params.vehicleYear?.trim() || null
+  const vehicleMake = params.vehicleMake?.trim() || null
+  const vehicleModel = params.vehicleModel?.trim() || null
+  const jobAddress = params.jobAddress !== undefined ? params.jobAddress?.trim() || null : undefined
+  const jobNotes = params.jobNotes !== undefined ? params.jobNotes?.trim() || null : undefined
+  const vehicleLabel = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")
+  const summary = [jobType, vehicleLabel || null, customerName].filter(Boolean).join(" — ")
+
+  const collectedPatch: Record<string, unknown> = {
+    customer_name: customerName,
+    callback_number: params.customerPhoneE164,
+    caller_number: params.customerPhoneE164,
+    phone: params.customerPhoneE164,
+    job_type: jobType,
+  }
+
+  if (params.durationMinutes != null) {
+    collectedPatch.duration_minutes = Math.min(Math.max(params.durationMinutes, 15), 480)
+  }
+  if (vehicleYear) {
+    collectedPatch.vehicle_year = vehicleYear
+    collectedPatch.year = vehicleYear
+  } else {
+    collectedPatch.vehicle_year = null
+    collectedPatch.year = null
+  }
+  if (vehicleMake) {
+    collectedPatch.vehicle_make = vehicleMake
+    collectedPatch.make = vehicleMake
+  } else {
+    collectedPatch.vehicle_make = null
+    collectedPatch.make = null
+  }
+  if (vehicleModel) {
+    collectedPatch.vehicle_model = vehicleModel
+    collectedPatch.model = vehicleModel
+  } else {
+    collectedPatch.vehicle_model = null
+    collectedPatch.model = null
+  }
+  if (jobAddress !== undefined) {
+    collectedPatch.job_address = jobAddress
+    collectedPatch.location = jobAddress
+    collectedPatch.service_address = jobAddress
+    collectedPatch.job_address_full = jobAddress
+    if (!jobAddress) {
+      collectedPatch.customer_lat = null
+      collectedPatch.customer_lng = null
+    }
+  }
+  if (jobNotes !== undefined) {
+    collectedPatch.job_notes = jobNotes
+    collectedPatch.notes = jobNotes
+  }
+  if (params.assignedTechName !== undefined) {
+    collectedPatch.assigned_tech_name = params.assignedTechName?.trim() || null
+  }
+
+  const patchJson = JSON.stringify(collectedPatch)
+  const scheduledAtIso = params.scheduledAtIso?.trim() || null
+
+  try {
+    if (scheduledAtIso) {
+      await sql`
+        UPDATE ai_leads
+        SET caller_e164 = ${params.customerPhoneE164},
+            summary = ${summary},
+            scheduled_at = ${scheduledAtIso}::timestamptz,
+            collected = coalesce(collected, '{}'::jsonb) || ${patchJson}::jsonb
+        WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      `
+    } else {
+      await sql`
+        UPDATE ai_leads
+        SET caller_e164 = ${params.customerPhoneE164},
+            summary = ${summary},
+            collected = coalesce(collected, '{}'::jsonb) || ${patchJson}::jsonb
+        WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      `
+    }
+  } catch (e) {
+    if (isMissingSchedulerColumnError(e)) return null
+    throw e
+  }
+
+  if (techIdProvided && newTechId !== existingTechId) {
+    await assignJobToTech(params.ownerUserId, params.leadId, newTechId)
+  }
+
+  return getOwnerSchedulerEventById(params.ownerUserId, params.leadId)
+}
+
 /** Stamp scheduled_at when receptionist intake includes a parseable preferred time. */
 export async function setLeadScheduledAt(leadId: string, scheduledAtIso: string): Promise<void> {
   const sql = getSql()
