@@ -1,6 +1,4 @@
 import {
-  getAllRoutingConfigs,
-  getPhoneNumbers,
   effectiveAdminRoutingOverrideForPhoneLine,
   listOwnerActivePipelineJobsForDay,
   listOwnerUnassignedPoolJobs,
@@ -9,11 +7,17 @@ import {
 import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
 import { requireSessionUser } from "@/lib/server/require-session-user"
+import {
+  getCachedAllRoutingConfigs,
+  getCachedPhoneNumbers,
+  getCachedReceptionists,
+} from "@/lib/server/cached-db"
 import type {
   ActivePipelineJob,
   FallbackType,
   PhoneNumberRoutingSummary,
   RoutingConfig,
+  RoutingStrategy,
   UnassignedPoolJob,
   User,
 } from "@/lib/types"
@@ -65,8 +69,8 @@ function routingForNumber(businessNumber: string, configs: RoutingConfig[]): Rou
 
 async function mapBusinessNumbers(userId: string, account?: User | null): Promise<DashboardBusinessNumber[]> {
   const [numbers, allConfigs] = await Promise.all([
-    getPhoneNumbers(userId, null),
-    getAllRoutingConfigs(userId),
+    getCachedPhoneNumbers(userId),
+    getCachedAllRoutingConfigs(userId),
   ])
   const assistantLinked = Boolean(account?.telnyx_ai_assistant_id?.trim())
 
@@ -107,6 +111,74 @@ export function jobPoolPromise(user?: User): Promise<UnassignedPoolJob[]> {
   const load = async (owner: User) =>
     listOwnerUnassignedPoolJobs({ ownerUserId: owner.id, organizationId: null })
   return user ? load(user) : requireSessionUser().then(load)
+}
+
+export type DashboardRoutingBootstrap = {
+  ownerPhone: string | null
+  receptionists: Array<{
+    id: string
+    name: string
+    phone: string
+    initials: string
+    color: string
+  }>
+  routing: {
+    selected_receptionist_id: string | null
+    fallback_type: FallbackType
+    ai_ring_owner_first: boolean
+    ring_timeout_seconds: number
+    routing_strategy: RoutingStrategy
+    allow_lyncr_network_fallback: boolean
+  }
+  primaryLineNumber: string | null
+}
+
+function mapRoutingFields(cfg: RoutingConfig | null): DashboardRoutingBootstrap["routing"] {
+  const strat = cfg?.routing_strategy
+  return {
+    selected_receptionist_id: cfg?.selected_receptionist_id ?? null,
+    fallback_type: (cfg?.fallback_type ?? "owner") as FallbackType,
+    ai_ring_owner_first: Boolean(cfg?.ai_ring_owner_first),
+    ring_timeout_seconds:
+      typeof cfg?.ring_timeout_seconds === "number" && Number.isFinite(cfg.ring_timeout_seconds)
+        ? cfg.ring_timeout_seconds
+        : 30,
+    routing_strategy:
+      strat === "private_only" || strat === "lyncr_only" || strat === "hybrid_fallback"
+        ? strat
+        : "private_only",
+    allow_lyncr_network_fallback: Boolean(cfg?.allow_lyncr_network_fallback),
+  }
+}
+
+async function loadRoutingBootstrap(user: User): Promise<DashboardRoutingBootstrap> {
+  const [receptionists, numbers, configs] = await Promise.all([
+    getCachedReceptionists(user.id),
+    getCachedPhoneNumbers(user.id),
+    getCachedAllRoutingConfigs(user.id),
+  ])
+  const visible = numbers.filter((n) => isDashboardVisibleLineStatus(n.status))
+  const primaryLine = visible[0]?.number ?? null
+  const cfg = primaryLine ? routingForNumber(primaryLine, configs) : defaultRoutingConfig(configs)
+
+  return {
+    ownerPhone: user.phone ?? null,
+    receptionists: receptionists.map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      initials: r.initials?.trim() || r.name.slice(0, 2).toUpperCase() || "??",
+      color: r.color?.trim() || "bg-primary",
+    })),
+    routing: mapRoutingFields(cfg),
+    primaryLineNumber: primaryLine,
+  }
+}
+
+/** Session + team + routing for the call-flow panel (streamed via Suspense). */
+export function routingBootstrapPromise(user?: User): Promise<DashboardRoutingBootstrap> {
+  if (user) return loadRoutingBootstrap(user)
+  return requireSessionUser().then(loadRoutingBootstrap)
 }
 
 /** Non-blocking promise for today's active pipeline. */

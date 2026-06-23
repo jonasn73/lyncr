@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { RoutingStrategy } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import {
   businessNumbersMatch,
@@ -25,6 +26,7 @@ export function DashboardPage() {
     businessNumbersLoading,
     activeOrganizationId,
   } = useDashboardWorkspace()
+  const { routingBootstrapPromise } = useDashboardStream()
 
   const receptionistsUrl = useCallback(() => {
     const base = "/api/receptionists"
@@ -52,6 +54,7 @@ export function DashboardPage() {
   // True while GET /api/routing for the tapped line is in flight (avoids showing the previous line’s target).
   const [routingLineDetailLoading, setRoutingLineDetailLoading] = useState(false)
   const routingFetchSeqRef = useRef(0)
+  const skipNextRoutingFetchRef = useRef(Boolean(routingBootstrapPromise))
 
   // Wait until these complete before showing “Quick setup” — otherwise empty initial state looks
   // like an incomplete setup and the banner flashes away when APIs return (confusing on refresh).
@@ -61,6 +64,9 @@ export function DashboardPage() {
   const quickSetupDecided =
     sessionFetchDone && receptionistsFetchDone && numbersRoutingFetchDone
 
+  /** Call-flow cards render once phone lines finish streaming — not blocked on team/routing fetches. */
+  const callFlowUiReady = !businessNumbersLoading
+
   // Platform-admin inbound override for the active line only (scoped per workspace / DID — not global).
   const adminRoutingOverridePhone = useMemo(() => {
     if (!activeLine) return null
@@ -69,8 +75,45 @@ export function DashboardPage() {
     return raw || null
   }, [businessNumbers, activeLine])
 
-  // Session + receptionists load in parallel so the call-flow shell can paint sooner.
+  // Stream routing bootstrap from the server on hard refresh (parallel with phone lines).
   useEffect(() => {
+    if (!routingBootstrapPromise) return
+    let cancelled = false
+    void routingBootstrapPromise
+      .then((data) => {
+        if (cancelled) return
+        if (data.ownerPhone) setMainLinePhone(data.ownerPhone)
+        setReceptionists(data.receptionists)
+        const recId = data.routing.selected_receptionist_id
+        setSelectedReceptionistId(
+          recId && data.receptionists.some((r) => r.id === recId) ? recId : data.receptionists[0]?.id ?? null
+        )
+        setFallback(data.routing.fallback_type || "owner")
+        setAiRingOwnerFirst(data.routing.ai_ring_owner_first)
+        setRingTimeoutSec(snapDashboardRingTimeoutSec(data.routing.ring_timeout_seconds))
+        setRoutingStrategy(data.routing.routing_strategy)
+        setAllowLyncrNetworkFallback(data.routing.allow_lyncr_network_fallback)
+        if (data.primaryLineNumber) {
+          setActiveLine((prev) => prev ?? data.primaryLineNumber)
+        }
+        setSessionFetchDone(true)
+        setReceptionistsFetchDone(true)
+        setRoutingLineDetailLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSessionFetchDone(true)
+          setReceptionistsFetchDone(true)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [routingBootstrapPromise, setActiveLine])
+
+  // Session + receptionists load in parallel when server stream is unavailable (client tab nav).
+  useEffect(() => {
+    if (routingBootstrapPromise) return
     let cancelled = false
     void Promise.all([
       fetch("/api/auth/session", { credentials: "include" })
@@ -105,12 +148,14 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [receptionistsUrl])
+  }, [receptionistsUrl, routingBootstrapPromise])
 
-  // Phone lines hydrate via SWR (`DashboardBusinessNumbersSync` in the shell).
+  // Phone lines hydrate via SWR or server stream (`DashboardBusinessNumbersSync` in the shell).
   useEffect(() => {
-    if (!businessNumbersLoading) setNumbersRoutingFetchDone(true)
-  }, [businessNumbersLoading])
+    if (!businessNumbersLoading || businessNumbers.length > 0) {
+      setNumbersRoutingFetchDone(true)
+    }
+  }, [businessNumbersLoading, businessNumbers.length])
 
   useEffect(() => {
     let cancelled = false
@@ -128,6 +173,10 @@ export function DashboardPage() {
   // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
   useEffect(() => {
     if (!numbersRoutingFetchDone) return
+    if (skipNextRoutingFetchRef.current) {
+      skipNextRoutingFetchRef.current = false
+      return
+    }
     const seq = ++routingFetchSeqRef.current
     setRoutingLineDetailLoading(true)
     let cancelled = false
@@ -163,7 +212,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [numbersRoutingFetchDone, activeLine])
+  }, [numbersRoutingFetchDone, activeLine, routingBootstrapPromise])
 
   // If the selected line disappears (released number), snap back to the first remaining line.
   useEffect(() => {
@@ -334,6 +383,7 @@ export function DashboardPage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 sm:gap-14">
       <DashboardRoutingWithSheets
         quickSetupDecided={quickSetupDecided}
+        callFlowUiReady={callFlowUiReady}
         isSetupComplete={isSetupComplete}
         hasBusinessNumbers={hasBusinessNumbers}
         hasReceptionists={hasReceptionists}

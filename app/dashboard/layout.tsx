@@ -11,6 +11,7 @@ import {
   activePipelinePromise,
   jobPoolPromise,
   phoneLinesPromise,
+  routingBootstrapPromise,
 } from "@/lib/server/streamed-dashboard-data"
 import type { User } from "@/lib/types"
 
@@ -35,6 +36,10 @@ export default async function DashboardLayout({
   const [user, h] = await Promise.all([getCachedSessionUser(), headers()])
   const pathnameFromRequest = h.get("x-sigo-pathname")
   const isSchedulerRoute = pathnameFromRequest?.startsWith("/dashboard/scheduler") ?? false
+  const isMainRoutingDashboard =
+    !pathnameFromRequest ||
+    pathnameFromRequest === "/dashboard" ||
+    pathnameFromRequest === "/dashboard/"
 
   if (!user) {
     const next =
@@ -51,12 +56,14 @@ export default async function DashboardLayout({
   if (isPlatformAdminUser(user)) redirect("/admin")
 
   const linesPromise = phoneLinesPromise(user)
+  const routingPromise = isMainRoutingDashboard ? routingBootstrapPromise(user) : undefined
   const hopperPromise = isSchedulerRoute ? jobPoolPromise(user) : undefined
   const pipelinePromise = isSchedulerRoute ? activePipelinePromise(user) : undefined
 
   return (
     <DashboardStreamProvider
       phoneLinesPromise={linesPromise}
+      routingBootstrapPromise={routingPromise}
       jobPoolPromise={hopperPromise}
       activePipelinePromise={pipelinePromise}
     >

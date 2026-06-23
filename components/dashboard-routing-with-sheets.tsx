@@ -55,6 +55,7 @@ export function DashboardRoutingWithSheets(props: Props) {
 
   const surfaceProps: DashboardRoutingSurfaceProps = {
     quickSetupDecided: props.quickSetupDecided,
+    callFlowUiReady: props.callFlowUiReady,
     isSetupComplete: props.isSetupComplete,
     hasBusinessNumbers: props.hasBusinessNumbers,
     hasReceptionists: props.hasReceptionists,

@@ -134,6 +134,8 @@ export type DashboardCallFlowProps = {
   routingBusinessNumber: string | null
   setRoutingBusinessNumber: (n: string) => void
   quickSetupDecided: boolean
+  /** True once phone lines finished loading — controls skeleton vs live call-flow cards. */
+  callFlowUiReady: boolean
   routingLineDetailLoading: boolean
   isRoutingToOwner: boolean
   selectedReceptionist: Contact | null
@@ -263,6 +265,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   routingBusinessNumber,
   setRoutingBusinessNumber,
   quickSetupDecided,
+  callFlowUiReady,
   routingLineDetailLoading,
   isRoutingToOwner,
   selectedReceptionist,
@@ -329,7 +332,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             ) : null}
           </div>
 
-          {!quickSetupDecided ? (
+          {!callFlowUiReady ? (
             <CallFlowLinePickerSkeleton />
           ) : businessNumbers.length > 0 ? (
             <ActiveLinePicker
@@ -354,7 +357,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       </header>
 
       <div className={cn("px-4 py-6 sm:px-8 sm:py-8", CALL_FLOW_STEPS_MIN_H)}>
-        {!quickSetupDecided ? (
+        {!callFlowUiReady ? (
           <CallFlowStepsSkeleton />
         ) : businessNumbers.length === 0 ? (
           <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">

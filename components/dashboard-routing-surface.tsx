@@ -19,6 +19,7 @@ import type { RoutingStrategy } from "@/lib/types"
 
 export type DashboardRoutingSurfaceProps = {
   quickSetupDecided: boolean
+  callFlowUiReady: boolean
   isSetupComplete: boolean
   hasBusinessNumbers: boolean
   hasReceptionists: boolean
@@ -44,6 +45,7 @@ export type DashboardRoutingSurfaceProps = {
 /** Call flow + setup checklist — isolated from sheet open state so drawers do not re-render this tree. */
 export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   quickSetupDecided,
+  callFlowUiReady,
   isSetupComplete,
   hasBusinessNumbers,
   hasReceptionists,
@@ -186,6 +188,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
         routingBusinessNumber={routingBusinessNumber}
         setRoutingBusinessNumber={setRoutingBusinessNumber}
         quickSetupDecided={quickSetupDecided}
+        callFlowUiReady={callFlowUiReady}
         routingLineDetailLoading={routingLineDetailLoading}
         isRoutingToOwner={isRoutingToOwner}
         selectedReceptionist={selectedReceptionist}
