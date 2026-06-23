@@ -39,6 +39,10 @@ import {
 } from "@/lib/sms-registration-notice"
 import { organizationQueryString, readActiveOrganizationId } from "@/lib/workspace-organizations"
 import { displayPortingMessageBody } from "@/lib/porting-display"
+import {
+  readNotificationPortingCache,
+  writeNotificationPortingCache,
+} from "@/lib/notification-porting-cache"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { PortingNotificationEnriched, PortingOrder } from "@/lib/types"
 
@@ -151,8 +155,16 @@ export const NotificationCenter = memo(function NotificationCenter() {
   const [impersonating, setImpersonating] = useState(false)
   const [viewingEmail, setViewingEmail] = useState<string | null>(null)
   const [exitingImpersonation, setExitingImpersonation] = useState(false)
-  const [portingOrders, setPortingOrders] = useState<PortingOrderRow[]>([])
-  const [unreadPortingAlerts, setUnreadPortingAlerts] = useState<PortingNotificationEnriched[]>([])
+  const cachedPorting = useMemo(
+    () => readNotificationPortingCache(activeOrganizationId),
+    [activeOrganizationId]
+  )
+  const [portingOrders, setPortingOrders] = useState<PortingOrderRow[]>(
+    () => cachedPorting?.portingOrders ?? []
+  )
+  const [unreadPortingAlerts, setUnreadPortingAlerts] = useState<PortingNotificationEnriched[]>(
+    () => cachedPorting?.unreadPortingAlerts ?? []
+  )
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [smsView, setSmsView] = useState<SmsComplianceView | null>(null)
   const [smsDismissed, setSmsDismissed] = useState(true)
@@ -183,7 +195,21 @@ export const NotificationCenter = memo(function NotificationCenter() {
       }
       setUnreadPortingAlerts(alerts)
       setPortingOrders(sortPortingOrdersForBanner(rows, unreadMap))
+      writeNotificationPortingCache(orgId, {
+        portingOrders: sortPortingOrdersForBanner(rows, unreadMap),
+        unreadPortingAlerts: alerts,
+      })
     } catch {
+      /* Keep last cached porting rows on transient errors — avoids badge pop-in. */
+    }
+  }, [activeOrganizationId])
+
+  useEffect(() => {
+    const snap = readNotificationPortingCache(activeOrganizationId)
+    if (snap) {
+      setPortingOrders(snap.portingOrders)
+      setUnreadPortingAlerts(snap.unreadPortingAlerts)
+    } else {
       setPortingOrders([])
       setUnreadPortingAlerts([])
     }

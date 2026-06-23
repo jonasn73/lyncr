@@ -6,6 +6,11 @@ import { cn } from "@/lib/utils"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { formatTalkDuration } from "@/lib/daily-call-telemetry"
 import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import {
+  emptyRoutingTelemetrySnapshot,
+  readRoutingTelemetryCache,
+  writeRoutingTelemetryCache,
+} from "@/lib/routing-telemetry-cache"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 
@@ -51,12 +56,15 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   className?: string
 }) {
   const { activeOrganizationId } = useDashboardWorkspace()
-  const [metricsReady, setMetricsReady] = useState(false)
-  const [dailyCalls, setDailyCalls] = useState(0)
-  const [missedCalls, setMissedCalls] = useState(0)
-  const [dailyTalkDisplay, setDailyTalkDisplay] = useState("0:00")
-  const [weeklyTalkDisplay, setWeeklyTalkDisplay] = useState("0:00")
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
+  const cachedMetrics = useMemo(
+    () => readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot(),
+    [activeOrganizationId]
+  )
+  const [dailyCalls, setDailyCalls] = useState(cachedMetrics.dailyCalls)
+  const [missedCalls, setMissedCalls] = useState(cachedMetrics.missedCalls)
+  const [dailyTalkDisplay, setDailyTalkDisplay] = useState(cachedMetrics.dailyTalkDisplay)
+  const [weeklyTalkDisplay, setWeeklyTalkDisplay] = useState(cachedMetrics.weeklyTalkDisplay)
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(cachedMetrics.ownerUserId)
 
   const activeLines = businessNumbers.filter(
     (line) => isDashboardVisibleLineStatus(line.status) && line.status === "active"
@@ -86,40 +94,47 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       }
       const data = json.data
       if (!data) return
-      setDailyCalls(Number(data.daily_calls ?? 0))
-      setMissedCalls(Number(data.missed_calls ?? 0))
-      setDailyTalkDisplay(data.daily_talk_time_display ?? formatTalkDuration(0))
-      setWeeklyTalkDisplay(data.weekly_talk_time_display ?? formatTalkDuration(0))
-      if (data.owner_user_id) setOwnerUserId(String(data.owner_user_id))
+      const nextDaily = Number(data.daily_calls ?? 0)
+      const nextMissed = Number(data.missed_calls ?? 0)
+      const nextDailyTalk = data.daily_talk_time_display ?? formatTalkDuration(0)
+      const nextWeeklyTalk = data.weekly_talk_time_display ?? formatTalkDuration(0)
+      const nextOwnerId = data.owner_user_id ? String(data.owner_user_id) : null
+      setDailyCalls(nextDaily)
+      setMissedCalls(nextMissed)
+      setDailyTalkDisplay(nextDailyTalk)
+      setWeeklyTalkDisplay(nextWeeklyTalk)
+      setOwnerUserId(nextOwnerId)
+      writeRoutingTelemetryCache(activeOrganizationId, {
+        dailyCalls: nextDaily,
+        missedCalls: nextMissed,
+        dailyTalkDisplay: nextDailyTalk,
+        weeklyTalkDisplay: nextWeeklyTalk,
+        ownerUserId: nextOwnerId,
+      })
     } catch {
-      setDailyCalls(0)
-      setMissedCalls(0)
-      setDailyTalkDisplay("0:00")
-      setWeeklyTalkDisplay("0:00")
+      /* Keep last cached values on transient errors — avoids flashing zeros. */
     }
   }, [activeOrganizationId])
 
-  const refreshMetrics = useCallback(async () => {
-    try {
-      await refreshCallMetrics()
-    } finally {
-      setMetricsReady(true)
-    }
-  }, [refreshCallMetrics])
+  useEffect(() => {
+    const snap = readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot()
+    setDailyCalls(snap.dailyCalls)
+    setMissedCalls(snap.missedCalls)
+    setDailyTalkDisplay(snap.dailyTalkDisplay)
+    setWeeklyTalkDisplay(snap.weeklyTalkDisplay)
+    setOwnerUserId(snap.ownerUserId)
+    void refreshCallMetrics()
+  }, [activeOrganizationId, refreshCallMetrics])
 
   useEffect(() => {
-    void refreshMetrics()
-  }, [refreshMetrics])
-
-  useEffect(() => {
-    const onChanged = () => void refreshMetrics()
+    const onChanged = () => void refreshCallMetrics()
     window.addEventListener("zing-porting-orders-changed", onChanged)
     window.addEventListener("lyncr-workspace-data-changed", onChanged)
     return () => {
       window.removeEventListener("zing-porting-orders-changed", onChanged)
       window.removeEventListener("lyncr-workspace-data-changed", onChanged)
     }
-  }, [refreshMetrics])
+  }, [refreshCallMetrics])
 
   useEffect(() => {
     if (!ownerUserId) return
@@ -171,12 +186,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <section
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2.5 backdrop-blur-md transition-opacity duration-200",
-        metricsReady ? "opacity-100" : "opacity-0",
+        "flex flex-wrap items-center gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2.5 backdrop-blur-md",
         className
       )}
       aria-label="Workspace telemetry"
-      aria-busy={!metricsReady}
     >
       <TelemetryPill label="Live lines" value={activeLines} icon={Phone} tone="teal" />
       <TelemetryPill label="Daily calls" value={dailyCalls} icon={PhoneIncoming} />
