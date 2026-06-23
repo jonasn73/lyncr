@@ -66,7 +66,7 @@ export function JobPoolCard({ job, highlighted, onSelect }: JobPoolCardProps) {
           ) : null}
         </div>
       </div>
-      <p className="pl-5 text-[10px] text-zinc-600">Drag to calendar · tap for details</p>
+      <p className="pl-5 text-[10px] text-zinc-600">Drag to tech lane · tap for details</p>
     </button>
   )
 }

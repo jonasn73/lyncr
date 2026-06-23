@@ -23,7 +23,7 @@ export function JobPoolTray({ jobs, loading, highlightId, onSelectJob }: JobPool
           </span>
           <div>
             <h2 className="text-sm font-semibold text-foreground">Active job pool</h2>
-            <p className="text-[11px] text-zinc-500">Drag onto the hourly grid to schedule & assign</p>
+            <p className="text-[11px] text-zinc-500">Drag onto a technician column to assign & schedule</p>
           </div>
         </div>
         {loading ? (

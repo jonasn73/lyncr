@@ -1,10 +1,10 @@
 "use client"
 
-// Owner job scheduler — month calendar, hourly grid or map route view, manual booking.
+// Owner job scheduler — month calendar, tech swimlanes or map route view, manual booking.
 
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Car, Clock, LayoutGrid, Loader2, Map as MapIcon, MapPin, Phone, Plus, User } from "lucide-react"
+import { LayoutGrid, Loader2, Map as MapIcon, Plus } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
@@ -29,32 +29,21 @@ import {
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { cn } from "@/lib/utils"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
   SCHEDULER_DURATION_OPTIONS,
   SCHEDULER_GRID_END_HOUR,
   SCHEDULER_GRID_START_HOUR,
-  SCHEDULER_HOUR_ROW_PX,
   dayKeyLocal,
   dateAtLocalHour,
-  formatHourLabel,
-  schedulerEventPlacement,
-  schedulerHourSlots,
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
-import {
-  SCHEDULER_CARD_STYLE,
-  SCHEDULER_STATUS_LABEL,
-  schedulerLifecyclePhase,
-} from "@/lib/scheduler-job-status"
-import { HOPPER_DRAG_MIME } from "@/components/scheduler/job-pool-card"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
 import { ActivePipelinePanel } from "@/components/scheduler/active-pipeline-panel"
 import type { SchedulerRouteMapHandle } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
-import { PoolScheduleDialog } from "@/components/scheduler/pool-schedule-dialog"
+import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
 import type {
   ActivePipelineJob,
   FieldTechnician,
@@ -104,159 +93,8 @@ function formatPhone(num: string | null): string {
   return num
 }
 
-function formatBlockTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-}
-
-function formatVehicle(ev: SchedulerEvent): string | null {
-  const parts = [ev.vehicle_year, ev.vehicle_make, ev.vehicle_model].filter(Boolean)
-  return parts.length ? parts.join(" ") : null
-}
-
-
-function eventCardStyle(ev: SchedulerEvent): string {
-  const phase = schedulerLifecyclePhase({
-    job_status: ev.job_status,
-    dispatch_status: ev.dispatch_status,
-    assigned_tech_id: ev.assigned_tech_id,
-  })
-  return SCHEDULER_CARD_STYLE[phase]
-}
-
 function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
   return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
-}
-
-function AppointmentBlock({
-  ev,
-  highlighted,
-  onSelect,
-}: {
-  ev: SchedulerEvent
-  highlighted?: boolean
-  onSelect?: () => void
-}) {
-  const vehicle = formatVehicle(ev)
-  const { topPx, heightPx } = schedulerEventPlacement(
-    ev.scheduled_at,
-    ev.duration_minutes,
-    ev.scheduled_tentative
-  )
-  const phase = schedulerLifecyclePhase({
-    job_status: ev.job_status,
-    dispatch_status: ev.dispatch_status,
-    assigned_tech_id: ev.assigned_tech_id,
-  })
-  return (
-    <div
-      role={onSelect ? "button" : undefined}
-      tabIndex={onSelect ? 0 : undefined}
-      onClick={onSelect}
-      onKeyDown={
-        onSelect
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                onSelect()
-              }
-            }
-          : undefined
-      }
-      className={cn(
-        "absolute left-2 right-2 z-10 overflow-hidden rounded-lg border px-2 py-1.5 shadow-md",
-        onSelect ? "pointer-events-auto cursor-pointer" : "pointer-events-none",
-        highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background",
-        eventCardStyle(ev)
-      )}
-      style={{ top: topPx, height: heightPx, minHeight: 36 }}
-    >
-      <p className="truncate text-xs font-semibold">
-        {ev.customer_name || formatPhone(ev.customer_phone) || "Customer"}
-        <span className="ml-1 text-[9px] font-medium uppercase opacity-75">
-          · {SCHEDULER_STATUS_LABEL[phase]}
-        </span>
-      </p>
-      <p className="truncate text-[10px] opacity-90">
-        {vehicle || ev.job_type || ev.summary || "Appointment"}
-        {ev.assigned_tech_name ? ` · ${ev.assigned_tech_name}` : ""}
-      </p>
-      <p className="text-[10px] opacity-75">
-        {formatBlockTime(ev.scheduled_at)}
-        {ev.duration_minutes ? ` · ${ev.duration_minutes}m` : ""}
-      </p>
-    </div>
-  )
-}
-
-function DayRouteList({ events }: { events: SchedulerEvent[] }) {
-  const sorted = useMemo(() => [...events].sort(sortEventsByTime), [events])
-  if (sorted.length === 0) {
-    return (
-      <p className="p-6 text-center text-sm text-zinc-500">
-        No appointments on this day — use Create appointment to book a route stop.
-      </p>
-    )
-  }
-  return (
-    <ul className="divide-y divide-border/50">
-      {sorted.map((ev, idx) => {
-        const vehicle = formatVehicle(ev)
-        const hasCoords = typeof ev.latitude === "number" && typeof ev.longitude === "number"
-        const phase = schedulerLifecyclePhase({
-          job_status: ev.job_status,
-          dispatch_status: ev.dispatch_status,
-          assigned_tech_id: ev.assigned_tech_id,
-        })
-        return (
-          <li
-            key={ev.id}
-            className={cn(
-              "flex gap-3 border-l-[3px] px-4 py-3 transition-colors",
-              eventCardStyle(ev)
-            )}
-          >
-            <span
-              className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                hasCoords ? "bg-teal-500/25 text-teal-100" : "bg-muted text-zinc-500"
-              )}
-            >
-              {idx + 1}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">
-                {formatBlockTime(ev.scheduled_at)}
-                <span className="ml-2 rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] font-medium uppercase">
-                  {SCHEDULER_STATUS_LABEL[phase]}
-                </span>
-                <span className="ml-2 font-normal text-zinc-400">
-                  {ev.customer_name || formatPhone(ev.customer_phone)}
-                </span>
-              </p>
-              {vehicle ? (
-                <p className="mt-0.5 flex items-center gap-1 text-xs text-zinc-400">
-                  <Car className="h-3 w-3 shrink-0" aria-hidden />
-                  {vehicle}
-                </p>
-              ) : null}
-              {ev.job_type ? <p className="mt-0.5 text-xs text-zinc-500">{ev.job_type}</p> : null}
-              {ev.location ? (
-                <p className="mt-0.5 flex items-start gap-1 text-xs text-zinc-500">
-                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-                  <span className="line-clamp-2">{ev.location}</span>
-                </p>
-              ) : null}
-              {ev.job_notes ? (
-                <p className="mt-1 line-clamp-2 text-[11px] text-zinc-600">{ev.job_notes}</p>
-              ) : null}
-            </div>
-          </li>
-        )
-      })}
-    </ul>
-  )
 }
 
 export function SchedulerWorkspaceView() {
@@ -269,7 +107,7 @@ export function SchedulerWorkspaceView() {
   const [loading, setLoading] = useState(true)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingStart, setBookingStart] = useState(() => toDatetimeLocalValue(new Date()))
-  const [viewMode, setViewMode] = useState<SchedulerViewMode>("grid")
+  const [viewMode, setViewMode] = useState<SchedulerViewMode>("map")
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [intakeValues, setIntakeValues] = useState<IntakeFormValues>({})
@@ -286,13 +124,8 @@ export function SchedulerWorkspaceView() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [drawerPoolJob, setDrawerPoolJob] = useState<UnassignedPoolJob | null>(null)
   const [drawerScheduledEvent, setDrawerScheduledEvent] = useState<SchedulerEvent | null>(null)
-  const [poolScheduleOpen, setPoolScheduleOpen] = useState(false)
-  const [poolScheduleJob, setPoolScheduleJob] = useState<UnassignedPoolJob | null>(null)
-  const [poolScheduleStart, setPoolScheduleStart] = useState(() => toDatetimeLocalValue(new Date()))
-  const [poolScheduleTechId, setPoolScheduleTechId] = useState("")
-  const [poolScheduleSaving, setPoolScheduleSaving] = useState(false)
-  const [poolScheduleError, setPoolScheduleError] = useState<string | null>(null)
-  const [dragOverHour, setDragOverHour] = useState<number | null>(null)
+  const [gridScheduleError, setGridScheduleError] = useState<string | null>(null)
+  const [gridScheduleSaving, setGridScheduleSaving] = useState(false)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
 
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
@@ -529,8 +362,6 @@ export function SchedulerWorkspaceView() {
 
   const selectedKey = dayKeyLocal(selectedDay)
   const dayEvents = eventsByDay.get(selectedKey) ?? []
-  const hourSlots = schedulerHourSlots()
-  const gridHeightPx = hourSlots.length * SCHEDULER_HOUR_ROW_PX
   const selectedDayLabel = selectedDay.toLocaleDateString([], {
     weekday: "short",
     month: "short",
@@ -540,21 +371,6 @@ export function SchedulerWorkspaceView() {
   function openBookingAtHour(hour24: number) {
     setBookingStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
     setBookingOpen(true)
-  }
-
-  function openPoolScheduleAtHour(hour24: number, job: UnassignedPoolJob) {
-    setPoolScheduleJob(job)
-    setPoolScheduleStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
-    setPoolScheduleTechId("")
-    setPoolScheduleError(null)
-    setPoolScheduleOpen(true)
-  }
-
-  function closePoolScheduleDialog() {
-    if (poolScheduleSaving) return
-    setPoolScheduleOpen(false)
-    setPoolScheduleJob(null)
-    setPoolScheduleError(null)
   }
 
   function openPoolJobDrawer(job: UnassignedPoolJob) {
@@ -626,43 +442,71 @@ export function SchedulerWorkspaceView() {
     [selectedDay]
   )
 
-  async function confirmPoolSchedule() {
-    if (!poolScheduleJob || !poolScheduleTechId) return
-    setPoolScheduleSaving(true)
-    setPoolScheduleError(null)
+  function resolveDropHour(techUserId: string, preferredHour: number, durationMinutes: number): number {
+    const duration = durationMinutes || 60
+    const preferredStart = dateAtLocalHour(selectedDay, preferredHour)
+    const preferredEnd = preferredStart.getTime() + duration * 60000
+    const techEvents = dayEvents.filter((ev) => ev.assigned_tech_id === techUserId)
+
+    const conflict = techEvents.some((ev) => {
+      const start = new Date(ev.scheduled_at).getTime()
+      const end = start + (ev.duration_minutes || 60) * 60000
+      return start < preferredEnd && end > preferredStart.getTime()
+    })
+    if (!conflict) return preferredHour
+
+    let latestEnd = preferredStart.getTime()
+    for (const ev of techEvents) {
+      const start = new Date(ev.scheduled_at).getTime()
+      const end = start + (ev.duration_minutes || 60) * 60000
+      if (end > latestEnd) latestEnd = end
+    }
+    const bumped = new Date(latestEnd)
+    let hour = bumped.getHours()
+    if (bumped.getMinutes() > 0 || bumped.getSeconds() > 0) hour += 1
+    return Math.max(SCHEDULER_GRID_START_HOUR, Math.min(hour, SCHEDULER_GRID_END_HOUR - 1))
+  }
+
+  async function schedulePoolOnTechLane(jobId: string, techUserId: string, hour24: number) {
+    const job = poolJobs.find((j) => j.id === jobId)
+    if (!job || gridScheduleSaving) return
+    setGridScheduleError(null)
+    setGridScheduleSaving(true)
+    const hour = resolveDropHour(techUserId, hour24, job.duration_minutes)
+    const scheduledIso = dateAtLocalHour(selectedDay, hour).toISOString()
     try {
-      const res = await fetch(`/api/owner/jobs/pool/${poolScheduleJob.id}/schedule`, {
+      const res = await fetch(`/api/owner/jobs/pool/${jobId}/schedule`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduled_at: new Date(poolScheduleStart).toISOString(),
-          assigned_tech_id: poolScheduleTechId,
-        }),
+        body: JSON.stringify({ scheduled_at: scheduledIso, assigned_tech_id: techUserId }),
       })
       const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
       if (!res.ok) throw new Error(json.error ?? "Could not schedule job")
       const event = json.data?.event
       if (!event) throw new Error("No event returned")
       const techName =
-        assignableTechs.find((t) => t.portal_user_id === poolScheduleTechId)?.name ??
-        event.assigned_tech_name
-      setPoolJobs((prev) => prev.filter((j) => j.id !== poolScheduleJob.id))
+        assignableTechs.find((t) => t.portal_user_id === techUserId)?.name ?? event.assigned_tech_name
+      setPoolJobs((prev) => prev.filter((j) => j.id !== jobId))
       handleAppointmentCreated({
         ...event,
         dispatch_status: "DISPATCHED",
         job_status: "assigned",
-        assigned_tech_id: poolScheduleTechId,
+        assigned_tech_id: techUserId,
         assigned_tech_name: techName ?? null,
       })
-      setPoolScheduleOpen(false)
-      setPoolScheduleJob(null)
       loadPool()
+      if (viewMode === "map") loadActivePipeline()
     } catch (e) {
-      setPoolScheduleError(e instanceof Error ? e.message : "Could not schedule job")
+      setGridScheduleError(e instanceof Error ? e.message : "Could not schedule job")
     } finally {
-      setPoolScheduleSaving(false)
+      setGridScheduleSaving(false)
     }
+  }
+
+  function openBookingOnTechLane(techUserId: string, hour24: number) {
+    setAssignedTechId(techUserId)
+    openBookingAtHour(hour24)
   }
 
   function openBookingDefault() {
@@ -845,8 +689,9 @@ export function SchedulerWorkspaceView() {
               <p className="mt-1 text-xs text-zinc-500">
                 {viewMode === "grid" ? (
                   <>
-                    {formatHourLabel(SCHEDULER_GRID_START_HOUR)} – {formatHourLabel(SCHEDULER_GRID_END_HOUR)} ·{" "}
-                    {dayEvents.length} appointment{dayEvents.length === 1 ? "" : "s"}
+                    Tech swimlanes · {assignableTechs.length} technician
+                    {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
+                    {dayEvents.length === 1 ? "" : "s"} scheduled
                   </>
                 ) : (
                   <>
@@ -865,116 +710,20 @@ export function SchedulerWorkspaceView() {
 
           {viewMode === "grid" ? (
             <>
-              <div className="max-h-[min(720px,70vh)] flex-1 overflow-y-auto">
-                <div className="flex min-h-0">
-                  <div className="w-16 shrink-0 border-r border-border/40 bg-muted/20">
-                    {hourSlots.map((hour) => (
-                      <div
-                        key={hour}
-                        className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-zinc-500"
-                        style={{ height: SCHEDULER_HOUR_ROW_PX }}
-                      >
-                        {formatHourLabel(hour)}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="relative min-w-0 flex-1" style={{ height: gridHeightPx }}>
-                    {hourSlots.map((hour) => (
-                      <button
-                        key={hour}
-                        type="button"
-                        aria-label={`Book appointment at ${formatHourLabel(hour)}`}
-                        className={cn(
-                          "absolute left-0 right-0 border-b border-border/30 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                          dragOverHour === hour && "bg-primary/15 ring-2 ring-inset ring-primary/50"
-                        )}
-                        style={{
-                          top: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_ROW_PX,
-                          height: SCHEDULER_HOUR_ROW_PX,
-                        }}
-                        onClick={() => openBookingAtHour(hour)}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.dataTransfer.dropEffect = "move"
-                          setDragOverHour(hour)
-                        }}
-                        onDragLeave={() => setDragOverHour((h) => (h === hour ? null : h))}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          setDragOverHour(null)
-                          const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
-                          if (!jobId) return
-                          const job = poolJobs.find((j) => j.id === jobId)
-                          if (!job) return
-                          openPoolScheduleAtHour(hour, job)
-                        }}
-                      />
-                    ))}
-
-                    {dayEvents.map((ev) => (
-                      <AppointmentBlock
-                        key={ev.id}
-                        ev={ev}
-                        highlighted={highlightId === ev.id}
-                        onSelect={() => openScheduledJobDrawer(ev)}
-                      />
-                    ))}
-
-                    {dayEvents.length === 0 && !loading ? (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-                        <p className="max-w-xs text-center text-sm text-zinc-500">
-                          No appointments yet — drag from the pool above, click an hour row, or use Create appointment.
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              {dayEvents.length > 0 ? (
-                <div className="border-t border-border/60 px-5 py-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Day summary</p>
-                  <ul className="flex flex-wrap gap-2">
-                    {dayEvents.map((ev) => (
-                      <li
-                        key={`sum-${ev.id}`}
-                        className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2 py-1 text-xs text-zinc-400"
-                      >
-                        <Clock className="h-3 w-3 shrink-0" aria-hidden />
-                        <span className="truncate">{formatBlockTime(ev.scheduled_at)}</span>
-                        <span className="truncate font-medium text-zinc-300">
-                          {ev.customer_name || formatPhone(ev.customer_phone)}
-                        </span>
-                        {formatVehicle(ev) ? (
-                          <span className="inline-flex items-center gap-0.5 truncate">
-                            <Car className="h-3 w-3" aria-hidden />
-                            {formatVehicle(ev)}
-                          </span>
-                        ) : null}
-                        {ev.customer_phone ? (
-                          <span className="inline-flex items-center gap-0.5 truncate">
-                            <Phone className="h-3 w-3" aria-hidden />
-                            {formatPhone(ev.customer_phone)}
-                          </span>
-                        ) : null}
-                        {ev.assigned_tech_name ? (
-                          <span className="inline-flex items-center gap-0.5 truncate">
-                            <User className="h-3 w-3" aria-hidden />
-                            {ev.assigned_tech_name}
-                          </span>
-                        ) : null}
-                        {ev.location ? (
-                          <span className="inline-flex items-center gap-0.5 truncate">
-                            <MapPin className="h-3 w-3" aria-hidden />
-                            {ev.location}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
+              {gridScheduleError ? (
+                <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-sm text-destructive">
+                  {gridScheduleError}
                 </div>
               ) : null}
+              <TechnicianSwimlaneBoard
+                technicians={technicians}
+                dayEvents={dayEvents}
+                loading={loading || gridScheduleSaving}
+                highlightId={highlightId}
+                onSelectEvent={openScheduledJobDrawer}
+                onDropPoolJob={schedulePoolOnTechLane}
+                onBookEmptySlot={openBookingOnTechLane}
+              />
             </>
           ) : (
             <div className="flex min-h-[min(720px,70vh)] flex-1 flex-col lg:flex-row">
@@ -1109,20 +858,6 @@ export function SchedulerWorkspaceView() {
           </DialogContent>
         </Dialog>
       ) : null}
-
-      <PoolScheduleDialog
-        open={poolScheduleOpen}
-        job={poolScheduleJob}
-        scheduledAtLocal={poolScheduleStart}
-        technicians={technicians}
-        techId={poolScheduleTechId}
-        saving={poolScheduleSaving}
-        error={poolScheduleError}
-        onTechChange={setPoolScheduleTechId}
-        onScheduledChange={setPoolScheduleStart}
-        onClose={closePoolScheduleDialog}
-        onConfirm={() => void confirmPoolSchedule()}
-      />
 
       <JobDetailDrawer
         open={Boolean(drawerPoolJob || drawerScheduledEvent)}
