@@ -28,34 +28,30 @@ function pickActiveOrganizationId(organizations: DashboardMainBootstrap["organiz
   return pickActiveOrganizationIdFromBootstrap(organizations)
 }
 
-/** Hydrates workspace from bootstrap before paint — avoids a second header/content flash. */
+/** Hydrates workspace from bootstrap once — avoids update loops from workspace state deps. */
 function DashboardBootstrapWorkspaceSync({ bootstrap }: { bootstrap: DashboardMainBootstrap }) {
   const { hydrateWorkspaceFromBootstrap, activeLine, businessNumbers, organizations } = useDashboardWorkspace()
-  const syncedRef = useRef(false)
+  const syncedBootstrapRef = useRef<DashboardMainBootstrap | null>(null)
 
   useLayoutEffect(() => {
-    const nextOrgId = pickActiveOrganizationId(bootstrap.organizations)
+    if (syncedBootstrapRef.current === bootstrap) return
+
     const alreadySeeded =
       businessNumbers.length === bootstrap.phoneLines.length &&
       organizations.length === bootstrap.organizations.length &&
       (activeLine === bootstrap.routing.primaryLineNumber ||
         (!activeLine && !bootstrap.routing.primaryLineNumber))
-    if (syncedRef.current && alreadySeeded) return
-    syncedRef.current = true
+
+    syncedBootstrapRef.current = bootstrap
     if (alreadySeeded) return
+
     hydrateWorkspaceFromBootstrap({
       organizations: bootstrap.organizations,
       phoneLines: bootstrap.phoneLines,
-      activeOrganizationId: nextOrgId,
+      activeOrganizationId: pickActiveOrganizationId(bootstrap.organizations),
       activeLine: bootstrap.routing.primaryLineNumber,
     })
-  }, [
-    bootstrap,
-    hydrateWorkspaceFromBootstrap,
-    activeLine,
-    businessNumbers.length,
-    organizations.length,
-  ])
+  }, [bootstrap, hydrateWorkspaceFromBootstrap, activeLine, businessNumbers.length, organizations.length])
 
   return null
 }
