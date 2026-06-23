@@ -31,6 +31,7 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { SettingsMenuRow } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
@@ -114,7 +115,7 @@ function SettingsHoursSheet() {
 }
 
 const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
-  loading,
+  profileLoading,
   profile,
   pushEnabled,
   setPushEnabled,
@@ -127,7 +128,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   onSignOut,
   carrierRegistrationPending,
 }: {
-  loading: boolean
+  profileLoading: boolean
   profile: SettingsProfileSummary
   pushEnabled: boolean
   setPushEnabled: (v: boolean) => void
@@ -154,8 +155,16 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       <WorkspacePageHeader eyebrow="Account" title="Settings" />
 
       <div className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-4 sm:px-5">
-        {loading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+        {profileLoading ? (
+          <>
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1 space-y-2">
+              <span className="block h-4 w-36 animate-pulse rounded bg-zinc-800" aria-hidden />
+              <span className="block h-3 w-48 animate-pulse rounded bg-zinc-800/80" aria-hidden />
+            </div>
+          </>
         ) : (
           <>
             <Avatar className="h-12 w-12 shrink-0">
@@ -257,26 +266,49 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 
 export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
   const { toast } = useToast()
+  const sessionSeed = useDashboardSessionOptional()
   const { activeOrganizationId } = useDashboardWorkspace()
-  const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(() => !sessionSeed)
   const [signingOut, setSigningOut] = useState(false)
   const [carrierRegistrationPending, setCarrierRegistrationPending] = useState(false)
 
-  const [profile, setProfile] = useState<SettingsProfileSummary>({
-    name: "",
-    email: "",
+  const [profile, setProfile] = useState<SettingsProfileSummary>(() => ({
+    name: sessionSeed?.name ?? "",
+    email: sessionSeed?.email ?? "",
     subscriptionActive: false,
-  })
+  }))
 
   const [pushEnabled, setPushEnabled] = useState(true)
   const [smsEnabled, setSmsEnabled] = useState(true)
-  const [whisperEnabled, setWhisperEnabled] = useState(true)
+  const [whisperEnabled, setWhisperEnabled] = useState(
+    () => sessionSeed?.inboundReceptionistWhisperEnabled !== false
+  )
   const [whisperSaving, setWhisperSaving] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
+
+    void fetchOnboardingProfile()
+      .then(({ profile: ob, carrierLive }) => {
+        if (cancelled) return
+        setProfile((p) => ({
+          ...p,
+          subscriptionActive: isVerifiedActiveSubscription(ob, carrierLive),
+        }))
+      })
+      .catch(() => {})
+
+    if (sessionSeed) {
+      setProfileLoading(false)
+      return () => {
+        cancelled = true
+      }
+    }
+
     fetch("/api/auth/session", { credentials: "include" })
       .then(async (res) => (res.ok ? res.json() : null))
       .then((data) => {
+        if (cancelled) return
         const u = data?.data?.user
         if (!u) return
         setProfile((p) => ({
@@ -286,17 +318,14 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
         }))
         setWhisperEnabled(u.inbound_receptionist_whisper_enabled !== false)
       })
-      .finally(() => setLoading(false))
-
-    void fetchOnboardingProfile()
-      .then(({ profile: ob, carrierLive }) => {
-        setProfile((p) => ({
-          ...p,
-          subscriptionActive: isVerifiedActiveSubscription(ob, carrierLive),
-        }))
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false)
       })
-      .catch(() => {})
-  }, [])
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionSeed])
 
   useEffect(() => {
     const orgId = activeOrganizationId ?? readActiveOrganizationId()
@@ -342,7 +371,7 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
       render={() => <SettingsHoursSheet />}
     >
       <SettingsWorkspaceBody
-        loading={loading}
+        profileLoading={profileLoading}
         profile={profile}
         pushEnabled={pushEnabled}
         setPushEnabled={setPushEnabled}

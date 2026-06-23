@@ -89,6 +89,7 @@ export default async function DashboardLayout({
           email: user.email,
           companyUserId: user.id,
           answeredCallCustomerPopupEnabled: user.answered_call_customer_popup_enabled !== false,
+          inboundReceptionistWhisperEnabled: user.inbound_receptionist_whisper_enabled !== false,
         }}
       >
         <Suspense fallback={null}>

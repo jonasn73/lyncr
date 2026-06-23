@@ -19,6 +19,10 @@ import {
 } from "@/components/dashboard-header-workspace"
 import { DashboardMainStreamGate } from "@/components/dashboard-main-stream-gate"
 import { DashboardSettingsModalsLazyHost } from "@/components/dashboard/settings-modals-lazy-host"
+import {
+  DashboardSessionProvider,
+  type DashboardSessionSnapshot,
+} from "@/components/dashboard-session-context"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "scheduler", "help"]
 
@@ -52,6 +56,7 @@ export function DashboardShell({
     email: string
     companyUserId?: string
     answeredCallCustomerPopupEnabled?: boolean
+    inboundReceptionistWhisperEnabled?: boolean
   }
 }) {
   const clientPathname = usePathname()
@@ -139,8 +144,20 @@ export function DashboardShell({
     [sessionAccount, sessionBusinessName]
   )
 
+  const dashboardSession = useMemo((): DashboardSessionSnapshot | null => {
+    if (!sessionAccount) return null
+    return {
+      name: sessionAccount.name,
+      email: sessionAccount.email,
+      companyUserId: sessionAccount.companyUserId,
+      answeredCallCustomerPopupEnabled: sessionAccount.answeredCallCustomerPopupEnabled,
+      inboundReceptionistWhisperEnabled: sessionAccount.inboundReceptionistWhisperEnabled,
+    }
+  }, [sessionAccount])
+
   return (
     <Suspense fallback={null}>
+      <DashboardSessionProvider session={dashboardSession}>
       <DashboardActivationProvider>
         <DashboardChromeProvider activePage={activePage}>
           <SwrProvider>
@@ -168,6 +185,7 @@ export function DashboardShell({
           </SwrProvider>
         </DashboardChromeProvider>
       </DashboardActivationProvider>
+      </DashboardSessionProvider>
     </Suspense>
   )
 }

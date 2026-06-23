@@ -1,0 +1,28 @@
+"use client"
+
+import { createContext, useContext, type ReactNode } from "react"
+
+/** Server-hydrated account snapshot — available on first paint after dashboard layout auth. */
+export type DashboardSessionSnapshot = {
+  name: string
+  email: string
+  companyUserId?: string
+  answeredCallCustomerPopupEnabled?: boolean
+  inboundReceptionistWhisperEnabled?: boolean
+}
+
+const DashboardSessionContext = createContext<DashboardSessionSnapshot | null>(null)
+
+export function DashboardSessionProvider({
+  session,
+  children,
+}: {
+  session: DashboardSessionSnapshot | null
+  children: ReactNode
+}) {
+  return <DashboardSessionContext.Provider value={session}>{children}</DashboardSessionContext.Provider>
+}
+
+export function useDashboardSessionOptional(): DashboardSessionSnapshot | null {
+  return useContext(DashboardSessionContext)
+}
