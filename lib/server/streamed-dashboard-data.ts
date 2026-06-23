@@ -195,5 +195,5 @@ export function activePipelinePromise(user?: User, dayKey?: string): Promise<Act
       dayKey: key,
       organizationId: null,
     })
-  return user ? load(owner) : requireSessionUser().then(load)
+  return user ? load(user) : requireSessionUser().then(load)
 }
