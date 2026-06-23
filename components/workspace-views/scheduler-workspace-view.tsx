@@ -988,6 +988,7 @@ export function SchedulerWorkspaceView() {
                   techLocations={techLocations}
                   selectedDayLabel={selectedDayLabel}
                   highlightId={highlightId}
+                  hideHoverCard={Boolean(drawerPoolJob || drawerScheduledEvent)}
                   embedded
                   onSelectEvent={openScheduledJobDrawer}
                   onSelectPoolJob={(job) => focusPipelineJob(job as ActivePipelineJob)}
