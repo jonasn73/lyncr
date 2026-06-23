@@ -3,7 +3,7 @@
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { useDashboardBootstrapOptional } from "@/components/dashboard-bootstrap-context"
+import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { usePortingInteraction } from "@/components/dashboard/porting-interaction-context"
 import { PhoneLinesListContent } from "@/components/dashboard/phone-lines-list-content"
@@ -169,11 +169,15 @@ export type PhoneLinesListProps = Omit<PhoneLinesListContentWrapperProps, "numbe
 
 /** Suspends until phone lines resolve — wrap in `<Suspense fallback={<PhoneLinesSkeleton />}>`. */
 export function PhoneLinesList(props: PhoneLinesListProps) {
-  const bootstrap = useDashboardBootstrapOptional()
+  const bootstrap = useDashboardBootstrapEffective()
+  const { businessNumbers } = useDashboardWorkspace()
   const { phoneLinesPromise } = useDashboardStream()
 
-  if (bootstrap) {
-    return <PhoneLinesListContentWrapper numbers={bootstrap.phoneLines} {...props} />
+  const seededNumbers =
+    bootstrap?.phoneLines.length ? bootstrap.phoneLines : businessNumbers.length > 0 ? businessNumbers : null
+
+  if (seededNumbers) {
+    return <PhoneLinesListContentWrapper numbers={seededNumbers} {...props} />
   }
 
   if (phoneLinesPromise) {

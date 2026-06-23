@@ -101,8 +101,8 @@ function NetworkInstructionsPanel() {
     <WorkspacePanel className="flex h-full flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-500/10">
-            <Network className="h-5 w-5 text-violet-300" aria-hidden />
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+            <Network className="h-5 w-5 text-primary" aria-hidden />
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Live Instruction Script</h2>
@@ -112,8 +112,8 @@ function NetworkInstructionsPanel() {
             </p>
           </div>
         </div>
-        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-300 sm:inline-flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-400" aria-hidden />
+        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary sm:inline-flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
           Live operators
         </span>
       </div>
@@ -133,7 +133,7 @@ function NetworkInstructionsPanel() {
           "Pricing: Basic wash $40 · Full detail from $150 — quote ranges only, never commit a final price\n" +
           "Always collect: caller name, callback number, vehicle, service needed, and ZIP"
         }
-        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40 disabled:opacity-60"
+        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
       />
 
       {error ? (
@@ -157,7 +157,7 @@ function NetworkInstructionsPanel() {
             type="button"
             onClick={() => void save()}
             disabled={!loaded || saving || !dirty}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
             {saving ? "Saving…" : "Save instructions"}
@@ -264,8 +264,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         <WorkspacePanel className="flex h-full flex-col p-5 lg:col-span-1">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10">
-                <Network className="h-5 w-5 text-emerald-300" aria-hidden />
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+                <Network className="h-5 w-5 text-primary" aria-hidden />
               </span>
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-foreground sm:text-base">Your Active Operator Network</h2>
@@ -277,7 +277,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <button
               type="button"
               onClick={() => openTeamInviteModal()}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" aria-hidden /> Add
             </button>

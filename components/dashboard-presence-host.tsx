@@ -4,7 +4,6 @@ import dynamic from "next/dynamic"
 import { Suspense, memo, useLayoutEffect, useState, type ReactNode } from "react"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
-import { DashboardRoutingBootstrapGate } from "@/components/dashboard-main-stream-gate"
 import { ActivityWorkspaceView } from "@/components/workspace-views/activity-workspace-view"
 import { LeadsWorkspaceView } from "@/components/workspace-views/leads-workspace-view"
 import { TeamWorkspaceView } from "@/components/workspace-views/team-workspace-view"
@@ -67,11 +66,7 @@ const PresencePane = memo(function PresencePane({
 })
 
 function RoutingPane() {
-  return (
-    <DashboardRoutingBootstrapGate>
-      <DashboardPage />
-    </DashboardRoutingBootstrapGate>
-  )
+  return <DashboardPage />
 }
 
 /** All primary dashboard views stay mounted; inactive panes use `hidden` so they never paint. */

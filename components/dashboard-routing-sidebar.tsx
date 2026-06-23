@@ -1,9 +1,9 @@
 "use client"
 
-import { Suspense, memo } from "react"
+import { memo } from "react"
 import { ChevronRight, Hash, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useDashboardBootstrapOptional } from "@/components/dashboard-bootstrap-context"
+import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -27,10 +27,10 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
   onConfigureRouting?: () => void
 }) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
-  const bootstrap = useDashboardBootstrapOptional()
+  const bootstrap = useDashboardBootstrapEffective()
   const { businessNumbers, businessNumbersLoading } = useDashboardWorkspace()
-  const lines = bootstrap?.phoneLines ?? businessNumbers
-  const linesLoading = bootstrap ? false : businessNumbersLoading
+  const lines = bootstrap?.phoneLines.length ? bootstrap.phoneLines : businessNumbers
+  const linesLoading = lines.length > 0 ? false : businessNumbersLoading
   const activation = useDashboardActivationOptional()
   const subscriptionActive = activation?.subscriptionActive === true
   const lineCarrierLive = activation?.lineCarrierLive === true
@@ -59,7 +59,9 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           </div>
         </div>
 
-        <Suspense fallback={bootstrap ? null : <PhoneLinesSkeleton />}>
+        {linesLoading && lines.length === 0 ? (
+          <PhoneLinesSkeleton />
+        ) : (
           <PhoneLinesList
             routingStrategy={routingStrategy}
             activeLineDisplay={activeLineDisplay}
@@ -67,7 +69,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
             subscriptionActive={subscriptionActive}
             lineCarrierLive={lineCarrierLive}
           />
-        </Suspense>
+        )}
 
         {showEmptyState ? (
           <button

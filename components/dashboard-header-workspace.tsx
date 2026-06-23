@@ -2,6 +2,7 @@
 
 import { Suspense, use, useCallback, useLayoutEffect, useRef } from "react"
 import { OrganizationSwitcher, OrganizationSwitcherPlaceholder } from "@/components/organization-switcher"
+import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
@@ -15,6 +16,54 @@ function headerSeedOrganization(name: string): Organization {
     is_default: true,
     created_at: new Date(0).toISOString(),
   }
+}
+
+/** Org switcher from a known org list — no Suspense, no fetch on first paint. */
+function HeaderOrganizationsFromData({
+  organizations,
+  sessionBusinessName,
+}: {
+  organizations: Organization[]
+  sessionBusinessName?: string
+}) {
+  const { organizations: workspaceOrgs, setOrganizations, setActiveOrganizationId } = useDashboardWorkspace()
+  const seededRef = useRef(false)
+
+  const handleOrganizationChange = useCallback(
+    (id: string | null) => {
+      setActiveOrganizationId(id)
+    },
+    [setActiveOrganizationId]
+  )
+
+  useLayoutEffect(() => {
+    if (seededRef.current) return
+    seededRef.current = true
+    if (
+      workspaceOrgs.length === organizations.length &&
+      organizations.every((org, i) => org.id === workspaceOrgs[i]?.id)
+    ) {
+      return
+    }
+    setOrganizations(organizations)
+  }, [organizations, setOrganizations, workspaceOrgs])
+
+  if (organizations.length === 0) {
+    return (
+      <OrganizationSwitcherPlaceholder
+        label={sessionBusinessName?.trim() || "Business"}
+      />
+    )
+  }
+
+  return (
+    <OrganizationSwitcher
+      seedOrganizations={organizations}
+      skipInitialFetch
+      onOrganizationsLoaded={setOrganizations}
+      onOrganizationChange={handleOrganizationChange}
+    />
+  )
 }
 
 /** Header org switcher — shares the same bootstrap promise as the main stream gate for one flush. */
@@ -132,25 +181,21 @@ function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusi
 
 /** Business workspace switcher mounted in the dashboard app header. */
 export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusinessName?: string }) {
+  const bootstrap = useDashboardBootstrapEffective()
   const { dashboardMainBootstrapPromise, organizationsPromise } = useDashboardStream()
   const placeholderLabel = sessionBusinessName?.trim() || "Business"
 
-  if (dashboardMainBootstrapPromise) {
+  if (bootstrap?.organizations.length) {
     return (
-      <Suspense
-        fallback={
-          <OrganizationSwitcher
-            seedOrganizations={[headerSeedOrganization(placeholderLabel)]}
-            skipInitialFetch
-          />
-        }
-      >
-        <HeaderOrganizationsFromMainBootstrap
-          bootstrapPromise={dashboardMainBootstrapPromise}
-          sessionBusinessName={sessionBusinessName}
-        />
-      </Suspense>
+      <HeaderOrganizationsFromData
+        organizations={bootstrap.organizations}
+        sessionBusinessName={sessionBusinessName}
+      />
     )
+  }
+
+  if (dashboardMainBootstrapPromise) {
+    return <OrganizationSwitcherPlaceholder label={placeholderLabel} />
   }
 
   if (organizationsPromise) {

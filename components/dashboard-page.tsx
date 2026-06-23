@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { RoutingStrategy } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { useDashboardBootstrapOptional } from "@/components/dashboard-bootstrap-context"
+import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import {
@@ -20,7 +20,7 @@ import {
 
 export function DashboardPage() {
   const { toast } = useToast()
-  const bootstrap = useDashboardBootstrapOptional()
+  const bootstrap = useDashboardBootstrapEffective()
   const {
     activeLine,
     setActiveLine,
@@ -80,7 +80,36 @@ export function DashboardPage() {
   const quickSetupDecided =
     sessionFetchDone && receptionistsFetchDone && numbersRoutingFetchDone
 
-  const callFlowUiReady = bootstrap != null || !businessNumbersLoading
+  const callFlowUiReady =
+    routedNumbers.length > 0 || bootstrap != null || !businessNumbersLoading
+
+  const hadBootstrapOnMountRef = useRef(Boolean(bootstrap))
+  const showRoutingDetailLoading = routingLineDetailLoading && !hadBootstrapOnMountRef.current
+  const bootstrapHydratedRef = useRef(bootstrap != null)
+  const prevActiveLineForRoutingRef = useRef<string | null>(activeLine)
+  useEffect(() => {
+    if (!bootstrap || bootstrapHydratedRef.current) return
+    bootstrapHydratedRef.current = true
+    setMainLinePhone(bootstrap.routing.ownerPhone ?? null)
+    setReceptionists(bootstrap.routing.receptionists)
+    const recId = bootstrap.routing.routing.selected_receptionist_id
+    setSelectedReceptionistId(
+      recId && bootstrap.routing.receptionists.some((r) => r.id === recId)
+        ? recId
+        : bootstrap.routing.receptionists[0]?.id ?? null
+    )
+    setFallback(bootstrap.routing.routing.fallback_type || "owner")
+    setAiRingOwnerFirst(bootstrap.routing.routing.ai_ring_owner_first ?? false)
+    setRingTimeoutSec(snapDashboardRingTimeoutSec(bootstrap.routing.routing.ring_timeout_seconds ?? 30))
+    setRoutingStrategy(bootstrap.routing.routing.routing_strategy ?? "private_only")
+    setAllowLyncrNetworkFallback(bootstrap.routing.routing.allow_lyncr_network_fallback ?? false)
+    if (bootstrap.routing.primaryLineNumber && !activeLine) {
+      setActiveLine(bootstrap.routing.primaryLineNumber)
+    }
+    setSessionFetchDone(true)
+    setReceptionistsFetchDone(true)
+    setNumbersRoutingFetchDone(true)
+  }, [bootstrap, activeLine, setActiveLine])
 
   // Platform-admin inbound override for the active line only (scoped per workspace / DID — not global).
   const adminRoutingOverridePhone = useMemo(() => {
@@ -187,10 +216,19 @@ export function DashboardPage() {
   // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
   useEffect(() => {
     if (!numbersRoutingFetchDone) return
+    const prevLine = prevActiveLineForRoutingRef.current
+    prevActiveLineForRoutingRef.current = activeLine
+
     if (skipNextRoutingFetchRef.current) {
       skipNextRoutingFetchRef.current = false
       return
     }
+
+    // Bootstrap already includes routing — skip the first settle / duplicate fetch on hard refresh.
+    if (bootstrap && (!prevLine || prevLine === activeLine)) {
+      return
+    }
+
     const seq = ++routingFetchSeqRef.current
     setRoutingLineDetailLoading(true)
     let cancelled = false
@@ -226,7 +264,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [numbersRoutingFetchDone, activeLine, routingBootstrapPromise])
+  }, [numbersRoutingFetchDone, activeLine, bootstrap])
 
   // If the selected line disappears (released number), snap back to the first remaining line.
   useEffect(() => {
@@ -405,7 +443,7 @@ export function DashboardPage() {
         businessNumbers={routedNumbers}
         routingBusinessNumber={routingLine}
         setRoutingBusinessNumber={setActiveLine}
-        routingLineDetailLoading={routingLineDetailLoading}
+        routingLineDetailLoading={showRoutingDetailLoading}
         isRoutingToOwner={isRoutingToOwner}
         selectedReceptionist={selectedReceptionist}
         ownerPhoneDisplay={ownerPhoneDisplay}

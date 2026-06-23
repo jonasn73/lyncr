@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -15,6 +16,11 @@ import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-cont
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import type { BusinessNumbersQueryResult } from "@/lib/hooks/use-business-numbers-query"
 import { persistedCacheKey, readPersistedCache } from "@/lib/swr/persisted-cache"
+import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
+import {
+  workspaceSeedFromBootstrap,
+} from "@/lib/dashboard-bootstrap-seed"
+import { readDashboardBootstrapCache } from "@/lib/dashboard-bootstrap-cache"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 import type { Organization } from "@/lib/types"
 import { readActiveOrganizationId, writeActiveOrganizationId } from "@/lib/workspace-organizations"
@@ -71,29 +77,57 @@ function readCachedBusinessNumbers(orgId: string | null): BusinessNumbersQueryRe
   return readPersistedCache<BusinessNumbersQueryResult>(key)
 }
 
-export function DashboardWorkspaceProvider({ children }: { children: ReactNode }) {
+function resolveWorkspaceBootstrapSeed(
+  initialBootstrap?: DashboardMainBootstrap | null
+): DashboardMainBootstrap | undefined {
+  if (initialBootstrap) return initialBootstrap
+  if (typeof window === "undefined") return undefined
+  return readDashboardBootstrapCache()
+}
+
+export function DashboardWorkspaceProvider({
+  children,
+  initialBootstrap,
+}: {
+  children: ReactNode
+  initialBootstrap?: DashboardMainBootstrap | null
+}) {
+  const bootstrapSeed = resolveWorkspaceBootstrapSeed(initialBootstrap)
+  const workspaceSeed = bootstrapSeed ? workspaceSeedFromBootstrap(bootstrapSeed) : null
+
   const router = useRouter()
   const activeTab = useDashboardActivePage()
-  const [activeLine, setActiveLine] = useState<string | null>(null)
+  const [activeLine, setActiveLine] = useState<string | null>(() => workspaceSeed?.activeLine ?? null)
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>(() => {
+    if (workspaceSeed?.phoneLines.length) return workspaceSeed.phoneLines
     const cached = readCachedBusinessNumbers(readActiveOrganizationId())
     return cached?.numbers ?? []
   })
   const [businessNumbersLoading, setBusinessNumbersLoading] = useState(() => {
+    if (workspaceSeed) return false
     return readCachedBusinessNumbers(readActiveOrganizationId()) === undefined
   })
   const [activityLogs, setActivityLogs] = useState<UiCallRecord[]>([])
   const [selectedActivityLog, setSelectedActivityLog] = useState<UiCallRecord | null>(null)
-  const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(null)
-  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(() => {
+    if (workspaceSeed?.activeOrganizationId) return workspaceSeed.activeOrganizationId
+    if (typeof window === "undefined") return null
+    return readActiveOrganizationId()
+  })
+  const [organizations, setOrganizations] = useState<Organization[]>(
+    () => workspaceSeed?.organizations ?? []
+  )
+  const activeOrganizationIdRef = useRef(activeOrganizationId)
+  activeOrganizationIdRef.current = activeOrganizationId
 
   const setActiveOrganizationId = useCallback((id: string | null) => {
-    setActiveOrganizationIdState(id)
+    if (activeOrganizationIdRef.current === id) return
     writeActiveOrganizationId(id)
     const cached = readCachedBusinessNumbers(id)
     setBusinessNumbers(cached?.numbers ?? [])
     setActiveLine(null)
     setBusinessNumbersLoading(cached === undefined)
+    setActiveOrganizationIdState(id)
   }, [])
 
   const hydrateWorkspaceFromBootstrap = useCallback(
@@ -114,11 +148,12 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
   )
 
   useEffect(() => {
+    if (workspaceSeed) return
     setActiveOrganizationIdState(readActiveOrganizationId())
     const onChanged = () => setActiveOrganizationIdState(readActiveOrganizationId())
     window.addEventListener("lyncr-organization-changed", onChanged)
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
-  }, [])
+  }, [workspaceSeed])
 
   const setActiveTab = useCallback(
     (tab: PageId) => {

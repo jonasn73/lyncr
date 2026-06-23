@@ -61,12 +61,23 @@ type DashboardActivationContextValue = {
 
 const DashboardActivationContext = createContext<DashboardActivationContextValue | null>(null)
 
-export function DashboardActivationProvider({ children }: { children: ReactNode }) {
+export type DashboardActivationSeed = {
+  subscriptionActive: boolean
+  lineCarrierLive: boolean
+}
+
+export function DashboardActivationProvider({
+  children,
+  activationSeed,
+}: {
+  children: ReactNode
+  activationSeed?: DashboardActivationSeed
+}) {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const [profile, setProfile] = useState<OnboardingProfile | null>(null)
-  const [carrierLive, setCarrierLive] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [carrierLive, setCarrierLive] = useState(() => activationSeed?.lineCarrierLive ?? false)
+  const [loading, setLoading] = useState(() => !activationSeed)
   const [activating, setActivating] = useState(false)
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier>("starter")
   const [replacePrompt, setReplacePrompt] = useState<ReplaceLinePrompt>(null)
@@ -243,14 +254,21 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
     reservedDisplay,
   ])
 
-  const subscriptionActive = isVerifiedActiveSubscription(profile, carrierLive)
+  const subscriptionActive =
+    loading && activationSeed
+      ? activationSeed.subscriptionActive
+      : isVerifiedActiveSubscription(profile, carrierLive)
+  const lineCarrierLive =
+    loading && activationSeed
+      ? activationSeed.lineCarrierLive
+      : carrierLive
   const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
   const showProvisioningBanner = Boolean(reservedDisplay) && subscriptionActive && !carrierLive
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
   useEffect(() => {
-    void refreshProfile()
-  }, [refreshProfile])
+    void refreshProfile({ silent: Boolean(activationSeed) })
+  }, [refreshProfile, activationSeed])
 
   useEffect(() => {
     const onActivated = () => void refreshProfile()
@@ -346,7 +364,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       subscriptionActive,
       showTrialBanner,
       showProvisioningBanner,
-      lineCarrierLive: carrierLive,
+      lineCarrierLive,
       billingCycleEnd,
       reservedDisplay,
       simulationMode: provisionMode.simulation_mode,
@@ -361,7 +379,7 @@ export function DashboardActivationProvider({ children }: { children: ReactNode 
       subscriptionActive,
       showTrialBanner,
       showProvisioningBanner,
-      carrierLive,
+      lineCarrierLive,
       billingCycleEnd,
       reservedDisplay,
       provisionMode.simulation_mode,

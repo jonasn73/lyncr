@@ -18,7 +18,7 @@ const CommandDockInner = memo(function CommandDockInner({
 }) {
   const navRef = useRef<HTMLElement>(null)
   const itemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
-  const [indicator, setIndicator] = useState({ top: 0, height: 44, visible: false })
+  const [indicator, setIndicator] = useState({ top: 0, height: 44, visible: true })
 
   useLayoutEffect(() => {
     const idx = dashboardNavItems.findIndex((item) => item.id === activePage)

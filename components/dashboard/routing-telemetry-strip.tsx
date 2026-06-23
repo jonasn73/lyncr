@@ -55,6 +55,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
 }) {
   const { activeOrganizationId } = useDashboardWorkspace()
   const { jobs: poolJobs, mutate: mutatePool } = useJobPoolQuery(activeOrganizationId)
+  const [metricsReady, setMetricsReady] = useState(false)
   const [pendingPorts, setPendingPorts] = useState(0)
   const [dailyCalls, setDailyCalls] = useState(0)
   const [missedCalls, setMissedCalls] = useState(0)
@@ -116,6 +117,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       setPendingPorts(orders.filter(isActivePortingOrder).length)
     } catch {
       setPendingPorts(0)
+    } finally {
+      setMetricsReady(true)
     }
   }, [activeOrganizationId, refreshCallMetrics, mutatePool])
 
@@ -183,10 +186,12 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <section
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2.5 backdrop-blur-md",
+        "flex flex-wrap items-center gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2.5 backdrop-blur-md transition-opacity duration-200",
+        metricsReady ? "opacity-100" : "opacity-0",
         className
       )}
       aria-label="Workspace telemetry"
+      aria-busy={!metricsReady}
     >
       <TelemetryPill label="Active lines" value={activeLines} icon={Phone} tone="teal" />
       <TelemetryPill label="Daily calls" value={dailyCalls} icon={PhoneIncoming} />

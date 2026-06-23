@@ -67,23 +67,27 @@ export default async function DashboardLayout({
   if (isPlatformAdminUser(user)) redirect("/admin")
 
   const mainBootstrapPromise = shouldStreamMainBootstrap ? dashboardMainBootstrapPromise(user) : undefined
-  const linesPromise = mainBootstrapPromise
-    ? mainBootstrapPromise.then((b) => b.phoneLines)
+  const initialMainBootstrap = mainBootstrapPromise ? await mainBootstrapPromise : undefined
+  const resolvedMainBootstrapPromise = initialMainBootstrap
+    ? Promise.resolve(initialMainBootstrap)
+    : mainBootstrapPromise
+  const linesPromise = resolvedMainBootstrapPromise
+    ? resolvedMainBootstrapPromise.then((b) => b.phoneLines)
     : phoneLinesPromise(user)
-  const routingPromise = mainBootstrapPromise
-    ? mainBootstrapPromise.then((b) => b.routing)
+  const routingPromise = resolvedMainBootstrapPromise
+    ? resolvedMainBootstrapPromise.then((b) => b.routing)
     : isMainRoutingDashboard
       ? routingBootstrapPromise(user)
       : undefined
-  const orgsPromise = mainBootstrapPromise
-    ? mainBootstrapPromise.then((b) => b.organizations)
+  const orgsPromise = resolvedMainBootstrapPromise
+    ? resolvedMainBootstrapPromise.then((b) => b.organizations)
     : organizationsPromise(user)
   const hopperPromise = shouldStreamMainBootstrap ? jobPoolPromise(user) : undefined
   const pipelinePromise = shouldStreamMainBootstrap ? activePipelinePromise(user) : undefined
 
   return (
     <DashboardStreamProvider
-      dashboardMainBootstrapPromise={mainBootstrapPromise}
+      dashboardMainBootstrapPromise={resolvedMainBootstrapPromise}
       phoneLinesPromise={linesPromise}
       routingBootstrapPromise={routingPromise}
       organizationsPromise={orgsPromise}
@@ -93,10 +97,12 @@ export default async function DashboardLayout({
       <DashboardShell
         pathnameFromRequest={pathnameFromRequest}
         sessionBusinessName={user.business_name}
+        initialBootstrap={initialMainBootstrap}
         sessionAccount={{
           name: user.name?.trim() || "Account",
           email: user.email,
           companyUserId: user.id,
+          hasActiveSubscription: user.has_active_subscription === true,
           answeredCallCustomerPopupEnabled: user.answered_call_customer_popup_enabled !== false,
           inboundReceptionistWhisperEnabled: user.inbound_receptionist_whisper_enabled !== false,
         }}

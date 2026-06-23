@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useDashboardBootstrapOptional } from "@/components/dashboard-bootstrap-context"
+import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
@@ -9,7 +9,7 @@ import type { Organization } from "@/lib/types"
 
 /** Loads organizations into workspace context when server stream is unavailable (client tab nav). */
 export function DashboardOrganizationsBootstrap() {
-  const bootstrap = useDashboardBootstrapOptional()
+  const bootstrap = useDashboardBootstrapEffective()
   const { organizationsPromise, dashboardMainBootstrapPromise } = useDashboardStream()
   const { setOrganizations, setActiveOrganizationId } = useDashboardWorkspace()
 

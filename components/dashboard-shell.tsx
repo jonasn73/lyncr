@@ -12,11 +12,16 @@ import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-nu
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
-import { DashboardActivationProvider } from "@/components/dashboard-activation-context"
+import {
+  DashboardActivationProvider,
+  type DashboardActivationSeed,
+} from "@/components/dashboard-activation-context"
 import {
   DashboardHeaderWorkspace,
   DashboardOrganizationsBootstrap,
 } from "@/components/dashboard-header-workspace"
+import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
+import { DashboardBootstrapShellGate } from "@/components/dashboard-bootstrap-context"
 import { DashboardMainStreamGate } from "@/components/dashboard-main-stream-gate"
 import { DashboardSettingsModalsLazyHost } from "@/components/dashboard/settings-modals-lazy-host"
 import {
@@ -45,16 +50,20 @@ export function DashboardShell({
   pathnameFromRequest,
   sessionBusinessName,
   sessionAccount,
+  initialBootstrap,
 }: {
   children: React.ReactNode
   pathnameFromRequest: string | null
   /** Shown in the header workspace slot while orgs stream in on hard refresh. */
   sessionBusinessName?: string
+  /** Server-resolved routing bootstrap — matches SSR HTML to client on hard refresh. */
+  initialBootstrap?: DashboardMainBootstrap | null
   /** Server session snapshot — avoids header width jump while /api/auth/session loads. */
   sessionAccount?: {
     name: string
     email: string
     companyUserId?: string
+    hasActiveSubscription?: boolean
     answeredCallCustomerPopupEnabled?: boolean
     inboundReceptionistWhisperEnabled?: boolean
   }
@@ -155,13 +164,22 @@ export function DashboardShell({
     }
   }, [sessionAccount])
 
+  const activationSeed = useMemo((): DashboardActivationSeed | undefined => {
+    if (!initialBootstrap && sessionAccount?.hasActiveSubscription == null) return undefined
+    const lineCarrierLive = initialBootstrap?.phoneLines.some((line) => line.status === "active") ?? false
+    return {
+      subscriptionActive: lineCarrierLive || sessionAccount?.hasActiveSubscription === true,
+      lineCarrierLive,
+    }
+  }, [initialBootstrap, sessionAccount?.hasActiveSubscription])
+
   return (
     <Suspense fallback={null}>
       <DashboardSessionProvider session={dashboardSession}>
-      <DashboardActivationProvider>
+      <DashboardActivationProvider activationSeed={activationSeed}>
         <DashboardChromeProvider activePage={activePage}>
           <SwrProvider>
-            <DashboardWorkspaceProvider>
+            <DashboardWorkspaceProvider initialBootstrap={initialBootstrap}>
               <DashboardBusinessNumbersSync />
               <DashboardOrganizationsBootstrap />
               <DashboardNumbersModalProvider>
@@ -170,16 +188,18 @@ export function DashboardShell({
                 <Suspense fallback={null}>
                   <DashboardSettingsModalsLazyHost sessionSeed={settingsSessionSeed} />
                 </Suspense>
-                <AppShell
-                  pathname={pathname}
-                  accountHeader={accountHeader}
-                  headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
-                >
-                  <DashboardMainStreamGate activePage={activePage}>
-                    <DashboardMainContent activePage={activePage} routedChildren={children} />
-                  </DashboardMainStreamGate>
-                  <DashboardAnsweredCallPopup enabled={popupEnabled} />
-                </AppShell>
+                <DashboardBootstrapShellGate initialBootstrap={initialBootstrap}>
+                  <AppShell
+                    pathname={pathname}
+                    accountHeader={accountHeader}
+                    headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
+                  >
+                    <DashboardMainStreamGate activePage={activePage}>
+                      <DashboardMainContent activePage={activePage} routedChildren={children} />
+                    </DashboardMainStreamGate>
+                    <DashboardAnsweredCallPopup enabled={popupEnabled} />
+                  </AppShell>
+                </DashboardBootstrapShellGate>
               </DashboardNumbersModalProvider>
             </DashboardWorkspaceProvider>
           </SwrProvider>
