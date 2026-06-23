@@ -29,9 +29,9 @@ const labelClass = "text-xs font-medium text-zinc-400 mb-1.5"
 const inputClass =
   "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 const addressTextareaClass =
-  "w-full resize-none break-words whitespace-normal text-sm bg-zinc-900/50 border-zinc-800 min-h-[72px] rounded-lg border px-3 py-2 text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  "box-border block w-full max-w-full resize-none break-words whitespace-normal text-sm bg-zinc-900/50 border-zinc-800 min-h-[72px] rounded-lg border px-3 py-2 text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 const notesTextareaClass =
-  "w-full resize-none break-words whitespace-normal text-sm bg-zinc-900/50 border-zinc-800 min-h-[64px] rounded-lg border px-3 py-2 text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  "box-border block w-full max-w-full resize-none break-words whitespace-normal text-sm bg-zinc-900/50 border-zinc-800 min-h-[64px] rounded-lg border px-3 py-2 text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 
 function startLocalFromIso(iso: string | null | undefined): string {
   if (!iso) return ""
@@ -155,33 +155,31 @@ export function JobDetailDrawer({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between border-b border-border/60 px-5 py-4">
-          <div className="min-w-0 space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Job details</p>
-            <span
-              className={cn(
-                "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                lifecyclePhase === "unassigned" && "bg-amber-500/20 text-amber-200",
-                lifecyclePhase === "scheduled" && "bg-teal-500/20 text-teal-100",
-                lifecyclePhase === "en_route" && "bg-sky-500/20 text-sky-100",
-                lifecyclePhase === "on_site" && "bg-yellow-500/20 text-yellow-100",
-                lifecyclePhase === "completed" && "bg-zinc-600/30 text-zinc-400"
-              )}
-            >
-              {statusLabel}
-            </span>
-          </div>
+        <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-14">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Job details</p>
+          <span
+            className={cn(
+              "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              lifecyclePhase === "unassigned" && "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/30",
+              lifecyclePhase === "scheduled" && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/30",
+              lifecyclePhase === "en_route" && "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/30",
+              lifecyclePhase === "on_site" && "bg-yellow-500/20 text-yellow-100 ring-1 ring-yellow-500/30",
+              lifecyclePhase === "completed" && "bg-zinc-600/30 text-zinc-400 ring-1 ring-zinc-600/40"
+            )}
+          >
+            {statusLabel}
+          </span>
           <button
             type="button"
             aria-label="Close"
-            className="rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground"
+            className="absolute right-3 top-3 rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground"
             onClick={onClose}
           >
             <X className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">
           <div className={fieldBlockClass}>
             <label className={labelClass} htmlFor="job-customer-name">
               Customer name
@@ -264,7 +262,7 @@ export function JobDetailDrawer({
             </div>
           </div>
 
-          <div className={fieldBlockClass}>
+          <div className={cn(fieldBlockClass, "w-full max-w-full")}>
             <label className={labelClass} htmlFor="job-location">
               Address
             </label>
