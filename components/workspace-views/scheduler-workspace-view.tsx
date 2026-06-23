@@ -38,6 +38,7 @@ import {
   dateAtLocalHour,
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
+import { useActivePipelineQuery, useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
 import { ActivePipelinePanel } from "@/components/scheduler/active-pipeline-panel"
@@ -115,12 +116,8 @@ export function SchedulerWorkspaceView() {
   const [assignedTechId, setAssignedTechId] = useState("")
   const [bookingSaving, setBookingSaving] = useState(false)
   const [bookingError, setBookingError] = useState<string | null>(null)
-  const [poolJobs, setPoolJobs] = useState<UnassignedPoolJob[]>([])
-  const [activePipelineJobs, setActivePipelineJobs] = useState<ActivePipelineJob[]>([])
-  const [activePipelineLoading, setActivePipelineLoading] = useState(false)
   const [techLocations, setTechLocations] = useState<TechLiveLocation[]>([])
   const mapRef = useRef<SchedulerRouteMapHandle>(null)
-  const [poolLoading, setPoolLoading] = useState(true)
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [drawerPoolJob, setDrawerPoolJob] = useState<UnassignedPoolJob | null>(null)
   const [drawerScheduledEvent, setDrawerScheduledEvent] = useState<SchedulerEvent | null>(null)
@@ -132,6 +129,19 @@ export function SchedulerWorkspaceView() {
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
+
+  const {
+    jobs: poolJobs,
+    isLoading: poolLoading,
+    mutate: mutatePool,
+  } = useJobPoolQuery(activeOrganizationId)
+
+  const pipelineDayKey = dayKeyLocal(selectedDay)
+  const {
+    jobs: activePipelineJobs,
+    isLoading: activePipelineLoading,
+    mutate: mutateActivePipeline,
+  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, viewMode === "map")
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -235,36 +245,6 @@ export function SchedulerWorkspaceView() {
     load()
   }, [load])
 
-  const loadPool = useCallback(() => {
-    setPoolLoading(true)
-    const poolUrl = orgId
-      ? `/api/owner/jobs/pool?organization_id=${encodeURIComponent(orgId)}`
-      : "/api/owner/jobs/pool"
-    fetch(poolUrl, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("pool"))))
-      .then((j: { data?: { jobs?: UnassignedPoolJob[] } }) => {
-        setPoolJobs(Array.isArray(j.data?.jobs) ? j.data!.jobs! : [])
-      })
-      .catch(() => setPoolJobs([]))
-      .finally(() => setPoolLoading(false))
-  }, [orgId])
-
-  const loadActivePipeline = useCallback(() => {
-    setActivePipelineLoading(true)
-    const day = dayKeyLocal(selectedDay)
-    const orgQs = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
-    fetch(`/api/owner/jobs/pool?scope=active&day=${day}${orgQs}`, {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("pipeline"))))
-      .then((j: { data?: { jobs?: ActivePipelineJob[] } }) => {
-        setActivePipelineJobs(Array.isArray(j.data?.jobs) ? j.data!.jobs! : [])
-      })
-      .catch(() => setActivePipelineJobs([]))
-      .finally(() => setActivePipelineLoading(false))
-  }, [orgId, selectedDay])
-
   const loadTechLocations = useCallback(() => {
     fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("jobs"))))
@@ -275,24 +255,19 @@ export function SchedulerWorkspaceView() {
   }, [])
 
   useEffect(() => {
-    loadPool()
-  }, [loadPool])
-
-  useEffect(() => {
     if (viewMode === "map") {
-      loadActivePipeline()
       loadTechLocations()
     }
-  }, [viewMode, loadActivePipeline, loadTechLocations])
+  }, [viewMode, loadTechLocations])
 
   const refreshSchedulerData = useCallback(() => {
     load()
-    loadPool()
+    void mutatePool()
     if (viewMode === "map") {
-      loadActivePipeline()
+      void mutateActivePipeline()
       loadTechLocations()
     }
-  }, [load, loadPool, viewMode, loadActivePipeline, loadTechLocations])
+  }, [load, mutatePool, viewMode, mutateActivePipeline, loadTechLocations])
 
   useEffect(() => {
     if (!ownerUserId) return
@@ -316,12 +291,15 @@ export function SchedulerWorkspaceView() {
             : ev
         )
       )
-      if (viewMode === "map") loadActivePipeline()
+      if (viewMode === "map") void mutateActivePipeline()
     }
 
     const onJobAssigned = (payload: { leadId?: string; techUserId?: string }) => {
       if (payload?.leadId) {
-        setPoolJobs((prev) => prev.filter((j) => j.id !== payload.leadId))
+        void mutatePool(
+          (current) => (current ?? []).filter((j) => j.id !== payload.leadId),
+          { revalidate: false }
+        )
       }
       void load()
     }
@@ -531,7 +509,10 @@ export function SchedulerWorkspaceView() {
       if (!event) throw new Error("No event returned")
       const techName =
         assignableTechs.find((t) => t.portal_user_id === techUserId)?.name ?? event.assigned_tech_name
-      setPoolJobs((prev) => prev.filter((j) => j.id !== jobId))
+      void mutatePool(
+        (current) => (current ?? []).filter((j) => j.id !== jobId),
+        { revalidate: false }
+      )
       handleAppointmentCreated({
         ...event,
         dispatch_status: "DISPATCHED",
@@ -539,8 +520,8 @@ export function SchedulerWorkspaceView() {
         assigned_tech_id: techUserId,
         assigned_tech_name: techName ?? null,
       })
-      loadPool()
-      if (viewMode === "map") loadActivePipeline()
+      void mutatePool()
+      if (viewMode === "map") void mutateActivePipeline()
     } catch (e) {
       setGridScheduleError(e instanceof Error ? e.message : "Could not schedule job")
     } finally {

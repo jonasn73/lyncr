@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
-import type { PhoneNumberRoutingSummary, RoutingStrategy } from "@/lib/types"
+import type { RoutingStrategy } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
@@ -22,18 +22,9 @@ export function DashboardPage() {
     activeLine,
     setActiveLine,
     businessNumbers,
-    setBusinessNumbers,
-    setBusinessNumbersLoading,
+    businessNumbersLoading,
     activeOrganizationId,
   } = useDashboardWorkspace()
-
-  const numbersMineUrl = useCallback(() => {
-    const base = "/api/numbers/mine"
-    if (activeOrganizationId && !activeOrganizationId.startsWith("legacy-")) {
-      return `${base}?organization_id=${encodeURIComponent(activeOrganizationId)}`
-    }
-    return base
-  }, [activeOrganizationId])
 
   const receptionistsUrl = useCallback(() => {
     const base = "/api/receptionists"
@@ -42,35 +33,6 @@ export function DashboardPage() {
     }
     return base
   }, [activeOrganizationId])
-
-  const mapNumbersResponse = useCallback(
-    (data: { numbers?: unknown[]; reserved_number?: string | null }) => {
-      if (!Array.isArray(data.numbers)) return
-      const active = data.numbers
-        .filter((n: { status: string }) => isDashboardVisibleLineStatus(String(n.status)))
-        .map((n: Record<string, unknown>) => ({
-          number: String(n.number),
-          status: String(n.status),
-          label: n.label != null ? String(n.label) : undefined,
-          organization_id: n.organization_id != null ? String(n.organization_id) : null,
-          industry_tag: n.industry_tag != null ? String(n.industry_tag) : null,
-          source_provider: n.source_provider === "external" ? "external" as const : "telnyx" as const,
-          routing_summary: n.routing_summary as PhoneNumberRoutingSummary | undefined,
-          admin_routing_override_phone:
-            n.admin_routing_override_phone != null ? String(n.admin_routing_override_phone) : null,
-        }))
-      setBusinessNumbers(active)
-      const reserved = data.reserved_number?.trim() || null
-      setActiveLine((prev) => {
-        if (prev && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, prev))) return prev
-        if (reserved && active.some((x: DashboardBusinessNumber) => businessNumbersMatch(x.number, reserved))) {
-          return reserved
-        }
-        return active[0]?.number ?? null
-      })
-    },
-    [setBusinessNumbers, setActiveLine]
-  )
 
   const [mainLinePhone, setMainLinePhone] = useState<string | null>(null)
   const [receptionists, setReceptionists] = useState<Contact[]>([])
@@ -152,59 +114,23 @@ export function DashboardPage() {
     }
   }, [receptionistsUrl])
 
-  // Phone lines + AI assistant for the active workspace.
+  // Phone lines hydrate via SWR (`DashboardBusinessNumbersSync` in the shell).
+  useEffect(() => {
+    if (!businessNumbersLoading) setNumbersRoutingFetchDone(true)
+  }, [businessNumbersLoading])
+
   useEffect(() => {
     let cancelled = false
-    const safeFinally = (setter: () => void) => {
-      if (!cancelled) setter()
-    }
-
-    setBusinessNumbersLoading(true)
-    fetch(numbersMineUrl(), { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : { numbers: [] }))
-      .then((data) => {
-        if (cancelled) return Promise.resolve()
-        mapNumbersResponse(data)
-
-        return fetch("/api/ai-assistant", { credentials: "include" }).then((r) => (r.ok ? r.json() : null))
-          .then((aiData) => {
-            if (cancelled) return
-            if (aiData?.hasAssistant) setHasTelnyxAiAssistant(true)
-          })
-          .catch(() => {})
+    fetch("/api/ai-assistant", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((aiData) => {
+        if (!cancelled && aiData?.hasAssistant) setHasTelnyxAiAssistant(true)
       })
       .catch(() => {})
-      .finally(() =>
-        safeFinally(() => {
-          setNumbersRoutingFetchDone(true)
-          setBusinessNumbersLoading(false)
-        })
-      )
-
     return () => {
       cancelled = true
     }
-  }, [numbersMineUrl, mapNumbersResponse, setBusinessNumbersLoading])
-
-  const refreshBusinessNumbers = useCallback(() => {
-    setBusinessNumbersLoading(true)
-    return fetch(numbersMineUrl(), { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : { numbers: [] }))
-      .then((data) => mapNumbersResponse(data))
-      .catch(() => {})
-      .finally(() => setBusinessNumbersLoading(false))
-  }, [numbersMineUrl, mapNumbersResponse, setBusinessNumbersLoading])
-
-  useEffect(() => {
-    if (!numbersRoutingFetchDone) return
-    void refreshBusinessNumbers()
-  }, [activeOrganizationId, numbersRoutingFetchDone, refreshBusinessNumbers])
-
-  useEffect(() => {
-    const onChanged = () => refreshBusinessNumbers()
-    window.addEventListener("zing-business-numbers-changed", onChanged)
-    return () => window.removeEventListener("zing-business-numbers-changed", onChanged)
-  }, [refreshBusinessNumbers, setBusinessNumbers, setActiveLine])
+  }, [])
 
   // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
   useEffect(() => {
@@ -359,13 +285,7 @@ export function DashboardPage() {
             })
           }
         }
-        // Refresh per-number labels (AI fallback live, etc.) from the server.
-        void fetch(numbersMineUrl(), { credentials: "include" })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((mine) => {
-            if (mine) mapNumbersResponse(mine)
-          })
-          .catch(() => {})
+        window.dispatchEvent(new Event("zing-business-numbers-changed"))
       })
       .catch(() => {
         if (!opts?.quiet) {
@@ -377,7 +297,7 @@ export function DashboardPage() {
         }
       })
   },
-    [businessNumbers, activeLine, toast, numbersMineUrl, mapNumbersResponse]
+    [businessNumbers, activeLine, toast]
   )
 
   const selectReceptionist = useCallback(

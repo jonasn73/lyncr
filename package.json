@@ -66,6 +66,7 @@
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
     "stripe": "^17.7.0",
+    "swr": "^2.4.2",
     "tailwind-merge": "^3.3.1",
     "telnyx": "^6.13.0",
     "twilio": "^5.12.2",

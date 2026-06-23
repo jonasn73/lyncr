@@ -8,6 +8,7 @@ import { formatAvgTalkTime } from "@/lib/daily-call-telemetry"
 import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { isActivePortingOrder } from "@/lib/porting-lifecycle"
+import { useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import type { PortingOrder } from "@/lib/types"
 
@@ -53,8 +54,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   className?: string
 }) {
   const { activeOrganizationId } = useDashboardWorkspace()
+  const { jobs: poolJobs, mutate: mutatePool } = useJobPoolQuery(activeOrganizationId)
   const [pendingPorts, setPendingPorts] = useState(0)
-  const [queueVolume, setQueueVolume] = useState(0)
   const [dailyCalls, setDailyCalls] = useState(0)
   const [missedCalls, setMissedCalls] = useState(0)
   const [avgTalkDisplay, setAvgTalkDisplay] = useState("0:00")
@@ -63,6 +64,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const activeLines = businessNumbers.filter(
     (line) => isDashboardVisibleLineStatus(line.status) && line.status === "active"
   ).length
+
+  const queueVolume = poolJobs.length
 
   const workspaceLineSet = useMemo(() => {
     return new Set(
@@ -101,25 +104,20 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const refreshMetrics = useCallback(async () => {
     const orgQs = organizationQueryString(activeOrganizationId)
     try {
-      const [portsRes, poolRes] = await Promise.all([
+      const [portsRes] = await Promise.all([
         fetch(`/api/porting/orders${orgQs}${orgQs ? "&" : "?"}active=1`, { credentials: "include" }),
-        fetch(`/api/owner/jobs/pool${orgQs}`, { credentials: "include" }),
         refreshCallMetrics(),
+        mutatePool(),
       ])
       const portsJson = portsRes.ok
         ? ((await portsRes.json()) as { data?: { orders?: PortingOrder[] } })
         : null
-      const poolJson = poolRes.ok
-        ? ((await poolRes.json()) as { data?: { jobs?: unknown[] } })
-        : null
       const orders = Array.isArray(portsJson?.data?.orders) ? portsJson.data.orders : []
       setPendingPorts(orders.filter(isActivePortingOrder).length)
-      setQueueVolume(Array.isArray(poolJson?.data?.jobs) ? poolJson.data.jobs.length : 0)
     } catch {
       setPendingPorts(0)
-      setQueueVolume(0)
     }
-  }, [activeOrganizationId, refreshCallMetrics])
+  }, [activeOrganizationId, refreshCallMetrics, mutatePool])
 
   useEffect(() => {
     void refreshMetrics()

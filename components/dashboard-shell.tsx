@@ -8,6 +8,8 @@ import { DashboardNumbersModalProvider } from "@/components/dashboard-numbers-mo
 import { UpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
 import { AddCarrierCreditModal } from "@/components/add-carrier-credit-modal"
 import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-context"
+import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-numbers-sync"
+import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
 import { DashboardActivationProvider } from "@/components/dashboard-activation-context"
@@ -105,8 +107,10 @@ export function DashboardShell({
     <Suspense fallback={null}>
       <DashboardActivationProvider>
         <DashboardChromeProvider activePage={activePage}>
-          <DashboardWorkspaceProvider>
-            <DashboardNumbersModalProvider>
+          <SwrProvider>
+            <DashboardWorkspaceProvider>
+              <DashboardBusinessNumbersSync />
+              <DashboardNumbersModalProvider>
               <UpgradeSubscriptionModal />
               <AddCarrierCreditModal />
               <DashboardOrganizationsBootstrap />
@@ -120,6 +124,7 @@ export function DashboardShell({
               </AppShell>
             </DashboardNumbersModalProvider>
           </DashboardWorkspaceProvider>
+          </SwrProvider>
         </DashboardChromeProvider>
       </DashboardActivationProvider>
     </Suspense>

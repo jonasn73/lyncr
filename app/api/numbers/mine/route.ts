@@ -25,16 +25,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await ensureOnboardingLineFromProfile(userId).catch((e) => {
-      console.error("[numbers/mine] onboarding line backfill:", e)
-    })
-    await syncMissingTelnyxNumbersForUser(userId).catch((e) => {
-      console.error("[numbers/mine] Telnyx→Neon number sync:", e)
-    })
-    await repairMisassignedDefaultOrgPhoneLines(userId).catch((e) => {
-      console.error("[numbers/mine] phone line workspace repair:", e)
-    })
-    await retryProvisionOnboardingBuyLine(userId)
+    // Background maintenance — never block the JSON response on Telnyx/cloud APIs.
+    void Promise.all([
+      ensureOnboardingLineFromProfile(userId).catch((e) => {
+        console.error("[numbers/mine] onboarding line backfill:", e)
+      }),
+      syncMissingTelnyxNumbersForUser(userId).catch((e) => {
+        console.error("[numbers/mine] Telnyx→Neon number sync:", e)
+      }),
+      repairMisassignedDefaultOrgPhoneLines(userId).catch((e) => {
+        console.error("[numbers/mine] phone line workspace repair:", e)
+      }),
+      retryProvisionOnboardingBuyLine(userId).catch((e) => {
+        console.error("[numbers/mine] onboarding buy retry:", e)
+      }),
+    ])
+
     const orgParam = req.nextUrl.searchParams.get("organization_id")?.trim() || null
     const [numbers, account, profile] = await Promise.all([
       getPhoneNumbers(userId, orgParam),

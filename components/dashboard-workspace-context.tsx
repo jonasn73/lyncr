@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation"
 import type { PageId } from "@/components/app-shell"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import type { BusinessNumbersQueryResult } from "@/lib/hooks/use-business-numbers-query"
+import { persistedCacheKey, readPersistedCache } from "@/lib/swr/persisted-cache"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 import type { Organization } from "@/lib/types"
 import { readActiveOrganizationId, writeActiveOrganizationId } from "@/lib/workspace-organizations"
@@ -56,12 +58,23 @@ type DashboardWorkspaceContextValue = {
 
 const DashboardWorkspaceContext = createContext<DashboardWorkspaceContextValue | null>(null)
 
+function readCachedBusinessNumbers(orgId: string | null): BusinessNumbersQueryResult | undefined {
+  if (typeof window === "undefined") return undefined
+  const key = persistedCacheKey("business-numbers", orgId ?? "default")
+  return readPersistedCache<BusinessNumbersQueryResult>(key)
+}
+
 export function DashboardWorkspaceProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const activeTab = useDashboardActivePage()
   const [activeLine, setActiveLine] = useState<string | null>(null)
-  const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>([])
-  const [businessNumbersLoading, setBusinessNumbersLoading] = useState(true)
+  const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>(() => {
+    const cached = readCachedBusinessNumbers(readActiveOrganizationId())
+    return cached?.numbers ?? []
+  })
+  const [businessNumbersLoading, setBusinessNumbersLoading] = useState(() => {
+    return readCachedBusinessNumbers(readActiveOrganizationId()) === undefined
+  })
   const [activityLogs, setActivityLogs] = useState<UiCallRecord[]>([])
   const [selectedActivityLog, setSelectedActivityLog] = useState<UiCallRecord | null>(null)
   const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(null)
@@ -70,10 +83,10 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
   const setActiveOrganizationId = useCallback((id: string | null) => {
     setActiveOrganizationIdState(id)
     writeActiveOrganizationId(id)
-    // Clear lines immediately so the previous business's numbers do not linger in the UI.
-    setBusinessNumbers([])
+    const cached = readCachedBusinessNumbers(id)
+    setBusinessNumbers(cached?.numbers ?? [])
     setActiveLine(null)
-    setBusinessNumbersLoading(true)
+    setBusinessNumbersLoading(cached === undefined)
   }, [])
 
   useEffect(() => {
