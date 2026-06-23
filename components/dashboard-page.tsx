@@ -228,10 +228,10 @@ export function DashboardPage() {
 
   // If the selected line disappears (released number), snap back to the first remaining line.
   useEffect(() => {
-    const numbers = bootstrap?.phoneLines ?? businessNumbers
-    if (numbers.length === 0) return
-    if (!activeLine || !numbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
-      setActiveLine(bootstrap?.routing.primaryLineNumber ?? numbers[0].number)
+    if (bootstrap) return
+    if (businessNumbers.length === 0) return
+    if (!activeLine || !businessNumbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
+      setActiveLine(businessNumbers[0].number)
     }
   }, [bootstrap, businessNumbers, activeLine, setActiveLine])
 

@@ -32,10 +32,11 @@ export function DashboardBusinessNumbersSync() {
   const prevNumbersRef = useRef(numbers)
 
   useEffect(() => {
+    if (bootstrap) return
     if (numbersUnchanged(prevNumbersRef.current, numbers)) return
     prevNumbersRef.current = numbers
     setBusinessNumbers(numbers)
-  }, [numbers, setBusinessNumbers])
+  }, [bootstrap, numbers, setBusinessNumbers])
 
   useEffect(() => {
     if (bootstrap || dashboardMainBootstrapPromise) {
@@ -50,9 +51,10 @@ export function DashboardBusinessNumbersSync() {
   }, [bootstrap, dashboardMainBootstrapPromise, isLoading, phoneLinesPromise, setBusinessNumbersLoading])
 
   useEffect(() => {
+    if (bootstrap) return
     const next = resolveActiveLineAfterNumbers(numbers, reservedNumber, activeLine)
     if (next !== activeLine) setActiveLine(next)
-  }, [numbers, reservedNumber, activeLine, setActiveLine])
+  }, [bootstrap, numbers, reservedNumber, activeLine, setActiveLine])
 
   useEffect(() => {
     const onChanged = () => {

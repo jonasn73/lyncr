@@ -54,6 +54,13 @@ type DashboardWorkspaceContextValue = {
   setActiveOrganizationId: (id: string | null) => void
   organizations: Organization[]
   setOrganizations: (orgs: Organization[]) => void
+  /** One-shot server bootstrap — avoids setActiveOrganizationId side effects that clear the active line. */
+  hydrateWorkspaceFromBootstrap: (payload: {
+    organizations: Organization[]
+    phoneLines: DashboardBusinessNumber[]
+    activeOrganizationId: string | null
+    activeLine: string | null
+  }) => void
 }
 
 const DashboardWorkspaceContext = createContext<DashboardWorkspaceContextValue | null>(null)
@@ -88,6 +95,23 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
     setActiveLine(null)
     setBusinessNumbersLoading(cached === undefined)
   }, [])
+
+  const hydrateWorkspaceFromBootstrap = useCallback(
+    (payload: {
+      organizations: Organization[]
+      phoneLines: DashboardBusinessNumber[]
+      activeOrganizationId: string | null
+      activeLine: string | null
+    }) => {
+      setOrganizations(payload.organizations)
+      setBusinessNumbers(payload.phoneLines)
+      setBusinessNumbersLoading(false)
+      setActiveOrganizationIdState(payload.activeOrganizationId)
+      if (payload.activeOrganizationId) writeActiveOrganizationId(payload.activeOrganizationId)
+      setActiveLine(payload.activeLine)
+    },
+    []
+  )
 
   useEffect(() => {
     setActiveOrganizationIdState(readActiveOrganizationId())
@@ -131,6 +155,7 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
       setActiveOrganizationId,
       organizations,
       setOrganizations,
+      hydrateWorkspaceFromBootstrap,
     }),
     [
       activeTab,
@@ -145,6 +170,7 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
       activeOrganizationId,
       setActiveOrganizationId,
       organizations,
+      hydrateWorkspaceFromBootstrap,
     ]
   )
 

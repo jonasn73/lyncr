@@ -97,6 +97,16 @@ function isEditableWorkspace(org: Organization): boolean {
   return !org.id.startsWith("legacy-")
 }
 
+function pickActiveOrganizationId(rows: Organization[]): string | null {
+  const stored = readActiveOrganizationId()
+  return (
+    (stored && rows.some((o) => o.id === stored) ? stored : null) ??
+    rows.find((o) => o.is_default)?.id ??
+    rows[0]?.id ??
+    null
+  )
+}
+
 export function OrganizationSwitcher({
   className,
   onOrganizationChange,
@@ -106,7 +116,9 @@ export function OrganizationSwitcher({
   sessionBusinessName,
 }: Props) {
   const [organizations, setOrganizations] = useState<Organization[]>(() => seedOrganizations ?? [])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(() =>
+    seedOrganizations?.length ? pickActiveOrganizationId(seedOrganizations) : null
+  )
   const [loading, setLoading] = useState(() => !skipInitialFetch && (seedOrganizations?.length ?? 0) === 0)
   const [creating, setCreating] = useState(false)
   const [canAddWorkspace, setCanAddWorkspace] = useState(false)
@@ -190,11 +202,6 @@ export function OrganizationSwitcher({
     if (!skipInitialFetch) return
     loadServiceContext()
   }, [loadServiceContext, skipInitialFetch])
-
-  useEffect(() => {
-    if (!seedOrganizations?.length) return
-    applyOrganizations(seedOrganizations)
-  }, [applyOrganizations, seedOrganizations])
 
   const active = organizations.find((o) => o.id === activeId) ?? organizations[0]
   const realWorkspaceCount = organizations.filter(isEditableWorkspace).length
