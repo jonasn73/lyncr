@@ -124,6 +124,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
         />
       </section>
 
+      {whoAnswersOpen ? (
       <Sheet open={whoAnswersOpen} onOpenChange={handleWhoAnswersOpenChange} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -145,7 +146,9 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
           </div>
         </SheetContent>
       </Sheet>
+      ) : null}
 
+      {ringBackupOpen ? (
       <Sheet open={ringBackupOpen} onOpenChange={handleRingBackupOpenChange} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -169,7 +172,9 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
           </div>
         </SheetContent>
       </Sheet>
+      ) : null}
 
+      {showFallbackSettings ? (
       <Sheet open={showFallbackSettings} onOpenChange={handleVoiceAiOpenChange} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -191,8 +196,10 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
           </div>
         </SheetContent>
       </Sheet>
+      ) : null}
 
-      <Sheet open={dashboardStoryKey != null} onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
+      {dashboardStoryKey != null ? (
+      <Sheet open onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
         <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
           {dashboardStoryKey ? (
             (() => {
@@ -213,6 +220,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
           ) : null}
         </SheetContent>
       </Sheet>
+      ) : null}
     </>
   )
 })

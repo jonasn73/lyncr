@@ -39,7 +39,6 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import { useActivePipelineQuery, useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
-import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
 import { ActivePipelinePanel } from "@/components/scheduler/active-pipeline-panel"
 import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
@@ -69,16 +68,21 @@ const IndustryIntakeFormFields = dynamic(
   }
 )
 
+const MapLoadingSkeleton = () => (
+  <div className="h-full min-h-[320px] w-full animate-pulse bg-zinc-950/40" aria-hidden />
+)
+
 const SchedulerRouteMap = dynamic(
   () => import("@/components/scheduler-route-map").then((m) => ({ default: m.SchedulerRouteMap })),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex min-h-[320px] items-center justify-center bg-zinc-950">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" aria-hidden />
-      </div>
-    ),
+    loading: MapLoadingSkeleton,
   }
+)
+
+const JobDetailDrawer = dynamic(
+  () => import("@/components/scheduler/job-detail-drawer").then((m) => ({ default: m.JobDetailDrawer })),
+  { ssr: false }
 )
 
 type SchedulerViewMode = "grid" | "map"
@@ -226,27 +230,8 @@ export function SchedulerWorkspaceView() {
     }
   }, [bookingOpen])
 
-  const load = useCallback(() => {
-    setLoading(true)
-    fetch(`/api/owner/scheduler?month=${encodeURIComponent(monthKey)}${orgQuery}`, {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
-      .then((j: { data?: { events?: SchedulerEvent[]; ownerUserId?: string } }) => {
-        setEvents(Array.isArray(j.data?.events) ? j.data!.events! : [])
-        if (j.data?.ownerUserId) setOwnerUserId(j.data.ownerUserId)
-      })
-      .catch(() => setEvents([]))
-      .finally(() => setLoading(false))
-  }, [monthKey, orgQuery])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
   const loadTechLocations = useCallback(() => {
-    fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
+    return fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("jobs"))))
       .then((j: { data?: { techLocations?: TechLiveLocation[] } }) => {
         setTechLocations(Array.isArray(j.data?.techLocations) ? j.data!.techLocations! : [])
@@ -254,11 +239,42 @@ export function SchedulerWorkspaceView() {
       .catch(() => setTechLocations([]))
   }, [])
 
+  const load = useCallback(() => {
+    setLoading(true)
+    const bootstrapUrl = `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQuery}`
+
+    const bootstrapFetch = fetch(bootstrapUrl, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
+      .then(
+        (j: {
+          data?: {
+            events?: SchedulerEvent[]
+            technicians?: FieldTechnician[]
+            lineIndustryTags?: string[]
+            ownerUserId?: string
+          }
+        }) => {
+          setEvents(Array.isArray(j.data?.events) ? j.data!.events! : [])
+          setTechnicians(Array.isArray(j.data?.technicians) ? j.data!.technicians! : [])
+          setLineIndustryTags(Array.isArray(j.data?.lineIndustryTags) ? j.data!.lineIndustryTags! : [])
+          if (j.data?.ownerUserId) setOwnerUserId(j.data.ownerUserId)
+        }
+      )
+      .catch(() => {
+        setEvents([])
+        setTechnicians([])
+        setLineIndustryTags([])
+      })
+
+    return Promise.all([
+      bootstrapFetch,
+      viewMode === "map" ? loadTechLocations() : Promise.resolve(),
+    ]).finally(() => setLoading(false))
+  }, [monthKey, orgQuery, viewMode, loadTechLocations])
+
   useEffect(() => {
-    if (viewMode === "map") {
-      loadTechLocations()
-    }
-  }, [viewMode, loadTechLocations])
+    void load()
+  }, [load])
 
   const refreshSchedulerData = useCallback(() => {
     load()
@@ -319,31 +335,7 @@ export function SchedulerWorkspaceView() {
       channel.unbind("tech-location-updated")
       pusher.unsubscribe(`owner-${ownerUserId}`)
     }
-  }, [ownerUserId, refreshSchedulerData, load, viewMode, loadTechLocations])
-
-  useEffect(() => {
-    const qs = orgId ? `?organization_id=${encodeURIComponent(orgId)}` : ""
-    fetch(`/api/technicians${qs}`, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("techs"))))
-      .then((j: { data?: FieldTechnician[] }) => {
-        setTechnicians(Array.isArray(j.data) ? j.data : [])
-      })
-      .catch(() => setTechnicians([]))
-  }, [orgId])
-
-  useEffect(() => {
-    const base = "/api/numbers/mine"
-    const url = orgId ? `${base}?organization_id=${encodeURIComponent(orgId)}` : base
-    fetch(url, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("lines"))))
-      .then((j: { numbers?: Array<{ industry_tag?: string | null }> }) => {
-        const tags = (Array.isArray(j.numbers) ? j.numbers : [])
-          .map((n) => n.industry_tag?.trim())
-          .filter((t): t is string => Boolean(t))
-        setLineIndustryTags(tags)
-      })
-      .catch(() => setLineIndustryTags([]))
-  }, [orgId])
+  }, [ownerUserId, refreshSchedulerData, load, viewMode, loadTechLocations, mutatePool, mutateActivePipeline])
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, SchedulerEvent[]>()
@@ -373,6 +365,8 @@ export function SchedulerWorkspaceView() {
     month: "short",
     day: "numeric",
   })
+
+  const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
 
   function openBookingAtHour(hour24: number) {
     setBookingStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
@@ -885,36 +879,38 @@ export function SchedulerWorkspaceView() {
         </Dialog>
       ) : null}
 
-      <JobDetailDrawer
-        open={Boolean(drawerPoolJob || drawerScheduledEvent)}
-        poolJob={drawerPoolJob}
-        scheduledEvent={drawerScheduledEvent}
-        technicians={technicians}
-        onClose={closeJobDrawer}
-        onSaved={(event) => {
-          setDrawerScheduledEvent(event)
-          setDrawerPoolJob(null)
-          setEvents((prev) => {
-            const idx = prev.findIndex((ev) => ev.id === event.id)
-            if (idx === -1) return prev
-            const next = [...prev]
-            next[idx] = event
-            return next
-          })
-          if (typeof event.latitude === "number" && typeof event.longitude === "number") {
-            const techId = event.assigned_tech_id
-            const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
-            mapRef.current?.fitDrivingRoute({
-              jobLat: event.latitude,
-              jobLng: event.longitude,
-              techLat: live?.latitude ?? null,
-              techLng: live?.longitude ?? null,
-              accountForDrawer: true,
+      {drawerOpen ? (
+        <JobDetailDrawer
+          open={drawerOpen}
+          poolJob={drawerPoolJob}
+          scheduledEvent={drawerScheduledEvent}
+          technicians={technicians}
+          onClose={closeJobDrawer}
+          onSaved={(event) => {
+            setDrawerScheduledEvent(event)
+            setDrawerPoolJob(null)
+            setEvents((prev) => {
+              const idx = prev.findIndex((ev) => ev.id === event.id)
+              if (idx === -1) return prev
+              const next = [...prev]
+              next[idx] = event
+              return next
             })
-          }
-          refreshSchedulerData()
-        }}
-      />
+            if (typeof event.latitude === "number" && typeof event.longitude === "number") {
+              const techId = event.assigned_tech_id
+              const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
+              mapRef.current?.fitDrivingRoute({
+                jobLat: event.latitude,
+                jobLng: event.longitude,
+                techLat: live?.latitude ?? null,
+                techLng: live?.longitude ?? null,
+                accountForDrawer: true,
+              })
+            }
+            refreshSchedulerData()
+          }}
+        />
+      ) : null}
     </WorkspacePage>
   )
 }

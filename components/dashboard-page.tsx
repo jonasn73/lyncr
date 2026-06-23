@@ -69,46 +69,39 @@ export function DashboardPage() {
     return raw || null
   }, [businessNumbers, activeLine])
 
-  // Session bootstrap (once).
+  // Session + receptionists load in parallel so the call-flow shell can paint sooner.
   useEffect(() => {
     let cancelled = false
-    fetch("/api/auth/session", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!cancelled && data?.data?.user?.phone) setMainLinePhone(data.data.user.phone)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setSessionFetchDone(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Personnel scoped to the active workspace (receptionists on this org's lines).
-  useEffect(() => {
-    let cancelled = false
-    fetch(receptionistsUrl(), { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : { data: [] }))
-      .then((data) => {
-        if (cancelled || !Array.isArray(data.data)) return
-        const mapped = data.data.map((r: Record<string, string>) => ({
-          id: r.id,
-          name: r.name,
-          phone: r.phone,
-          initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
-          color: r.color || "bg-primary",
-        }))
-        setReceptionists(mapped)
-        setSelectedReceptionistId((prev) =>
-          prev && mapped.some((r: Contact) => r.id === prev) ? prev : mapped[0]?.id ?? null
-        )
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setReceptionistsFetchDone(true)
-      })
+    void Promise.all([
+      fetch("/api/auth/session", { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!cancelled && data?.data?.user?.phone) setMainLinePhone(data.data.user.phone)
+        })
+        .catch(() => {}),
+      fetch(receptionistsUrl(), { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : { data: [] }))
+        .then((data) => {
+          if (cancelled || !Array.isArray(data.data)) return
+          const mapped = data.data.map((r: Record<string, string>) => ({
+            id: r.id,
+            name: r.name,
+            phone: r.phone,
+            initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
+            color: r.color || "bg-primary",
+          }))
+          setReceptionists(mapped)
+          setSelectedReceptionistId((prev) =>
+            prev && mapped.some((r: Contact) => r.id === prev) ? prev : mapped[0]?.id ?? null
+          )
+        })
+        .catch(() => {}),
+    ]).finally(() => {
+      if (!cancelled) {
+        setSessionFetchDone(true)
+        setReceptionistsFetchDone(true)
+      }
+    })
     return () => {
       cancelled = true
     }

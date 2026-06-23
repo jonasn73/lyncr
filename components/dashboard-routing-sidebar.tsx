@@ -7,8 +7,8 @@ import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-c
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { usePortingInteraction } from "@/components/dashboard/porting-interaction-context"
-import { PhoneLineIntakeSheet } from "@/components/dashboard/phone-line-intake-sheet"
 import { LineRoutingStatus } from "@/components/line-routing-status"
+import dynamic from "next/dynamic"
 import {
   businessNumbersMatch,
   formatPhoneDisplay,
@@ -19,6 +19,14 @@ import {
 import { isActivePortingOrder } from "@/lib/porting-lifecycle"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import type { PortingOrder, RoutingStrategy } from "@/lib/types"
+
+const PhoneLineIntakeSheet = dynamic(
+  () =>
+    import("@/components/dashboard/phone-line-intake-sheet").then((m) => ({
+      default: m.PhoneLineIntakeSheet,
+    })),
+  { ssr: false }
+)
 
 export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
   lineCount,
@@ -297,15 +305,17 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
         </nav>
       </aside>
 
-      <PhoneLineIntakeSheet
-        line={intakeLine}
-        open={intakeOpen}
-        onOpenChange={setIntakeOpen}
-        routingStrategy={routingStrategy}
-        subscriptionActive={subscriptionActive}
-        lineCarrierLive={lineCarrierLive}
-        onConfigureRouting={() => onConfigureRouting?.()}
-      />
+      {intakeOpen ? (
+        <PhoneLineIntakeSheet
+          line={intakeLine}
+          open={intakeOpen}
+          onOpenChange={setIntakeOpen}
+          routingStrategy={routingStrategy}
+          subscriptionActive={subscriptionActive}
+          lineCarrierLive={lineCarrierLive}
+          onConfigureRouting={() => onConfigureRouting?.()}
+        />
+      ) : null}
     </>
   )
 })

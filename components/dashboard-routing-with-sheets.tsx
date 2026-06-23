@@ -4,8 +4,13 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardRoutingSurface, type DashboardRoutingSurfaceProps } from "@/components/dashboard-routing-surface"
 import { DashboardRoutingSheets, type DashboardRoutingSheetsProps } from "@/components/dashboard-routing-sheets"
-import { RoutingStrategyDialog } from "@/components/routing-strategy-dialog"
+import dynamic from "next/dynamic"
 import type { RoutingStrategy } from "@/lib/types"
+
+const RoutingStrategyDialog = dynamic(
+  () => import("@/components/routing-strategy-dialog").then((m) => ({ default: m.RoutingStrategyDialog })),
+  { ssr: false }
+)
 
 type Props = Omit<
   DashboardRoutingSurfaceProps,
@@ -75,17 +80,19 @@ export function DashboardRoutingWithSheets(props: Props) {
   return (
   <>
       <DashboardRoutingSurface {...surfaceProps} />
-      <RoutingStrategyDialog
-        open={strategyDialogOpen}
-        onOpenChange={setStrategyDialogOpen}
-        businessNumber={props.routingBusinessNumber}
-        initialStrategy={props.routingStrategy}
-        initialAllowFallback={props.allowLyncrNetworkFallback}
-        onSaved={(data) => {
-          props.setRoutingStrategy(data.routing_strategy)
-          props.setAllowLyncrNetworkFallback(data.allow_lyncr_network_fallback)
-        }}
-      />
+      {strategyDialogOpen ? (
+        <RoutingStrategyDialog
+          open={strategyDialogOpen}
+          onOpenChange={setStrategyDialogOpen}
+          businessNumber={props.routingBusinessNumber}
+          initialStrategy={props.routingStrategy}
+          initialAllowFallback={props.allowLyncrNetworkFallback}
+          onSaved={(data) => {
+            props.setRoutingStrategy(data.routing_strategy)
+            props.setAllowLyncrNetworkFallback(data.allow_lyncr_network_fallback)
+          }}
+        />
+      ) : null}
       <DashboardRoutingSheets
         whoAnswersOpen={whoAnswersOpen}
         setWhoAnswersOpen={setWhoAnswersOpen}
