@@ -41,7 +41,7 @@ import {
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
 import { ActivePipelinePanel } from "@/components/scheduler/active-pipeline-panel"
-import type { SchedulerRouteMapHandle } from "@/components/scheduler-route-map"
+import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
 import type {
@@ -171,6 +171,34 @@ export function SchedulerWorkspaceView() {
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
     [technicians]
   )
+
+  const mapRouteFocus = useMemo((): DrivingRouteFocus | null => {
+    const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
+    if (!drawerOpen) return null
+
+    const job = drawerScheduledEvent ?? drawerPoolJob
+    if (!job || typeof job.latitude !== "number" || typeof job.longitude !== "number") return null
+
+    const techId =
+      "assigned_tech_id" in job && job.assigned_tech_id ? job.assigned_tech_id : null
+    let techLat: number | null = null
+    let techLng: number | null = null
+    if (techId) {
+      const live = techLocations.find((t) => t.tech_user_id === techId)
+      if (live && typeof live.latitude === "number" && typeof live.longitude === "number") {
+        techLat = live.latitude
+        techLng = live.longitude
+      }
+    }
+
+    return {
+      jobLat: job.latitude,
+      jobLng: job.longitude,
+      techLat,
+      techLng,
+      accountForDrawer: true,
+    }
+  }, [drawerPoolJob, drawerScheduledEvent, techLocations])
 
   const canSaveBooking =
     customerName.trim() &&
@@ -388,7 +416,15 @@ export function SchedulerWorkspaceView() {
   function focusScheduledMapJob(ev: SchedulerEvent) {
     openScheduledJobDrawer(ev)
     if (typeof ev.latitude === "number" && typeof ev.longitude === "number") {
-      mapRef.current?.panTo(ev.latitude, ev.longitude, 15, { accountForDrawer: true })
+      const techId = ev.assigned_tech_id
+      const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
+      mapRef.current?.fitDrivingRoute({
+        jobLat: ev.latitude,
+        jobLng: ev.longitude,
+        techLat: live?.latitude ?? null,
+        techLng: live?.longitude ?? null,
+        accountForDrawer: true,
+      })
     }
   }
 
@@ -401,7 +437,15 @@ export function SchedulerWorkspaceView() {
       openPoolJobDrawer(job)
     }
     if (typeof job.latitude === "number" && typeof job.longitude === "number") {
-      mapRef.current?.panTo(job.latitude, job.longitude, 15, { accountForDrawer: true })
+      const techId = job.assigned_tech_id
+      const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
+      mapRef.current?.fitDrivingRoute({
+        jobLat: job.latitude,
+        jobLng: job.longitude,
+        techLat: live?.latitude ?? null,
+        techLng: live?.longitude ?? null,
+        accountForDrawer: true,
+      })
     }
   }
 
@@ -744,6 +788,7 @@ export function SchedulerWorkspaceView() {
                   techLocations={techLocations}
                   selectedDayLabel={selectedDayLabel}
                   highlightId={highlightId}
+                  routeFocus={mapRouteFocus}
                   embedded
                   onSelectEvent={focusScheduledMapJob}
                   onSelectPoolJob={(job) => focusPipelineJob(job as ActivePipelineJob)}
@@ -876,7 +921,15 @@ export function SchedulerWorkspaceView() {
             return next
           })
           if (typeof event.latitude === "number" && typeof event.longitude === "number") {
-            mapRef.current?.panTo(event.latitude, event.longitude, 15, { accountForDrawer: true })
+            const techId = event.assigned_tech_id
+            const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
+            mapRef.current?.fitDrivingRoute({
+              jobLat: event.latitude,
+              jobLng: event.longitude,
+              techLat: live?.latitude ?? null,
+              techLng: live?.longitude ?? null,
+              accountForDrawer: true,
+            })
           }
           refreshSchedulerData()
         }}

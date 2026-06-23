@@ -38,6 +38,9 @@ type DashboardWorkspaceContextValue = {
   setActiveLine: (line: string | null) => void
   businessNumbers: DashboardBusinessNumber[]
   setBusinessNumbers: (numbers: DashboardBusinessNumber[]) => void
+  /** True until GET /api/numbers/mine resolves (empty or full). Prevents empty-state flash on refresh. */
+  businessNumbersLoading: boolean
+  setBusinessNumbersLoading: (loading: boolean) => void
   activityLogs: UiCallRecord[]
   setActivityLogs: (logs: UiCallRecord[]) => void
   selectedActivityLog: UiCallRecord | null
@@ -58,6 +61,7 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
   const activeTab = useDashboardActivePage()
   const [activeLine, setActiveLine] = useState<string | null>(null)
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>([])
+  const [businessNumbersLoading, setBusinessNumbersLoading] = useState(true)
   const [activityLogs, setActivityLogs] = useState<UiCallRecord[]>([])
   const [selectedActivityLog, setSelectedActivityLog] = useState<UiCallRecord | null>(null)
   const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(null)
@@ -69,6 +73,7 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
     // Clear lines immediately so the previous business's numbers do not linger in the UI.
     setBusinessNumbers([])
     setActiveLine(null)
+    setBusinessNumbersLoading(true)
   }, [])
 
   useEffect(() => {
@@ -101,6 +106,8 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
       setActiveLine,
       businessNumbers,
       setBusinessNumbers,
+      businessNumbersLoading,
+      setBusinessNumbersLoading,
       activityLogs,
       setActivityLogs,
       selectedActivityLog,
@@ -117,6 +124,7 @@ export function DashboardWorkspaceProvider({ children }: { children: ReactNode }
       setActiveTab,
       activeLine,
       businessNumbers,
+      businessNumbersLoading,
       activityLogs,
       selectedActivityLog,
       openActivityLog,

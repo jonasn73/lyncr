@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css"
 import type { Map as LeafletMap, Marker, Polyline } from "leaflet"
 import { MapMarkerHoverCard } from "@/components/scheduler/map-marker-hover-card"
 import { loadLeafletClient } from "@/lib/leaflet-client"
+import { attachBaseMapTiles } from "@/lib/map-tiles"
 import {
   distanceMeters,
   ensureUniquePoolPinPositions,
@@ -92,8 +93,8 @@ function techInitials(name: string): string {
   return (parts[0]?.slice(0, 2) ?? "T").toUpperCase()
 }
 
-/** Right padding when the job drawer is open (matches max-w-md drawer width). */
-const JOB_DRAWER_MAP_PADDING_PX = 420
+/** Right padding when the job drawer is open (matches drawer width + gutter). */
+const JOB_DRAWER_MAP_PADDING_PX = 460
 
 type MapEdgePadding = {
   top?: number
@@ -128,8 +129,17 @@ export type SchedulerRouteMapPanOptions = {
   accountForDrawer?: boolean
 }
 
+export type DrivingRouteFocus = {
+  jobLat: number
+  jobLng: number
+  techLat?: number | null
+  techLng?: number | null
+  accountForDrawer?: boolean
+}
+
 export type SchedulerRouteMapHandle = {
   panTo: (lat: number, lng: number, zoom?: number, options?: SchedulerRouteMapPanOptions) => void
+  fitDrivingRoute: (focus: DrivingRouteFocus) => void
 }
 
 type SchedulerRouteMapProps = {
@@ -139,6 +149,8 @@ type SchedulerRouteMapProps = {
   techLocations?: TechLiveLocation[]
   selectedDayLabel: string
   highlightId?: string | null
+  /** Tech → job driving route + viewport when the job drawer is open. */
+  routeFocus?: DrivingRouteFocus | null
   /** Hide top stats chrome so the map fills the split pane edge-to-edge. */
   embedded?: boolean
   onSelectEvent?: (event: SchedulerEvent) => void
@@ -154,6 +166,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       techLocations = [],
       selectedDayLabel,
       highlightId,
+      routeFocus,
       embedded = false,
       onSelectEvent,
       onSelectPoolJob,
@@ -166,6 +179,8 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   const leafletRef = useRef<LeafletModule | null>(null)
   const markersRef = useRef<Marker[]>([])
   const lineRef = useRef<Polyline | null>(null)
+  const routeGlowRef = useRef<Polyline | null>(null)
+  const routeLineRef = useRef<Polyline | null>(null)
   const [ready, setReady] = useState(false)
   const [hovered, setHovered] = useState<HoveredPin | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
@@ -177,6 +192,66 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     setTooltipPos({ x: point.x, y: point.y })
   }, [])
 
+  const fitDrivingRouteBounds = useCallback(
+    (focus: DrivingRouteFocus, geometry: [number, number][]) => {
+      const map = mapRef.current
+      const L = leafletRef.current
+      if (!map || !L) return
+
+      const bounds = L.latLngBounds(geometry)
+      bounds.extend([focus.jobLat, focus.jobLng])
+      if (typeof focus.techLat === "number" && typeof focus.techLng === "number") {
+        bounds.extend([focus.techLat, focus.techLng])
+      }
+
+      const padRight = focus.accountForDrawer ? JOB_DRAWER_MAP_PADDING_PX : 50
+      map.fitBounds(bounds, {
+        paddingTopLeft: [50, 50],
+        paddingBottomRight: [padRight, 50],
+        maxZoom: 15,
+        animate: true,
+      })
+      syncTooltipPos(focus.jobLat, focus.jobLng)
+    },
+    [syncTooltipPos]
+  )
+
+  const drawDrivingRoute = useCallback(
+    (geometry: [number, number][]) => {
+      const L = leafletRef.current
+      const map = mapRef.current
+      if (!L || !map || geometry.length < 2) return
+
+      if (routeGlowRef.current) {
+        routeGlowRef.current.remove()
+        routeGlowRef.current = null
+      }
+      if (routeLineRef.current) {
+        routeLineRef.current.remove()
+        routeLineRef.current = null
+      }
+
+      routeGlowRef.current = L.polyline(geometry, {
+        color: "#22d3ee",
+        weight: 10,
+        opacity: 0.35,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "route-glow",
+      }).addTo(map)
+
+      routeLineRef.current = L.polyline(geometry, {
+        color: "#14b8a6",
+        weight: 5,
+        opacity: 0.95,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "route",
+      }).addTo(map)
+    },
+    []
+  )
+
   useImperativeHandle(
     ref,
     () => ({
@@ -186,14 +261,54 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         map.setView([lat, lng], zoom, { animate: true })
         if (!options?.accountForDrawer) return
 
-        const padding = { top: 0, right: JOB_DRAWER_MAP_PADDING_PX, left: 0, bottom: 0 }
+        const padding = { top: 50, right: JOB_DRAWER_MAP_PADDING_PX, left: 50, bottom: 50 }
         const nudgeForDrawer = () => panToWithEdgePadding(map, lat, lng, padding, syncTooltipPos)
 
         map.once("moveend", nudgeForDrawer)
         requestAnimationFrame(() => requestAnimationFrame(nudgeForDrawer))
       },
+      fitDrivingRoute(focus: DrivingRouteFocus) {
+        void (async () => {
+          const from =
+            typeof focus.techLat === "number" && typeof focus.techLng === "number"
+              ? `${focus.techLat},${focus.techLng}`
+              : null
+          const to = `${focus.jobLat},${focus.jobLng}`
+
+          let geometry: [number, number][] | null = null
+          if (from) {
+            try {
+              const res = await fetch(
+                `/api/dispatch/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+                { credentials: "include", cache: "no-store" }
+              )
+              if (res.ok) {
+                const json = (await res.json()) as { data?: { geometry?: [number, number][] } }
+                geometry = json.data?.geometry ?? null
+              }
+            } catch {
+              /* fall through to straight segment */
+            }
+          }
+
+          if (!geometry?.length) {
+            if (from) {
+              const [fromLat, fromLng] = from.split(",").map(Number)
+              geometry = [
+                [fromLat, fromLng],
+                [focus.jobLat, focus.jobLng],
+              ]
+            } else {
+              geometry = [[focus.jobLat, focus.jobLng]]
+            }
+          }
+
+          drawDrivingRoute(geometry)
+          fitDrivingRouteBounds(focus, geometry)
+        })()
+      },
     }),
-    [syncTooltipPos]
+    [syncTooltipPos, drawDrivingRoute, fitDrivingRouteBounds]
   )
 
   const stops = useMemo((): RoutedStop[] => {
@@ -280,11 +395,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         [LOUISVILLE_MAP_CENTER.lat, LOUISVILLE_MAP_CENTER.lng],
         LOUISVILLE_DEFAULT_ZOOM
       )
-      L.tileLayer("https://{s.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OpenStreetMap &copy; CARTO",
-        subdomains: "abcd",
-        maxZoom: 19,
-      }).addTo(created)
+      attachBaseMapTiles(L, created)
       mapRef.current = created
       setReady(true)
       requestAnimationFrame(() => {
@@ -297,8 +408,63 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       mapRef.current = null
       markersRef.current = []
       lineRef.current = null
+      routeGlowRef.current = null
+      routeLineRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!ready) return
+    if (!routeFocus) {
+      if (routeGlowRef.current) {
+        routeGlowRef.current.remove()
+        routeGlowRef.current = null
+      }
+      if (routeLineRef.current) {
+        routeLineRef.current.remove()
+        routeLineRef.current = null
+      }
+      return
+    }
+    void (async () => {
+        const from =
+          typeof routeFocus.techLat === "number" && typeof routeFocus.techLng === "number"
+            ? `${routeFocus.techLat},${routeFocus.techLng}`
+            : null
+        const to = `${routeFocus.jobLat},${routeFocus.jobLng}`
+
+        let geometry: [number, number][] | null = null
+        if (from) {
+          try {
+            const res = await fetch(
+              `/api/dispatch/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+              { credentials: "include", cache: "no-store" }
+            )
+            if (res.ok) {
+              const json = (await res.json()) as { data?: { geometry?: [number, number][] } }
+              geometry = json.data?.geometry ?? null
+            }
+          } catch {
+            /* straight fallback below */
+          }
+        }
+
+        if (!geometry?.length) {
+          if (from) {
+            const [fromLat, fromLng] = from.split(",").map(Number)
+            geometry = [
+              [fromLat, fromLng],
+              [routeFocus.jobLat, routeFocus.jobLng],
+            ]
+          } else {
+            geometry = [[routeFocus.jobLat, routeFocus.jobLng]]
+          }
+        }
+
+        drawDrivingRoute(geometry)
+        fitDrivingRouteBounds(routeFocus, geometry)
+      })()
+  }, [routeFocus, ready, drawDrivingRoute, fitDrivingRouteBounds])
 
   useEffect(() => {
     const map = mapRef.current
@@ -401,7 +567,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       latLngs.push([stop.lat, stop.lng])
     }
 
-    if (routeStops.length >= 2) {
+    if (routeStops.length >= 2 && !routeFocus) {
       const routeLatLngs = routeStops
         .slice()
         .sort((a, b) => a.order - b.order)
@@ -414,7 +580,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       }).addTo(map)
     }
 
-    if (latLngs.length > 0) {
+    if (latLngs.length > 0 && !routeFocus) {
       const bounds = L.latLngBounds(expandBoundsForPins(latLngs))
       let maxZoom = 14
       if (poolPins.length > 1 && routeStops.length === 0) {
@@ -437,6 +603,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     onSelectPoolJob,
     syncTooltipPos,
     highlightId,
+    routeFocus,
   ])
 
   const mappedPoolCount = hopperSource.filter(

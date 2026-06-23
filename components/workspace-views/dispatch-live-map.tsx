@@ -20,6 +20,7 @@ const TECH_COLOR: Record<string, string> = {
 }
 
 import { loadLeafletClient } from "@/lib/leaflet-client"
+import { attachBaseMapTiles } from "@/lib/map-tiles"
 
 type LeafletModule = typeof import("leaflet")
 
@@ -134,11 +135,7 @@ export function DispatchLiveMap() {
         [39.5, -98.35],
         4
       )
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: "abcd",
-        maxZoom: 19,
-      }).addTo(created)
+      attachBaseMapTiles(L, created)
       mapRef.current = created
       setReady(true)
     })()

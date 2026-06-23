@@ -36,7 +36,8 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
   onConfigureRouting?: () => void
 }) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
-  const { activeLine, setActiveLine, activeOrganizationId } = useDashboardWorkspace()
+  const { activeLine, setActiveLine, activeOrganizationId, businessNumbersLoading: isLoading } =
+    useDashboardWorkspace()
   const { openPortingDrawer } = usePortingInteraction()
   const activation = useDashboardActivationOptional()
   const subscriptionActive = activation?.subscriptionActive === true
@@ -78,6 +79,8 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
   }, [portOrders])
 
   const hasLines = visibleLines.length > 0 || Boolean(activeLineDisplay)
+  const showLineSkeleton = isLoading && !hasLines
+  const showEmptyState = !isLoading && !hasLines
 
   /** Open the right-side carrier desk sheet for a line in port. Refreshes orders if the map is stale. */
   const openCarrierDeskForLine = useCallback(
@@ -134,12 +137,21 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           <div>
             <p className="text-sm font-semibold text-foreground">Phone lines</p>
             <p className="text-[11px] text-muted-foreground">
-              {lineCount === 0 ? "No lines yet" : `${lineCount} active`}
+              {showLineSkeleton ? "Loading…" : lineCount === 0 ? "No lines yet" : `${lineCount} active`}
             </p>
           </div>
         </div>
 
-        {visibleLines.length > 0 ? (
+        {showLineSkeleton ? (
+          <div
+            className="mt-4 flex flex-col gap-2"
+            aria-busy="true"
+            aria-label="Loading phone lines"
+          >
+            <div className="h-[84px] animate-pulse rounded-xl bg-zinc-800/60" />
+            <div className="h-[84px] animate-pulse rounded-xl bg-zinc-800/60" />
+          </div>
+        ) : visibleLines.length > 0 ? (
           <ul className="mt-4 flex flex-col gap-2" aria-label="Your business lines">
             {visibleLines.map((line) => {
               const isActive =
@@ -246,7 +258,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           </div>
         ) : null}
 
-        {!hasLines ? (
+        {showEmptyState ? (
           <button
             type="button"
             onClick={openBuyModal}
@@ -273,7 +285,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           >
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span>Buy / manage numbers</span>
-              {hasLines ? (
+              {hasLines && !isLoading ? (
                 <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-semibold text-primary">
                   <Plus className="h-3 w-3" aria-hidden />
                   Add

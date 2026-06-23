@@ -18,8 +18,14 @@ import {
 
 export function DashboardPage() {
   const { toast } = useToast()
-  const { activeLine, setActiveLine, businessNumbers, setBusinessNumbers, activeOrganizationId } =
-    useDashboardWorkspace()
+  const {
+    activeLine,
+    setActiveLine,
+    businessNumbers,
+    setBusinessNumbers,
+    setBusinessNumbersLoading,
+    activeOrganizationId,
+  } = useDashboardWorkspace()
 
   const numbersMineUrl = useCallback(() => {
     const base = "/api/numbers/mine"
@@ -153,6 +159,7 @@ export function DashboardPage() {
       if (!cancelled) setter()
     }
 
+    setBusinessNumbersLoading(true)
     fetch(numbersMineUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
       .then((data) => {
@@ -167,19 +174,26 @@ export function DashboardPage() {
           .catch(() => {})
       })
       .catch(() => {})
-      .finally(() => safeFinally(() => setNumbersRoutingFetchDone(true)))
+      .finally(() =>
+        safeFinally(() => {
+          setNumbersRoutingFetchDone(true)
+          setBusinessNumbersLoading(false)
+        })
+      )
 
     return () => {
       cancelled = true
     }
-  }, [numbersMineUrl, mapNumbersResponse])
+  }, [numbersMineUrl, mapNumbersResponse, setBusinessNumbersLoading])
 
   const refreshBusinessNumbers = useCallback(() => {
-    fetch(numbersMineUrl(), { credentials: "include" })
+    setBusinessNumbersLoading(true)
+    return fetch(numbersMineUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { numbers: [] }))
       .then((data) => mapNumbersResponse(data))
       .catch(() => {})
-  }, [numbersMineUrl, mapNumbersResponse])
+      .finally(() => setBusinessNumbersLoading(false))
+  }, [numbersMineUrl, mapNumbersResponse, setBusinessNumbersLoading])
 
   useEffect(() => {
     if (!numbersRoutingFetchDone) return
