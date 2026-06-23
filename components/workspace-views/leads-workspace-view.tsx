@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import { LifeBuoy, Loader2, PhoneOutgoing } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -20,14 +20,15 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 
-interface LeadRow {
-  id: string
-  caller_e164: string | null
-  intent_slug: string | null
-  collected: Record<string, unknown>
-  summary: string | null
-  created_at: string
-}
+import {
+  readLeadsWorkspaceCache,
+  refreshLeadsWorkspaceCache,
+  type CachedLeadRow,
+  type CachedSalvageLead,
+} from "@/lib/leads-cache"
+
+type LeadRow = CachedLeadRow
+type SalvageLead = CachedSalvageLead
 
 type DisplayLead = {
   id: string
@@ -291,14 +292,6 @@ const LeadsGrid = memo(function LeadsGrid({
   )
 })
 
-type SalvageLead = {
-  id: string
-  caller_e164: string | null
-  summary: string | null
-  collected: Record<string, unknown>
-  created_at: string
-}
-
 /** Build a tel: href, defaulting to US (+1) when the stored number is bare 10 digits. */
 function telHref(e164: string | null): string | null {
   if (!e164) return null
@@ -403,7 +396,7 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 
       <LeadSalvageSection leads={salvageLeads} />
 
-      {loading ? (
+      {loading && leads.length === 0 && salvageLeads.length === 0 ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
@@ -417,43 +410,28 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 })
 
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
-  const [apiLeads, setApiLeads] = useState<LeadRow[]>([])
+  const [apiLeads, setApiLeads] = useState<LeadRow[]>(() => readLeadsWorkspaceCache()?.leads ?? [])
   const [leads, setLeads] = useState<DisplayLead[]>([])
-  const [salvageLeads, setSalvageLeads] = useState<SalvageLead[]>([])
+  const [salvageLeads, setSalvageLeads] = useState<SalvageLead[]>(
+    () => readLeadsWorkspaceCache()?.salvageLeads ?? []
+  )
   const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => readLeadsWorkspaceCache() === undefined)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/owner/lead-salvage", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("salvage"))))
-      .then((data: { data?: { leads?: SalvageLead[] } }) => {
-        if (!cancelled) setSalvageLeads(Array.isArray(data.data?.leads) ? data.data!.leads! : [])
-      })
-      .catch(() => {
-        if (!cancelled) setSalvageLeads([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    fetch("/api/ai-leads", { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Could not load leads")
-        return res.json()
-      })
+    void refreshLeadsWorkspaceCache()
       .then((data) => {
-        if (!cancelled) {
-          setApiLeads(Array.isArray(data.leads) ? data.leads : [])
-          setError(null)
-        }
+        if (cancelled) return
+        setApiLeads(data.leads)
+        setSalvageLeads(data.salvageLeads)
+        setError(null)
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Error")
+        if (cancelled) return
+        if (readLeadsWorkspaceCache()) return
+        setError(e instanceof Error ? e.message : "Error")
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

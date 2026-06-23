@@ -9,6 +9,7 @@ import { UpgradeSubscriptionModal } from "@/components/upgrade-subscription-moda
 import { AddCarrierCreditModal } from "@/components/add-carrier-credit-modal"
 import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-context"
 import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-numbers-sync"
+import { DashboardLeadsPrefetch } from "@/components/dashboard-leads-prefetch"
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
@@ -181,6 +182,7 @@ export function DashboardShell({
           <SwrProvider>
             <DashboardWorkspaceProvider initialBootstrap={initialBootstrap}>
               <DashboardBusinessNumbersSync />
+              <DashboardLeadsPrefetch />
               <DashboardOrganizationsBootstrap />
               <DashboardNumbersModalProvider>
                 <UpgradeSubscriptionModal />
