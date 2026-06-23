@@ -113,7 +113,7 @@ export function SchedulerWorkspaceView() {
   const [loading, setLoading] = useState(true)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingStart, setBookingStart] = useState(() => toDatetimeLocalValue(new Date()))
-  const [viewMode, setViewMode] = useState<SchedulerViewMode>("grid")
+  const [viewMode, setViewMode] = useState<SchedulerViewMode>("map")
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [intakeValues, setIntakeValues] = useState<IntakeFormValues>({})
