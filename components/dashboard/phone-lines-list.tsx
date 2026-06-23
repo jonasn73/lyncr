@@ -3,8 +3,8 @@
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
+import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
 import { usePortingInteraction } from "@/components/dashboard/porting-interaction-context"
 import { PhoneLinesListContent } from "@/components/dashboard/phone-lines-list-content"
 import { PhoneLinesSkeleton } from "@/components/dashboard/phone-lines-skeleton"
@@ -15,6 +15,7 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import { isActivePortingOrder } from "@/lib/porting-lifecycle"
 import { useBusinessNumbersSuspenseQuery } from "@/lib/hooks/use-business-numbers-query"
+import { filterPhoneLinesForOrganization } from "@/lib/workspace-phone-lines"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import type { PortingOrder, RoutingStrategy } from "@/lib/types"
 
@@ -155,29 +156,29 @@ function PhoneLinesStreamInner({
   numbersPromise: Promise<DashboardBusinessNumber[]>
 }) {
   const numbers = use(numbersPromise)
-  const { setBusinessNumbers, setBusinessNumbersLoading } = useDashboardWorkspace()
+  const { setBusinessNumbers, setBusinessNumbersLoading, activeOrganizationId } = useDashboardWorkspace()
+  const scoped = useMemo(
+    () => filterPhoneLinesForOrganization(numbers, activeOrganizationId),
+    [numbers, activeOrganizationId]
+  )
 
   useEffect(() => {
-    setBusinessNumbers(numbers)
+    setBusinessNumbers(scoped)
     setBusinessNumbersLoading(false)
-  }, [numbers, setBusinessNumbers, setBusinessNumbersLoading])
+  }, [scoped, setBusinessNumbers, setBusinessNumbersLoading])
 
-  return <PhoneLinesListContentWrapper numbers={numbers} {...props} />
+  return <PhoneLinesListContentWrapper numbers={scoped} {...props} />
 }
 
 export type PhoneLinesListProps = Omit<PhoneLinesListContentWrapperProps, "numbers">
 
 /** Suspends until phone lines resolve — wrap in `<Suspense fallback={<PhoneLinesSkeleton />}>`. */
 export function PhoneLinesList(props: PhoneLinesListProps) {
-  const bootstrap = useDashboardBootstrapEffective()
-  const { businessNumbers } = useDashboardWorkspace()
+  const workspaceLines = useWorkspacePhoneLines()
   const { phoneLinesPromise } = useDashboardStream()
 
-  const seededNumbers =
-    bootstrap?.phoneLines.length ? bootstrap.phoneLines : businessNumbers.length > 0 ? businessNumbers : null
-
-  if (seededNumbers) {
-    return <PhoneLinesListContentWrapper numbers={seededNumbers} {...props} />
+  if (workspaceLines.length > 0) {
+    return <PhoneLinesListContentWrapper numbers={workspaceLines} {...props} />
   }
 
   if (phoneLinesPromise) {

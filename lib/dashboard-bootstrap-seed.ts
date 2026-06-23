@@ -2,6 +2,7 @@ import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import type { Organization } from "@/lib/types"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
+import { filterPhoneLinesForOrganization, primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
 
 /** Pick the org the user last selected, or the default workspace. */
 export function pickActiveOrganizationIdFromBootstrap(
@@ -19,10 +20,16 @@ export function workspaceSeedFromBootstrap(bootstrap: DashboardMainBootstrap): {
   activeOrganizationId: string | null
   activeLine: string | null
 } {
+  const activeOrganizationId = pickActiveOrganizationIdFromBootstrap(bootstrap.organizations)
+  const phoneLines = filterPhoneLinesForOrganization(bootstrap.phoneLines, activeOrganizationId)
   return {
     organizations: bootstrap.organizations,
-    phoneLines: bootstrap.phoneLines,
-    activeOrganizationId: pickActiveOrganizationIdFromBootstrap(bootstrap.organizations),
-    activeLine: bootstrap.routing.primaryLineNumber,
+    phoneLines,
+    activeOrganizationId,
+    activeLine: primaryPhoneLineForOrganization(
+      bootstrap.phoneLines,
+      activeOrganizationId,
+      bootstrap.routing.primaryLineNumber
+    ),
   }
 }

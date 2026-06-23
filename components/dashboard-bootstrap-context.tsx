@@ -18,15 +18,10 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { dashboardBootstrapEquivalent } from "@/lib/dashboard-bootstrap-equivalent"
 import {
-  pickActiveOrganizationIdFromBootstrap,
   workspaceSeedFromBootstrap,
 } from "@/lib/dashboard-bootstrap-seed"
 
 const DashboardBootstrapContext = createContext<DashboardMainBootstrap | null>(null)
-
-function pickActiveOrganizationId(organizations: DashboardMainBootstrap["organizations"]): string | null {
-  return pickActiveOrganizationIdFromBootstrap(organizations)
-}
 
 /** Applies bootstrap to workspace once per snapshot — workspace may already be seeded from layout. */
 function DashboardBootstrapWorkspaceSync({ bootstrap }: { bootstrap: DashboardMainBootstrap }) {
@@ -36,12 +31,8 @@ function DashboardBootstrapWorkspaceSync({ bootstrap }: { bootstrap: DashboardMa
   useLayoutEffect(() => {
     if (syncedBootstrapRef.current === bootstrap) return
     syncedBootstrapRef.current = bootstrap
-    hydrateWorkspaceFromBootstrap({
-      organizations: bootstrap.organizations,
-      phoneLines: bootstrap.phoneLines,
-      activeOrganizationId: pickActiveOrganizationId(bootstrap.organizations),
-      activeLine: bootstrap.routing.primaryLineNumber,
-    })
+    const seed = workspaceSeedFromBootstrap(bootstrap)
+    hydrateWorkspaceFromBootstrap(seed)
   }, [bootstrap, hydrateWorkspaceFromBootstrap])
 
   return null

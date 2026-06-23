@@ -17,6 +17,8 @@ import {
   type DashboardBusinessNumber,
   type FallbackOption,
 } from "@/lib/dashboard-routing-utils"
+import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
+import { primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
 
 export function DashboardPage() {
   const { toast } = useToast()
@@ -29,9 +31,11 @@ export function DashboardPage() {
     activeOrganizationId,
   } = useDashboardWorkspace()
   const { routingBootstrapPromise } = useDashboardStream()
-  const routedNumbers = bootstrap?.phoneLines ?? businessNumbers
+  const routedNumbers = useWorkspacePhoneLines()
   const routingLine =
-    bootstrap?.routing.primaryLineNumber ?? activeLine
+    activeLine && routedNumbers.some((b) => businessNumbersMatch(b.number, activeLine))
+      ? activeLine
+      : primaryPhoneLineForOrganization(routedNumbers, activeOrganizationId, activeLine)
 
   const receptionistsUrl = useCallback(() => {
     const base = "/api/receptionists"
@@ -87,6 +91,40 @@ export function DashboardPage() {
   const showRoutingDetailLoading = routingLineDetailLoading && !hadBootstrapOnMountRef.current
   const bootstrapHydratedRef = useRef(bootstrap != null)
   const prevActiveLineForRoutingRef = useRef<string | null>(activeLine)
+  const prevOrganizationForRoutingRef = useRef<string | null>(activeOrganizationId)
+
+  useEffect(() => {
+    if (prevOrganizationForRoutingRef.current === activeOrganizationId) return
+    prevOrganizationForRoutingRef.current = activeOrganizationId
+
+    const nextLine = primaryPhoneLineForOrganization(routedNumbers, activeOrganizationId, activeLine)
+    if (nextLine && !businessNumbersMatch(activeLine, nextLine)) {
+      prevActiveLineForRoutingRef.current = null
+      skipNextRoutingFetchRef.current = false
+      setActiveLine(nextLine)
+    } else if (!nextLine && activeLine) {
+      setActiveLine(null)
+    }
+
+    void fetch(receptionistsUrl(), { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .then((data) => {
+        if (!Array.isArray(data.data)) return
+        const mapped = data.data.map((r: Record<string, string>) => ({
+          id: r.id,
+          name: r.name,
+          phone: r.phone,
+          initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
+          color: r.color || "bg-primary",
+        }))
+        setReceptionists(mapped)
+        setSelectedReceptionistId((prev) =>
+          prev && mapped.some((r: Contact) => r.id === prev) ? prev : mapped[0]?.id ?? null
+        )
+      })
+      .catch(() => {})
+  }, [activeOrganizationId, activeLine, routedNumbers, receptionistsUrl, setActiveLine])
+
   useEffect(() => {
     if (!bootstrap || bootstrapHydratedRef.current) return
     bootstrapHydratedRef.current = true
@@ -104,12 +142,16 @@ export function DashboardPage() {
     setRoutingStrategy(bootstrap.routing.routing.routing_strategy ?? "private_only")
     setAllowLyncrNetworkFallback(bootstrap.routing.routing.allow_lyncr_network_fallback ?? false)
     if (bootstrap.routing.primaryLineNumber && !activeLine) {
-      setActiveLine(bootstrap.routing.primaryLineNumber)
+      const inWorkspace = routedNumbers.some((b) =>
+        businessNumbersMatch(b.number, bootstrap.routing.primaryLineNumber)
+      )
+      if (inWorkspace) setActiveLine(bootstrap.routing.primaryLineNumber)
+      else if (routedNumbers[0]) setActiveLine(routedNumbers[0].number)
     }
     setSessionFetchDone(true)
     setReceptionistsFetchDone(true)
     setNumbersRoutingFetchDone(true)
-  }, [bootstrap, activeLine, setActiveLine])
+  }, [bootstrap, activeLine, routedNumbers, setActiveLine])
 
   // Platform-admin inbound override for the active line only (scoped per workspace / DID — not global).
   const adminRoutingOverridePhone = useMemo(() => {
@@ -224,8 +266,12 @@ export function DashboardPage() {
       return
     }
 
-    // Bootstrap already includes routing — skip the first settle / duplicate fetch on hard refresh.
-    if (bootstrap && (!prevLine || prevLine === activeLine)) {
+    // Bootstrap already includes routing — skip duplicate fetch unless workspace or line changed.
+    if (
+      bootstrap &&
+      prevOrganizationForRoutingRef.current === activeOrganizationId &&
+      (!prevLine || prevLine === activeLine)
+    ) {
       return
     }
 
@@ -264,16 +310,15 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [numbersRoutingFetchDone, activeLine, bootstrap])
+  }, [numbersRoutingFetchDone, activeLine, activeOrganizationId, bootstrap])
 
   // If the selected line disappears (released number), snap back to the first remaining line.
   useEffect(() => {
-    if (bootstrap) return
-    if (businessNumbers.length === 0) return
-    if (!activeLine || !businessNumbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
-      setActiveLine(businessNumbers[0].number)
+    if (routedNumbers.length === 0) return
+    if (!activeLine || !routedNumbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
+      setActiveLine(routedNumbers[0].number)
     }
-  }, [bootstrap, businessNumbers, activeLine, setActiveLine])
+  }, [routedNumbers, activeLine, setActiveLine])
 
   const ownerPhoneDisplay = formatPhoneDisplay(mainLinePhone)
   const selectedReceptionist = receptionists.find((c) => c.id === selectedReceptionistId) || null

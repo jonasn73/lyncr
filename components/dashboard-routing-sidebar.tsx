@@ -3,10 +3,8 @@
 import { memo } from "react"
 import { ChevronRight, Hash, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
-import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
-import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
 import {
   PhoneLinesList,
   phoneLinesHasLines,
@@ -27,9 +25,8 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
   onConfigureRouting?: () => void
 }) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
-  const bootstrap = useDashboardBootstrapEffective()
-  const { businessNumbers, businessNumbersLoading } = useDashboardWorkspace()
-  const lines = bootstrap?.phoneLines.length ? bootstrap.phoneLines : businessNumbers
+  const lines = useWorkspacePhoneLines()
+  const { businessNumbersLoading } = useDashboardWorkspace()
   const linesLoading = lines.length > 0 ? false : businessNumbersLoading
   const activation = useDashboardActivationOptional()
   const subscriptionActive = activation?.subscriptionActive === true
