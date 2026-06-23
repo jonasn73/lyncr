@@ -147,10 +147,10 @@ export function JobDetailDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-[120] flex justify-end bg-black/50" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex justify-end bg-black/50" role="presentation" onClick={onClose}>
       <aside
         className={cn(
-          "flex h-full w-full min-w-0 max-w-md flex-col border-l border-border bg-card shadow-xl",
+          "relative z-[200] flex h-full w-full min-w-0 max-w-md flex-col border-l border-border bg-card shadow-xl",
           "animate-in slide-in-from-right duration-200"
         )}
         onClick={(e) => e.stopPropagation()}

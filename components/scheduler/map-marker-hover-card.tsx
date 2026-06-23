@@ -24,7 +24,7 @@ type MapMarkerHoverCardProps = {
 export function MapMarkerHoverCard({ model, x, y }: MapMarkerHoverCardProps) {
   return (
     <div
-      className="pointer-events-none absolute z-[1000] w-[min(240px,calc(100%-16px))] -translate-x-1/2 -translate-y-[calc(100%+14px)]"
+      className="pointer-events-none absolute z-20 w-[min(240px,calc(100%-16px))] -translate-x-1/2 -translate-y-[calc(100%+14px)]"
       style={{ left: x, top: y }}
     >
       <div className="overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-xl backdrop-blur-md">

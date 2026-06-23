@@ -92,8 +92,36 @@ function techInitials(name: string): string {
   return (parts[0]?.slice(0, 2) ?? "T").toUpperCase()
 }
 
-/** Horizontal overlap of the fixed job drawer on the map canvas (max-w-md ≈ 448px). */
-const JOB_DRAWER_MAP_PADDING_PX = 400
+/** Right padding when the job drawer is open (matches max-w-md drawer width). */
+const JOB_DRAWER_MAP_PADDING_PX = 420
+
+type MapEdgePadding = {
+  top?: number
+  right?: number
+  bottom?: number
+  left?: number
+}
+
+/** Leaflet equivalent of map.flyTo({ padding: { right: 420 } }). */
+function panToWithEdgePadding(
+  map: LeafletMap,
+  lat: number,
+  lng: number,
+  padding: MapEdgePadding,
+  syncTooltip: (lat: number, lng: number) => void
+) {
+  const pad = { top: 0, right: 0, bottom: 0, left: 0, ...padding }
+  const size = map.getSize()
+  const visibleCenterX = pad.left + (size.x - pad.left - pad.right) / 2
+  const visibleCenterY = pad.top + (size.y - pad.top - pad.bottom) / 2
+  const markerPoint = map.latLngToContainerPoint([lat, lng])
+  const deltaX = markerPoint.x - visibleCenterX
+  const deltaY = markerPoint.y - visibleCenterY
+  if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+    map.panBy([deltaX, deltaY], { animate: true })
+  }
+  syncTooltip(lat, lng)
+}
 
 export type SchedulerRouteMapPanOptions = {
   /** Shift the pin left so it stays visible beside the open job drawer. */
@@ -158,16 +186,8 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         map.setView([lat, lng], zoom, { animate: true })
         if (!options?.accountForDrawer) return
 
-        const nudgeForDrawer = () => {
-          const markerPoint = map.latLngToContainerPoint([lat, lng])
-          const mapWidth = map.getSize().x
-          const targetX = (mapWidth - JOB_DRAWER_MAP_PADDING_PX) / 2
-          const deltaX = markerPoint.x - targetX
-          if (Math.abs(deltaX) > 4) {
-            map.panBy([deltaX, 0], { animate: true })
-          }
-          syncTooltipPos(lat, lng)
-        }
+        const padding = { top: 0, right: JOB_DRAWER_MAP_PADDING_PX, left: 0, bottom: 0 }
+        const nudgeForDrawer = () => panToWithEdgePadding(map, lat, lng, padding, syncTooltipPos)
 
         map.once("moveend", nudgeForDrawer)
         requestAnimationFrame(() => requestAnimationFrame(nudgeForDrawer))
