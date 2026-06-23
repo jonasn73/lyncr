@@ -3,6 +3,8 @@
 import { memo } from "react"
 import { ChevronRight, Hash, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
+import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
 import {
