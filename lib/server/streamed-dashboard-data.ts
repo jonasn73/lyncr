@@ -5,6 +5,7 @@ import {
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import type { DashboardRoutingBootstrap } from "@/lib/dashboard-stream-types"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
 import { requireSessionUser } from "@/lib/server/require-session-user"
 import {
@@ -17,10 +18,11 @@ import type {
   FallbackType,
   PhoneNumberRoutingSummary,
   RoutingConfig,
-  RoutingStrategy,
   UnassignedPoolJob,
   User,
 } from "@/lib/types"
+
+export type { DashboardRoutingBootstrap } from "@/lib/dashboard-stream-types"
 
 function phoneDigitsKey(phone: string): string {
   return normalizePhoneNumberE164(phone).replace(/\D/g, "")
@@ -100,39 +102,6 @@ async function mapBusinessNumbers(userId: string, account?: User | null): Promis
   return numbersWithRouting.filter((n) => isDashboardVisibleLineStatus(n.status))
 }
 
-/** Non-blocking promise for phone lines (streamed via Suspense). */
-export function phoneLinesPromise(user?: User): Promise<DashboardBusinessNumber[]> {
-  if (user) return mapBusinessNumbers(user.id, user)
-  return requireSessionUser().then((u) => mapBusinessNumbers(u.id, u))
-}
-
-/** Non-blocking promise for hopper jobs. */
-export function jobPoolPromise(user?: User): Promise<UnassignedPoolJob[]> {
-  const load = async (owner: User) =>
-    listOwnerUnassignedPoolJobs({ ownerUserId: owner.id, organizationId: null })
-  return user ? load(user) : requireSessionUser().then(load)
-}
-
-export type DashboardRoutingBootstrap = {
-  ownerPhone: string | null
-  receptionists: Array<{
-    id: string
-    name: string
-    phone: string
-    initials: string
-    color: string
-  }>
-  routing: {
-    selected_receptionist_id: string | null
-    fallback_type: FallbackType
-    ai_ring_owner_first: boolean
-    ring_timeout_seconds: number
-    routing_strategy: RoutingStrategy
-    allow_lyncr_network_fallback: boolean
-  }
-  primaryLineNumber: string | null
-}
-
 function mapRoutingFields(cfg: RoutingConfig | null): DashboardRoutingBootstrap["routing"] {
   const strat = cfg?.routing_strategy
   return {
@@ -175,10 +144,23 @@ async function loadRoutingBootstrap(user: User): Promise<DashboardRoutingBootstr
   }
 }
 
+/** Non-blocking promise for phone lines (streamed via Suspense). */
+export function phoneLinesPromise(user?: User): Promise<DashboardBusinessNumber[]> {
+  if (user) return mapBusinessNumbers(user.id, user)
+  return requireSessionUser().then((u) => mapBusinessNumbers(u.id, u))
+}
+
 /** Session + team + routing for the call-flow panel (streamed via Suspense). */
 export function routingBootstrapPromise(user?: User): Promise<DashboardRoutingBootstrap> {
   if (user) return loadRoutingBootstrap(user)
   return requireSessionUser().then(loadRoutingBootstrap)
+}
+
+/** Non-blocking promise for hopper jobs. */
+export function jobPoolPromise(user?: User): Promise<UnassignedPoolJob[]> {
+  const load = async (owner: User) =>
+    listOwnerUnassignedPoolJobs({ ownerUserId: owner.id, organizationId: null })
+  return user ? load(user) : requireSessionUser().then(load)
 }
 
 /** Non-blocking promise for today's active pipeline. */

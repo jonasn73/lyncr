@@ -21,6 +21,7 @@ export function DashboardBusinessNumbersSync() {
     activeOrganizationId,
     setBusinessNumbers,
     setBusinessNumbersLoading,
+    activeLine,
     setActiveLine,
   } = useDashboardWorkspace()
 
@@ -43,11 +44,9 @@ export function DashboardBusinessNumbersSync() {
   }, [isLoading, phoneLinesPromise, setBusinessNumbersLoading])
 
   useEffect(() => {
-    setActiveLine((prev) => {
-      const next = resolveActiveLineAfterNumbers(numbers, reservedNumber, prev)
-      return next === prev ? prev : next
-    })
-  }, [numbers, reservedNumber, setActiveLine])
+    const next = resolveActiveLineAfterNumbers(numbers, reservedNumber, activeLine)
+    if (next !== activeLine) setActiveLine(next)
+  }, [numbers, reservedNumber, activeLine, setActiveLine])
 
   useEffect(() => {
     const onChanged = () => {

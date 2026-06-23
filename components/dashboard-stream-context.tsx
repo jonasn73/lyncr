@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
-import type { DashboardRoutingBootstrap } from "@/lib/server/streamed-dashboard-data"
+import type { DashboardRoutingBootstrap } from "@/lib/dashboard-stream-types"
 import type { ActivePipelineJob, UnassignedPoolJob } from "@/lib/types"
 
 type DashboardStreamContextValue = {

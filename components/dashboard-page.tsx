@@ -79,8 +79,9 @@ export function DashboardPage() {
   useEffect(() => {
     if (!routingBootstrapPromise) return
     let cancelled = false
-    void routingBootstrapPromise
-      .then((data) => {
+    void (async () => {
+      try {
+        const data = await Promise.resolve(routingBootstrapPromise)
         if (cancelled) return
         if (data.ownerPhone) setMainLinePhone(data.ownerPhone)
         setReceptionists(data.receptionists)
@@ -93,23 +94,23 @@ export function DashboardPage() {
         setRingTimeoutSec(snapDashboardRingTimeoutSec(data.routing.ring_timeout_seconds))
         setRoutingStrategy(data.routing.routing_strategy)
         setAllowLyncrNetworkFallback(data.routing.allow_lyncr_network_fallback)
-        if (data.primaryLineNumber) {
-          setActiveLine((prev) => prev ?? data.primaryLineNumber)
+        if (data.primaryLineNumber && !activeLine) {
+          setActiveLine(data.primaryLineNumber)
         }
         setSessionFetchDone(true)
         setReceptionistsFetchDone(true)
         setRoutingLineDetailLoading(false)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setSessionFetchDone(true)
           setReceptionistsFetchDone(true)
         }
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }
-  }, [routingBootstrapPromise, setActiveLine])
+  }, [routingBootstrapPromise, activeLine, setActiveLine])
 
   // Session + receptionists load in parallel when server stream is unavailable (client tab nav).
   useEffect(() => {
