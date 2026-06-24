@@ -219,21 +219,10 @@ export function SchedulerWorkspaceView() {
     }
   }, [viewMode, drawerPoolJob, drawerScheduledEvent, techLocations])
 
-  function flyMapToJob(job: { latitude?: number | null; longitude?: number | null }) {
-    const lat = typeof job.latitude === "number" ? job.latitude : Number.parseFloat(String(job.latitude ?? ""))
-    const lng = typeof job.longitude === "number" ? job.longitude : Number.parseFloat(String(job.longitude ?? ""))
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
-    mapRef.current?.flyTo(lat, lng, 14)
-  }
-
   function selectJobOnMap(jobId: string) {
     setHighlightId(jobId)
     setDrawerPoolJob(null)
     setDrawerScheduledEvent(null)
-  }
-
-  function closeMapPopup() {
-    setHighlightId(null)
   }
 
   const canSaveBooking =
@@ -421,7 +410,6 @@ export function SchedulerWorkspaceView() {
       return
     }
     selectJobOnMap(ev.id)
-    flyMapToJob(ev)
   }
 
   function focusPipelineJob(job: ActivePipelineJob) {
@@ -432,7 +420,6 @@ export function SchedulerWorkspaceView() {
       return
     }
     selectJobOnMap(job.id)
-    flyMapToJob(job)
   }
 
   function applyJobEventUpdate(event: SchedulerEvent) {
@@ -483,7 +470,6 @@ export function SchedulerWorkspaceView() {
       if (poolMatch) {
         if (viewMode === "map") {
           selectJobOnMap(poolMatch.id)
-          flyMapToJob(poolMatch)
         } else {
           setHighlightId(poolMatch.id)
           setDrawerPoolJob(poolMatch)
@@ -495,7 +481,6 @@ export function SchedulerWorkspaceView() {
       if (scheduledMatch) {
         if (viewMode === "map") {
           selectJobOnMap(scheduledMatch.id)
-          flyMapToJob(scheduledMatch)
         } else {
           setHighlightId(scheduledMatch.id)
           setDrawerScheduledEvent(scheduledMatch)
@@ -834,10 +819,6 @@ export function SchedulerWorkspaceView() {
                   techLocations={techLocations}
                   selectedDayLabel={selectedDayLabel}
                   highlightId={highlightId}
-                  popupJobId={highlightId}
-                  technicians={technicians}
-                  onPopupClose={closeMapPopup}
-                  onPopupSaved={applyJobEventUpdate}
                   routeFocus={null}
                   embedded
                   onSelectEvent={focusScheduledMapJob}

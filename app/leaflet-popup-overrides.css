@@ -51,3 +51,31 @@
 .leaflet-container .leaflet-marker-pane {
   z-index: 900 !important;
 }
+
+/* Native hover preview tooltips on dispatch map pins. */
+.leaflet-tooltip.lyncr-map-hover-tooltip {
+  background: rgba(9, 9, 11, 0.95) !important;
+  border: 1px solid #27272a !important;
+  color: #e4e4e7 !important;
+  padding: 6px 10px !important;
+  border-radius: 0.375rem !important;
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+  pointer-events: none !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.45) !important;
+  transition: opacity 150ms ease !important;
+}
+
+.leaflet-tooltip.lyncr-map-hover-tooltip::before {
+  border-top-color: rgba(9, 9, 11, 0.95) !important;
+}
+
+.lyncr-map-hover-tooltip__name {
+  font-weight: 600;
+  color: #f4f4f5;
+  margin-bottom: 2px;
+}
+
+.lyncr-map-hover-tooltip__line {
+  color: #d4d4d8;
+}

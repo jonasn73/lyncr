@@ -3,13 +3,10 @@
 // Owner scheduler map — Louisville default, status-colored pins, live tech markers, panTo focus.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
-import { createRoot, type Root } from "react-dom/client"
 import { Loader2, MapPinned } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 import "@/app/leaflet-popup-overrides.css"
-import type { Map as LeafletMap, Marker, Polyline, Popup } from "leaflet"
-import { JobMapPopupForm, type JobMapPopupSource } from "@/components/scheduler/job-map-popup-form"
-import { MapMarkerHoverCard } from "@/components/scheduler/map-marker-hover-card"
+import type { Map as LeafletMap, Marker, Polyline } from "leaflet"
 import { loadLeafletClient } from "@/lib/leaflet-client"
 import { attachBaseMapTiles } from "@/lib/map-tiles"
 import {
@@ -20,22 +17,21 @@ import {
 } from "@/lib/map-pin-spread"
 import {
   MAP_MARKER_ANIMATION_CSS,
-  poolPinHtml,
-  scheduledPinHtml,
+  jobStatusPinHtml,
+  mapMarkerTooltipHtml,
   techBadgePinHtml,
   tooltipFromPoolJob,
   tooltipFromScheduledEvent,
-  type MapMarkerTooltipModel,
 } from "@/lib/scheduler-map-markers"
 import {
   LOUISVILLE_DEFAULT_ZOOM,
   LOUISVILLE_MAP_CENTER,
-  SCHEDULER_MAP_PIN_COLOR,
   isActiveMapJob,
   isCompletedMapJob,
   schedulerLifecyclePhase,
+  type SchedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
-import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
+import type { ActivePipelineJob, SchedulerEvent, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
 
 type LeafletModule = typeof import("leaflet")
 
@@ -54,28 +50,42 @@ type PoolPin = {
   poolIndex: number
 }
 
-type HoveredPin = {
-  lat: number
-  lng: number
-  model: MapMarkerTooltipModel
+function noopSyncTooltip() {
+  /* hover tooltips are native Leaflet — no React overlay to reposition */
 }
 
-function routeStopIcon(L: LeafletModule, order: number, phase: RoutedStop["phase"]) {
-  const color = SCHEDULER_MAP_PIN_COLOR[phase]
+function jobStatusPinIcon(L: LeafletModule, phase: SchedulerLifecyclePhase, label: string) {
+  const size = phase === "completed" ? 28 : 32
   return L.divIcon({
     className: "",
-    html: scheduledPinHtml(order, color, phase),
-    iconSize: phase === "completed" ? [24, 24] : [28, 28],
-    iconAnchor: phase === "completed" ? [12, 12] : [14, 14],
+    html: jobStatusPinHtml(phase, label),
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   })
 }
 
-function poolHopperIcon(L: LeafletModule, label: string, color: string) {
-  return L.divIcon({
-    className: "",
-    html: poolPinHtml(label, color),
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
+function jobPinLabel(
+  phase: SchedulerLifecyclePhase,
+  order: number,
+  techName: string | null | undefined
+): string {
+  if (phase === "completed") return "✓"
+  if (phase === "en_route" || phase === "on_site") {
+    return techName ? techInitials(techName) : String(order)
+  }
+  return String(order)
+}
+
+function bindJobHoverTooltip(
+  marker: Marker,
+  model: ReturnType<typeof tooltipFromPoolJob>
+) {
+  marker.bindTooltip(mapMarkerTooltipHtml(model), {
+    direction: "top",
+    offset: [0, -18],
+    className: "lyncr-map-hover-tooltip",
+    opacity: 1,
+    sticky: false,
   })
 }
 
@@ -97,8 +107,14 @@ function techInitials(name: string): string {
 /** Default zoom when an operator selects a job on the dispatch map. */
 const JOB_SELECT_ZOOM = 14
 
-/** Smooth fly duration (seconds) when centering on a selected job pin. */
-const JOB_FLY_DURATION_SEC = 1.2
+/** Instant camera snap — no slow fly animation. */
+function snapMapToJob(map: LeafletMap, lat: number, lng: number, zoom = JOB_SELECT_ZOOM) {
+  if (map.getZoom() !== zoom) {
+    map.setView([lat, lng], zoom, { animate: false })
+    return
+  }
+  map.panTo([lat, lng], { animate: false })
+}
 
 /** Parse latitude/longitude from a job record for map camera moves. */
 function resolveMapJobCoordinates(
@@ -169,11 +185,6 @@ type SchedulerRouteMapProps = {
   routeFocus?: DrivingRouteFocus | null
   /** Hide top stats chrome so the map fills the split pane edge-to-edge. */
   embedded?: boolean
-  /** When set, opens the inline map popup on this job id. */
-  popupJobId?: string | null
-  technicians?: FieldTechnician[]
-  onPopupClose?: () => void
-  onPopupSaved?: (event: SchedulerEvent) => void
   onSelectEvent?: (event: SchedulerEvent) => void
   onSelectPoolJob?: (job: UnassignedPoolJob | ActivePipelineJob) => void
 }
@@ -189,10 +200,6 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       highlightId,
       routeFocus,
       embedded = false,
-      popupJobId,
-      technicians = [],
-      onPopupClose,
-      onPopupSaved,
       onSelectEvent,
       onSelectPoolJob,
     },
@@ -206,19 +213,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   const lineRef = useRef<Polyline | null>(null)
   const routeGlowRef = useRef<Polyline | null>(null)
   const routeLineRef = useRef<Polyline | null>(null)
-  const popupRef = useRef<Popup | null>(null)
-  const popupRootRef = useRef<Root | null>(null)
-  const popupContainerRef = useRef<HTMLDivElement | null>(null)
   const [ready, setReady] = useState(false)
-  const [hovered, setHovered] = useState<HoveredPin | null>(null)
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
-
-  const syncTooltipPos = useCallback((lat: number, lng: number) => {
-    const map = mapRef.current
-    if (!map) return
-    const point = map.latLngToContainerPoint([lat, lng])
-    setTooltipPos({ x: point.x, y: point.y })
-  }, [])
 
   const fitDrivingRouteBounds = useCallback(
     (focus: DrivingRouteFocus, geometry: [number, number][]) => {
@@ -239,9 +234,8 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         maxZoom: 15,
         animate: true,
       })
-      syncTooltipPos(focus.jobLat, focus.jobLng)
     },
-    [syncTooltipPos]
+    []
   )
 
   const drawDrivingRoute = useCallback(
@@ -286,19 +280,20 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       panTo(lat: number, lng: number, zoom = 15, options?: SchedulerRouteMapPanOptions) {
         const map = mapRef.current
         if (!map) return
+        if (!options?.accountForDrawer) {
+          snapMapToJob(map, lat, lng, zoom)
+          return
+        }
         map.setView([lat, lng], zoom, { animate: true })
-        if (!options?.accountForDrawer) return
-
         const padding = { top: 50, right: 50, left: 50, bottom: 50 }
-        const nudgeForDrawer = () => panToWithEdgePadding(map, lat, lng, padding, syncTooltipPos)
-
+        const nudgeForDrawer = () => panToWithEdgePadding(map, lat, lng, padding, noopSyncTooltip)
         map.once("moveend", nudgeForDrawer)
         requestAnimationFrame(() => requestAnimationFrame(nudgeForDrawer))
       },
       flyTo(lat: number, lng: number, zoom = JOB_SELECT_ZOOM) {
         const map = mapRef.current
         if (!map) return
-        map.flyTo([lat, lng], zoom, { animate: true, duration: JOB_FLY_DURATION_SEC })
+        snapMapToJob(map, lat, lng, zoom)
       },
       fitDrivingRoute(focus: DrivingRouteFocus) {
         void (async () => {
@@ -341,7 +336,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         })()
       },
     }),
-    [syncTooltipPos, drawDrivingRoute, fitDrivingRouteBounds]
+    [drawDrivingRoute, fitDrivingRouteBounds]
   )
 
   const stops = useMemo((): RoutedStop[] => {
@@ -389,158 +384,19 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   }, [stops])
 
   useEffect(() => {
-    if (!highlightId || !ready || popupJobId) {
-      if (!highlightId || popupJobId) {
-        setHovered(null)
-        setTooltipPos(null)
-      }
-      return
-    }
+    const map = mapRef.current
+    if (!map || !ready || !highlightId) return
 
     const poolPin = poolPins.find((p) => p.job.id === highlightId)
     if (poolPin) {
-      const active = poolPin.job as ActivePipelineJob
-      const tooltipModel = tooltipFromPoolJob(poolPin.job, poolPin.poolIndex, {
-        job_status: active.job_status,
-        assigned_tech_id: active.assigned_tech_id,
-      })
-      setHovered({ lat: poolPin.lat, lng: poolPin.lng, model: tooltipModel })
-      syncTooltipPos(poolPin.lat, poolPin.lng)
+      snapMapToJob(map, poolPin.lat, poolPin.lng)
       return
     }
-
     const stop = scheduledPins.find((s) => s.event.id === highlightId)
     if (stop) {
-      const tooltipModel = tooltipFromScheduledEvent(stop.event, stop.order)
-      setHovered({ lat: stop.lat, lng: stop.lng, model: tooltipModel })
-      syncTooltipPos(stop.lat, stop.lng)
+      snapMapToJob(map, stop.lat, stop.lng)
     }
-  }, [highlightId, ready, poolPins, scheduledPins, syncTooltipPos, popupJobId])
-
-  const popupCloseSuppressRef = useRef(false)
-
-  const closeMapPopup = useCallback(() => {
-    popupRootRef.current?.unmount()
-    popupRootRef.current = null
-    popupContainerRef.current = null
-    if (popupRef.current) {
-      popupCloseSuppressRef.current = true
-      popupRef.current.remove()
-      popupRef.current = null
-      popupCloseSuppressRef.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    const map = mapRef.current
-    const L = leafletRef.current
-    if (!map || !L || !ready) return
-
-    if (!popupJobId) {
-      closeMapPopup()
-      return
-    }
-
-    const poolPin = poolPins.find((p) => p.job.id === popupJobId)
-    const scheduledStop = scheduledPins.find((s) => s.event.id === popupJobId)
-
-    let lat: number | null = null
-    let lng: number | null = null
-    let jobSource: JobMapPopupSource | null = null
-
-    if (poolPin) {
-      lat = poolPin.lat
-      lng = poolPin.lng
-      const active = poolPin.job as ActivePipelineJob
-      jobSource = {
-        id: active.id,
-        customer_name: active.customer_name,
-        customer_phone: active.customer_phone,
-        vehicle_year: active.vehicle_year,
-        vehicle_make: active.vehicle_make,
-        vehicle_model: active.vehicle_model,
-        job_type: active.job_type,
-        job_status: active.job_status,
-        dispatch_status: active.dispatch_status,
-        assigned_tech_id: active.assigned_tech_id,
-      }
-    } else if (scheduledStop) {
-      const ev = scheduledStop.event
-      lat = scheduledStop.lat
-      lng = scheduledStop.lng
-      jobSource = {
-        id: ev.id,
-        customer_name: ev.customer_name,
-        customer_phone: ev.customer_phone,
-        vehicle_year: ev.vehicle_year,
-        vehicle_make: ev.vehicle_make,
-        vehicle_model: ev.vehicle_model,
-        job_type: ev.job_type,
-        job_status: ev.job_status,
-        dispatch_status: ev.dispatch_status,
-        assigned_tech_id: ev.assigned_tech_id,
-      }
-    }
-
-    if (!jobSource || lat == null || lng == null) {
-      closeMapPopup()
-      return
-    }
-
-    map.flyTo([lat, lng], JOB_SELECT_ZOOM, { animate: true, duration: JOB_FLY_DURATION_SEC })
-    setHovered(null)
-    setTooltipPos(null)
-
-    closeMapPopup()
-
-    const container = document.createElement("div")
-    popupContainerRef.current = container
-    popupRootRef.current = createRoot(container)
-    popupRootRef.current.render(
-      <JobMapPopupForm
-        job={jobSource}
-        technicians={technicians}
-        onCancel={() => onPopupClose?.()}
-        onSaved={(event) => onPopupSaved?.(event)}
-      />
-    )
-
-    const popup = L.popup({
-      className: "lyncr-job-map-popup",
-      closeButton: true,
-      maxWidth: 300,
-      minWidth: 300,
-      autoClose: false,
-      closeOnClick: false,
-      autoPan: true,
-      keepInView: true,
-    })
-      .setLatLng([lat, lng])
-      .setContent(container)
-
-    popup.on("remove", () => {
-      if (popupCloseSuppressRef.current) return
-      onPopupClose?.()
-    })
-
-    popup.openOn(map)
-    popupRef.current = popup
-
-    return () => {
-      closeMapPopup()
-    }
-  }, [
-    popupJobId,
-    ready,
-    poolPins,
-    scheduledPins,
-    technicians,
-    onPopupClose,
-    onPopupSaved,
-    closeMapPopup,
-  ])
-
-  useEffect(() => () => closeMapPopup(), [closeMapPopup])
+  }, [highlightId, ready, poolPins, scheduledPins])
 
   useEffect(() => {
     let cancelled = false
@@ -636,18 +492,6 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   }, [ready])
 
   useEffect(() => {
-    const map = mapRef.current
-    if (!map || !hovered) return
-    const reposition = () => syncTooltipPos(hovered.lat, hovered.lng)
-    map.on("move", reposition)
-    map.on("zoom", reposition)
-    return () => {
-      map.off("move", reposition)
-      map.off("zoom", reposition)
-    }
-  }, [hovered, syncTooltipPos])
-
-  useEffect(() => {
     const L = leafletRef.current
     const map = mapRef.current
     if (!L || !map || !ready) return
@@ -668,33 +512,20 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         dispatch_status: pin.job.dispatch_status,
         assigned_tech_id: active.assigned_tech_id,
       })
-      const pinColor = SCHEDULER_MAP_PIN_COLOR[phase]
+      const label = jobPinLabel(phase, pin.poolIndex, active.assigned_tech_name)
       const tooltipModel = tooltipFromPoolJob(pin.job, pin.poolIndex, {
         job_status: active.job_status,
         assigned_tech_id: active.assigned_tech_id,
       })
       const marker = L.marker([pin.lat, pin.lng], {
-        icon: poolHopperIcon(L, String(pin.poolIndex), pinColor),
-        zIndexOffset: pin.poolIndex * 250,
+        icon: jobStatusPinIcon(L, phase, label),
+        zIndexOffset: pin.poolIndex * 100,
       }).addTo(map)
 
-      marker.on("mouseover", () => {
-        setHovered({ lat: pin.lat, lng: pin.lng, model: tooltipModel })
-        syncTooltipPos(pin.lat, pin.lng)
-      })
-      marker.on("mouseout", () => {
-        if (highlightId === pin.job.id || popupJobId === pin.job.id) return
-        setHovered(null)
-        setTooltipPos(null)
-      })
+      bindJobHoverTooltip(marker, tooltipModel)
       marker.on("click", () => {
         const coords = resolveMapJobCoordinates(pin.job.latitude, pin.job.longitude)
-        if (coords) {
-          map.flyTo([coords.lat, coords.lng], JOB_SELECT_ZOOM, {
-            animate: true,
-            duration: JOB_FLY_DURATION_SEC,
-          })
-        }
+        if (coords) snapMapToJob(map, coords.lat, coords.lng)
         onSelectPoolJob?.(pin.job)
       })
       markersRef.current.push(marker)
@@ -705,39 +536,32 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       if (typeof tech.latitude !== "number" || typeof tech.longitude !== "number") continue
       const marker = L.marker([tech.latitude, tech.longitude], {
         icon: techLiveIcon(L, techInitials(tech.name), tech.status),
-        zIndexOffset: 5000,
+        zIndexOffset: 800,
       }).addTo(map)
-      marker.bindTooltip(`${tech.name} · live`, { direction: "top", opacity: 0.95 })
+      marker.bindTooltip(`${tech.name} · live`, {
+        direction: "top",
+        className: "lyncr-map-hover-tooltip",
+        opacity: 1,
+      })
       markersRef.current.push(marker)
       latLngs.push([tech.latitude, tech.longitude])
     }
 
     for (const stop of scheduledPins) {
-      const tooltipModel = tooltipFromScheduledEvent(stop.event, stop.order)
+      const ev = stop.event
+      const tooltipModel = tooltipFromScheduledEvent(ev, stop.order)
+      const label = jobPinLabel(stop.phase, stop.order, ev.assigned_tech_name)
       const marker = L.marker([stop.lat, stop.lng], {
-        icon: routeStopIcon(L, stop.order, stop.phase),
-        zIndexOffset: stop.order * 200,
+        icon: jobStatusPinIcon(L, stop.phase, label),
+        zIndexOffset: stop.order * 100,
         opacity: stop.phase === "completed" ? 0.75 : 1,
       }).addTo(map)
 
-      marker.on("mouseover", () => {
-        setHovered({ lat: stop.lat, lng: stop.lng, model: tooltipModel })
-        syncTooltipPos(stop.lat, stop.lng)
-      })
-      marker.on("mouseout", () => {
-        if (highlightId === stop.event.id || popupJobId === stop.event.id) return
-        setHovered(null)
-        setTooltipPos(null)
-      })
+      bindJobHoverTooltip(marker, tooltipModel)
       marker.on("click", () => {
-        const coords = resolveMapJobCoordinates(stop.event.latitude, stop.event.longitude)
-        if (coords) {
-          map.flyTo([coords.lat, coords.lng], JOB_SELECT_ZOOM, {
-            animate: true,
-            duration: JOB_FLY_DURATION_SEC,
-          })
-        }
-        onSelectEvent?.(stop.event)
+        const coords = resolveMapJobCoordinates(ev.latitude, ev.longitude)
+        if (coords) snapMapToJob(map, coords.lat, coords.lng)
+        onSelectEvent?.(ev)
       })
       markersRef.current.push(marker)
       latLngs.push([stop.lat, stop.lng])
@@ -756,7 +580,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       }).addTo(map)
     }
 
-    if (latLngs.length > 0 && !routeFocus && !popupJobId && !highlightId) {
+    if (latLngs.length > 0 && !routeFocus && !highlightId) {
       const bounds = L.latLngBounds(expandBoundsForPins(latLngs))
       let maxZoom = 14
       if (poolPins.length > 1 && routeStops.length === 0) {
@@ -764,7 +588,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         maxZoom = spanM > 3000 ? 11 : 12
       }
       map.fitBounds(bounds, { padding: [56, 56], maxZoom })
-    } else if (latLngs.length === 0 && !routeFocus && !popupJobId && !highlightId) {
+    } else if (latLngs.length === 0 && !routeFocus && !highlightId) {
       map.setView([LOUISVILLE_MAP_CENTER.lat, LOUISVILLE_MAP_CENTER.lng], LOUISVILLE_DEFAULT_ZOOM)
     }
     requestAnimationFrame(() => map.invalidateSize({ animate: false }))
@@ -777,9 +601,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     ready,
     onSelectEvent,
     onSelectPoolJob,
-    syncTooltipPos,
     highlightId,
-    popupJobId,
     routeFocus,
   ])
 
@@ -821,9 +643,6 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       ) : null}
       <div ref={mapShellRef} className="relative min-h-0 flex-1">
         <div ref={containerRef} className="absolute inset-0 z-0 bg-zinc-950" />
-        {hovered && tooltipPos && !popupJobId ? (
-          <MapMarkerHoverCard model={hovered.model} x={tooltipPos.x} y={tooltipPos.y} />
-        ) : null}
       </div>
       {!ready ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/80">
@@ -833,7 +652,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       {ready && routeStops.length === 0 && poolPins.length === 0 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-4">
           <p className="rounded-lg border border-border/50 bg-card/90 px-3 py-2 text-center text-xs text-zinc-500">
-            Centered on Louisville — hover pins for job details, or drag from the hopper to schedule.
+            Centered on Louisville — hover pins for job details, or select a job in the list.
           </p>
         </div>
       ) : null}

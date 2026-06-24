@@ -92,40 +92,97 @@ export function tooltipFromScheduledEvent(
   }
 }
 
-/** HTML for a numbered scheduled pin. */
-export function scheduledPinHtml(order: number, color: string, phase: SchedulerLifecyclePhase): string {
-  if (phase === "completed") {
-    return `<span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(34,197,94,0.35);border:2px solid rgba(34,197,94,0.65);color:#bbf7d0;font-size:13px;font-weight:800;opacity:0.85">✓</span>`
-  }
-  const pulse =
-    phase === "en_route"
-      ? "animation:enRoutePulse 1.6s ease-out infinite;"
-      : phase === "on_site"
-        ? "animation:onSitePulse 1.8s ease-out infinite;"
-        : ""
-  return `<span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:${color};border:2px solid rgba(0,0,0,0.45);color:#ecfdf5;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);${pulse}">${order}</span>`
+/** Escape text before injecting into marker/tooltip HTML strings. */
+function escapeMarkerHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
 }
 
-/** HTML for an unassigned hopper pin (pulsing orange/grey). */
-export function poolPinHtml(label: string, color = "#f97316"): string {
-  return `<span class="hopper-pulse" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#78716c,${color});border:2px solid ${color};color:#fff7ed;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.45)">${label}</span>`
+/** Status-aware circular job pin (Leaflet divIcon HTML). */
+export function jobStatusPinHtml(phase: SchedulerLifecyclePhase, label: string): string {
+  if (phase === "completed") {
+    return `<span class="lyncr-job-pin lyncr-job-pin--completed" aria-hidden="true">✓</span>`
+  }
+  const phaseClass: Record<Exclude<SchedulerLifecyclePhase, "completed">, string> = {
+    unassigned: "lyncr-job-pin--unassigned",
+    scheduled: "lyncr-job-pin--scheduled",
+    en_route: "lyncr-job-pin--en-route",
+    on_site: "lyncr-job-pin--on-site",
+  }
+  return `<span class="lyncr-job-pin ${phaseClass[phase]}" aria-hidden="true">${escapeMarkerHtml(label)}</span>`
+}
+
+/** Minimal dark hover tooltip — customer, phone, vehicle, service type only. */
+export function mapMarkerTooltipHtml(model: MapMarkerTooltipModel): string {
+  const name = escapeMarkerHtml(model.customerName?.trim() || "Customer")
+  const phone = escapeMarkerHtml(formatMapPhone(model.customerPhone))
+  const vehicle = escapeMarkerHtml(model.vehicleLine?.trim() || "—")
+  const service = escapeMarkerHtml(model.jobType?.trim() || "—")
+  return (
+    `<div class="lyncr-map-hover-tooltip__name">${name}</div>` +
+    `<div class="lyncr-map-hover-tooltip__line">${phone}</div>` +
+    `<div class="lyncr-map-hover-tooltip__line">${vehicle}</div>` +
+    `<div class="lyncr-map-hover-tooltip__line">${service}</div>`
+  )
+}
+
+/** @deprecated Use jobStatusPinHtml — kept for any legacy imports. */
+export function scheduledPinHtml(order: number, _color: string, phase: SchedulerLifecyclePhase): string {
+  return jobStatusPinHtml(phase, phase === "completed" ? "✓" : String(order))
+}
+
+/** @deprecated Use jobStatusPinHtml — kept for any legacy imports. */
+export function poolPinHtml(label: string, _color = "#f97316"): string {
+  return jobStatusPinHtml("unassigned", label)
 }
 
 export const MAP_MARKER_ANIMATION_CSS = `
-  @keyframes hopperPulse {
-    0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
-    70% { box-shadow: 0 0 0 12px rgba(249, 115, 22, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+  .lyncr-job-pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background: #09090b;
+    border: 2px solid transparent;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    box-sizing: border-box;
   }
-  @keyframes enRoutePulse {
-    0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.65); }
-    70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+  .lyncr-job-pin--unassigned {
+    border-color: #f59e0b;
+    color: #f59e0b;
   }
-  @keyframes onSitePulse {
-    0% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.65); }
-    70% { box-shadow: 0 0 0 10px rgba(251, 146, 60, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0); }
+  .lyncr-job-pin--scheduled {
+    border-color: #14b8a6;
+    color: #5eead4;
+  }
+  .lyncr-job-pin--en-route {
+    border-color: #22d3ee;
+    color: #22d3ee;
+    animation: lyncrPinPulse 1.5s ease-in-out infinite;
+  }
+  .lyncr-job-pin--on-site {
+    border-color: #10b981;
+    color: #34d399;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+  }
+  .lyncr-job-pin--completed {
+    width: 28px;
+    height: 28px;
+    border-color: #22c55e;
+    color: #86efac;
+    font-size: 13px;
+    opacity: 0.85;
+  }
+  @keyframes lyncrPinPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
   }
   @keyframes techEnRouteRing {
     0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.75), 0 0 12px rgba(45, 212, 191, 0.35); }
@@ -136,7 +193,6 @@ export const MAP_MARKER_ANIMATION_CSS = `
     0%, 100% { box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.95), 0 0 14px rgba(250, 204, 21, 0.55); }
     50% { box-shadow: 0 0 0 4px rgba(234, 179, 8, 1), 0 0 20px rgba(250, 204, 21, 0.75); }
   }
-  .hopper-pulse { animation: hopperPulse 2s ease-out infinite; }
   .tech-marker-en-route { animation: techEnRouteRing 1.8s ease-out infinite; }
   .tech-marker-on-site { animation: techOnSiteRing 2.2s ease-in-out infinite; }
 `
