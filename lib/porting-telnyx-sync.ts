@@ -23,7 +23,12 @@ import {
   formatPortingThreadMessage,
 } from "@/lib/porting-display"
 import { formatPortingSystemStatusMessage } from "@/lib/porting-notification-log"
+import {
+  carrierTextIndicatesFocConfirmed,
+  telnyxLiveOrderIndicatesFocScheduled,
+} from "@/lib/porting-foc-detection"
 import { isActivePortingOrder } from "@/lib/porting-lifecycle"
+import { shouldUpdateTelnyxStatus } from "@/lib/porting-order-sync"
 import {
   extractPortingCarrierRequirement,
   extractPortingCarrierRequirementLogBody,
@@ -220,11 +225,22 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   const latestAdmin = adminComments[0]
 
+  const carrierBodies = comments
+    .filter((c) => isCarrierPortingCommentUserType(c.user_type))
+    .map((c) => c.body.trim())
+    .filter(Boolean)
+
+  const focConfirmed =
+    (live ? telnyxLiveOrderIndicatesFocScheduled(live) : false) ||
+    carrierBodies.some((body) => carrierTextIndicatesFocConfirmed(body))
+
   let nextStatus = order.status
   let rejectionReason: string | null = null
   let actionNote: string | null = null
 
-  if (live) {
+  if (focConfirmed && order.status !== "rejected" && order.status !== "completed") {
+    nextStatus = "processing"
+  } else if (live) {
     const requirement = extractPortingCarrierRequirement({ data: { record: live } })
     const liveRequirement = requirement
       ? formatPortingExceptionSystemMessage(requirement.exception_text)
@@ -237,7 +253,7 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
     }
   }
 
-  if (latestAdmin?.body.trim()) {
+  if (!focConfirmed && latestAdmin?.body.trim()) {
     const raw = latestAdmin.body.trim()
     const body = cleansePortingHumanComment(raw) || raw
     const pseudoPayload = {
@@ -255,6 +271,10 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
     } else if (isPortRejectionWebhook(pseudoPayload)) {
       nextStatus = "rejected"
       rejectionReason = actionNote ?? body
+    } else if (carrierTextIndicatesFocConfirmed(body)) {
+      if (order.status !== "rejected" && order.status !== "completed") {
+        nextStatus = "processing"
+      }
     } else if (order.status !== "rejected" && order.status !== "completed") {
       nextStatus = "action_required"
       actionNote = actionNote ?? body
@@ -267,7 +287,12 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
     if (statuses.length > 0) {
       telnyxStatus = pickBestPortingStatus(statuses)
       const mapped = mapTelnyxStatusToPortingOrderStatus(telnyxStatus)
-      if (mapped === "rejected" && nextStatus !== "completed") {
+      if (focConfirmed && order.status !== "rejected" && order.status !== "completed") {
+        nextStatus = "processing"
+        if (shouldUpdateTelnyxStatus(telnyxStatus, "foc-date-confirmed")) {
+          telnyxStatus = "foc-date-confirmed"
+        }
+      } else if (mapped === "rejected" && nextStatus !== "completed") {
         nextStatus = "rejected"
         rejectionReason =
           rejectionReason ??
@@ -287,12 +312,18 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
         }
       }
     }
+  } else if (
+    focConfirmed &&
+    shouldUpdateTelnyxStatus(order.telnyx_status, "foc-date-confirmed")
+  ) {
+    telnyxStatus = "foc-date-confirmed"
   }
 
   if (nextStatus === order.status && telnyxStatus === order.telnyx_status && !rejectionReason) {
     const noteToPersist = actionNote?.trim()
     const reasonEmpty = !(order.carrier_rejection_reason ?? "").trim()
     const needsReason =
+      !focConfirmed &&
       reasonEmpty &&
       noteToPersist &&
       (nextStatus === "action_required" || telnyxStatus.toLowerCase().includes("exception"))

@@ -52,6 +52,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const conversation = buildPortingConversationFeed(notifications, telnyxComments)
   const conversationSnippets = conversation.slice(-8).map((item) => item.body)
+  const carrierTexts = conversation.map((item) => item.body)
   const pin_saved_pending_review = orderPinSavedAwaitingCarrierReview(order, conversationSnippets)
   const pin_correction_required =
     orderRequiresPinCorrection(order, conversationSnippets) && !pin_saved_pending_review
@@ -60,9 +61,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     order,
     notifications,
     conversation,
-    pipeline_steps: buildOwnerPortingPipeline(order),
+    pipeline_steps: buildOwnerPortingPipeline(order, { carrierTexts }),
     unread_count: unreadCount,
-    banner_phase: getPortingBannerPhase(order, unreadCount),
+    banner_phase: getPortingBannerPhase(order, unreadCount, { carrierTexts }),
     pin_correction_required,
     pin_saved_pending_review,
   }

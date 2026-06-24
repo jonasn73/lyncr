@@ -1,7 +1,13 @@
 // Owner-facing porting lifecycle — banner phases, pipeline steps, active-order filters.
 
+import { orderHasFocScheduled } from "@/lib/porting-foc-detection"
 import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
 import type { PortingOrder, PortingOrderStatus } from "@/lib/types"
+
+export type PortingLifecycleHints = {
+  /** Recent carrier / network message bodies (desk conversation). */
+  carrierTexts?: string[]
+}
 
 export type PortingBannerPhase = "in_progress" | "action_needed" | "rejected"
 
@@ -27,8 +33,13 @@ export function isActivePortingOrder(order: PortingOrder): boolean {
 }
 
 /** Banner priority: rejected > action_needed (incl. PIN) > in_progress. */
-export function getPortingBannerPhase(order: PortingOrder, unreadNotificationCount: number): PortingBannerPhase {
+export function getPortingBannerPhase(
+  order: PortingOrder,
+  unreadNotificationCount: number,
+  hints?: PortingLifecycleHints
+): PortingBannerPhase {
   if (order.status === "rejected") return "rejected"
+  if (orderHasFocScheduled(order, hints?.carrierTexts)) return "in_progress"
   if (
     orderRequiresPinCorrection(order) ||
     order.status === "action_required" ||
@@ -43,7 +54,8 @@ export function getPortingBannerPhase(order: PortingOrder, unreadNotificationCou
 /** Sort active orders so the most urgent banner surfaces first. */
 export function sortPortingOrdersForBanner(
   orders: PortingOrder[],
-  unreadByTelnyxOrderId: Record<string, number>
+  unreadByTelnyxOrderId: Record<string, number>,
+  carrierTextsByTelnyxOrderId?: Record<string, string[]>
 ): PortingOrder[] {
   const phaseRank: Record<PortingBannerPhase, number> = {
     rejected: 0,
@@ -53,21 +65,23 @@ export function sortPortingOrdersForBanner(
   return [...orders].sort((a, b) => {
     const aUnread = unreadByTelnyxOrderId[a.telnyx_order_id?.trim() ?? ""] ?? 0
     const bUnread = unreadByTelnyxOrderId[b.telnyx_order_id?.trim() ?? ""] ?? 0
-    const aPhase = getPortingBannerPhase(a, aUnread)
-    const bPhase = getPortingBannerPhase(b, bUnread)
+    const telnyxA = a.telnyx_order_id?.trim() ?? ""
+    const telnyxB = b.telnyx_order_id?.trim() ?? ""
+    const aPhase = getPortingBannerPhase(a, aUnread, {
+      carrierTexts: carrierTextsByTelnyxOrderId?.[telnyxA],
+    })
+    const bPhase = getPortingBannerPhase(b, bUnread, {
+      carrierTexts: carrierTextsByTelnyxOrderId?.[telnyxB],
+    })
     if (phaseRank[aPhase] !== phaseRank[bPhase]) return phaseRank[aPhase] - phaseRank[bPhase]
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   })
 }
 
-function activePipelineIndex(order: PortingOrder): number {
+function activePipelineIndex(order: PortingOrder, hints?: PortingLifecycleHints): number {
   const ts = (order.telnyx_status ?? "").toLowerCase().replace(/_/g, "-")
   if (order.status === "completed" || ts === "ported") return 4
-  if (
-    ["foc-date-confirmed", "foc-date-confirmed-pending", "port-activating", "activation-in-progress"].includes(ts)
-  ) {
-    return 3
-  }
+  if (orderHasFocScheduled(order, hints?.carrierTexts)) return 3
   if (
     order.status === "action_required" ||
     order.status === "pending_info" ||
@@ -87,7 +101,10 @@ function activePipelineIndex(order: PortingOrder): number {
 }
 
 /** Five-step pipeline for the owner interaction drawer. */
-export function buildOwnerPortingPipeline(order: PortingOrder): OwnerPortingPipelineStep[] {
+export function buildOwnerPortingPipeline(
+  order: PortingOrder,
+  hints?: PortingLifecycleHints
+): OwnerPortingPipelineStep[] {
   const ts = (order.telnyx_status ?? "").toLowerCase().replace(/_/g, "-")
   const failed =
     order.status === "rejected" ||
@@ -95,7 +112,7 @@ export function buildOwnerPortingPipeline(order: PortingOrder): OwnerPortingPipe
     ts.includes("failed") ||
     ts.includes("cancelled") ||
     ts.includes("canceled")
-  const active = activePipelineIndex(order)
+  const active = activePipelineIndex(order, hints)
 
   return OWNER_PORTING_PIPELINE.map((step, idx) => {
     let state: OwnerPortingPipelineStep["state"] = "upcoming"
