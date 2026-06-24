@@ -3,9 +3,11 @@
 // Owner scheduler map — Louisville default, status-colored pins, live tech markers, panTo focus.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { createRoot, type Root } from "react-dom/client"
 import { Loader2, MapPinned } from "lucide-react"
 import "leaflet/dist/leaflet.css"
-import type { Map as LeafletMap, Marker, Polyline } from "leaflet"
+import type { Map as LeafletMap, Marker, Polyline, Popup } from "leaflet"
+import { JobMapPopupForm, type JobMapPopupSource } from "@/components/scheduler/job-map-popup-form"
 import { MapMarkerHoverCard } from "@/components/scheduler/map-marker-hover-card"
 import { loadLeafletClient } from "@/lib/leaflet-client"
 import { attachBaseMapTiles } from "@/lib/map-tiles"
@@ -32,7 +34,7 @@ import {
   isCompletedMapJob,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
-import type { ActivePipelineJob, SchedulerEvent, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
+import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
 
 type LeafletModule = typeof import("leaflet")
 
@@ -91,8 +93,26 @@ function techInitials(name: string): string {
   return (parts[0]?.slice(0, 2) ?? "T").toUpperCase()
 }
 
-/** Right padding when the job drawer is open (matches drawer width + gutter). */
-const JOB_DRAWER_MAP_PADDING_PX = 440
+/** Default zoom when an operator selects a job on the dispatch map. */
+const JOB_SELECT_ZOOM = 14
+
+const JOB_MAP_POPUP_CSS = `
+.lyncr-job-map-popup .leaflet-popup-content-wrapper {
+  background: rgb(9 9 11);
+  border: 1px solid rgb(39 39 42);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 0;
+}
+.lyncr-job-map-popup .leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+}
+.lyncr-job-map-popup .leaflet-popup-tip {
+  background: rgb(9 9 11);
+  box-shadow: none;
+}
+`
 
 type MapEdgePadding = {
   top?: number
@@ -137,6 +157,7 @@ export type DrivingRouteFocus = {
 
 export type SchedulerRouteMapHandle = {
   panTo: (lat: number, lng: number, zoom?: number, options?: SchedulerRouteMapPanOptions) => void
+  flyTo: (lat: number, lng: number, zoom?: number) => void
   fitDrivingRoute: (focus: DrivingRouteFocus) => void
 }
 
@@ -151,6 +172,11 @@ type SchedulerRouteMapProps = {
   routeFocus?: DrivingRouteFocus | null
   /** Hide top stats chrome so the map fills the split pane edge-to-edge. */
   embedded?: boolean
+  /** When set, opens the inline map popup on this job id. */
+  popupJobId?: string | null
+  technicians?: FieldTechnician[]
+  onPopupClose?: () => void
+  onPopupSaved?: (event: SchedulerEvent) => void
   onSelectEvent?: (event: SchedulerEvent) => void
   onSelectPoolJob?: (job: UnassignedPoolJob | ActivePipelineJob) => void
 }
@@ -166,6 +192,10 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       highlightId,
       routeFocus,
       embedded = false,
+      popupJobId,
+      technicians = [],
+      onPopupClose,
+      onPopupSaved,
       onSelectEvent,
       onSelectPoolJob,
     },
@@ -179,6 +209,9 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   const lineRef = useRef<Polyline | null>(null)
   const routeGlowRef = useRef<Polyline | null>(null)
   const routeLineRef = useRef<Polyline | null>(null)
+  const popupRef = useRef<Popup | null>(null)
+  const popupRootRef = useRef<Root | null>(null)
+  const popupContainerRef = useRef<HTMLDivElement | null>(null)
   const [ready, setReady] = useState(false)
   const [hovered, setHovered] = useState<HoveredPin | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
@@ -202,7 +235,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         bounds.extend([focus.techLat, focus.techLng])
       }
 
-      const padRight = focus.accountForDrawer ? JOB_DRAWER_MAP_PADDING_PX : 50
+      const padRight = 50
       map.fitBounds(bounds, {
         paddingTopLeft: [50, 50],
         paddingBottomRight: [padRight, 50],
@@ -259,11 +292,16 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         map.setView([lat, lng], zoom, { animate: true })
         if (!options?.accountForDrawer) return
 
-        const padding = { top: 50, right: JOB_DRAWER_MAP_PADDING_PX, left: 50, bottom: 50 }
+        const padding = { top: 50, right: 50, left: 50, bottom: 50 }
         const nudgeForDrawer = () => panToWithEdgePadding(map, lat, lng, padding, syncTooltipPos)
 
         map.once("moveend", nudgeForDrawer)
         requestAnimationFrame(() => requestAnimationFrame(nudgeForDrawer))
+      },
+      flyTo(lat: number, lng: number, zoom = JOB_SELECT_ZOOM) {
+        const map = mapRef.current
+        if (!map) return
+        map.flyTo([lat, lng], zoom, { animate: true, duration: 0.75 })
       },
       fitDrivingRoute(focus: DrivingRouteFocus) {
         void (async () => {
@@ -354,8 +392,8 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   }, [stops])
 
   useEffect(() => {
-    if (!highlightId || !ready) {
-      if (!highlightId) {
+    if (!highlightId || !ready || popupJobId) {
+      if (!highlightId || popupJobId) {
         setHovered(null)
         setTooltipPos(null)
       }
@@ -380,7 +418,131 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       setHovered({ lat: stop.lat, lng: stop.lng, model: tooltipModel })
       syncTooltipPos(stop.lat, stop.lng)
     }
-  }, [highlightId, ready, poolPins, scheduledPins, syncTooltipPos])
+  }, [highlightId, ready, poolPins, scheduledPins, syncTooltipPos, popupJobId])
+
+  const popupCloseSuppressRef = useRef(false)
+
+  const closeMapPopup = useCallback(() => {
+    popupRootRef.current?.unmount()
+    popupRootRef.current = null
+    popupContainerRef.current = null
+    if (popupRef.current) {
+      popupCloseSuppressRef.current = true
+      popupRef.current.remove()
+      popupRef.current = null
+      popupCloseSuppressRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    const L = leafletRef.current
+    if (!map || !L || !ready) return
+
+    if (!popupJobId) {
+      closeMapPopup()
+      return
+    }
+
+    const poolPin = poolPins.find((p) => p.job.id === popupJobId)
+    const scheduledStop = scheduledPins.find((s) => s.event.id === popupJobId)
+
+    let lat: number | null = null
+    let lng: number | null = null
+    let jobSource: JobMapPopupSource | null = null
+
+    if (poolPin) {
+      lat = poolPin.lat
+      lng = poolPin.lng
+      const active = poolPin.job as ActivePipelineJob
+      jobSource = {
+        id: active.id,
+        customer_name: active.customer_name,
+        customer_phone: active.customer_phone,
+        vehicle_year: active.vehicle_year,
+        vehicle_make: active.vehicle_make,
+        vehicle_model: active.vehicle_model,
+        job_type: active.job_type,
+        job_status: active.job_status,
+        dispatch_status: active.dispatch_status,
+        assigned_tech_id: active.assigned_tech_id,
+      }
+    } else if (scheduledStop) {
+      const ev = scheduledStop.event
+      lat = scheduledStop.lat
+      lng = scheduledStop.lng
+      jobSource = {
+        id: ev.id,
+        customer_name: ev.customer_name,
+        customer_phone: ev.customer_phone,
+        vehicle_year: ev.vehicle_year,
+        vehicle_make: ev.vehicle_make,
+        vehicle_model: ev.vehicle_model,
+        job_type: ev.job_type,
+        job_status: ev.job_status,
+        dispatch_status: ev.dispatch_status,
+        assigned_tech_id: ev.assigned_tech_id,
+      }
+    }
+
+    if (!jobSource || lat == null || lng == null) {
+      closeMapPopup()
+      return
+    }
+
+    map.flyTo([lat, lng], JOB_SELECT_ZOOM, { animate: true, duration: 0.75 })
+    setHovered(null)
+    setTooltipPos(null)
+
+    closeMapPopup()
+
+    const container = document.createElement("div")
+    container.className = "rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-zinc-100"
+    popupContainerRef.current = container
+    popupRootRef.current = createRoot(container)
+    popupRootRef.current.render(
+      <JobMapPopupForm
+        job={jobSource}
+        technicians={technicians}
+        onCancel={() => onPopupClose?.()}
+        onSaved={(event) => onPopupSaved?.(event)}
+      />
+    )
+
+    const popup = L.popup({
+      className: "lyncr-job-map-popup",
+      closeButton: true,
+      maxWidth: 320,
+      minWidth: 240,
+      autoClose: false,
+      closeOnClick: false,
+    })
+      .setLatLng([lat, lng])
+      .setContent(container)
+
+    popup.on("remove", () => {
+      if (popupCloseSuppressRef.current) return
+      onPopupClose?.()
+    })
+
+    popup.openOn(map)
+    popupRef.current = popup
+
+    return () => {
+      closeMapPopup()
+    }
+  }, [
+    popupJobId,
+    ready,
+    poolPins,
+    scheduledPins,
+    technicians,
+    onPopupClose,
+    onPopupSaved,
+    closeMapPopup,
+  ])
+
+  useEffect(() => () => closeMapPopup(), [closeMapPopup])
 
   useEffect(() => {
     let cancelled = false
@@ -523,7 +685,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         syncTooltipPos(pin.lat, pin.lng)
       })
       marker.on("mouseout", () => {
-        if (highlightId === pin.job.id) return
+        if (highlightId === pin.job.id || popupJobId === pin.job.id) return
         setHovered(null)
         setTooltipPos(null)
       })
@@ -556,7 +718,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         syncTooltipPos(stop.lat, stop.lng)
       })
       marker.on("mouseout", () => {
-        if (highlightId === stop.event.id) return
+        if (highlightId === stop.event.id || popupJobId === stop.event.id) return
         setHovered(null)
         setTooltipPos(null)
       })
@@ -601,6 +763,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     onSelectPoolJob,
     syncTooltipPos,
     highlightId,
+    popupJobId,
     routeFocus,
   ])
 
@@ -625,7 +788,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
 
   return (
     <div className="relative flex h-full min-h-[320px] flex-col">
-      <style>{MAP_MARKER_ANIMATION_CSS}</style>
+      <style>{MAP_MARKER_ANIMATION_CSS + JOB_MAP_POPUP_CSS}</style>
       {!embedded ? (
         <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
           <p className="text-xs font-medium text-zinc-400">
@@ -642,7 +805,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       ) : null}
       <div ref={mapShellRef} className="relative min-h-0 flex-1">
         <div ref={containerRef} className="absolute inset-0 z-0 bg-zinc-950" />
-        {hovered && tooltipPos ? (
+        {hovered && tooltipPos && !popupJobId ? (
           <MapMarkerHoverCard model={hovered.model} x={tooltipPos.x} y={tooltipPos.y} />
         ) : null}
       </div>

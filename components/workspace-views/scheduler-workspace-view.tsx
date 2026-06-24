@@ -191,6 +191,7 @@ export function SchedulerWorkspaceView() {
   )
 
   const mapRouteFocus = useMemo((): DrivingRouteFocus | null => {
+    if (viewMode !== "grid") return null
     const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
     if (!drawerOpen) return null
 
@@ -216,7 +217,17 @@ export function SchedulerWorkspaceView() {
       techLng,
       accountForDrawer: true,
     }
-  }, [drawerPoolJob, drawerScheduledEvent, techLocations])
+  }, [viewMode, drawerPoolJob, drawerScheduledEvent, techLocations])
+
+  function selectJobOnMap(jobId: string) {
+    setHighlightId(jobId)
+    setDrawerPoolJob(null)
+    setDrawerScheduledEvent(null)
+  }
+
+  function closeMapPopup() {
+    setHighlightId(null)
+  }
 
   const canSaveBooking =
     customerName.trim() &&
@@ -398,44 +409,30 @@ export function SchedulerWorkspaceView() {
   }
 
   function focusScheduledMapJob(ev: SchedulerEvent) {
-    openScheduledJobDrawer(ev)
-    if (typeof ev.latitude === "number" && typeof ev.longitude === "number") {
-      const techId = ev.assigned_tech_id
-      const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
-      mapRef.current?.fitDrivingRoute({
-        jobLat: ev.latitude,
-        jobLng: ev.longitude,
-        techLat: live?.latitude ?? null,
-        techLng: live?.longitude ?? null,
-        accountForDrawer: true,
-      })
+    if (viewMode === "grid") {
+      openScheduledJobDrawer(ev)
+      return
     }
+    selectJobOnMap(ev.id)
   }
 
   function focusPipelineJob(job: ActivePipelineJob) {
-    setHighlightId(job.id)
     const scheduled = dayEvents.find((ev) => ev.id === job.id)
-    if (scheduled) {
-      openScheduledJobDrawer(scheduled)
-    } else {
-      openPoolJobDrawer(job)
+    if (viewMode === "grid") {
+      if (scheduled) openScheduledJobDrawer(scheduled)
+      else openPoolJobDrawer(job)
+      return
     }
-    if (typeof job.latitude === "number" && typeof job.longitude === "number") {
-      const techId = job.assigned_tech_id
-      const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
-      mapRef.current?.fitDrivingRoute({
-        jobLat: job.latitude,
-        jobLng: job.longitude,
-        techLat: live?.latitude ?? null,
-        techLng: live?.longitude ?? null,
-        accountForDrawer: true,
-      })
-    }
+    selectJobOnMap(job.id)
   }
 
   function applyJobEventUpdate(event: SchedulerEvent) {
-    setDrawerScheduledEvent(event)
-    setDrawerPoolJob(null)
+    if (viewMode === "grid") {
+      setDrawerScheduledEvent(event)
+      setDrawerPoolJob(null)
+    } else {
+      setHighlightId(event.id)
+    }
     setEvents((prev) => {
       const idx = prev.findIndex((ev) => ev.id === event.id)
       if (idx === -1) return prev
@@ -443,7 +440,9 @@ export function SchedulerWorkspaceView() {
       next[idx] = event
       return next
     })
-    if (typeof event.latitude === "number" && typeof event.longitude === "number") {
+    if (viewMode === "map") {
+      void mutateActivePipeline()
+    } else if (typeof event.latitude === "number" && typeof event.longitude === "number") {
       const techId = event.assigned_tech_id
       const live = techId ? techLocations.find((t) => t.tech_user_id === techId) : null
       mapRef.current?.fitDrivingRoute({
@@ -461,28 +460,36 @@ export function SchedulerWorkspaceView() {
   function closeJobDrawer() {
     setDrawerPoolJob(null)
     setDrawerScheduledEvent(null)
-    setHighlightId(null)
+    if (viewMode === "map") setHighlightId(null)
   }
 
   const handlePhoneLookupResults = useCallback(
     (result: SchedulerPhoneLookupResult | null) => {
       if (!result || (result.pool.length === 0 && result.scheduled.length === 0)) {
         setHighlightId(null)
-        closeJobDrawer()
+        if (viewMode === "grid") closeJobDrawer()
         return
       }
       const poolMatch = result.pool[0]
       if (poolMatch) {
-        setHighlightId(poolMatch.id)
-        setDrawerPoolJob(poolMatch)
-        setDrawerScheduledEvent(null)
+        if (viewMode === "map") {
+          selectJobOnMap(poolMatch.id)
+        } else {
+          setHighlightId(poolMatch.id)
+          setDrawerPoolJob(poolMatch)
+          setDrawerScheduledEvent(null)
+        }
         return
       }
       const scheduledMatch = result.scheduled[0]
       if (scheduledMatch) {
-        setHighlightId(scheduledMatch.id)
-        setDrawerScheduledEvent(scheduledMatch)
-        setDrawerPoolJob(null)
+        if (viewMode === "map") {
+          selectJobOnMap(scheduledMatch.id)
+        } else {
+          setHighlightId(scheduledMatch.id)
+          setDrawerScheduledEvent(scheduledMatch)
+          setDrawerPoolJob(null)
+        }
         const eventDay = dayKeyLocal(new Date(scheduledMatch.scheduled_at))
         const currentKey = dayKeyLocal(selectedDay)
         if (eventDay !== currentKey) {
@@ -492,7 +499,7 @@ export function SchedulerWorkspaceView() {
         }
       }
     },
-    [selectedDay]
+    [selectedDay, viewMode]
   )
 
   function resolveDropHour(techUserId: string, preferredHour: number, durationMinutes: number): number {
@@ -800,7 +807,11 @@ export function SchedulerWorkspaceView() {
                   techLocations={techLocations}
                   selectedDayLabel={selectedDayLabel}
                   highlightId={highlightId}
-                  routeFocus={mapRouteFocus}
+                  popupJobId={highlightId}
+                  technicians={technicians}
+                  onPopupClose={closeMapPopup}
+                  onPopupSaved={applyJobEventUpdate}
+                  routeFocus={null}
                   embedded
                   onSelectEvent={focusScheduledMapJob}
                   onSelectPoolJob={(job) => focusPipelineJob(job as ActivePipelineJob)}
@@ -916,7 +927,7 @@ export function SchedulerWorkspaceView() {
         </Dialog>
       ) : null}
 
-      {drawerOpen ? (
+      {viewMode === "grid" && drawerOpen ? (
         <JobDetailDrawer
           open={drawerOpen}
           poolJob={drawerPoolJob}
