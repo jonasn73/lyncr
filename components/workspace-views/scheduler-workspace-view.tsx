@@ -225,6 +225,20 @@ export function SchedulerWorkspaceView() {
     setDrawerScheduledEvent(null)
   }
 
+  /** Parse lat/lng and snap the map + open the pin tooltip via the map imperative handle. */
+  function focusJobOnMap(job: { id: string; latitude?: number | null; longitude?: number | null }) {
+    selectJobOnMap(job.id)
+    const lat =
+      typeof job.latitude === "number" ? job.latitude : Number.parseFloat(String(job.latitude ?? ""))
+    const lng =
+      typeof job.longitude === "number" ? job.longitude : Number.parseFloat(String(job.longitude ?? ""))
+    mapRef.current?.focusJob(
+      job.id,
+      Number.isFinite(lat) ? lat : undefined,
+      Number.isFinite(lng) ? lng : undefined
+    )
+  }
+
   const canSaveBooking =
     customerName.trim() &&
     customerPhone.trim() &&
@@ -409,7 +423,7 @@ export function SchedulerWorkspaceView() {
       openScheduledJobDrawer(ev)
       return
     }
-    selectJobOnMap(ev.id)
+    focusJobOnMap(ev)
   }
 
   function focusPipelineJob(job: ActivePipelineJob) {
@@ -419,7 +433,7 @@ export function SchedulerWorkspaceView() {
       else openPoolJobDrawer(job)
       return
     }
-    selectJobOnMap(job.id)
+    focusJobOnMap(job)
   }
 
   function applyJobEventUpdate(event: SchedulerEvent) {
@@ -469,7 +483,7 @@ export function SchedulerWorkspaceView() {
       const poolMatch = result.pool[0]
       if (poolMatch) {
         if (viewMode === "map") {
-          selectJobOnMap(poolMatch.id)
+          focusJobOnMap(poolMatch)
         } else {
           setHighlightId(poolMatch.id)
           setDrawerPoolJob(poolMatch)
@@ -480,7 +494,7 @@ export function SchedulerWorkspaceView() {
       const scheduledMatch = result.scheduled[0]
       if (scheduledMatch) {
         if (viewMode === "map") {
-          selectJobOnMap(scheduledMatch.id)
+          focusJobOnMap(scheduledMatch)
         } else {
           setHighlightId(scheduledMatch.id)
           setDrawerScheduledEvent(scheduledMatch)

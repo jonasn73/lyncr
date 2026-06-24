@@ -171,6 +171,8 @@ export type DrivingRouteFocus = {
 export type SchedulerRouteMapHandle = {
   panTo: (lat: number, lng: number, zoom?: number, options?: SchedulerRouteMapPanOptions) => void
   flyTo: (lat: number, lng: number, zoom?: number) => void
+  /** Snap camera to a job pin and open its hover tooltip (sidebar / list selection). */
+  focusJob: (jobId: string, lat?: number, lng?: number) => void
   fitDrivingRoute: (focus: DrivingRouteFocus) => void
 }
 
@@ -210,10 +212,42 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   const mapRef = useRef<LeafletMap | null>(null)
   const leafletRef = useRef<LeafletModule | null>(null)
   const markersRef = useRef<Marker[]>([])
+  /** Job id → Leaflet marker for programmatic tooltip + camera focus from the sidebar. */
+  const jobMarkerRefs = useRef<Map<string, Marker>>(new Map())
+  const highlightIdRef = useRef<string | null>(highlightId ?? null)
   const lineRef = useRef<Polyline | null>(null)
   const routeGlowRef = useRef<Polyline | null>(null)
   const routeLineRef = useRef<Polyline | null>(null)
   const [ready, setReady] = useState(false)
+
+  highlightIdRef.current = highlightId ?? null
+
+  const closeAllJobTooltips = useCallback(() => {
+    for (const marker of jobMarkerRefs.current.values()) {
+      marker.closeTooltip()
+    }
+  }, [])
+
+  const focusJobMarker = useCallback(
+    (jobId: string, lat?: number, lng?: number) => {
+      const map = mapRef.current
+      if (!map || !ready) return
+
+      const marker = jobMarkerRefs.current.get(jobId)
+      if (marker) {
+        const ll = marker.getLatLng()
+        snapMapToJob(map, ll.lat, ll.lng)
+        closeAllJobTooltips()
+        marker.openTooltip()
+        return
+      }
+
+      if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+        snapMapToJob(map, lat, lng)
+      }
+    },
+    [ready, closeAllJobTooltips]
+  )
 
   const fitDrivingRouteBounds = useCallback(
     (focus: DrivingRouteFocus, geometry: [number, number][]) => {
@@ -295,6 +329,9 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         if (!map) return
         snapMapToJob(map, lat, lng, zoom)
       },
+      focusJob(jobId: string, lat?: number, lng?: number) {
+        focusJobMarker(jobId, lat, lng)
+      },
       fitDrivingRoute(focus: DrivingRouteFocus) {
         void (async () => {
           const from =
@@ -336,7 +373,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         })()
       },
     }),
-    [drawDrivingRoute, fitDrivingRouteBounds]
+    [drawDrivingRoute, fitDrivingRouteBounds, focusJobMarker]
   )
 
   const stops = useMemo((): RoutedStop[] => {
@@ -382,21 +419,6 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       stops.map((s) => ({ lat: s.lat, lng: s.lng, data: s }))
     ).map((spread) => spread.data)
   }, [stops])
-
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || !ready || !highlightId) return
-
-    const poolPin = poolPins.find((p) => p.job.id === highlightId)
-    if (poolPin) {
-      snapMapToJob(map, poolPin.lat, poolPin.lng)
-      return
-    }
-    const stop = scheduledPins.find((s) => s.event.id === highlightId)
-    if (stop) {
-      snapMapToJob(map, stop.lat, stop.lng)
-    }
-  }, [highlightId, ready, poolPins, scheduledPins])
 
   useEffect(() => {
     let cancelled = false
@@ -498,6 +520,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
 
     for (const m of markersRef.current) m.remove()
     markersRef.current = []
+    jobMarkerRefs.current.clear()
     if (lineRef.current) {
       lineRef.current.remove()
       lineRef.current = null
@@ -523,9 +546,15 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       }).addTo(map)
 
       bindJobHoverTooltip(marker, tooltipModel)
+      jobMarkerRefs.current.set(pin.job.id, marker)
+      marker.on("mouseout", () => {
+        if (highlightIdRef.current === pin.job.id) marker.openTooltip()
+      })
       marker.on("click", () => {
         const coords = resolveMapJobCoordinates(pin.job.latitude, pin.job.longitude)
         if (coords) snapMapToJob(map, coords.lat, coords.lng)
+        closeAllJobTooltips()
+        marker.openTooltip()
         onSelectPoolJob?.(pin.job)
       })
       markersRef.current.push(marker)
@@ -558,9 +587,15 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       }).addTo(map)
 
       bindJobHoverTooltip(marker, tooltipModel)
+      jobMarkerRefs.current.set(ev.id, marker)
+      marker.on("mouseout", () => {
+        if (highlightIdRef.current === ev.id) marker.openTooltip()
+      })
       marker.on("click", () => {
         const coords = resolveMapJobCoordinates(ev.latitude, ev.longitude)
         if (coords) snapMapToJob(map, coords.lat, coords.lng)
+        closeAllJobTooltips()
+        marker.openTooltip()
         onSelectEvent?.(ev)
       })
       markersRef.current.push(marker)
@@ -591,6 +626,17 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     } else if (latLngs.length === 0 && !routeFocus && !highlightId) {
       map.setView([LOUISVILLE_MAP_CENTER.lat, LOUISVILLE_MAP_CENTER.lng], LOUISVILLE_DEFAULT_ZOOM)
     }
+
+    if (highlightId) {
+      const poolPin = poolPins.find((p) => p.job.id === highlightId)
+      const stop = scheduledPins.find((s) => s.event.id === highlightId)
+      const lat = poolPin?.lat ?? stop?.lat
+      const lng = poolPin?.lng ?? stop?.lng
+      focusJobMarker(highlightId, lat, lng)
+    } else {
+      closeAllJobTooltips()
+    }
+
     requestAnimationFrame(() => map.invalidateSize({ animate: false }))
   }, [
     routeStops,
@@ -603,6 +649,8 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     onSelectPoolJob,
     highlightId,
     routeFocus,
+    focusJobMarker,
+    closeAllJobTooltips,
   ])
 
   const mappedPoolCount = hopperSource.filter(
