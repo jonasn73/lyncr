@@ -1,6 +1,6 @@
 "use client"
 
-// Edge-to-edge live KPI banner for the dispatch map command center.
+// Live KPI banner for the dispatch map — stays inside the main column (no viewport bleed).
 
 import { memo, useMemo } from "react"
 import { cn } from "@/lib/utils"
@@ -70,12 +70,13 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   return (
     <div
       className={cn(
-        "relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2",
+        // Span dashboard gutters only — never bleed under the fixed command dock.
+        "-mx-5 w-[calc(100%+2.5rem)] sm:-mx-8 sm:w-[calc(100%+4rem)]",
         className
       )}
       aria-label="Live dispatch operations summary"
     >
-      <div className="flex items-center gap-8 overflow-x-auto border-b border-zinc-800 bg-zinc-900/90 px-6 py-2.5 text-xs backdrop-blur">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-2 overflow-x-auto border-b border-zinc-800 bg-zinc-900/90 px-5 py-2.5 text-xs backdrop-blur sm:px-8">
         <MetricCell label="Active Dispatches" value={metrics.activeDispatches} tone="teal" />
         <MetricCell label="Unassigned Pool" value={metrics.unassignedPool} tone="amber" />
         <MetricCell label="On-Site" value={metrics.onSite} tone="gold" />
