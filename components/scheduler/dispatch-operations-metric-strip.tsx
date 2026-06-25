@@ -11,11 +11,12 @@ type MetricCellProps = {
   label: string
   value: number
   valueClassName?: string
+  className?: string
 }
 
-function MetricCell({ label, value, valueClassName }: MetricCellProps) {
+function MetricCell({ label, value, valueClassName, className }: MetricCellProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    <div className={cn("flex min-w-[9.5rem] shrink-0 snap-start flex-col gap-0.5 md:min-w-0", className)}>
       <span className="text-xs font-medium text-zinc-400">{label}</span>
       <span className={cn("text-sm font-bold tabular-nums text-zinc-100", valueClassName)}>{value}</span>
     </div>
@@ -23,7 +24,7 @@ function MetricCell({ label, value, valueClassName }: MetricCellProps) {
 }
 
 function MetricDivider() {
-  return <div className="hidden h-4 w-px shrink-0 bg-zinc-800 sm:block" aria-hidden />
+  return <div className="hidden h-4 w-px shrink-0 bg-zinc-800 md:block" aria-hidden />
 }
 
 export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMetricStrip({
@@ -56,7 +57,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
       )}
       aria-label="Live dispatch operations summary"
     >
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 overflow-x-auto border-b border-zinc-800 bg-zinc-900/90 px-5 py-3 backdrop-blur sm:gap-x-8 sm:px-8">
+      <div className="flex overflow-x-auto whitespace-nowrap border-b border-zinc-800 bg-zinc-900/90 px-4 py-2 backdrop-blur [-ms-overflow-style:none] [scrollbar-width:none] md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:whitespace-normal md:px-8 md:py-3 [&::-webkit-scrollbar]:hidden snap-x snap-mandatory gap-4">
         <MetricCell label="Active Dispatches" value={metrics.activeDispatches} valueClassName="text-sky-300" />
         <MetricDivider />
         <MetricCell label="Unassigned Pool" value={metrics.unassignedPool} valueClassName="text-amber-300" />

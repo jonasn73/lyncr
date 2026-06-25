@@ -32,7 +32,7 @@ function TelemetryPill({
   return (
     <div
       className={cn(
-        "inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5",
+        "inline-flex min-w-[10.5rem] shrink-0 snap-start items-center gap-2 rounded-full border px-3 py-1.5 md:min-w-0",
         "bg-neutral-950/50 backdrop-blur-sm transition-colors duration-200",
         tone === "amber" && "border-amber-500/25 text-amber-100/90",
         tone === "teal" && "border-teal-500/25 text-teal-100/90",
@@ -186,7 +186,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <section
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2.5 backdrop-blur-md",
+        "flex overflow-x-auto whitespace-nowrap snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] md:flex-wrap md:overflow-visible md:whitespace-normal [&::-webkit-scrollbar]:hidden",
         className
       )}
       aria-label="Workspace telemetry"

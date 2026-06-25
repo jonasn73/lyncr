@@ -61,9 +61,17 @@ type JobMapPopupFormProps = {
   technicians: FieldTechnician[]
   onCancel: () => void
   onSaved: (event: SchedulerEvent) => void
+  /** `sheet` = full-width mobile bottom drawer with larger tap targets. */
+  variant?: "compact" | "sheet"
 }
 
-export function JobMapPopupForm({ job, technicians, onCancel, onSaved }: JobMapPopupFormProps) {
+export function JobMapPopupForm({
+  job,
+  technicians,
+  onCancel,
+  onSaved,
+  variant = "compact",
+}: JobMapPopupFormProps) {
   const assignableTechs = useMemo(
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
     [technicians]
@@ -133,29 +141,53 @@ export function JobMapPopupForm({ job, technicians, onCancel, onSaved }: JobMapP
     }
   }
 
+  const isSheet = variant === "sheet"
+
   return (
-    <div className="flex w-[300px] flex-col gap-3 rounded-xl bg-zinc-950 p-4 text-zinc-100">
-      <div className="space-y-2 border-b border-zinc-800 pb-2 pr-6">
-        <p className="truncate text-sm font-bold text-zinc-100">
+    <div
+      className={cn(
+        "flex flex-col gap-3 text-zinc-100",
+        isSheet ? "w-full gap-4 p-1" : "w-[300px] rounded-xl bg-zinc-950 p-4"
+      )}
+    >
+      <div className={cn("space-y-2 border-b border-zinc-800 pb-2", !isSheet && "pr-6")}>
+        <p className={cn("truncate font-bold text-zinc-100", isSheet ? "text-lg" : "text-sm")}>
           {job.customer_name?.trim() || "Customer"}
         </p>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-400">
+        <div className="flex flex-col gap-1 text-sm text-zinc-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5">
           {phoneHref ? (
-            <a href={phoneHref} className="font-medium text-sky-400 hover:text-sky-300 hover:underline">
+            <a
+              href={phoneHref}
+              className="inline-flex min-h-11 items-center font-medium text-sky-400 hover:text-sky-300 hover:underline"
+            >
               {formatPhoneDisplay(job.customer_phone)}
             </a>
           ) : (
             <span>{formatPhoneDisplay(job.customer_phone)}</span>
           )}
-          <span className="text-zinc-600" aria-hidden>
-            ·
-          </span>
-          <span className="truncate">{profileLine}</span>
+          {!isSheet ? (
+            <>
+              <span className="hidden text-zinc-600 sm:inline" aria-hidden>
+                ·
+              </span>
+              <span className="truncate text-xs">{profileLine}</span>
+            </>
+          ) : (
+            <>
+              {vehicleLine ? <p className="text-zinc-300">{vehicleLine}</p> : null}
+              {job.job_type ? <p className="text-zinc-400">{job.job_type}</p> : null}
+            </>
+          )}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-1 rounded-md border border-zinc-800 bg-zinc-900/60 p-0.5">
+      <div className="space-y-3">
+        <div
+          className={cn(
+            "grid gap-2",
+            isSheet ? "grid-cols-2" : "flex flex-wrap gap-1 rounded-md border border-zinc-800 bg-zinc-900/60 p-0.5"
+          )}
+        >
           {STATUS_SEGMENTS.map((segment) => {
             const active = pendingStatus === segment.jobStatus
             const disabled =
@@ -167,10 +199,13 @@ export function JobMapPopupForm({ job, technicians, onCancel, onSaved }: JobMapP
                 disabled={disabled || saving}
                 onClick={() => setPendingStatus(segment.jobStatus)}
                 className={cn(
-                  "flex-1 rounded px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide transition-colors",
+                  "rounded-lg font-semibold uppercase tracking-wide transition-colors",
+                  isSheet
+                    ? "min-h-12 px-3 py-3 text-sm"
+                    : "flex-1 rounded px-1.5 py-1 text-[9px]",
                   active
                     ? "bg-primary text-primary-foreground"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
+                    : "border border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
                   disabled && !active && "cursor-not-allowed opacity-40"
                 )}
               >
@@ -181,14 +216,22 @@ export function JobMapPopupForm({ job, technicians, onCancel, onSaved }: JobMapP
         </div>
 
         <label className="block">
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          <span
+            className={cn(
+              "mb-1 block font-medium uppercase tracking-wide text-zinc-500",
+              isSheet ? "text-xs" : "text-[10px]"
+            )}
+          >
             Technician
           </span>
           <select
             value={assignedTechId}
             disabled={saving}
             onChange={(e) => setAssignedTechId(e.target.value)}
-            className="w-full rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1.5 text-xs text-zinc-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            className={cn(
+              "w-full rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40",
+              isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-1.5 text-xs"
+            )}
           >
             <option value="">Unassigned</option>
             {assignableTechs.map((t) => (
@@ -200,14 +243,17 @@ export function JobMapPopupForm({ job, technicians, onCancel, onSaved }: JobMapP
         </label>
       </div>
 
-      {error ? <p className="text-[11px] text-red-400">{error}</p> : null}
+      {error ? <p className={cn("text-red-400", isSheet ? "text-sm" : "text-[11px]")}>{error}</p> : null}
 
-      <div className="flex gap-2">
+      <div className={cn("flex gap-2", isSheet && "flex-col sm:flex-row")}>
         <button
           type="button"
           disabled={saving}
           onClick={onCancel}
-          className="flex-1 rounded-md border border-zinc-700 px-2 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-900"
+          className={cn(
+            "flex-1 rounded-md border border-zinc-700 font-medium text-zinc-300 hover:bg-zinc-900",
+            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
+          )}
         >
           Cancel
         </button>
@@ -215,7 +261,10 @@ export function JobMapPopupForm({ job, technicians, onCancel, onSaved }: JobMapP
           type="button"
           disabled={saving}
           onClick={() => void handleSave()}
-          className="flex-1 rounded-md bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          className={cn(
+            "flex-1 rounded-md bg-primary font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60",
+            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
+          )}
         >
           {saving ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" aria-hidden /> : "Save changes"}
         </button>

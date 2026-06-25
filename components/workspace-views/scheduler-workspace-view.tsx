@@ -4,7 +4,7 @@
 
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, LayoutGrid, Loader2, Map as MapIcon, Plus } from "lucide-react"
+import { ChevronDown, LayoutGrid, List, Loader2, Map as MapIcon, Plus } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,7 @@ import {
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { cn } from "@/lib/utils"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
   SCHEDULER_DURATION_OPTIONS,
@@ -46,6 +47,9 @@ import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler
 import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
+import { JobMapMobileSheet } from "@/components/scheduler/job-map-mobile-sheet"
+import type { JobMapPopupSource } from "@/components/scheduler/job-map-popup-form"
+import { useIsMobile } from "@/hooks/use-mobile"
 import type {
   ActivePipelineJob,
   FieldTechnician,
@@ -88,6 +92,22 @@ const JobDetailDrawer = dynamic(
 )
 
 type SchedulerViewMode = "grid" | "map"
+type MobileDispatchView = "list" | "map"
+
+function toMapJobSource(job: ActivePipelineJob | SchedulerEvent): JobMapPopupSource {
+  return {
+    id: job.id,
+    customer_name: job.customer_name,
+    customer_phone: job.customer_phone,
+    vehicle_year: job.vehicle_year,
+    vehicle_make: job.vehicle_make,
+    vehicle_model: job.vehicle_model,
+    job_type: job.job_type,
+    job_status: job.job_status,
+    dispatch_status: job.dispatch_status,
+    assigned_tech_id: job.assigned_tech_id,
+  }
+}
 
 const bookingInputClass =
   "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -115,6 +135,10 @@ export function SchedulerWorkspaceView() {
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingStart, setBookingStart] = useState(() => toDatetimeLocalValue(new Date()))
   const [viewMode, setViewMode] = useState<SchedulerViewMode>("map")
+  const [mobileView, setMobileView] = useState<MobileDispatchView>("list")
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+  const [mobileSheetJob, setMobileSheetJob] = useState<JobMapPopupSource | null>(null)
+  const isMobile = useIsMobile()
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [intakeValues, setIntakeValues] = useState<IntakeFormValues>({})
@@ -225,18 +249,30 @@ export function SchedulerWorkspaceView() {
     setDrawerScheduledEvent(null)
   }
 
-  /** Parse lat/lng and snap the map + open the pin tooltip via the map imperative handle. */
-  function focusJobOnMap(job: { id: string; latitude?: number | null; longitude?: number | null }) {
+  function openMobileJobSheet(job: ActivePipelineJob | SchedulerEvent) {
+    setMobileSheetJob(toMapJobSource(job))
+    setMobileSheetOpen(true)
+  }
+
+  /** Parse lat/lng and snap the map; on mobile open the bottom sheet instead of hover tooltips. */
+  function focusJobOnMap(job: ActivePipelineJob | SchedulerEvent) {
     selectJobOnMap(job.id)
     const lat =
       typeof job.latitude === "number" ? job.latitude : Number.parseFloat(String(job.latitude ?? ""))
     const lng =
       typeof job.longitude === "number" ? job.longitude : Number.parseFloat(String(job.longitude ?? ""))
-    mapRef.current?.focusJob(
-      job.id,
-      Number.isFinite(lat) ? lat : undefined,
-      Number.isFinite(lng) ? lng : undefined
-    )
+    const validLat = Number.isFinite(lat) ? lat : undefined
+    const validLng = Number.isFinite(lng) ? lng : undefined
+
+    if (isMobile && viewMode === "map") {
+      openMobileJobSheet(job)
+      if (mobileView === "map") {
+        mapRef.current?.focusJob(job.id, validLat, validLng)
+      }
+      return
+    }
+
+    mapRef.current?.focusJob(job.id, validLat, validLng)
   }
 
   const canSaveBooking =
@@ -726,106 +762,227 @@ export function SchedulerWorkspaceView() {
         />
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
-        <WorkspacePanel className="flex flex-col p-3">
-          <details className="group">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
-              <span>
-                {selectedDay.toLocaleDateString([], {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-              <ChevronDown
-                className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
-                aria-hidden
-              />
-            </summary>
-            <div className="mt-2">
-              <Calendar
-                mode="single"
-                selected={selectedDay}
-                onSelect={(d) => d && setSelectedDay(d)}
-                month={visibleMonth}
-                onMonthChange={setVisibleMonth}
-                modifiers={{ hasJob: [...daysWithEvents] }}
-                modifiersClassNames={{
-                  hasJob:
-                    "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
-                }}
-                className="mx-auto"
-              />
-              {loading ? (
-                <SchedulerCalendarStatsSkeleton />
-              ) : (
-                <p className="mt-2 text-center text-xs text-zinc-500">
-                  {events.length} scheduled this month
-                  {poolJobs.length > 0 ? ` · ${poolJobs.length} in hopper` : ""}
-                </p>
-              )}
-            </div>
-          </details>
-        </WorkspacePanel>
+      {viewMode === "map" && isMobile ? (
+        <div className="sticky top-0 z-30 -mx-5 border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-8">
+          <div className="flex rounded-lg border border-border/70 bg-card/40 p-0.5 shadow-sm">
+            <Button
+              type="button"
+              size="sm"
+              variant={mobileView === "list" ? "default" : "ghost"}
+              className="flex-1 gap-1.5 text-xs"
+              onClick={() => setMobileView("list")}
+            >
+              <List className="h-3.5 w-3.5" aria-hidden />
+              Job list
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={mobileView === "map" ? "default" : "ghost"}
+              className="flex-1 gap-1.5 text-xs"
+              onClick={() => setMobileView("map")}
+            >
+              <MapIcon className="h-3.5 w-3.5" aria-hidden />
+              Map
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
-        <WorkspacePanel className="flex flex-col overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
-              </h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                {viewMode === "grid" ? (
-                  <>
-                    Tech swimlanes · {assignableTechs.length} technician
-                    {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
-                    {dayEvents.length === 1 ? "" : "s"} scheduled
-                  </>
+      {viewMode === "grid" ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr]">
+          <WorkspacePanel className="flex flex-col p-3">
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                <span>
+                  {selectedDay.toLocaleDateString([], {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="mt-2">
+                <Calendar
+                  mode="single"
+                  selected={selectedDay}
+                  onSelect={(d) => d && setSelectedDay(d)}
+                  month={visibleMonth}
+                  onMonthChange={setVisibleMonth}
+                  modifiers={{ hasJob: [...daysWithEvents] }}
+                  modifiersClassNames={{
+                    hasJob:
+                      "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
+                  }}
+                  className="mx-auto"
+                />
+                {loading ? (
+                  <SchedulerCalendarStatsSkeleton />
                 ) : (
-                  <>
+                  <p className="mt-2 text-center text-xs text-zinc-500">
+                    {events.length} scheduled this month
+                    {poolJobs.length > 0 ? ` · ${poolJobs.length} in hopper` : ""}
+                  </p>
+                )}
+              </div>
+            </details>
+          </WorkspacePanel>
+
+          <WorkspacePanel className="flex flex-col overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Tech swimlanes · {assignableTechs.length} technician
+                  {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
+                  {dayEvents.length === 1 ? "" : "s"} scheduled
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                Create
+              </Button>
+            </div>
+            {gridScheduleError ? (
+              <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-sm text-destructive">
+                {gridScheduleError}
+              </div>
+            ) : null}
+            <TechnicianSwimlaneBoard
+              technicians={technicians}
+              dayEvents={dayEvents}
+              loading={loading || gridScheduleSaving}
+              highlightId={highlightId}
+              onSelectEvent={openScheduledJobDrawer}
+              onDropPoolJob={schedulePoolOnTechLane}
+              onBookEmptySlot={openBookingOnTechLane}
+            />
+          </WorkspacePanel>
+        </div>
+      ) : (
+        <>
+          <div className={cn("gap-4 lg:grid-cols-[minmax(0,320px)_1fr]", !isMobile ? "grid" : "hidden")}>
+            <WorkspacePanel className="flex flex-col p-3">
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                  <span>
+                    {selectedDay.toLocaleDateString([], {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                    aria-hidden
+                  />
+                </summary>
+                <div className="mt-2">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDay}
+                    onSelect={(d) => d && setSelectedDay(d)}
+                    month={visibleMonth}
+                    onMonthChange={setVisibleMonth}
+                    modifiers={{ hasJob: [...daysWithEvents] }}
+                    modifiersClassNames={{
+                      hasJob:
+                        "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
+                    }}
+                    className="mx-auto"
+                  />
+                  {loading ? (
+                    <SchedulerCalendarStatsSkeleton />
+                  ) : (
+                    <p className="mt-2 text-center text-xs text-zinc-500">
+                      {events.length} scheduled this month
+                      {poolJobs.length > 0 ? ` · ${poolJobs.length} in hopper` : ""}
+                    </p>
+                  )}
+                </div>
+              </details>
+            </WorkspacePanel>
+
+            <WorkspacePanel className="flex flex-col overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+                  </h2>
+                  <p className="mt-1 text-xs text-zinc-500">
                     Dispatch map · {activePipelineJobs.length} active job
                     {activePipelineJobs.length === 1 ? "" : "s"} · {techLocations.length} tech
                     {techLocations.length === 1 ? "" : "s"} live
-                  </>
-                )}
-              </p>
-            </div>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              Create
-            </Button>
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Create
+                </Button>
+              </div>
+              <div className="flex min-h-[min(720px,70vh)] flex-1 flex-col lg:flex-row">
+                <div className="min-h-0 flex-1 overflow-y-auto border-b border-border/60 bg-card/40 lg:w-[40%] lg:flex-none lg:border-b-0 lg:border-r">
+                  <ActivePipelinePanelStream
+                    dayKey={pipelineDayKey}
+                    useStreamedInitialDay={useStreamedPipeline}
+                    highlightId={highlightId}
+                    onFocusJob={focusPipelineJob}
+                  />
+                </div>
+                <div className="min-h-[320px] min-w-0 flex-1 lg:min-h-0">
+                  <SchedulerRouteMap
+                    ref={mapRef}
+                    events={dayEvents}
+                    pipelineJobs={activePipelineJobs}
+                    poolJobs={poolJobs}
+                    techLocations={techLocations}
+                    selectedDayLabel={selectedDayLabel}
+                    highlightId={highlightId}
+                    routeFocus={null}
+                    embedded
+                    disableHoverTooltips={false}
+                    onSelectEvent={focusScheduledMapJob}
+                    onSelectPoolJob={(job) => focusPipelineJob(job as ActivePipelineJob)}
+                  />
+                </div>
+              </div>
+            </WorkspacePanel>
           </div>
 
-          {viewMode === "grid" ? (
-            <>
-              {gridScheduleError ? (
-                <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-sm text-destructive">
-                  {gridScheduleError}
+          {isMobile ? (
+            <div className="flex flex-col">
+            {mobileView === "list" ? (
+              <WorkspacePanel className="flex min-h-[calc(100dvh-15rem)] flex-col overflow-hidden">
+                <div className="border-b border-border/60 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+                  </h2>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {activePipelineJobs.length} active job
+                    {activePipelineJobs.length === 1 ? "" : "s"} in the pool
+                  </p>
                 </div>
-              ) : null}
-              <TechnicianSwimlaneBoard
-                technicians={technicians}
-                dayEvents={dayEvents}
-                loading={loading || gridScheduleSaving}
-                highlightId={highlightId}
-                onSelectEvent={openScheduledJobDrawer}
-                onDropPoolJob={schedulePoolOnTechLane}
-                onBookEmptySlot={openBookingOnTechLane}
-              />
-            </>
-          ) : (
-            <div className="flex min-h-[min(720px,70vh)] flex-1 flex-col lg:flex-row">
-              <div className="min-h-0 flex-1 overflow-y-auto border-b border-border/60 bg-card/40 lg:w-[40%] lg:flex-none lg:border-b-0 lg:border-r">
-                <ActivePipelinePanelStream
-                  dayKey={pipelineDayKey}
-                  useStreamedInitialDay={useStreamedPipeline}
-                  highlightId={highlightId}
-                  onFocusJob={focusPipelineJob}
-                />
-              </div>
-              <div className="min-h-[320px] min-w-0 flex-1 lg:min-h-0">
+                <div className="flex-1 overflow-y-auto">
+                  <ActivePipelinePanelStream
+                    dayKey={pipelineDayKey}
+                    useStreamedInitialDay={useStreamedPipeline}
+                    highlightId={highlightId}
+                    onFocusJob={focusPipelineJob}
+                  />
+                </div>
+              </WorkspacePanel>
+            ) : (
+              <div className="min-h-[calc(100dvh-15rem)] w-full">
                 <SchedulerRouteMap
+                  key="mobile-dispatch-map"
                   ref={mapRef}
                   events={dayEvents}
                   pipelineJobs={activePipelineJobs}
@@ -835,14 +992,24 @@ export function SchedulerWorkspaceView() {
                   highlightId={highlightId}
                   routeFocus={null}
                   embedded
+                  disableHoverTooltips
                   onSelectEvent={focusScheduledMapJob}
                   onSelectPoolJob={(job) => focusPipelineJob(job as ActivePipelineJob)}
                 />
               </div>
+            )}
             </div>
-          )}
-        </WorkspacePanel>
-      </div>
+          ) : null}
+        </>
+      )}
+
+      <JobMapMobileSheet
+        open={mobileSheetOpen}
+        job={mobileSheetJob}
+        technicians={technicians}
+        onOpenChange={setMobileSheetOpen}
+        onSaved={applyJobEventUpdate}
+      />
 
       {bookingOpen ? (
         <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>

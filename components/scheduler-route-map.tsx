@@ -187,6 +187,8 @@ type SchedulerRouteMapProps = {
   routeFocus?: DrivingRouteFocus | null
   /** Hide top stats chrome so the map fills the split pane edge-to-edge. */
   embedded?: boolean
+  /** Mobile map view — skip hover tooltips; use bottom sheet from parent instead. */
+  disableHoverTooltips?: boolean
   onSelectEvent?: (event: SchedulerEvent) => void
   onSelectPoolJob?: (job: UnassignedPoolJob | ActivePipelineJob) => void
 }
@@ -202,6 +204,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       highlightId,
       routeFocus,
       embedded = false,
+      disableHoverTooltips = false,
       onSelectEvent,
       onSelectPoolJob,
     },
@@ -237,8 +240,10 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       if (marker) {
         const ll = marker.getLatLng()
         snapMapToJob(map, ll.lat, ll.lng)
-        closeAllJobTooltips()
-        marker.openTooltip()
+        if (!disableHoverTooltips) {
+          closeAllJobTooltips()
+          marker.openTooltip()
+        }
         return
       }
 
@@ -246,7 +251,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         snapMapToJob(map, lat, lng)
       }
     },
-    [ready, closeAllJobTooltips]
+    [ready, closeAllJobTooltips, disableHoverTooltips]
   )
 
   const fitDrivingRouteBounds = useCallback(
@@ -545,16 +550,22 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         zIndexOffset: pin.poolIndex * 100,
       }).addTo(map)
 
-      bindJobHoverTooltip(marker, tooltipModel)
+      if (!disableHoverTooltips) {
+        bindJobHoverTooltip(marker, tooltipModel)
+      }
       jobMarkerRefs.current.set(pin.job.id, marker)
-      marker.on("mouseout", () => {
-        if (highlightIdRef.current === pin.job.id) marker.openTooltip()
-      })
+      if (!disableHoverTooltips) {
+        marker.on("mouseout", () => {
+          if (highlightIdRef.current === pin.job.id) marker.openTooltip()
+        })
+      }
       marker.on("click", () => {
         const coords = resolveMapJobCoordinates(pin.job.latitude, pin.job.longitude)
         if (coords) snapMapToJob(map, coords.lat, coords.lng)
-        closeAllJobTooltips()
-        marker.openTooltip()
+        if (!disableHoverTooltips) {
+          closeAllJobTooltips()
+          marker.openTooltip()
+        }
         onSelectPoolJob?.(pin.job)
       })
       markersRef.current.push(marker)
@@ -586,16 +597,22 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         opacity: stop.phase === "completed" ? 0.75 : 1,
       }).addTo(map)
 
-      bindJobHoverTooltip(marker, tooltipModel)
+      if (!disableHoverTooltips) {
+        bindJobHoverTooltip(marker, tooltipModel)
+      }
       jobMarkerRefs.current.set(ev.id, marker)
-      marker.on("mouseout", () => {
-        if (highlightIdRef.current === ev.id) marker.openTooltip()
-      })
+      if (!disableHoverTooltips) {
+        marker.on("mouseout", () => {
+          if (highlightIdRef.current === ev.id) marker.openTooltip()
+        })
+      }
       marker.on("click", () => {
         const coords = resolveMapJobCoordinates(ev.latitude, ev.longitude)
         if (coords) snapMapToJob(map, coords.lat, coords.lng)
-        closeAllJobTooltips()
-        marker.openTooltip()
+        if (!disableHoverTooltips) {
+          closeAllJobTooltips()
+          marker.openTooltip()
+        }
         onSelectEvent?.(ev)
       })
       markersRef.current.push(marker)
@@ -633,7 +650,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       const lat = poolPin?.lat ?? stop?.lat
       const lng = poolPin?.lng ?? stop?.lng
       focusJobMarker(highlightId, lat, lng)
-    } else {
+    } else if (!disableHoverTooltips) {
       closeAllJobTooltips()
     }
 
@@ -651,6 +668,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     routeFocus,
     focusJobMarker,
     closeAllJobTooltips,
+    disableHoverTooltips,
   ])
 
   const mappedPoolCount = hopperSource.filter(
