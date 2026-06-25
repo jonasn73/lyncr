@@ -273,11 +273,11 @@ type InboundWebhookContext = {
   greetingPassDone: boolean
 }
 
-function inboundWebhookContextFromUrl(url: string): InboundWebhookContext {
-  const parsed = new URL(url)
+function inboundWebhookContext(reqUrl: string, fields?: Record<string, string>): InboundWebhookContext {
+  const parsed = new URL(reqUrl)
   return {
-    incomingUrl: url,
-    greetingPassDone: inboundGreetingPassDone(parsed.searchParams),
+    incomingUrl: reqUrl,
+    greetingPassDone: inboundGreetingPassDone(parsed.searchParams, fields),
   }
 }
 
@@ -1518,7 +1518,6 @@ export async function POST(req: NextRequest) {
 
 async function processInboundPost(req: NextRequest, perfStartMs: number): Promise<NextResponse> {
   const handlerT0 = Date.now()
-  const inboundCtx = inboundWebhookContextFromUrl(req.url)
   const contentType = (req.headers.get("content-type") || "").toLowerCase()
   let fields: Record<string, string>
 
@@ -1527,6 +1526,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
   } else {
     const raw = await req.text()
     fields = parseTelnyxFormBodyFast(raw)
+    const inboundCtx = inboundWebhookContext(req.url, fields)
     // Pass 1 greeting is handled in Edge middleware; pass 2 (`zingGreet=1`) routes here.
     const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs, inboundCtx)
     if (hot) {
@@ -1535,6 +1535,8 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
     }
     fields = parseTelnyxFormBody(raw)
   }
+
+  const inboundCtx = inboundWebhookContext(req.url, fields)
 
   const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs, inboundCtx)
   if (hot) {
@@ -1585,8 +1587,8 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const inboundCtx = inboundWebhookContextFromUrl(req.url)
   const fields = searchParamsToFields(url)
+  const inboundCtx = inboundWebhookContext(req.url, fields)
   const hot = await tryFastInboundReceptionistResponse(fields, undefined, inboundCtx)
   if (hot) return hot
 

@@ -85,9 +85,9 @@ async function getOrCreateOutboundVoiceProfile(): Promise<string> {
   return String(profileId)
 }
 
-/** Instant pass-1 TeXML (Play greeting + Redirect) — separate from pass-2 routing webhook. */
+/** Static CDN TeXML — Telnyx GET with no serverless cold start (fastest pass-1 answer for PSTN callers). */
 export function getInboundTexmlGreetVoiceUrl(appUrl: string): string {
-  return `${appUrl.replace(/\/$/, "")}/api/voice/telnyx/greet`
+  return `${appUrl.replace(/\/$/, "")}/texml/inbound-greet.xml`
 }
 
 /** Pass-2 routing after greeting (`zingGreet=1`). */
@@ -104,7 +104,7 @@ async function ensureTexmlAppVoiceUrls(appId: string, appUrl: string): Promise<v
       headers: telnyxHeaders(),
       body: JSON.stringify({
         voice_url: greetUrl,
-        voice_method: "POST",
+        voice_method: "GET",
         voice_fallback_url: routingUrl,
       }),
     })
@@ -168,7 +168,7 @@ export async function getOrCreateTexmlApp(): Promise<string> {
     body: JSON.stringify({
       friendly_name: TEXML_ROUTER_FRIENDLY_NAME,
       voice_url: greetUrl,
-      voice_method: "POST",
+      voice_method: "GET",
       voice_fallback_url: routingUrl,
       status_callback_url: `${appUrl}/api/voice/telnyx/status`,
       status_callback_method: "POST",

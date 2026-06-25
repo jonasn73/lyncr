@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Pass 1 — static CDN file (Telnyx voice_url GET). No serverless boot; Say answers before cell forward. -->
+<Response>
+  <Say voice="Polly.Joanna" language="en-US">Thank you for calling. Please wait while we connect your call to a team member.</Say>
+  <Redirect method="POST">https://lyncr.app/api/voice/telnyx/incoming?zingGreet=1</Redirect>
+</Response>

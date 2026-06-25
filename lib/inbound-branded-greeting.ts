@@ -71,10 +71,22 @@ export function readInboundGreetingFirstPassEnabled(): boolean {
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 
-/** True when pass 1 already played the greeting (`?zingGreet=1` on the inbound webhook). */
-export function inboundGreetingPassDone(searchParams: { get(name: string): string | null }): boolean {
-  const v = searchParams.get("zingGreet")?.trim().toLowerCase()
+/** True when pass 1 already played the greeting (`zingGreet=1` on URL or Telnyx POST body). */
+function greetingPassFlag(value: string | null | undefined): boolean {
+  const v = value?.trim().toLowerCase()
   return v === "1" || v === "true" || v === "yes"
+}
+
+export function inboundGreetingPassDone(
+  searchParams: { get(name: string): string | null },
+  fields?: Record<string, string>
+): boolean {
+  if (greetingPassFlag(searchParams.get("zingGreet"))) return true
+  if (!fields) return false
+  for (const key of ["zingGreet", "ZingGreet", "zing_greet"]) {
+    if (greetingPassFlag(fields[key])) return true
+  }
+  return false
 }
 
 /** Pass-2 continue URL — preserves Telnyx query params and marks greeting complete. */
@@ -162,19 +174,17 @@ export function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
-/** Suppress `ringTone="us"` on pass-2 `<Dial>` so the caller does not hear an extra ring after the greeting. */
-export function shouldPlayCallerRingbackDuringDial(greetingPassDone: boolean): boolean {
-  if (!greetingPassDone) return true
-  if (!readInboundGreetingFirstPassEnabled()) return true
+/** Two-pass mode: never play US ringback to the caller on `<Dial>` (cell or web). */
+export function shouldPlayCallerRingbackDuringDial(_greetingPassDone: boolean): boolean {
+  if (readInboundGreetingFirstPassEnabled()) return false
   return readInboundCallerRingbackAfterGreetingEnabled()
 }
 
 /**
- * PSTN cell forward (`<Dial><Number>`) after pass-1 greeting.
- * Inbound is already answered — `answerOnBridge=true` would put the caller back into US ringback
- * while the teammate's cell rings (the dial tone callers report before "getting connected").
+ * PSTN cell forward (`<Dial><Number>`). Two-pass mode always keeps the inbound leg answered
+ * after pass 1 — never restore ringback/dial tone while the teammate's cell rings.
  */
-export function resolveInboundPstnForwardAnswerOnBridge(greetingPassDone: boolean): boolean {
-  if (greetingPassDone && readInboundGreetingFirstPassEnabled()) return false
+export function resolveInboundPstnForwardAnswerOnBridge(_greetingPassDone: boolean): boolean {
+  if (readInboundGreetingFirstPassEnabled()) return false
   return readTelnyxDialAnswerOnBridge()
 }

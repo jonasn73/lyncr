@@ -30,6 +30,11 @@ describe("inboundGreetingPassDone", () => {
     const params = new URLSearchParams("zingGreet=1")
     expect(inboundGreetingPassDone(params)).toBe(true)
   })
+
+  it("reads zingGreet from Telnyx POST body fields", () => {
+    const params = new URLSearchParams("")
+    expect(inboundGreetingPassDone(params, { zingGreet: "1" })).toBe(true)
+  })
 })
 
 describe("buildInboundCallerGreetingOnlyTexml", () => {
@@ -81,12 +86,13 @@ describe("resolveInboundPstnForwardAnswerOnBridge", () => {
     vi.unstubAllEnvs()
   })
 
-  it("is false after greeting pass so cell forward does not restore caller ringback", () => {
+  it("is always false in two-pass mode so cell forward never restores caller dial tone", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
     expect(resolveInboundPstnForwardAnswerOnBridge(true)).toBe(false)
+    expect(resolveInboundPstnForwardAnswerOnBridge(false)).toBe(false)
   })
 
-  it("stays true on pass 1 when two-pass greeting is disabled", () => {
+  it("follows env when two-pass greeting is disabled", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
     expect(resolveInboundPstnForwardAnswerOnBridge(false)).toBe(true)
   })

@@ -46,8 +46,9 @@ describe("buildFastReceptionistDialTexml ringback", () => {
 })
 
 describe("shouldPlayCallerRingbackDuringDial", () => {
-  it("suppresses ringback after greeting pass by default", () => {
+  it("never ringbacks in two-pass mode (cell PSTN forward)", () => {
     expect(shouldPlayCallerRingbackDuringDial(true)).toBe(false)
+    expect(shouldPlayCallerRingbackDuringDial(false)).toBe(false)
   })
 })
 
