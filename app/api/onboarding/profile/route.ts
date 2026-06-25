@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getOnboardingProfile, getPhoneNumbers, normalizePhoneNumberE164, updateOnboardingProfile } from "@/lib/db"
+import {
+  getOnboardingProfile,
+  getPhoneNumbers,
+  normalizePhoneNumberE164,
+  updateOnboardingProfile,
+  listCompletedPortPhoneNumbersForOwner,
+} from "@/lib/db"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { isAnyLineCarrierLive, isPhoneNumberCarrierLive, isReservedLineCarrierLive } from "@/lib/onboarding-line-carrier-status"
+import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
 import type { UpdateOnboardingProfileRequest } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -54,17 +61,28 @@ export async function GET(req: NextRequest) {
 
   try {
     let profile = await getOnboardingProfile(userId)
-    const numbers = await getPhoneNumbers(userId)
-    const liveRow = numbers.find((row) => isPhoneNumberCarrierLive(row))
+    const [numbers, completedPortTargets] = await Promise.all([
+      getPhoneNumbers(userId),
+      listCompletedPortPhoneNumbersForOwner(userId),
+    ])
+    const preferred = pickPreferredCustomerLine({
+      lines: numbers,
+      reservedNumber: profile?.reserved_number,
+      completedPortTargets,
+    })
+    const preferredRow = preferred
+      ? numbers.find((row) => normalizePhoneNumberE164(row.number) === normalizePhoneNumberE164(preferred))
+      : null
     if (
-      liveRow &&
+      preferredRow &&
+      isPhoneNumberCarrierLive(preferredRow) &&
       profile &&
-      normalizePhoneNumberE164(liveRow.number) !== normalizePhoneNumberE164(profile.reserved_number ?? "")
+      normalizePhoneNumberE164(preferredRow.number) !== normalizePhoneNumberE164(profile.reserved_number ?? "")
     ) {
       try {
         profile = await updateOnboardingProfile(userId, {
-          reserved_number: liveRow.number,
-          reserved_number_display: formatPhoneDisplay(liveRow.number),
+          reserved_number: preferredRow.number,
+          reserved_number_display: formatPhoneDisplay(preferredRow.number),
         })
       } catch (syncErr) {
         console.error("[onboarding/profile GET] live-line sync failed:", syncErr)

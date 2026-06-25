@@ -14,8 +14,12 @@ import {
   retryProvisionOnboardingBuyLine,
   effectiveAdminRoutingOverrideForPhoneLine,
   repairMisassignedDefaultOrgPhoneLines,
+  listCompletedPortPhoneNumbersForOwner,
 } from "@/lib/db"
 import { syncMissingTelnyxNumbersForUser } from "@/lib/telnyx-number-sync"
+import { reconcileCompletedPortLinesForOwner } from "@/lib/port-number-finalize"
+import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
+import { orderPhoneLinesForOrganization } from "@/lib/workspace-phone-lines"
 import type { FallbackType, PhoneNumberRoutingSummary } from "@/lib/types"
 
 export async function GET(req: NextRequest) {
@@ -39,13 +43,20 @@ export async function GET(req: NextRequest) {
       retryProvisionOnboardingBuyLine(userId).catch((e) => {
         console.error("[numbers/mine] onboarding buy retry:", e)
       }),
+      reconcileCompletedPortLinesForOwner({
+        ownerUserId: userId,
+        organizationId: orgParam,
+      }).catch((e) => {
+        console.error("[numbers/mine] completed port reconcile:", e)
+      }),
     ])
 
     const orgParam = req.nextUrl.searchParams.get("organization_id")?.trim() || null
-    const [numbers, account, profile] = await Promise.all([
+    const [numbers, account, profile, completedPortTargets] = await Promise.all([
       getPhoneNumbers(userId, orgParam),
       getUser(userId),
       getOnboardingProfile(userId),
+      listCompletedPortPhoneNumbersForOwner(userId, orgParam),
     ])
     const assistantLinked = Boolean(account?.telnyx_ai_assistant_id?.trim())
 
@@ -69,18 +80,40 @@ export async function GET(req: NextRequest) {
       })
     )
 
-    // Primary line for this workspace only — global reserved_number may belong to another business.
+    // Primary line for this workspace — ported main DID beats temp placeholder.
     const globalReserved = profile?.reserved_number?.trim() || null
     const visible = numbersWithRouting.filter((n) =>
       n.status === "active" || n.status === "pending" || n.status === "porting"
     )
-    const reservedInWorkspace =
-      globalReserved && visible.some((n) => n.number === globalReserved)
-        ? globalReserved
-        : visible[0]?.number ?? null
+    const orderedVisible = orderPhoneLinesForOrganization(
+      visible.map((row) => ({
+        number: row.number,
+        status: row.status,
+        label: row.label ?? undefined,
+        organization_id: row.organization_id ?? null,
+        provider_number_sid: row.provider_number_sid,
+        twilio_sid: row.twilio_sid,
+      })),
+      orgParam,
+      { reservedNumber: globalReserved, completedPortTargets }
+    )
+    const reservedInWorkspace = pickPreferredCustomerLine({
+      lines: orderedVisible,
+      reservedNumber: globalReserved,
+      completedPortTargets,
+    })
+
+    const numbersForClient = orderedVisible.map((row) => {
+      const full = visible.find((n) => n.number === row.number)!
+      return {
+        ...full,
+        carrier_live:
+          Boolean(full.provider_number_sid?.trim()) && full.status === "active",
+      }
+    })
 
     return NextResponse.json({
-      numbers: numbersWithRouting,
+      numbers: numbersForClient,
       reserved_number: reservedInWorkspace,
       organization_id: orgParam,
     })

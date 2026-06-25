@@ -3,10 +3,10 @@
 import { useMemo } from "react"
 import useSWR from "swr"
 import {
-  businessNumbersMatch,
   isDashboardVisibleLineStatus,
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
+import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
@@ -43,6 +43,7 @@ function mapNumbersResponse(data: NumbersMineResponse): BusinessNumbersQueryResu
         routing_summary: row.routing_summary as PhoneNumberRoutingSummary | undefined,
         admin_routing_override_phone:
           row.admin_routing_override_phone != null ? String(row.admin_routing_override_phone) : null,
+        carrier_live: row.carrier_live === true,
       }
     })
   return {
@@ -138,17 +139,15 @@ export function useBusinessNumbersSuspenseQuery(activeOrganizationId: string | n
   return { numbers, reservedNumber }
 }
 
-/** Pick active line from reserved hint + current selection. */
+/** Pick active line — ported main DID wins over temp onboarding placeholder. */
 export function resolveActiveLineAfterNumbers(
   numbers: DashboardBusinessNumber[],
   reservedNumber: string | null,
   previous: string | null
 ): string | null {
-  if (previous && numbers.some((x) => businessNumbersMatch(x.number, previous))) {
-    return previous
-  }
-  if (reservedNumber && numbers.some((x) => businessNumbersMatch(x.number, reservedNumber))) {
-    return reservedNumber
-  }
-  return numbers[0]?.number ?? null
+  return pickPreferredCustomerLine({
+    lines: numbers,
+    reservedNumber,
+    previousSelection: previous,
+  })
 }

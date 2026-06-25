@@ -73,6 +73,22 @@ export async function resolvePrimaryBusinessLineForOrganization(
     }
   }
 
+  const completedPortTargets = portOrders
+    .filter((o) => o.status === "completed" && o.phone_number?.trim())
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .map((o) => normalizePhoneNumberE164(o.phone_number))
+
+  for (const portE164 of completedPortTargets) {
+    const portRow = numbers.find((n) => normalizePhoneNumberE164(n.number) === portE164)
+    if (portRow?.status === "active") {
+      return {
+        number: portE164,
+        label: lineLabel(portRow, "Business line"),
+        awaiting_port: false,
+      }
+    }
+  }
+
   const active = numbers.find(
     (n) =>
       n.status === "active" &&

@@ -240,6 +240,7 @@ export async function processTelnyxPortingWebhook(body: Record<string, unknown>)
           ownerUserId: userId,
           phoneNumberE164: phone,
           telnyxOrderId: orderId,
+          organizationId: portingOrder?.organization_id ?? organizationId,
         })
       }
     })

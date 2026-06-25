@@ -284,6 +284,7 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
         ownerUserId: order.owner_user_id,
         phoneNumberE164: result.phone_number ?? order.phone_number,
         telnyxOrderId,
+        organizationId: order.organization_id,
       })
     }
     return result

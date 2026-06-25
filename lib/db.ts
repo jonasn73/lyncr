@@ -4394,6 +4394,84 @@ export async function listPortingOrdersForOwner(
   }
 }
 
+/** E.164 list from completed port orders (newest first) — used to pick the public main line. */
+export async function listCompletedPortPhoneNumbersForOwner(
+  ownerUserId: string,
+  organizationId?: string | null
+): Promise<string[]> {
+  const sql = getSql()
+  try {
+    const rows =
+      organizationId && !organizationId.startsWith("legacy-")
+        ? await sql`
+            SELECT po.phone_number FROM porting_orders po
+            WHERE po.owner_user_id = ${ownerUserId}
+              AND po.status = 'completed'
+              AND (
+                po.organization_id = ${organizationId}
+                OR (
+                  po.organization_id IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM phone_numbers pn
+                    WHERE pn.user_id = ${ownerUserId}
+                      AND pn.organization_id = ${organizationId}
+                      AND pn.number = po.phone_number
+                  )
+                )
+              )
+            ORDER BY po.updated_at DESC
+            LIMIT 10
+          `
+        : await sql`
+            SELECT phone_number FROM porting_orders
+            WHERE owner_user_id = ${ownerUserId} AND status = 'completed'
+            ORDER BY updated_at DESC
+            LIMIT 10
+          `
+    return rows
+      .map((r) => normalizePhoneNumberE164(String((r as Record<string, unknown>).phone_number ?? "")))
+      .filter(Boolean)
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return []
+    throw e
+  }
+}
+
+/** Latest completed port row for a DID (org-scoped when provided). */
+export async function getCompletedPortingOrderForPhone(
+  ownerUserId: string,
+  phoneNumber: string,
+  organizationId?: string | null
+): Promise<PortingOrder | null> {
+  const sql = getSql()
+  const e164 = normalizePhoneNumberE164(phoneNumber)
+  const owner = ownerUserId.trim()
+  if (!e164 || !owner) return null
+  const orgUuid = organizationId?.trim() && !organizationId.startsWith("legacy-") ? organizationId.trim() : null
+  try {
+    const rows = orgUuid
+      ? await sql`
+          SELECT * FROM porting_orders
+          WHERE owner_user_id = ${owner}
+            AND phone_number = ${e164}
+            AND organization_id = ${orgUuid}
+            AND status = 'completed'
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+      : await sql`
+          SELECT * FROM porting_orders
+          WHERE owner_user_id = ${owner} AND phone_number = ${e164} AND status = 'completed'
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+    return rows[0] ? parsePortingOrderRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingPortingOrdersTableError(e)) return null
+    throw e
+  }
+}
+
 /** Load one porting order by primary key (admin desk). */
 export async function getPortingOrderById(orderId: string): Promise<PortingOrder | null> {
   const sql = getSql()

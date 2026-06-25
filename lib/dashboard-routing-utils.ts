@@ -26,6 +26,8 @@ export interface DashboardBusinessNumber {
   routing_summary?: PhoneNumberRoutingSummary
   /** Effective admin PSTN override for this line (line-level, else workspace-level). */
   admin_routing_override_phone?: string | null
+  /** True when Telnyx owns the DID and voice routing is active. */
+  carrier_live?: boolean
 }
 
 export type FallbackOption = "owner" | "ai" | "voicemail"

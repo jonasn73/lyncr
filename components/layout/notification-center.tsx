@@ -264,6 +264,9 @@ export const NotificationCenter = memo(function NotificationCenter() {
         return
       }
       void refreshPorting(true)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("zing-business-numbers-changed"))
+      }
     }
 
     channel.bind("porting-update", onPortingUpdate)

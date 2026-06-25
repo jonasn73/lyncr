@@ -1,5 +1,7 @@
 import {
   effectiveAdminRoutingOverrideForPhoneLine,
+  getOnboardingProfile,
+  listCompletedPortPhoneNumbersForOwner,
   listOwnerActivePipelineJobsForDay,
   listOwnerUnassignedPoolJobs,
   normalizePhoneNumberE164,
@@ -7,6 +9,8 @@ import {
 import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import type { DashboardMainBootstrap, DashboardRoutingBootstrap } from "@/lib/dashboard-stream-types"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
+import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
+import { orderPhoneLinesForOrganization } from "@/lib/workspace-phone-lines"
 import { requireSessionUser } from "@/lib/server/require-session-user"
 import {
   getCachedAllRoutingConfigs,
@@ -123,13 +127,31 @@ function mapRoutingFields(cfg: RoutingConfig | null): DashboardRoutingBootstrap[
 }
 
 async function loadRoutingBootstrap(user: User): Promise<DashboardRoutingBootstrap> {
-  const [receptionists, numbers, configs] = await Promise.all([
+  const [receptionists, numbers, configs, profile, completedPortTargets] = await Promise.all([
     getCachedReceptionists(user.id),
     getCachedPhoneNumbers(user.id),
     getCachedAllRoutingConfigs(user.id),
+    getOnboardingProfile(user.id),
+    listCompletedPortPhoneNumbersForOwner(user.id),
   ])
   const visible = numbers.filter((n) => isDashboardVisibleLineStatus(n.status))
-  const primaryLine = visible[0]?.number ?? null
+  const ordered = orderPhoneLinesForOrganization(
+    visible.map((row) => ({
+      number: row.number,
+      status: row.status,
+      label: row.label ?? undefined,
+      organization_id: row.organization_id ?? null,
+      provider_number_sid: row.provider_number_sid,
+      twilio_sid: row.twilio_sid,
+    })),
+    null,
+    { reservedNumber: profile?.reserved_number, completedPortTargets }
+  )
+  const primaryLine = pickPreferredCustomerLine({
+    lines: ordered,
+    reservedNumber: profile?.reserved_number,
+    completedPortTargets,
+  })
   const cfg = primaryLine ? routingForNumber(primaryLine, configs) : defaultRoutingConfig(configs)
 
   return {

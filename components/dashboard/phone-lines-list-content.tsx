@@ -51,6 +51,7 @@ export function PhoneLinesListContent({
           const label = line.label?.trim() || "Business Line"
           const portOrder = portOrderByPhone.get(phoneDigits10(line.number))
           const transferInProgress = line.status === "porting" || Boolean(portOrder)
+          const lineLive = line.carrier_live === true
           return (
             <li key={line.number}>
               <div
@@ -90,7 +91,7 @@ export function PhoneLinesListContent({
                     <LineRoutingStatus
                       routingStrategy={routingStrategy}
                       subscriptionActive={subscriptionActive}
-                      lineCarrierLive={lineCarrierLive}
+                      lineCarrierLive={lineLive || lineCarrierLive}
                       className="mt-1"
                     />
                   ) : null}
@@ -114,7 +115,7 @@ export function PhoneLinesListContent({
                     <LineRoutingStatus
                       routingStrategy={routingStrategy}
                       subscriptionActive={subscriptionActive}
-                      lineCarrierLive={lineCarrierLive}
+                      lineCarrierLive={lineLive || lineCarrierLive}
                     />
                   </div>
                 ) : null}
