@@ -21,6 +21,7 @@ import {
   resolveCallerGreetingForDialPass,
   resolveWorkspaceDisplayName,
   shouldPlayInboundGreetingFirstPass,
+  shouldPlayCallerRingbackDuringDial,
 } from "@/lib/inbound-branded-greeting"
 import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
@@ -455,6 +456,7 @@ function tryFastInboundPstnDial(params: {
 
   const workspaceName = resolveWorkspaceDisplayName(routing)
   const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false)
+  const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false)
 
   // When dialing a known platform receptionist, hand Telnyx a per-leg answer URL so
   // their HUD pops the live intake form the instant their cell phone connects.
@@ -490,6 +492,7 @@ function tryFastInboundPstnDial(params: {
         sipUri: webSipUri,
         answerUrl,
         ...(callerGreeting ? { callerGreeting } : {}),
+        includeRingback,
       })
     : buildFastReceptionistDialTexml({
         ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -499,6 +502,7 @@ function tryFastInboundPstnDial(params: {
         receptionistE164: dialE164,
         answerUrl,
         ...(callerGreeting ? { callerGreeting } : {}),
+        includeRingback,
       })
 
   after(() => {
@@ -584,6 +588,7 @@ async function tryRoutingPoolInboundDial(params: {
 
   const workspaceName = resolveWorkspaceDisplayName(routing)
   const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false)
+  const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false)
 
   const xml = buildRoutingPoolDialResponse({
     match,
@@ -591,6 +596,7 @@ async function tryRoutingPoolInboundDial(params: {
     timeout: dialTimeoutSec,
     action,
     ...(callerGreeting ? { callerGreeting } : {}),
+    includeRingback,
     answer: {
       appUrl,
       callSid,
@@ -1271,6 +1277,7 @@ async function handleIncomingCall(
     if (callerGreeting) {
       texmlSayNatural(texml, callerGreeting)
     }
+    const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone)
 
     if (hasReceptionist) {
       const recPhone = receptionistDialE164
@@ -1282,6 +1289,7 @@ async function handleIncomingCall(
           timeout: receptionistRingSec,
           action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${origFromQuery}`,
           method: "POST",
+          includeRingback,
         }) as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0]
       )
       // Screen the agent's cell leg ("Press any key to connect") + pop their HUD on answer.
@@ -1303,7 +1311,7 @@ async function handleIncomingCall(
             callerName,
             businessName: workspaceName,
           })
-      dial.number({ ...pstnNumberAttrs, url: recvAnswerUrl }, recPhone)
+      dial.number({ ...pstnNumberAttrs, url: recvAnswerUrl, method: "POST" }, recPhone)
     } else {
       const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
       if (debug) console.log(`[Sigo] No receptionist assigned, routing to owner: ${ownerPhone}`)
@@ -1315,6 +1323,7 @@ async function handleIncomingCall(
           timeout: ownerRingSec,
           action: `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first${bnQuery}${fbQuery}${modeQuery}${origFromQuery}`,
           method: "POST",
+          includeRingback,
         }) as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0]
       )
       const ownerAnswerUrl = buildReceptionistAnswerUrl({
@@ -1325,7 +1334,7 @@ async function handleIncomingCall(
         callerName,
         businessName: workspaceName,
       })
-      dial.number({ ...pstnNumberAttrs, url: ownerAnswerUrl }, ownerPhone)
+      dial.number({ ...pstnNumberAttrs, url: ownerAnswerUrl, method: "POST" }, ownerPhone)
     }
   } catch (error) {
     console.error("[Telnyx] Error in incoming webhook:", error)

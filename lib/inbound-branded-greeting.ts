@@ -154,3 +154,16 @@ export function buildInboundGreetingFirstPassResult(
 export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean): boolean {
   return !greetingPassDone && readInboundGreetingFirstPassEnabled()
 }
+
+/** When false (default), callers hear silence — not US ringback — while the team phone rings after the greeting. */
+export function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
+  const raw = (process.env.ZING_INBOUND_RINGBACK_AFTER_GREETING || "0").trim().toLowerCase()
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+}
+
+/** Suppress `ringTone="us"` on pass-2 `<Dial>` so the caller does not hear an extra ring after the greeting. */
+export function shouldPlayCallerRingbackDuringDial(greetingPassDone: boolean): boolean {
+  if (!greetingPassDone) return true
+  if (!readInboundGreetingFirstPassEnabled()) return true
+  return readInboundCallerRingbackAfterGreetingEnabled()
+}

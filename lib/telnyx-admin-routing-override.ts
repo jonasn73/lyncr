@@ -4,6 +4,7 @@ import { isReasonablePstnDialString } from "@/lib/db"
 import {
   resolveCallerGreetingForDialPass,
   resolveWorkspaceDisplayName,
+  shouldPlayCallerRingbackDuringDial,
   type InboundWorkspaceRoutingLike,
 } from "@/lib/inbound-branded-greeting"
 import { formatAdminRoutingOverridePhoneForTelnyx } from "@/lib/phone-e164"
@@ -92,6 +93,7 @@ export function buildAdminRoutingOverrideDial(params: {
     receptionistE164: overrideE164,
     answerUrl,
     ...(callerGreeting ? { callerGreeting } : {}),
+    includeRingback: shouldPlayCallerRingbackDuringDial(params.greetingPassDone ?? false),
   })
 
   return { kind: "raw", xml }

@@ -192,6 +192,8 @@ export function buildInboundPstnDialAttributes(opts: {
   action: string
   method?: "GET" | "POST"
   sequential?: boolean
+  /** When false, omit `ringTone` so the caller hears hold silence instead of US ringback. */
+  includeRingback?: boolean
 }): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {
     answerOnBridge: opts.answerOnBridge,
@@ -201,7 +203,7 @@ export function buildInboundPstnDialAttributes(opts: {
     ...buildBridgedLegMediaAttributes(),
   }
   // Telnyx has no `ringbackTone` — use native `ringTone="us"` or optional `audioUrl` during B-leg setup.
-  if (opts.answerOnBridge) {
+  if (opts.answerOnBridge && opts.includeRingback !== false) {
     Object.assign(out, buildInboundDialRingbackAttributes())
   }
   if (opts.callerId) out.callerId = opts.callerId
@@ -218,6 +220,19 @@ export function buildInboundPstnNumberAttributes(): Record<string, string | bool
   }
   if (readInboundDialRtpSymmetric()) {
     out.rtp_symmetric = true
+  }
+  return out
+}
+
+/** `<Number url method="POST">` — Telnyx TeXML apps usually POST; without `method` the screen URL may never run. */
+export function buildInboundPstnNumberAttributesWithAnswerUrl(
+  answerUrl?: string
+): Record<string, string | boolean | number> {
+  const out = buildInboundPstnNumberAttributes()
+  const url = answerUrl?.trim()
+  if (url) {
+    out.url = url
+    out.method = "POST"
   }
   return out
 }
@@ -250,6 +265,8 @@ export function buildFastReceptionistDialTexml(opts: {
   answerUrl?: string
   /** Optional branded `<Say>` played to the caller before `<Dial>`. */
   callerGreeting?: string
+  /** When false, caller hears silence while the B-leg rings (after greeting pass). */
+  includeRingback?: boolean
 }): string {
   const dialAttrs = buildInboundPstnDialAttributes({
     ...(opts.callerId ? { callerId: opts.callerId } : {}),
@@ -257,11 +274,9 @@ export function buildFastReceptionistDialTexml(opts: {
     timeout: opts.timeout,
     action: opts.action,
     method: "POST",
+    includeRingback: opts.includeRingback,
   })
-  const numberAttrs = {
-    ...buildInboundPstnNumberAttributes(),
-    ...(opts.answerUrl ? { url: opts.answerUrl } : {}),
-  }
+  const numberAttrs = buildInboundPstnNumberAttributesWithAnswerUrl(opts.answerUrl)
   const dialAttrStr = serializeTexmlAttrs(dialAttrs)
   const numberAttrStr = serializeTexmlAttrs(numberAttrs)
   const phone = opts.receptionistE164.trim()
@@ -314,6 +329,7 @@ export function buildFastReceptionistDialWebRtcTexml(opts: {
   answerUrl?: string
   /** Optional branded `<Say>` played to the caller before `<Dial>`. */
   callerGreeting?: string
+  includeRingback?: boolean
 }): string {
   // Same Dial-level attributes as a cell forward: ringback, bridge timing, and the fallback action URL.
   const dialAttrs = buildInboundPstnDialAttributes({
@@ -322,8 +338,13 @@ export function buildFastReceptionistDialWebRtcTexml(opts: {
     timeout: opts.timeout,
     action: opts.action,
     method: "POST",
+    includeRingback: opts.includeRingback,
   })
-  const sipAttrs = opts.answerUrl ? { url: opts.answerUrl } : {}
+  const sipAttrs: Record<string, string> = {}
+  if (opts.answerUrl?.trim()) {
+    sipAttrs.url = opts.answerUrl.trim()
+    sipAttrs.method = "POST"
+  }
   const dialAttrStr = serializeTexmlAttrs(dialAttrs)
   const sipAttrStr = serializeTexmlAttrs(sipAttrs)
   const uri = escapeXmlAttr(opts.sipUri.trim())
@@ -354,6 +375,7 @@ export function buildRoutingPoolDialTexml(opts: {
   answerUrlByE164?: Record<string, string>
   /** Optional branded `<Say>` played to the caller before `<Dial>`. */
   callerGreeting?: string
+  includeRingback?: boolean
 }): string {
   const phones = opts.receptionistE164List.map((p) => p.trim()).filter((p) => p.length > 0)
   if (phones.length === 0) {
@@ -366,13 +388,13 @@ export function buildRoutingPoolDialTexml(opts: {
     action: opts.action,
     method: "POST",
     ...(opts.mode === "sequential" ? { sequential: true } : {}),
+    includeRingback: opts.includeRingback,
   })
-  const baseNumberAttrs = buildInboundPstnNumberAttributes()
   const dialAttrStr = serializeTexmlAttrs(dialAttrs)
   const numberTags = phones
     .map((phone) => {
       const answerUrl = opts.answerUrlByE164?.[phone]
-      const attrs = answerUrl ? { ...baseNumberAttrs, url: answerUrl } : baseNumberAttrs
+      const attrs = buildInboundPstnNumberAttributesWithAnswerUrl(answerUrl)
       return `    <Number ${serializeTexmlAttrs(attrs)}>${phone}</Number>`
     })
     .join("\n")
