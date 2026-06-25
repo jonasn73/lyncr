@@ -265,7 +265,10 @@ function AppShellInner({
   }, [useLinks])
 
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden bg-background [--shell-header-h:3.25rem] [--shell-dock-h:calc(4rem+env(safe-area-inset-bottom,0px))] md:[--shell-dock-h:0px]">
+    <div
+      data-app-shell=""
+      className="flex h-dvh max-h-dvh overflow-hidden bg-background [--shell-header-h:3.25rem] [--shell-dock-h:calc(4rem+env(safe-area-inset-bottom,0px))] md:[--shell-dock-h:0px]"
+    >
       <CommandDock useLinks={useLinks} onNavigate={onNavigate} />
 
       <div className="flex min-w-0 flex-1 flex-col pl-0 md:pl-[4.25rem]">
@@ -281,7 +284,7 @@ function AppShellInner({
         <main
           ref={mainRef}
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto overscroll-y-contain",
+            "min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y",
             "bg-gradient-to-b from-background to-muted/15",
             "pb-[var(--shell-dock-h)] md:pb-0"
           )}

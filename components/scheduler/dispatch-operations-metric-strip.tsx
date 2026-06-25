@@ -33,11 +33,14 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   activePipelineJobs,
   dayEvents,
   className,
+  /** When true, skip page-padding bleed (e.g. inside scheduler mobile overlay). */
+  embedded = false,
 }: {
   poolJobs: UnassignedPoolJob[]
   activePipelineJobs: ActivePipelineJob[]
   dayEvents: SchedulerEvent[]
   className?: string
+  embedded?: boolean
 }) {
   const metrics = useMemo(
     () =>
@@ -51,10 +54,17 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
 
   return (
     <div
-      className={cn(WORKSPACE_MOBILE_BLEED, className)}
+      className={cn(!embedded && WORKSPACE_MOBILE_BLEED, className)}
       aria-label="Live dispatch operations summary"
     >
-      <div className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-4 whitespace-nowrap border-b border-zinc-800 bg-zinc-900/90 px-4 py-2 backdrop-blur [-ms-overflow-style:none] [scrollbar-width:none] md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:whitespace-normal md:px-8 md:py-3 [&::-webkit-scrollbar]:hidden">
+      <div
+        className={cn(
+          "flex flex-nowrap gap-4 whitespace-nowrap px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:whitespace-normal md:px-8 md:py-3 [&::-webkit-scrollbar]:hidden",
+          embedded
+            ? "overflow-x-auto snap-x snap-mandatory"
+            : "overflow-x-auto snap-x snap-mandatory border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
+        )}
+      >
         <MetricCell label="Active Dispatches" value={metrics.activeDispatches} valueClassName="text-sky-300" />
         <MetricDivider />
         <MetricCell label="Unassigned Pool" value={metrics.unassignedPool} valueClassName="text-amber-300" />

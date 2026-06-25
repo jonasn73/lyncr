@@ -388,24 +388,9 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
                 <WorkspaceTh>Total Deducted</WorkspaceTh>
               </tr>
             </thead>
-            <tbody className="min-h-[208px]">
-              {!callsLoaded ? (
-                <tr className={WORKSPACE_TABLE_ROW_CLASS}>
-                  <WorkspaceTd colSpan={4} className="text-center text-sm text-zinc-500">
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
-                      Loading talk-time…
-                    </span>
-                  </WorkspaceTd>
-                </tr>
-              ) : ledger.length === 0 ? (
-                <tr className={WORKSPACE_TABLE_ROW_CLASS}>
-                  <WorkspaceTd colSpan={4} className="text-center text-sm text-zinc-500">
-                    No operator talk-time recorded yet.
-                  </WorkspaceTd>
-                </tr>
-              ) : (
-                ledger.map((row) => (
+            {callsLoaded && ledger.length > 0 ? (
+              <tbody>
+                {ledger.map((row) => (
                   <tr key={row.id} className={cn("hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
                     <WorkspaceTd className="text-zinc-400">{row.date}</WorkspaceTd>
                     <WorkspaceTd className="font-medium text-foreground">{row.operator}</WorkspaceTd>
@@ -414,10 +399,22 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
                       {formatUsdFromCents(row.costCents)}
                     </WorkspaceTd>
                   </tr>
-                ))
-              )}
-            </tbody>
+                ))}
+              </tbody>
+            ) : null}
           </WorkspaceTableWrap>
+          {!callsLoaded || ledger.length === 0 ? (
+            <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-5 py-12 text-center text-sm text-zinc-500">
+              {!callsLoaded ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+                  Loading talk-time…
+                </span>
+              ) : (
+                "No operator talk-time recorded yet."
+              )}
+            </div>
+          ) : null}
         </WorkspacePanel>
       </div>
     </WorkspacePage>

@@ -115,6 +115,16 @@
     /* Scroll with the page — `fixed` repaints the full viewport on every scroll and feels laggy on mobile. */
     background-attachment: scroll;
   }
+
+  /* Dashboard mobile shell — only `<main>` scrolls; prevents double-scroll / stuck body on iOS. */
+  @media (max-width: 767px) {
+    html:has([data-app-shell]),
+    body:has([data-app-shell]) {
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+  }
   /* Show pointer (finger) cursor on all clickable elements */
   a,
   button,
@@ -433,6 +443,7 @@
 main[data-scroll-locked] {
   overflow: hidden !important;
   overscroll-behavior: none;
+  touch-action: none;
 }
 
 @layer utilities {

@@ -706,7 +706,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       {mobileFullBleed ? (
         <style>{`
           .scheduler-mobile-full-bleed .leaflet-top.leaflet-left {
-            top: 6.5rem !important;
+            top: var(--scheduler-chrome-h, 9.25rem) !important;
             left: 0.5rem !important;
           }
         `}</style>

@@ -1,7 +1,8 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { Suspense, memo, useLayoutEffect, useState, type ReactNode } from "react"
+import { Suspense, memo, useEffect, useLayoutEffect, useState, type ReactNode } from "react"
+import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import { ActivityWorkspaceView } from "@/components/workspace-views/activity-workspace-view"
@@ -75,6 +76,11 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
 }: {
   activePage: DashboardPresencePageId
 }) {
+  useEffect(() => {
+    if (activePage === "scheduler") return
+    clearMainScrollLock()
+  }, [activePage])
+
   return (
     <div className="w-full min-h-0 md:min-h-[calc(100dvh-4rem)]">
       <PresencePane active={activePage === "dashboard"} label="Routing">
@@ -84,7 +90,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         <ActivityWorkspaceView />
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
-        <SchedulerWorkspaceView />
+        <SchedulerWorkspaceView isActive={activePage === "scheduler"} />
       </PresencePane>
       <PresencePane active={activePage === "leads"} label="Leads">
         <LeadsWorkspaceView />

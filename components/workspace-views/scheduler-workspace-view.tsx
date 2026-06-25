@@ -51,6 +51,7 @@ import { JobMapMobileSheet } from "@/components/scheduler/job-map-mobile-sheet"
 import { SchedulerMobileDispatchShell } from "@/components/scheduler/scheduler-mobile-dispatch-shell"
 import type { JobMapPopupSource } from "@/components/scheduler/job-map-popup-form"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { setMainScrollLocked } from "@/lib/mobile-scroll-lock"
 import type {
   ActivePipelineJob,
   FieldTechnician,
@@ -124,7 +125,7 @@ function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
   return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
 }
 
-export function SchedulerWorkspaceView() {
+export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
@@ -680,16 +681,13 @@ export function SchedulerWorkspaceView() {
   }
 
   useEffect(() => {
-    if (!isMobile || viewMode !== "map") return
-    const main = document.querySelector<HTMLElement>("main")
-    if (!main) return
-    main.setAttribute("data-scroll-locked", "")
-    return () => {
-      main.removeAttribute("data-scroll-locked")
-    }
-  }, [isMobile, viewMode])
+    const shouldLock = isActive && isMobile && viewMode === "map"
+    if (!shouldLock) return
+    setMainScrollLocked(true)
+    return () => setMainScrollLocked(false)
+  }, [isActive, isMobile, viewMode])
 
-  const isMobileMap = isMobile && viewMode === "map"
+  const isMobileMap = isActive && isMobile && viewMode === "map"
 
   const headerAction = (
     <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
@@ -936,7 +934,7 @@ export function SchedulerWorkspaceView() {
                   Create
                 </Button>
               </div>
-              <div className="flex min-h-[min(720px,70vh)] flex-1 flex-col lg:flex-row">
+              <div className="flex min-h-0 flex-1 flex-col lg:min-h-[min(720px,70vh)] lg:flex-row">
                 <div className="min-h-0 flex-1 overflow-y-auto border-b border-border/60 bg-card/40 lg:w-[40%] lg:flex-none lg:border-b-0 lg:border-r">
                   <ActivePipelinePanelStream
                     dayKey={pipelineDayKey}
