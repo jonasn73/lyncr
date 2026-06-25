@@ -25,13 +25,17 @@ describe("shouldEdgeInstantGreetingIntercept", () => {
 })
 
 describe("buildEdgeInstantGreetingTexml", () => {
-  it("returns Say then Redirect without Dial", () => {
-    const continueUrl = buildEdgeInboundGreetingContinueUrl("https://lyncr.app/api/voice/telnyx/incoming")
-    const xml = buildEdgeInstantGreetingTexml(continueUrl)
-    expect(xml).toContain("<Say ")
-    expect(xml).toContain("Thank you for calling.")
+  it("returns Play then Redirect without Dial (faster than TTS Say)", () => {
+    const requestUrl = "https://lyncr.app/api/voice/telnyx/greet"
+    const continueUrl = buildEdgeInboundGreetingContinueUrl(requestUrl)
+    const xml = buildEdgeInstantGreetingTexml(continueUrl, requestUrl)
+    expect(xml).toContain("<Play>")
+    expect(xml).toContain("/audio/inbound-generic-greeting.wav")
     expect(xml).toContain("<Redirect")
+    expect(continueUrl).toContain("/api/voice/telnyx/incoming")
+    expect(continueUrl).toContain("zingGreet=1")
     expect(edgeInboundGreetingPassDone(new URL(continueUrl))).toBe(true)
     expect(xml).not.toContain("<Dial")
+    expect(xml).not.toContain("<Say")
   })
 })

@@ -22,7 +22,7 @@ export function middleware(request: NextRequest) {
   // Pass 1 inbound greeting — Edge response before Node.js (avoids cold-start ring while Telnyx waits).
   if (shouldEdgeInstantGreetingIntercept(pathname, request.nextUrl, request.method)) {
     const continueUrl = buildEdgeInboundGreetingContinueUrl(request.url)
-    const xml = buildEdgeInstantGreetingTexml(continueUrl)
+    const xml = buildEdgeInstantGreetingTexml(continueUrl, request.url)
     return new NextResponse(xml, {
       status: 200,
       headers: {

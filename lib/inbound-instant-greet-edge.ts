@@ -4,6 +4,9 @@
 export const EDGE_GENERIC_GREETING_TEXT =
   "Thank you for calling. Please wait while we connect your call to a team member."
 
+/** Pre-recorded greeting WAV in /public — `<Play>` starts faster than neural `<Say>` TTS. */
+export const INBOUND_GENERIC_GREETING_AUDIO_PATH = "/audio/inbound-generic-greeting.wav"
+
 const DEFAULT_SAY_VOICE = "Polly.Joanna-Neural"
 const DEFAULT_SAY_LANGUAGE = "en-US"
 
@@ -34,17 +37,29 @@ function escapeXmlText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
-/** Pass-2 URL on the same webhook with `zingGreet=1` (Telnyx re-POSTs call body on Redirect). */
+/** Pass-2 URL on `/incoming` with `zingGreet=1` (Telnyx re-POSTs call body on Redirect). */
 export function buildEdgeInboundGreetingContinueUrl(requestUrl: string): string {
   const url = new URL(requestUrl)
+  url.pathname = "/api/voice/telnyx/incoming"
   url.searchParams.set("zingGreet", "1")
   return url.toString()
 }
 
-/** Prebuilt TeXML returned from Edge middleware — answers the call with audio ASAP. */
-export function buildEdgeInstantGreetingTexml(continueUrl: string): string {
+/** Hosted WAV on the app origin, or env override — preferred over TTS for instant first audio. */
+export function resolveEdgeInstantGreetingAudioUrl(requestUrl: string): string | null {
+  const envUrl = edgeInboundInstantGreetingAudioUrl()
+  if (envUrl) return envUrl
+  try {
+    return `${new URL(requestUrl).origin}${INBOUND_GENERIC_GREETING_AUDIO_PATH}`
+  } catch {
+    return null
+  }
+}
+
+/** Prebuilt TeXML returned from Edge — `<Play>` pre-recorded audio, then redirect to routing pass 2. */
+export function buildEdgeInstantGreetingTexml(continueUrl: string, requestUrl?: string): string {
   const safeContinue = escapeXmlAttr(continueUrl)
-  const audioUrl = edgeInboundInstantGreetingAudioUrl()
+  const audioUrl = requestUrl ? resolveEdgeInstantGreetingAudioUrl(requestUrl) : edgeInboundInstantGreetingAudioUrl()
   if (audioUrl) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
