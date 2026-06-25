@@ -13,6 +13,7 @@ import {
   findZingCustomerReferenceInPayload,
   parseZingCustomerReference,
 } from "@/lib/telnyx-customer-reference"
+import { collectPortingStatuses, pickBestPortingStatus } from "@/lib/telnyx-porting-status"
 
 /** Telnyx porting webhook event types we handle in Lyncr. */
 export const TELNYX_PORTING_WEBHOOK_EVENTS = new Set([
@@ -283,6 +284,11 @@ function deepFindPortingCommentUserType(obj: unknown, depth = 0): string | null 
 /** True when owner should see amber action_required (not a terminal rejection). */
 export function isPortActionRequiredWebhook(body: Record<string, unknown>): boolean {
   if (isPortRejectionWebhook(body)) return false
+  const record = extractPortingOrderRecord(body)
+  if (record) {
+    const statuses = collectPortingStatuses(record)
+    if (statuses.length > 0 && pickBestPortingStatus(statuses) === "ported") return false
+  }
   if (hasPortingCarrierExceptions(body)) return true
   const eventType = extractEventType(body).toLowerCase()
   if (eventType.includes("exception") || eventType.includes("action_required")) return true

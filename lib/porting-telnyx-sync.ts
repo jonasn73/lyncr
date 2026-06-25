@@ -11,8 +11,10 @@ import {
 import type { PortingOrder } from "@/lib/types"
 import {
   collectPortingStatuses,
+  normalizeTelnyxPortStatus,
   pickBestPortingStatus,
 } from "@/lib/telnyx-porting-status"
+import { finalizePortedNumber } from "@/lib/port-number-finalize"
 import {
   fetchTelnyxPortingOrderById,
   listTelnyxPortingOrderComments,
@@ -51,6 +53,11 @@ export async function backfillPortingExceptionsFromTelnyxOrder(params: {
   if (!telnyxOrderId) return false
   const live = await fetchTelnyxPortingOrderById(telnyxOrderId)
   if (!live) return false
+
+  const liveStatuses = collectPortingStatuses(live)
+  if (liveStatuses.length > 0 && pickBestPortingStatus(liveStatuses) === "ported") {
+    return false
+  }
 
   const requirement = extractPortingCarrierRequirement({ data: { record: live } })
   const body = requirement
@@ -234,6 +241,53 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
     (live ? telnyxLiveOrderIndicatesFocScheduled(live) : false) ||
     carrierBodies.some((body) => carrierTextIndicatesFocConfirmed(body))
 
+  let telnyxStatus = order.telnyx_status
+  let liveMapped: ReturnType<typeof mapTelnyxStatusToPortingOrderStatus> | null = null
+  if (live) {
+    const statuses = collectPortingStatuses(live)
+    if (statuses.length > 0) {
+      telnyxStatus = pickBestPortingStatus(statuses)
+      liveMapped = mapTelnyxStatusToPortingOrderStatus(telnyxStatus)
+    }
+  }
+
+  const liveIsPorted =
+    liveMapped === "completed" ||
+    normalizeTelnyxPortStatus(telnyxStatus ?? "") === "ported"
+
+  if (liveIsPorted && order.status !== "rejected") {
+    const wasCompleted = order.status === "completed"
+    const losingCarrier = live ? extractLosingCarrierName({ data: { record: live } }) : null
+    const carrierPatch =
+      losingCarrier &&
+      (!order.current_carrier.trim() || order.current_carrier.trim().toLowerCase() === "your current carrier")
+        ? losingCarrier
+        : undefined
+    const telnyxToWrite = shouldUpdateTelnyxStatus(order.telnyx_status, telnyxStatus ?? "ported")
+      ? (telnyxStatus ?? "ported")
+      : order.telnyx_status
+
+    if (wasCompleted && order.status === "completed" && telnyxToWrite === order.telnyx_status && !carrierPatch) {
+      return order
+    }
+
+    const patched = await patchPortingOrderFields(order.id, {
+      status: "completed",
+      telnyx_status: telnyxToWrite ?? order.telnyx_status,
+      ...(carrierPatch ? { current_carrier: carrierPatch } : {}),
+    })
+    const result = patched ?? order
+
+    if (!wasCompleted) {
+      await finalizePortedNumber({
+        ownerUserId: order.owner_user_id,
+        phoneNumberE164: result.phone_number ?? order.phone_number,
+        telnyxOrderId,
+      })
+    }
+    return result
+  }
+
   let nextStatus = order.status
   let rejectionReason: string | null = null
   let actionNote: string | null = null
@@ -281,35 +335,32 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
     }
   }
 
-  let telnyxStatus = order.telnyx_status
-  if (live) {
-    const statuses = collectPortingStatuses(live)
-    if (statuses.length > 0) {
-      telnyxStatus = pickBestPortingStatus(statuses)
-      const mapped = mapTelnyxStatusToPortingOrderStatus(telnyxStatus)
-      if (focConfirmed && order.status !== "rejected" && order.status !== "completed") {
-        nextStatus = "processing"
-        if (shouldUpdateTelnyxStatus(telnyxStatus, "foc-date-confirmed")) {
-          telnyxStatus = "foc-date-confirmed"
-        }
-      } else if (mapped === "rejected" && nextStatus !== "completed") {
-        nextStatus = "rejected"
-        rejectionReason =
-          rejectionReason ??
-          actionNote ??
-          latestAdmin?.body?.trim() ??
-          order.carrier_rejection_reason ??
-          null
-      } else if (mapped === "action_required" && nextStatus !== "rejected") {
-        nextStatus = "action_required"
-      } else if (
-        nextStatus !== "rejected" &&
-        nextStatus !== "action_required" &&
-        mapped !== order.status
-      ) {
-        if (mapped === "processing" || mapped === "submitted" || mapped === "pending_carrier_review") {
-          nextStatus = mapped
-        }
+  if (live && liveMapped) {
+    const mapped = liveMapped
+    if (focConfirmed && order.status !== "rejected" && order.status !== "completed") {
+      nextStatus = "processing"
+      if (shouldUpdateTelnyxStatus(telnyxStatus, "foc-date-confirmed")) {
+        telnyxStatus = "foc-date-confirmed"
+      }
+    } else if (mapped === "completed") {
+      nextStatus = "completed"
+    } else if (mapped === "rejected" && nextStatus !== "completed") {
+      nextStatus = "rejected"
+      rejectionReason =
+        rejectionReason ??
+        actionNote ??
+        latestAdmin?.body?.trim() ??
+        order.carrier_rejection_reason ??
+        null
+    } else if (mapped === "action_required" && nextStatus !== "rejected") {
+      nextStatus = "action_required"
+    } else if (
+      nextStatus !== "rejected" &&
+      nextStatus !== "action_required" &&
+      mapped !== order.status
+    ) {
+      if (mapped === "processing" || mapped === "submitted" || mapped === "pending_carrier_review") {
+        nextStatus = mapped
       }
     }
   } else if (
@@ -359,10 +410,21 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
       ? losingCarrier
       : undefined
 
+  const wasCompleted = order.status === "completed"
   const patched = await patchPortingOrderFields(order.id, {
     status: nextStatus,
     telnyx_status: telnyxStatus ?? order.telnyx_status,
     ...(carrierPatch ? { current_carrier: carrierPatch } : {}),
   })
-  return patched ?? order
+  const result = patched ?? order
+
+  if (!wasCompleted && nextStatus === "completed") {
+    await finalizePortedNumber({
+      ownerUserId: order.owner_user_id,
+      phoneNumberE164: result.phone_number ?? order.phone_number,
+      telnyxOrderId,
+    })
+  }
+
+  return result
 }

@@ -6,6 +6,7 @@ import {
   PORTING_PIN_FLEX_PATTERN,
 } from "@/lib/porting-desk-validation"
 import { looksLikePinPasscodeRejection } from "@/lib/telnyx-porting-webhook"
+import { normalizeTelnyxPortStatus } from "@/lib/telnyx-porting-status"
 import type { PortingOrder } from "@/lib/types"
 
 /** @deprecated Use PORTING_PIN_FLEX_PATTERN from porting-desk-validation */
@@ -26,6 +27,11 @@ export function orderRequiresPinCorrection(
   order: PortingOrder,
   conversationSnippets: string[] = []
 ): boolean {
+  if (order.status === "completed") return false
+
+  const telnyxKeyword = normalizeTelnyxPortStatus(order.telnyx_status ?? "")
+  if (telnyxKeyword === "ported" || telnyxKeyword === "port-activating") return false
+
   const telnyx = (order.telnyx_status ?? "").toLowerCase()
   if (telnyx.includes("exception")) return true
 

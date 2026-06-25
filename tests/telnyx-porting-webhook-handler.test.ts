@@ -79,6 +79,15 @@ describe("telnyx porting webhook handler", () => {
     } as PortingOrder
     expect(orderRequiresPinCorrection(order)).toBe(true)
   })
+
+  it("does not require PIN correction after port completes", () => {
+    const order = {
+      status: "completed",
+      telnyx_status: "ported",
+      carrier_rejection_reason: "Passcode/pin must be provided for wireless port.",
+    } as PortingOrder
+    expect(orderRequiresPinCorrection(order)).toBe(false)
+  })
 })
 
 describe("resolvePortingWebhookOwner", () => {

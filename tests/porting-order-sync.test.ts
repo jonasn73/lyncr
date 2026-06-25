@@ -35,6 +35,16 @@ describe("porting-order-sync", () => {
     expect(mapTelnyxStatusToPortingOrderStatus("ported")).toBe("completed")
   })
 
+  it("prefers ported over foc-date-confirmed when both appear on live order", () => {
+    const live = {
+      porting_order_status: "ported",
+      phone_numbers: [{ porting_phone_number_status: "foc-date-confirmed" }],
+    }
+    const best = pickBestPortingStatus(collectPortingStatuses(live))
+    expect(best).toBe("ported")
+    expect(mapTelnyxStatusToPortingOrderStatus(best)).toBe("completed")
+  })
+
   it("does not regress telnyx_status from ported to draft", () => {
     expect(shouldUpdateTelnyxStatus("ported", "draft")).toBe(false)
     expect(shouldUpdateTelnyxStatus("in-process", "foc-date-confirmed")).toBe(true)
