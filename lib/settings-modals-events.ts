@@ -9,9 +9,15 @@ export const OPEN_ROUTING_STRATEGY_MODAL_EVENT = "lyncr-open-routing-strategy-mo
 export const OPEN_TEAM_INVITE_MODAL_EVENT = "lyncr-open-team-invite-modal"
 export const CARRIER_REGISTRATION_UPDATED_EVENT = "lyncr-carrier-registration-updated"
 
-export function openCarrierRegistrationModal() {
+/** Optional payload when opening the carrier registration modal. */
+export type CarrierRegistrationModalOpenDetail = {
+  /** Open the editable form (e.g. after carrier rejection). */
+  edit?: boolean
+}
+
+export function openCarrierRegistrationModal(detail?: CarrierRegistrationModalOpenDetail) {
   if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent(OPEN_CARRIER_REGISTRATION_MODAL_EVENT))
+  window.dispatchEvent(new CustomEvent(OPEN_CARRIER_REGISTRATION_MODAL_EVENT, { detail }))
 }
 
 export function openPortServiceAddressModal() {

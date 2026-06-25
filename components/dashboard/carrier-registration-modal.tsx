@@ -17,37 +17,43 @@ import {
 import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary-types"
 import type { SmsRegistration } from "@/lib/types"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { resolveSmsNoticeState } from "@/lib/sms-registration-notice"
 
 type CompliancePayload = {
   registration?: SmsRegistration | null
   pending_approval?: boolean
   organization_status?: string
   sms_ready?: boolean
+  legacy_registration?: { status?: string; status_detail?: string | null } | null
   submission_summary?: SmsRegistrationSubmissionSummary | null
 }
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** When true, open directly on the editable form (carrier rejection flow). */
+  initialEdit?: boolean
 }
 
-export function CarrierRegistrationModal({ open, onOpenChange }: Props) {
+export function CarrierRegistrationModal({ open, onOpenChange, initialEdit = false }: Props) {
+  const { activeOrganizationId } = useDashboardWorkspace()
   const [loading, setLoading] = useState(false)
   const [compliance, setCompliance] = useState<CompliancePayload | null>(null)
   const [forceForm, setForceForm] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const orgId = readActiveOrganizationId()
+    const orgId = activeOrganizationId ?? readActiveOrganizationId()
     const qs = orgId ? `?organization_id=${encodeURIComponent(orgId)}` : ""
     try {
-      const res = await fetch(`/api/settings/10dlc${qs}`, { credentials: "include" })
+      const res = await fetch(`/api/settings/10dlc${qs}`, { credentials: "include", cache: "no-store" })
       const json = (await res.json().catch(() => ({}))) as { data?: CompliancePayload }
       setCompliance(json.data ?? null)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeOrganizationId])
 
   const refreshFromCarrier = useCallback(async () => {
     const orgId = readActiveOrganizationId()
@@ -69,8 +75,9 @@ export function CarrierRegistrationModal({ open, onOpenChange }: Props) {
       setForceForm(false)
       return
     }
+    if (initialEdit) setForceForm(true)
     void load()
-  }, [open, load])
+  }, [open, initialEdit, load])
 
   useEffect(() => {
     if (!open) return
@@ -84,14 +91,23 @@ export function CarrierRegistrationModal({ open, onOpenChange }: Props) {
   }, [open, load])
 
   const summary = compliance?.submission_summary ?? null
-  const regStatus = compliance?.registration?.status ?? ""
-  const orgStatus = compliance?.organization_status ?? ""
+  const noticeState = compliance
+    ? resolveSmsNoticeState({
+        sms_ready: compliance.sms_ready,
+        pending_approval: compliance.pending_approval,
+        organization_status: compliance.organization_status,
+        registration: compliance.registration,
+        legacy_registration: compliance.legacy_registration,
+        submission_summary: compliance.submission_summary,
+      })
+    : "setup"
+  const isRejected = noticeState === "rejected"
   const showStatusView =
     !forceForm &&
+    !initialEdit &&
     summary != null &&
-    (compliance?.pending_approval === true ||
-      regStatus === "PENDING_APPROVAL" ||
-      orgStatus === "PENDING_APPROVAL" ||
+    (noticeState === "pending" ||
+      noticeState === "rejected" ||
       summary.lifecycle_stage === "carrier_review" ||
       summary.lifecycle_stage === "rejected" ||
       summary.lifecycle_stage === "approved")
@@ -117,7 +133,7 @@ export function CarrierRegistrationModal({ open, onOpenChange }: Props) {
               loading={loading}
               variant="modal"
               onRefresh={() => void refreshFromCarrier()}
-              onEdit={summary.lifecycle_stage === "rejected" ? () => setForceForm(true) : undefined}
+              onEdit={isRejected ? () => setForceForm(true) : undefined}
             />
           ) : (
             <SmsRegistrationForm

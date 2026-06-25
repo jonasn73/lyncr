@@ -239,8 +239,9 @@ export async function submitMessaging10DlcToTelnyx(
   const messageFlow = reg.message_flow?.trim() || copy.messageFlow
   const resolvedOrgId = orgId ?? reg.organization_id ?? null
 
-  // 1) Brand
-  let brandId = reg.brand_id
+  // 1) Brand — skip stale ids left over from a failed attempt
+  let brandId =
+    reg.status === "failed" || reg.status === "rejected" ? null : reg.brand_id
   if (!brandId) {
     const brand = await createTelnyx10DlcBrand({
       entityType: meta.entityType,
@@ -270,8 +271,9 @@ export async function submitMessaging10DlcToTelnyx(
     await upsert10(userId, resolvedOrgId, { brand_id: brandId })
   }
 
-  // 2) Campaign
-  let campaignId = reg.campaign_id
+  // 2) Campaign — never reuse a campaign slot when the brand was reset
+  let campaignId =
+    reg.status === "failed" || reg.status === "rejected" ? null : reg.campaign_id
   if (!campaignId) {
     const campaign = await createTelnyx10DlcCampaign({
       brandId,

@@ -10,6 +10,7 @@ import {
   OPEN_ROUTING_STRATEGY_MODAL_EVENT,
   OPEN_SMS_AUTOMATION_MODAL_EVENT,
   OPEN_TEAM_INVITE_MODAL_EVENT,
+  type CarrierRegistrationModalOpenDetail,
 } from "@/lib/settings-modals-events"
 import { CarrierRegistrationModal } from "@/components/dashboard/carrier-registration-modal"
 import { PortServiceAddressModal } from "@/components/dashboard/port-service-address-modal"
@@ -20,6 +21,7 @@ import { RoutingStrategyModal } from "@/components/dashboard/routing-strategy-mo
 import { TeamInviteModal } from "@/components/team-invite-modal"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
+import type { SettingsModalBootstrapEvent } from "@/components/dashboard/settings-modals-lazy-host"
 
 export type SettingsModalsProfile = {
   name: string
@@ -48,6 +50,7 @@ const EMPTY_PROFILE: SettingsModalsProfile = {
 /** Mounted once under the dashboard shell so banner + settings rows share the same modals. */
 export function DashboardSettingsModalsHost({
   sessionSeed,
+  bootstrapEvent = null,
 }: {
   sessionSeed?: {
     name: string
@@ -55,6 +58,7 @@ export function DashboardSettingsModalsHost({
     businessName: string
     companyUserId: string
   }
+  bootstrapEvent?: SettingsModalBootstrapEvent | null
 }) {
   const searchParams = useSearchParams()
   const [profile, setProfile] = useState<SettingsModalsProfile>(() =>
@@ -69,6 +73,7 @@ export function DashboardSettingsModalsHost({
       : EMPTY_PROFILE
   )
   const [carrierOpen, setCarrierOpen] = useState(false)
+  const [carrierInitialEdit, setCarrierInitialEdit] = useState(false)
   const [portAddressOpen, setPortAddressOpen] = useState(false)
   const [smsAutomationOpen, setSmsAutomationOpen] = useState(false)
   const [businessOpen, setBusinessOpen] = useState(false)
@@ -123,10 +128,20 @@ export function DashboardSettingsModalsHost({
     }
   }, [sessionSeed])
 
-  const openCarrier = useCallback(() => {
-    void refreshProfile()
-    setCarrierOpen(true)
-  }, [refreshProfile])
+  const openCarrierFromEvent = useCallback(
+    (e?: Event | SettingsModalBootstrapEvent) => {
+      const detail =
+        e && "detail" in e
+          ? (e.detail as CarrierRegistrationModalOpenDetail | undefined)
+          : (e as CustomEvent<CarrierRegistrationModalOpenDetail> | undefined)?.detail
+      void refreshProfile()
+      setCarrierInitialEdit(detail?.edit === true)
+      setCarrierOpen(true)
+    },
+    [refreshProfile]
+  )
+
+  const openCarrier = useCallback(() => openCarrierFromEvent(), [openCarrierFromEvent])
   const openPortAddress = useCallback(() => setPortAddressOpen(true), [])
   const openSmsAutomation = useCallback(() => setSmsAutomationOpen(true), [])
   const openBusiness = useCallback(() => {
@@ -141,8 +156,8 @@ export function DashboardSettingsModalsHost({
   const openTeamInvite = useCallback(() => setTeamInviteOpen(true), [])
 
   useEffect(() => {
-    const handlers: [string, () => void][] = [
-      [OPEN_CARRIER_REGISTRATION_MODAL_EVENT, openCarrier],
+    const handlers: [string, (e: Event) => void][] = [
+      [OPEN_CARRIER_REGISTRATION_MODAL_EVENT, openCarrierFromEvent],
       [OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT, openPortAddress],
       [OPEN_SMS_AUTOMATION_MODAL_EVENT, openSmsAutomation],
       [OPEN_BUSINESS_PROFILE_MODAL_EVENT, openBusiness],
@@ -158,7 +173,21 @@ export function DashboardSettingsModalsHost({
         window.removeEventListener(event, fn)
       }
     }
-  }, [openCarrier, openPortAddress, openSmsAutomation, openBusiness, openBilling, openRouting, openTeamInvite])
+  }, [openCarrierFromEvent, openPortAddress, openSmsAutomation, openBusiness, openBilling, openRouting, openTeamInvite])
+
+  useEffect(() => {
+    if (!bootstrapEvent) return
+    const map: Record<string, () => void> = {
+      [OPEN_CARRIER_REGISTRATION_MODAL_EVENT]: () => openCarrierFromEvent(bootstrapEvent),
+      [OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT]: openPortAddress,
+      [OPEN_SMS_AUTOMATION_MODAL_EVENT]: openSmsAutomation,
+      [OPEN_BUSINESS_PROFILE_MODAL_EVENT]: openBusiness,
+      [OPEN_BILLING_MODAL_EVENT]: openBilling,
+      [OPEN_ROUTING_STRATEGY_MODAL_EVENT]: openRouting,
+      [OPEN_TEAM_INVITE_MODAL_EVENT]: openTeamInvite,
+    }
+    map[bootstrapEvent.type]?.()
+  }, [bootstrapEvent, openCarrierFromEvent, openPortAddress, openSmsAutomation, openBusiness, openBilling, openRouting, openTeamInvite])
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -171,7 +200,14 @@ export function DashboardSettingsModalsHost({
 
   return (
     <>
-      <CarrierRegistrationModal open={carrierOpen} onOpenChange={setCarrierOpen} />
+      <CarrierRegistrationModal
+        open={carrierOpen}
+        onOpenChange={(open) => {
+          setCarrierOpen(open)
+          if (!open) setCarrierInitialEdit(false)
+        }}
+        initialEdit={carrierInitialEdit}
+      />
       <PortServiceAddressModal open={portAddressOpen} onOpenChange={setPortAddressOpen} />
       <SmsAutomationModal open={smsAutomationOpen} onOpenChange={setSmsAutomationOpen} />
       <BusinessProfileModal

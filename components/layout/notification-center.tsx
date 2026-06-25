@@ -406,7 +406,9 @@ export const NotificationCenter = memo(function NotificationCenter() {
           actionLabel: needsAttention ? "Fix registration" : isPending ? "View status" : "Set up SMS",
           onAction: () => {
             setOpen(false)
-            openCarrierRegistrationModal()
+            requestAnimationFrame(() => {
+              openCarrierRegistrationModal({ edit: needsAttention })
+            })
           },
           priority: needsAttention ? 85 : isPending ? 45 : 40,
         })

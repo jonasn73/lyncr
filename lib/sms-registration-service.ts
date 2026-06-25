@@ -2,6 +2,7 @@
 
 import {
   getDefaultOrganizationForOwner,
+  getMessaging10DlcRegistration,
   getOrganizationForOwner,
   getUser,
   setOrganizationSmsRegistrationStatus,
@@ -18,6 +19,24 @@ import { defaultCampaignCopy, submitMessaging10DlcToTelnyx } from "@/lib/messagi
 import type { SmsRegistration, SmsRegistrationOrgStatus } from "@/lib/types"
 
 export type { SmsRegistrationFormInput } from "@/lib/sms-registration-constants"
+
+/** Drop stale Telnyx brand/campaign ids after a failed attempt so resubmit creates fresh records. */
+async function prepare10DlcResubmit(ownerUserId: string, orgUuid: string): Promise<void> {
+  const telnyx = await getMessaging10DlcRegistration(ownerUserId, orgUuid)
+  if (!telnyx) return
+  const stale = telnyx.status === "failed" || telnyx.status === "rejected"
+  if (!stale) return
+  await upsertMessaging10DlcRegistration(
+    ownerUserId,
+    {
+      brand_id: null,
+      campaign_id: null,
+      status: "paid",
+      status_detail: "Preparing a fresh carrier submission with your updated business details…",
+    },
+    orgUuid
+  )
+}
 
 /** Persist compliance metadata and mark the workspace pending carrier review. */
 export async function submitSmsRegistrationForOwner(
@@ -66,6 +85,8 @@ export async function submitSmsRegistrationForOwner(
   const copy = defaultCampaignCopy(displayName)
   const useCase = tenDlcEntity === "SOLE_PROPRIETOR" ? "SOLE_PROPRIETOR" : "LOW_VOLUME"
 
+  await prepare10DlcResubmit(ownerUserId, orgUuid)
+
   await upsertMessaging10DlcRegistration(
     ownerUserId,
     {
@@ -95,9 +116,37 @@ export async function submitSmsRegistrationForOwner(
 
   const carrier = await submitMessaging10DlcToTelnyx(ownerUserId, orgUuid)
   if (!carrier.ok) {
+    await upsertSmsRegistration({
+      owner_user_id: ownerUserId,
+      organization_id: orgUuid,
+      legal_business_name: input.legal_business_name.trim(),
+      entity_type: input.entity_type.trim(),
+      tax_id_ein: (input.tax_id_ein ?? "").replace(/\D/g, "") || null,
+      street: input.street.trim(),
+      city: input.city.trim(),
+      state: input.state.trim().toUpperCase().slice(0, 2),
+      postal_code: input.postal_code.trim(),
+      use_case_description: input.use_case_description.trim(),
+      status: "REJECTED",
+    })
+    await setOrganizationSmsRegistrationStatus(orgUuid, ownerUserId, "REJECTED")
     throw new Error(carrier.error)
   }
   if (carrier.registration.status === "failed") {
+    await upsertSmsRegistration({
+      owner_user_id: ownerUserId,
+      organization_id: orgUuid,
+      legal_business_name: input.legal_business_name.trim(),
+      entity_type: input.entity_type.trim(),
+      tax_id_ein: (input.tax_id_ein ?? "").replace(/\D/g, "") || null,
+      street: input.street.trim(),
+      city: input.city.trim(),
+      state: input.state.trim().toUpperCase().slice(0, 2),
+      postal_code: input.postal_code.trim(),
+      use_case_description: input.use_case_description.trim(),
+      status: "REJECTED",
+    })
+    await setOrganizationSmsRegistrationStatus(orgUuid, ownerUserId, "REJECTED")
     throw new Error(carrier.registration.status_detail || "Carrier rejected the SMS registration.")
   }
 

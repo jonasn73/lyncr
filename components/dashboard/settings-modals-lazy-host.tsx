@@ -11,6 +11,7 @@ import {
   OPEN_ROUTING_STRATEGY_MODAL_EVENT,
   OPEN_SMS_AUTOMATION_MODAL_EVENT,
   OPEN_TEAM_INVITE_MODAL_EVENT,
+  type CarrierRegistrationModalOpenDetail,
 } from "@/lib/settings-modals-events"
 
 const DashboardSettingsModalsHost = dynamic(
@@ -39,6 +40,11 @@ const DEEP_LINK_TABS = new Set([
   "routing",
 ])
 
+export type SettingsModalBootstrapEvent = {
+  type: string
+  detail?: CarrierRegistrationModalOpenDetail
+}
+
 /** Loads settings modal bundle on first open event or settings deep link — not on every dashboard load. */
 export function DashboardSettingsModalsLazyHost({
   sessionSeed,
@@ -51,16 +57,28 @@ export function DashboardSettingsModalsLazyHost({
   }
 }) {
   const searchParams = useSearchParams()
-  const [armed, setArmed] = useState(() => {
-    const tab = searchParams.get("tab")
-    return tab != null && DEEP_LINK_TABS.has(tab)
+  const tab = searchParams.get("tab")
+  const deepLinkArmed = tab != null && DEEP_LINK_TABS.has(tab)
+
+  const [armed, setArmed] = useState(deepLinkArmed)
+  const [bootstrapEvent, setBootstrapEvent] = useState<SettingsModalBootstrapEvent | null>(() => {
+    if (tab === "sms-registration") {
+      return { type: OPEN_CARRIER_REGISTRATION_MODAL_EVENT }
+    }
+    return null
   })
 
   useEffect(() => {
     if (armed) return
-    const arm = () => setArmed(true)
+    const arm = (e: Event) => {
+      setBootstrapEvent({
+        type: e.type,
+        detail: (e as CustomEvent<CarrierRegistrationModalOpenDetail>).detail,
+      })
+      setArmed(true)
+    }
     for (const event of MODAL_EVENTS) {
-      window.addEventListener(event, arm, { once: true })
+      window.addEventListener(event, arm)
     }
     return () => {
       for (const event of MODAL_EVENTS) {
@@ -73,7 +91,7 @@ export function DashboardSettingsModalsLazyHost({
 
   return (
     <Suspense fallback={null}>
-      <DashboardSettingsModalsHost sessionSeed={sessionSeed} />
+      <DashboardSettingsModalsHost sessionSeed={sessionSeed} bootstrapEvent={bootstrapEvent} />
     </Suspense>
   )
 }

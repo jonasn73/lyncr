@@ -65,11 +65,18 @@ export async function getWorkspace10DlcCompliance(
 
   const sms_ready = dashboardApproved || telnyxReady || sharedCampaignReady
 
+  const telnyxStatus = (telnyx?.status ?? "").trim().toLowerCase()
+  const telnyxFailed = telnyxStatus === "failed" || telnyxStatus === "rejected"
+  const dashboardRejected =
+    registration?.status === "REJECTED" || organization_status === "REJECTED"
+
   const pending_approval =
     !sms_ready &&
+    !telnyxFailed &&
+    !dashboardRejected &&
     (registration?.status === "PENDING_APPROVAL" ||
       organization_status === "PENDING_APPROVAL" ||
-      TELNYX_PENDING_STATUSES.has(telnyx?.status ?? ""))
+      TELNYX_PENDING_STATUSES.has(telnyxStatus))
 
   return {
     organization_id: orgUuid,

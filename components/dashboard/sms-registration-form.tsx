@@ -16,6 +16,7 @@ import {
   SMS_ENTITY_TYPE_OPTIONS,
   validateSmsRegistrationInput,
 } from "@/lib/sms-registration-constants"
+import { resolveSmsNoticeState } from "@/lib/sms-registration-notice"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary-types"
@@ -65,17 +66,24 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         registration?: SmsRegistration | null
         pending_approval?: boolean
         organization_status?: string
+        sms_ready?: boolean
+        legacy_registration?: { status?: string; status_detail?: string | null } | null
         submission_summary?: SmsRegistrationSubmissionSummary | null
       }
     }
-    const reg = json.data?.registration ?? null
+    const data = json.data
+    const reg = data?.registration ?? null
     setExisting(reg)
-    setSubmissionSummary(json.data?.submission_summary ?? null)
-    const isPending =
-      json.data?.pending_approval === true ||
-      json.data?.organization_status === "PENDING_APPROVAL" ||
-      reg?.status === "PENDING_APPROVAL"
-    setPending(isPending)
+    setSubmissionSummary(data?.submission_summary ?? null)
+    const noticeState = resolveSmsNoticeState({
+      sms_ready: data?.sms_ready,
+      pending_approval: data?.pending_approval,
+      organization_status: data?.organization_status,
+      registration: reg,
+      legacy_registration: data?.legacy_registration,
+      submission_summary: data?.submission_summary,
+    })
+    setPending(noticeState === "pending")
     if (reg) {
       setLegalName(reg.legal_business_name)
       setEntityType(reg.entity_type)
