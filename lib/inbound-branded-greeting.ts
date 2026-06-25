@@ -27,6 +27,16 @@ export function buildInboundCallerGreetingText(workspaceName: string): string {
   return `Thank you for calling ${name}. Please wait while we connect your call to a team member.`
 }
 
+/** Zero-DB pass 1 when routing cache is cold — avoids Neon latency while the caller still hears ringback. */
+export const INBOUND_GENERIC_CALLER_GREETING =
+  "Thank you for calling. Please wait while we connect your call to a team member."
+
+/** Optional hosted WAV/MP3 for pass 1 — plays faster than TTS while Telnyx is still fetching pass 2. */
+export function readInboundInstantGreetingAudioUrl(): string | null {
+  const raw = (process.env.ZING_INBOUND_INSTANT_GREETING_AUDIO_URL || "").trim()
+  return raw || null
+}
+
 function escapeXmlText(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
@@ -75,13 +85,50 @@ export function buildInboundGreetingContinueUrl(incomingUrl: string): string {
 
 /** Pass 1 TeXML — speak the greeting, then redirect to routing pass 2 (no `<Dial>` yet). */
 export function buildInboundCallerGreetingOnlyTexml(greetingText: string, continueUrl: string): string {
-  const say = buildTexmlCallerGreetingSayTag(greetingText.trim())
+  const audioUrl = readInboundInstantGreetingAudioUrl()
   const safeUrl = escapeXmlAttr(continueUrl)
+  if (audioUrl) {
+    const safeAudio = escapeXmlAttr(audioUrl)
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>${safeAudio}</Play>
+  <Redirect method="POST">${safeUrl}</Redirect>
+</Response>`
+  }
+  const say = buildTexmlCallerGreetingSayTag(greetingText.trim())
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   ${say}
   <Redirect method="POST">${safeUrl}</Redirect>
 </Response>`
+}
+
+let cachedGenericGreetingSayTag: string | null = null
+
+function genericGreetingSayTag(): string {
+  cachedGenericGreetingSayTag ??= buildTexmlCallerGreetingSayTag(INBOUND_GENERIC_CALLER_GREETING)
+  return cachedGenericGreetingSayTag
+}
+
+/** Fastest pass 1 — prebuilt `<Say>` (or optional `<Play>`) with no routing DB lookup. */
+export function buildInstantGenericGreetingFirstPassResult(incomingUrl: string): { kind: "raw"; xml: string } {
+  const continueUrl = buildInboundGreetingContinueUrl(incomingUrl)
+  const audioUrl = readInboundInstantGreetingAudioUrl()
+  if (audioUrl) {
+    return {
+      kind: "raw",
+      xml: buildInboundCallerGreetingOnlyTexml(INBOUND_GENERIC_CALLER_GREETING, continueUrl),
+    }
+  }
+  const safeUrl = escapeXmlAttr(continueUrl)
+  return {
+    kind: "raw",
+    xml: `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  ${genericGreetingSayTag()}
+  <Redirect method="POST">${safeUrl}</Redirect>
+</Response>`,
+  }
 }
 
 /** Branded `<Say>` on the same response as `<Dial>` — only when two-pass greeting is disabled. */

@@ -2,6 +2,7 @@ import { describe, expect, it, afterEach, vi } from "vitest"
 import {
   buildInboundCallerGreetingOnlyTexml,
   buildInboundGreetingContinueUrl,
+  buildInstantGenericGreetingFirstPassResult,
   inboundGreetingPassDone,
   readInboundGreetingFirstPassEnabled,
   resolveCallerGreetingForDialPass,
@@ -43,6 +44,18 @@ describe("buildInboundCallerGreetingOnlyTexml", () => {
     expect(xml).toContain("zingGreet=1")
     expect(xml).not.toContain("<Dial")
     expect(xml.indexOf("<Say")).toBeLessThan(xml.indexOf("<Redirect"))
+  })
+})
+
+describe("buildInstantGenericGreetingFirstPassResult", () => {
+  it("returns Say and Redirect without Dial and uses prebuilt generic copy", () => {
+    const continueUrl = buildInboundGreetingContinueUrl("https://lyncr.app/api/voice/telnyx/incoming")
+    const out = buildInstantGenericGreetingFirstPassResult(continueUrl)
+    expect(out.xml).toContain("<Say ")
+    expect(out.xml).toContain("Thank you for calling.")
+    expect(out.xml).toContain("<Redirect")
+    expect(out.xml).toContain("zingGreet=1")
+    expect(out.xml).not.toContain("<Dial")
   })
 })
 
