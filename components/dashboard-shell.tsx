@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState, memo } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
+import { AppShell, type AccountHeaderState, type PageId, type PlatformAdminHeaderState } from "@/components/app-shell"
 import { DashboardChromeProvider } from "@/components/dashboard-shell-chrome-context"
 import { DashboardNumbersModalProvider } from "@/components/dashboard-numbers-modal-context"
 import { UpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
@@ -72,6 +72,8 @@ export function DashboardShell({
     hasActiveSubscription?: boolean
     answeredCallCustomerPopupEnabled?: boolean
     inboundReceptionistWhisperEnabled?: boolean
+    isPlatformAdmin?: boolean
+    masterToggleMode?: "tech" | "admin" | "passive"
   }
 }) {
   const clientPathname = usePathname()
@@ -159,6 +161,11 @@ export function DashboardShell({
     [sessionAccount, sessionBusinessName]
   )
 
+  const platformAdminHeader = useMemo((): PlatformAdminHeaderState | undefined => {
+    if (!sessionAccount?.isPlatformAdmin) return undefined
+    return { masterToggleMode: sessionAccount.masterToggleMode ?? "admin" }
+  }, [sessionAccount?.isPlatformAdmin, sessionAccount?.masterToggleMode])
+
   const dashboardSession = useMemo((): DashboardSessionSnapshot | null => {
     if (!sessionAccount) return null
     return {
@@ -167,6 +174,8 @@ export function DashboardShell({
       companyUserId: sessionAccount.companyUserId,
       answeredCallCustomerPopupEnabled: sessionAccount.answeredCallCustomerPopupEnabled,
       inboundReceptionistWhisperEnabled: sessionAccount.inboundReceptionistWhisperEnabled,
+      isPlatformAdmin: sessionAccount.isPlatformAdmin === true,
+      masterToggleMode: sessionAccount.isPlatformAdmin ? sessionAccount.masterToggleMode ?? "admin" : undefined,
     }
   }, [sessionAccount])
 
@@ -200,6 +209,7 @@ export function DashboardShell({
                     <AppShell
                       pathname={pathname}
                       accountHeader={accountHeader}
+                      platformAdminHeader={platformAdminHeader}
                       headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
                     >
                       <DashboardMainStreamGate activePage={activePage}>

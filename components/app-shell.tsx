@@ -36,8 +36,10 @@ import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { CommandDock } from "@/components/layout/command-dock"
 import { NotificationCenter } from "@/components/layout/notification-center"
+import { MasterProfileToggle } from "@/components/layout/master-profile-toggle"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
+import type { MasterToggleMode } from "@/lib/types"
 
 export type { PageId }
 
@@ -45,6 +47,11 @@ export type { PageId }
 export type AccountHeaderState =
   | { kind: "loading" }
   | { kind: "ready"; name: string; email: string; answeredCallCustomerPopupEnabled: boolean }
+
+/** Platform-admin-only header slot — omitted entirely for standard owners and staff. */
+export type PlatformAdminHeaderState = {
+  masterToggleMode: MasterToggleMode
+}
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -56,6 +63,7 @@ function initialsFromName(name: string): string {
 const AppShellHeader = memo(function AppShellHeader({
   useLinks,
   accountHeader,
+  platformAdminHeader,
   onNavigate,
   commandOpen,
   onCommandOpenChange,
@@ -63,6 +71,7 @@ const AppShellHeader = memo(function AppShellHeader({
 }: {
   useLinks: boolean
   accountHeader?: AccountHeaderState
+  platformAdminHeader?: PlatformAdminHeaderState
   onNavigate?: (page: PageId) => void
   commandOpen: boolean
   onCommandOpenChange: (open: boolean) => void
@@ -110,6 +119,9 @@ const AppShellHeader = memo(function AppShellHeader({
       )}
 
       <div className="flex shrink-0 items-center justify-self-end gap-1.5 sm:gap-2">
+        {platformAdminHeader ? (
+          <MasterProfileToggle initialMode={platformAdminHeader.masterToggleMode} />
+        ) : null}
         {useLinks && (
           <>
             <Button
@@ -231,12 +243,14 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
 function AppShellInner({
   pathname,
   accountHeader,
+  platformAdminHeader,
   onNavigate,
   headerCenter,
   children,
 }: {
   pathname?: string
   accountHeader?: AccountHeaderState
+  platformAdminHeader?: PlatformAdminHeaderState
   onNavigate?: (page: PageId) => void
   headerCenter?: ReactNode
   children: ReactNode
@@ -275,6 +289,7 @@ function AppShellInner({
         <AppShellHeader
           useLinks={useLinks}
           accountHeader={accountHeader}
+          platformAdminHeader={platformAdminHeader}
           onNavigate={onNavigate}
           commandOpen={commandOpen}
           onCommandOpenChange={handleCommandOpenChange}

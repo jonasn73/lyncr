@@ -89,9 +89,12 @@ export async function publishOwnerEvent(
 ): Promise<boolean> {
   const pusher = getPusherServer()
   if (!pusher) return false
+  const { prepareOwnerEventForDelivery } = await import("@/lib/master-toggle-dispatch")
+  const prepared = await prepareOwnerEventForDelivery(ownerId, event, payload)
+  if (!prepared.publish) return false
   const channel = `owner-${ownerId}`
   try {
-    await pusher.trigger(channel, event, payload)
+    await pusher.trigger(channel, event, prepared.payload)
     return true
   } catch (e) {
     console.error("[realtime] publishOwnerEvent failed:", e)

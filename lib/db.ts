@@ -19,6 +19,7 @@ import type {
   RoutingStrategy,
   Receptionist,
   User,
+  MasterToggleMode,
   CallLog,
   PhoneNumber,
   PortingNotification,
@@ -223,6 +224,17 @@ function isMissingBillingColumnsError(e: unknown): boolean {
     msg.includes("billing_plan") ||
     msg.includes("is_platform_admin")
   )
+}
+
+/** True when `users.master_toggle_mode` is missing (run scripts/079-master-toggle-mode.sql). */
+function isMissingMasterToggleModeColumnError(e: unknown): boolean {
+  return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("master_toggle_mode")
+}
+
+function parseMasterToggleMode(raw: unknown): MasterToggleMode {
+  const v = String(raw ?? "admin")
+  if (v === "tech" || v === "passive") return v
+  return "admin"
 }
 
 // Parse a routing_config row into a RoutingConfig object
@@ -1955,6 +1967,7 @@ function parseUserRow(row: Record<string, unknown>): User {
     billing_plan: row.billing_plan != null && row.billing_plan !== undefined ? String(row.billing_plan) : "trial",
     is_platform_admin:
       row.is_platform_admin === null || row.is_platform_admin === undefined ? false : pgBool(row.is_platform_admin),
+    master_toggle_mode: parseMasterToggleMode(row.master_toggle_mode),
     answered_call_customer_popup_enabled:
       row.answered_call_customer_popup_enabled === null || row.answered_call_customer_popup_enabled === undefined
         ? true
@@ -2677,11 +2690,36 @@ export async function getUser(userId: string): Promise<User | null> {
     const rows = await sql`
       SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
         credit_balance_cents, billing_plan, is_platform_admin,
-        answered_call_customer_popup_enabled, account_role
+        answered_call_customer_popup_enabled, account_role, master_toggle_mode
       FROM users WHERE id = ${userId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
-  } catch (e) {
+  } catch (initialErr) {
+    let e: unknown = initialErr
+    if (isMissingMasterToggleModeColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin,
+            answered_call_customer_popup_enabled, account_role
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        if (isMissingAccountRoleColumnError(e2)) {
+          e = e2
+        } else if (
+          pgErrorCode(e2) === "42703" &&
+          pgErrorMessage(e2).includes("answered_call_customer_popup_enabled")
+        ) {
+          e = e2
+        } else if (isMissingBillingColumnsError(e2)) {
+          return getUserWithoutBillingColumnsInSelect(userId)
+        } else {
+          throw e2
+        }
+      }
+    }
     if (isMissingAccountRoleColumnError(e)) {
       try {
         const rows = await sql`
@@ -2772,6 +2810,19 @@ export async function getUser(userId: string): Promise<User | null> {
         `
         return rows[0] ? parseUserRow(rows[0]) : null
       }
+    }
+    throw e
+  }
+}
+
+/** Persist platform-owner quick-toggle profile (admin-only UI). */
+export async function updateMasterToggleMode(userId: string, mode: MasterToggleMode): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`UPDATE users SET master_toggle_mode = ${mode} WHERE id = ${userId}`
+  } catch (e) {
+    if (isMissingMasterToggleModeColumnError(e)) {
+      throw new Error("master_toggle_mode requires scripts/079-master-toggle-mode.sql in Neon.")
     }
     throw e
   }

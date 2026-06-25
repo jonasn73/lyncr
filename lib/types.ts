@@ -5,6 +5,12 @@
 // --- Users (Business Owners) ---
 export type AccountRole = "owner" | "receptionist" | "field_tech"
 
+/** Platform owner quick-toggle profile — admin-only notification filtering. */
+export type MasterToggleMode = "tech" | "admin" | "passive"
+
+/** Client/server flag on Pusher payloads for platform-admin delivery mode. */
+export type MasterToggleDelivery = "noisy" | "silent" | "severe"
+
 export interface User {
   id: string
   email: string
@@ -27,6 +33,8 @@ export interface User {
   billing_plan: string
   /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */
   is_platform_admin: boolean
+  /** Admin-only notification profile (`079-master-toggle-mode.sql`). Defaults to admin when unset. */
+  master_toggle_mode?: MasterToggleMode
   /** When false, do not show the answered-call customer sheet (requires `023-user-answered-call-popup-toggle.sql`). */
   answered_call_customer_popup_enabled: boolean
 }

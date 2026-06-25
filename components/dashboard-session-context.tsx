@@ -9,6 +9,9 @@ export type DashboardSessionSnapshot = {
   companyUserId?: string
   answeredCallCustomerPopupEnabled?: boolean
   inboundReceptionistWhisperEnabled?: boolean
+  /** Present only when the signed-in user has is_platform_admin = true. */
+  isPlatformAdmin?: boolean
+  masterToggleMode?: "tech" | "admin" | "passive"
 }
 
 const DashboardSessionContext = createContext<DashboardSessionSnapshot | null>(null)

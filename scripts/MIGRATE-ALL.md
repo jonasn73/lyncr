@@ -81,6 +81,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 76 | `076-unassigned-job-pool.sql` | **Unassigned Job Pool (Hopper).** Index on unassigned active jobs + backfills **`dispatch_status = 'unassigned_pool'`** for BOOKED/PENDING_TIME rows with no tech. **Required** for `/api/owner/jobs/pool` and tech claim; app sets the flag on new saves even before this runs. |
 | 77 | `077-porting-notifications-organization.sql` | **Porting webhook workspace scope.** Adds **`porting_notifications.organization_id`** so carrier transfer desk alerts (PIN exceptions, etc.) stay isolated per business workspace. **Recommended** for multi-org owners. |
 | 78 | `078-field-technicians-organization.sql` | **Field tech workspace scope.** Adds **`field_technicians.organization_id`** so the Team roster and scheduler only show technicians for the active business (Key Squad vs Fresh Auto, etc.). Backfills existing rows to each owner's default org. **Required** for multi-org owners. After running, use the **Business** dropdown on Team → Field Technicians to move misplaced techs. |
+| 79 | `079-master-toggle-mode.sql` | **Platform owner quick-toggle profile.** Adds **`users.master_toggle_mode`** (`tech` \| `admin` \| `passive`, default `admin`) for **`is_platform_admin`** notification filtering. **Required** for the header toggle and admin alert modes. |
 
 ## Platform admin (`admin@lyncr.app`)
 

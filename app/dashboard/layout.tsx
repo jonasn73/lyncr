@@ -120,6 +120,12 @@ export default async function DashboardLayout({
           hasActiveSubscription: user.has_active_subscription === true,
           answeredCallCustomerPopupEnabled: user.answered_call_customer_popup_enabled !== false,
           inboundReceptionistWhisperEnabled: user.inbound_receptionist_whisper_enabled !== false,
+          ...(user.is_platform_admin
+            ? {
+                isPlatformAdmin: true as const,
+                masterToggleMode: user.master_toggle_mode ?? "admin",
+              }
+            : {}),
         }}
       >
         <Suspense fallback={null}>

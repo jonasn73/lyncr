@@ -32,6 +32,8 @@ import {
 import { DispatchJobsPanel } from "@/components/workspace-views/dispatch-jobs-panel"
 import dynamic from "next/dynamic"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+import { shouldPlayOwnerNoisyAlert } from "@/lib/master-toggle-client"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import {
   buildBusinessLineLabelMap,
@@ -93,8 +95,40 @@ type BookingAlert = { id: string; caller: string | null; summary: string | null;
 /** Poll for newly-BOOKED operator jobs and fire a toast + audio ping for each. */
 function useBookingAlerts() {
   const { toast } = useToast()
+  const session = useDashboardSessionOptional()
+  const [noisyAlerts, setNoisyAlerts] = useState(() =>
+    shouldPlayOwnerNoisyAlert({
+      is_platform_admin: session?.isPlatformAdmin,
+      master_toggle_mode: session?.masterToggleMode,
+    })
+  )
   const sinceRef = useRef<string>(new Date().toISOString())
   const seenRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    setNoisyAlerts(
+      shouldPlayOwnerNoisyAlert({
+        is_platform_admin: session?.isPlatformAdmin,
+        master_toggle_mode: session?.masterToggleMode,
+      })
+    )
+  }, [session?.isPlatformAdmin, session?.masterToggleMode])
+
+  useEffect(() => {
+    const onToggle = (e: Event) => {
+      const mode = (e as CustomEvent<{ mode?: string }>).detail?.mode
+      if (mode === "tech" || mode === "admin" || mode === "passive") {
+        setNoisyAlerts(
+          shouldPlayOwnerNoisyAlert({
+            is_platform_admin: true,
+            master_toggle_mode: mode,
+          })
+        )
+      }
+    }
+    window.addEventListener("zing-master-toggle-mode-changed", onToggle)
+    return () => window.removeEventListener("zing-master-toggle-mode-changed", onToggle)
+  }, [])
 
   useEffect(() => {
     let stopped = false
@@ -109,11 +143,13 @@ function useBookingAlerts() {
         for (const b of json.data?.bookings ?? []) {
           if (seenRef.current.has(b.id)) continue
           seenRef.current.add(b.id)
-          playBookingPing()
-          toast({
-            title: "New booking confirmed",
-            description: `${formatCallerNumber(b.caller)}${b.summary ? ` — ${b.summary}` : ""}`,
-          })
+          if (noisyAlerts) {
+            playBookingPing()
+            toast({
+              title: "New booking confirmed",
+              description: `${formatCallerNumber(b.caller)}${b.summary ? ` — ${b.summary}` : ""}`,
+            })
+          }
         }
         if (json.data?.now) sinceRef.current = json.data.now
       } catch {
@@ -128,7 +164,7 @@ function useBookingAlerts() {
       stopped = true
       window.clearInterval(timer)
     }
-  }, [toast])
+  }, [toast, noisyAlerts])
 }
 
 /** e.g. "Today, 4:15 PM" or "May 25, 2:30 PM" */

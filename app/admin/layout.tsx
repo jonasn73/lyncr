@@ -17,7 +17,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   const displayName = user.name?.trim() || user.email
   return (
-    <AdminChrome userName={displayName} userEmail={user.email}>
+    <AdminChrome
+      userName={displayName}
+      userEmail={user.email}
+      masterToggleMode={user.is_platform_admin ? user.master_toggle_mode ?? "admin" : undefined}
+    >
       <AdminAccessGuard>{children}</AdminAccessGuard>
     </AdminChrome>
   )

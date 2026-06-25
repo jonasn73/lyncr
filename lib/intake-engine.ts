@@ -8,6 +8,7 @@ import {
 } from "@/lib/db"
 import { buildLeadAlertSmsText } from "@/lib/lead-sms-alert"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
+import { shouldSendLeadSmsForPlatformAdmin } from "@/lib/master-toggle-dispatch"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
 /** US 555-01xx numbers are reserved for fiction — Telnyx cannot deliver SMS to them. */
@@ -56,6 +57,20 @@ async function maybeDispatchLeadSmsAlert(params: {
   ])
 
   if (!profile?.sms_leads_enabled) {
+    return {
+      sms_sent: false,
+      sms_error: null,
+      telnyx_message_id: null,
+      sms_from: null,
+      sms_to: null,
+    }
+  }
+
+  if (user && !shouldSendLeadSmsForPlatformAdmin(user)) {
+    console.info("[master-toggle] suppressed lead SMS for platform admin", {
+      userId: params.userId,
+      mode: user.master_toggle_mode ?? "admin",
+    })
     return {
       sms_sent: false,
       sms_error: null,

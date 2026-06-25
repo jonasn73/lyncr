@@ -79,13 +79,17 @@ export async function GET(req: NextRequest) {
     const returnRaw = cookieStore.get(IMPERSONATION_RETURN_COOKIE)?.value
 
     const globalFields = globalPlatformSessionFields(user)
-    const res = NextResponse.json({
-      data: {
-        user: {
-          ...user,
+    const { master_toggle_mode: _omitToggle, ...userWithoutToggle } = user
+    const sessionUser = user.is_platform_admin
+      ? { ...user, operator_access: globalFields.isPlatformAdmin, ...globalFields }
+      : {
+          ...userWithoutToggle,
           operator_access: globalFields.isPlatformAdmin,
           ...globalFields,
-        },
+        }
+    const res = NextResponse.json({
+      data: {
+        user: sessionUser,
         impersonation: impersonatingAdminId
           ? {
               active: true,
