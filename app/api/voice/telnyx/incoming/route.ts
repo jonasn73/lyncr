@@ -15,10 +15,12 @@ import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { SITE_NAME } from "@/lib/brand"
 import { texmlSayNatural } from "@/lib/texml-say-voice"
 import {
+  buildInboundGreetingFirstPassResult,
   inboundGreetingPassDone,
   resolveCallerGreetingForDialPass,
   resolveWorkspaceDisplayName,
   shouldPlayCallerRingbackDuringDial,
+  shouldPlayInboundGreetingFirstPass,
 } from "@/lib/inbound-branded-greeting"
 import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import {
@@ -773,6 +775,10 @@ async function handleIncomingCall(
 
     const greetingPassDone = inboundCtx?.greetingPassDone ?? false
 
+    if (shouldPlayInboundGreetingFirstPass(greetingPassDone) && inboundCtx?.incomingUrl) {
+      return buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
+    }
+
     const adminOverrideDial = tryAdminRoutingOverrideDial({
       routing,
       businessLineE164,
@@ -1375,6 +1381,14 @@ async function tryFastInboundReceptionistResponse(
   }
 
   const greetingPassDone = inboundCtx?.greetingPassDone ?? false
+
+  // Safety net when Edge/middleware miss pass 1 — never `<Dial>` (ringback) before the greeting.
+  if (shouldPlayInboundGreetingFirstPass(greetingPassDone) && inboundCtx?.incomingUrl) {
+    const greetingPass = buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
+    return new NextResponse(texmlResponseBody(greetingPass), {
+      headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
+    })
+  }
 
   const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
   const callSid = callSidRaw.trim() || `zing-${randomUUID()}`

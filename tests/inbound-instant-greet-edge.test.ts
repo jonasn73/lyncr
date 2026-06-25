@@ -25,17 +25,30 @@ describe("shouldEdgeInstantGreetingIntercept", () => {
 })
 
 describe("buildEdgeInstantGreetingTexml", () => {
-  it("returns Play then Redirect without Dial (faster than TTS Say)", () => {
-    const requestUrl = "https://lyncr.app/api/voice/telnyx/greet"
-    const continueUrl = buildEdgeInboundGreetingContinueUrl(requestUrl)
-    const xml = buildEdgeInstantGreetingTexml(continueUrl, requestUrl)
-    expect(xml).toContain("<Play>")
-    expect(xml).toContain("/audio/inbound-generic-greeting.wav")
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("returns Say then Redirect without Dial (Telnyx answers locally — no Play fetch delay)", () => {
+    const continueUrl = buildEdgeInboundGreetingContinueUrl("https://lyncr.app/api/voice/telnyx/greet")
+    const xml = buildEdgeInstantGreetingTexml(continueUrl)
+    expect(xml).toContain("<Say ")
+    expect(xml).toContain("Polly.Joanna")
+    expect(xml).toContain("Thank you for calling.")
     expect(xml).toContain("<Redirect")
     expect(continueUrl).toContain("/api/voice/telnyx/incoming")
     expect(continueUrl).toContain("zingGreet=1")
     expect(edgeInboundGreetingPassDone(new URL(continueUrl))).toBe(true)
     expect(xml).not.toContain("<Dial")
+    expect(xml).not.toContain("<Play")
+  })
+
+  it("uses Play only when ZING_INBOUND_INSTANT_GREETING_AUDIO_URL is set", () => {
+    vi.stubEnv("ZING_INBOUND_INSTANT_GREETING_AUDIO_URL", "https://cdn.example.com/greet.mp3")
+    const continueUrl = buildEdgeInboundGreetingContinueUrl("https://lyncr.app/api/voice/telnyx/greet")
+    const xml = buildEdgeInstantGreetingTexml(continueUrl)
+    expect(xml).toContain("<Play>")
+    expect(xml).toContain("https://cdn.example.com/greet.mp3")
     expect(xml).not.toContain("<Say")
   })
 })

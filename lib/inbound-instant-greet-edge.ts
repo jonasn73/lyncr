@@ -4,10 +4,11 @@
 export const EDGE_GENERIC_GREETING_TEXT =
   "Thank you for calling. Please wait while we connect your call to a team member."
 
-/** Pre-recorded greeting WAV in /public — `<Play>` starts faster than neural `<Say>` TTS. */
+/** Optional hosted WAV in /public — only when `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL` points here. */
 export const INBOUND_GENERIC_GREETING_AUDIO_PATH = "/audio/inbound-generic-greeting.wav"
 
-const DEFAULT_SAY_VOICE = "Polly.Joanna-Neural"
+/** Standard Polly on pass 1 — answers on Telnyx immediately (no HTTP fetch like `<Play>`). */
+const EDGE_PASS1_SAY_VOICE = "Polly.Joanna"
 const DEFAULT_SAY_LANGUAGE = "en-US"
 
 export function isVoiceIncomingWebhookPath(pathname: string): boolean {
@@ -45,21 +46,13 @@ export function buildEdgeInboundGreetingContinueUrl(requestUrl: string): string 
   return url.toString()
 }
 
-/** Hosted WAV on the app origin, or env override — preferred over TTS for instant first audio. */
-export function resolveEdgeInstantGreetingAudioUrl(requestUrl: string): string | null {
-  const envUrl = edgeInboundInstantGreetingAudioUrl()
-  if (envUrl) return envUrl
-  try {
-    return `${new URL(requestUrl).origin}${INBOUND_GENERIC_GREETING_AUDIO_PATH}`
-  } catch {
-    return null
-  }
-}
-
-/** Prebuilt TeXML returned from Edge — `<Play>` pre-recorded audio, then redirect to routing pass 2. */
-export function buildEdgeInstantGreetingTexml(continueUrl: string, requestUrl?: string): string {
+/**
+ * Pass 1 uses `<Say>` by default — Telnyx answers locally without fetching audio over HTTP.
+ * `<Play>` only when `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL` is set (extra fetch = ring before audio).
+ */
+export function buildEdgeInstantGreetingTexml(continueUrl: string): string {
   const safeContinue = escapeXmlAttr(continueUrl)
-  const audioUrl = requestUrl ? resolveEdgeInstantGreetingAudioUrl(requestUrl) : edgeInboundInstantGreetingAudioUrl()
+  const audioUrl = edgeInboundInstantGreetingAudioUrl()
   if (audioUrl) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -67,11 +60,10 @@ export function buildEdgeInstantGreetingTexml(continueUrl: string, requestUrl?: 
   <Redirect method="POST">${safeContinue}</Redirect>
 </Response>`
   }
-  const voice = (process.env.ZING_TEXML_SAY_VOICE || DEFAULT_SAY_VOICE).trim() || DEFAULT_SAY_VOICE
   const language = (process.env.ZING_TEXML_SAY_LANGUAGE || DEFAULT_SAY_LANGUAGE).trim() || DEFAULT_SAY_LANGUAGE
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${escapeXmlAttr(voice)}" language="${escapeXmlAttr(language)}">${escapeXmlText(EDGE_GENERIC_GREETING_TEXT)}</Say>
+  <Say voice="${escapeXmlAttr(EDGE_PASS1_SAY_VOICE)}" language="${escapeXmlAttr(language)}">${escapeXmlText(EDGE_GENERIC_GREETING_TEXT)}</Say>
   <Redirect method="POST">${safeContinue}</Redirect>
 </Response>`
 }

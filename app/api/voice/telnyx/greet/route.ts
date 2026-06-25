@@ -9,7 +9,7 @@ export const runtime = "edge"
 
 function instantGreetingResponse(req: NextRequest): NextResponse {
   const continueUrl = buildEdgeInboundGreetingContinueUrl(req.url)
-  const xml = buildEdgeInstantGreetingTexml(continueUrl, req.url)
+  const xml = buildEdgeInstantGreetingTexml(continueUrl)
   return new NextResponse(xml, {
     status: 200,
     headers: {
