@@ -27,6 +27,13 @@ function failureDetailText(view: SmsComplianceView): string {
 
 function detailLooksLikeFailure(detail: string): boolean {
   const blob = detail.toLowerCase()
+  if (
+    blob.includes("pending or failed status") ||
+    blob.includes("brand in pending") ||
+    blob.includes("brand is still being verified")
+  ) {
+    return false
+  }
   return (
     blob.includes("registration failed") ||
     blob.includes("cannot associate campaign") ||

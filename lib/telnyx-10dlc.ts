@@ -193,10 +193,42 @@ export type TenDlcRegistryStatus = {
 
 function normalizeRegistryStatus(raw: string): TenDlcRegistryStatus["normalized"] {
   const s = raw.toUpperCase()
-  if (["ACTIVE", "APPROVED", "REGISTERED", "VERIFIED", "VETTED_VERIFIED"].includes(s)) return "approved"
-  if (["FAILED", "REJECTED", "EXPIRED", "SUSPENDED", "DECLINED"].includes(s)) return "rejected"
-  if (["PENDING", "REVIEW", "IN_PROGRESS", "SUBMITTED", "UNVERIFIED"].includes(s)) return "pending_review"
+  if (["ACTIVE", "APPROVED", "REGISTERED", "VERIFIED", "VETTED_VERIFIED", "SELF_DECLARED"].includes(s))
+    return "approved"
+  if (["FAILED", "REJECTED", "EXPIRED", "SUSPENDED", "DECLINED", "UNVERIFIED"].includes(s)) return "rejected"
+  if (["PENDING", "REVIEW", "IN_PROGRESS", "SUBMITTED", "REGISTRATION_PENDING"].includes(s))
+    return "pending_review"
   return "unknown"
+}
+
+/** True when Telnyx rejected campaign creation because the brand is not ready yet. */
+export function isTelnyxBrandNotReadyForCampaignError(message: string): boolean {
+  const blob = message.toLowerCase()
+  return (
+    blob.includes("pending or failed status") ||
+    blob.includes("brand in pending") ||
+    blob.includes("brand is not verified") ||
+    blob.includes("brand not verified")
+  )
+}
+
+/** GET /10dlc/brand/{id} — current TCR identity verification status. */
+export async function getTelnyx10DlcBrandStatus(brandId: string): Promise<TenDlcRegistryStatus | null> {
+  try {
+    getTelnyxApiKey()
+  } catch {
+    return null
+  }
+  const res = await fetch(`${TELNYX_BASE}/10dlc/brand/${encodeURIComponent(brandId)}`, {
+    headers: telnyxHeaders(),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    return { raw: "ERROR", normalized: "unknown", detail: telnyxErrorDetail(json, "Brand status lookup failed.") }
+  }
+  const data = (json as { data?: Record<string, unknown> }).data ?? (json as Record<string, unknown>)
+  const raw = String(data.identityStatus ?? data.status ?? "UNKNOWN")
+  return { raw, normalized: normalizeRegistryStatus(raw), detail: null }
 }
 
 /** GET /10dlc/campaign/{id} — current registry status of a campaign. */

@@ -14,9 +14,11 @@ import {
   tenDlcUseCaseMeta,
   createTelnyx10DlcBrand,
   createTelnyx10DlcCampaign,
+  getTelnyx10DlcBrandStatus,
   getTelnyx10DlcCampaignStatus,
   assignNumberToTelnyx10DlcCampaign,
   getTelnyx10DlcRegistrationFeeCents,
+  isTelnyxBrandNotReadyForCampaignError,
   type TenDlcUseCaseKey,
 } from "@/lib/telnyx-10dlc"
 import { getStripeClient } from "@/lib/stripe-config"
@@ -86,6 +88,41 @@ export function defaultCampaignCopy(displayName: string): {
 
 const SUBMITTED_TO_CARRIER_STATUSES = new Set(["paid", "submitted", "pending_review"])
 
+const BRAND_WAIT_DETAIL =
+  "Brand submitted to US carriers. Campaign registration will complete automatically once your brand is verified (usually 1–3 business days)."
+
+async function saveBrandAwaitingVerification(
+  userId: string,
+  organizationId: string | null | undefined,
+  brandId: string,
+  detail?: string
+) {
+  return upsert10(userId, organizationId, {
+    brand_id: brandId,
+    status: "pending_review",
+    status_detail: detail?.trim() || BRAND_WAIT_DETAIL,
+  })
+}
+
+/** Rows marked failed because campaign ran before brand verification — restore to pending review. */
+async function repairMisclassified10DlcFailure(
+  userId: string,
+  reg: Messaging10DlcRegistration
+): Promise<Messaging10DlcRegistration> {
+  if (
+    reg.status === "failed" &&
+    reg.status_detail &&
+    isTelnyxBrandNotReadyForCampaignError(reg.status_detail) &&
+    reg.brand_id
+  ) {
+    return upsert10(userId, reg.organization_id, {
+      status: "pending_review",
+      status_detail: BRAND_WAIT_DETAIL,
+    })
+  }
+  return reg
+}
+
 async function upsert10(
   userId: string,
   organizationId: string | null | undefined,
@@ -106,8 +143,9 @@ export async function ensureMessaging10DlcSubmittedToCarrier(
   userId: string,
   organizationId?: string | null
 ): Promise<TenDlcActionResult | null> {
-  const reg = await getMessaging10DlcRegistration(userId, organizationId)
+  let reg = await getMessaging10DlcRegistration(userId, organizationId)
   if (!reg) return null
+  reg = await repairMisclassified10DlcFailure(userId, reg)
   const orgId = organizationId ?? reg.organization_id ?? null
   if (reg.campaign_id?.trim()) return { ok: true, registration: reg }
   if (!SUBMITTED_TO_CARRIER_STATUSES.has(reg.status ?? "")) return { ok: true, registration: reg }
@@ -218,16 +256,17 @@ export async function createMessaging10DlcCheckout(
 }
 
 /**
- * After payment confirms, submit the brand + campaign to Telnyx/TCR.
- * Idempotent: skips brand/campaign creation if already present.
+ * Submit brand to Telnyx/TCR, then campaign only after the brand is verified.
+ * TCR rejects campaign creation while the brand is still pending review.
  */
 export async function submitMessaging10DlcToTelnyx(
   userId: string,
   organizationId?: string | null
 ): Promise<TenDlcActionResult> {
   const orgId = organizationId ?? undefined
-  const reg = await getMessaging10DlcRegistration(userId, orgId)
+  let reg = await getMessaging10DlcRegistration(userId, orgId)
   if (!reg) return { ok: false, error: "No registration found." }
+  reg = await repairMisclassified10DlcFailure(userId, reg)
   const meta = tenDlcUseCaseMeta(reg.use_case)
   if (!meta) return { ok: false, error: "Invalid registration type." }
 
@@ -238,10 +277,9 @@ export async function submitMessaging10DlcToTelnyx(
   const sample2 = reg.sample_message_2?.trim() || copy.sample2
   const messageFlow = reg.message_flow?.trim() || copy.messageFlow
   const resolvedOrgId = orgId ?? reg.organization_id ?? null
+  const reuseBlocked = reg.status === "failed" || reg.status === "rejected"
 
-  // 1) Brand — skip stale ids left over from a failed attempt
-  let brandId =
-    reg.status === "failed" || reg.status === "rejected" ? null : reg.brand_id
+  let brandId = reuseBlocked ? null : reg.brand_id
   if (!brandId) {
     const brand = await createTelnyx10DlcBrand({
       entityType: meta.entityType,
@@ -271,9 +309,21 @@ export async function submitMessaging10DlcToTelnyx(
     await upsert10(userId, resolvedOrgId, { brand_id: brandId })
   }
 
-  // 2) Campaign — never reuse a campaign slot when the brand was reset
-  let campaignId =
-    reg.status === "failed" || reg.status === "rejected" ? null : reg.campaign_id
+  const brandStatus = await getTelnyx10DlcBrandStatus(brandId)
+  if (brandStatus?.normalized === "rejected") {
+    const failed = await upsert10(userId, resolvedOrgId, {
+      brand_id: brandId,
+      status: "failed",
+      status_detail: `Brand verification failed (${brandStatus.raw}). Update your business details and resubmit.`,
+    })
+    return { ok: true, registration: failed }
+  }
+  if (brandStatus?.normalized !== "approved") {
+    const waiting = await saveBrandAwaitingVerification(userId, resolvedOrgId, brandId)
+    return { ok: true, registration: waiting }
+  }
+
+  let campaignId = reuseBlocked ? null : reg.campaign_id
   if (!campaignId) {
     const campaign = await createTelnyx10DlcCampaign({
       brandId,
@@ -284,7 +334,17 @@ export async function submitMessaging10DlcToTelnyx(
       messageFlow,
     })
     if (!campaign.ok) {
+      if (isTelnyxBrandNotReadyForCampaignError(campaign.error)) {
+        const waiting = await saveBrandAwaitingVerification(
+          userId,
+          resolvedOrgId,
+          brandId,
+          "Brand is still being verified at the carrier. Campaign registration will continue automatically once verification completes."
+        )
+        return { ok: true, registration: waiting }
+      }
       const failed = await upsert10(userId, resolvedOrgId, {
+        brand_id: brandId,
         status: "failed",
         status_detail: `Campaign registration failed: ${campaign.error}`,
       })

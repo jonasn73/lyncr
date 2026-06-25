@@ -16,6 +16,7 @@ import {
   type SmsRegistrationFormInput,
 } from "@/lib/sms-registration-constants"
 import { defaultCampaignCopy, submitMessaging10DlcToTelnyx } from "@/lib/messaging-10dlc"
+import { isTelnyxBrandNotReadyForCampaignError } from "@/lib/telnyx-10dlc"
 import type { SmsRegistration, SmsRegistrationOrgStatus } from "@/lib/types"
 
 export type { SmsRegistrationFormInput } from "@/lib/sms-registration-constants"
@@ -24,6 +25,25 @@ export type { SmsRegistrationFormInput } from "@/lib/sms-registration-constants"
 async function prepare10DlcResubmit(ownerUserId: string, orgUuid: string): Promise<void> {
   const telnyx = await getMessaging10DlcRegistration(ownerUserId, orgUuid)
   if (!telnyx) return
+
+  if (
+    telnyx.status === "failed" &&
+    telnyx.status_detail &&
+    isTelnyxBrandNotReadyForCampaignError(telnyx.status_detail) &&
+    telnyx.brand_id
+  ) {
+    await upsertMessaging10DlcRegistration(
+      ownerUserId,
+      {
+        status: "pending_review",
+        status_detail:
+          "Brand submitted to US carriers. Campaign registration will complete automatically once your brand is verified (usually 1–3 business days).",
+      },
+      orgUuid
+    )
+    return
+  }
+
   const stale = telnyx.status === "failed" || telnyx.status === "rejected"
   if (!stale) return
   await upsertMessaging10DlcRegistration(
