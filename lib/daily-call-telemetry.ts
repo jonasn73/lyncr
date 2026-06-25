@@ -1,5 +1,13 @@
 // Daily call HUD metrics — formatting helpers shared by API + dashboard strip.
 
+/** Format seconds as mm:ss for short HUD pills (daily talk). */
+export function formatTalkTime(totalSeconds: number): string {
+  const total = Math.max(0, Math.round(totalSeconds))
+  const mins = Math.floor(total / 60)
+  const secs = total % 60
+  return `${mins}:${secs < 10 ? "0" : ""}${secs}`
+}
+
 /** Format seconds as mm:ss for short HUD pills. */
 export function formatAvgTalkTime(seconds: number): string {
   return formatTalkDuration(seconds)
