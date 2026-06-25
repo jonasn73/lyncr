@@ -72,7 +72,7 @@ const AppShellHeader = memo(function AppShellHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b px-3 py-3 sm:px-5 sm:py-3.5",
+        "sticky top-0 z-40 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b px-2.5 py-2.5 sm:grid-cols-[1fr_auto_1fr] sm:gap-2 sm:px-5 sm:py-3.5",
         SHELL_ACRYLIC_SURFACE
       )}
     >
@@ -104,7 +104,9 @@ const AppShellHeader = memo(function AppShellHeader({
       </div>
 
       {headerCenter ? (
-        <div className="flex min-w-0 justify-center justify-self-center px-2">{headerCenter}</div>
+        <div className="flex min-w-0 max-w-[11.5rem] justify-center justify-self-center px-1 sm:max-w-none sm:px-2">
+          {headerCenter}
+        </div>
       ) : (
         <div aria-hidden />
       )}
@@ -157,7 +159,7 @@ const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { nam
             <span className="w-full truncate text-xs font-medium text-foreground">{name}</span>
             <span className="w-full truncate text-[10px] text-muted-foreground">{email}</span>
           </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -268,7 +270,7 @@ function AppShellInner({
     <div className="flex h-dvh max-h-dvh overflow-hidden bg-background">
       <CommandDock useLinks={useLinks} onNavigate={onNavigate} />
 
-      <div className="flex min-w-0 flex-1 flex-col pl-[4.25rem]">
+      <div className="flex min-w-0 flex-1 flex-col pl-0 md:pl-[4.25rem]">
         <AppShellHeader
           useLinks={useLinks}
           accountHeader={accountHeader}
@@ -282,7 +284,8 @@ function AppShellInner({
           ref={mainRef}
           className={cn(
             "min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "bg-gradient-to-b from-background to-muted/15"
+            "bg-gradient-to-b from-background to-muted/15",
+            "pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0"
           )}
         >
           {children}

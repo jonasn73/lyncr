@@ -79,7 +79,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
 
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+      <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
         <DashboardRoutingSidebar
           activeLineDisplay={activeLineDisplay}
           routingStrategy={routingStrategy}

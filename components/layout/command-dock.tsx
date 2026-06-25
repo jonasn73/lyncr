@@ -1,24 +1,27 @@
 "use client"
 
 import Link from "next/link"
-import { memo, useLayoutEffect, useRef, useState } from "react"
+import { memo, useLayoutEffect, useRef, useState, type MutableRefObject, type RefObject } from "react"
 import { cn } from "@/lib/utils"
 import { DASHBOARD_PAGE_HREF, dashboardNavItems, type PageId } from "@/lib/dashboard-nav"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import { COMMAND_DOCK_ACCENT, SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 
-const CommandDockInner = memo(function CommandDockInner({
-  activePage,
-  useLinks,
-  onNavigate,
-}: {
-  activePage: PageId
-  useLinks: boolean
-  onNavigate?: (page: PageId) => void
-}) {
-  const navRef = useRef<HTMLElement>(null)
-  const itemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
-  const [indicator, setIndicator] = useState({ top: 0, height: 44, visible: true })
+type DockOrientation = "vertical" | "horizontal"
+
+type DockIndicator = {
+  offset: number
+  size: number
+  visible: boolean
+}
+
+function useDockIndicator(
+  navRef: RefObject<HTMLElement | null>,
+  itemRefs: MutableRefObject<(HTMLAnchorElement | HTMLButtonElement | null)[]>,
+  activePage: PageId,
+  orientation: DockOrientation
+) {
+  const [indicator, setIndicator] = useState<DockIndicator>({ offset: 0, size: 44, visible: true })
 
   useLayoutEffect(() => {
     const idx = dashboardNavItems.findIndex((item) => item.id === activePage)
@@ -30,61 +33,96 @@ const CommandDockInner = memo(function CommandDockInner({
     }
     const navRect = nav.getBoundingClientRect()
     const elRect = el.getBoundingClientRect()
+    if (orientation === "vertical") {
+      setIndicator({
+        offset: elRect.top - navRect.top,
+        size: elRect.height,
+        visible: true,
+      })
+      return
+    }
     setIndicator({
-      top: elRect.top - navRect.top,
-      height: elRect.height,
+      offset: elRect.left - navRect.left,
+      size: elRect.width,
       visible: true,
     })
-  }, [activePage])
+  }, [activePage, itemRefs, navRef, orientation])
+
+  return indicator
+}
+
+const DockNavItems = memo(function DockNavItems({
+  activePage,
+  useLinks,
+  onNavigate,
+  orientation,
+  navRef,
+  itemRefs,
+}: {
+  activePage: PageId
+  useLinks: boolean
+  onNavigate?: (page: PageId) => void
+  orientation: DockOrientation
+  navRef: RefObject<HTMLElement | null>
+  itemRefs: MutableRefObject<(HTMLAnchorElement | HTMLButtonElement | null)[]>
+}) {
+  const isVertical = orientation === "vertical"
+  const indicator = useDockIndicator(navRef, itemRefs, activePage, orientation)
 
   return (
-    <aside
-      className={cn(
-        "fixed inset-y-0 left-0 z-50 flex w-[4.25rem] flex-col border-r",
-        SHELL_ACRYLIC_SURFACE
-      )}
-      aria-label="Command dock"
-    >
-      <nav
-        ref={navRef}
-        className="relative flex flex-1 flex-col items-center gap-1.5 px-2 py-4"
-        role="navigation"
-        aria-label="Main navigation"
-      >
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute left-0 w-0.5 rounded-full transition-[transform,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            COMMAND_DOCK_ACCENT,
-            indicator.visible ? "opacity-100" : "opacity-0"
-          )}
-          style={{
-            transform: `translateY(${indicator.top}px)`,
-            height: indicator.height,
-          }}
-        />
+    <>
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute rounded-full transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          COMMAND_DOCK_ACCENT,
+          isVertical ? "left-0 w-0.5" : "top-0 h-0.5",
+          indicator.visible ? "opacity-100" : "opacity-0"
+        )}
+        style={
+          isVertical
+            ? { transform: `translateY(${indicator.offset}px)`, height: indicator.size }
+            : { transform: `translateX(${indicator.offset}px)`, width: indicator.size }
+        }
+      />
 
-        {dashboardNavItems.map((item, index) => {
-          const Icon = item.icon
-          const isActive = activePage === item.id
-          const className = cn(
-            "group relative flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl",
-            "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
-            "motion-safe:active:scale-[0.96]",
-            isActive
-              ? "bg-primary/12 text-primary"
-              : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-          )
-          const inner = (
-            <>
-              <Icon
-                className={cn(
-                  "h-[1.35rem] w-[1.35rem] transition-transform duration-200",
-                  isActive && "scale-105"
-                )}
-                aria-hidden
-              />
+      {dashboardNavItems.map((item, index) => {
+        const Icon = item.icon
+        const isActive = activePage === item.id
+        const className = cn(
+          "group relative flex shrink-0 items-center justify-center rounded-xl",
+          "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
+          "motion-safe:active:scale-[0.96]",
+          isVertical
+            ? "h-11 w-11 flex-col"
+            : "min-w-0 flex-1 flex-col gap-0.5 rounded-lg py-1.5",
+          isActive
+            ? "bg-primary/12 text-primary"
+            : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+        )
+        const inner = (
+          <>
+            <Icon
+              className={cn(
+                "shrink-0 transition-transform duration-200",
+                isVertical ? "h-[1.35rem] w-[1.35rem]" : "h-5 w-5",
+                isActive && "scale-105"
+              )}
+              aria-hidden
+            />
+            {isVertical ? (
               <span className="sr-only">{item.label}</span>
+            ) : (
+              <span
+                className={cn(
+                  "max-w-full truncate px-0.5 text-[9px] font-medium leading-none",
+                  isActive ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                {item.label}
+              </span>
+            )}
+            {isVertical ? (
               <span
                 className={cn(
                   "pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 z-[60] -translate-y-1/2",
@@ -96,46 +134,113 @@ const CommandDockInner = memo(function CommandDockInner({
               >
                 {item.label}
               </span>
-            </>
-          )
+            ) : null}
+          </>
+        )
 
-          if (useLinks) {
-            return (
-              <Link
-                key={item.id}
-                href={DASHBOARD_PAGE_HREF[item.id]}
-                prefetch
-                scroll={false}
-                ref={(node) => {
-                  itemRefs.current[index] = node
-                }}
-                className={className}
-                aria-current={isActive ? "page" : undefined}
-                title={item.label}
-              >
-                {inner}
-              </Link>
-            )
-          }
-
+        if (useLinks) {
           return (
-            <button
+            <Link
               key={item.id}
-              type="button"
+              href={DASHBOARD_PAGE_HREF[item.id]}
+              prefetch
+              scroll={false}
               ref={(node) => {
                 itemRefs.current[index] = node
               }}
-              onClick={() => onNavigate?.(item.id)}
               className={className}
               aria-current={isActive ? "page" : undefined}
               title={item.label}
             >
               {inner}
-            </button>
+            </Link>
           )
-        })}
+        }
+
+        return (
+          <button
+            key={item.id}
+            type="button"
+            ref={(node) => {
+              itemRefs.current[index] = node
+            }}
+            onClick={() => onNavigate?.(item.id)}
+            className={className}
+            aria-current={isActive ? "page" : undefined}
+            title={item.label}
+          >
+            {inner}
+          </button>
+        )
+      })}
+    </>
+  )
+})
+
+const CommandDockInner = memo(function CommandDockInner({
+  activePage,
+  useLinks,
+  onNavigate,
+}: {
+  activePage: PageId
+  useLinks: boolean
+  onNavigate?: (page: PageId) => void
+}) {
+  const desktopNavRef = useRef<HTMLElement>(null)
+  const mobileNavRef = useRef<HTMLDivElement>(null)
+  const desktopItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
+  const mobileItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
+
+  return (
+    <>
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 hidden w-[4.25rem] flex-col border-r md:flex",
+          SHELL_ACRYLIC_SURFACE
+        )}
+        aria-label="Command dock"
+      >
+        <nav
+          ref={desktopNavRef}
+          className="relative flex flex-1 flex-col items-center gap-1.5 px-2 py-4"
+          role="navigation"
+          aria-label="Main navigation"
+        >
+          <DockNavItems
+            activePage={activePage}
+            useLinks={useLinks}
+            onNavigate={onNavigate}
+            orientation="vertical"
+            navRef={desktopNavRef}
+            itemRefs={desktopItemRefs}
+          />
+        </nav>
+      </aside>
+
+      <nav
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 flex border-t md:hidden",
+          "pb-[max(env(safe-area-inset-bottom),0.25rem)]",
+          SHELL_ACRYLIC_SURFACE
+        )}
+        role="navigation"
+        aria-label="Main navigation"
+      >
+        <div
+          ref={mobileNavRef}
+          className="relative flex w-full items-stretch justify-between gap-0 px-0.5 pt-1"
+        >
+          <DockNavItems
+            activePage={activePage}
+            useLinks={useLinks}
+            onNavigate={onNavigate}
+            orientation="horizontal"
+            navRef={mobileNavRef}
+            itemRefs={mobileItemRefs}
+          />
+        </div>
       </nav>
-    </aside>
+    </>
   )
 })
 

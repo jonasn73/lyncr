@@ -16,7 +16,7 @@ export const DashboardPageView = memo(function DashboardPageView({
     <PortingInteractionProvider>
       <div
         className={cn(
-          "min-h-[calc(100dvh-4rem)] w-full bg-background px-5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-8",
+          "min-h-[calc(100dvh-3.5rem)] w-full max-w-full bg-background px-4 pb-6 pt-4 sm:min-h-[calc(100dvh-4rem)] sm:px-8 sm:pb-10 sm:pt-8",
           animateEnter && "animate-sigo-page-enter"
         )}
       >

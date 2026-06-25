@@ -186,7 +186,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <section
       className={cn(
-        "flex overflow-x-auto whitespace-nowrap snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] md:flex-wrap md:overflow-visible md:whitespace-normal [&::-webkit-scrollbar]:hidden",
+        "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:px-4 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden",
+        "-mx-4 w-[calc(100%+2rem)] sm:-mx-8 sm:w-[calc(100%+4rem)] md:mx-0 md:w-full",
         className
       )}
       aria-label="Workspace telemetry"
