@@ -66,6 +66,7 @@ import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
 import { AdminInviteReceptionistDialog } from "@/components/admin-invite-receptionist-dialog"
 import { LiveTrafficPulse } from "@/components/admin/live-traffic"
 import { CallHistoryTable } from "@/components/admin/call-history"
+import { PlatformNotificationSettings } from "@/components/admin/platform-notification-settings"
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
@@ -681,6 +682,8 @@ export function LyncrAdminDashboard({
           Refresh
         </Button>
       </div>
+
+      <PlatformNotificationSettings variant="admin" />
 
       <RoutingPoolLowBalanceBanner balanceUsd={routingPoolAvailableUsd} balanceLabel={routingPoolAvailableLabel} />
 

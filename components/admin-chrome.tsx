@@ -9,18 +9,7 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { Button } from "@/components/ui/button"
 import { BrandWordmark } from "@/components/brand-wordmark"
 
-import { MasterProfileToggle } from "@/components/layout/master-profile-toggle"
-import type { MasterToggleMode } from "@/lib/types"
-
-function AdminTopBar({
-  userName,
-  userEmail,
-  masterToggleMode,
-}: {
-  userName: string
-  userEmail: string
-  masterToggleMode?: MasterToggleMode
-}) {
+function AdminTopBar({ userName, userEmail }: { userName: string; userEmail: string }) {
   const [busy, setBusy] = useState(false)
   return (
     <header className="flex shrink-0 items-center gap-3 border-b border-slate-800 bg-[#0b1120]/90 px-3 py-2.5 backdrop-blur-md sm:px-4">
@@ -29,9 +18,6 @@ function AdminTopBar({
         <p className="truncate text-xs text-slate-500">{userEmail}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {masterToggleMode ? (
-          <MasterProfileToggle initialMode={masterToggleMode} variant="admin" />
-        ) : null}
         <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:bg-slate-800 hover:text-slate-100">
           <Link href="/dashboard">App</Link>
         </Button>
@@ -116,13 +102,10 @@ export function AdminChrome({
   children,
   userName,
   userEmail,
-  masterToggleMode,
 }: {
   children: React.ReactNode
   userName: string
   userEmail: string
-  /** Only set when is_platform_admin = true — toggle omitted otherwise. */
-  masterToggleMode?: MasterToggleMode
 }) {
   return (
     <div
@@ -131,7 +114,7 @@ export function AdminChrome({
     >
       <AdminSidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <AdminTopBar userName={userName} userEmail={userEmail} masterToggleMode={masterToggleMode} />
+        <AdminTopBar userName={userName} userEmail={userEmail} />
         <div className="min-h-0 flex-1 overflow-auto bg-[linear-gradient(180deg,#0b1120_0%,#070b14_100%)]">{children}</div>
       </div>
     </div>

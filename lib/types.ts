@@ -5,11 +5,18 @@
 // --- Users (Business Owners) ---
 export type AccountRole = "owner" | "receptionist" | "field_tech"
 
-/** Platform owner quick-toggle profile — admin-only notification filtering. */
+/** Platform owner quick-toggle profile — legacy; superseded by AdminNotificationPreferences. */
 export type MasterToggleMode = "tech" | "admin" | "passive"
 
-/** Client/server flag on Pusher payloads for platform-admin delivery mode. */
-export type MasterToggleDelivery = "noisy" | "silent" | "severe"
+/** Granular platform-admin notification channel toggles (`080-admin-notification-preferences.sql`). */
+export interface AdminNotificationPreferences {
+  sms_local_job_assignments: boolean
+  sms_global_out_of_state_bookings: boolean
+  push_live_inbound_ringing: boolean
+  push_operator_dispositions: boolean
+  email_daily_revenue_digest: boolean
+  email_system_fallback_alerts: boolean
+}
 
 export interface User {
   id: string
@@ -33,8 +40,10 @@ export interface User {
   billing_plan: string
   /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */
   is_platform_admin: boolean
-  /** Admin-only notification profile (`079-master-toggle-mode.sql`). Defaults to admin when unset. */
+  /** Legacy mode column — superseded by admin_notification_preferences. */
   master_toggle_mode?: MasterToggleMode
+  /** Admin-only per-channel notification toggles (`080-admin-notification-preferences.sql`). */
+  admin_notification_preferences?: AdminNotificationPreferences
   /** When false, do not show the answered-call customer sheet (requires `023-user-answered-call-popup-toggle.sql`). */
   answered_call_customer_popup_enabled: boolean
 }

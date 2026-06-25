@@ -1,0 +1,1310 @@
+# Lyncr Platform Architecture Report
+
+**Generated:** June 2026  
+**Repository:** `/Users/JR/Desktop/zing`  
+**Product:** Lyncr — VoIP call routing, AI receptionist, dispatch, and field-service operations for small businesses  
+**Production URL:** `https://lyncr.app` (Vercel)  
+**Purpose:** Production-grade technical summary for architectural review and planning.
+
+---
+
+## Table of Contents
+
+1. [Project Overview & Tech Stack](#1-project-overview--tech-stack)
+2. [Directory & Architecture Tree](#2-directory--architecture-tree)
+3. [Data Models & Database Schema](#3-data-models--database-schema)
+4. [Current Functional Features](#4-current-functional-features)
+5. [API & Voice/SMS Routing Flows](#5-api--voicesms-routing-flows)
+6. [State & UI Interaction Model](#6-state--ui-interaction-model)
+
+---
+
+## 1. Project Overview & Tech Stack
+
+### 1.1 Product Summary
+
+Lyncr is a full-stack Next.js application that lets small business owners:
+
+- Purchase and port business phone numbers (primarily via **Telnyx**)
+- Configure **who answers** inbound calls (private receptionist, owner cell, Lyncr network pool, or AI)
+- Set **fallback** behavior when nobody answers (ring owner, AI receptionist, voicemail, hybrid network)
+- Track **call activity**, agent talk time, and payouts
+- Capture **AI/operator leads**, dispatch **field technicians**, and run a **scheduler/map dispatch board**
+- Register **A2P 10DLC** for compliant SMS lead alerts and two-way messaging
+- Onboard via **Stripe** subscriptions and prepaid **carrier credit**
+
+The codebase supports four distinct user experiences:
+
+| Persona | Route prefix | Purpose |
+|---------|--------------|---------|
+| **Business owner** | `/dashboard/*` | Routing, lines, scheduler, leads, team, pay, settings |
+| **Receptionist / operator** | `/receptionist/*` | Live call HUD, intake forms, training, payouts |
+| **Field technician** | `/tech/*` | Mobile job console, GPS, on-site invoicing |
+| **Platform admin** | `/admin/*` | Tenant management, porting desk, sandbox, impersonation |
+
+### 1.2 Core Frameworks
+
+| Layer | Technology | Version (package.json) | Role |
+|-------|------------|------------------------|------|
+| **Framework** | Next.js (App Router) | 16.1.6 | SSR/RSC layouts, API routes, middleware |
+| **UI** | React | 19.2.4 | Client components, presence host, portals |
+| **Language** | TypeScript | 5.7.3 | Shared types in `lib/types.ts` |
+| **Styling** | Tailwind CSS | 4.2.0 | Utility-first; design tokens in `app/globals.css` |
+| **Component library** | Radix UI + shadcn/ui patterns | Various `@radix-ui/*` | Accessible dialogs, sheets, menus |
+| **Forms** | react-hook-form + zod | 7.54 / 3.24 | Settings, onboarding, modals |
+| **Charts** | Recharts | 2.15.0 | Analytics / pay views |
+| **Maps** | Leaflet | 1.9.4 | Scheduler dispatch map, activity map |
+| **Mobile drawers** | Vaul | 1.1.2 | Scheduler bottom sheet on mobile |
+| **Testing** | Vitest | 3.2.4 | Unit tests under `tests/` |
+
+### 1.3 Telephony & Communication SDKs
+
+| Provider | Package / Integration | Usage |
+|----------|----------------------|--------|
+| **Telnyx (primary)** | `telnyx` npm SDK 6.13.0, REST + TeXML | Inbound/outbound voice, number search/buy, Voice AI assistants, SMS, LNP porting, SIP/WebRTC credentials |
+| **Telnyx WebRTC** | `@telnyx/webrtc` 2.27.1 | Browser-based receptionist answering (`routing_endpoint = WEB`) |
+| **Twilio (legacy)** | `twilio` 5.12.2 | Legacy `numbers/buy` demo path; TwiML helpers in `lib/legacy-voice-provider.ts`; most `/api/voice/*` routes **re-export Telnyx handlers** |
+| **Stripe** | `stripe` 17.7.0 | Subscriptions, carrier credit packs, 10DLC fees |
+| **Pusher** | `pusher` + `pusher-js` 5.3 / 8.5 | Realtime owner/receptionist/tech events |
+| **Vercel AI SDK** | `ai` 6.0.104 | AI receptionist tooling (alongside Telnyx Voice AI) |
+
+**Canonical voice webhooks (production):**
+
+- Inbound TeXML: `POST/GET /api/voice/telnyx/incoming`
+- Dial no-answer: `/api/voice/telnyx/fallback/**`
+- Status: `/api/voice/telnyx/status`
+- Recording: `/api/voice/telnyx/recording-status`
+- AI bridge: `/api/voice/telnyx/ai-bridge/u/[userId]`
+- SMS inbound: `/api/webhooks/telnyx/messaging`
+- Porting lifecycle: `/api/webhooks/telnyx`
+
+Legacy aliases (`/api/voice/incoming`, etc.) delegate to Telnyx implementations.
+
+### 1.4 Database & Persistence
+
+| Component | Technology | Details |
+|-----------|------------|---------|
+| **Primary DB** | Neon Serverless Postgres | `@neondatabase/serverless` 1.0.2 |
+| **Access layer** | `lib/db.ts` | ~12,000 lines — parameterized SQL, caching, inbound routing snapshots |
+| **Schema source** | `scripts/001-create-schema.sql` + migrations `002`–`078` | Applied manually in Neon SQL Editor; index in `scripts/MIGRATE-ALL.md` |
+| **Auth passwords** | bcryptjs | `users.password_hash` |
+| **Session** | HMAC-signed HTTP-only cookie | `zing_session` — no sessions table (`lib/auth.ts`) |
+| **Client cache** | sessionStorage via SWR persisted cache | Phone lines, job pool (`lib/swr/persisted-cache.ts`) |
+
+There is **no Supabase client in active use** for the main app path; schema comments reference Supabase/Neon interchangeably, but production uses **Neon + `DATABASE_URL`**.
+
+### 1.5 State Management & Data Fetching
+
+| Pattern | Location | Scope |
+|---------|----------|-------|
+| **React Context** | `components/dashboard-*-context.tsx`, etc. | Workspace org, session, bootstrap, modals, activation |
+| **Presence host (keep-alive tabs)** | `components/dashboard-presence-host.tsx` | Primary dashboard views stay mounted; CSS `hidden` toggles visibility |
+| **SWR** | `lib/hooks/use-business-numbers-query.ts`, `use-job-pool-query.ts` | Phone lines, job pool, active pipeline |
+| **Custom polling cache** | `lib/hooks/use-operations-data.ts` | Activity tab call log (45s TTL + optional interval) |
+| **Server streaming (RSC)** | `lib/server/streamed-dashboard-data.ts` | Dashboard layout passes `Promise`s for bootstrap, lines, routing, orgs, hopper |
+| **Pusher channels** | `lib/realtime/pusher-server.ts`, `pusher-client.ts` | Live call HUD, job assignment, tech GPS, porting notifications |
+| **URL state** | Next.js App Router | Tab routes `/dashboard/scheduler`, etc. |
+
+There is **no Redux, Zustand, or Jotai** — state is context + SWR + server bootstrap.
+
+### 1.6 Deployment & Infrastructure
+
+| Service | Role |
+|---------|------|
+| **Vercel** | Next.js hosting, edge middleware, production deploys (`npm run deploy:vercel`) |
+| **Neon** | Postgres (agents cannot connect from CI; migrations run manually) |
+| **Telnyx** | Telephony, SMS, Voice AI, porting |
+| **Stripe** | Billing webhooks at `/api/webhooks/stripe` |
+| **Pusher** | Optional realtime (graceful no-op if env unset) |
+
+### 1.7 Key Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Neon Postgres connection string |
+| `SESSION_SECRET` | HMAC session cookie signing (min 16 chars) |
+| `TELNYX_API_KEY` | Telnyx REST API |
+| `TELNYX_PUBLIC_KEY` | Optional webhook signature verification |
+| `NEXT_PUBLIC_APP_URL` | Public origin for TeXML webhook URLs |
+| `TELNYX_TEXML_CONNECTION_ID` | TeXML application for voice |
+| `TELNYX_CREDENTIAL_CONNECTION_ID` | SIP credential connection for WebRTC receptionists |
+| `OPENAI_API_KEY` | Voice wrap-up transcription, AI tooling |
+| `STRIPE_*` | Checkout, subscriptions, webhooks |
+| `PUSHER_*` / `NEXT_PUBLIC_PUSHER_*` | Realtime channels |
+| `GOOGLE_GEOCODING_API_KEY` | Optional; falls back to OpenStreetMap Nominatim |
+
+Full list: `PRODUCTION.md`, `.cursorrules`.
+
+---
+
+## 2. Directory & Architecture Tree
+
+### 2.1 Repository Root
+
+```
+zing/
+├── app/                    # Next.js App Router (pages, layouts, API)
+├── components/             # React UI (dashboard, scheduler, admin, tech, ui/)
+├── lib/                    # Business logic, DB, Telnyx, auth, hooks, types
+├── scripts/                # SQL migrations (001–078), MIGRATE-ALL.md
+├── tests/                  # Vitest unit tests
+├── mobile/                 # Partial React Native / Expo scaffold (brand, theme, api)
+├── features/               # Feature modules (e.g. operations)
+├── docs/                   # Internal docs (AI receptionist, etc.)
+├── public/                 # Static assets
+├── middleware.ts           # Session cookie gate for protected routes
+├── package.json
+├── PRODUCTION.md
+├── lyncr_architecture_report.md   # This file
+└── .cursorrules            # Project conventions for AI assistants
+```
+
+### 2.2 App Router — Pages
+
+| Route | File | Description |
+|-------|------|-------------|
+| `/` | `app/page.tsx` | Marketing / redirect if authenticated |
+| `/login`, `/signup`, `/register` | `app/login/page.tsx`, etc. | Auth flows |
+| `/onboarding` | `app/onboarding/page.tsx` | Stripe checkout, number reservation, activation |
+| `/dashboard` | `app/dashboard/page.tsx` | **Lines / Routing** (presence host) |
+| `/dashboard/activity` | `app/dashboard/activity/page.tsx` | Call log + dispatch map |
+| `/dashboard/scheduler` | `app/dashboard/scheduler/page.tsx` | Calendar + map dispatch |
+| `/dashboard/leads` | `app/dashboard/leads/page.tsx` | AI/operator lead queue |
+| `/dashboard/contacts` | `app/dashboard/contacts/page.tsx` | Team / receptionists |
+| `/dashboard/pay` | `app/dashboard/pay/page.tsx` | Talk-time billing & subscriptions |
+| `/dashboard/settings` | `app/dashboard/settings/page.tsx` | Account, SMS, hours, numbers |
+| `/dashboard/help` | `app/dashboard/help/page.tsx` | Feedback (secondary route) |
+| `/dashboard/customers` | `app/dashboard/customers/page.tsx` | CRM customers |
+| `/dashboard/analytics` | Redirect → `/dashboard/pay` | Legacy URL |
+| `/dashboard/ai-flow` | Redirect → `/dashboard?ai=1` | Opens AI fallback drawer |
+| `/receptionist` | `app/receptionist/page.tsx` | Operator portal |
+| `/receptionist/training/[id]` | Training quizzes | Certification modules |
+| `/tech/login`, `/tech/setup`, `/tech/dashboard` | Field tech mobile console |
+| `/admin` | `app/admin/page.tsx` | Platform admin console |
+| `/admin/network`, `/admin/sandbox` | Network agents, dev sandbox |
+| `/privacy`, `/terms`, `/support` | Legal / support |
+
+**Layouts:**
+
+- `app/layout.tsx` — Root HTML, fonts (Inter, Geist Mono), toasts, Vercel Analytics
+- `app/dashboard/layout.tsx` — Auth guards, role redirects, SSR bootstrap streaming, `DashboardShell`
+- `app/receptionist/layout.tsx`, `app/tech/layout.tsx`, `app/admin/layout.tsx` — Role-specific chrome
+
+### 2.3 App Router — API Routes (175 handlers)
+
+Grouped by domain under `app/api/`:
+
+#### Voice (Telnyx — canonical)
+
+| Path | Methods | Purpose |
+|------|---------|---------|
+| `voice/telnyx/incoming` | GET, POST | Inbound call TeXML routing |
+| `voice/telnyx/fallback` | GET, POST | Dial `action` after no-answer |
+| `voice/telnyx/fallback/u/[userId]/n/[did]/[mode]` | GET, POST | Path-encoded user, DID, mode (`recv`, `owner`, `network`, `*-ai`) |
+| `voice/telnyx/status` | POST | Call completion logging |
+| `voice/telnyx/recording-status` | POST | Attach recording URLs |
+| `voice/telnyx/voicemail-complete` | POST | Voicemail `<Record>` done |
+| `voice/telnyx/ai-assistant` | POST | AI conversation webhook |
+| `voice/telnyx/ai-bridge/u/[userId]` | GET, POST | `<Connect><AIAssistant>` second leg |
+| `voice/telnyx/ai-lead-intake/u/[userId]` | POST | Structured lead capture |
+| `voice/telnyx/receptionist-answer` | POST | B-leg answer → HUD pop |
+| `voice/telnyx/receptionist-screen` | POST | Press-1 screening |
+| `voice/telnyx/wrapup` | POST | Post-call voice wrap-up callback |
+| `voice/incoming`, `voice/fallback`, etc. | — | **Legacy aliases → Telnyx** |
+
+#### Numbers & Porting
+
+| Path | Purpose |
+|------|---------|
+| `numbers/mine` | Owner's lines + routing summary |
+| `numbers/telnyx`, `numbers/telnyx/buy` | Search & purchase (primary) |
+| `numbers/buy` | Legacy Twilio purchase |
+| `numbers/configure` | Wire TeXML app webhooks to line |
+| `numbers/port`, `numbers/porting/*` | LNP port requests & desk |
+| `porting/orders/*` | Formal port order lifecycle |
+
+#### Webhooks (external)
+
+| Path | Provider | Events |
+|------|----------|--------|
+| `webhooks/telnyx` | Telnyx | `porting_order.*`, `sub_request.exception` |
+| `webhooks/telnyx/messaging` | Telnyx | `message.received` (inbound SMS) |
+| `webhooks/stripe` | Stripe | Subscription, checkout, credit |
+| `messaging/webhook` | Alias → Telnyx messaging |
+
+#### Routing & Calls
+
+| Path | Purpose |
+|------|---------|
+| `routing` | GET/PUT per-line routing config |
+| `routing/strategy` | Hybrid network strategy |
+| `routing/telemetry` | Live routing metrics strip |
+| `calls`, `calls/live`, `calls/answered-recent` | Call history & live state |
+
+#### Owner / Dispatch / Scheduler
+
+| Path | Purpose |
+|------|---------|
+| `owner/jobs/pool` | Unassigned hopper + active pipeline |
+| `owner/jobs/assign`, `owner/jobs/[id]/status` | Dispatch assignment |
+| `owner/scheduler`, `owner/scheduler/bootstrap` | Calendar CRUD |
+| `owner/lead-salvage` | Salvageable lead queue |
+| `owner/sms-settings`, `owner/booking-alerts` | SMS automation prefs |
+
+#### Receptionist / Tech / Team
+
+| Path | Purpose |
+|------|---------|
+| `receptionist/dashboard` | Operator HUD data |
+| `receptionist/endpoint`, `receptionist/sip-token` | WebRTC/SIP credentials |
+| `receptionist/intake`, `receptionist/log-job` | Live intake & disposition |
+| `tech/jobs`, `tech/jobs/[id]/claim` | Field tech job console |
+| `tech/location` | GPS streaming for map |
+| `receptionists`, `receptionists/payouts` | Staff CRUD & pay ledger |
+| `team/technicians`, `team/instructions` | Roster & routing script |
+
+#### Messaging / 10DLC
+
+| Path | Purpose |
+|------|---------|
+| `messaging`, `messaging/send` | Two-way SMS threads |
+| `messaging/10dlc`, `messaging/10dlc/register` | A2P brand/campaign |
+| `settings/10dlc` | Workspace 10DLC status |
+
+#### Billing / Onboarding / Admin
+
+| Path | Purpose |
+|------|---------|
+| `billing/summary`, `billing/stripe/*` | Credits, checkout, provision line |
+| `onboarding/profile`, `onboarding/profile/activate` | Signup profile & go-live |
+| `admin/users`, `admin/porting`, `admin/impersonate` | Platform operations |
+| `auth/login`, `auth/session`, `auth/register` | Session auth |
+
+### 2.4 Components Architecture
+
+```
+components/
+├── app-shell.tsx                 # Global chrome: header, CommandDock, scrollable main
+├── dashboard-shell.tsx           # Provider tree + AppShell wrapper
+├── dashboard-presence-host.tsx   # Keep-alive tab panes
+├── dashboard-main-content.tsx    # Routes presence vs secondary pages
+├── dashboard-page.tsx            # Routing / Lines tab logic
+├── dashboard-routing-*.tsx         # Call flow surface, sidebar, drawers, sheets
+├── workspace-views/              # Activity, Scheduler, Leads, Team, Pay, Settings
+├── scheduler/                    # Map shell, pipeline panels, booking, mobile dispatch
+├── layout/                       # command-dock.tsx, notification-center.tsx
+├── dashboard/                    # Modals, phone lines, porting, SMS registration
+├── receptionist-*.tsx            # Operator portal, training, briefing
+├── tech/                         # tech-console.tsx, invoice-modal.tsx
+├── admin-*.tsx                   # Admin console, sandbox, porting desk
+├── ui/                           # shadcn primitives (button, dialog, sheet, …)
+└── onboarding-page.tsx           # Multi-step onboarding wizard
+```
+
+### 2.5 Lib Architecture (selected)
+
+```
+lib/
+├── db.ts                         # All Postgres queries (central data access)
+├── types.ts                      # TypeScript domain models
+├── auth.ts                       # Session cookie HMAC
+├── telnyx.ts                     # TeXML VoiceResponse builder, REST helpers
+├── telnyx-fallback-dial-action.ts # No-answer fallback state machine
+├── telnyx-inbound-media-quality.ts # Fast inbound routing path
+├── telnyx-ai-handoff.ts          # AI redirect / Connect logic
+├── routing-pool.ts               # Lyncr network receptionist pool
+├── sms-inbound-handler.ts        # Inbound SMS + disposition replies
+├── telnyx-porting-webhook-handler.ts
+├── stripe-*.ts                   # Billing sync
+├── hooks/                        # SWR data hooks
+├── server/                       # RSC streaming, cached session
+├── realtime/                     # Pusher publish/subscribe
+└── dashboard-nav.ts              # PageId, nav items, href map
+```
+
+### 2.6 Request Flow (High Level)
+
+```
+Browser / Telnyx webhook
+        │
+        ▼
+   middleware.ts          (session cookie for /dashboard, /admin, /receptionist, /tech)
+        │
+        ▼
+   app/dashboard/layout.tsx (RSC: auth, role redirect, stream bootstrap)
+        │
+        ▼
+   DashboardShell (client providers)
+        │
+        ├── AppShell (header + CommandDock + main scroll)
+        └── DashboardMainContent
+                ├── DashboardPresenceHost (primary tabs)
+                └── routedChildren (help, customers)
+```
+
+Voice webhooks **bypass middleware** (matcher excludes `/api/voice/*`).
+
+---
+
+## 3. Data Models & Database Schema
+
+### 3.1 Migration Strategy
+
+- **77 SQL scripts** numbered `001`–`078` (some numbers skipped intentionally)
+- Documented in `scripts/MIGRATE-ALL.md` with required vs optional flags
+- Applied manually in **Neon SQL Editor** after deploys that add schema
+- Idempotent patterns: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`
+
+### 3.2 Core Tables (001 + evolution)
+
+#### `users`
+
+Business owners and portal login accounts (receptionists, field techs share this table with `account_role`).
+
+| Column (evolved) | Type | Notes |
+|------------------|------|-------|
+| `id` | UUID PK | |
+| `email` | TEXT UNIQUE | Login |
+| `password_hash` | TEXT | bcrypt (002) |
+| `name`, `phone`, `business_name` | TEXT | Owner profile |
+| `account_role` | TEXT | `owner` \| `receptionist` \| `field_tech` (040, 061) |
+| `industry` | TEXT | AI playbook selection (011) |
+| `telnyx_ai_assistant_id` | TEXT | Per-user Voice AI assistant (012) |
+| `inbound_receptionist_whisper_enabled` | BOOLEAN | Callee whisper toggle (017) |
+| `answered_call_customer_popup_enabled` | BOOLEAN | Post-answer CRM pop (023) |
+| `credit_balance_cents`, `billing_plan` | INT, TEXT | Prepaid talk-time (019) |
+| `is_platform_admin` | BOOLEAN | `/admin` access (019) |
+| `current_latitude/longitude`, `tech_status`, `earned_badges` | — | Field tech GPS/badges (062) |
+| `invitation_token`, `invite_status` | — | Email invite stubs (054) |
+
+#### `receptionists`
+
+Humans who answer calls — private staff or shared Lyncr network agents.
+
+| Column | Notes |
+|--------|-------|
+| `user_id` | Owner FK; **NULL = global network agent** (048) |
+| `portal_user_id` | FK → `users` for `/receptionist` login (040) |
+| `phone`, `name`, `initials`, `color` | Display |
+| `rate_per_minute`, `pay_mode`, `flat_rate_usd` | Payout (039) |
+| `is_active` | Toggle in Team UI |
+| `skills[]` | Skill tags for pool routing (042) |
+| `routing_endpoint` | `CELL` or `WEB` (050) |
+| `sip_username`, `sip_credential_id` | Telnyx WebRTC (051) |
+
+#### `routing_config`
+
+**Per-user, per-DID** routing rules (005). One default row (`business_number IS NULL`) plus one row per owned line.
+
+| Column | Notes |
+|--------|-------|
+| `user_id` | Owner |
+| `business_number` | E.164 DID or NULL for default |
+| `selected_receptionist_id` | FK → `receptionists` |
+| `fallback_type` | `owner` \| `ai` \| `voicemail` |
+| `ai_greeting` | Spoken / AI system prompt seed |
+| `ring_timeout_seconds` | First-leg ring duration |
+| `ai_ring_owner_first` | Ring owner before AI when no receptionist (015) |
+| `industry_tag` | Pool skill filter (042) |
+| `routing_strategy` | `private_only` \| `lyncr_only` \| `hybrid_fallback` (048) |
+| `allow_lyncr_network_fallback` | Hybrid pool fallback flag |
+| `private_ring_timeout_seconds` | Hybrid private ring cap (049) |
+
+**Unique constraint:** `(user_id, COALESCE(business_number, '__default__'))`
+
+#### `phone_numbers`
+
+Telnyx (or external) DIDs owned by the business.
+
+| Column | Notes |
+|--------|-------|
+| `user_id`, `organization_id` | Owner + workspace (065) |
+| `number` | E.164 |
+| `provider_number_sid` | Telnyx phone number id (008 neutral naming) |
+| `friendly_name`, `label`, `type`, `status` | UI + lifecycle (`active`, `pending`, `porting`, `released`) |
+| `industry_tag`, `routing_pool_mode` | Pool routing (042) |
+| `inbound_dial_e164`, snapshot columns | Precomputed fast-path routing (036, 050) |
+| `admin_routing_override_phone` | Per-line admin forward (073) |
+| `source_provider` | `telnyx` \| `external` (065) |
+
+#### `call_logs`
+
+Every inbound/outbound call record.
+
+| Column | Notes |
+|--------|-------|
+| `provider_call_sid` | Telnyx call control id |
+| `from_number`, `to_number` | E.164 |
+| `call_type`, `status` | answered, missed, voicemail, etc. |
+| `duration_seconds` | Billable talk time |
+| `routed_to_receptionist_id`, `routed_to_name` | Who answered |
+| `recording_url`, `has_recording` | Post-call media |
+| `disposition` | Operator outcome code (059) |
+| `internal_notes` | Voice wrap-up transcription (060) |
+
+#### `organizations` (065)
+
+Multi-business workspaces — one owner can run several businesses.
+
+| Column | Notes |
+|--------|-------|
+| `owner_user_id` | FK → `users` |
+| `name`, `is_default` | Workspace switcher |
+| `sms_registration_status` | Carrier compliance gate (067) |
+| `admin_routing_override_phone` | Workspace-level admin override (073) |
+
+### 3.3 Leads, Jobs & Dispatch
+
+#### `ai_leads` (010 + 058 + 061 + 074 + 075)
+
+Central table for AI-captured and operator-logged leads **and** scheduled jobs.
+
+| Column | Notes |
+|--------|-------|
+| `user_id` | Owner |
+| `organization_id` | Workspace scope (074) |
+| `caller_e164`, `intent_slug`, `summary` | Lead identity |
+| `collected` | JSONB intake payload (vehicle, address, flags) |
+| `disposition` | `BOOKED`, `PENDING_TIME`, `PRICE_REJECTED`, etc. (058) |
+| `dispatch_status` | `unassigned_pool`, `DISPATCHED`, … |
+| `assigned_tech_id` | FK → `users` (field_tech) |
+| `job_status` | `assigned`, `en_route`, `arrived`, `completed` |
+| `scheduled_at` | Scheduler calendar anchor (074) |
+| `job_address_*` | Structured geocodable address (075) |
+| `is_salvageable` | Lead salvage queue flag |
+
+#### `field_technicians` (061)
+
+| Column | Notes |
+|--------|-------|
+| `user_id` | **Owner** (DB column name; TS: `owner_user_id`) |
+| `portal_user_id` | Field tech login |
+| `organization_id` | Workspace scope (078) |
+| `name`, `phone`, `is_active` | Roster |
+
+#### `job_invoices` (061)
+
+On-site itemized invoices from tech console.
+
+#### `user_ai_intake` (010)
+
+JSONB AI call-flow playbook per owner (`config` column) — vehicle cascade, industry flags, Telnyx voice settings.
+
+### 3.4 SMS & 10DLC
+
+| Table | Purpose |
+|-------|---------|
+| `messaging_10dlc_registrations` (047, 068) | Brand + campaign per **organization** |
+| `sms_registrations` (067) | Dashboard compliance form per org |
+| `sms_messages` (069) | Two-way message log (inbound/outbound) |
+| `scheduled_sms` (062) | Deferred post-job review texts |
+| `pending_sms_dispositions` (059) | Cell fallback SMS reply loop |
+
+### 3.5 Porting
+
+| Table | Purpose |
+|-------|---------|
+| `porting_orders` (066) | Formal LNP requests with Telnyx order id |
+| `porting_notifications` (016) | Webhook-driven in-app alerts |
+
+Statuses: `pending`, `processing`, `completed`, `rejected`, `action_required`, `pending_info`, `submitted`, `pending_carrier_review`.
+
+### 3.6 Billing & Onboarding
+
+| Table | Purpose |
+|-------|---------|
+| `onboarding_profiles` (024–028, 044–045, 056–057, 062–063) | Stripe ids, subscription tier, carrier credit, SMS prefs, feature flags, routing instructions |
+| `billing_ledger` (019) | Credit balance audit trail |
+| `payout_ledger` (063) | Receptionist "Mark Paid" transactions |
+| `feedback_submissions` (019) | Help tab feedback queue |
+
+### 3.7 Team & Training
+
+| Table | Purpose |
+|-------|---------|
+| `team_invites` (041) | Receptionist invite tokens |
+| `invitations` (053) | SMS/email invite tokens |
+| `certifications` (043) | Training course definitions |
+| `receptionist_badges` (043) | Per-user cert completion |
+| `customers` (022) | CRM by phone number |
+
+### 3.8 Entity Relationship Summary
+
+```
+users (owner)
+  ├── organizations (1:N workspaces)
+  │     ├── phone_numbers (lines per org)
+  │     ├── messaging_10dlc_registrations
+  │     ├── sms_registrations
+  │     ├── sms_messages
+  │     ├── porting_orders
+  │     └── field_technicians
+  ├── routing_config (default + per-DID rows)
+  ├── receptionists (private staff; user_id set)
+  ├── call_logs
+  ├── ai_leads (leads + jobs + scheduler events)
+  ├── customers
+  ├── billing_ledger
+  └── onboarding_profiles (1:1)
+
+receptionists (user_id NULL) → shared Lyncr network pool agents
+
+users (receptionist role) ← receptionists.portal_user_id
+users (field_tech role)   ← field_technicians.portal_user_id
+
+ai_leads → job_invoices (on-site billing)
+ai_leads → assigned_tech_id → users (field_tech)
+```
+
+### 3.9 Inbound Routing Resolution Order
+
+1. Lookup `phone_numbers.number` = called DID
+2. Resolve `organization_id` → workspace context
+3. Load `routing_config` for `(user_id, business_number)` or default row
+4. Check **admin override**: `phone_numbers.admin_routing_override_phone` > `organizations.admin_routing_override_phone`
+5. Select ring target: private receptionist, owner cell, skill-matched pool, or network pool per `routing_strategy`
+6. On no-answer: `fallback_type` → owner / AI / voicemail / hybrid network escalation
+
+---
+
+## 4. Current Functional Features
+
+### 4.1 Authentication & Authorization
+
+**Mechanism:**
+
+- Login (`POST /api/auth/login`) validates email/password against `users.password_hash`
+- Issues `zing_session` cookie: base64url JSON `{ userId, exp }` + HMAC-SHA256 signature
+- Middleware checks cookie **shape only** (presence of `.`); full verification in `/api/auth/session`
+- 30-day session TTL (`lib/auth.ts`)
+
+**Role routing (server layouts):**
+
+| Role | Redirect |
+|------|----------|
+| `owner` | `/dashboard` (or `/onboarding` if incomplete) |
+| `receptionist` | `/receptionist` |
+| `field_tech` | `/tech/dashboard` |
+| Platform admin (`is_platform_admin` or `ZING_ADMIN_EMAILS`) | `/admin` |
+
+**Impersonation:** Admin can impersonate tenants via `/api/admin/impersonate` with audit trail.
+
+### 4.2 Onboarding & Activation
+
+**Flow:**
+
+1. Signup → `users` + `onboarding_profiles` created
+2. Stripe checkout for subscription tier (Starter / Professional / Business)
+3. Reserve or buy Telnyx number (`/api/onboarding/profile/reserve-number`, `/api/numbers/telnyx/buy`)
+4. Carrier credit purchase for number provisioning wallet
+5. Activate line (`/api/onboarding/profile/activate`) — wires TeXML app, creates routing row, provisions AI assistant if configured
+
+**Guard:** `userMayAccessDashboard()` in layout redirects incomplete onboarding to `/onboarding`.
+
+### 4.3 Phone Lines & Number Management
+
+**Features:**
+
+- Search available numbers by area code (`GET /api/numbers/telnyx`)
+- Purchase via Telnyx (`POST /api/numbers/telnyx/buy`) — updates `phone_numbers`, configures webhooks
+- **Manage lines** modal: label, release line, port status
+- **Port existing number:** multi-step LOA flow → `porting_orders` + Telnyx LNP API
+- **External verified lines** (065): non-Telnyx DIDs with verification flag
+- **Per-line routing** (005): each DID can have distinct receptionist + fallback
+- **Inbound dial snapshot** (036): denormalized routing on `phone_numbers` for sub-100ms webhook response
+
+**UI:** `components/dashboard/phone-lines-list.tsx`, `dashboard-numbers-modal-context.tsx`, porting interaction drawer.
+
+### 4.4 Call Routing & Call Flow (Owner Dashboard)
+
+**Primary UI:** `/dashboard` → `DashboardRoutingSurface` + `DashboardCallFlow`
+
+**Configurable per line:**
+
+| Setting | Storage | Behavior |
+|---------|---------|----------|
+| Who answers | `routing_config.selected_receptionist_id` | Dials receptionist PSTN or WebRTC SIP URI |
+| Ring timeout | `routing_config.ring_timeout_seconds` | First-leg timer before fallback URL fires |
+| Fallback | `routing_config.fallback_type` | owner / ai / voicemail |
+| Ring owner first (no receptionist) | `ai_ring_owner_first` | Owner cell before AI |
+| Routing strategy | `routing_strategy` + `allow_lyncr_network_fallback` | Private staff vs Lyncr network pool vs hybrid |
+| AI greeting / playbook | `ai_greeting` + `user_ai_intake.config` | Telnyx Voice AI assistant sync |
+
+**Drawers (right sheets):**
+
+- Who Answers (`dashboard-who-answers-drawer.tsx`)
+- Ring backup / timeout (`dashboard-ring-backup-drawer.tsx`)
+- Voice AI settings (`dashboard-voice-ai-drawer.tsx`)
+- Routing strategy modal (`routing-strategy-dialog.tsx`)
+
+**Telemetry strip:** Live call counts via Pusher + `/api/routing/telemetry` (`routing-telemetry-strip.tsx`).
+
+**Admin routing override:** Platform can force inbound to a specific E.164 per line or org (073) — checked before normal routing in inbound handler.
+
+### 4.5 AI Receptionist (Telnyx Voice AI)
+
+**Provisioning:**
+
+- `ensureTelnyxVoiceAiAssistant()` in `lib/telnyx-ai-assistant-lifecycle.ts` creates/updates Telnyx Mission Control assistant from owner's intake playbook
+- Stored on `users.telnyx_ai_assistant_id`
+
+**Inbound paths:**
+
+1. **Direct AI** (no receptionist, fallback = ai): `/incoming` redirects to `/ai-bridge` → `<Connect><AIAssistant>`
+2. **Fallback AI** (after no-answer): `handleTelnyxFallbackDialEnded` → redirect to ai-bridge
+3. **Loop guards:** `telnyx_ai_incoming_handoff`, `telnyx_inbound_dial_caller_done`, `incoming_hits` counters (013, 014, 018)
+
+**Lead capture:** AI tools / intake webhook → `ai_leads` rows with `collected` JSONB.
+
+**UI:** AI call flow panel in dashboard; voice preview API (`/api/ai-assistant/voice-preview`).
+
+### 4.6 Receptionist Portal
+
+**Route:** `/receptionist` → `receptionist-portal-view.tsx`
+
+**Features:**
+
+- Live status toggle (available / on-call / away)
+- Payout metrics (per-minute or flat rate)
+- Call ledger with expandable recordings
+- **Live intake form** pops on `call-connected` Pusher event (or 15s poll fallback)
+- **Company briefing card** — business hours, service rules from `onboarding_profiles` (057)
+- WebRTC answering when `routing_endpoint = WEB` (`@telnyx/webrtc`, SIP token from `/api/receptionist/sip-token`)
+- **Log job** disposition → `POST /api/receptionist/log-job` → updates `ai_leads`, triggers owner Pusher events
+- Training certifications (`/receptionist/training/[id]`)
+
+### 4.7 Lyncr Network / Skill Pool Routing
+
+**Logic:** `lib/routing-pool.ts`, `lib/admin-telnyx-routing-pool.ts`
+
+- Receptionists with `user_id IS NULL` are shared network agents
+- `receptionists.skills[]` matched against `phone_numbers.industry_tag` / `routing_config.industry_tag`
+- `routing_strategy`:
+  - `private_only` — owner's receptionists only
+  - `lyncr_only` — network pool only
+  - `hybrid_fallback` — private first, then network after `private_ring_timeout_seconds`
+- Simultaneous `<Dial>` to multiple pool members on inbound
+
+### 4.8 Activity & Call History
+
+**Route:** `/dashboard/activity` → `activity-workspace-view.tsx`
+
+- Paginated call log from `/api/calls` via `useOperationsData` (custom cache + 45s TTL)
+- Mobile card layout; desktop table with status pills
+- Expandable rows with inline audio player for recordings
+- **Dispatch live map** (Leaflet) showing tech locations when jobs active
+- Search and filters by line, status, date
+
+### 4.9 Leads & Lead Salvage
+
+**Route:** `/dashboard/leads` → `leads-workspace-view.tsx`
+
+- Lists `ai_leads` from `/api/ai-leads`
+- SSR preload on first visit via `loadLeadsWorkspaceData` in dashboard layout
+- Disposition badges: BOOKED, PENDING_TIME, PRICE_REJECTED
+- **Lead salvage queue** for `is_salvageable = true` (`/api/owner/lead-salvage`)
+- SMS lead notifications when `onboarding_profiles.sms_leads_enabled` (044)
+
+### 4.10 Scheduler & Dispatch
+
+**Route:** `/dashboard/scheduler` → `scheduler-workspace-view.tsx`
+
+**Features:**
+
+- Month calendar with job markers (`owner/scheduler` API)
+- **Job pool (hopper):** unassigned jobs (`dispatch_status = unassigned_pool`)
+- **Active pipeline:** in-progress jobs by lifecycle phase
+- **Map route view:** Leaflet map with job pins, tech live locations, driving routes (`lib/driving-route.ts`)
+- **Grid view:** technician swimlane board by hour
+- **Mobile map mode:** full-bleed map + Vaul bottom sheet for job list (`scheduler-mobile-dispatch-shell.tsx`)
+- Manual booking dialog with industry intake forms (locksmith, detailing, etc.)
+- Phone lookup bar for caller history
+- Realtime updates via Pusher `owner-{id}`: job-assigned, job-status-updated, tech-location-updated
+
+**APIs:**
+
+- `GET/POST /api/owner/scheduler`
+- `GET /api/owner/jobs/pool?scope=active&day=YYYY-MM-DD`
+- `POST /api/owner/jobs/assign`, `POST /api/owner/jobs/[id]/status`
+
+### 4.11 Field Technician Console
+
+**Routes:** `/tech/login`, `/tech/setup`, `/tech/dashboard`
+
+**Features:**
+
+- Job cards: assigned → en route → arrived → complete workflow
+- Claim jobs from shared pool (`POST /api/tech/jobs/[id]/claim`)
+- GPS streaming (`POST /api/tech/location`) → owner map
+- **Invoice modal** — line items, subtotal/tax, payment method (`job_invoices`)
+- SMS invite flow: owner texts `/tech/setup?token=…` link (064)
+- Pusher `technician-{userId}` for job-assigned/updated (+ 20s poll fallback)
+
+### 4.12 Team Management
+
+**Route:** `/dashboard/contacts` → `team-workspace-view.tsx`
+
+- Add/edit/deactivate receptionists
+- Set pay mode (per-minute vs flat rate)
+- Toggle WebRTC vs cell routing endpoint
+- Invite receptionists (email stub or SMS via `team_invites` / `invitations`)
+- Add field technicians + SMS invite
+- **Routing instructions** script for operators (`/api/team/instructions` → `onboarding_profiles.routing_instructions`)
+
+### 4.13 Pay & Billing
+
+**Route:** `/dashboard/pay` → `pay-workspace-view.tsx`
+
+- **Lyncr talk-time balance** from `users.credit_balance_cents`
+- Metered voice rate display
+- Stripe subscription tiers ($19 / $49 / $99)
+- Carrier credit packs for Telnyx number provisioning
+- Low balance warnings (`low_balance_notified`, 029)
+- Agent talk-time ledger from `/api/analytics` + `/api/calls`
+- Receptionist payout tracking (`/api/receptionists/payouts`, `payout_ledger`)
+
+### 4.14 Settings
+
+**Route:** `/dashboard/settings` → `settings-workspace-view.tsx`
+
+| Module | API / Storage |
+|--------|---------------|
+| Account profile | `/api/user/profile`, `/api/onboarding/profile` |
+| Business hours | Sheet UI → saved to profile |
+| Push / SMS / Whisper toggles | User preferences |
+| Phone numbers buy/port | Modals via `settings-modals-host.tsx` |
+| 10DLC / SMS registration | `/api/messaging/10dlc`, `/api/settings/10dlc` |
+| Email recordings toggle | `/api/settings/email-recordings` |
+| DND, voicemail greeting | Routing config updates |
+| Sign out | `signOutAndGoToLogin()` |
+
+### 4.15 SMS & A2P 10DLC
+
+**Registration flow:**
+
+1. Owner completes brand/campaign form per organization
+2. `POST /api/messaging/10dlc/register` → Telnyx 10DLC API via `lib/telnyx-10dlc.ts`
+3. Status tracked on `messaging_10dlc_registrations.status`
+4. Until approved, SMS features show compliance banners
+
+**Outbound:** `POST /api/messaging/send` → `sendTelnyxSms()` with org-scoped from-number
+
+**Inbound:** Telnyx `message.received` → `processInboundTelnyxMessage()`:
+
+- Disposition reply parsing (1-4 codes) for cell fallback loop (059)
+- General inbound stored in `sms_messages`
+
+**Automation engine (062):**
+
+- Post-job review SMS scheduled in `scheduled_sms` 15 min after completion
+- Templates on `onboarding_profiles` (`sms_booking_enabled`, route/review templates)
+
+### 4.16 Porting & Transfer Notifications
+
+**Owner flow:**
+
+- Submit port in buy-number modal → `porting_orders` row + Telnyx LNP submit
+- Track status in Lines UI + interaction drawer
+- Resubmit PIN on rejection (`/api/porting/orders/[id]/resubmit-pin`)
+
+**Webhooks:**
+
+- `porting_order.status_changed`, `comment_created`, `sub_request.exception`
+- Handler: `lib/telnyx-porting-webhook-handler.ts`
+- In-app notifications: `porting_notifications` + Pusher `porting-update` on owner channel
+- Notification center bell in header (`notification-center.tsx`)
+
+### 4.17 Platform Admin Console
+
+**Route:** `/admin` → `admin-console.tsx`, `lyncr-admin-dashboard.tsx`
+
+- Tenant directory with usage metrics
+- Credit adjustments, subscription toggles
+- Impersonation, routing override per tenant
+- Porting control desk (`admin/porting-control-desk.tsx`)
+- Live traffic monitor
+- Network agent management (`/admin/network`)
+- Dev sandbox: mock calls, seed data, quick switch (`admin-sandbox-board.tsx`)
+- Operator payout marking → `payout_ledger`
+
+### 4.18 Customers CRM
+
+**Route:** `/dashboard/customers` → `customers-page.tsx`
+
+- Saved caller profiles keyed by phone (`customers` table)
+- Answered-call popup suggests save/update (`answered-call-customer-popup.tsx`)
+- Toggle in Settings to disable popup
+
+### 4.19 Voice Wrap-Up & Cell Fallback
+
+**Cell fallback (059):**
+
+- After mobile operator call, SMS sends disposition codes 1-4
+- Inbound SMS reply maps to BOOKED/PENDING/PRICE_REJECTED/FAILED
+- Updates `call_logs.disposition`, notifies owner via Pusher
+
+**Voice wrap-up (060):**
+
+- `/api/voice/telnyx/wrapup` calls operator back
+- OpenAI transcription → `call_logs.internal_notes`
+- Owner dispatch SMS with maps link
+
+### 4.20 Certifications & Training
+
+- Seed data in `lib/certification-seeds/`
+- Quiz UI: `receptionist-training-quiz-view.tsx`
+- Progress in `receptionist_badges`
+- Automotive core / locksmith quizzes (046)
+
+---
+
+## 5. API & Voice/SMS Routing Flows
+
+### 5.1 Inbound Voice Call — End-to-End
+
+```
+┌──────────┐    PSTN     ┌────────┐   HTTP POST    ┌─────────────────────────────┐
+│  Caller  │ ──────────► │ Telnyx │ ─────────────► │ /api/voice/telnyx/incoming  │
+└──────────┘             └────────┘                └─────────────────────────────┘
+                                                              │
+                              ┌───────────────────────────────┘
+                              ▼
+                    parseTelnyxFormBody(fields)
+                    resolveCalledParty → business DID (E.164)
+                              │
+                              ▼
+              getIncomingRoutingForVoiceWebhook(calledNumber)
+              [cache → phone_numbers inbound snapshot → full DB join]
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+        Account suspended  Admin override   Normal routing
+              │               │               │
+              ▼               ▼               ▼
+           Hangup         Dial override   Branch selection:
+                                              │
+                    ┌─────────────────────────┼─────────────────────────┐
+                    ▼                         ▼                         ▼
+              Direct AI (no human)    Routing pool dial          PSTN/WebRTC dial
+              Redirect → ai-bridge    simultaneous agents        receptionist or owner
+                    │                         │                         │
+                    └─────────────────────────┴─────────────────────────┘
+                                              │
+                              insertCallLog (async via after())
+                              Return TeXML XML response
+                                              │
+                              ┌───────────────┴───────────────┐
+                              ▼                               ▼
+                        B-leg ANSWERED                   B-leg NO ANSWER
+                    Bridge audio path              Telnyx POSTs Dial action URL
+                              │                               │
+                              ▼                               ▼
+                    receptionist-answer webhook      handleTelnyxFallbackDialEnded
+                    Pusher call-connected            (lib/telnyx-fallback-dial-action.ts)
+                              │                               │
+                              ▼                               ▼
+                    Operator HUD intake pop            Resolve fallback_type:
+                                                         network → pool dial
+                                                         owner → dial owner cell
+                                                         ai → redirect ai-bridge
+                                                         voicemail → Say + Record
+                              │                               │
+                              └───────────────┬───────────────┘
+                                              ▼
+                              /api/voice/telnyx/status (on hangup)
+                              updateCallLog(duration, status, recording)
+                              Pusher call-completed → owner telemetry
+```
+
+### 5.2 Inbound Handler — Key Decision Branches
+
+**File:** `app/api/voice/telnyx/incoming/route.ts`  
+**Shared libs:** `lib/telnyx-inbound-media-quality.ts`, `lib/routing-pool.ts`, `lib/telnyx-ai-handoff.ts`, `lib/telnyx-admin-routing-override.ts`
+
+| Step | Function | Outcome |
+|------|----------|---------|
+| 1 | `tryFastInboundReceptionistResponse` | Sub-200ms path using cached snapshot |
+| 2 | `isAccountRoutingBlocked` | Suspended account → reject TeXML |
+| 3 | `tryAdminRoutingOverrideDial` | Force forward to admin E.164 |
+| 4 | `tryFastInboundDirectAiHandoff` | No receptionist + AI fallback → ai-bridge |
+| 5 | `tryRoutingPoolInboundDial` | Skill/network pool simultaneous ring |
+| 6 | `tryFastInboundPstnDial` | Single receptionist or owner PSTN/WebRTC |
+| 7 | `handleIncomingCall` (full path) | Overlay config, repeat-leg guards, standard Dial |
+
+**Fallback URL embedded in `<Dial action="...">`:**
+
+```
+/api/voice/telnyx/fallback/u/{userId}/n/{didDigits}/{mode}?callSid=...&bn=...&fb=ai
+```
+
+Modes: `recv`, `recv-ai`, `owner`, `owner-ai`, `network`, `network-ai`
+
+### 5.3 Fallback Handler — State Machine
+
+**File:** `lib/telnyx-fallback-dial-action.ts`  
+**Entry:** All `/api/voice/telnyx/fallback/**` routes delegate here.
+
+| Phase | Logic |
+|-------|-------|
+| Parse callback | `DialCallStatus`, `CallSid`, recover userId from path/query/DID |
+| Load routing | `getIncomingRoutingByNumber(bypassCache: true)` |
+| Early exit | If human leg bridged with conversation ≥120s → hangup |
+| Promote fallback | Owner leg done + configured → escalate to AI |
+| Hybrid strategy | `getLineHybridRoutingStrategy` may redirect owner → network pool |
+| Owner-first chain | Owner no-answer → second leg to receptionist if configured |
+| Switch fallback | `network` → pool; `owner` → dial cell; `ai` → ai-bridge; `voicemail` → Record |
+| Persist | `updateCallLog`, `markTelnyxInboundDialCallerLegDone` |
+
+### 5.4 AI Bridge Second Leg
+
+**Route:** `/api/voice/telnyx/ai-bridge/u/[userId]`
+
+Returns TeXML:
+
+```xml
+<Response>
+  <Connect>
+    <AIAssistant id="{telnyx_ai_assistant_id}" />
+  </Connect>
+</Response>
+```
+
+Assistant provisioned by `ensureTelnyxVoiceAiAssistant(userId)` from `user_ai_intake.config` + `ai_greeting`.
+
+### 5.5 Call Status & Recording Webhooks
+
+| Route | Trigger | Action |
+|-------|---------|--------|
+| `/api/voice/telnyx/status` | Call ended | Final duration, disposition SMS trigger (059), wrap-up callback scheduling |
+| `/api/voice/telnyx/recording-status` | Recording ready | Attach `recording_url` to `call_logs` |
+| `/api/voice/telnyx/voicemail-complete` | Voicemail done | Store voicemail metadata |
+
+### 5.6 Outbound SMS Flow
+
+```
+Owner sends reply in dashboard
+        │
+        ▼
+POST /api/messaging/send
+        │
+        ├── Auth: getUserIdFromRequest
+        ├── Resolve org + from_number (owned DID)
+        ├── 10DLC compliance check
+        └── sendTelnyxSms() → Telnyx Messaging API
+                │
+                └── insertSmsMessage (direction: outbound)
+```
+
+### 5.7 Inbound SMS Flow
+
+```
+Telnyx message.received
+        │
+        ▼
+POST /api/webhooks/telnyx/messaging
+        │
+        └── after() → processInboundTelnyxMessage(body)
+                │
+                ├── Disposition reply? → findOpenPendingSmsDispositionByPhone
+                │         → recordOperatorDisposition → confirmation SMS
+                │
+                └── General inbound → getActivePhoneNumberByE164(to)
+                          → insertSmsMessage (direction: inbound)
+```
+
+### 5.8 Porting Webhook Flow
+
+```
+Telnyx porting_order.status_changed
+        │
+        ▼
+POST /api/webhooks/telnyx
+        │
+        └── processTelnyxPortingWebhook(body)
+                ├── syncPortingOrderFromTelnyxWebhook
+                ├── finalizePortedNumber (on completed)
+                ├── insertPortingNotificationIfNew
+                └── publishOwnerEvent('porting-update')
+```
+
+### 5.9 Routing Config API (Dashboard ↔ DB)
+
+**GET `/api/routing`:**
+
+- `?all=true` → all lines for user
+- `?number=+1…` → per-DID config
+- `?number=…&effective=1` → includes resolved first PSTN leg name
+
+**PUT `/api/routing`:**
+
+- Requires `business_number` when account has ≥2 active lines
+- `updateRoutingConfig(userId, fields, businessNumber)`
+- If `fallback_type === 'ai'`: triggers `ensureTelnyxVoiceAiAssistant` + greeting sync
+
+**Cache invalidation:** `primeIncomingRoutingCacheForUser` after updates so next inbound call sees new config immediately.
+
+### 5.10 TeXML Construction
+
+**File:** `lib/telnyx.ts`
+
+- `VoiceResponse` class mirrors Twilio TwiML API for familiarity
+- `getAppUrl()` builds absolute webhook URLs from `NEXT_PUBLIC_APP_URL`
+- Whisper URLs on `<Number url="...">` for callee-only line ID (`lib/inbound-line-whisper.ts`)
+- Branded caller display via `fromDisplayName` (`lib/telnyx-caller-display.ts`)
+
+---
+
+## 6. State & UI Interaction Model
+
+### 6.1 Dashboard Shell & Navigation
+
+**Architecture:** Presence-based SPA within Next.js App Router.
+
+Primary tabs (`dashboard`, `activity`, `scheduler`, `leads`, `contacts`, `pay`, `settings`) render via `DashboardPresenceHost`:
+
+- All tab components **stay mounted** after first visit
+- Inactive tabs: `<section hidden aria-hidden>`
+- Switching tabs: no unmount/remount — instant swap, preserves scroll and form state
+- Route URLs still update (`/dashboard/scheduler`) for deep linking
+- Route page components return `null`; real UI lives in presence host
+
+**Mobile navigation:** `CommandDock` (`components/layout/command-dock.tsx`)
+
+- Desktop: fixed vertical icon rail (`hidden md:flex`)
+- Mobile: fixed bottom bar (Lines, Scheduler, Analytics/Pay, Settings)
+- Safe-area padding for iOS home indicator
+- Active tab indicator animation
+
+**Scroll model:**
+
+- App shell: `h-dvh overflow-hidden` on root; `<main>` scrolls with `overflow-y-auto`
+- Scheduler map mode: `data-scroll-locked` on main; Vaul bottom sheet owns vertical scroll
+- CSS vars: `--shell-header-h`, `--shell-dock-h`
+
+### 6.2 Provider Tree (Client State)
+
+Outer → inner nesting in `DashboardShell`:
+
+| Provider | File | State held |
+|----------|------|------------|
+| `DashboardSessionProvider` | `dashboard-session-context.tsx` | Name, email, preference flags from SSR |
+| `DashboardActivationProvider` | `dashboard-activation-context.tsx` | Subscription active, line live, upgrade modals |
+| `DashboardChromeProvider` | `dashboard-shell-chrome-context.tsx` | Active `PageId` for nav highlight |
+| `SwrProvider` | `swr-provider.tsx` | Global SWR config (10s dedupe, credentialed fetcher) |
+| `DashboardWorkspaceProvider` | `dashboard-workspace-context.tsx` | Active org id, phone lines, activity logs, line switcher |
+| `DashboardBootstrapShellGate` | `dashboard-bootstrap-context.tsx` | Resolved main bootstrap snapshot |
+| `DashboardNumbersModalProvider` | `dashboard-numbers-modal-context.tsx` | Buy/port modal open state |
+| `LeadsWorkspaceInitialProvider` | `leads-workspace-initial-context.tsx` | SSR leads cache seed |
+| `PortingInteractionProvider` | `porting-interaction-context.tsx` | Porting drawer interaction |
+
+**Layout-level (RSC):** `DashboardStreamProvider` holds unresolved `Promise`s for streamed server data passed from `app/dashboard/layout.tsx`.
+
+### 6.3 Data Fetching Patterns
+
+#### Server-side bootstrap (hard refresh)
+
+`app/dashboard/layout.tsx` awaits:
+
+- `dashboardMainBootstrapPromise(user)` — phone lines, routing, orgs in one round-trip
+- Optional: `loadLeadsWorkspaceData` on `/dashboard/leads`
+- Optional: `routingBootstrapPromise`, `jobPoolPromise`, `activePipelinePromise` for scheduler
+
+Passed to client via `DashboardStreamProvider` → resolved in `DashboardBootstrapShellGate`.
+
+#### SWR (client revalidation)
+
+| Hook | Endpoint | Cache key includes |
+|------|----------|-------------------|
+| `useBusinessNumbersQuery` | `/api/numbers/mine` | org id |
+| `useJobPoolQuery` | `/api/owner/jobs/pool` | owner id |
+| `useActivePipelineQuery` | `/api/owner/jobs/pool?scope=active&day=` | day key |
+
+Persisted to `sessionStorage` (30 min TTL) for instant tab return.
+
+#### Custom operations cache
+
+`useOperationsData` (Activity tab):
+
+- In-memory + sessionStorage
+- 45-second TTL
+- Optional polling interval
+- Not SWR — bespoke for large call log payloads
+
+#### Direct fetch in components
+
+Routing page, receptionist portal, tech console use credentialed `fetch()` with local `useState` + `useEffect`, often with polling fallbacks when Pusher unavailable.
+
+### 6.4 Realtime (Pusher)
+
+**Server publish:** `lib/realtime/pusher-server.ts`
+
+| Channel | Events | Subscribers |
+|---------|--------|-------------|
+| `owner-{ownerUserId}` | `job-booked`, `job-assigned`, `lead-salvageable`, `disposition-updated`, `job-status-updated`, `tech-location-updated`, `call-initiated`, `call-completed`, `porting-update` | Scheduler, map, telemetry strip, notification center |
+| `receptionist-{receptionistId}` | `call-connected`, `call-ended` | Receptionist HUD |
+| `technician-{techUserId}` | `job-assigned`, `job-updated` | Tech console |
+
+**Client:** `getPusherClient()` singleton in `lib/realtime/pusher-client.ts`
+
+**Graceful degradation:** If `PUSHER_*` env unset, server no-ops; clients fall back to polling (15–20s intervals).
+
+**Trigger points:**
+
+- `app/actions/call-events.ts` — receptionist call connect/end
+- Job assign/schedule/claim API routes
+- `lib/telnyx-porting-webhook-handler.ts` — porting updates
+- Tech location API
+
+### 6.5 Live Call State (Receptionist HUD)
+
+```
+Telnyx bridges B-leg (receptionist answers)
+        │
+        ▼
+POST /api/voice/telnyx/receptionist-answer
+        │
+        ├── Publish Pusher: receptionist-{id} / call-connected
+        └── Include caller metadata for intake form
+                │
+                ▼
+receptionist-portal-view.tsx subscribes
+        │
+        └── Opens ReceptionistLiveIntake overlay
+                │
+                └── Operator submits → POST /api/receptionist/log-job
+                          → ai_leads row created/updated
+                          → Pusher owner-{id} / job-booked
+                          → Owner toast + scheduler refresh
+```
+
+### 6.6 Active Call Telemetry (Owner)
+
+`routing-telemetry-strip.tsx`:
+
+- Initial load: `GET /api/routing/telemetry`
+- Live updates: Pusher `call-initiated`, `call-completed` on `owner-{id}`
+- Displays: active calls, today's volume, routing health pills
+
+### 6.7 Scheduler Live State
+
+`scheduler-workspace-view.tsx`:
+
+- SWR for job pool + active pipeline (day-scoped keys)
+- Pusher subscription on mount:
+  - `job-status-updated` → refresh pipeline panel
+  - `tech-location-updated` → move map markers
+  - `job-assigned` → refresh hopper
+- Map component (`scheduler-route-map.tsx`) uses Leaflet with custom markers from `lib/scheduler-map-markers.ts`
+- Mobile: `SchedulerMobileDispatchShell` with Vaul drawer; scroll lock via `lib/mobile-scroll-lock.ts`
+
+### 6.8 Workspace / Organization Switching
+
+`DashboardWorkspaceProvider`:
+
+- `activeOrganizationId` persisted in localStorage (`lib/workspace-organizations.ts`)
+- Filters phone lines, routing, scheduler events by org
+- Header switcher: `organization-switcher.tsx` + `dashboard-header-workspace.tsx`
+- Changing org re-keys SWR caches and refreshes routing surface
+
+### 6.9 Modals & Drawers Pattern
+
+| Pattern | Usage |
+|---------|-------|
+| Radix Dialog | Confirmations, booking dialogs, strategy modal |
+| Vaul Drawer | Mobile scheduler sheet, porting interaction |
+| Custom right sheets | `workspace-right-sheet-gate.tsx` — Who Answers, Settings hours |
+| Lazy modal host | `settings-modals-lazy-host.tsx` — code-splits heavy settings modals |
+
+Settings menu rows dispatch custom events (`lib/settings-modals-events.ts`) to open specific modals without prop drilling.
+
+### 6.10 Auth Session Refresh
+
+`DashboardShell`:
+
+- On mount: `fetch /api/auth/session` if no SSR seed
+- Listens for `zing-account-preferences-updated` window event
+- Updates `accountHeader` state for avatar menu
+- 401 → redirect to `/login`
+
+### 6.11 Role-Specific UI Surfaces
+
+| Role | Shell | Primary state sources |
+|------|-------|----------------------|
+| Owner | `AppShell` + presence host | Bootstrap context, workspace context, SWR, Pusher |
+| Receptionist | `ReceptionistPortalChrome` | `/api/receptionist/dashboard`, Pusher, poll fallback |
+| Field tech | Dark mobile layout | `/api/tech/jobs`, GPS POST loop, Pusher |
+| Admin | `AdminChrome` | `/api/admin/*` endpoints, impersonation cookie |
+
+### 6.12 Error & Loading Boundaries
+
+- `app/dashboard/error.tsx` — tab-level error UI
+- `components/error-boundary.tsx` — generic React error boundary
+- Skeleton components: `workspace-content-skeletons.tsx`, `scheduler-panel-skeletons.tsx`
+- Stream gate shows loading until bootstrap promise resolves
+
+---
+
+## Appendix A: TypeScript Domain Model Index
+
+Primary definitions in `lib/types.ts` (1,000+ lines):
+
+| Category | Types |
+|----------|-------|
+| Accounts | `User`, `AccountRole`, `OnboardingProfile` |
+| Telephony | `PhoneNumber`, `RoutingConfig`, `FallbackType`, `RoutingStrategy`, `CallLog` |
+| Staff | `Receptionist`, `FieldTechnician`, `TeamInvite` |
+| Dispatch | `AiLead`, `DispatchJob`, `SchedulerEvent`, `ActivePipelineJob`, `UnassignedPoolJob`, `TechLiveLocation` |
+| Billing | `AgentPaySummary`, `FeedbackSubmission` |
+| SMS | `Messaging10DlcRegistration`, `SmsRegistration`, `SmsMessage` |
+| Porting | `PortingOrder`, `PortingNotification` |
+| Admin | `AdminUserSummary`, `AdminLiveCall`, `LyncrAdminMetrics` |
+| Training | `Certification`, `ReceptionistBadge` |
+
+---
+
+## Appendix B: Key Library Modules
+
+| Module | Responsibility |
+|--------|----------------|
+| `lib/db.ts` | All SQL — users, routing, calls, leads, porting, billing, admin |
+| `lib/telnyx-fallback-dial-action.ts` | No-answer fallback state machine |
+| `lib/telnyx-inbound-media-quality.ts` | Fast-path inbound TeXML |
+| `lib/routing-pool.ts` | Network receptionist pool selection |
+| `lib/telnyx-ai-assistant-lifecycle.ts` | Create/sync Telnyx Voice AI assistants |
+| `lib/sms-inbound-handler.ts` | Inbound SMS + disposition replies |
+| `lib/stripe-webhook-sync.ts` | Subscription + credit webhook processing |
+| `lib/server/streamed-dashboard-data.ts` | RSC bootstrap promise factories |
+| `lib/dashboard-routing-utils.ts` | Phone matching, display formatting |
+| `lib/intake-form-helpers.ts` | Industry-specific job intake serialization |
+| `lib/job-pool.ts` | Hopper/pipeline query helpers |
+| `lib/webrtc/use-telnyx-webrtc.ts` | Browser WebRTC client hook |
+
+---
+
+## Appendix C: Known Architectural Notes
+
+1. **`lib/db.ts` is monolithic** (~12k lines) — all data access in one module; no ORM; heavy use of `unstable_cache` for inbound routing.
+2. **Telnyx-first, Twilio legacy** — new integrations should use `/api/voice/telnyx/*` and `/api/numbers/telnyx/*` exclusively.
+3. **`ai_leads` is multi-purpose** — leads, booked jobs, scheduler events, and dispatch queue share one table with JSONB `collected` fallback for unmigrated columns.
+4. **Migrations are manual** — schema changes require updating `scripts/MIGRATE-ALL.md` and user action in Neon.
+5. **Presence host tradeoff** — instant tab switches at cost of higher initial memory; heavy tabs use `deferUntilVisit`.
+6. **Pusher is optional** — all realtime features degrade to polling.
+7. **Mobile scaffold** — `mobile/` directory exists but primary UI is responsive Next.js web app.
+8. **Build note** — server modules (`lib/db.ts`, Telnyx SDK) must not be imported into client components; webpack resolves `fs`/`net`/`tls` errors if import chain leaks to browser bundle.
+
+---
+
+## Appendix D: Document References
+
+| Document | Path |
+|----------|------|
+| Cursor project rules | `.cursorrules` |
+| Production setup | `PRODUCTION.md` |
+| Migration checklist | `scripts/MIGRATE-ALL.md` |
+| AI receptionist docs | `docs/AI-RECEPTIONIST.md` |
+| Dashboard navigation | `lib/dashboard-nav.ts` |
+| Shared types | `lib/types.ts` |
+
+---
+
+*End of Lyncr Architecture Report*

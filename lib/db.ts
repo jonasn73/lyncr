@@ -9,7 +9,7 @@ import { neon } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { neighborhoodFromLocation } from "@/lib/job-pool"
 import { localDayRangeIso } from "@/lib/scheduler-utils"
-import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
+import { parseAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOverrideE164 } from "@/lib/phone-e164"
 import { SITE_NAME } from "@/lib/brand"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
@@ -19,6 +19,7 @@ import type {
   RoutingStrategy,
   Receptionist,
   User,
+  AdminNotificationPreferences,
   MasterToggleMode,
   CallLog,
   PhoneNumber,
@@ -235,6 +236,11 @@ function parseMasterToggleMode(raw: unknown): MasterToggleMode {
   const v = String(raw ?? "admin")
   if (v === "tech" || v === "passive") return v
   return "admin"
+}
+
+/** True when `users.admin_notification_preferences` is missing (run scripts/080-admin-notification-preferences.sql). */
+function isMissingAdminNotificationPreferencesColumnError(e: unknown): boolean {
+  return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("admin_notification_preferences")
 }
 
 // Parse a routing_config row into a RoutingConfig object
@@ -1968,6 +1974,7 @@ function parseUserRow(row: Record<string, unknown>): User {
     is_platform_admin:
       row.is_platform_admin === null || row.is_platform_admin === undefined ? false : pgBool(row.is_platform_admin),
     master_toggle_mode: parseMasterToggleMode(row.master_toggle_mode),
+    admin_notification_preferences: parseAdminNotificationPreferences(row.admin_notification_preferences),
     answered_call_customer_popup_enabled:
       row.answered_call_customer_popup_enabled === null || row.answered_call_customer_popup_enabled === undefined
         ? true
@@ -2690,12 +2697,25 @@ export async function getUser(userId: string): Promise<User | null> {
     const rows = await sql`
       SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
         credit_balance_cents, billing_plan, is_platform_admin,
-        answered_call_customer_popup_enabled, account_role, master_toggle_mode
+        answered_call_customer_popup_enabled, account_role, master_toggle_mode, admin_notification_preferences
       FROM users WHERE id = ${userId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
   } catch (initialErr) {
     let e: unknown = initialErr
+    if (isMissingAdminNotificationPreferencesColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin,
+            answered_call_customer_popup_enabled, account_role, master_toggle_mode
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        e = e2
+      }
+    }
     if (isMissingMasterToggleModeColumnError(e)) {
       try {
         const rows = await sql`
@@ -2815,14 +2835,27 @@ export async function getUser(userId: string): Promise<User | null> {
   }
 }
 
-/** Persist platform-owner quick-toggle profile (admin-only UI). */
-export async function updateMasterToggleMode(userId: string, mode: MasterToggleMode): Promise<void> {
+/** Persist one platform-admin notification channel toggle. */
+export async function updateAdminNotificationPreference(
+  userId: string,
+  key: keyof AdminNotificationPreferences,
+  enabled: boolean
+): Promise<AdminNotificationPreferences> {
   const sql = getSql()
+  const current = (await getUser(userId))?.admin_notification_preferences
+  const merged = { ...parseAdminNotificationPreferences(current), [key]: enabled }
   try {
-    await sql`UPDATE users SET master_toggle_mode = ${mode} WHERE id = ${userId}`
+    await sql`
+      UPDATE users
+      SET admin_notification_preferences = ${JSON.stringify(merged)}::jsonb
+      WHERE id = ${userId}
+    `
+    return merged
   } catch (e) {
-    if (isMissingMasterToggleModeColumnError(e)) {
-      throw new Error("master_toggle_mode requires scripts/079-master-toggle-mode.sql in Neon.")
+    if (isMissingAdminNotificationPreferencesColumnError(e)) {
+      throw new Error(
+        "admin_notification_preferences requires scripts/080-admin-notification-preferences.sql in Neon."
+      )
     }
     throw e
   }

@@ -40,6 +40,7 @@ import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
+import { PlatformNotificationSettings } from "@/components/admin/platform-notification-settings"
 
 type SettingsProfileSummary = {
   name: string
@@ -127,6 +128,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   signingOut,
   onSignOut,
   carrierRegistrationPending,
+  isPlatformAdmin,
 }: {
   profileLoading: boolean
   profile: SettingsProfileSummary
@@ -140,6 +142,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   signingOut: boolean
   onSignOut: () => void
   carrierRegistrationPending: boolean
+  isPlatformAdmin: boolean
 }) {
   const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
   const modals = useSettingsModalActions()
@@ -179,6 +182,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           </>
         )}
       </div>
+
+      {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-2xl" /> : null}
 
       <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Workspace</p>
@@ -382,6 +387,7 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
         onSaveWhisper={(v) => void saveWhisper(v)}
         signingOut={signingOut}
         carrierRegistrationPending={carrierRegistrationPending}
+        isPlatformAdmin={sessionSeed?.isPlatformAdmin === true}
         onSignOut={() => {
           setSigningOut(true)
           void signOutAndGoToLogin().finally(() => setSigningOut(false))

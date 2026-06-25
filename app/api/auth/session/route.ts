@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth"
 import { getUser } from "@/lib/db"
 import { globalPlatformSessionFields } from "@/lib/platform-admin"
+import { resolveAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import {
   IMPERSONATION_ADMIN_COOKIE,
   IMPERSONATION_RETURN_COOKIE,
@@ -79,11 +80,21 @@ export async function GET(req: NextRequest) {
     const returnRaw = cookieStore.get(IMPERSONATION_RETURN_COOKIE)?.value
 
     const globalFields = globalPlatformSessionFields(user)
-    const { master_toggle_mode: _omitToggle, ...userWithoutToggle } = user
+    const {
+      master_toggle_mode: _legacyToggle,
+      admin_notification_preferences: _legacyPrefs,
+      ...userPublic
+    } = user
     const sessionUser = user.is_platform_admin
-      ? { ...user, operator_access: globalFields.isPlatformAdmin, ...globalFields }
+      ? {
+          ...userPublic,
+          is_platform_admin: true,
+          admin_notification_preferences: resolveAdminNotificationPreferences(user),
+          operator_access: globalFields.isPlatformAdmin,
+          ...globalFields,
+        }
       : {
-          ...userWithoutToggle,
+          ...userPublic,
           operator_access: globalFields.isPlatformAdmin,
           ...globalFields,
         }

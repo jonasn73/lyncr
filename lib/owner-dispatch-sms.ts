@@ -13,6 +13,7 @@ import {
   getUser,
   normalizePhoneNumberE164,
 } from "@/lib/db"
+import { shouldSendAdminLocalJobAssignmentSms } from "@/lib/admin-notification-dispatch"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
@@ -80,6 +81,9 @@ export async function sendOwnerDispatchSms(params: {
 }): Promise<OwnerDispatchResult> {
   const [user, profile] = await Promise.all([getUser(params.userId), getOnboardingProfile(params.userId)])
   if (!user && !profile) return { ok: false, reason: "user not found" }
+  if (user && !shouldSendAdminLocalJobAssignmentSms(user)) {
+    return { ok: false, reason: "local job assignment SMS disabled in platform notification settings" }
+  }
 
   const recipient = resolveLeadAlertSmsRecipient(profile, user)
   if (!recipient) return { ok: false, reason: "no owner dispatch/cell number configured" }

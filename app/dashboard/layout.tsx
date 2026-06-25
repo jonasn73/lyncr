@@ -5,8 +5,8 @@ import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
 import { getCachedSessionUser } from "@/lib/server/cached-session"
-import { canUseMasterToggleProfile } from "@/lib/master-toggle-access"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
+import { resolveAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import { userMayAccessDashboard } from "@/lib/server-onboarding-guard"
 import {
   activePipelinePromise,
@@ -121,10 +121,10 @@ export default async function DashboardLayout({
           hasActiveSubscription: user.has_active_subscription === true,
           answeredCallCustomerPopupEnabled: user.answered_call_customer_popup_enabled !== false,
           inboundReceptionistWhisperEnabled: user.inbound_receptionist_whisper_enabled !== false,
-          ...(canUseMasterToggleProfile(user)
+          ...(user.is_platform_admin
             ? {
                 isPlatformAdmin: true as const,
-                masterToggleMode: user.master_toggle_mode ?? "admin",
+                adminNotificationPreferences: resolveAdminNotificationPreferences(user),
               }
             : {}),
         }}
