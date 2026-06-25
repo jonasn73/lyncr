@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Bot, Phone, Users, Voicemail } from "lucide-react"
+import { Bot, Phone, PhoneIncoming, Users, Voicemail } from "lucide-react"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -68,9 +68,26 @@ const BACKUP_OPTIONS: {
   },
 ]
 
+const CALLER_EXPERIENCE_OPTIONS = [
+  {
+    value: true as const,
+    label: "Greeting first",
+    description: "Callers hear a short “Thank you for calling…” message, then we ring your team.",
+    icon: PhoneIncoming,
+  },
+  {
+    value: false as const,
+    label: "Ring immediately",
+    description: "Standard phone ringback while we connect — no spoken greeting before the ring.",
+    icon: Phone,
+  },
+] as const
+
 export type DashboardRingBackupDrawerProps = {
   ringTimeoutSec: number
   setRingTimeoutSec: (n: number) => void
+  inboundCallerGreetingEnabled: boolean
+  setInboundCallerGreetingEnabled: (v: boolean) => void
   fallback: FallbackOption
   setFallback: (f: FallbackOption) => void
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
@@ -84,6 +101,8 @@ export type DashboardRingBackupDrawerProps = {
 export function DashboardRingBackupDrawer({
   ringTimeoutSec,
   setRingTimeoutSec,
+  inboundCallerGreetingEnabled,
+  setInboundCallerGreetingEnabled,
   fallback,
   setFallback,
   saveRouting,
@@ -97,16 +116,24 @@ export function DashboardRingBackupDrawer({
   const [saving, setSaving] = useState(false)
   const [draftSeconds, setDraftSeconds] = useState(ringTimeoutSec)
   const [draftStrategy, setDraftStrategy] = useState<BackupStrategy>(() => strategyFromFallback(fallback))
+  const [draftGreetingEnabled, setDraftGreetingEnabled] = useState(inboundCallerGreetingEnabled)
   const baselineRef = useRef("")
 
   useEffect(() => {
     const snapped = snapDashboardRingTimeoutSec(ringTimeoutSec)
     setDraftSeconds(snapped)
     setDraftStrategy(strategyFromFallback(fallback))
-    baselineRef.current = JSON.stringify({ seconds: snapped, strategy: strategyFromFallback(fallback) })
-  }, [ringTimeoutSec, fallback])
+    setDraftGreetingEnabled(inboundCallerGreetingEnabled)
+    baselineRef.current = JSON.stringify({
+      seconds: snapped,
+      strategy: strategyFromFallback(fallback),
+      greetingEnabled: inboundCallerGreetingEnabled,
+    })
+  }, [ringTimeoutSec, fallback, inboundCallerGreetingEnabled])
 
-  const dirty = JSON.stringify({ seconds: draftSeconds, strategy: draftStrategy }) !== baselineRef.current
+  const dirty =
+    JSON.stringify({ seconds: draftSeconds, strategy: draftStrategy, greetingEnabled: draftGreetingEnabled }) !==
+    baselineRef.current
 
   const physicalRings = useMemo(() => estimatePhysicalRings(draftSeconds), [draftSeconds])
   const lineLabel = routingBusinessNumber ? `Line ${formatPhoneDisplay(routingBusinessNumber)}` : null
@@ -126,14 +153,20 @@ export function DashboardRingBackupDrawer({
 
   const discardEdits = useCallback(() => {
     try {
-      const parsed = JSON.parse(baselineRef.current) as { seconds: number; strategy: BackupStrategy }
+      const parsed = JSON.parse(baselineRef.current) as {
+        seconds: number
+        strategy: BackupStrategy
+        greetingEnabled: boolean
+      }
       setDraftSeconds(parsed.seconds)
       setDraftStrategy(parsed.strategy)
+      setDraftGreetingEnabled(parsed.greetingEnabled)
     } catch {
       setDraftSeconds(snapDashboardRingTimeoutSec(ringTimeoutSec))
       setDraftStrategy(strategyFromFallback(fallback))
+      setDraftGreetingEnabled(inboundCallerGreetingEnabled)
     }
-  }, [ringTimeoutSec, fallback])
+  }, [ringTimeoutSec, fallback, inboundCallerGreetingEnabled])
 
   useEffect(() => {
     onRegisterDiscard?.(discardEdits)
@@ -151,12 +184,18 @@ export function DashboardRingBackupDrawer({
       const nextFallback = fallbackFromStrategy(draftStrategy)
       setRingTimeoutSec(snapped)
       setFallback(nextFallback)
+      setInboundCallerGreetingEnabled(draftGreetingEnabled)
       await saveRouting({
         ring_timeout_seconds: snapped,
         fallback_type: nextFallback,
+        inbound_caller_greeting_enabled: draftGreetingEnabled,
       })
-      baselineRef.current = JSON.stringify({ seconds: snapped, strategy: draftStrategy })
-      toast({ title: "Saved", description: "Ring timing and backup strategy updated." })
+      baselineRef.current = JSON.stringify({
+        seconds: snapped,
+        strategy: draftStrategy,
+        greetingEnabled: draftGreetingEnabled,
+      })
+      toast({ title: "Saved", description: "Caller experience, ring timing, and backup strategy updated." })
       onClose()
       if (draftStrategy === "ai") onOpenVoiceAi()
     } catch {
@@ -164,7 +203,18 @@ export function DashboardRingBackupDrawer({
     } finally {
       setSaving(false)
     }
-  }, [draftSeconds, draftStrategy, saveRouting, setRingTimeoutSec, setFallback, onClose, onOpenVoiceAi, toast])
+  }, [
+    draftSeconds,
+    draftStrategy,
+    draftGreetingEnabled,
+    saveRouting,
+    setRingTimeoutSec,
+    setFallback,
+    setInboundCallerGreetingEnabled,
+    onClose,
+    onOpenVoiceAi,
+    toast,
+  ])
 
   return (
     <form
@@ -181,7 +231,39 @@ export function DashboardRingBackupDrawer({
         lineLabel={lineLabel}
       />
       <DrawerScrollBody className={cn(routingLineDetailLoading && "pointer-events-none opacity-50")}>
-        <section className="space-y-4">
+        <section className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">What callers hear first</p>
+          <div className="space-y-2">
+            {CALLER_EXPERIENCE_OPTIONS.map((opt) => {
+              const Icon = opt.icon
+              const active = draftGreetingEnabled === opt.value
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setDraftGreetingEnabled(opt.value)}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-xl border px-4 py-3.5 text-left transition-[border-color,background-color] duration-200",
+                    active
+                      ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
+                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                  )}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950/60">
+                    <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-zinc-500")} aria-hidden />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-snug text-foreground">{opt.label}</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">{opt.description}</p>
+                  </div>
+                  <RadioDot selected={active} />
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="mt-8 space-y-4">
           <RingBudgetSummary physicalRings={physicalRings} draftSeconds={draftSeconds} />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
             {RING_PRESETS.map((preset) => {

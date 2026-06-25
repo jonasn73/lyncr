@@ -18,6 +18,7 @@ export type DashboardRoutingBootstrap = {
     ring_timeout_seconds: number
     routing_strategy: RoutingStrategy
     allow_lyncr_network_fallback: boolean
+    inbound_caller_greeting_enabled: boolean
   }
   primaryLineNumber: string | null
 }

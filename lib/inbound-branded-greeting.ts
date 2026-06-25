@@ -3,6 +3,12 @@
 import { getTexmlSayVoiceAttributes, texmlSayMessageBody } from "@/lib/texml-say-voice"
 import { escapeXmlAttr } from "@/lib/telnyx-inbound-media-quality"
 import { readTelnyxDialAnswerOnBridge } from "@/lib/telnyx-pstn-dial-callerid"
+import {
+  buildInboundGreetingContinueUrl,
+  inboundGreetingPassDone,
+} from "@/lib/inbound-greeting-param"
+
+export { buildInboundGreetingContinueUrl, inboundGreetingPassDone }
 
 /** Routing row fields used to pick the speakable workspace / brand label. */
 export type InboundWorkspaceRoutingLike = {
@@ -71,29 +77,13 @@ export function readInboundGreetingFirstPassEnabled(): boolean {
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 
-/** True when pass 1 already played the greeting (`zingGreet=1` on URL or Telnyx POST body). */
-function greetingPassFlag(value: string | null | undefined): boolean {
-  const v = value?.trim().toLowerCase()
-  return v === "1" || v === "true" || v === "yes"
-}
-
-export function inboundGreetingPassDone(
-  searchParams: { get(name: string): string | null },
-  fields?: Record<string, string>
+/** Per-line dashboard toggle (defaults true when column missing). */
+export function isInboundCallerGreetingEnabled(
+  routing: { inbound_caller_greeting_enabled?: boolean } | null | undefined
 ): boolean {
-  if (greetingPassFlag(searchParams.get("zingGreet"))) return true
-  if (!fields) return false
-  for (const key of ["zingGreet", "ZingGreet", "zing_greet"]) {
-    if (greetingPassFlag(fields[key])) return true
-  }
-  return false
-}
-
-/** Pass-2 continue URL — preserves Telnyx query params and marks greeting complete. */
-export function buildInboundGreetingContinueUrl(incomingUrl: string): string {
-  const url = new URL(incomingUrl)
-  url.searchParams.set("zingGreet", "1")
-  return url.toString()
+  if (!readInboundGreetingFirstPassEnabled()) return false
+  if (!routing) return true
+  return routing.inbound_caller_greeting_enabled !== false
 }
 
 /** Pass 1 TeXML — speak the greeting, then redirect to routing pass 2 (no `<Dial>` yet). */
@@ -147,10 +137,14 @@ export function buildInstantGenericGreetingFirstPassResult(incomingUrl: string):
 /** Branded `<Say>` on the same response as `<Dial>` — only when two-pass greeting is disabled. */
 export function resolveCallerGreetingForDialPass(
   workspaceName: string,
-  greetingPassDone: boolean
+  greetingPassDone: boolean,
+  greetingEnabled = true
 ): string | undefined {
-  if (readInboundGreetingFirstPassEnabled() || greetingPassDone) return undefined
-  return buildInboundCallerGreetingText(workspaceName)
+  if (greetingPassDone) return undefined
+  if (readInboundGreetingFirstPassEnabled() && greetingEnabled) return undefined
+  if (!greetingEnabled) return undefined
+  if (!readInboundGreetingFirstPassEnabled()) return buildInboundCallerGreetingText(workspaceName)
+  return undefined
 }
 
 /** Pass 1 result when two-pass greeting is enabled and greeting has not played yet. */
@@ -164,8 +158,8 @@ export function buildInboundGreetingFirstPassResult(
   return { kind: "raw", xml: buildInboundCallerGreetingOnlyTexml(greeting, continueUrl) }
 }
 
-export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean): boolean {
-  return !greetingPassDone && readInboundGreetingFirstPassEnabled()
+export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean, greetingEnabled = true): boolean {
+  return !greetingPassDone && greetingEnabled && readInboundGreetingFirstPassEnabled()
 }
 
 /** When false (default), callers hear silence — not US ringback — while the team phone rings after the greeting. */
@@ -174,17 +168,22 @@ export function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
-/** Two-pass mode: never play US ringback to the caller on `<Dial>` (cell or web). */
-export function shouldPlayCallerRingbackDuringDial(_greetingPassDone: boolean): boolean {
-  if (readInboundGreetingFirstPassEnabled()) return false
+/** Greeting off → straight ringback. Greeting on → silence after message while cell rings (unless env override). */
+export function shouldPlayCallerRingbackDuringDial(
+  greetingPassDone: boolean,
+  greetingEnabled = true
+): boolean {
+  if (!greetingEnabled || !readInboundGreetingFirstPassEnabled()) return true
+  if (!greetingPassDone) return false
   return readInboundCallerRingbackAfterGreetingEnabled()
 }
 
-/**
- * PSTN cell forward (`<Dial><Number>`). Two-pass mode always keeps the inbound leg answered
- * after pass 1 — never restore ringback/dial tone while the teammate's cell rings.
- */
-export function resolveInboundPstnForwardAnswerOnBridge(_greetingPassDone: boolean): boolean {
-  if (readInboundGreetingFirstPassEnabled()) return false
+/** PSTN cell forward — ringback only when caller greeting is disabled (straight ring mode). */
+export function resolveInboundPstnForwardAnswerOnBridge(
+  greetingPassDone: boolean,
+  greetingEnabled = true
+): boolean {
+  if (!greetingEnabled || !readInboundGreetingFirstPassEnabled()) return readTelnyxDialAnswerOnBridge()
+  if (greetingPassDone) return false
   return readTelnyxDialAnswerOnBridge()
 }

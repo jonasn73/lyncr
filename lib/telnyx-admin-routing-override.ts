@@ -5,6 +5,7 @@ import {
   resolveCallerGreetingForDialPass,
   resolveInboundPstnForwardAnswerOnBridge,
   resolveWorkspaceDisplayName,
+  isInboundCallerGreetingEnabled,
   shouldPlayCallerRingbackDuringDial,
   type InboundWorkspaceRoutingLike,
 } from "@/lib/inbound-branded-greeting"
@@ -24,6 +25,7 @@ export type AdminRoutingOverrideRoutingLike = InboundWorkspaceRoutingLike & {
   fallback_type?: string | null
   ring_timeout_seconds?: number | null
   admin_routing_override_phone?: string | null
+  inbound_caller_greeting_enabled?: boolean
 }
 
 export type AdminRoutingOverrideDialResult = { kind: "raw"; xml: string }
@@ -54,7 +56,12 @@ export function buildAdminRoutingOverrideDial(params: {
   if (!overrideE164) return null
 
   const workspaceName = resolveWorkspaceDisplayName(params.routing)
-  const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, params.greetingPassDone ?? false)
+  const greetingEnabled = isInboundCallerGreetingEnabled(params.routing)
+  const callerGreeting = resolveCallerGreetingForDialPass(
+    workspaceName,
+    params.greetingPassDone ?? false,
+    greetingEnabled
+  )
 
   const wantsAiAfterNoAnswer = String(params.routing.fallback_type ?? "").toLowerCase() === "ai"
   const effectiveRingTimeout = Number(params.routing.ring_timeout_seconds ?? 30) || 30
@@ -88,13 +95,16 @@ export function buildAdminRoutingOverrideDial(params: {
 
   const xml = buildFastReceptionistDialTexml({
     ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
-    answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(params.greetingPassDone ?? false),
+    answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(
+      params.greetingPassDone ?? false,
+      greetingEnabled
+    ),
     timeout: dialTimeoutSec,
     action,
     receptionistE164: overrideE164,
     answerUrl,
     ...(callerGreeting ? { callerGreeting } : {}),
-    includeRingback: shouldPlayCallerRingbackDuringDial(params.greetingPassDone ?? false),
+    includeRingback: shouldPlayCallerRingbackDuringDial(params.greetingPassDone ?? false, greetingEnabled),
   })
 
   return { kind: "raw", xml }

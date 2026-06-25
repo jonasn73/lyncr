@@ -11,15 +11,15 @@ describe("shouldEdgeInstantGreetingIntercept", () => {
     vi.unstubAllEnvs()
   })
 
-  it("intercepts first POST to telnyx incoming", () => {
+  it("is disabled so per-line greeting is decided in /incoming", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
     const url = new URL("https://lyncr.app/api/voice/telnyx/incoming")
-    expect(shouldEdgeInstantGreetingIntercept(url.pathname, url, "POST")).toBe(true)
+    expect(shouldEdgeInstantGreetingIntercept(url.pathname, url, "POST")).toBe(false)
   })
 
-  it("passes through when zingGreet=1", () => {
+  it("passes through when lyncrGreet=1", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
-    const url = new URL("https://lyncr.app/api/voice/telnyx/incoming?zingGreet=1")
+    const url = new URL("https://lyncr.app/api/voice/telnyx/incoming?lyncrGreet=1")
     expect(shouldEdgeInstantGreetingIntercept(url.pathname, url, "POST")).toBe(false)
   })
 })
@@ -37,7 +37,7 @@ describe("buildEdgeInstantGreetingTexml", () => {
     expect(xml).toContain("Thank you for calling.")
     expect(xml).toContain("<Redirect")
     expect(continueUrl).toContain("/api/voice/telnyx/incoming")
-    expect(continueUrl).toContain("zingGreet=1")
+    expect(continueUrl).toContain("lyncrGreet=1")
     expect(edgeInboundGreetingPassDone(new URL(continueUrl))).toBe(true)
     expect(xml).not.toContain("<Dial")
     expect(xml).not.toContain("<Play")

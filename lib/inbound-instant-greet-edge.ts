@@ -1,11 +1,16 @@
-// Edge-safe instant pass-1 TeXML (no DB, no Twilio SDK — runs in middleware before Node cold start).
+// Edge-safe instant pass-1 TeXML (no DB — global fallback only; per-line greeting uses /incoming + routing cache).
+
+import {
+  INBOUND_GREETING_PASS_PARAM,
+  buildInboundGreetingContinueUrl,
+  inboundGreetingPassDone,
+} from "@/lib/inbound-greeting-param"
+
+export { buildInboundGreetingContinueUrl, inboundGreetingPassDone }
 
 /** Generic copy when pass 1 cannot read routing cache (speed > personalization). */
 export const EDGE_GENERIC_GREETING_TEXT =
   "Thank you for calling. Please wait while we connect your call to a team member."
-
-/** Optional hosted WAV in /public — only when `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL` points here. */
-export const INBOUND_GENERIC_GREETING_AUDIO_PATH = "/audio/inbound-generic-greeting.wav"
 
 /** Standard Polly on pass 1 — answers on Telnyx immediately (no HTTP fetch like `<Play>`). */
 const EDGE_PASS1_SAY_VOICE = "Polly.Joanna"
@@ -16,8 +21,7 @@ export function isVoiceIncomingWebhookPath(pathname: string): boolean {
 }
 
 export function edgeInboundGreetingPassDone(url: URL): boolean {
-  const v = url.searchParams.get("zingGreet")?.trim().toLowerCase()
-  return v === "1" || v === "true" || v === "yes"
+  return inboundGreetingPassDone(url.searchParams)
 }
 
 export function edgeInboundGreetingFirstEnabled(): boolean {
@@ -38,18 +42,15 @@ function escapeXmlText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
-/** Pass-2 URL on `/incoming` with `zingGreet=1` (Telnyx re-POSTs call body on Redirect). */
+/** Pass-2 URL on `/incoming` with `lyncrGreet=1`. */
 export function buildEdgeInboundGreetingContinueUrl(requestUrl: string): string {
   const url = new URL(requestUrl)
   url.pathname = "/api/voice/telnyx/incoming"
-  url.searchParams.set("zingGreet", "1")
+  url.searchParams.set(INBOUND_GREETING_PASS_PARAM, "1")
+  url.searchParams.delete("zingGreet")
   return url.toString()
 }
 
-/**
- * Pass 1 uses `<Say>` by default — Telnyx answers locally without fetching audio over HTTP.
- * `<Play>` only when `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL` is set (extra fetch = ring before audio).
- */
 export function buildEdgeInstantGreetingTexml(continueUrl: string): string {
   const safeContinue = escapeXmlAttr(continueUrl)
   const audioUrl = edgeInboundInstantGreetingAudioUrl()
@@ -68,10 +69,11 @@ export function buildEdgeInstantGreetingTexml(continueUrl: string): string {
 </Response>`
 }
 
+/** Legacy global intercept — per-line greeting is decided in /incoming using routing cache. */
 export function shouldEdgeInstantGreetingIntercept(pathname: string, url: URL, method: string): boolean {
   if (!edgeInboundGreetingFirstEnabled()) return false
   if (!isVoiceIncomingWebhookPath(pathname)) return false
   if (method !== "POST" && method !== "GET") return false
   if (edgeInboundGreetingPassDone(url)) return false
-  return true
+  return false
 }

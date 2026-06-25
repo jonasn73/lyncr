@@ -72,6 +72,9 @@ export function DashboardPage() {
   const [allowLyncrNetworkFallback, setAllowLyncrNetworkFallback] = useState(
     () => bootstrap?.routing.routing.allow_lyncr_network_fallback ?? false
   )
+  const [inboundCallerGreetingEnabled, setInboundCallerGreetingEnabled] = useState(
+    () => bootstrap?.routing.routing.inbound_caller_greeting_enabled !== false
+  )
 
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
   const [routingLineDetailLoading, setRoutingLineDetailLoading] = useState(false)
@@ -141,6 +144,7 @@ export function DashboardPage() {
     setRingTimeoutSec(snapDashboardRingTimeoutSec(bootstrap.routing.routing.ring_timeout_seconds ?? 30))
     setRoutingStrategy(bootstrap.routing.routing.routing_strategy ?? "private_only")
     setAllowLyncrNetworkFallback(bootstrap.routing.routing.allow_lyncr_network_fallback ?? false)
+    setInboundCallerGreetingEnabled(bootstrap.routing.routing.inbound_caller_greeting_enabled !== false)
     if (bootstrap.routing.primaryLineNumber && !activeLine) {
       const inWorkspace = routedNumbers.some((b) =>
         businessNumbersMatch(b.number, bootstrap.routing.primaryLineNumber)
@@ -179,6 +183,7 @@ export function DashboardPage() {
         setRingTimeoutSec(snapDashboardRingTimeoutSec(data.routing.ring_timeout_seconds))
         setRoutingStrategy(data.routing.routing_strategy)
         setAllowLyncrNetworkFallback(data.routing.allow_lyncr_network_fallback)
+        setInboundCallerGreetingEnabled(data.routing.inbound_caller_greeting_enabled !== false)
         if (data.primaryLineNumber && !activeLine) {
           setActiveLine(data.primaryLineNumber)
         }
@@ -300,6 +305,9 @@ export function DashboardPage() {
             setRoutingStrategy("private_only")
           }
           setAllowLyncrNetworkFallback(Boolean(rData.config.allow_lyncr_network_fallback))
+          if (rData.config.inbound_caller_greeting_enabled !== undefined) {
+            setInboundCallerGreetingEnabled(rData.config.inbound_caller_greeting_enabled !== false)
+          }
         }
       })
       .catch(() => {})
@@ -342,7 +350,8 @@ export function DashboardPage() {
       updates.selected_receptionist_id !== undefined ||
       updates.fallback_type !== undefined ||
       updates.ai_greeting !== undefined ||
-      updates.ring_timeout_seconds !== undefined
+      updates.ring_timeout_seconds !== undefined ||
+      updates.inbound_caller_greeting_enabled !== undefined
     if (active.length >= 2 && touchesPerLine && !lineE164) {
       if (!opts?.quiet) {
         toast({
@@ -504,6 +513,8 @@ export function DashboardPage() {
         clearReceptionist={clearReceptionist}
         selectReceptionist={selectReceptionist}
         setRingTimeoutSec={setRingTimeoutSec}
+        inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
+        setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
         saveRouting={saveRouting}
         fallback={fallback}
         setFallback={setFallback}

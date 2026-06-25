@@ -138,6 +138,8 @@ export function buildRoutingPoolDialResponse(params: {
   includeRingback?: boolean
   /** When true, pass-1 greeting already played — cell forward must not restore caller ringback. */
   greetingPassDone?: boolean
+  /** Per-line dashboard toggle — straight ring when false. */
+  greetingEnabled?: boolean
 }): string {
   let answerUrlByE164: Record<string, string> | undefined
   if (params.answer) {
@@ -159,7 +161,10 @@ export function buildRoutingPoolDialResponse(params: {
   }
   const xml = buildRoutingPoolDialTexml({
     ...(params.callerId && isReasonablePstnDialString(params.callerId) ? { callerId: params.callerId } : {}),
-    answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(params.greetingPassDone ?? false),
+    answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(
+      params.greetingPassDone ?? false,
+      params.greetingEnabled ?? true
+    ),
     timeout: params.timeout,
     action: params.action,
     receptionistE164List: params.match.dial_targets,

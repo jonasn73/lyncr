@@ -20,6 +20,7 @@ import {
   resolveCallerGreetingForDialPass,
   resolveInboundPstnForwardAnswerOnBridge,
   resolveWorkspaceDisplayName,
+  isInboundCallerGreetingEnabled,
   shouldPlayCallerRingbackDuringDial,
   shouldPlayInboundGreetingFirstPass,
 } from "@/lib/inbound-branded-greeting"
@@ -419,8 +420,9 @@ function tryFastInboundPstnDial(params: {
 }): IncomingCallResult | null {
   const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl, perfStartMs, greetingPassDone } =
     params
+  const greetingEnabled = isInboundCallerGreetingEnabled(routing)
   // Cell PSTN `<Number>` — never dial the teammate's phone before the caller hears the greeting pass.
-  if (shouldPlayInboundGreetingFirstPass(greetingPassDone ?? false)) return null
+  if (shouldPlayInboundGreetingFirstPass(greetingPassDone ?? false, greetingEnabled)) return null
 
   const hasReceptionist = Boolean(routing.selected_receptionist_id?.trim())
   const dialE164 = resolveReceptionistDialE164(routing.receptionist_phone || routing.owner_phone || "")
@@ -451,13 +453,13 @@ function tryFastInboundPstnDial(params: {
     inboundFromRaw: callerNumber,
     businessOutboundE164: outboundCallerId,
   })
-  const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone ?? false)
+  const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone ?? false, greetingEnabled)
   const ownerLegQuery = hasReceptionist ? "" : "&primary=owner&leg=owner-first"
   const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}${ownerLegQuery}${origFromQuery}`
 
   const workspaceName = resolveWorkspaceDisplayName(routing)
-  const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false)
-  const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false)
+  const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false, greetingEnabled)
+  const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false, greetingEnabled)
 
   // When dialing a known platform receptionist, hand Telnyx a per-leg answer URL so
   // their HUD pops the live intake form the instant their cell phone connects.
@@ -557,7 +559,8 @@ async function tryRoutingPoolInboundDial(params: {
 }): Promise<IncomingCallResult | null> {
   const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl, perfStartMs, greetingPassDone } =
     params
-  if (shouldPlayInboundGreetingFirstPass(greetingPassDone ?? false)) return null
+  const greetingEnabled = isInboundCallerGreetingEnabled(routing)
+  if (shouldPlayInboundGreetingFirstPass(greetingPassDone ?? false, greetingEnabled)) return null
 
   const line = await getActivePhoneNumberByE164(businessLineE164 || calledNumber)
   if (!line) return null
@@ -590,8 +593,8 @@ async function tryRoutingPoolInboundDial(params: {
   const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}&pool=1${networkAlreadyTriedQuery}${origFromQuery}`
 
   const workspaceName = resolveWorkspaceDisplayName(routing)
-  const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false)
-  const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false)
+  const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false, greetingEnabled)
+  const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false, greetingEnabled)
 
   const xml = buildRoutingPoolDialResponse({
     match,
@@ -599,6 +602,7 @@ async function tryRoutingPoolInboundDial(params: {
     timeout: dialTimeoutSec,
     action,
     greetingPassDone: greetingPassDone ?? false,
+    greetingEnabled,
     ...(callerGreeting ? { callerGreeting } : {}),
     includeRingback,
     answer: {
@@ -779,8 +783,9 @@ async function handleIncomingCall(
     }
 
     const greetingPassDone = inboundCtx?.greetingPassDone ?? false
+    const greetingEnabled = isInboundCallerGreetingEnabled(routing)
 
-    if (shouldPlayInboundGreetingFirstPass(greetingPassDone) && inboundCtx?.incomingUrl) {
+    if (shouldPlayInboundGreetingFirstPass(greetingPassDone, greetingEnabled) && inboundCtx?.incomingUrl) {
       return buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
     }
 
@@ -1257,7 +1262,7 @@ async function handleIncomingCall(
       inboundFromRaw: callerNumber,
       businessOutboundE164: outboundCallerId,
     })
-    const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone)
+    const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone, greetingEnabled)
     if (shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
@@ -1281,11 +1286,11 @@ async function handleIncomingCall(
     const pstnNumberAttrs = buildInboundPstnNumberAttributes()
 
     const workspaceName = resolveWorkspaceDisplayName(routing)
-    const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone)
+    const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone, greetingEnabled)
     if (callerGreeting) {
       texmlSayNatural(texml, callerGreeting)
     }
-    const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone)
+    const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone, greetingEnabled)
 
     if (hasReceptionist) {
       const recPhone = receptionistDialE164
@@ -1386,9 +1391,10 @@ async function tryFastInboundReceptionistResponse(
   }
 
   const greetingPassDone = inboundCtx?.greetingPassDone ?? false
+  const greetingEnabled = isInboundCallerGreetingEnabled(routing)
 
   // Safety net when Edge/middleware miss pass 1 — never `<Dial>` (ringback) before the greeting.
-  if (shouldPlayInboundGreetingFirstPass(greetingPassDone) && inboundCtx?.incomingUrl) {
+  if (shouldPlayInboundGreetingFirstPass(greetingPassDone, greetingEnabled) && inboundCtx?.incomingUrl) {
     const greetingPass = buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
     return new NextResponse(texmlResponseBody(greetingPass), {
       headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
@@ -1527,7 +1533,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
     const raw = await req.text()
     fields = parseTelnyxFormBodyFast(raw)
     const inboundCtx = inboundWebhookContext(req.url, fields)
-    // Pass 1 greeting is handled in Edge middleware; pass 2 (`zingGreet=1`) routes here.
+    // Pass 2 (`lyncrGreet=1`) routes here after pass-1 greeting when enabled for the line.
     const hot = await tryFastInboundReceptionistResponse(fields, perfStartMs, inboundCtx)
     if (hot) {
       console.log(JSON.stringify({ zing: "telnyx-incoming-post-timing", totalMs: Date.now() - handlerT0, path: "fast" }))

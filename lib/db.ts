@@ -245,6 +245,11 @@ function isMissingAdminNotificationPreferencesColumnError(e: unknown): boolean {
   return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("admin_notification_preferences")
 }
 
+/** True when `routing_config.inbound_caller_greeting_enabled` is missing (run scripts/081-inbound-caller-greeting-enabled.sql). */
+function isMissingInboundCallerGreetingColumnError(e: unknown): boolean {
+  return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("inbound_caller_greeting_enabled")
+}
+
 // Parse a routing_config row into a RoutingConfig object
 function parseRoutingRow(row: Record<string, unknown>): RoutingConfig {
   return {
@@ -265,6 +270,8 @@ function parseRoutingRow(row: Record<string, unknown>): RoutingConfig {
     routing_strategy: normalizeRoutingStrategy(row.routing_strategy),
     allow_lyncr_network_fallback: pgBool(row.allow_lyncr_network_fallback),
     private_ring_timeout_seconds: Number(row.private_ring_timeout_seconds ?? 15),
+    inbound_caller_greeting_enabled:
+      row.inbound_caller_greeting_enabled != null ? pgBool(row.inbound_caller_greeting_enabled) : true,
     updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
   }
 }
@@ -288,6 +295,8 @@ export type IncomingRoutingRow = {
   fallback_type: RoutingConfig["fallback_type"]
   ring_timeout_seconds: number
   ai_ring_owner_first: boolean
+  /** Per-line caller greeting before cell forward (`081`, default true). */
+  inbound_caller_greeting_enabled: boolean
   receptionist_name: string | null
   receptionist_phone: string | null
   /** Where the selected receptionist answers: 'WEB' (Telnyx WebRTC/SIP) or 'CELL' (PSTN). Defaults 'CELL'. */
@@ -413,6 +422,7 @@ async function fetchInboundDialSnapshotSql(
         COALESCE(pn.inbound_fallback_type, 'owner') AS fallback_type,
         COALESCE(pn.inbound_ring_timeout_seconds, 30) AS ring_timeout_seconds,
         COALESCE(pn.inbound_ai_ring_owner_first, false) AS ai_ring_owner_first,
+        COALESCE(pn.inbound_caller_greeting_enabled, true) AS inbound_caller_greeting_enabled,
         COALESCE(pn.inbound_account_status, 'active') AS account_status,
         COALESCE(
           NULLIF(trim(pn.admin_routing_override_phone), ''),
@@ -467,6 +477,8 @@ async function fetchInboundDialSnapshotSql(
       admin_routing_override_phone:
         row.admin_routing_override_phone != null ? String(row.admin_routing_override_phone) : null,
       organization_name: row.organization_name != null ? String(row.organization_name) : "",
+      inbound_caller_greeting_enabled:
+        row.inbound_caller_greeting_enabled != null ? pgBool(row.inbound_caller_greeting_enabled) : true,
     }
   } catch (e) {
     if (isMissingInboundDialSnapshotColumnError(e)) return null
@@ -526,6 +538,8 @@ async function fetchInboundDialSnapshotSql(
           primary_phone_number: row.primary_phone_number != null ? String(row.primary_phone_number) : normalized,
           admin_routing_override_phone: null,
           organization_name: "",
+          inbound_caller_greeting_enabled:
+            row.inbound_caller_greeting_enabled != null ? pgBool(row.inbound_caller_greeting_enabled) : true,
         }
       } catch (inner) {
         if (isMissingInboundDialSnapshotColumnError(inner)) return null
@@ -646,11 +660,18 @@ export async function getRoutingConfig(userId: string): Promise<RoutingConfig | 
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy, allow_lyncr_network_fallback, private_ring_timeout_seconds, updated_at
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy, allow_lyncr_network_fallback, private_ring_timeout_seconds, inbound_caller_greeting_enabled, updated_at
       FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
     `
     return rows[0] ? parseRoutingRow(rows[0]) : null
   } catch (e) {
+    if (isMissingInboundCallerGreetingColumnError(e)) {
+      const rows = await sql`
+        SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy, allow_lyncr_network_fallback, private_ring_timeout_seconds, updated_at
+        FROM routing_config WHERE user_id = ${userId} AND business_number IS NULL LIMIT 1
+      `
+      return rows[0] ? parseRoutingRow(rows[0]) : null
+    }
     if (!isMissingHybridNetworkColumnError(e)) throw e
     // Pre-048/049 schema: read without the hybrid columns (parseRoutingRow defaults them).
     const rows = await sql`
@@ -672,6 +693,8 @@ async function mergePerNumberRoutingFromDefault(userId: string, cfg: RoutingConf
       cfg.selected_receptionist_id != null && String(cfg.selected_receptionist_id).trim() !== ""
         ? cfg.selected_receptionist_id
         : def?.selected_receptionist_id ?? null,
+    inbound_caller_greeting_enabled:
+      cfg.inbound_caller_greeting_enabled ?? def?.inbound_caller_greeting_enabled ?? true,
   }
 }
 
@@ -681,20 +704,35 @@ export async function getRoutingConfigForNumber(userId: string, businessNumber: 
   const digitKey = phoneDigitsKey(businessNumber)
   const normalizedBn = normalizePhoneNumberE164(businessNumber)
   // Exact match first (fast path); prefer newest row if duplicates exist.
-  const specificExact = await sql`
-    SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
-    FROM routing_config
-    WHERE user_id = ${userId}
-      AND (business_number = ${businessNumber} OR business_number = ${normalizedBn})
-    ORDER BY updated_at DESC NULLS LAST
-    LIMIT 1
-  `
+  let specificExact: Record<string, unknown>[]
+  try {
+    specificExact = await sql`
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, inbound_caller_greeting_enabled, updated_at
+      FROM routing_config
+      WHERE user_id = ${userId}
+        AND (business_number = ${businessNumber} OR business_number = ${normalizedBn})
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `
+  } catch (e) {
+    if (!isMissingInboundCallerGreetingColumnError(e)) throw e
+    specificExact = await sql`
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
+      FROM routing_config
+      WHERE user_id = ${userId}
+        AND (business_number = ${businessNumber} OR business_number = ${normalizedBn})
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `
+  }
   if (specificExact[0]) return mergePerNumberRoutingFromDefault(userId, parseRoutingRow(specificExact[0]))
   if (digitKey.length < 10) return getRoutingConfig(userId)
   // Digit match: per-number rows saved as a different string shape than TeXML sends (+1 vs 10-digit US).
-  const specificLoose = await sql`
-    SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
-    FROM routing_config
+  let specificLoose: Record<string, unknown>[]
+  try {
+    specificLoose = await sql`
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, inbound_caller_greeting_enabled, updated_at
+      FROM routing_config
     WHERE user_id = ${userId}
       AND business_number IS NOT NULL
       AND (
@@ -705,9 +743,28 @@ export async function getRoutingConfigForNumber(userId: string, businessNumber: 
           AND right(regexp_replace(business_number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
         )
       )
-    ORDER BY updated_at DESC NULLS LAST
-    LIMIT 1
-  `
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `
+  } catch (e) {
+    if (!isMissingInboundCallerGreetingColumnError(e)) throw e
+    specificLoose = await sql`
+      SELECT id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first, updated_at
+      FROM routing_config
+      WHERE user_id = ${userId}
+        AND business_number IS NOT NULL
+        AND (
+          regexp_replace(business_number, '\\D', '', 'g') = ${digitKey}
+          OR (
+            length(regexp_replace(business_number, '\\D', '', 'g')) >= 10
+            AND length(${digitKey}) >= 10
+            AND right(regexp_replace(business_number, '\\D', '', 'g'), 10) = right(${digitKey}, 10)
+          )
+        )
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `
+  }
   if (specificLoose[0]) return mergePerNumberRoutingFromDefault(userId, parseRoutingRow(specificLoose[0]))
   return getRoutingConfig(userId)
 }
@@ -798,12 +855,31 @@ export async function updateRoutingConfig(
       | "routing_strategy"
       | "allow_lyncr_network_fallback"
       | "private_ring_timeout_seconds"
+      | "inbound_caller_greeting_enabled"
     >
   >,
   businessNumber?: string | null
 ): Promise<void> {
   const sql = getSql()
   const bn = businessNumber ?? null
+
+  const applyInboundCallerGreeting = async (where: ReturnType<typeof sql>): Promise<void> => {
+    if (updates.inbound_caller_greeting_enabled === undefined) return
+    try {
+      await sql`
+        UPDATE routing_config
+        SET inbound_caller_greeting_enabled = ${updates.inbound_caller_greeting_enabled}, updated_at = now()
+        WHERE ${where}
+      `
+      clearIncomingRoutingCache()
+    } catch (e) {
+      if (!isMissingInboundCallerGreetingColumnError(e)) throw e
+      console.warn(
+        "[db] updateRoutingConfig: inbound_caller_greeting_enabled skipped — run scripts/081 in Neon.",
+        pgErrorMessage(e)
+      )
+    }
+  }
 
   // `048`/`049` hybrid-network fields — applied via guarded UPDATEs so a pre-migration schema
   // (missing columns) never breaks the rest of the save. `where` is a sql fragment.
@@ -871,6 +947,7 @@ export async function updateRoutingConfig(
         VALUES (${crypto.randomUUID()}, ${userId}, ${normalizedBn}, ${selected_receptionist_id}, ${fallback_type}, ${ai_greeting}, ${ring_timeout_seconds}, ${ai_ring_owner_first_insert}, now())
       `
       await applyHybridFields(sql`user_id = ${userId} AND business_number = ${normalizedBn}`)
+      await applyInboundCallerGreeting(sql`user_id = ${userId} AND business_number = ${normalizedBn}`)
       clearIncomingRoutingCache()
       void primeIncomingRoutingCache(normalizedBn).catch(() => {})
       return
@@ -891,6 +968,7 @@ export async function updateRoutingConfig(
       await sql`UPDATE routing_config SET ring_timeout_seconds = ${updates.ring_timeout_seconds}, updated_at = now() WHERE ${whereClause}`
     }
     await applyHybridFields(whereClause)
+    await applyInboundCallerGreeting(whereClause)
 
     clearIncomingRoutingCache()
     void primeIncomingRoutingCache(normalizedBn).catch(() => {})
@@ -913,6 +991,7 @@ export async function updateRoutingConfig(
     await sql`UPDATE routing_config SET ring_timeout_seconds = ${updates.ring_timeout_seconds}, updated_at = now() WHERE ${whereClause}`
   }
   await applyHybridFields(whereClause)
+  await applyInboundCallerGreeting(whereClause)
 
   clearIncomingRoutingCache()
   void primeIncomingRoutingCacheForUser(userId).catch(() => {})
@@ -2064,7 +2143,12 @@ function inboundWhisperEnabledFromRoutingRow(row: Record<string, unknown>): bool
 function isMissingInboundDialSnapshotColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   const msg = pgErrorMessage(e)
-  return msg.includes("inbound_dial_e164") || msg.includes("inbound_routing_updated_at") || msg.includes("inbound_ai_ring_owner_first")
+  return (
+    msg.includes("inbound_dial_e164") ||
+    msg.includes("inbound_routing_updated_at") ||
+    msg.includes("inbound_ai_ring_owner_first") ||
+    msg.includes("inbound_caller_greeting_enabled")
+  )
 }
 
 function mapIncomingRoutingRowFromDb(row: Record<string, unknown>): IncomingRoutingRow {
@@ -2092,6 +2176,8 @@ function mapIncomingRoutingRowFromDb(row: Record<string, unknown>): IncomingRout
     admin_routing_override_phone:
       row.admin_routing_override_phone != null ? String(row.admin_routing_override_phone) : null,
     organization_name: row.organization_name != null ? String(row.organization_name) : "",
+    inbound_caller_greeting_enabled:
+      row.inbound_caller_greeting_enabled != null ? pgBool(row.inbound_caller_greeting_enabled) : true,
   }
 }
 
@@ -2149,6 +2235,7 @@ async function writeInboundRoutingSnapshot(
         inbound_ring_timeout_seconds = ${row.ring_timeout_seconds},
         inbound_account_status = ${row.account_status},
         inbound_ai_ring_owner_first = ${row.ai_ring_owner_first},
+        inbound_caller_greeting_enabled = ${row.inbound_caller_greeting_enabled !== false},
         inbound_routing_updated_at = now()
       WHERE status = 'active'
         AND (
@@ -2273,6 +2360,11 @@ async function fetchIncomingRoutingByReservedNumberFromDb(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.inbound_caller_greeting_enabled ELSE NULL END,
+        rc_def.inbound_caller_greeting_enabled,
+        true
+      ) AS inbound_caller_greeting_enabled,
       reff.name AS receptionist_name,
       reff.phone AS receptionist_phone,
       to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,
@@ -2353,6 +2445,11 @@ async function fetchIncomingRoutingByReservedNumberFromDb(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.inbound_caller_greeting_enabled ELSE NULL END,
+        rc_def.inbound_caller_greeting_enabled,
+        true
+      ) AS inbound_caller_greeting_enabled,
       reff.name AS receptionist_name,
       reff.phone AS receptionist_phone,
       to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,
@@ -2450,6 +2547,11 @@ async function fetchIncomingRoutingFullFromDb(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.inbound_caller_greeting_enabled ELSE NULL END,
+        rc_def.inbound_caller_greeting_enabled,
+        true
+      ) AS inbound_caller_greeting_enabled,
       reff.name AS receptionist_name,
       reff.phone AS receptionist_phone,
       to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,
@@ -2507,7 +2609,7 @@ async function fetchIncomingRoutingFullFromDb(
     LIMIT 1
   `
   } catch (e) {
-    if (!isMissingInboundReceptionistWhisperColumnError(e)) throw e
+    if (!isMissingInboundReceptionistWhisperColumnError(e) && !isMissingInboundCallerGreetingColumnError(e)) throw e
     rows = await sql`
     SELECT
       u.id AS user_id,
@@ -2529,6 +2631,11 @@ async function fetchIncomingRoutingFullFromDb(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
+      COALESCE(
+        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.inbound_caller_greeting_enabled ELSE NULL END,
+        rc_def.inbound_caller_greeting_enabled,
+        true
+      ) AS inbound_caller_greeting_enabled,
       reff.name AS receptionist_name,
       reff.phone AS receptionist_phone,
       to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,

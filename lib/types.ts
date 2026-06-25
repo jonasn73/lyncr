@@ -780,6 +780,8 @@ export interface RoutingConfig {
   allow_lyncr_network_fallback: boolean
   /** Seconds to ring private staff before falling back to the Lyncr network (`049`). Defaults to 15. */
   private_ring_timeout_seconds: number
+  /** When true, callers hear a short greeting before the team cell rings (`081`). */
+  inbound_caller_greeting_enabled: boolean
   updated_at: string
 }
 
@@ -1052,6 +1054,8 @@ export interface UpdateRoutingRequest {
   allow_lyncr_network_fallback?: boolean
   /** Seconds to ring private staff before Lyncr network fallback (`049`). */
   private_ring_timeout_seconds?: number
+  /** Caller hears greeting before connect vs straight ring (`081`). */
+  inbound_caller_greeting_enabled?: boolean
   business_number?: string | null // E.164 number for per-number routing; omit or null for the default config
 }
 

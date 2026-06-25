@@ -1,13 +1,17 @@
 import { describe, expect, it, afterEach, vi } from "vitest"
 import {
   buildInboundCallerGreetingOnlyTexml,
-  buildInboundGreetingContinueUrl,
   buildInstantGenericGreetingFirstPassResult,
-  inboundGreetingPassDone,
-  readInboundGreetingFirstPassEnabled,
   resolveCallerGreetingForDialPass,
   resolveInboundPstnForwardAnswerOnBridge,
+  readInboundGreetingFirstPassEnabled,
+  isInboundCallerGreetingEnabled,
 } from "@/lib/inbound-branded-greeting"
+import {
+  INBOUND_GREETING_PASS_PARAM,
+  buildInboundGreetingContinueUrl,
+  inboundGreetingPassDone,
+} from "@/lib/inbound-greeting-param"
 
 describe("readInboundGreetingFirstPassEnabled", () => {
   afterEach(() => {
@@ -26,12 +30,12 @@ describe("readInboundGreetingFirstPassEnabled", () => {
 })
 
 describe("inboundGreetingPassDone", () => {
-  it("reads zingGreet=1 from query params", () => {
-    const params = new URLSearchParams("zingGreet=1")
+  it("reads lyncrGreet=1 from query params", () => {
+    const params = new URLSearchParams(`${INBOUND_GREETING_PASS_PARAM}=1`)
     expect(inboundGreetingPassDone(params)).toBe(true)
   })
 
-  it("reads zingGreet from Telnyx POST body fields", () => {
+  it("still accepts legacy zingGreet from Telnyx POST body fields", () => {
     const params = new URLSearchParams("")
     expect(inboundGreetingPassDone(params, { zingGreet: "1" })).toBe(true)
   })
@@ -47,7 +51,7 @@ describe("buildInboundCallerGreetingOnlyTexml", () => {
     expect(xml).toContain("<Say ")
     expect(xml).toContain("Key Squad 502")
     expect(xml).toContain("<Redirect")
-    expect(xml).toContain("zingGreet=1")
+    expect(xml).toContain(`${INBOUND_GREETING_PASS_PARAM}=1`)
     expect(xml).not.toContain("<Dial")
     expect(xml.indexOf("<Say")).toBeLessThan(xml.indexOf("<Redirect"))
   })
@@ -60,8 +64,24 @@ describe("buildInstantGenericGreetingFirstPassResult", () => {
     expect(out.xml).toContain("<Say ")
     expect(out.xml).toContain("Thank you for calling.")
     expect(out.xml).toContain("<Redirect")
-    expect(out.xml).toContain("zingGreet=1")
+    expect(out.xml).toContain(`${INBOUND_GREETING_PASS_PARAM}=1`)
     expect(out.xml).not.toContain("<Dial")
+  })
+})
+
+describe("isInboundCallerGreetingEnabled", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("defaults to true when routing is null", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    expect(isInboundCallerGreetingEnabled(null)).toBe(true)
+  })
+
+  it("respects per-line false", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    expect(isInboundCallerGreetingEnabled({ inbound_caller_greeting_enabled: false })).toBe(false)
   })
 })
 
@@ -79,6 +99,11 @@ describe("resolveCallerGreetingForDialPass", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", false)).toContain("Key Squad 502")
   })
+
+  it("skips greeting when per-line toggle is off", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
+    expect(resolveCallerGreetingForDialPass("Key Squad 502", false, false)).toBeUndefined()
+  })
 })
 
 describe("resolveInboundPstnForwardAnswerOnBridge", () => {
@@ -86,14 +111,19 @@ describe("resolveInboundPstnForwardAnswerOnBridge", () => {
     vi.unstubAllEnvs()
   })
 
-  it("is always false in two-pass mode so cell forward never restores caller dial tone", () => {
+  it("disables ringback after pass-1 greeting on pass 2", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
-    expect(resolveInboundPstnForwardAnswerOnBridge(true)).toBe(false)
-    expect(resolveInboundPstnForwardAnswerOnBridge(false)).toBe(false)
+    expect(resolveInboundPstnForwardAnswerOnBridge(true, true)).toBe(false)
+    expect(resolveInboundPstnForwardAnswerOnBridge(false, true)).toBe(true)
   })
 
   it("follows env when two-pass greeting is disabled", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
     expect(resolveInboundPstnForwardAnswerOnBridge(false)).toBe(true)
+  })
+
+  it("uses ringback when per-line greeting is disabled", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    expect(resolveInboundPstnForwardAnswerOnBridge(false, false)).toBe(true)
   })
 })

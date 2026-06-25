@@ -83,6 +83,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 78 | `078-field-technicians-organization.sql` | **Field tech workspace scope.** Adds **`field_technicians.organization_id`** so the Team roster and scheduler only show technicians for the active business (Key Squad vs Fresh Auto, etc.). Backfills existing rows to each owner's default org. **Required** for multi-org owners. After running, use the **Business** dropdown on Team → Field Technicians to move misplaced techs. |
 | 79 | `079-master-toggle-mode.sql` | **Legacy platform toggle column** (superseded by 080). |
 | 80 | `080-admin-notification-preferences.sql` | **Granular platform-admin notification toggles.** Adds **`users.admin_notification_preferences`** JSONB with six channel flags. **Required** for the Notification Settings panel. |
+| 81 | `081-inbound-caller-greeting-enabled.sql` | **Caller greeting toggle.** Adds **`inbound_caller_greeting_enabled`** on `routing_config` and denormalized on `phone_numbers` (default true). **Required** for the Routing tab “Greeting first” vs “Ring immediately” setting. |
 
 ## Platform admin (`admin@lyncr.app`)
 

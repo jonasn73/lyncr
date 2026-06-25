@@ -127,6 +127,7 @@ function mapRoutingFields(cfg: RoutingConfig | null): DashboardRoutingBootstrap[
         ? strat
         : "private_only",
     allow_lyncr_network_fallback: Boolean(cfg?.allow_lyncr_network_fallback),
+    inbound_caller_greeting_enabled: cfg?.inbound_caller_greeting_enabled !== false,
   }
 }
 
