@@ -104,7 +104,7 @@ const DockNavItems = memo(function DockNavItems({
           "motion-safe:active:scale-[0.96]",
           isVertical
             ? "h-11 w-11 flex-col"
-            : "min-w-[4.5rem] flex-col gap-1 px-2 py-1",
+            : "min-h-11 min-w-[4.5rem] flex-col gap-0.5 px-2 py-1.5",
           isActive
             ? "bg-primary/12 text-primary"
             : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
@@ -230,13 +230,13 @@ const CommandDockInner = memo(function CommandDockInner({
       <nav
         ref={mobileNavRef}
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-zinc-900 bg-zinc-950 md:hidden",
+          "fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-zinc-900 bg-zinc-950 md:hidden",
           "pb-[env(safe-area-inset-bottom,0px)]"
         )}
         role="navigation"
         aria-label="Main navigation"
       >
-        <div className="relative flex h-full w-full items-center justify-around">
+        <div className="relative flex h-16 w-full items-center justify-around">
           <DockNavItems
             items={mobileBottomNavItems}
             activePage={activePage}

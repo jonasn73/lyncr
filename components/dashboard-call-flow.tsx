@@ -13,6 +13,7 @@ import {
   Network,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import type { RoutingStrategy } from "@/lib/types"
 import { LineRoutingStatus } from "@/components/line-routing-status"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
@@ -81,7 +82,7 @@ function FlowStepCard({
       onClick={onOpen}
       disabled={loading}
       className={cn(
-        "group relative flex min-h-[10rem] min-w-0 flex-1 flex-col rounded-2xl border p-4 text-left shadow-sm sm:min-h-[12.5rem] sm:p-5",
+        "group relative flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border p-3 text-left shadow-sm sm:min-h-[12.5rem] sm:p-5",
         "transform-gpu will-change-[opacity,transform] backface-hidden transition-[border-color,box-shadow,opacity] duration-200",
         "focus-visible:outline-none focus-visible:ring-2",
         isNetwork
@@ -110,14 +111,15 @@ function FlowStepCard({
           Step {step}
         </span>
       </div>
-      <div className="mt-4 flex flex-1 flex-col gap-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-        <p className="text-lg font-semibold leading-tight text-foreground sm:text-xl">{value}</p>
-        {detail ? <p className="text-xs text-zinc-500">{detail}</p> : null}
+      <div className="mt-3 flex flex-1 flex-col gap-0.5 sm:mt-4 sm:gap-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{title}</p>
+        <p className="text-base font-semibold leading-tight text-foreground line-clamp-2 sm:text-lg md:text-xl">{value}</p>
+        {detail ? <p className="text-xs text-zinc-500 line-clamp-2">{detail}</p> : null}
       </div>
       <span
         className={cn(
-          "mt-5 inline-flex w-full items-center justify-center rounded-lg border border-border/70 bg-transparent px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-[border-color,background-color,color] duration-200",
+          "mt-3 inline-flex w-full items-center justify-center rounded-lg border border-border/70 bg-transparent px-4 text-xs font-semibold text-muted-foreground transition-[border-color,background-color,color] duration-200 sm:mt-5",
+          MOBILE_TAP_TARGET,
           isNetwork
             ? "group-hover:border-violet-500/50 group-hover:bg-violet-500/10 group-hover:text-violet-200"
             : "group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:text-primary"
@@ -311,7 +313,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   return (
     <section
       id="dash-call-flow"
-      className="scroll-mt-24 min-h-[22rem] overflow-x-clip rounded-3xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40"
+      className="scroll-mt-28 min-h-0 overflow-x-clip rounded-3xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40 md:min-h-[22rem] md:scroll-mt-24"
     >
       <header className="border-b border-border/50 bg-gradient-to-b from-muted/20 to-transparent px-5 py-5 sm:px-8 sm:py-6">
         <div className="flex flex-col items-center gap-4">
@@ -324,7 +326,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               <SheetInfoTrigger
                 onPress={() => setDashboardStoryKey("dashboard-call-flow")}
                 label="About call flow"
-                className="h-8 w-8"
               />
             </div>
             {routingLineDetailLoading ? (

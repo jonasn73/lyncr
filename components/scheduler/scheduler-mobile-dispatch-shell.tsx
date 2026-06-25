@@ -5,6 +5,7 @@ import { type RefObject, useState } from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 import { LayoutGrid, Map as MapIcon, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOBILE_SNAP_ROW, MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { Button } from "@/components/ui/button"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
 import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
@@ -69,11 +70,7 @@ export function SchedulerMobileDispatchShell({
 
   return (
     <div
-      className="fixed inset-x-0 z-30 overflow-hidden md:hidden"
-      style={{
-        top: "3.5rem",
-        bottom: "calc(4rem + env(safe-area-inset-bottom, 0px))",
-      }}
+      className="fixed inset-x-0 top-[var(--shell-header-h)] bottom-[var(--shell-dock-h)] z-[45] h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h))] max-h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h))] overflow-hidden md:hidden"
       data-scheduler-mobile-map=""
     >
       <div className="absolute inset-0 z-0 h-full w-full">
@@ -95,13 +92,13 @@ export function SchedulerMobileDispatchShell({
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-1.5 p-2">
         <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/90 px-3 py-2 shadow-lg backdrop-blur-md">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Dispatch</p>
-            <h1 className="text-base font-semibold tracking-tight text-foreground">Scheduler</h1>
+            <h1 className="truncate text-base font-semibold tracking-tight text-foreground">Scheduler</h1>
           </div>
-          <Button type="button" size="sm" className="shrink-0 gap-1" onClick={onCreate}>
+          <Button type="button" size="sm" className={cn("shrink-0 gap-1", MOBILE_TAP_TARGET)} onClick={onCreate}>
             <Plus className="h-4 w-4" aria-hidden />
             Create
           </Button>
@@ -112,7 +109,7 @@ export function SchedulerMobileDispatchShell({
             type="button"
             size="sm"
             variant={viewMode === "map" ? "default" : "ghost"}
-            className="flex-1 gap-1 text-xs"
+            className={cn("flex-1 gap-1 text-xs", MOBILE_TAP_TARGET)}
             onClick={() => onViewModeChange("map")}
           >
             <MapIcon className="h-3.5 w-3.5" aria-hidden />
@@ -122,7 +119,7 @@ export function SchedulerMobileDispatchShell({
             type="button"
             size="sm"
             variant={viewMode === "grid" ? "default" : "ghost"}
-            className="flex-1 gap-1 text-xs"
+            className={cn("flex-1 gap-1 text-xs", MOBILE_TAP_TARGET)}
             onClick={() => onViewModeChange("grid")}
           >
             <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
@@ -130,11 +127,12 @@ export function SchedulerMobileDispatchShell({
           </Button>
         </div>
 
-        <div className="pointer-events-auto -mx-2">
+        <div className={cn("pointer-events-auto -mx-1", MOBILE_SNAP_ROW)}>
           <DispatchOperationsMetricStrip
             poolJobs={poolJobs}
             activePipelineJobs={activePipelineJobs}
             dayEvents={dayEvents}
+            className="w-max min-w-full"
           />
         </div>
       </div>
@@ -151,15 +149,14 @@ export function SchedulerMobileDispatchShell({
         <DrawerPrimitive.Portal>
           <DrawerPrimitive.Content
             className={cn(
-              "fixed inset-x-0 z-40 flex flex-col outline-none",
+              "fixed inset-x-0 bottom-[var(--shell-dock-h)] z-[46] flex flex-col outline-none",
               "border-t border-zinc-800 bg-zinc-950/95 shadow-[0_-10px_25px_rgba(0,0,0,0.5)] backdrop-blur-md",
               "rounded-t-xl"
             )}
-            style={{ bottom: "calc(4rem + env(safe-area-inset-bottom, 0px))" }}
           >
             <button
               type="button"
-              className="flex w-full shrink-0 flex-col items-center pt-3 pb-2"
+              className={cn("flex w-full shrink-0 flex-col items-center justify-center", MOBILE_TAP_TARGET)}
               onClick={() =>
                 setSheetSnap((prev) => (prev === SHEET_SNAP_POINTS[1] ? SHEET_SNAP_POINTS[0] : SHEET_SNAP_POINTS[1]))
               }
@@ -177,7 +174,7 @@ export function SchedulerMobileDispatchShell({
               </p>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain p-4 pb-6">
               <ActivePipelinePanelStream
                 dayKey={pipelineDayKey}
                 useStreamedInitialDay={useStreamedPipeline}

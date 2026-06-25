@@ -44,6 +44,16 @@
   --warning: oklch(0.80 0.16 85);
   --warning-foreground: oklch(0.18 0.03 85);
   --surface: oklch(0.20 0.022 268);
+  /* Mobile app shell — header + bottom dock footprint for fixed overlays */
+  --shell-header-h: 3.25rem;
+  --shell-dock-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  :root {
+    --shell-header-h: 3.75rem;
+    --shell-dock-h: 0px;
+  }
 }
 
 @theme inline {
@@ -416,6 +426,22 @@
       opacity: 1;
       transform: translate3d(-50%, -50%, 0);
     }
+  }
+}
+
+/* Dashboard scroll lock — scheduler full-bleed map owns vertical scroll via bottom sheet */
+main[data-scroll-locked] {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 

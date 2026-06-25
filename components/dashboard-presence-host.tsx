@@ -76,7 +76,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   activePage: DashboardPresencePageId
 }) {
   return (
-    <div className="w-full min-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)-4rem)] md:min-h-[calc(100dvh-4rem)]">
+    <div className="w-full min-h-0 md:min-h-[calc(100dvh-4rem)]">
       <PresencePane active={activePage === "dashboard"} label="Routing">
         <RoutingPane />
       </PresencePane>

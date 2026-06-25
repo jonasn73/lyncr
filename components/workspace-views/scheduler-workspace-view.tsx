@@ -681,15 +681,11 @@ export function SchedulerWorkspaceView() {
 
   useEffect(() => {
     if (!isMobile || viewMode !== "map") return
-    const page = document.querySelector<HTMLElement>("[data-scheduler-mobile-map]")
     const main = document.querySelector<HTMLElement>("main")
-    const previousMainOverflow = main?.style.overflow
-    const previousPageOverflow = page?.style.overflow
-    if (main) main.style.overflow = "hidden"
-    if (page) page.style.overflow = "hidden"
+    if (!main) return
+    main.setAttribute("data-scroll-locked", "")
     return () => {
-      if (main) main.style.overflow = previousMainOverflow ?? ""
-      if (page) page.style.overflow = previousPageOverflow ?? ""
+      main.removeAttribute("data-scroll-locked")
     }
   }, [isMobile, viewMode])
 

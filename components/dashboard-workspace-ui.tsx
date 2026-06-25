@@ -4,9 +4,10 @@ import { type HTMLAttributes, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 export { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 
+import { MOBILE_BLEED } from "@/lib/mobile-shell"
+
 /** Break horizontal scroll strips out of DashboardPageView horizontal padding on phones. */
-export const WORKSPACE_MOBILE_BLEED =
-  "-mx-4 w-[calc(100%+2rem)] sm:-mx-8 sm:w-[calc(100%+4rem)] md:mx-0 md:w-full"
+export const WORKSPACE_MOBILE_BLEED = MOBILE_BLEED
 
 /** Min height for full-bleed panels below the sticky header + mobile bottom command dock. */
 export const MOBILE_PANEL_VIEWPORT_MIN_H =

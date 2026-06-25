@@ -99,7 +99,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
                 <SheetInfoTrigger
                   onPress={() => setDashboardStoryKey("dashboard-quick-setup")}
                   label="About setup checklist"
-                  className="h-8 w-8 shrink-0"
+                  className="h-11 w-11 shrink-0 sm:h-8 sm:w-8"
                 />
               </div>
               <div className="mt-5 flex flex-col gap-4 sm:gap-5">
@@ -121,7 +121,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
                     <button
                       type="button"
                       onClick={openBuyModal}
-                      className="inline-flex w-fit items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                      className="inline-flex w-fit min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       + Add business number
                     </button>

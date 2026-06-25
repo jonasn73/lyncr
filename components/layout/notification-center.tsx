@@ -436,7 +436,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
           type="button"
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+          className="relative h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
           aria-label={items.length > 0 ? `${items.length} notifications` : "Notifications"}
           title="Notifications"
         >

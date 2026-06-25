@@ -72,7 +72,7 @@ const AppShellHeader = memo(function AppShellHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b px-2.5 py-2.5 sm:grid-cols-[1fr_auto_1fr] sm:gap-2 sm:px-5 sm:py-3.5",
+        "sticky top-0 z-40 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:grid-cols-[1fr_auto_1fr] sm:gap-2 sm:px-5 sm:py-3.5",
         SHELL_ACRYLIC_SURFACE
       )}
     >
@@ -116,7 +116,7 @@ const AppShellHeader = memo(function AppShellHeader({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+              className="h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground"
               aria-label="Jump to a page"
               title="Jump to page — ⌘K or Ctrl+K"
               onClick={() => onCommandOpenChange(true)}
@@ -145,7 +145,7 @@ const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { nam
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 w-[2.25rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:w-[14rem] sm:max-w-[14rem]"
+          className="h-11 w-[2.75rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem]"
           aria-label="Open account menu"
         >
           <Avatar className="h-7 w-7">
@@ -214,7 +214,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
       disabled
       aria-busy="true"
       aria-label="Loading account"
-      className="h-9 w-[2.25rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:w-[14rem] sm:max-w-[14rem]"
+      className="h-11 w-[2.75rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem]"
     >
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
         <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
@@ -265,7 +265,7 @@ function AppShellInner({
   }, [useLinks])
 
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden bg-background">
+    <div className="flex h-dvh max-h-dvh overflow-hidden bg-background [--shell-header-h:3.25rem] [--shell-dock-h:calc(4rem+env(safe-area-inset-bottom,0px))] md:[--shell-dock-h:0px]">
       <CommandDock useLinks={useLinks} onNavigate={onNavigate} />
 
       <div className="flex min-w-0 flex-1 flex-col pl-0 md:pl-[4.25rem]">
@@ -283,7 +283,7 @@ function AppShellInner({
           className={cn(
             "min-h-0 flex-1 overflow-y-auto overscroll-y-contain",
             "bg-gradient-to-b from-background to-muted/15",
-            "pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+            "pb-[var(--shell-dock-h)] md:pb-0"
           )}
         >
           {children}
