@@ -3,6 +3,7 @@
 import { isReasonablePstnDialString } from "@/lib/db"
 import {
   resolveCallerGreetingForDialPass,
+  resolveInboundPstnForwardAnswerOnBridge,
   resolveWorkspaceDisplayName,
   shouldPlayCallerRingbackDuringDial,
   type InboundWorkspaceRoutingLike,
@@ -87,7 +88,7 @@ export function buildAdminRoutingOverrideDial(params: {
 
   const xml = buildFastReceptionistDialTexml({
     ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
-    answerOnBridge: true,
+    answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(params.greetingPassDone ?? false),
     timeout: dialTimeoutSec,
     action,
     receptionistE164: overrideE164,

@@ -6,6 +6,7 @@ import {
   inboundGreetingPassDone,
   readInboundGreetingFirstPassEnabled,
   resolveCallerGreetingForDialPass,
+  resolveInboundPstnForwardAnswerOnBridge,
 } from "@/lib/inbound-branded-greeting"
 
 describe("readInboundGreetingFirstPassEnabled", () => {
@@ -72,5 +73,21 @@ describe("resolveCallerGreetingForDialPass", () => {
   it("includes dial greeting when two-pass mode is disabled", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
     expect(resolveCallerGreetingForDialPass("Key Squad 502", false)).toContain("Key Squad 502")
+  })
+})
+
+describe("resolveInboundPstnForwardAnswerOnBridge", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("is false after greeting pass so cell forward does not restore caller ringback", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    expect(resolveInboundPstnForwardAnswerOnBridge(true)).toBe(false)
+  })
+
+  it("stays true on pass 1 when two-pass greeting is disabled", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "0")
+    expect(resolveInboundPstnForwardAnswerOnBridge(false)).toBe(true)
   })
 })

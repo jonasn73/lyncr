@@ -2,6 +2,7 @@
 
 import { getTexmlSayVoiceAttributes, texmlSayMessageBody } from "@/lib/texml-say-voice"
 import { escapeXmlAttr } from "@/lib/telnyx-inbound-media-quality"
+import { readTelnyxDialAnswerOnBridge } from "@/lib/telnyx-pstn-dial-callerid"
 
 /** Routing row fields used to pick the speakable workspace / brand label. */
 export type InboundWorkspaceRoutingLike = {
@@ -166,4 +167,14 @@ export function shouldPlayCallerRingbackDuringDial(greetingPassDone: boolean): b
   if (!greetingPassDone) return true
   if (!readInboundGreetingFirstPassEnabled()) return true
   return readInboundCallerRingbackAfterGreetingEnabled()
+}
+
+/**
+ * PSTN cell forward (`<Dial><Number>`) after pass-1 greeting.
+ * Inbound is already answered — `answerOnBridge=true` would put the caller back into US ringback
+ * while the teammate's cell rings (the dial tone callers report before "getting connected").
+ */
+export function resolveInboundPstnForwardAnswerOnBridge(greetingPassDone: boolean): boolean {
+  if (greetingPassDone && readInboundGreetingFirstPassEnabled()) return false
+  return readTelnyxDialAnswerOnBridge()
 }

@@ -12,10 +12,10 @@ import {
 } from "@/lib/db"
 import type { PhoneNumber, RoutingStrategy } from "@/lib/types"
 import { normalizeRoutingPoolSkillTag, type RoutingPoolMode } from "@/lib/routing-pool-skills"
+import { resolveInboundPstnForwardAnswerOnBridge } from "@/lib/inbound-branded-greeting"
 import {
   buildRoutingPoolDialTexml,
   finalizeInboundTexmlXml,
-  readInboundFastDialAnswerOnBridge,
 } from "@/lib/telnyx-inbound-media-quality"
 import { resolveBusinessType } from "@/lib/business-type"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
@@ -136,6 +136,8 @@ export function buildRoutingPoolDialResponse(params: {
   /** Branded caller greeting spoken before `<Dial>`. */
   callerGreeting?: string
   includeRingback?: boolean
+  /** When true, pass-1 greeting already played — cell forward must not restore caller ringback. */
+  greetingPassDone?: boolean
 }): string {
   let answerUrlByE164: Record<string, string> | undefined
   if (params.answer) {
@@ -157,7 +159,7 @@ export function buildRoutingPoolDialResponse(params: {
   }
   const xml = buildRoutingPoolDialTexml({
     ...(params.callerId && isReasonablePstnDialString(params.callerId) ? { callerId: params.callerId } : {}),
-    answerOnBridge: readInboundFastDialAnswerOnBridge(),
+    answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(params.greetingPassDone ?? false),
     timeout: params.timeout,
     action: params.action,
     receptionistE164List: params.match.dial_targets,

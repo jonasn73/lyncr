@@ -3,14 +3,27 @@ import {
   buildFastReceptionistDialTexml,
   buildRoutingPoolDialTexml,
   buildInboundDialRingbackAttributes,
-  readInboundFastDialAnswerOnBridge,
   resolveInboundFastDialTimeoutSeconds,
   resolveInboundForwardDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
+import { resolveInboundPstnForwardAnswerOnBridge } from "@/lib/inbound-branded-greeting"
 
-describe("readInboundFastDialAnswerOnBridge", () => {
-  it("is always true on the fast inbound path", () => {
-    expect(readInboundFastDialAnswerOnBridge()).toBe(true)
+describe("resolveInboundPstnForwardAnswerOnBridge (cell PSTN forward)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("builds cell `<Number>` dial without answerOnBridge after greeting pass", () => {
+    vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
+    const xml = buildFastReceptionistDialTexml({
+      answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(true),
+      timeout: 30,
+      action: "https://lyncr.app/api/voice/telnyx/fallback/u/x",
+      receptionistE164: "+15551234567",
+      includeRingback: false,
+    })
+    expect(xml).not.toContain("answerOnBridge")
+    expect(xml).not.toContain("ringTone")
   })
 })
 

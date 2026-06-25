@@ -18,6 +18,7 @@ import {
   buildInboundGreetingFirstPassResult,
   inboundGreetingPassDone,
   resolveCallerGreetingForDialPass,
+  resolveInboundPstnForwardAnswerOnBridge,
   resolveWorkspaceDisplayName,
   shouldPlayCallerRingbackDuringDial,
   shouldPlayInboundGreetingFirstPass,
@@ -53,7 +54,6 @@ import { flattenJsonWebhookToStringMap } from "@/lib/telnyx-incoming-webhook-fla
 import { isAccountRoutingBlocked, buildSuspendedInboundRejectTexml, parseAccountStatus } from "@/lib/account-status"
 import {
   origFromQuerySuffixFromRaw,
-  readTelnyxDialAnswerOnBridge,
   resolvePstnDialCallerIdForInboundForward,
 } from "@/lib/telnyx-pstn-dial-callerid"
 import { shouldEmitVoiceHotPathDebugLogs } from "@/lib/voice-log-gate"
@@ -64,7 +64,6 @@ import {
   buildFastReceptionistDialWebRtcTexml,
   resolveReceptionistSipUri,
   finalizeInboundTexmlXml,
-  readInboundFastDialAnswerOnBridge,
   readInboundRoutingCfgOverlayEnabled,
   resolveInboundForwardDialTimeoutSeconds,
   resolveInboundFastDialTimeoutSeconds,
@@ -420,6 +419,9 @@ function tryFastInboundPstnDial(params: {
 }): IncomingCallResult | null {
   const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl, perfStartMs, greetingPassDone } =
     params
+  // Cell PSTN `<Number>` — never dial the teammate's phone before the caller hears the greeting pass.
+  if (shouldPlayInboundGreetingFirstPass(greetingPassDone ?? false)) return null
+
   const hasReceptionist = Boolean(routing.selected_receptionist_id?.trim())
   const dialE164 = resolveReceptionistDialE164(routing.receptionist_phone || routing.owner_phone || "")
   if (!dialE164) return null
@@ -449,7 +451,7 @@ function tryFastInboundPstnDial(params: {
     inboundFromRaw: callerNumber,
     businessOutboundE164: outboundCallerId,
   })
-  const answerOnBridge = readInboundFastDialAnswerOnBridge()
+  const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone ?? false)
   const ownerLegQuery = hasReceptionist ? "" : "&primary=owner&leg=owner-first"
   const action = `${fallbackPathBase}?callSid=${encodeURIComponent(callSid)}${bnQuery}${fbQuery}${modeQuery}${ownerLegQuery}${origFromQuery}`
 
@@ -555,6 +557,8 @@ async function tryRoutingPoolInboundDial(params: {
 }): Promise<IncomingCallResult | null> {
   const { routing, businessLineE164, calledNumber, callerNumber, callSid, callerName, appUrl, perfStartMs, greetingPassDone } =
     params
+  if (shouldPlayInboundGreetingFirstPass(greetingPassDone ?? false)) return null
+
   const line = await getActivePhoneNumberByE164(businessLineE164 || calledNumber)
   if (!line) return null
 
@@ -594,6 +598,7 @@ async function tryRoutingPoolInboundDial(params: {
     ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
     timeout: dialTimeoutSec,
     action,
+    greetingPassDone: greetingPassDone ?? false,
     ...(callerGreeting ? { callerGreeting } : {}),
     includeRingback,
     answer: {
@@ -1252,7 +1257,7 @@ async function handleIncomingCall(
       inboundFromRaw: callerNumber,
       businessOutboundE164: outboundCallerId,
     })
-    const answerOnBridge = readTelnyxDialAnswerOnBridge()
+    const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone)
     if (shouldEmitVoiceHotPathDebugLogs()) {
       console.log(
         JSON.stringify({
