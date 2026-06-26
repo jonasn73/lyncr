@@ -2,6 +2,14 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 import { encodeTelnyxCallControlState, decodeTelnyxCallControlState } from "@/lib/telnyx-call-control-state"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
 
+const getOrCreateCallControlAppMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve("cc-app-99"))
+)
+
+vi.mock("@/lib/telnyx-call-control-config", () => ({
+  getOrCreateCallControlApp: getOrCreateCallControlAppMock,
+}))
+
 describe("telnyx call control state", () => {
   it("round-trips client_state", () => {
     const raw = encodeTelnyxCallControlState({
@@ -46,7 +54,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock)
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { call_control_id: "cc-outbound-1" } }),
+    })
+    getOrCreateCallControlAppMock.mockResolvedValue("cc-app-99")
     vi.stubEnv("ZING_INBOUND_CALL_CONTROL", "1")
     vi.stubEnv("TELNYX_API_KEY", "test-key")
   })
@@ -111,5 +123,55 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
     const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
     expect(speakCall).toBeFalsy()
+  })
+
+  it("speak.ended dials outbound leg via POST /v2/calls with link_to", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+
+    const inboundState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_greeting_end",
+      userId: "u1",
+      businessLineE164: "+15555571219",
+      callerE164: "+15551230000",
+      dialTargetE164: "+15552602716",
+      ringTimeoutSec: 30,
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-speak-end",
+        payload: {
+          call_control_id: "cc-inbound-1",
+          from: "+15551230000",
+          to: "+15555571219",
+          direction: "incoming",
+          client_state: inboundState,
+        },
+      },
+    })
+
+    const dialCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+    )
+    expect(dialCall).toBeTruthy()
+    const dialBody = JSON.parse(String(dialCall![1].body))
+    expect(dialBody.connection_id).toBe("cc-app-99")
+    expect(dialBody.to).toBe("+15552602716")
+    expect(dialBody.link_to).toBe("cc-inbound-1")
+    expect(dialBody.bridge_on_answer).toBe(true)
   })
 })

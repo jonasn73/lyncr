@@ -47,8 +47,8 @@ export function getZingAppUrl(): string {
   return getAppUrl()
 }
 
-// Find or create an outbound voice profile so the TeXML app can place outbound calls
-async function getOrCreateOutboundVoiceProfile(): Promise<string> {
+// Find or create an outbound voice profile so voice apps can place outbound calls.
+export async function getOrCreateOutboundVoiceProfile(): Promise<string> {
   const listRes = await fetch(`${TELNYX_BASE}/outbound_voice_profiles?page[size]=50`, {
     headers: telnyxHeaders(),
   })

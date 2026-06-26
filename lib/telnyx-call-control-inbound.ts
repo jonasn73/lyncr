@@ -18,6 +18,7 @@ import {
   isInboundCallerGreetingEnabled,
   resolveWorkspaceDisplayName,
 } from "@/lib/inbound-branded-greeting"
+import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
 import { resolveInboundForwardDialTimeoutSeconds } from "@/lib/telnyx-inbound-media-quality"
 import { resolvePstnDialCallerIdForInboundForward } from "@/lib/telnyx-pstn-dial-callerid"
 import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
@@ -99,13 +100,13 @@ async function startVoicemailFlow(
 }
 
 async function dialTechnicianLeg(
-  callControlId: string,
+  inboundCallControlId: string,
   state: TelnyxCallControlClientState
 ): Promise<void> {
   const target = state.dialTargetE164?.trim() || ""
   if (!isReasonablePstnDialString(target)) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-dial-missing-target", callControlId }))
-    await telnyxCallControlHangup(callControlId)
+    console.error(JSON.stringify({ zing: "telnyx-cc-dial-missing-target", inboundCallControlId }))
+    await telnyxCallControlHangup(inboundCallControlId)
     return
   }
   const fromE164 = resolvePstnDialCallerIdForInboundForward({
@@ -113,8 +114,22 @@ async function dialTechnicianLeg(
     businessOutboundE164: state.businessLineE164,
   })
   const dialFrom = isReasonablePstnDialString(fromE164) ? fromE164 : state.businessLineE164
-  const nextState = encodeTelnyxCallControlState({ ...state, phase: "await_dial_end" })
-  const dialRes = await telnyxCallControlDial(callControlId, {
+  let connectionId = ""
+  try {
+    connectionId = await getOrCreateCallControlApp()
+  } catch (e) {
+    console.error("[telnyx-cc] Call Control app lookup failed:", e)
+    await telnyxCallControlHangup(inboundCallControlId)
+    return
+  }
+  const nextState = encodeTelnyxCallControlState({
+    ...state,
+    phase: "await_dial_end",
+    inboundCallControlId,
+  })
+  const dialRes = await telnyxCallControlDial({
+    connectionId,
+    inboundCallControlId,
     toE164: target,
     fromE164: dialFrom,
     timeoutSecs: state.ringTimeoutSec ?? 30,
@@ -122,7 +137,7 @@ async function dialTechnicianLeg(
   })
   if (!dialRes.ok) {
     console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error }))
-    await telnyxCallControlHangup(callControlId)
+    await telnyxCallControlHangup(inboundCallControlId)
   }
 }
 
@@ -245,7 +260,7 @@ async function handleSpeakEnded(
   }
 }
 
-async function handleDialEnded(
+async function handleCallHangup(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
   const state = event.clientState
@@ -256,22 +271,29 @@ async function handleDialEnded(
     event.dialStatus === "timeout" ||
     event.hangupCause === "timeout" ||
     event.hangupCause === "no_answer" ||
-    event.hangupCause === "user_busy"
+    event.hangupCause === "user_busy" ||
+    event.hangupCause === "call_rejected"
   if (!noAnswer) return
+
+  const inboundCallControlId = state.inboundCallControlId?.trim() || ""
+  if (!inboundCallControlId) {
+    console.error(JSON.stringify({ zing: "telnyx-cc-hangup-missing-inbound-leg", callControlId: event.callControlId }))
+    return
+  }
 
   const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
   if (!routing) {
-    await telnyxCallControlHangup(event.callControlId)
+    await telnyxCallControlHangup(inboundCallControlId)
     return
   }
 
   const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()
   if (fallback === "voicemail" || fallback === "owner") {
-    await startVoicemailFlow(event.callControlId, state, routing)
+    await startVoicemailFlow(inboundCallControlId, state, routing)
     return
   }
 
-  await telnyxCallControlHangup(event.callControlId)
+  await telnyxCallControlHangup(inboundCallControlId)
 }
 
 /** Main Call Control webhook switch — returns after scheduling Telnyx actions. */
@@ -302,8 +324,8 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
     case "call.speak.ended":
       await handleSpeakEnded(event)
       break
-    case "call.dial.ended":
-      await handleDialEnded(event)
+    case "call.hangup":
+      await handleCallHangup(event)
       break
     default:
       break

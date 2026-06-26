@@ -2,7 +2,7 @@
 
 import { getAppUrl } from "@/lib/telnyx"
 import { SITE_NAME } from "@/lib/brand"
-import { telnyxHeaders } from "@/lib/telnyx-config"
+import { getOrCreateOutboundVoiceProfile, telnyxHeaders } from "@/lib/telnyx-config"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
@@ -17,13 +17,37 @@ export function getInboundCallControlWebhookUrl(appUrl: string): string {
   return `${appUrl.replace(/\/$/, "")}/api/webhooks/telnyx/voice`
 }
 
+async function ensureCallControlOutboundProfile(appId: string): Promise<void> {
+  try {
+    const profileId = await getOrCreateOutboundVoiceProfile()
+    const res = await fetch(`${TELNYX_BASE}/call_control_applications/${appId}`, {
+      method: "PATCH",
+      headers: telnyxHeaders(),
+      body: JSON.stringify({
+        outbound: { outbound_voice_profile_id: profileId },
+      }),
+    })
+    if (res.ok) {
+      console.log(`[Sigo] Call Control app ${appId} outbound profile → ${profileId}`)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      console.error(`[Sigo] Failed to PATCH Call Control outbound profile:`, body)
+    }
+  } catch (e) {
+    console.error("[Sigo] Call Control outbound profile assignment failed:", e)
+  }
+}
+
 /** Resolve Voice API application id for inbound Call Control (env override or Telnyx lookup). */
 export async function getOrCreateCallControlApp(): Promise<string> {
   const fromEnv =
     process.env.TELNYX_CALL_CONTROL_CONNECTION_ID?.trim() ||
     process.env.TELNYX_VOICE_API_APPLICATION_ID?.trim() ||
     ""
-  if (fromEnv) return fromEnv
+  if (fromEnv) {
+    await ensureCallControlOutboundProfile(fromEnv)
+    return fromEnv
+  }
 
   const appUrl = getAppUrl()
   const webhookUrl = getInboundCallControlWebhookUrl(appUrl)
@@ -38,10 +62,13 @@ export async function getOrCreateCallControlApp(): Promise<string> {
   )
 
   if (existing?.id) {
-    await patchCallControlAppWebhook(String(existing.id), webhookUrl)
-    return String(existing.id)
+    const appId = String(existing.id)
+    await patchCallControlAppWebhook(appId, webhookUrl)
+    await ensureCallControlOutboundProfile(appId)
+    return appId
   }
 
+  const profileId = await getOrCreateOutboundVoiceProfile()
   const createRes = await fetch(`${TELNYX_BASE}/call_control_applications`, {
     method: "POST",
     headers: telnyxHeaders(),
@@ -50,8 +77,8 @@ export async function getOrCreateCallControlApp(): Promise<string> {
       webhook_event_url: webhookUrl,
       webhook_api_version: "2",
       active: true,
-      first_command_timeout: true,
-      first_command_timeout_secs: 30,
+      first_command_timeout: false,
+      outbound: { outbound_voice_profile_id: profileId },
     }),
   })
   const createBody = await createRes.json()
@@ -73,6 +100,7 @@ async function patchCallControlAppWebhook(appId: string, webhookUrl: string): Pr
         webhook_event_url: webhookUrl,
         webhook_api_version: "2",
         active: true,
+        first_command_timeout: false,
       }),
     })
     if (res.ok) {

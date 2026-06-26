@@ -13,6 +13,8 @@ export type TelnyxCallControlClientState = {
   userId: string
   businessLineE164: string
   callerE164: string
+  /** Inbound caller leg — used to play voicemail after an outbound dial times out. */
+  inboundCallControlId?: string
   dialTargetE164?: string
   ringTimeoutSec?: number
   fallbackType?: "voicemail" | "ai" | "owner"
