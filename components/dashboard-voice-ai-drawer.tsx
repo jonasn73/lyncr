@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { displayUserFacingMessage } from "@/lib/porting-display"
 import { DEFAULT_BUSY_GREETING_LOCKSMITH } from "@/lib/ai-intake-defaults"
+import { ONBOARDING_DEFAULT_VOICEMAIL_GREETING } from "@/lib/onboarding-ai-trade-scripts"
 import { isAiIntakeProfileId, type AiIntakeProfileId } from "@/lib/business-industries"
 import type { Contact, FallbackOption } from "@/lib/dashboard-routing-utils"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -181,9 +182,11 @@ export function DashboardVoiceAiDrawer({
         const prompt = typeof ic?.extraAiInstructions === "string" ? ic.extraAiInstructions : ""
         const greeting = typeof ic?.busyGreeting === "string" && ic.busyGreeting.trim() ? ic.busyGreeting : ""
         const voice = typeof ic?.telnyxVoice === "string" ? ic.telnyxVoice : ""
+        const defaultOpening =
+          fallback === "voicemail" ? ONBOARDING_DEFAULT_VOICEMAIL_GREETING : DEFAULT_BUSY_GREETING_LOCKSMITH
 
         setBufferedScript(prompt)
-        setOpeningLine(greeting || DEFAULT_BUSY_GREETING_LOCKSMITH)
+        setOpeningLine(greeting || defaultOpening)
         setBufferedVoice(personaFromVoiceId(voice))
         setIntakeNotes({
           carKeyNotes: typeof ic?.carKeyNotes === "string" ? ic.carKeyNotes : "",
@@ -202,7 +205,7 @@ export function DashboardVoiceAiDrawer({
         baselineRef.current = JSON.stringify({
           aiEnabled: enabled,
           bufferedScript: prompt,
-          openingLine: greeting || DEFAULT_BUSY_GREETING_LOCKSMITH,
+          openingLine: greeting || defaultOpening,
           bufferedVoice: personaFromVoiceId(voice),
           postAiRoute:
             fallback === "voicemail"

@@ -459,7 +459,7 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
   },
   {
     id: "no-assistant-ai-unavailable-voicemail",
-    description: "AI path but no assistant id and ensure fails → Record / AI-unavailable copy",
+    description: "AI path but no assistant id and ensure fails → branded voicemail Record",
     method: "POST",
     url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner-ai?callSid=CA_fixture_no_asst",
     form: {
@@ -468,16 +468,16 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
       To: "+15551110002",
     },
     mocks: {
-      incomingRouting: baseIncomingRouting({}),
-      routingForNumber: baseRouting({ fallback_type: "ai" }),
-      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-g4" }),
+      incomingRouting: baseIncomingRouting({ organization_name: "Fixture Org" } as never),
+      routingForNumber: baseRouting({ fallback_type: "ai", ai_greeting: "" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "ai", id: "rc-g4", ai_greeting: "" }),
       user: baseUser({ telnyx_ai_assistant_id: null }),
       primaryBusinessE164: "+15551110001",
       ensureAssistant: { linked: false },
     },
     expect: {
-      bodyContains: ["not set up", "Record"],
-      bodyNotContains: ["ai-bridge"],
+      bodyContains: ["Thank you for calling", "<Record", "<Pause"],
+      bodyNotContains: ["ai-bridge", "not set up"],
       contentType: "text/xml",
     },
   },

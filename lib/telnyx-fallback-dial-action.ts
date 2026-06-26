@@ -48,6 +48,10 @@ import { texmlSayNatural } from "@/lib/texml-say-voice"
 import { buildTelnyxDialFromDisplayName } from "@/lib/telnyx-caller-display"
 import { shouldEmitVoiceHotPathDebugLogs } from "@/lib/voice-log-gate"
 import { isAccountRoutingBlocked, SUSPENDED_LINE_TEXML_MESSAGE } from "@/lib/account-status"
+import {
+  appendVoicemailRecordTexml,
+  resolveVoicemailGreetingText,
+} from "@/lib/voicemail-greeting"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -190,17 +194,29 @@ function playTelnyxAiUnavailableVoicemail(
   texml: InstanceType<typeof VoiceResponse>,
   appUrl: string,
   userId: string,
-  callSid: string
+  callSid: string,
+  greetingText: string
 ) {
-  texmlSayNatural(
-    texml,
-    "Thanks for calling. Our voice assistant is not set up on this line yet. Please leave your name, phone number, and what you need after the tone and we will get back to you."
-  )
-  // Omit Twilio-only `transcribe` — Telnyx TeXML may not support it and can break `<Record>`.
-  texml.record({
-    maxLength: 120,
-    recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
-    action: `${appUrl}/api/voice/telnyx/voicemail-complete?userId=${userId}&callSid=${callSid}`,
+  appendVoicemailRecordTexml(texml, {
+    greetingText,
+    appUrl,
+    userId,
+    callSid,
+  })
+}
+
+function resolveInboundVoicemailGreeting(
+  config: RoutingConfig | null,
+  globalDefaultConfig: RoutingConfig | null,
+  lr: IncomingRoutingRow | null,
+  user: User | null
+): string {
+  return resolveVoicemailGreetingText({
+    customGreeting: config?.ai_greeting?.trim() || globalDefaultConfig?.ai_greeting?.trim() || null,
+    organizationName: lr?.organization_name,
+    phoneLineLabel: lr?.phone_line_label,
+    businessName: lr?.business_name,
+    accountBusinessName: user?.business_name,
   })
 }
 
@@ -661,6 +677,7 @@ export async function handleTelnyxFallbackDialEnded(
       getRoutingConfig(userId),
       getUser(userId),
     ])
+    const voicemailGreeting = resolveInboundVoicemailGreeting(config, globalDefaultConfig, lr, user)
 
     if (!primaryWasOwner) {
       const recvFirstLeg2 = pathFallbackMode === "recv" || pathFallbackMode === "recv-ai"
@@ -863,7 +880,7 @@ export async function handleTelnyxFallbackDialEnded(
       })
       if (aiRes && aiRes !== "missing-assistant") return aiRes
       if (aiRes === "missing-assistant") {
-        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid)
+        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting)
         return new NextResponse(texml.toString(), {
           headers: { "Content-Type": "text/xml" },
         })
@@ -871,13 +888,11 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     if (zingAfterRecv && !virtualFbAi && pathFallbackMode !== "recv-ai" && pathFallbackMode !== "owner-ai") {
-      const greeting =
-        config?.ai_greeting?.trim() || "Sorry we could not reach you. Please leave a message after the tone."
-      texmlSayNatural(texml, greeting)
-      texml.record({
-        maxLength: 120,
-        recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
-        action: `${appUrl}/api/voice/telnyx/voicemail-complete?userId=${userId}&callSid=${callSid}`,
+      appendVoicemailRecordTexml(texml, {
+        greetingText: voicemailGreeting,
+        appUrl,
+        userId,
+        callSid,
       })
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },
@@ -1075,17 +1090,15 @@ export async function handleTelnyxFallbackDialEnded(
                   dialStatus: dialStatus || rawStatus || null,
                 })
               )
-              playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid)
+              playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting)
               break
             }
           }
-          const greeting =
-            config?.ai_greeting?.trim() || "Sorry we could not reach you. Please leave a message after the tone."
-          texmlSayNatural(texml, greeting)
-          texml.record({
-            maxLength: 120,
-            recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
-            action: `${appUrl}/api/voice/telnyx/voicemail-complete?userId=${userId}&callSid=${callSid}`,
+          appendVoicemailRecordTexml(texml, {
+            greetingText: voicemailGreeting,
+            appUrl,
+            userId,
+            callSid,
           })
           break
         }
@@ -1124,10 +1137,11 @@ export async function handleTelnyxFallbackDialEnded(
           } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
           dial.number(toE164(user.phone))
         } else {
-          texmlSayNatural(texml, "We're sorry, no one is available. Please leave a message after the beep.")
-          texml.record({
-            maxLength: 120,
-            recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
+          appendVoicemailRecordTexml(texml, {
+            greetingText: voicemailGreeting,
+            appUrl,
+            userId,
+            callSid,
           })
         }
         break
@@ -1150,17 +1164,16 @@ export async function handleTelnyxFallbackDialEnded(
             dialStatus: dialStatus || rawStatus || null,
           })
         )
-        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid)
+        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting)
         break
       }
 
       case "voicemail": {
-        const greeting = config?.ai_greeting || "Please leave a message after the beep."
-        texmlSayNatural(texml, greeting)
-        texml.record({
-          maxLength: 120,
-          recordingStatusCallback: `${appUrl}/api/voice/telnyx/recording-status`,
-          action: `${appUrl}/api/voice/telnyx/voicemail-complete?userId=${userId}&callSid=${callSid}`,
+        appendVoicemailRecordTexml(texml, {
+          greetingText: voicemailGreeting,
+          appUrl,
+          userId,
+          callSid,
         })
         break
       }
