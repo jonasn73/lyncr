@@ -18,12 +18,12 @@ import {
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import {
-  telnyxHeaders,
   getOrCreateTexmlApp,
+  configureNumberVoice,
 } from "@/lib/telnyx-config"
+import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
+import { readInboundCallControlEnabled } from "@/lib/telnyx-call-control-inbound"
 import { listTelnyxAccountPhoneNumbers } from "@/lib/telnyx-number-sync"
-
-const TELNYX_BASE = "https://api.telnyx.com/v2"
 
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -34,8 +34,11 @@ export async function POST(req: NextRequest) {
   try {
     const results: { number: string; action: string }[] = []
 
-    // Step 1: Find or create the lyncr Call Router TeXML app (with outbound voice profile)
+    // Step 1: Find or create the lyncr voice connection (Call Control when enabled, else TeXML).
     const texmlAppId = await getOrCreateTexmlApp()
+    const voiceConnectionId = readInboundCallControlEnabled()
+      ? await getOrCreateCallControlApp()
+      : texmlAppId
 
     const telnyxNumbers = await listTelnyxAccountPhoneNumbers()
 
@@ -64,19 +67,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Configure voice if not pointing to our TeXML app
-      if (tn.connection_id !== texmlAppId) {
-        const patchRes = await fetch(`${TELNYX_BASE}/phone_numbers/${tn.id}/voice`, {
-          method: "PATCH",
-          headers: telnyxHeaders(),
-          body: JSON.stringify({ connection_id: texmlAppId, tech_prefix_enabled: false }),
-        })
-        if (patchRes.ok) {
-          results.push({ number: tn.phone_number, action: "voice configured" })
-        } else {
-          const patchBody = await patchRes.json().catch(() => ({}))
-          results.push({ number: tn.phone_number, action: `config failed: ${patchBody?.errors?.[0]?.detail || patchRes.status}` })
-        }
+      // Configure voice if not pointing at the active inbound connection.
+      if (tn.connection_id !== voiceConnectionId) {
+        await configureNumberVoice(e164, texmlAppId)
+        results.push({ number: tn.phone_number, action: "voice configured" })
       } else {
         results.push({ number: tn.phone_number, action: "already configured" })
       }
