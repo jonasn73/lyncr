@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest"
+import { NextRequest } from "next/server"
+import { GET as receptionistAnswerGet } from "@/app/api/voice/telnyx/receptionist-answer/route"
 import {
   buildReceptionistPress1AcceptedTexml,
   buildReceptionistPress1ScreenTexml,
@@ -8,6 +10,28 @@ import {
   buildInboundPstnNumberAttributesWithAnswerUrl,
 } from "@/lib/telnyx-inbound-media-quality"
 import { shouldPlayCallerRingbackDuringDial } from "@/lib/inbound-branded-greeting"
+
+describe("receptionist-answer route", () => {
+  it("owner leg (no r=) bridges immediately without press-1 gather", async () => {
+    const req = new NextRequest(
+      "https://lyncr.app/api/voice/telnyx/receptionist-answer?cl=CA_test&bt=generic&bn=Key%20Squad"
+    )
+    const res = await receptionistAnswerGet(req)
+    const xml = await res.text()
+    expect(xml).not.toContain("<Gather")
+    expect(xml).not.toContain("Press 1")
+  })
+
+  it("receptionist leg still shows press-1 gather", async () => {
+    const req = new NextRequest(
+      "https://lyncr.app/api/voice/telnyx/receptionist-answer?r=recv-1&cl=CA_test&bt=generic&bn=Key%20Squad"
+    )
+    const res = await receptionistAnswerGet(req)
+    const xml = await res.text()
+    expect(xml).toContain("<Gather")
+    expect(xml).toContain("Press 1 to connect")
+  })
+})
 
 describe("buildInboundPstnNumberAttributesWithAnswerUrl", () => {
   it("sets url and method POST for the press-1 screen webhook", () => {

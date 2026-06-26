@@ -108,6 +108,16 @@ async function respond(req: NextRequest): Promise<NextResponse> {
     return xmlResponseBody(buildReceptionistPress1RejectedTexml())
   }
 
+  // Owner / admin override legs omit `r` — bridge immediately (no press-1 gate). Press-1 is for
+  // receptionist cells so pocket-answers don't connect callers; owners expect a normal ring.
+  const receptionistId = param(req, "r", "receptionistId")
+  if (!receptionistId?.trim()) {
+    const texml = new VoiceResponse()
+    const phrase = whisperPhrase(req)
+    if (phrase) texmlSayWhisperPlain(texml, phrase)
+    return xmlResponseBody(texml.toString())
+  }
+
   if (PRESS1_SCREEN_DISABLED) {
     broadcastConnected(req)
     const texml = new VoiceResponse()

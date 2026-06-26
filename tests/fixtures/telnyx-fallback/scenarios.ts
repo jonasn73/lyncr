@@ -290,9 +290,34 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
     },
   },
   {
-    id: "owner-ai-completed-short-no-bridge-metadata-hangup",
+    id: "owner-no-answer-voicemail-record",
     description:
-      "Non-AI TeXML path `owner` + voicemail routing: short completed leg with no bridge fields — hang up caller (no AI hold line)",
+      "Owner cell rang with no answer (or Telnyx reports completed ~30s with no bridge) → caller hears voicemail prompt",
+    method: "POST",
+    url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner?callSid=CA_fixture_owner_na_vm&primary=owner&leg=owner-first&bn=%2B15551110001",
+    form: {
+      DialCallStatus: "no-answer",
+      DialCallDuration: "30",
+      CallSid: "CA_fixture_owner_na_vm",
+      To: "+15552602716",
+    },
+    mocks: {
+      incomingRouting: baseIncomingRouting({ fallback_type: "voicemail", ai_ring_owner_first: false }),
+      routingForNumber: baseRouting({ fallback_type: "voicemail", business_number: "+15551110001" }),
+      globalRouting: baseRouting({ business_number: null, fallback_type: "voicemail", id: "rc-owner-na" }),
+      user: baseUser({ phone: "+15552602716" }),
+      primaryBusinessE164: "+15551110001",
+    },
+    expect: {
+      bodyContains: ["<Record"],
+      bodyNotContains: ["</Hangup>", "ai-bridge"],
+      contentType: "text/xml",
+    },
+  },
+  {
+    id: "owner-press1-reject-short-no-bridge-voicemail",
+    description:
+      "Owner cell answered but did not press 1 (or gate timed out): completed + short duration + no bridge → voicemail Record, not caller hangup",
     method: "POST",
     url: "http://test.local/api/voice/telnyx/fallback/u/11111111-1111-1111-1111-111111111111/n/15551110001/owner?callSid=CA_fixture_short_nobridge&primary=owner&leg=owner-first",
     form: {
@@ -309,8 +334,8 @@ export const telnyxFallbackScenarios: TelnyxFallbackFixture[] = [
       primaryBusinessE164: "+15551110001",
     },
     expect: {
-      bodyContains: ["Hangup"],
-      bodyNotContains: ["Thanks for calling", "ai-bridge", "<Record"],
+      bodyContains: ["<Record"],
+      bodyNotContains: ["ai-bridge", "</Hangup>"],
       contentType: "text/xml",
     },
   },

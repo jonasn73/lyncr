@@ -818,6 +818,8 @@ export async function handleTelnyxFallbackDialEnded(
 
     /**
      * Owner cell leg ended after a real PSTN bridge — end the caller’s leg unless Voice AI should run next.
+     * Do not treat `shortCompletedLooksAnswered` as a bridge here: press-1 reject / timeout on the owner
+     * cell is also "completed" with no bridge metadata and must fall through to voicemail.
      */
     const recvLegByPath = pathFallbackMode === "recv" || pathFallbackMode === "recv-ai"
     const ownerFirstLegBridgedComplete =
@@ -826,7 +828,7 @@ export async function handleTelnyxFallbackDialEnded(
       !recvLegByPath &&
       !receptionistCalleeMatches &&
       dialStatus === "completed" &&
-      (pstnBridgeEvidence || shortCompletedLooksAnswered)
+      pstnBridgeEvidence
     if (ownerFirstLegBridgedComplete) {
       maybeLogTelnyxFallbackDiagnosticEarly(
         pstnBridgeEvidence ? "owner-first-leg-bridged-hangup" : "owner-first-short-completed-hangup",

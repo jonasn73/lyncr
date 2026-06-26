@@ -463,17 +463,20 @@ function tryFastInboundPstnDial(params: {
 
   // When dialing a known platform receptionist, hand Telnyx a per-leg answer URL so
   // their HUD pops the live intake form the instant their cell phone connects.
-  const answerUrl = buildReceptionistAnswerUrl({
-    appUrl,
-    ...(hasReceptionist && routing.selected_receptionist_id
-      ? { receptionistId: routing.selected_receptionist_id }
-      : {}),
-    callSid,
-    businessType: "generic",
-    callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
-    callerName,
-    businessName: workspaceName,
-  })
+  // Owner legs omit the URL — direct ring/bridge (press-1 is receptionist-only).
+  const answerUrl = hasReceptionist
+    ? buildReceptionistAnswerUrl({
+        appUrl,
+        ...(routing.selected_receptionist_id
+          ? { receptionistId: routing.selected_receptionist_id }
+          : {}),
+        callSid,
+        businessType: "generic",
+        callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
+        callerName,
+        businessName: workspaceName,
+      })
+    : undefined
 
   // Endpoint multiplexing (050): a receptionist set to 'WEB' rings their registered browser over
   // Telnyx WebRTC/SIP. We only take the SIP path when a sip_username actually resolves to a URI;
@@ -1339,15 +1342,8 @@ async function handleIncomingCall(
           includeRingback,
         }) as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0]
       )
-      const ownerAnswerUrl = buildReceptionistAnswerUrl({
-        appUrl,
-        callSid,
-        businessType: "generic",
-        callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
-        callerName,
-        businessName: workspaceName,
-      })
-      dial.number({ ...pstnNumberAttrs, url: ownerAnswerUrl, method: "POST" }, ownerPhone)
+      // Owner cell — direct ring/bridge; press-1 screen is receptionist-only.
+      dial.number({ ...pstnNumberAttrs }, ownerPhone)
     }
   } catch (error) {
     console.error("[Telnyx] Error in incoming webhook:", error)
