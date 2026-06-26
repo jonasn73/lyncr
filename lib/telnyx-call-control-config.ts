@@ -47,10 +47,11 @@ export async function getOrCreateCallControlApp(): Promise<string> {
     headers: telnyxHeaders(),
     body: JSON.stringify({
       application_name: `${SITE_NAME} Voice API`,
-      webhook_url: webhookUrl,
+      webhook_event_url: webhookUrl,
       webhook_api_version: "2",
       active: true,
-      first_command_timeout: 30,
+      first_command_timeout: true,
+      first_command_timeout_secs: 30,
     }),
   })
   const createBody = await createRes.json()
@@ -69,7 +70,7 @@ async function patchCallControlAppWebhook(appId: string, webhookUrl: string): Pr
       method: "PATCH",
       headers: telnyxHeaders(),
       body: JSON.stringify({
-        webhook_url: webhookUrl,
+        webhook_event_url: webhookUrl,
         webhook_api_version: "2",
         active: true,
       }),
