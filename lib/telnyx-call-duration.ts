@@ -22,6 +22,22 @@ export function normalizeTelnyxDurationSeconds(raw: string | null | undefined): 
   return n
 }
 
+/** Whole seconds from a Telnyx Voice API v2 JSON payload. */
+export function parseTelnyxCallDurationFromPayload(payload: Record<string, unknown>): number {
+  const fromField = normalizeTelnyxDurationSeconds(String(payload.call_duration ?? ""))
+  if (fromField > 0) return fromField
+  const start = String(payload.start_time ?? "").trim()
+  const end = String(payload.end_time ?? "").trim()
+  if (start && end) {
+    const startMs = Date.parse(start)
+    const endMs = Date.parse(end)
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+      return Math.round((endMs - startMs) / 1000)
+    }
+  }
+  return 0
+}
+
 /** Best talk-time seconds from a Telnyx webhook form body. */
 export function parseTelnyxTalkSecondsFromForm(formData: FormData): number {
   let best = 0

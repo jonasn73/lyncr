@@ -19,6 +19,14 @@ import {
   resolveWorkspaceDisplayName,
 } from "@/lib/inbound-branded-greeting"
 import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
+import {
+  finalizeCallControlCallLog,
+  isDialNoAnswerHangup,
+  isOutboundDialLegEvent,
+  persistCallControlBridged,
+  persistCallControlDialNoAnswer,
+  resolveInboundCallLogSid,
+} from "@/lib/telnyx-call-control-call-log"
 import { resolveInboundForwardDialTimeoutSeconds } from "@/lib/telnyx-inbound-media-quality"
 import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
 import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
@@ -274,40 +282,60 @@ async function handleSpeakEnded(
   }
 }
 
+async function handleCallBridged(
+  event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
+): Promise<void> {
+  const state = event.clientState
+  if (!state || isOutboundDialLegEvent(event)) return
+  const inboundSid = resolveInboundCallLogSid(event)
+  await persistCallControlBridged(inboundSid, state, event.occurredAt)
+}
+
 async function handleCallHangup(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
   const state = event.clientState
-  if (!state || state.phase !== "await_dial_end") return
+  const inboundSid = resolveInboundCallLogSid(event)
 
-  const noAnswer =
-    event.dialStatus === "no_answer" ||
-    event.dialStatus === "timeout" ||
-    event.hangupCause === "timeout" ||
-    event.hangupCause === "no_answer" ||
-    event.hangupCause === "user_busy" ||
-    event.hangupCause === "call_rejected"
-  if (!noAnswer) return
+  if (
+    state?.phase === "await_dial_end" &&
+    isDialNoAnswerHangup(event) &&
+    isOutboundDialLegEvent(event)
+  ) {
+    const inboundCallControlId = state.inboundCallControlId?.trim() || ""
+    if (!inboundCallControlId) {
+      console.error(JSON.stringify({ zing: "telnyx-cc-hangup-missing-inbound-leg", callControlId: event.callControlId }))
+      return
+    }
 
-  const inboundCallControlId = state.inboundCallControlId?.trim() || ""
-  if (!inboundCallControlId) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-hangup-missing-inbound-leg", callControlId: event.callControlId }))
-    return
-  }
+    await persistCallControlDialNoAnswer(inboundSid, event)
 
-  const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
-  if (!routing) {
+    const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
+    if (!routing) {
+      await telnyxCallControlHangup(inboundCallControlId)
+      return
+    }
+
+    const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()
+    if (fallback === "voicemail" || fallback === "owner") {
+      await startVoicemailFlow(inboundCallControlId, state, routing)
+      return
+    }
+
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
 
-  const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()
-  if (fallback === "voicemail" || fallback === "owner") {
-    await startVoicemailFlow(inboundCallControlId, state, routing)
-    return
-  }
+  if (isOutboundDialLegEvent(event)) return
 
-  await telnyxCallControlHangup(inboundCallControlId)
+  const hadConversation =
+    Boolean(state?.inboundCallControlId) &&
+    (event.hangupCause === "normal_clearing" || state?.phase === "recording")
+
+  await finalizeCallControlCallLog(inboundSid, event, {
+    callType: state?.phase === "recording" ? "voicemail" : undefined,
+    hadConversation,
+  })
 }
 
 /** Main Call Control webhook switch — returns after scheduling Telnyx actions. */
@@ -337,6 +365,9 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
       break
     case "call.speak.ended":
       await handleSpeakEnded(event)
+      break
+    case "call.bridged":
+      await handleCallBridged(event)
       break
     case "call.hangup":
       await handleCallHangup(event)

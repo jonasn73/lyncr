@@ -1,6 +1,7 @@
 // Parse Telnyx Voice API v2 webhook envelopes into a flat event view.
 
 import { decodeTelnyxCallControlState } from "@/lib/telnyx-call-control-state"
+import { parseTelnyxCallDurationFromPayload } from "@/lib/telnyx-call-duration"
 
 export type TelnyxVoiceWebhookEvent = {
   eventType: string
@@ -12,6 +13,10 @@ export type TelnyxVoiceWebhookEvent = {
   direction: string
   hangupCause: string
   dialStatus: string
+  startTime: string
+  endTime: string
+  occurredAt: string
+  callDurationSeconds: number
   clientState: ReturnType<typeof decodeTelnyxCallControlState>
 }
 
@@ -37,6 +42,10 @@ export function parseTelnyxVoiceWebhookEvent(body: Record<string, unknown>): Tel
     direction: String(payload.direction ?? "").trim().toLowerCase(),
     hangupCause: String(payload.hangup_cause ?? payload.cause ?? "").trim().toLowerCase(),
     dialStatus: String(payload.status ?? payload.dial_status ?? "").trim().toLowerCase(),
+    startTime: String(payload.start_time ?? "").trim(),
+    endTime: String(payload.end_time ?? "").trim(),
+    occurredAt: String(data.occurred_at ?? payload.occurred_at ?? "").trim(),
+    callDurationSeconds: parseTelnyxCallDurationFromPayload(payload),
     clientState: decodeTelnyxCallControlState(rawClientState),
   }
 }

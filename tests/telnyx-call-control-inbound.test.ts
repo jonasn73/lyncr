@@ -256,4 +256,66 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     )
     expect(dialCall).toBeFalsy()
   })
+
+  it("call.hangup on inbound leg finalizes call log", async () => {
+    const recordCallStatusEvent = vi.fn(() => Promise.resolve())
+    const updateCallLog = vi.fn(() => Promise.resolve())
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      recordCallStatusEvent,
+      updateCallLog,
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+    vi.doMock("@/lib/call-telemetry-realtime", () => ({
+      broadcastCallCompletedBySid: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/carrier-credit-alerts", () => ({
+      evaluateLowCarrierCreditFromCallUsage: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/post-call-disposition-sms", () => ({
+      maybeSendPostCallDispositionSms: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/admin-override-dispatch-sms", () => ({
+      maybeSendAdminOverrideDispatchSms: vi.fn(() => Promise.resolve()),
+    }))
+
+    const state = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_greeting_end",
+      userId: "u1",
+      businessLineE164: "+15555571219",
+      callerE164: "+15026558745",
+      inboundCallControlId: "cc-in-hangup",
+      dialTargetE164: "+15552602716",
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.hangup",
+        id: "evt-hangup",
+        occurred_at: "2026-06-27T17:30:00.000Z",
+        payload: {
+          call_control_id: "cc-in-hangup",
+          from: "+15026558745",
+          to: "+15025571219",
+          hangup_cause: "normal_clearing",
+          start_time: "2026-06-27T17:20:00.000Z",
+          end_time: "2026-06-27T17:30:00.000Z",
+          client_state: state,
+        },
+      },
+    })
+
+    expect(recordCallStatusEvent).toHaveBeenCalled()
+    expect(updateCallLog).toHaveBeenCalled()
+    const statusCall = recordCallStatusEvent.mock.calls[0]
+    expect(statusCall[0]).toBe("cc-in-hangup")
+    expect(statusCall[1]).toBe("completed")
+    expect(statusCall[2]).toBeGreaterThanOrEqual(590)
+  })
 })
