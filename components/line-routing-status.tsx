@@ -11,13 +11,39 @@ export function LineRoutingStatus({
   routingStrategy,
   subscriptionActive,
   lineCarrierLive,
+  activeCallCount = 0,
   className,
 }: {
   routingStrategy: RoutingStrategy
   subscriptionActive: boolean
   lineCarrierLive: boolean
+  /** Live inbound legs on this line (Pusher call-initiated → call-completed). */
+  activeCallCount?: number
   className?: string
 }) {
+  const inProgress = activeCallCount > 0
+
+  if (inProgress && lineCarrierLive) {
+    const label =
+      activeCallCount === 1
+        ? "• 1 Active Call In-Progress"
+        : `• ${activeCallCount} Active Calls In-Progress`
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-200/95",
+          className
+        )}
+      >
+        <span
+          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.95)]"
+          aria-hidden
+        />
+        {label}
+      </span>
+    )
+  }
+
   // Pool routing takes priority over raw carrier status — it's the most useful at-a-glance fact.
   if (routingStrategy === "lyncr_only") {
     return (

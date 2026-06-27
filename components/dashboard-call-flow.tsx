@@ -32,6 +32,7 @@ import {
 import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
+import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -285,6 +286,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const activation = useDashboardActivationOptional()
+  const realtimeStats = useRealTimeStatsContextOptional()
   const subscriptionActive = activation?.subscriptionActive === true
   const lineCarrierLive = activation?.lineCarrierLive === true
   const activeLine =
@@ -343,6 +345,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               subscriptionActive={subscriptionActive}
               lineCarrierLive={lineCarrierLive}
               routingStrategy={routingStrategy}
+              activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
             />
           ) : quickSetupDecided ? (
             <button
@@ -417,6 +420,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   subscriptionActive,
   lineCarrierLive,
   routingStrategy,
+  activeCallCount,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   activeLine: string
@@ -424,6 +428,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   subscriptionActive: boolean
   lineCarrierLive: boolean
   routingStrategy: RoutingStrategy
+  activeCallCount: number
 }) {
   const activeRow = businessNumbers.find((b) => businessNumbersMatch(b.number, activeLine))
   const display = formatPhoneDisplay(activeLine)
@@ -446,6 +451,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
           routingStrategy={routingStrategy}
           subscriptionActive={subscriptionActive}
           lineCarrierLive={lineCarrierLive}
+          activeCallCount={activeCallCount}
         />
       </div>
     )
@@ -461,6 +467,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
             routingStrategy={routingStrategy}
             subscriptionActive={subscriptionActive}
             lineCarrierLive={lineCarrierLive}
+            activeCallCount={activeCallCount}
           />
         </div>
         <select

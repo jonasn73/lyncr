@@ -33,6 +33,7 @@ import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
 import { broadcastCallInitiated } from "@/lib/call-telemetry-realtime"
 import {
+  getActivePhoneNumberByE164,
   getIncomingRoutingForVoiceWebhook,
   getRoutingConfigForNumber,
   insertCallLog,
@@ -206,6 +207,8 @@ async function handleCallInitiated(
         callSid: event.callControlId,
         fromNumber: callerE164,
         toNumber: businessLineE164 || event.to,
+        organizationId: (await getActivePhoneNumberByE164(businessLineE164 || event.to).catch(() => null))
+          ?.organization_id,
       })
     } catch (e) {
       console.error("[telnyx-cc] call log insert failed:", e)

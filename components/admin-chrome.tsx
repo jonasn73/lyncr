@@ -44,6 +44,7 @@ function AdminSidebar() {
   const pathname = usePathname()
   const nav = [
     { href: "/admin", label: "Dashboard", active: pathname === "/admin" },
+    { href: "/admin/receptionists", label: "Operators", active: pathname?.startsWith("/admin/receptionists") },
     { href: "/admin/network", label: "Network agents", active: pathname?.startsWith("/admin/network") },
     {
       href: "/admin/dashboard/operators",

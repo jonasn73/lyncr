@@ -1,0 +1,494 @@
+LYNCR REAL-TIME CALL ARCHITECTURE — OPERATIONAL AUDIT
+Upload this file to Google Gemini for architectural review and gap analysis.
+Format: plain text export of the full operational audit.
+Generated: June 2026
+Repository: /Users/JR/Desktop/zing
+Product: Lyncr (lyncr.app) — VoIP call routing + field dispatch
+
+INSTRUCTIONS FOR GEMINI:
+- Treat this as the authoritative operational audit for Lyncr real-time call architecture.
+- Focus areas: Call Quality Tracking, Call Flow Control, four consoles (Platform Admin, Business Owner, Receptionist, Field Technician).
+- Answer questions about telephony webhooks, Pusher events, call_logs state, JSONB handoffs, and cross-console gaps using this document.
+- Production uses Telnyx; inbound may run TeXML (default) or Call Control when ZING_INBOUND_CALL_CONTROL=1.
+- When recommending changes, cite file paths from this document and preserve existing Next.js / Neon patterns.
+
+================================================================================
+
+# Lyncr Real-Time Call Architecture — Operational Audit
+
+Scope: Call Quality Tracking + Call Flow Control across Platform Admin, Business Owner, Receptionist, and Field Technician consoles.
+Production mode: Telnyx-first; tenants on Call Control when ZING_INBOUND_CALL_CONTROL=1.
+
+--------------------------------------------------------------------------------
+
+## Executive Summary
+
+| Layer | Status |
+|-------|--------|
+| Inbound routing | Two parallel pipelines — TeXML (full feature set) and Call Control (simpler, PSTN-only dial) |
+| Call state in DB | call_logs is the shared source of truth (ringing → answered_at → ended_at) |
+| Real-time layer | Pusher Channels on owner / receptionist / technician channels; Platform Admin has NO Pusher |
+| Call quality | Setup latency KPIs only (setup_duration_ms, answer rate); NO RTP/MOS/jitter, NO persisted hangup_cause |
+| Cross-console sync | Strong at disposition handoff (ai_leads); weak at live-call lifecycle (receptionist end events, WebRTC intake, tech job updates) |
+
+--------------------------------------------------------------------------------
+
+## 1. Current Telephony & Call Flow Setup
+
+### 1.1 Primary Incoming Voice Routing Controllers
+
+| Path | File | Role |
+|------|------|------|
+| TeXML edge greet | app/api/voice/telnyx/greet/route.ts | Instant answer + redirect (cold-start mitigation) |
+| TeXML main router | app/api/voice/telnyx/incoming/route.ts | DID lookup, insertCallLog, Dial / fallback / AI / pool |
+| TeXML fallback chain | app/api/voice/telnyx/fallback/** | No-answer → owner / AI / voicemail |
+| TeXML status | app/api/voice/telnyx/status/route.ts | Terminal status, duration, setup metrics |
+| Call Control webhook | app/api/webhooks/telnyx/voice/route.ts | JSON Voice API v2 events (gated by env flag) |
+| Call Control orchestrator | lib/telnyx-call-control-inbound.ts | State machine: answer → speak → dial → bridge → hangup |
+| Call Control call-log writer | lib/telnyx-call-control-call-log.ts | Maps lifecycle → call_logs |
+| Legacy aliases | app/api/voice/incoming|status|fallback/route.ts | Re-export Telnyx handlers only (no Twilio logic) |
+| Number provisioning | app/api/numbers/configure/route.ts | Points DID at TeXML app OR Call Control connection |
+
+Mode switch (lib/telnyx-call-control-inbound.ts):
+  ZING_INBOUND_CALL_CONTROL = 1 | true | yes | on → Call Control app + /api/webhooks/telnyx/voice
+  Otherwise → TeXML app (voice_url → /greet, voice_fallback_url → /incoming)
+
+TeXML app wiring (lib/telnyx-config.ts):
+  voice_url → /api/voice/telnyx/greet
+  voice_fallback_url → /api/voice/telnyx/incoming
+  status_callback_url → /api/voice/telnyx/status
+
+### 1.2 Inbound SIP Invite → DID Resolution → Active State
+
+The app never parses raw SIP INVITEs. Telnyx terminates SIP/PSTN and invokes webhooks.
+
+FLOW (TeXML default):
+  Caller PSTN → Telnyx DID
+    → GET /api/voice/telnyx/greet (Edge, instant answer + Redirect)
+    → POST/GET /api/voice/telnyx/incoming
+         → resolveCalledParty() + getIncomingRoutingForVoiceWebhook(DID)
+         → insertCallLog(status=ringing, first_ring_at=now)
+         → optional branded greeting pass
+         → Dial receptionist CELL (PSTN) or WEB (SIP WebRTC) or Owner
+         → on no-answer: Dial action → /api/voice/telnyx/fallback/u/{userId}/...
+    Parallel: Telnyx status_callback → POST /api/voice/telnyx/status
+      → recordCallStatusEvent (answered_at, ended_at, setup_duration_ms)
+      → updateCallLog + Pusher call-completed + SMS disposition
+
+FLOW (Call Control, ZING_INBOUND_CALL_CONTROL=1):
+  Caller PSTN → Telnyx DID → Call Control app
+    → POST /api/webhooks/telnyx/voice (JSON Voice API v2)
+  call.initiated → getIncomingRoutingForVoiceWebhook(to) → insertCallLog(ringing) → REST answer
+  call.answered → optional speak(greeting) OR dialTechnicianLeg(PSTN)
+  call.speak.ended → dial outbound leg (link_to inbound, bridge_on_answer)
+  call.bridged → persistCallControlBridged → recordCallStatusEvent(answered)
+  call.hangup → finalizeCallControlCallLog → map hangup_cause → status, duration
+
+Call Control client_state phases (lib/telnyx-call-control-state.ts):
+  await_caller_answered → await_greeting_end → await_dial_end → (bridge | voicemail) → recording → hangup
+
+DID metadata resolution — getIncomingRoutingForVoiceWebhook() in lib/db.ts:
+  1. Short-TTL in-memory cache
+  2. Fast path: denormalized snapshot on phone_numbers (inbound_dial_e164, receptionist id, fallback, ring timeout) — scripts 036, 050, 081
+  3. Full join: phone_numbers + users + routing_config + receptionists + organizations + onboarding_profiles
+  4. Fallback: onboarding_profiles.reserved_number
+  Matching uses E.164 normalization + digit-key loose match (last 10 digits).
+
+Active call state columns (call_logs, extended by scripts/007-call-quality-metrics.sql):
+
+| Phase | DB signal | Set by |
+|-------|-----------|--------|
+| Ringing | status = ringing, first_ring_at | insertCallLog on first webhook |
+| Connected | answered_at, status answered/in-progress | recordCallStatusEvent or Call Control call.bridged |
+| Live (open leg) | ended_at IS NULL | Until terminal webhook |
+| Completed | ended_at, terminal status, duration_seconds | Status webhook / Call Control call.hangup / TeXML fallback |
+
+Auxiliary state:
+  telnyx_inbound_dial_caller_done — prevents TeXML re-dial loops (scripts/018)
+  Realtime (not DB): Pusher via lib/call-telemetry-realtime.ts and app/actions/call-events.ts
+
+WebRTC receptionist path (TeXML only today):
+  receptionists.routing_endpoint = WEB + sip_username from lib/telnyx-sip-provisioning.ts
+  Incoming route builds sip:{username}@{domain} via resolveReceptionistSipUri() → Dial Sip TeXML
+  Browser: lib/webrtc/use-telnyx-webrtc.ts (client-side; errors stay in UI, not DB)
+  Call Control path: dials PSTN E.164 only — no SIP/WebRTC dial in Call Control inbound today.
+
+### 1.3 Call Quality Metrics — Capture & Logging
+
+What IS captured today:
+
+| Metric | Where captured | DB column | Notes |
+|--------|----------------|-----------|-------|
+| Talk duration | Status webhook, TeXML Dial action, Call Control hangup | duration_seconds | GREATEST merge on updates |
+| Setup latency | recordCallStatusEvent on answer | setup_duration_ms | answered_at − first_ring_at |
+| Post-dial delay | Same function | post_dial_delay_ms | CURRENTLY DUPLICATES setup formula — not true bridge delay |
+| Answer rate / p95 setup | Aggregated query | — | GET /api/voice/quality → getCallQualitySummary() |
+| Recording length | Recording webhook | recording_duration_seconds | Voicemail path |
+| Hangup cause | Call Control parse only | NOT STORED | Mapped to coarse status in telnyx-call-control-call-log.ts |
+| RTP quality (MOS, jitter, packet loss) | TeXML dial attributes only | NOT measured/stored | lib/telnyx-inbound-media-quality.ts configures media, does not report |
+| Connection/routing errors | Server logs | NOT persisted | console.error / structured JSON only |
+
+Quality API: app/api/voice/quality/route.ts — owner-authenticated aggregates over call_logs (requires migration 007).
+
+Core timing writer: recordCallStatusEvent() in lib/db.ts (~L3319):
+  Sets status, duration_seconds, answered_at, ended_at, setup_duration_ms, post_dial_delay_ms from first_ring_at.
+
+Hangup cause mapping (NOT persisted as raw value) — lib/telnyx-call-control-call-log.ts:
+  normal_clearing → completed
+  user_busy → busy
+  no_answer / timeout / time_limit → no-answer
+  call_rejected → failed
+  originator_cancel → completed if had conversation else canceled
+
+Key env flags (telephony / quality):
+
+| Env var | Effect |
+|---------|--------|
+| ZING_INBOUND_CALL_CONTROL | 1/true → Call Control; else TeXML |
+| TELNYX_API_KEY | REST (dial, credentials, number config) |
+| TELNYX_CREDENTIAL_CONNECTION_ID | SIP credential connection for WebRTC agents |
+| NEXT_PUBLIC_APP_URL | Webhook base URLs |
+| ZING_INBOUND_JITTER_BUFFER (+ _MIN_MS, _MAX_MS) | Adaptive jitter buffer on Dial/Number (TeXML only) |
+| ZING_INBOUND_DIAL_PREFERRED_CODECS | Default PCMU |
+| ZING_VOICE_DEBUG_LOGS | Verbose routing JSON logs |
+
+DB tables for call logs:
+
+Base — scripts/001-create-schema.sql:
+  id, user_id, provider_call_sid, from_number, to_number, caller_name
+  call_type, status, duration_seconds
+  routed_to_receptionist_id, routed_to_name
+  has_recording, recording_url, recording_duration_seconds, created_at
+
+007 — scripts/007-call-quality-metrics.sql:
+  first_ring_at, answered_at, ended_at, setup_duration_ms, post_dial_delay_ms
+
+059 — scripts/059-cell-fallback-dispositions.sql:
+  disposition (BOOKED | PENDING_TIME | PRICE_REJECTED | FAILED)
+
+060 — scripts/060-voice-wrapup.sql:
+  internal_notes (transcribed wrap-up)
+
+Key DB functions (lib/db.ts):
+  insertCallLog, updateCallLog, recordCallStatusEvent
+  getIncomingRoutingForVoiceWebhook, getIncomingRoutingByNumber
+  getCallQualitySummary, getVoiceOperationsInsights
+  listLiveCallLogsForUser, listActiveCallTraffic (admin)
+  primeIncomingRoutingCache, primeIncomingRoutingCacheForUser
+
+--------------------------------------------------------------------------------
+
+## 2. Four Consoles — Interaction & State Data Audit
+
+### Real-Time Transport Map
+
+| Channel | Events | Publishers | Subscribers |
+|---------|--------|------------|-------------|
+| owner-{userId} | call-initiated, call-completed, job-booked, job-assigned, job-status-updated, disposition-updated, tech-location-updated, porting-update | Telnyx webhooks, log-job, owner/tech job routes, GPS | Owner telemetry strip, scheduler, dispatch map, notification center |
+| receptionist-{id} | call-connected, call-ended | handleCallConnected / handleCallEnded | components/receptionist-portal-view.tsx |
+| technician-{userId} | job-assigned, job-updated (type exists) | job-assigned ONLY (job-updated never published) | components/tech/tech-console.tsx |
+| (none for admin) | — | — | Platform Admin |
+
+Core realtime files:
+  lib/realtime/pusher-server.ts — server publish; no-op if PUSHER_* unset
+  lib/realtime/pusher-client.ts — browser singleton; null if NEXT_PUBLIC_PUSHER_KEY unset
+  lib/call-telemetry-realtime.ts — owner call-initiated / call-completed
+  app/actions/call-events.ts — receptionist call-connected / call-ended
+
+Pusher env: PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER, NEXT_PUBLIC_PUSHER_KEY, NEXT_PUBLIC_PUSHER_CLUSTER
+
+### 2.1 Platform Admin — Live Traffic Pulse
+
+| Item | Detail |
+|------|--------|
+| UI | components/admin/live-traffic.tsx in components/lyncr-admin-dashboard.tsx |
+| API | GET /api/admin/live-traffic → listActiveCallTraffic() in lib/db.ts |
+| Data source | DATABASE POLL ONLY — NOT Pusher |
+| Poll interval | 5 seconds (POLL_MS = 5000) |
+| Query | call_logs JOIN users WHERE ended_at IS NULL, created_at > now() − 2h, status not terminal, LIMIT 50 |
+| Connected flag | answered_at IS NOT NULL OR status in-progress/answered |
+| Writes | None from this console |
+
+Finding: Admin sees network-wide concurrent call list with up to ~5s lag. Owner dashboard does NOT have equivalent live-call list — only daily aggregate pills (Daily calls, Daily talk, etc.).
+
+Also: components/admin/call-history.tsx polls every 20s for historical feed.
+
+### 2.2 Business Owner — Routing Config During Live Calls
+
+| Item | Detail |
+|------|--------|
+| Routing UI | components/dashboard-page.tsx, dashboard-routing-with-sheets.tsx, dashboard-call-flow.tsx |
+| Config API | GET/PUT /api/routing → updateRoutingConfig() in lib/db.ts |
+| Telemetry HUD | components/dashboard/routing-telemetry-strip.tsx + GET /api/routing/telemetry |
+| Live nudge | Pusher call-initiated / call-completed on owner-{id} via lib/call-telemetry-realtime.ts |
+| Live lines pill | Count of provisioned phone numbers, NOT concurrent calls |
+
+How config is applied during a live call:
+  1. Owner saves routing → PUT /api/routing
+  2. updateRoutingConfig() → primeIncomingRoutingCache() writes snapshot to phone_numbers.inbound_* columns
+  3. In-flight calls keep routing snapshot read at webhook time — mid-call edits affect NEXT call only
+
+Briefing / intake profiles (separate from PSTN routing):
+  Receptionist screen-pop: GET /api/receptionist/company-briefing → getCompanyBriefingByNumber() — hours, service rules, dispatch notes
+  Intake field layout: lib/workspace-intake-profile.ts — locksmith / detailing / auto_repair from org name, line tags, or live businessType
+  AI fallback playbook: user_ai_intake.config JSONB (scripts/010) — AI paths only
+
+Owner dispatch realtime:
+
+| Component | Realtime | Fallback poll |
+|-----------|----------|---------------|
+| scheduler-workspace-view.tsx | Pusher (jobs, disposition, tech GPS) | — |
+| dispatch-live-map.tsx | Pusher + 25s poll | /api/owner/jobs |
+| dispatch-jobs-panel.tsx | Poll only (30s) | No Pusher |
+
+Pusher publish paths for calls:
+  lib/telnyx-call-control-inbound.ts → broadcastCallInitiated on new ringing row
+  lib/db.ts → notifyInboundCallInitiatedTelemetry on TeXML path insert
+  app/api/voice/telnyx/status/route.ts → broadcastCallCompletedBySid on terminal status
+
+### 2.3 Receptionist — Alerts, WebRTC, Intake ↔ Active Call
+
+| Item | Detail |
+|------|--------|
+| Portal | components/receptionist-portal-view.tsx |
+| Live intake form | components/receptionist-live-intake.tsx |
+| WebRTC engine | lib/webrtc/use-telnyx-webrtc.ts + GET /api/receptionist/sip-token |
+| Web briefing card | components/receptionist-company-briefing.tsx |
+| CELL press-1 | app/api/voice/telnyx/receptionist-answer/route.ts → handleCallConnected |
+| Mid-call save | POST /api/receptionist/intake — persists lead, no disposition, no tech push |
+| End-of-call | POST /api/receptionist/log-job — disposition + owner/tech Pusher |
+
+Two-layer active-call detection:
+
+| Layer | Mechanism | Opens full intake form? |
+|-------|-----------|-------------------------|
+| Instant | Pusher call-connected on receptionist-{id} | YES → setActiveCall() |
+| Fallback | 15s poll GET /api/receptionist/dashboard | Updates header On call only — does NOT set activeCall |
+
+Intake → call instance mapping:
+  callLogId from Pusher payload threads through:
+    sessionStorage draft key lyncr-intake-draft-{callLogId}
+    POST bodies to /api/receptionist/intake and /api/receptionist/log-job
+    Stored in ai_leads.collected.call_log_id JSONB
+
+CELL vs WEB:
+
+| Mode | Ring path | Intake form trigger |
+|------|-----------|---------------------|
+| CELL | PSTN → press-1 webhook | Pusher call-connected YES |
+| WEB | Telnyx WebRTC SIP (Dial Sip in TeXML) | Briefing card on ring YES; full intake only if Pusher fires — WebRTC answer does NOT call handleCallConnected |
+
+DEAD CODE: handleCallEnded() exists in app/actions/call-events.ts but is NEVER invoked — call-ended Pusher event never fires.
+
+handleCallConnected is called from:
+  app/api/voice/telnyx/receptionist-answer/route.ts (CELL press-1)
+  lib/sandbox-engine.ts (sandbox only)
+
+Reads / writes (receptionist):
+  Reads: call_logs, receptionist pay aggregates, Pusher call-connected payload
+  Writes: ai_leads (+ collected JSONB), call_logs.disposition via log-job
+
+### 2.4 Field Technician — Assignment Handoff & Polling
+
+| Item | Detail |
+|------|--------|
+| Console | components/tech/tech-console.tsx |
+| Jobs API | GET /api/tech/jobs, pool at /api/tech/jobs/pool |
+| Status updates | PATCH /api/tech/jobs/[id] → owner job-status-updated ONLY (no tech job-updated) |
+| GPS | POST /api/tech/location → users.current_latitude/longitude + owner Pusher |
+| Mobile | mobile/ — no Pusher client found |
+
+Handoff sequence (receptionist → tech):
+  1. Receptionist POST /api/receptionist/log-job with BOOKED
+  2. saveCallIntake → ai_leads row with collected JSONB (address, vehicle, call_log_id, etc.)
+  3. Optional assignJobToTech → assigned_tech_id, job_status, dispatch_status
+  4. Pusher: owner-{owner} job-booked / job-assigned; technician-{tech} job-assigned
+  5. Tech console Pusher listener → refetch /api/tech/jobs
+
+Mid-call POST /api/receptionist/intake saves lead + SMS but does NOT assign tech or push job events.
+
+Realtime vs polling (tech):
+
+| Mechanism | Interval / trigger |
+|-----------|-------------------|
+| Pusher technician-{userId} | job-assigned → refetch |
+| Poll | 20s fallback on /api/tech/jobs + pool |
+| GPS POST | ~25s throttle while en_route/on_site |
+| Geofence | Server auto-arrived within 50m → owner job-status-updated |
+
+publishTechnicianEvent callers (job-assigned only):
+  app/api/receptionist/log-job/route.ts
+  app/api/owner/jobs/assign/route.ts
+  app/api/owner/jobs/pool/[id]/schedule/route.ts
+  app/api/tech/jobs/[id]/claim/route.ts
+
+job-updated: subscribed in tech-console.tsx but NEVER published anywhere in codebase.
+
+--------------------------------------------------------------------------------
+
+## 3. Gap Analysis & JSONB Consistency
+
+### 3.1 Structural Data Silos
+
+| Gap | Consoles affected | Risk |
+|-----|-------------------|------|
+| Dual inbound pipelines (TeXML vs Call Control) | All | Call Control lacks WebRTC SIP dial, routing pool, full AI fallback — behavior diverges by env flag |
+| Admin = DB poll, Owner = Pusher aggregates | Admin vs Owner | Admin sees live list; owner sees counts only |
+| handleCallEnded never wired | Receptionist | Intake UI may stick after hangup |
+| WebRTC missing call-connected | Receptionist (WEB) | Full intake form may never open |
+| job-updated never published | Field Tech | Status changes lag up to 20s |
+| Mid-call intake silent to tech | Receptionist → Tech | No partial dispatch until log-job |
+| hangup_cause not in DB | Admin, Owner analytics | Cannot diagnose SIP failures |
+| post_dial_delay_ms = setup duplicate | Quality KPIs | Misleading answer speed metrics |
+| TeXML fallback skips recordCallStatusEvent | Quality tracking | answered_at depends on status callback |
+| Routing edits mid-call | Owner | Next call only — no in-call indicator |
+| Stuck ringing rows (historical) | Admin Live Traffic | ended_at NULL rows appear live until backfilled |
+| Mobile app no Pusher | Field Tech | Always poll-dependent |
+
+### 3.2 JSONB Schema Across Transitions
+
+| Table / column | Script | Written by | Read by | Consistency notes |
+|----------------|--------|------------|---------|-------------------|
+| ai_leads.collected | 010 | saveCallIntake, log-job, intake route | Owner scheduler, tech jobs API, dispatch map | Dual-write: disposition in indexed columns (058) + JSONB for pre-migration compat |
+| call_logs.disposition | 059 | setCallLogDisposition on log-job | Owner feeds, analytics | Must stay in sync with collected.disposition |
+| call_logs.internal_notes | 060 | Voice wrap-up | Activity page | Not linked to receptionist intake JSONB |
+| user_ai_intake.config | 010 | Owner AI settings | Telnyx AI assistant lifecycle | Separate from live receptionist intake |
+| phone_numbers.inbound_* snapshot | 036, 050 | primeIncomingRoutingCache on routing save | Voice webhooks at call start | Stale if cache not primed after direct DB edits |
+| users.current_latitude/longitude | field-tech scripts | POST /api/tech/location | Owner dispatch map | Real-time via owner Pusher, not admin |
+
+log-job collected payload shape (canonical handoff contract) — app/api/receptionist/log-job/route.ts:
+  collected: {
+    ...fields,
+    business_type,
+    captured_by_receptionist_id,
+    captured_by_name,
+    source: "receptionist_log_job",
+    disposition,
+    dispatch_status,
+    is_salvageable,
+    call_log_id (when present)
+  }
+
+Consistency gap: call_log_id links intake to voice leg, but call_logs has NO back-reference to ai_leads.id — correlation is one-directional.
+
+Poll intervals reference:
+
+| Console / widget | Interval | Source |
+|------------------|----------|--------|
+| Platform Admin Live Traffic | 5s | /api/admin/live-traffic |
+| Platform Admin Call History | 20s | admin call history API |
+| Owner dispatch map | 25s | /api/owner/jobs |
+| Owner dispatch jobs panel | 30s | /api/owner/jobs |
+| Receptionist portal | 15s | /api/receptionist/dashboard |
+| Field tech console | 20s | /api/tech/jobs + pool |
+| Owner telemetry strip | none (Pusher + manual) | /api/routing/telemetry |
+
+--------------------------------------------------------------------------------
+
+## 4. Code Injection Recommendations
+
+Prioritized bridges to unify the four consoles.
+
+### P0 — Close Live-Call Lifecycle Gaps
+
+1. Wire handleCallEnded on every terminal path
+   Inject into:
+     app/api/voice/telnyx/status/route.ts (terminal status)
+     lib/telnyx-call-control-call-log.ts → finalizeCallControlCallLog
+     lib/telnyx-fallback-dial-action.ts (TeXML fallback completion)
+   Pattern: await handleCallEnded({ receptionistId, callLogId: row.id })
+
+2. Fire handleCallConnected on WebRTC bridge
+   Option A: Client POST /api/receptionist/call-connected after WebRTC active in use-telnyx-webrtc.ts
+   Option B: Server-side on call.bridged when routed endpoint is WEB
+   Server validates active call_logs row for receptionist → handleCallConnected
+
+3. Publish job-updated to technician channel
+   Inject into paths that publish owner job-status-updated:
+     app/api/tech/jobs/[id]/route.ts
+     app/api/owner/jobs/[id]/status/route.ts
+     app/api/tech/location/route.ts (geofence auto-arrive)
+   Pattern: await publishTechnicianEvent(techUserId, "job-updated", { leadId, status })
+
+### P1 — Unify Call State Visibility
+
+4. Shared call session broadcaster (new lib/call-session-broadcast.ts)
+   Normalized payload on ring, answer, end:
+     call_log_id, owner_user_id, receptionist_id, organization_id
+     phase: ringing | connected | completed
+     from_number, to_number, routed_to_name, duration_seconds
+   Subscribe from Admin (new admin-network channel), Owner, Receptionist.
+
+5. Admin Live Traffic → hybrid push + poll
+   Keep 5s poll as fallback; add Pusher on admin-network channel fed by same broadcaster.
+
+### P2 — Call Quality Tracking
+
+6. Persist telephony diagnostics on call_logs (new migration e.g. scripts/082-call-telephony-diagnostics.sql):
+   hangup_cause TEXT
+   sip_response_code INTEGER
+   provider_error_code TEXT
+   routing_path TEXT  -- texml | call_control
+   Write in telnyx-call-control-call-log.ts and app/api/voice/telnyx/status/route.ts
+
+7. Fix post_dial_delay_ms semantics in recordCallStatusEvent:
+   setup_duration_ms = answered_at − first_ring_at
+   post_dial_delay_ms = bridged_at − dial_started_at (needs dial_started_at column or Call Control client_state timestamp)
+
+8. Surface quality on Owner + Admin:
+   Extend GET /api/voice/quality with hangup-cause breakdown
+   Add GET /api/admin/call-quality for cross-tenant aggregates
+
+### P3 — JSONB / Handoff Integrity
+
+9. Bidirectional call ↔ lead link:
+   ALTER TABLE call_logs ADD COLUMN ai_lead_id UUID REFERENCES ai_leads(id);
+   Set on first intake save; enables Admin Live Traffic to show intake preview.
+
+10. Single writer for disposition in lib/call-disposition.ts:
+    One transaction: call_logs.disposition + ai_leads columns + collected JSONB
+    Then fan-out Pusher to owner, receptionist, tech
+    Replace scattered writes in log-job route.
+
+11. Mid-call intake → owner preview event:
+    On POST /api/receptionist/intake publish owner intake-draft-updated { callLogId, fields }
+
+### P4 — Pipeline Convergence
+
+12. Call Control feature parity before full rollout:
+    Port from TeXML: WebRTC SIP dial, routing pool, press-1 screen, full fallback chain
+    OR document Call Control as owner-cell-only and hide WEB receptionist toggle when flag is on.
+
+--------------------------------------------------------------------------------
+
+## 5. File Reference Index
+
+| Concern | Primary files |
+|---------|---------------|
+| TeXML inbound | app/api/voice/telnyx/incoming/route.ts, lib/telnyx-fallback-dial-action.ts |
+| Call Control | app/api/webhooks/telnyx/voice/route.ts, lib/telnyx-call-control-inbound.ts, lib/telnyx-call-control-call-log.ts |
+| Routing resolution | lib/db.ts (getIncomingRoutingForVoiceWebhook, primeIncomingRoutingCache) |
+| Call log persistence | lib/db.ts (insertCallLog, recordCallStatusEvent, updateCallLog) |
+| Owner realtime | lib/call-telemetry-realtime.ts, components/dashboard/routing-telemetry-strip.tsx |
+| Admin live traffic | components/admin/live-traffic.tsx, app/api/admin/live-traffic/route.ts, lib/db.ts listActiveCallTraffic |
+| Receptionist realtime | app/actions/call-events.ts, components/receptionist-portal-view.tsx, app/api/voice/telnyx/receptionist-answer/route.ts |
+| Intake / dispatch | app/api/receptionist/log-job/route.ts, lib/intake-engine.ts, lib/workspace-intake-profile.ts |
+| Field tech | components/tech/tech-console.tsx, app/api/tech/jobs/route.ts, app/api/tech/location/route.ts |
+| Pusher infra | lib/realtime/pusher-server.ts, lib/realtime/pusher-client.ts |
+| Quality aggregates | app/api/voice/quality/route.ts, scripts/007-call-quality-metrics.sql |
+| Schema | scripts/001-create-schema.sql, 010, 058, 059, 060, 061, 074, 075 |
+
+--------------------------------------------------------------------------------
+
+## 6. Recommended Implementation Order
+
+1. Wire handleCallEnded + WebRTC call-connected — fixes receptionist UX immediately
+2. Publish job-updated to tech channel — fixes field tech lag
+3. Persist hangup_cause + fix post-dial metrics — fixes quality audit trail
+4. Admin Pusher channel — aligns Platform Admin with network reality
+5. call_logs.ai_lead_id + centralized disposition writer — closes JSONB silos
+6. Call Control feature parity — eliminates dual-pipeline behavioral drift
+
+--------------------------------------------------------------------------------
+
+END OF REPORT

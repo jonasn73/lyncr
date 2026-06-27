@@ -84,6 +84,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 79 | `079-master-toggle-mode.sql` | **Legacy platform toggle column** (superseded by 080). |
 | 80 | `080-admin-notification-preferences.sql` | **Granular platform-admin notification toggles.** Adds **`users.admin_notification_preferences`** JSONB with six channel flags. **Required** for the Notification Settings panel. |
 | 81 | `081-inbound-caller-greeting-enabled.sql` | **Caller greeting toggle.** Adds **`inbound_caller_greeting_enabled`** on `routing_config` and denormalized on `phone_numbers` (default true). **Required** for the Routing tab “Greeting first” vs “Ring immediately” setting. |
+| 82 | `082-operator-onboarding.sql` | **Platform-admin operator provisioning.** Adds **`users.operator_onboarding_status`** (`PENDING_INVITE` → `DEVICE_TESTING` → `ACTIVE_READY`), **`timezone`**, **`operator_assigned_workspaces`**, OTP columns, and **`receptionists.backup_phone_number`** + **`assigned_workspaces`**. **Required** for `/admin/receptionists` and `/auth/onboard`. |
 
 ## Platform admin (`admin@lyncr.app`)
 

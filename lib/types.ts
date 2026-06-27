@@ -5,6 +5,38 @@
 // --- Users (Business Owners) ---
 export type AccountRole = "owner" | "receptionist" | "field_tech"
 
+/** Operator provisioning lifecycle (082-operator-onboarding.sql). */
+export type OperatorOnboardingStatus = "PENDING_INVITE" | "DEVICE_TESTING" | "ACTIVE_READY"
+
+/** One business workspace an operator is cleared to answer for. */
+export interface OperatorAssignedWorkspace {
+  organization_id?: string | null
+  business_name: string
+  line_e164?: string | null
+  industry_tag?: string | null
+}
+
+/** Platform-admin operator roster row (`082`). */
+export interface OperatorAdminRow {
+  id: string
+  email: string
+  name: string
+  timezone: string | null
+  operator_onboarding_status: OperatorOnboardingStatus | null
+  invitation_expires_at: string | null
+  assigned_workspaces: OperatorAssignedWorkspace[]
+  created_at: string
+}
+
+/** Workspace + line option for admin operator invite picker. */
+export interface AdminOperatorWorkspaceOption {
+  organization_id: string
+  business_name: string
+  owner_email: string
+  line_e164: string | null
+  line_label: string | null
+}
+
 /** Platform owner quick-toggle profile — legacy; superseded by AdminNotificationPreferences. */
 export type MasterToggleMode = "tech" | "admin" | "passive"
 
@@ -567,6 +599,10 @@ export interface Receptionist {
   sip_username?: string | null
   /** Telnyx Telephony Credential id (`051`) used to mint WebRTC login tokens. NULL = not provisioned. */
   sip_credential_id?: string | null
+  /** Fallback cell when primary routing endpoint fails (`082-operator-onboarding.sql`). */
+  backup_phone_number?: string | null
+  /** Business workspaces this operator may answer for (`082`). */
+  assigned_workspaces?: OperatorAssignedWorkspace[]
   /** Industry/specialty tags for skill-pool routing (`042-skill-routing-pool.sql`). */
   skills: string[]
   created_at: string

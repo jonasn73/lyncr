@@ -8,6 +8,7 @@ import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
+import { RealTimeStatsProvider } from "@/components/dashboard/real-time-stats-provider"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import {
   businessNumbersMatch,
@@ -78,6 +79,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   const activeLineDisplay = activeLineRaw ? formatPhoneDisplay(activeLineRaw) : null
 
   return (
+    <RealTimeStatsProvider businessNumbers={businessNumbers} activeLineE164={activeLineRaw || null}>
     <div className="mx-auto w-full max-w-7xl">
       <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
         <DashboardRoutingSidebar
@@ -208,5 +210,6 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
         </div>
       </div>
     </div>
+    </RealTimeStatsProvider>
   )
 })

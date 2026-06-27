@@ -132,6 +132,7 @@ export function RoutingStrategyDialog({
       if (!res.ok) throw new Error(json.error ?? "Save failed")
       if (json.data) onSaved(json.data)
       toast({ title: "Routing strategy saved" })
+      window.dispatchEvent(new Event("lyncr-routing-config-changed"))
       onOpenChange(false)
     } catch (e) {
       toast({

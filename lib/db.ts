@@ -3315,6 +3315,59 @@ export async function getCallLogUserIdByProviderSid(providerCallSid: string): Pr
   return rows[0]?.user_id != null ? String(rows[0].user_id) : null
 }
 
+/** Snapshot a finished call row for owner-channel Pusher telemetry (HUD metric deltas). */
+export async function getCallLogSnapshotForTelemetry(providerCallSid: string): Promise<{
+  user_id: string
+  to_number: string
+  duration_seconds: number
+  call_type: string
+  status: string
+  organization_id: string | null
+} | null> {
+  const sid = providerCallSid.trim()
+  if (!sid) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT cl.user_id, cl.to_number, cl.duration_seconds, cl.call_type, cl.status,
+             pn.organization_id
+      FROM call_logs cl
+      LEFT JOIN phone_numbers pn ON pn.user_id = cl.user_id
+        AND regexp_replace(coalesce(pn.phone_number, ''), '\\D', '', 'g')
+          = regexp_replace(coalesce(cl.to_number, ''), '\\D', '', 'g')
+      WHERE cl.provider_call_sid = ${sid} OR cl.twilio_call_sid = ${sid}
+      LIMIT 1
+    `
+    const row = rows[0]
+    if (!row?.user_id) return null
+    return {
+      user_id: String(row.user_id),
+      to_number: String(row.to_number ?? ""),
+      duration_seconds: row.duration_seconds == null ? 0 : Number(row.duration_seconds),
+      call_type: String(row.call_type ?? ""),
+      status: String(row.status ?? ""),
+      organization_id: row.organization_id != null ? String(row.organization_id) : null,
+    }
+  } catch {
+    const rows = await sql`
+      SELECT user_id, to_number, duration_seconds, call_type, status
+      FROM call_logs
+      WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+      LIMIT 1
+    `
+    const row = rows[0]
+    if (!row?.user_id) return null
+    return {
+      user_id: String(row.user_id),
+      to_number: String(row.to_number ?? ""),
+      duration_seconds: row.duration_seconds == null ? 0 : Number(row.duration_seconds),
+      call_type: String(row.call_type ?? ""),
+      status: String(row.status ?? ""),
+      organization_id: null,
+    }
+  }
+}
+
 // Record a provider status event and derive setup timing metrics.
 export async function recordCallStatusEvent(
   providerCallSid: string,
@@ -9079,6 +9132,81 @@ export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "h
       }
     }
     throw e
+  }
+}
+
+/** Workspaces + active lines for platform-admin operator invite picker. */
+export async function listAdminOperatorWorkspaceOptions(): Promise<
+  import("@/lib/types").AdminOperatorWorkspaceOption[]
+> {
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      SELECT
+        o.id AS organization_id,
+        coalesce(nullif(trim(o.name), ''), nullif(trim(u.business_name), ''), 'Unnamed workspace') AS business_name,
+        u.email AS owner_email,
+        pn.number AS line_e164,
+        pn.label AS line_label
+      FROM organizations o
+      JOIN users u ON u.id = o.owner_user_id
+      LEFT JOIN phone_numbers pn ON pn.organization_id = o.id AND pn.status = 'active'
+      WHERE o.id NOT LIKE 'legacy-%'
+      ORDER BY business_name ASC, pn.created_at ASC NULLS LAST
+    `) as Record<string, unknown>[]
+
+    const seen = new Set<string>()
+    const options: import("@/lib/types").AdminOperatorWorkspaceOption[] = []
+    for (const row of rows) {
+      const orgId = String(row.organization_id)
+      const line = row.line_e164 != null ? String(row.line_e164) : null
+      const key = `${orgId}:${line ?? ""}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      options.push({
+        organization_id: orgId,
+        business_name: String(row.business_name ?? "Unnamed workspace"),
+        owner_email: String(row.owner_email ?? ""),
+        line_e164: line,
+        line_label: row.line_label != null ? String(row.line_label) : null,
+      })
+    }
+
+    if (options.length > 0) return options
+
+    const fallback = (await sql`
+      SELECT
+        u.id AS organization_id,
+        coalesce(nullif(trim(u.business_name), ''), 'Unnamed business') AS business_name,
+        u.email AS owner_email,
+        pn.number AS line_e164,
+        pn.label AS line_label
+      FROM users u
+      LEFT JOIN phone_numbers pn ON pn.user_id = u.id AND pn.status = 'active'
+      WHERE coalesce(u.account_role, 'owner') = 'owner'
+        AND nullif(trim(u.business_name), '') IS NOT NULL
+      ORDER BY business_name ASC, pn.created_at ASC NULLS LAST
+      LIMIT 100
+    `) as Record<string, unknown>[]
+
+    for (const row of fallback) {
+      const orgId = String(row.organization_id)
+      const line = row.line_e164 != null ? String(row.line_e164) : null
+      const key = `${orgId}:${line ?? ""}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      options.push({
+        organization_id: orgId,
+        business_name: String(row.business_name ?? "Unnamed business"),
+        owner_email: String(row.owner_email ?? ""),
+        line_e164: line,
+        line_label: row.line_label != null ? String(row.line_label) : null,
+      })
+    }
+    return options
+  } catch (e) {
+    console.error("[db] listAdminOperatorWorkspaceOptions:", e)
+    return []
   }
 }
 

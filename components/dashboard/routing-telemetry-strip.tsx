@@ -1,23 +1,16 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useState } from "react"
 import { CalendarRange, Clock, Phone, PhoneIncoming, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
-import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { formatTalkDuration, formatTalkTime } from "@/lib/daily-call-telemetry"
-import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
-import {
-  emptyRoutingTelemetrySnapshot,
-  readRoutingTelemetryCache,
-  writeRoutingTelemetryCache,
-} from "@/lib/routing-telemetry-cache"
-import { getPusherClient } from "@/lib/realtime/pusher-client"
-import { organizationQueryString } from "@/lib/workspace-organizations"
+import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
   RoutingCallHistoryDialog,
   type CallHistoryFilter,
 } from "@/components/dashboard/routing-call-history-dialog"
+import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
 
 type TelemetryPillProps = {
   label: string
@@ -78,22 +71,20 @@ function TelemetryPill({
 }
 
 export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
-  businessNumbers,
+  businessNumbers: _businessNumbers,
   className,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   className?: string
 }) {
-  const { activeOrganizationId } = useDashboardWorkspace()
-  const cachedMetrics = useMemo(
-    () => readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot(),
-    [activeOrganizationId]
-  )
-  const [dailyCalls, setDailyCalls] = useState(cachedMetrics.dailyCalls)
-  const [missedCalls, setMissedCalls] = useState(cachedMetrics.missedCalls)
-  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(cachedMetrics.dailyTalkSeconds)
-  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(cachedMetrics.weeklyTalkSeconds)
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(cachedMetrics.ownerUserId)
+  const {
+    dailyCalls,
+    missedCalls,
+    dailyTalkSeconds,
+    weeklyTalkSeconds,
+    liveLineCount,
+  } = useRealTimeStatsContext()
+
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<CallHistoryFilter>("daily")
 
@@ -105,123 +96,6 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     setHistoryOpen(true)
   }, [])
 
-  const activeLines = businessNumbers.filter(
-    (line) => isDashboardVisibleLineStatus(line.status) && line.status === "active"
-  ).length
-
-  const workspaceLineSet = useMemo(() => {
-    return new Set(
-      businessNumbers
-        .map((line) => line.number.replace(/\D/g, ""))
-        .filter((digits) => digits.length >= 10)
-    )
-  }, [businessNumbers])
-
-  const refreshCallMetrics = useCallback(async () => {
-    const orgQs = organizationQueryString(activeOrganizationId)
-    try {
-      const res = await fetch(`/api/routing/telemetry${orgQs}`, { credentials: "include", cache: "no-store" })
-      if (!res.ok) return
-      const json = (await res.json()) as {
-        data?: {
-          daily_calls?: number
-          missed_calls?: number
-          daily_talk_seconds?: number
-          weekly_talk_seconds?: number
-          owner_user_id?: string
-        }
-      }
-      const data = json.data
-      if (!data) return
-      const nextDaily = Number(data.daily_calls ?? 0)
-      const nextMissed = Number(data.missed_calls ?? 0)
-      const nextDailyTalkSeconds = Number(data.daily_talk_seconds ?? 0)
-      const nextWeeklyTalkSeconds = Number(data.weekly_talk_seconds ?? 0)
-      const nextOwnerId = data.owner_user_id ? String(data.owner_user_id) : null
-      setDailyCalls(nextDaily)
-      setMissedCalls(nextMissed)
-      setDailyTalkSeconds(nextDailyTalkSeconds)
-      setWeeklyTalkSeconds(nextWeeklyTalkSeconds)
-      setOwnerUserId(nextOwnerId)
-      writeRoutingTelemetryCache(activeOrganizationId, {
-        dailyCalls: nextDaily,
-        missedCalls: nextMissed,
-        dailyTalkSeconds: nextDailyTalkSeconds,
-        weeklyTalkSeconds: nextWeeklyTalkSeconds,
-        ownerUserId: nextOwnerId,
-      })
-    } catch {
-      /* Keep last cached values on transient errors — avoids flashing zeros. */
-    }
-  }, [activeOrganizationId])
-
-  useEffect(() => {
-    const snap = readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot()
-    setDailyCalls(snap.dailyCalls)
-    setMissedCalls(snap.missedCalls)
-    setDailyTalkSeconds(snap.dailyTalkSeconds)
-    setWeeklyTalkSeconds(snap.weeklyTalkSeconds)
-    setOwnerUserId(snap.ownerUserId)
-    void refreshCallMetrics()
-  }, [activeOrganizationId, refreshCallMetrics])
-
-  useEffect(() => {
-    const onChanged = () => void refreshCallMetrics()
-    window.addEventListener("zing-porting-orders-changed", onChanged)
-    window.addEventListener("lyncr-workspace-data-changed", onChanged)
-    return () => {
-      window.removeEventListener("zing-porting-orders-changed", onChanged)
-      window.removeEventListener("lyncr-workspace-data-changed", onChanged)
-    }
-  }, [refreshCallMetrics])
-
-  useEffect(() => {
-    if (!ownerUserId) return
-    const pusher = getPusherClient()
-    if (!pusher) return
-
-    const channel = pusher.subscribe(`owner-${ownerUserId}`)
-    const orgId =
-      activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
-
-    const eventMatchesWorkspace = (payload: {
-      organization_id?: string | null
-      to_number?: string | null
-    }) => {
-      if (orgId && payload.organization_id && payload.organization_id !== orgId) return false
-      if (payload.to_number) {
-        const digits = payload.to_number.replace(/\D/g, "")
-        if (workspaceLineSet.size > 0 && !workspaceLineSet.has(digits)) return false
-      }
-      return true
-    }
-
-    const onCallInitiated = (payload: {
-      organization_id?: string | null
-      to_number?: string | null
-    }) => {
-      if (!eventMatchesWorkspace(payload)) return
-      setDailyCalls((prev) => prev + 1)
-      void refreshCallMetrics()
-    }
-
-    const onCallCompleted = (payload: {
-      organization_id?: string | null
-      to_number?: string | null
-    }) => {
-      if (!eventMatchesWorkspace(payload)) return
-      void refreshCallMetrics()
-    }
-
-    channel.bind("call-initiated", onCallInitiated)
-    channel.bind("call-completed", onCallCompleted)
-    return () => {
-      channel.unbind("call-initiated", onCallInitiated)
-      channel.unbind("call-completed", onCallCompleted)
-      pusher.unsubscribe(`owner-${ownerUserId}`)
-    }
-  }, [ownerUserId, activeOrganizationId, workspaceLineSet, refreshCallMetrics])
-
   return (
     <>
       <section
@@ -232,7 +106,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         )}
         aria-label="Workspace telemetry"
       >
-        <TelemetryPill label="Live lines" value={activeLines} icon={Phone} tone="teal" />
+        <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
         <TelemetryPill
           label="Daily calls"
           value={dailyCalls}
@@ -267,7 +141,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         open={historyOpen}
         onOpenChange={setHistoryOpen}
         filter={historyFilter}
-        businessNumbers={businessNumbers}
+        businessNumbers={_businessNumbers}
         expectedTalkSeconds={
           historyFilter === "daily_talk"
             ? dailyTalkSeconds
