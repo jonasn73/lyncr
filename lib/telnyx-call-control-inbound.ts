@@ -20,7 +20,7 @@ import {
 } from "@/lib/inbound-branded-greeting"
 import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
 import { resolveInboundForwardDialTimeoutSeconds } from "@/lib/telnyx-inbound-media-quality"
-import { resolvePstnDialCallerIdForInboundForward } from "@/lib/telnyx-pstn-dial-callerid"
+import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
 import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
 import { broadcastCallInitiated } from "@/lib/call-telemetry-realtime"
@@ -101,7 +101,8 @@ async function startVoicemailFlow(
 
 async function dialTechnicianLeg(
   inboundCallControlId: string,
-  state: TelnyxCallControlClientState
+  state: TelnyxCallControlClientState,
+  routing: NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>
 ): Promise<void> {
   const target = state.dialTargetE164?.trim() || ""
   if (!isReasonablePstnDialString(target)) {
@@ -109,11 +110,8 @@ async function dialTechnicianLeg(
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
-  const fromE164 = resolvePstnDialCallerIdForInboundForward({
-    inboundFromRaw: state.callerE164,
-    businessOutboundE164: state.businessLineE164,
-  })
-  const dialFrom = isReasonablePstnDialString(fromE164) ? fromE164 : state.businessLineE164
+  const businessFrom = resolveInboundOutboundCallerId(routing, state.businessLineE164)
+  const dialFrom = isReasonablePstnDialString(businessFrom) ? businessFrom : state.businessLineE164
   let connectionId = ""
   try {
     connectionId = await getOrCreateCallControlApp()
@@ -136,9 +134,19 @@ async function dialTechnicianLeg(
     clientState: nextState,
   })
   if (!dialRes.ok) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error }))
+    console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
     await telnyxCallControlHangup(inboundCallControlId)
+    return
   }
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-dial-started",
+      inboundCallControlId,
+      outboundCallControlId: dialRes.callControlId ?? null,
+      toTail4: target.replace(/\D/g, "").slice(-4),
+      fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
+    })
+  )
 }
 
 async function handleCallInitiated(
@@ -208,9 +216,10 @@ async function handleCallInitiated(
 async function handleCallAnswered(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
-  if (!isInboundDirection(event.direction)) return
   const state = event.clientState
   if (!state || state.phase !== "await_caller_answered") return
+  // Telnyx often omits direction on call.answered; rely on client_state phase instead.
+  if (event.direction && !isInboundDirection(event.direction)) return
 
   const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
   if (!routing) {
@@ -229,12 +238,12 @@ async function handleCallAnswered(
     const speakRes = await telnyxCallControlSpeak(event.callControlId, greetingText, nextState)
     if (!speakRes.ok) {
       console.error(JSON.stringify({ zing: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
-      await dialTechnicianLeg(event.callControlId, state)
+      await dialTechnicianLeg(event.callControlId, state, routing)
     }
     return
   }
 
-  await dialTechnicianLeg(event.callControlId, state)
+  await dialTechnicianLeg(event.callControlId, state, routing)
 }
 
 async function handleSpeakEnded(
@@ -244,7 +253,12 @@ async function handleSpeakEnded(
   if (!state) return
 
   if (state.phase === "await_greeting_end") {
-    await dialTechnicianLeg(event.callControlId, state)
+    const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
+    if (!routing) {
+      await telnyxCallControlHangup(event.callControlId)
+      return
+    }
+    await dialTechnicianLeg(event.callControlId, state, routing)
     return
   }
 

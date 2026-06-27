@@ -1,5 +1,46 @@
 import { isReasonablePstnDialString, normalizePhoneNumberE164 } from "@/lib/db"
 
+export type InboundOutboundCallerIdRouting = {
+  primary_phone_number?: string | null
+  active_phone_count?: number
+}
+
+/**
+ * Telnyx-owned E.164 for outbound PSTN legs (`from` / `<Dial callerId>`).
+ * Multi-DID accounts may use the primary line when the dialed DID is not yet outbound-capable.
+ */
+export function resolveInboundOutboundCallerId(
+  routing: InboundOutboundCallerIdRouting,
+  businessLineE164: string
+): string {
+  const preferPrimaryCallerId = ["1", "true", "yes", "on"].includes(
+    (process.env.ZING_INBOUND_PSTN_CALLER_ID_PRIMARY || "").trim().toLowerCase()
+  )
+  const primaryE164 = routing.primary_phone_number?.trim()
+    ? normalizePhoneNumberE164(routing.primary_phone_number)
+    : ""
+  const multiLine = Number(routing.active_phone_count ?? 1) >= 2
+  let outboundCallerId = businessLineE164
+  if (preferPrimaryCallerId) {
+    if (primaryE164 && isReasonablePstnDialString(primaryE164)) outboundCallerId = primaryE164
+  } else if (
+    multiLine &&
+    primaryE164 &&
+    isReasonablePstnDialString(primaryE164) &&
+    isReasonablePstnDialString(businessLineE164)
+  ) {
+    const dialed10 = businessLineE164.replace(/\D/g, "").slice(-10)
+    const primary10 = primaryE164.replace(/\D/g, "").slice(-10)
+    if (dialed10.length >= 10 && primary10.length >= 10 && dialed10 !== primary10) {
+      outboundCallerId = primaryE164
+    }
+  }
+  if (!isReasonablePstnDialString(outboundCallerId) && primaryE164 && isReasonablePstnDialString(primaryE164)) {
+    outboundCallerId = primaryE164
+  }
+  return outboundCallerId
+}
+
 /**
  * Outbound PSTN `<Dial callerId>` for forwarding inbound calls.
  * Default: show the **original caller** on the teammate’s phone.
