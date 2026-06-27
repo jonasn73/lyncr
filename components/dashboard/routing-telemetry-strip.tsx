@@ -247,8 +247,20 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
           valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
           onClick={() => openCallHistory("missed")}
         />
-        <TelemetryPill label="Daily talk" value={dailyTalkDisplay} icon={Clock} tone="teal" />
-        <TelemetryPill label="Weekly talk" value={weeklyTalkDisplay} icon={CalendarRange} />
+        <TelemetryPill
+          label="Daily talk"
+          value={dailyTalkDisplay}
+          icon={Clock}
+          tone="teal"
+          onClick={() => openCallHistory("daily_talk")}
+        />
+        <TelemetryPill
+          label="Weekly talk"
+          value={weeklyTalkDisplay}
+          icon={CalendarRange}
+          tone="teal"
+          onClick={() => openCallHistory("weekly_talk")}
+        />
       </section>
 
       <RoutingCallHistoryDialog
@@ -256,6 +268,13 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         onOpenChange={setHistoryOpen}
         filter={historyFilter}
         businessNumbers={businessNumbers}
+        expectedTalkSeconds={
+          historyFilter === "daily_talk"
+            ? dailyTalkSeconds
+            : historyFilter === "weekly_talk"
+              ? weeklyTalkSeconds
+              : undefined
+        }
       />
     </>
   )
