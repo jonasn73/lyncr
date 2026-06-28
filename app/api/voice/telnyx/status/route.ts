@@ -8,7 +8,7 @@ import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
-import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
+import { broadcastCallAnsweredBySid, broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
@@ -55,6 +55,17 @@ export async function POST(req: NextRequest) {
       status: callStatus,
       ...(duration > 0 ? { duration_seconds: duration } : {}),
     })
+
+    const answeredLive = ["answered", "in-progress"].includes(callStatus)
+    if (answeredLive && callType === "incoming") {
+      after(async () => {
+        try {
+          await broadcastCallAnsweredBySid(callSid)
+        } catch (telemetryErr) {
+          console.warn("[Telnyx] call-answered telemetry broadcast failed:", telemetryErr)
+        }
+      })
+    }
 
     const terminal = ["completed", "busy", "failed", "no-answer", "canceled"].includes(
       callStatus.trim().toLowerCase()

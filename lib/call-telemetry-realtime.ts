@@ -71,6 +71,23 @@ export async function broadcastCallCompleted(params: {
   await publishOwnerEvent(params.ownerUserId, "call-completed", payload)
 }
 
+/** Resolve call row and publish call-answered for the intake sheet (TeXML + Call Control). */
+export async function broadcastCallAnsweredBySid(callSid: string): Promise<void> {
+  const snapshot = await getCallLogSnapshotForTelemetry(callSid)
+  if (!snapshot) return
+  if (snapshot.call_type !== "incoming") return
+  if (!snapshot.answered_at) return
+  await broadcastCallAnswered({
+    ownerUserId: snapshot.user_id,
+    callSid,
+    callLogId: snapshot.id,
+    fromNumber: snapshot.from_number,
+    toNumber: snapshot.to_number,
+    organizationId: snapshot.organization_id,
+    answeredAt: snapshot.answered_at,
+  })
+}
+
 /** Resolve call row and publish call-completed with metric deltas for the owner HUD. */
 export async function broadcastCallCompletedBySid(callSid: string): Promise<void> {
   const snapshot = await getCallLogSnapshotForTelemetry(callSid)

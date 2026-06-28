@@ -1,6 +1,6 @@
 // Persist Call Control lifecycle into call_logs (answer, talk time, completion).
 
-import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
+import { broadcastCallAnsweredBySid, broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
 import { normalizeTelnyxDurationSeconds, parseTelnyxCallDurationFromPayload } from "@/lib/telnyx-call-duration"
 import type { TelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
@@ -104,6 +104,9 @@ export async function persistCallControlBridged(
     await updateCallLog(inboundCallSid, {
       status: "in-progress",
       routed_to_name: routedToName,
+    })
+    await broadcastCallAnsweredBySid(inboundCallSid).catch((e) => {
+      console.warn("[telnyx-cc] call-answered broadcast failed:", e)
     })
     console.log(
       JSON.stringify({

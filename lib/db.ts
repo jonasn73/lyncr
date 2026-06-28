@@ -3341,6 +3341,10 @@ export async function getCallLogUserIdByProviderSid(providerCallSid: string): Pr
   return rows[0]?.user_id != null ? String(rows[0].user_id) : null
 }
 
+function isPgTruthy(value: unknown): boolean {
+  return value === true || value === 1 || value === "1" || value === "t" || value === "true"
+}
+
 /** Snapshot a finished call row for owner-channel Pusher telemetry (HUD metric deltas). */
 export async function getCallLogSnapshotForTelemetry(providerCallSid: string): Promise<{
   id: string
@@ -3350,6 +3354,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
   duration_seconds: number
   call_type: string
   status: string
+  answered_at: string | null
   organization_id: string | null
 } | null> {
   const sid = providerCallSid.trim()
@@ -3358,7 +3363,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
   try {
     const rows = await sql`
       SELECT cl.id, cl.user_id, cl.from_number, cl.to_number, cl.duration_seconds, cl.call_type, cl.status,
-             pn.organization_id
+             cl.answered_at, pn.organization_id
       FROM call_logs cl
       LEFT JOIN phone_numbers pn ON pn.user_id = cl.user_id
         AND regexp_replace(coalesce(pn.number, ''), '\\D', '', 'g')
@@ -3376,11 +3381,12 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
       duration_seconds: row.duration_seconds == null ? 0 : Number(row.duration_seconds),
       call_type: String(row.call_type ?? ""),
       status: String(row.status ?? ""),
+      answered_at: row.answered_at ? String(row.answered_at) : null,
       organization_id: row.organization_id != null ? String(row.organization_id) : null,
     }
   } catch {
     const rows = await sql`
-      SELECT id, user_id, from_number, to_number, duration_seconds, call_type, status
+      SELECT id, user_id, from_number, to_number, duration_seconds, call_type, status, answered_at
       FROM call_logs
       WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
       LIMIT 1
@@ -3395,6 +3401,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
       duration_seconds: row.duration_seconds == null ? 0 : Number(row.duration_seconds),
       call_type: String(row.call_type ?? ""),
       status: String(row.status ?? ""),
+      answered_at: row.answered_at ? String(row.answered_at) : null,
       organization_id: null,
     }
   }
@@ -3473,10 +3480,10 @@ export async function recordCallStatusEvent(
           to_number: string
           call_type: string
           answered_at: Date | string | null
-          newly_answered: boolean
+          newly_answered: boolean | string | number
         }
       | undefined
-    if (row?.newly_answered && row.call_type === "incoming") {
+    if (row && isPgTruthy(row.newly_answered) && row.call_type === "incoming") {
       void notifyInboundCallAnsweredTelemetry({
         ownerUserId: String(row.user_id),
         callSid: providerSid,

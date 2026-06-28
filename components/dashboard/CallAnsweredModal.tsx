@@ -18,11 +18,17 @@ import {
   type ActiveCallRow,
 } from "@/lib/hooks/use-active-call-form"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
-import type { OwnerCallAnsweredPayload, OwnerCallCompletedPayload } from "@/lib/realtime/owner-call-event-types"
+import type {
+  OwnerCallAnsweredPayload,
+  OwnerCallCompletedPayload,
+  OwnerCallInitiatedPayload,
+} from "@/lib/realtime/owner-call-event-types"
 import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
 import { cn } from "@/lib/utils"
 
 const SEEN_KEY = "zing_answered_customer_popup_seen_v1"
+/** After ring, check answered-recent at these offsets (ms) — triggered by call-initiated, not a global poll. */
+const ANSWERED_LOOKUP_DELAYS_MS = [800, 2000, 4000, 8000, 15000, 30000]
 
 function loadSeen(): Set<string> {
   try {
@@ -123,14 +129,34 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!enabled || !ownerUserId) return
 
     let cancelled = false
-    void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
-      if (cancelled || !row) return
-      showCallRow(setCurrent, row, seenRef.current)
-    })
+    const lookupTimers: ReturnType<typeof window.setTimeout>[] = []
+
+    const tryShowAnsweredCall = () => {
+      void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
+        if (cancelled || !row) return
+        showCallRow(setCurrent, row, seenRef.current)
+      })
+    }
+
+    const scheduleAnsweredLookups = () => {
+      for (const timer of lookupTimers) window.clearTimeout(timer)
+      lookupTimers.length = 0
+      for (const delayMs of ANSWERED_LOOKUP_DELAYS_MS) {
+        lookupTimers.push(
+          window.setTimeout(() => {
+            if (cancelled) return
+            tryShowAnsweredCall()
+          }, delayMs)
+        )
+      }
+    }
+
+    tryShowAnsweredCall()
 
     if (!isRealtimeClientConfigured()) {
       return () => {
         cancelled = true
+        for (const timer of lookupTimers) window.clearTimeout(timer)
       }
     }
 
@@ -138,11 +164,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!pusher) {
       return () => {
         cancelled = true
+        for (const timer of lookupTimers) window.clearTimeout(timer)
       }
     }
 
     const channelName = `owner-${ownerUserId}`
     const channel = pusher.subscribe(channelName)
+
+    const onInitiated = (_payload: OwnerCallInitiatedPayload) => {
+      scheduleAnsweredLookups()
+    }
 
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
       const row = rowFromAnsweredPayload(payload)
@@ -156,13 +187,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       showCallRow(setCurrent, row, seenRef.current)
     }
 
+    channel.bind("call-initiated", onInitiated)
     channel.bind("call-answered", onAnswered)
     channel.bind("call-completed", onCompleted)
     return () => {
       cancelled = true
+      for (const timer of lookupTimers) window.clearTimeout(timer)
+      channel.unbind("call-initiated", onInitiated)
       channel.unbind("call-answered", onAnswered)
       channel.unbind("call-completed", onCompleted)
-      pusher.unsubscribe(channelName)
     }
   }, [enabled, ownerUserId])
 
