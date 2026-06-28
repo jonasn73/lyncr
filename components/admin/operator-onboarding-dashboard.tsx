@@ -45,6 +45,9 @@ export function OperatorOnboardingDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [lastSentTo, setLastSentTo] = useState<string | null>(null)
   const [manualLink, setManualLink] = useState<string | null>(null)
+  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [resendNotice, setResendNotice] = useState<string | null>(null)
+  const [queueManualLink, setQueueManualLink] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,6 +101,53 @@ export function OperatorOnboardingDashboard() {
       else next.add(key)
       return next
     })
+  }
+
+  function canResendInvite(status: OperatorOnboardingStatus): boolean {
+    return status === "PENDING_INVITE" || status === "DEVICE_TESTING"
+  }
+
+  async function resendInvite(op: OperatorAdminRow) {
+    const status = formatStatus(op.operator_onboarding_status)
+    if (!canResendInvite(status)) return
+
+    setResendingId(op.id)
+    setResendNotice(null)
+    setQueueManualLink(null)
+    setError(null)
+    try {
+      const res = await fetch("/api/admin/invite-operator/resend", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: op.id }),
+      })
+      const json = (await res.json()) as {
+        data?: {
+          phone_display?: string
+          onboard_url?: string
+          sms_sent?: boolean
+          sms_error?: string
+        }
+        error?: string
+      }
+      if (!res.ok) throw new Error(json.error ?? "Resend failed")
+
+      if (json.data?.sms_sent === false) {
+        setQueueManualLink(json.data?.onboard_url ?? null)
+        setResendNotice(
+          json.data?.sms_error ??
+            `Text to ${op.name} could not be sent. Copy the setup link below.`
+        )
+      } else {
+        setResendNotice(`Text resent to ${json.data?.phone_display ?? op.phone ?? op.name}.`)
+      }
+      await load()
+    } catch (e) {
+      setResendNotice(e instanceof Error ? e.message : "Resend failed")
+    } finally {
+      setResendingId(null)
+    }
   }
 
   async function handleInvite(e: React.FormEvent) {
@@ -284,6 +334,21 @@ export function OperatorOnboardingDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
+            {resendNotice ? (
+              <p
+                className={cn(
+                  "mb-4 rounded-lg border p-3 text-xs",
+                  queueManualLink
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                )}
+              >
+                {resendNotice}
+                {queueManualLink ? (
+                  <span className="mt-2 block break-all">Setup link: {queueManualLink}</span>
+                ) : null}
+              </p>
+            ) : null}
             {loading ? (
               <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading operators…
@@ -294,11 +359,36 @@ export function OperatorOnboardingDashboard() {
               <ul className="divide-y divide-slate-800">
                 {operators.map((op) => {
                   const status = formatStatus(op.operator_onboarding_status)
+                  const resendable = canResendInvite(status)
+                  const resending = resendingId === op.id
                   return (
                     <li key={op.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0">
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
+                        {resendable ? (
+                          <button
+                            type="button"
+                            onClick={() => void resendInvite(op)}
+                            disabled={Boolean(resendingId)}
+                            title="Click to resend setup text"
+                            className="group flex items-center gap-2 text-left font-medium text-slate-100 hover:text-violet-200 disabled:opacity-60"
+                          >
+                            {resending ? (
+                              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-violet-300" aria-hidden />
+                            ) : (
+                              <MessageSquare
+                                className="h-3.5 w-3.5 shrink-0 text-slate-500 group-hover:text-violet-300"
+                                aria-hidden
+                              />
+                            )}
+                            {op.name || op.phone || op.email}
+                          </button>
+                        ) : (
+                          <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
+                        )}
                         <p className="text-xs text-slate-500">{op.phone || op.email}</p>
+                        {resendable ? (
+                          <p className="mt-1 text-[10px] text-violet-300/80">Tap name to resend setup text</p>
+                        ) : null}
                         {op.assigned_workspaces.length > 0 ? (
                           <p className="mt-1 text-xs text-slate-400">
                             {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}

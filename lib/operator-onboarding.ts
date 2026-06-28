@@ -422,6 +422,55 @@ async function finalizeOperatorActivation(params: {
   return { userId: params.preview.userId, email: params.preview.email }
 }
 
+/** Mint a fresh invite token for a pending operator and return details for resend SMS. */
+export async function refreshOperatorInviteForResend(userId: string): Promise<{
+  userId: string
+  token: string
+  phone: string
+  name: string
+  expiresAt: string
+} | null> {
+  const cleanId = userId.trim()
+  if (!cleanId) return null
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      SELECT id, name, phone, invite_status, operator_onboarding_status
+      FROM users
+      WHERE id = ${cleanId}
+        AND account_role = 'receptionist'
+      LIMIT 1
+    `) as Record<string, unknown>[]
+    const row = rows[0]
+    if (!row) return null
+
+    const inviteStatus = String(row.invite_status ?? "").toLowerCase()
+    const opStatus = String(row.operator_onboarding_status ?? "")
+    if (inviteStatus === "active" || opStatus === "ACTIVE_READY") return null
+
+    const phoneRaw = row.phone != null ? String(row.phone) : ""
+    const phone = normalizePhoneNumberE164(phoneRaw)
+    if (phone.replace(/\D/g, "").length < 10) return null
+
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + RECEPTIONIST_INVITE_TTL_MS).toISOString()
+    const name = String(row.name ?? "").trim() || "Lyncr Operator"
+
+    await sql`
+      UPDATE users
+      SET invitation_token = ${token},
+          invitation_expires_at = ${expiresAt}::timestamptz,
+          invite_status = 'invited'
+      WHERE id = ${cleanId}
+    `
+
+    return { userId: cleanId, token, phone, name, expiresAt }
+  } catch (e) {
+    if (isMissingOperatorColumn(e)) return null
+    throw e
+  }
+}
+
 /** List operator invite/provisioning rows for the platform admin console. */
 export async function listOperatorOnboardingRows(): Promise<OperatorAdminRow[]> {
   const sql = getSql()

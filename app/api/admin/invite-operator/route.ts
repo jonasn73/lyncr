@@ -4,17 +4,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { isReasonablePstnDialString, normalizePhoneNumberE164 } from "@/lib/db"
 import { inviteOperatorStub } from "@/lib/operator-onboarding"
-import { resolvePlatformSmsFromE164 } from "@/lib/platform-sms-sender"
-import { getAppUrl } from "@/lib/telnyx"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { deliverOperatorInviteSms } from "@/lib/operator-invite-sms"
 import type { OperatorAssignedWorkspace } from "@/lib/types"
-
-function formatPhoneDisplay(e164: string): string {
-  const d = e164.replace(/\D/g, "")
-  if (d.length === 11 && d.startsWith("1")) return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
-  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
-  return e164
-}
 
 export async function POST(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -42,46 +33,20 @@ export async function POST(req: NextRequest) {
       assignedWorkspaces,
     })
 
-    const appUrl = getAppUrl().replace(/\/$/, "")
-    const onboardUrl = `${appUrl}/auth/onboard?token=${encodeURIComponent(token)}`
-    const firstName = name.split(/\s+/)[0] || "there"
-
-    const sender = await resolvePlatformSmsFromE164()
-    if (!sender.ok) {
-      return NextResponse.json({
-        data: {
-          user_id: userId,
-          phone: normalizedPhone,
-          phone_display: formatPhoneDisplay(normalizedPhone),
-          name,
-          status: "PENDING_INVITE",
-          onboard_url: onboardUrl,
-          expires_at: expiresAt,
-          created,
-          sms_sent: false,
-          sms_error: sender.message,
-        },
-      })
-    }
-
-    const smsResult = await sendTelnyxSms({
-      toE164: normalizedPhone,
-      text: `Hi ${firstName}! Lyncr invited you as a live operator. Tap to set up (expires in 48h): ${onboardUrl}`,
-      fromE164: sender.from_e164,
-    })
+    const delivered = await deliverOperatorInviteSms({ phone: normalizedPhone, name, token })
 
     return NextResponse.json({
       data: {
         user_id: userId,
         phone: normalizedPhone,
-        phone_display: formatPhoneDisplay(normalizedPhone),
+        phone_display: delivered.phone_display,
         name,
         status: "PENDING_INVITE",
-        onboard_url: onboardUrl,
+        onboard_url: delivered.onboard_url,
         expires_at: expiresAt,
         created,
-        sms_sent: smsResult.ok,
-        sms_error: smsResult.ok ? smsResult.delivery_warning ?? undefined : smsResult.error,
+        sms_sent: delivered.sms_sent,
+        sms_error: delivered.sms_error,
       },
     })
   } catch (e) {
