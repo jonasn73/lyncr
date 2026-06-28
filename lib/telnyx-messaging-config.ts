@@ -113,6 +113,27 @@ export async function getOrCreateMessagingProfile(): Promise<string> {
   return String(profileId)
 }
 
+/** Phone numbers already assigned to the platform messaging profile (SMS-ready). */
+export async function listMessagingProfilePhoneNumbers(): Promise<string[]> {
+  try {
+    getTelnyxApiKey()
+    const profileId = await getOrCreateMessagingProfile()
+    const res = await fetch(
+      `${TELNYX_BASE}/messaging_profiles/${profileId}/phone_numbers?page[size]=50`,
+      { headers: telnyxHeaders() }
+    )
+    const body = (await res.json().catch(() => ({}))) as {
+      data?: { phone_number?: string; number?: string }[]
+    }
+    if (!res.ok) return []
+    return (body.data ?? [])
+      .map((row) => normalizePhoneNumberE164(String(row.phone_number ?? row.number ?? "")))
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 /** Assign one E.164 line to the platform messaging profile (idempotent). */
 export async function configureNumberMessaging(phoneNumberE164: string): Promise<void> {
   const target = normalizePhoneNumberE164(phoneNumberE164.trim())

@@ -1,8 +1,8 @@
 // Shared SMS delivery for platform-admin operator onboarding invites.
 
 import {
+  formatPlatformSmsFailure,
   listPlatformSmsFromCandidates,
-  resolvePlatformSmsFromE164,
 } from "@/lib/platform-sms-sender"
 import { getAppUrl } from "@/lib/telnyx"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
@@ -27,7 +27,9 @@ function isInvalidSmsSenderError(raw: string | undefined): boolean {
     blob.includes("40305") ||
     blob.includes("invalid 'from'") ||
     blob.includes("invalid source number") ||
-    blob.includes("not on your telnyx messaging profile")
+    blob.includes("not on your telnyx messaging profile") ||
+    blob.includes("could not enable messaging") ||
+    blob.includes("messaging profile")
   )
 }
 
@@ -51,14 +53,8 @@ export async function deliverOperatorInviteSms(params: {
 
   for (const from of candidates) {
     if (!(await isTelnyxOwnedNumber(from))) continue
-    try {
-      await configureNumberMessaging(from)
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e)
-      continue
-    }
 
-    const smsResult = await sendTelnyxSms({
+    let smsResult = await sendTelnyxSms({
       toE164: params.phone,
       text,
       fromE164: from,
@@ -74,18 +70,35 @@ export async function deliverOperatorInviteSms(params: {
     }
 
     lastError = smsResult.error
-    if (isInvalidSmsSenderError(smsResult.error)) continue
-    break
+    if (!isInvalidSmsSenderError(smsResult.error)) break
+
+    try {
+      await configureNumberMessaging(from)
+      smsResult = await sendTelnyxSms({
+        toE164: params.phone,
+        text,
+        fromE164: from,
+      })
+      if (smsResult.ok) {
+        return {
+          onboard_url,
+          phone_display,
+          sms_sent: true,
+          sms_error: smsResult.delivery_warning ?? undefined,
+        }
+      }
+      lastError = smsResult.error
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e)
+    }
+
+    if (!isInvalidSmsSenderError(lastError)) break
   }
 
-  const fallback = await resolvePlatformSmsFromE164()
   return {
     onboard_url,
     phone_display,
     sms_sent: false,
-    sms_error:
-      lastError ??
-      (fallback.ok ? "SMS could not be sent." : fallback.message) ??
-      "SMS could not be sent. Copy the setup link below.",
+    sms_error: formatPlatformSmsFailure(lastError),
   }
 }

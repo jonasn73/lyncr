@@ -6,18 +6,26 @@ import { listProviderLinkedActiveNumbers, normalizePhoneNumberE164 } from "@/lib
 import {
   configureNumberMessaging,
   isTelnyxOwnedNumber,
+  listMessagingProfilePhoneNumbers,
 } from "@/lib/telnyx-messaging-config"
 
 export type PlatformSmsSenderResult =
   | { ok: true; from_e164: string }
   | { ok: false; message: string }
 
-/** Ordered Telnyx lines to try for platform SMS (env override first, then Neon lines). */
+/** Ordered Telnyx lines to try for platform SMS (profile-ready lines first). */
 export async function listPlatformSmsFromCandidates(): Promise<string[]> {
   const candidates: string[] = []
 
+  for (const number of await listMessagingProfilePhoneNumbers()) {
+    if (!candidates.includes(number)) candidates.push(number)
+  }
+
   const envFrom = process.env.TELNYX_MESSAGING_FROM_E164?.trim()
-  if (envFrom) candidates.push(normalizePhoneNumberE164(envFrom))
+  if (envFrom) {
+    const normalized = normalizePhoneNumberE164(envFrom)
+    if (!candidates.includes(normalized)) candidates.push(normalized)
+  }
 
   for (const number of await listProviderLinkedActiveNumbers()) {
     const normalized = normalizePhoneNumberE164(number)
@@ -27,7 +35,7 @@ export async function listPlatformSmsFromCandidates(): Promise<string[]> {
   return candidates
 }
 
-/** Pick the first Telnyx line that is on the account AND on the messaging profile. */
+/** Pick the first Telnyx line that can send platform SMS. */
 export async function resolvePlatformSmsFromE164(): Promise<PlatformSmsSenderResult> {
   const candidates = await listPlatformSmsFromCandidates()
   const failures: string[] = []
@@ -48,10 +56,9 @@ export async function resolvePlatformSmsFromE164(): Promise<PlatformSmsSenderRes
   }
 
   if (candidates.length > 0) {
-    const detail = failures[0] ?? "Could not attach any line to the Telnyx messaging profile"
     return {
       ok: false,
-      message: `${detail}. Open Admin → Dev sandbox and click Repair SMS, or set TELNYX_MESSAGING_FROM_E164 to a line that supports SMS (e.g. +15025758166).`,
+      message: formatPlatformSmsFailure(failures[0]),
     }
   }
 
@@ -60,4 +67,24 @@ export async function resolvePlatformSmsFromE164(): Promise<PlatformSmsSenderRes
     message:
       "No Telnyx SMS line is configured yet. Buy a business line in Lyncr or run Repair SMS under Admin → Dev sandbox.",
   }
+}
+
+/** Plain-language SMS failure for admin operator invites. */
+export function formatPlatformSmsFailure(raw: string | undefined): string {
+  if (!raw?.trim()) {
+    return "Automatic texts aren't available right now. Copy the setup link and send it manually."
+  }
+  const blob = raw.toLowerCase()
+  if (
+    blob.includes("could not enable messaging") ||
+    blob.includes("messaging profile") ||
+    blob.includes("40305") ||
+    blob.includes("invalid 'from'")
+  ) {
+    return "Automatic texts aren't set up on your business line yet. Copy the setup link below, or run Repair SMS under Admin → Dev sandbox."
+  }
+  if (blob.includes("10dlc")) {
+    return "US carrier registration (10DLC) is still pending. Copy the setup link below for now."
+  }
+  return raw.length > 180 ? `${raw.slice(0, 180)}…` : raw
 }

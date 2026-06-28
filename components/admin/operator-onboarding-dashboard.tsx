@@ -95,6 +95,7 @@ export function OperatorOnboardingDashboard() {
   const [detailBusy, setDetailBusy] = useState<string | null>(null)
   const [detailNotice, setDetailNotice] = useState<string | null>(null)
   const [detailManualLink, setDetailManualLink] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -159,6 +160,17 @@ export function OperatorOnboardingDashboard() {
     setSelectedOperator(op)
     setDetailNotice(null)
     setDetailManualLink(null)
+    setCopiedLink(false)
+  }
+
+  async function copySetupLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiedLink(true)
+      window.setTimeout(() => setCopiedLink(false), 2000)
+    } catch {
+      setDetailNotice("Could not copy — select the link and copy manually.")
+    }
   }
 
   async function resendInvite(op: OperatorAdminRow) {
@@ -543,7 +555,20 @@ export function OperatorOnboardingDashboard() {
                 >
                   {detailNotice}
                   {detailManualLink ? (
-                    <span className="mt-2 block break-all">Setup link: {detailManualLink}</span>
+                    <span className="mt-3 block space-y-2">
+                      <span className="block break-all rounded-md bg-black/20 px-2 py-1.5 font-mono text-[10px]">
+                        {detailManualLink}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 border-amber-500/30 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                        onClick={() => void copySetupLink(detailManualLink)}
+                      >
+                        {copiedLink ? "Copied!" : "Copy setup link"}
+                      </Button>
+                    </span>
                   ) : null}
                 </p>
               ) : null}
