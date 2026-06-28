@@ -1,6 +1,7 @@
 // Single hub: carrier "leg answered" webhook → owner-{userId} Pusher `call-answered`.
 // Used by TeXML <Number url> / <Sip url>, Telnyx status callbacks, and Call Control bridge.
 
+import { after } from "next/server"
 import { broadcastCallAnswered } from "@/lib/call-telemetry-realtime"
 import {
   ensureCallLogForInboundLeg,
@@ -36,6 +37,39 @@ async function broadcastFromSnapshot(providerCallSid: string): Promise<boolean> 
   return true
 }
 
+function persistAnsweredCallLog(params: {
+  providerCallSid: string
+  occurredAtIso: string
+  ownerUserId?: string
+  fromNumber?: string
+  toNumber?: string
+  callerName?: string | null
+  skipAnsweredTelemetry: boolean
+}): void {
+  after(async () => {
+    if (params.ownerUserId) {
+      try {
+        await ensureCallLogForInboundLeg({
+          userId: params.ownerUserId,
+          providerCallSid: params.providerCallSid,
+          fromNumber: params.fromNumber || "Unknown",
+          toNumber: params.toNumber || "Unknown",
+          callerName: params.callerName?.trim() || null,
+        })
+      } catch (e) {
+        console.warn("[inbound-call-answered] ensure call log failed:", e)
+      }
+    }
+    try {
+      await recordCallStatusEvent(params.providerCallSid, "answered", 0, params.occurredAtIso, {
+        skipAnsweredTelemetry: params.skipAnsweredTelemetry,
+      })
+    } catch (e) {
+      console.warn("[inbound-call-answered] recordCallStatusEvent failed:", e)
+    }
+  })
+}
+
 /**
  * Mark the inbound call answered in Neon and push `call-answered` on the owner dashboard channel.
  * When `callLogId` + owner + caller are on the answer URL, Pusher fires first (sub-second modal).
@@ -52,8 +86,6 @@ export async function notifyOwnerInboundCallAnswered(
   const fromNumber = params.fromNumber?.trim()
   const toNumber = params.toNumber?.trim()
 
-  let earlyBroadcast = false
-
   // Instant path: answer URL already has Neon row id + caller from /incoming (no DB round-trip).
   if (ownerUserId && callLogId && fromNumber) {
     try {
@@ -65,7 +97,16 @@ export async function notifyOwnerInboundCallAnswered(
         toNumber: toNumber || null,
         answeredAt: occurredAt,
       })
-      earlyBroadcast = true
+      persistAnsweredCallLog({
+        providerCallSid: sid,
+        occurredAtIso: occurredAt,
+        ownerUserId,
+        fromNumber,
+        toNumber,
+        callerName: params.callerName,
+        skipAnsweredTelemetry: true,
+      })
+      return { broadcast: true }
     } catch (e) {
       console.warn("[inbound-call-answered] early broadcast failed:", e)
     }
@@ -86,14 +127,10 @@ export async function notifyOwnerInboundCallAnswered(
   }
 
   try {
-    await recordCallStatusEvent(sid, "answered", 0, occurredAt, {
-      skipAnsweredTelemetry: earlyBroadcast,
-    })
+    await recordCallStatusEvent(sid, "answered", 0, occurredAt)
   } catch (e) {
     console.warn("[inbound-call-answered] recordCallStatusEvent failed:", e)
   }
-
-  if (earlyBroadcast) return { broadcast: true }
 
   try {
     if (await broadcastFromSnapshot(sid)) return { broadcast: true }

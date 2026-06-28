@@ -82,6 +82,13 @@ export type OwnerChannelEvent =
   | "call-completed"
   | "porting-update"
 
+/** Live call HUD events — must not await Neon before trigger (intake modal latency). */
+const OWNER_INBOUND_TELEMETRY: ReadonlySet<OwnerChannelEvent> = new Set([
+  "call-initiated",
+  "call-answered",
+  "call-completed",
+])
+
 /** Publish an event to a business owner's channel (e.g. live booking alerts). Safe no-op when unconfigured. */
 export async function publishOwnerEvent(
   ownerId: string,
@@ -90,10 +97,21 @@ export async function publishOwnerEvent(
 ): Promise<boolean> {
   const pusher = getPusherServer()
   if (!pusher) return false
+  const channel = `owner-${ownerId}`
+
+  if (OWNER_INBOUND_TELEMETRY.has(event)) {
+    try {
+      await pusher.trigger(channel, event, payload)
+      return true
+    } catch (e) {
+      console.error("[realtime] publishOwnerEvent failed:", e)
+      return false
+    }
+  }
+
   const { prepareOwnerEventForDelivery } = await import("@/lib/admin-notification-dispatch")
   const prepared = await prepareOwnerEventForDelivery(ownerId, event, payload)
   if (!prepared.publish) return false
-  const channel = `owner-${ownerId}`
   try {
     await pusher.trigger(channel, event, prepared.payload)
     return true

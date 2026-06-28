@@ -29,9 +29,12 @@ import { cn } from "@/lib/utils"
 
 const SEEN_KEY = "zing_answered_customer_popup_seen_v1"
 /** After ring, check answered-recent — triggered by call-initiated (backup to Pusher). */
-const ANSWERED_LOOKUP_DELAYS_MS = [50, 200, 500, 1000]
+const ANSWERED_LOOKUP_DELAYS_MS = [50, 150, 350, 700]
+/** While a call is ringing, poll quickly until answered_at lands in Neon. */
+const RINGING_FAST_POLL_MS = 250
+const RINGING_FAST_POLL_MAX_MS = 90_000
 /** Safety net when Pusher is slow — only while the dashboard tab is visible. */
-const ANSWERED_VISIBILITY_POLL_MS = 1000
+const ANSWERED_VISIBILITY_POLL_MS = 800
 
 function loadSeen(): Set<string> {
   try {
@@ -134,16 +137,42 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     let cancelled = false
     const lookupTimers: ReturnType<typeof window.setTimeout>[] = []
+    let ringingFastPollId: ReturnType<typeof window.setInterval> | null = null
+    let ringingFastPollStopId: ReturnType<typeof window.setTimeout> | null = null
+
+    const stopRingingFastPoll = () => {
+      if (ringingFastPollId != null) {
+        window.clearInterval(ringingFastPollId)
+        ringingFastPollId = null
+      }
+      if (ringingFastPollStopId != null) {
+        window.clearTimeout(ringingFastPollStopId)
+        ringingFastPollStopId = null
+      }
+    }
 
     const tryShowAnsweredCall = () => {
       void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
         if (cancelled || !row) return
-        showCallRow(setCurrent, row, seenRef.current)
+        showCallRow(setCurrent, row, seenRef.current, true)
+        stopRingingFastPoll()
       })
     }
 
-    const scheduleAnsweredLookups = () => {
+    const startRingingFastPoll = () => {
+      stopRingingFastPoll()
       tryShowAnsweredCall()
+      ringingFastPollId = window.setInterval(() => {
+        if (document.visibilityState !== "visible") return
+        tryShowAnsweredCall()
+      }, RINGING_FAST_POLL_MS)
+      ringingFastPollStopId = window.setTimeout(() => {
+        stopRingingFastPoll()
+      }, RINGING_FAST_POLL_MAX_MS)
+    }
+
+    const scheduleAnsweredLookups = () => {
+      startRingingFastPoll()
       for (const timer of lookupTimers) window.clearTimeout(timer)
       lookupTimers.length = 0
       for (const delayMs of ANSWERED_LOOKUP_DELAYS_MS) {
@@ -166,6 +195,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!isRealtimeClientConfigured()) {
       return () => {
         cancelled = true
+        stopRingingFastPoll()
         window.clearInterval(pollId)
         for (const timer of lookupTimers) window.clearTimeout(timer)
       }
@@ -175,6 +205,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!pusher) {
       return () => {
         cancelled = true
+        stopRingingFastPoll()
         window.clearInterval(pollId)
         for (const timer of lookupTimers) window.clearTimeout(timer)
       }
@@ -190,6 +221,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
       const row = rowFromAnsweredPayload(payload)
       if (!row) return
+      stopRingingFastPoll()
       showCallRow(setCurrent, row, seenRef.current, true)
     }
 
@@ -204,6 +236,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     channel.bind("call-completed", onCompleted)
     return () => {
       cancelled = true
+      stopRingingFastPoll()
       window.clearInterval(pollId)
       for (const timer of lookupTimers) window.clearTimeout(timer)
       channel.unbind("call-initiated", onInitiated)

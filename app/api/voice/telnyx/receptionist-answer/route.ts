@@ -82,11 +82,10 @@ function resolveProviderCallSid(req: NextRequest): string {
   return param(req, "cl", "callSid", "callLogId") ?? ""
 }
 
-/** Push owner CRM modal now; receptionist HUD can follow in the background. */
-async function runAnsweredSideEffects(req: NextRequest, receptionistId?: string | null): Promise<void> {
+/** Owner intake sheet — fire the instant the callee leg answers (before press-1 gate). */
+async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   const callSid = resolveProviderCallSid(req)
   if (!callSid) return
-
   await notifyOwnerInboundCallAnswered({
     providerCallSid: callSid,
     ownerUserId: param(req, "u", "ownerUserId"),
@@ -97,8 +96,12 @@ async function runAnsweredSideEffects(req: NextRequest, receptionistId?: string 
   }).catch((e) => {
     console.error("[receptionist-answer] owner call-answered broadcast failed:", e)
   })
+}
 
-  if (!receptionistId?.trim()) return
+/** Receptionist HUD — only after press-1 accept or when screening is off. */
+function scheduleReceptionistHudConnected(req: NextRequest, receptionistId: string): void {
+  const callSid = resolveProviderCallSid(req)
+  if (!callSid) return
   after(async () => {
     try {
       await handleCallConnected({
@@ -123,7 +126,7 @@ async function respond(req: NextRequest): Promise<NextResponse> {
     const digit = await readPressedDigit(req)
     if (digit === "1") {
       const receptionistId = param(req, "r", "receptionistId")
-      await runAnsweredSideEffects(req, receptionistId)
+      if (receptionistId?.trim()) scheduleReceptionistHudConnected(req, receptionistId)
       return xmlResponseBody(buildReceptionistPress1AcceptedTexml())
     }
     return xmlResponseBody(buildReceptionistPress1RejectedTexml())
@@ -131,15 +134,18 @@ async function respond(req: NextRequest): Promise<NextResponse> {
 
   const receptionistId = param(req, "r", "receptionistId")
   if (!receptionistId?.trim()) {
-    await runAnsweredSideEffects(req, null)
+    await notifyOwnerCrmAnswered(req)
     const texml = new VoiceResponse()
     const phrase = whisperPhrase(req)
     if (phrase) texmlSayWhisperPlain(texml, phrase)
     return xmlResponseBody(texml.toString())
   }
 
+  // Owner CRM opens on answer; press-1 only gates bridging + receptionist HUD.
+  await notifyOwnerCrmAnswered(req)
+
   if (PRESS1_SCREEN_DISABLED) {
-    await runAnsweredSideEffects(req, receptionistId)
+    scheduleReceptionistHudConnected(req, receptionistId)
     const texml = new VoiceResponse()
     const phrase = whisperPhrase(req)
     if (phrase) texmlSayWhisperPlain(texml, phrase)
