@@ -15,6 +15,7 @@ import {
   buildReceptionistPress1ScreenTexml,
 } from "@/lib/receptionist-screen-texml"
 import { handleCallConnected } from "@/app/actions/call-events"
+import { notifyOwnerInboundCallAnswered } from "@/lib/inbound-call-answered-broadcast"
 import type { ReceptionistBusinessType } from "@/lib/business-type"
 import { VoiceResponse } from "@/lib/telnyx"
 
@@ -78,21 +79,40 @@ async function readPressedDigit(req: NextRequest): Promise<string> {
   return ""
 }
 
-function broadcastConnected(req: NextRequest) {
-  const receptionistId = param(req, "r", "receptionistId")
-  if (!receptionistId) return
-  const callLogId = param(req, "cl", "callSid", "callLogId") ?? ""
-  const businessType = normalizeBusinessType(param(req, "bt", "businessType"))
-  const callerNumber = param(req, "from", "caller")
-  const callerName = param(req, "cn", "callerName")
-  const businessName = param(req, "bn", "businessName")
+function resolveProviderCallSid(req: NextRequest): string {
+  return param(req, "cl", "callSid", "callLogId") ?? ""
+}
+
+/** Owner CRM modal + optional receptionist HUD — fired the instant the PSTN/WebRTC leg answers. */
+function scheduleAnsweredSideEffects(req: NextRequest, receptionistId?: string | null) {
+  const callSid = resolveProviderCallSid(req)
+  if (!callSid) return
   after(async () => {
     try {
-      await handleCallConnected({ receptionistId, callLogId, businessType, callerNumber, callerName, businessName })
+      await notifyOwnerInboundCallAnswered({ providerCallSid: callSid })
     } catch (e) {
-      console.error("[receptionist-answer] broadcast failed:", e)
+      console.error("[receptionist-answer] owner call-answered broadcast failed:", e)
+    }
+    if (receptionistId?.trim()) {
+      try {
+        await handleCallConnected({
+          receptionistId: receptionistId.trim(),
+          callLogId: callSid,
+          businessType: normalizeBusinessType(param(req, "bt", "businessType")),
+          callerNumber: param(req, "from", "caller"),
+          callerName: param(req, "cn", "callerName"),
+          businessName: param(req, "bn", "businessName"),
+        })
+      } catch (e) {
+        console.error("[receptionist-answer] receptionist HUD broadcast failed:", e)
+      }
     }
   })
+}
+
+function broadcastConnected(req: NextRequest) {
+  const receptionistId = param(req, "r", "receptionistId")
+  scheduleAnsweredSideEffects(req, receptionistId)
 }
 
 async function respond(req: NextRequest): Promise<NextResponse> {
@@ -108,10 +128,10 @@ async function respond(req: NextRequest): Promise<NextResponse> {
     return xmlResponseBody(buildReceptionistPress1RejectedTexml())
   }
 
-  // Owner / admin override legs omit `r` — bridge immediately (no press-1 gate). Press-1 is for
-  // receptionist cells so pocket-answers don't connect callers; owners expect a normal ring.
+  // Owner / admin override legs omit `r` — bridge immediately (no press-1 gate).
   const receptionistId = param(req, "r", "receptionistId")
   if (!receptionistId?.trim()) {
+    scheduleAnsweredSideEffects(req, null)
     const texml = new VoiceResponse()
     const phrase = whisperPhrase(req)
     if (phrase) texmlSayWhisperPlain(texml, phrase)

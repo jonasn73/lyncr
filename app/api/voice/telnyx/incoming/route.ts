@@ -461,22 +461,17 @@ function tryFastInboundPstnDial(params: {
   const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false, greetingEnabled)
   const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false, greetingEnabled)
 
-  // When dialing a known platform receptionist, hand Telnyx a per-leg answer URL so
-  // their HUD pops the live intake form the instant their cell phone connects.
-  // Owner legs omit the URL — direct ring/bridge (press-1 is receptionist-only).
-  const answerUrl = hasReceptionist
-    ? buildReceptionistAnswerUrl({
-        appUrl,
-        ...(routing.selected_receptionist_id
-          ? { receptionistId: routing.selected_receptionist_id }
-          : {}),
-        callSid,
-        businessType: "generic",
-        callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
-        callerName,
-        businessName: workspaceName,
-      })
-    : undefined
+  // Per-leg answer URL — Telnyx fetches this the instant the callee picks up (cell or WebRTC).
+  // Drives owner dashboard `call-answered` via /api/voice/telnyx/receptionist-answer.
+  const answerUrl = buildReceptionistAnswerUrl({
+    appUrl,
+    ...(routing.selected_receptionist_id ? { receptionistId: routing.selected_receptionist_id } : {}),
+    callSid,
+    businessType: "generic",
+    callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
+    callerName,
+    businessName: workspaceName,
+  })
 
   // Endpoint multiplexing (050): a receptionist set to 'WEB' rings their registered browser over
   // Telnyx WebRTC/SIP. We only take the SIP path when a sip_username actually resolves to a URI;
@@ -1331,6 +1326,14 @@ async function handleIncomingCall(
     } else {
       const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
       if (debug) console.log(`[Sigo] No receptionist assigned, routing to owner: ${ownerPhone}`)
+      const ownerAnswerUrl = buildReceptionistAnswerUrl({
+        appUrl,
+        callSid,
+        businessType: "generic",
+        callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
+        callerName,
+        businessName: workspaceName,
+      })
       const dial = texml.dial(
         buildInboundPstnDialAttributes({
           ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -1342,8 +1345,7 @@ async function handleIncomingCall(
           includeRingback,
         }) as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0]
       )
-      // Owner cell — direct ring/bridge; press-1 screen is receptionist-only.
-      dial.number({ ...pstnNumberAttrs }, ownerPhone)
+      dial.number({ ...pstnNumberAttrs, url: ownerAnswerUrl, method: "POST" }, ownerPhone)
     }
   } catch (error) {
     console.error("[Telnyx] Error in incoming webhook:", error)

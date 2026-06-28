@@ -1,6 +1,7 @@
 // Persist Call Control lifecycle into call_logs (answer, talk time, completion).
 
-import { broadcastCallAnsweredBySid, broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
+import { notifyOwnerInboundCallAnswered } from "@/lib/inbound-call-answered-broadcast"
+import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
 import { normalizeTelnyxDurationSeconds, parseTelnyxCallDurationFromPayload } from "@/lib/telnyx-call-duration"
 import type { TelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
@@ -100,13 +101,15 @@ export async function persistCallControlBridged(
   const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164).catch(() => null)
   const routedToName = routing ? resolveRoutedToLabel(routing) : "Owner"
   try {
-    await recordCallStatusEvent(inboundCallSid, "answered", 0, occurredAtIso || undefined)
+    await notifyOwnerInboundCallAnswered({
+      providerCallSid: inboundCallSid,
+      occurredAtIso: occurredAtIso || undefined,
+    }).catch((e) => {
+      console.warn("[telnyx-cc] call-answered broadcast failed:", e)
+    })
     await updateCallLog(inboundCallSid, {
       status: "in-progress",
       routed_to_name: routedToName,
-    })
-    await broadcastCallAnsweredBySid(inboundCallSid).catch((e) => {
-      console.warn("[telnyx-cc] call-answered broadcast failed:", e)
     })
     console.log(
       JSON.stringify({

@@ -1,12 +1,12 @@
-// Builds the `<Number url="…">` document URL that Telnyx fetches when a
-// receptionist's cell phone answers. Encodes who answered + which call so the
-// answer webhook can broadcast a precise real-time event to their HUD.
+// Builds the `<Number url="…">` / `<Sip url="…">` document URL that Telnyx fetches the instant
+// the callee answers (owner cell, receptionist cell, or WebRTC browser). The answer webhook
+// marks the call answered and broadcasts `call-answered` on the owner dashboard Pusher channel.
 
 import type { ReceptionistBusinessType } from "@/lib/business-type"
 
 export function buildReceptionistAnswerUrl(params: {
   appUrl: string
-  /** Optional — omit for admin override / owner legs (press-1 screen only, no HUD broadcast). */
+  /** Optional — omit for owner-only legs (owner CRM still gets the Pusher event). */
   receptionistId?: string | null
   callSid: string
   businessType: ReceptionistBusinessType

@@ -1,6 +1,7 @@
 "use client"
 
-// Answered-call intake sheet — vehicle cascade, CRM autosave, unassigned job pool on dismiss.
+// Answered-call intake sheet — listens on owner-{userId} Pusher `call-answered`
+// (broadcast from carrier answer webhooks via lib/inbound-call-answered-broadcast.ts).
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import Link from "next/link"

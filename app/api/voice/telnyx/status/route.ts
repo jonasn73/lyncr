@@ -8,7 +8,8 @@ import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
-import { broadcastCallAnsweredBySid, broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
+import { notifyOwnerInboundCallAnswered } from "@/lib/inbound-call-answered-broadcast"
+import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
@@ -60,7 +61,10 @@ export async function POST(req: NextRequest) {
     if (answeredLive && callType === "incoming") {
       after(async () => {
         try {
-          await broadcastCallAnsweredBySid(callSid)
+          await notifyOwnerInboundCallAnswered({
+            providerCallSid: callSid,
+            occurredAtIso: eventTimestamp || undefined,
+          })
         } catch (telemetryErr) {
           console.warn("[Telnyx] call-answered telemetry broadcast failed:", telemetryErr)
         }
