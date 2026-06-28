@@ -461,14 +461,34 @@ async function tryFastInboundPstnDial(params: {
   const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false, greetingEnabled)
   const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false, greetingEnabled)
 
+  const callLogId = await insertCallLog({
+    user_id: routing.user_id,
+    provider_call_sid: callSid,
+    from_number: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : "Unknown",
+    to_number: businessLineE164 || normalizePhoneNumberE164(calledNumber),
+    caller_name: callerName,
+    call_type: "incoming",
+    status: "ringing",
+    duration_seconds: 0,
+    routed_to_receptionist_id: hasReceptionist ? routing.selected_receptionist_id : null,
+    routed_to_name: hasReceptionist ? routing.receptionist_name : null,
+    has_recording: false,
+    recording_url: null,
+    recording_duration_seconds: null,
+  }).catch((logErr) => {
+    console.error("[Sigo] Call log insert failed (fast path):", logErr)
+    return null
+  })
+
   // Per-leg answer URL — Telnyx fetches this the instant the callee picks up (cell or WebRTC).
-  // Drives owner dashboard `call-answered` via /api/voice/telnyx/receptionist-answer.
+  // `lid` lets the answer webhook push Pusher before any DB read.
   const answerUrl = buildReceptionistAnswerUrl({
     appUrl,
     ownerUserId: routing.user_id,
     toNumber: businessLineE164 || normalizePhoneNumberE164(calledNumber),
     ...(routing.selected_receptionist_id ? { receptionistId: routing.selected_receptionist_id } : {}),
     callSid,
+    callLogId,
     businessType: "generic",
     callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
     callerName,
@@ -507,24 +527,6 @@ async function tryFastInboundPstnDial(params: {
         ...(callerGreeting ? { callerGreeting } : {}),
         includeRingback,
       })
-
-  await insertCallLog({
-    user_id: routing.user_id,
-    provider_call_sid: callSid,
-    from_number: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : "Unknown",
-    to_number: businessLineE164 || normalizePhoneNumberE164(calledNumber),
-    caller_name: callerName,
-    call_type: "incoming",
-    status: "ringing",
-    duration_seconds: 0,
-    routed_to_receptionist_id: hasReceptionist ? routing.selected_receptionist_id : null,
-    routed_to_name: hasReceptionist ? routing.receptionist_name : null,
-    has_recording: false,
-    recording_url: null,
-    recording_duration_seconds: null,
-  }).catch((logErr) => {
-    console.error("[Sigo] Call log insert failed (fast path):", logErr)
-  })
 
   console.log(
     JSON.stringify({
@@ -594,26 +596,8 @@ async function tryRoutingPoolInboundDial(params: {
   const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone ?? false, greetingEnabled)
   const includeRingback = shouldPlayCallerRingbackDuringDial(greetingPassDone ?? false, greetingEnabled)
 
-  const xml = buildRoutingPoolDialResponse({
-    match,
-    ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
-    timeout: dialTimeoutSec,
-    action,
-    greetingPassDone: greetingPassDone ?? false,
-    greetingEnabled,
-    ...(callerGreeting ? { callerGreeting } : {}),
-    includeRingback,
-    answer: {
-      appUrl,
-      callSid,
-      callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
-      callerName,
-      businessName: workspaceName,
-    },
-  })
-
   const firstRecv = match.receptionists[0]
-  await insertCallLog({
+  const callLogId = await insertCallLog({
     user_id: routing.user_id,
     provider_call_sid: callSid,
     from_number: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : "Unknown",
@@ -629,6 +613,26 @@ async function tryRoutingPoolInboundDial(params: {
     recording_duration_seconds: null,
   }).catch((logErr) => {
     console.error("[Sigo] Call log insert failed (routing pool path):", logErr)
+    return null
+  })
+
+  const xml = buildRoutingPoolDialResponse({
+    match,
+    ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
+    timeout: dialTimeoutSec,
+    action,
+    greetingPassDone: greetingPassDone ?? false,
+    greetingEnabled,
+    ...(callerGreeting ? { callerGreeting } : {}),
+    includeRingback,
+    answer: {
+      appUrl,
+      callSid,
+      callLogId,
+      callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
+      callerName,
+      businessName: workspaceName,
+    },
   })
 
   console.log(
@@ -1006,8 +1010,9 @@ async function handleIncomingCall(
     const hasReceptionist = Boolean(selectedReceptionistId && receptionistDialE164)
 
     // 4. Log the incoming call before `<Dial>` so answer webhooks can broadcast immediately.
+    let callLogId: string | null = null
     try {
-      await insertCallLog({
+      callLogId = await insertCallLog({
         user_id: routing.user_id,
         provider_call_sid: callSid,
         from_number: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : "Unknown",
@@ -1305,6 +1310,7 @@ async function handleIncomingCall(
             toNumber: businessLineE164 || normalizePhoneNumberE164(calledNumber),
             receptionistId: selectedReceptionistId,
             callSid,
+            callLogId,
             businessType: "generic",
             callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
             callerName,
@@ -1315,6 +1321,7 @@ async function handleIncomingCall(
             ownerUserId: routing.user_id,
             toNumber: businessLineE164 || normalizePhoneNumberE164(calledNumber),
             callSid,
+            callLogId,
             businessType: "generic",
             callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
             callerName,
@@ -1329,6 +1336,7 @@ async function handleIncomingCall(
         ownerUserId: routing.user_id,
         toNumber: businessLineE164 || normalizePhoneNumberE164(calledNumber),
         callSid,
+        callLogId,
         businessType: "generic",
         callerNumber: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : null,
         callerName,

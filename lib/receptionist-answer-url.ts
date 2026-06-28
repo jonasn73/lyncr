@@ -13,6 +13,8 @@ export function buildReceptionistAnswerUrl(params: {
   /** Optional — omit for owner-only legs (owner CRM still gets the Pusher event). */
   receptionistId?: string | null
   callSid: string
+  /** Neon call_logs.id — lets the answer webhook push Pusher before any DB read. */
+  callLogId?: string | null
   businessType: ReceptionistBusinessType
   callerNumber?: string | null
   callerName?: string | null
@@ -26,6 +28,7 @@ export function buildReceptionistAnswerUrl(params: {
   if (params.toNumber?.trim()) qs.set("to", params.toNumber.trim())
   if (params.receptionistId?.trim()) qs.set("r", params.receptionistId.trim())
   if (params.callSid) qs.set("cl", params.callSid)
+  if (params.callLogId?.trim()) qs.set("lid", params.callLogId.trim())
   qs.set("bt", params.businessType)
   if (params.callerNumber) qs.set("from", params.callerNumber)
   if (params.callerName) qs.set("cn", params.callerName)

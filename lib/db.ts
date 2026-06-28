@@ -3049,14 +3049,14 @@ export async function updateUser(
 }
 
 // Insert a call log
-export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Promise<void> {
+export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Promise<string | null> {
   const sql = getSql()
   const sid = (log.provider_call_sid || "").trim() || `zing-${crypto.randomUUID()}`
   const fromNum = (log.from_number || "").trim() || "Unknown"
   const toNum = (log.to_number || "").trim() || "Unknown"
 
   try {
-    await sql`
+    const rows = await sql`
       INSERT INTO call_logs (
         user_id, provider_call_sid, from_number, to_number, caller_name,
         call_type, status, duration_seconds, routed_to_receptionist_id,
@@ -3066,15 +3066,16 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
         ${log.call_type}, ${log.status}, ${log.duration_seconds}, ${log.routed_to_receptionist_id},
         ${log.routed_to_name}, ${log.has_recording}, ${log.recording_url}, ${log.recording_duration_seconds}, now()
       )
+      RETURNING id
     `
     void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-    return
+    return rows[0]?.id != null ? String(rows[0].id) : null
   } catch (e) {
     const code = pgErrorCode(e)
     const msg = pgErrorMessage(e)
     // Neon not migrated with scripts/007 — no first_ring_at column
     if (code === "42703" && msg.includes("first_ring_at")) {
-      await sql`
+      const rows = await sql`
         INSERT INTO call_logs (
           user_id, provider_call_sid, from_number, to_number, caller_name,
           call_type, status, duration_seconds, routed_to_receptionist_id,
@@ -3084,14 +3085,15 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
           ${log.call_type}, ${log.status}, ${log.duration_seconds}, ${log.routed_to_receptionist_id},
           ${log.routed_to_name}, ${log.has_recording}, ${log.recording_url}, ${log.recording_duration_seconds}
         )
+        RETURNING id
       `
       void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-      return
+      return rows[0]?.id != null ? String(rows[0].id) : null
     }
     // Legacy DB: twilio_call_sid NOT NULL — duplicate sid into both columns
     if (msg.includes("twilio_call_sid")) {
       try {
-        await sql`
+        const rows = await sql`
           INSERT INTO call_logs (
             user_id, provider_call_sid, twilio_call_sid, from_number, to_number, caller_name,
             call_type, status, duration_seconds, routed_to_receptionist_id,
@@ -3101,13 +3103,14 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
             ${log.call_type}, ${log.status}, ${log.duration_seconds}, ${log.routed_to_receptionist_id},
             ${log.routed_to_name}, ${log.has_recording}, ${log.recording_url}, ${log.recording_duration_seconds}, now()
           )
+          RETURNING id
         `
         void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-        return
+        return rows[0]?.id != null ? String(rows[0].id) : null
       } catch (e2) {
         const m2 = pgErrorMessage(e2)
         if (pgErrorCode(e2) === "42703" && m2.includes("first_ring_at")) {
-          await sql`
+          const rows = await sql`
             INSERT INTO call_logs (
               user_id, provider_call_sid, twilio_call_sid, from_number, to_number, caller_name,
               call_type, status, duration_seconds, routed_to_receptionist_id,
@@ -3117,9 +3120,10 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
               ${log.call_type}, ${log.status}, ${log.duration_seconds}, ${log.routed_to_receptionist_id},
               ${log.routed_to_name}, ${log.has_recording}, ${log.recording_url}, ${log.recording_duration_seconds}
             )
+            RETURNING id
           `
           void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-          return
+          return rows[0]?.id != null ? String(rows[0].id) : null
         }
         throw e2
       }
@@ -3161,14 +3165,13 @@ async function notifyInboundCallAnsweredTelemetry(params: {
 }): Promise<void> {
   try {
     const { broadcastCallAnswered } = await import("@/lib/call-telemetry-realtime")
-    const line = await getActivePhoneNumberByE164(params.toNumber).catch(() => null)
     await broadcastCallAnswered({
       ownerUserId: params.ownerUserId,
       callSid: params.callSid,
       callLogId: params.callLogId,
       fromNumber: params.fromNumber,
       toNumber: params.toNumber,
-      organizationId: line?.organization_id ?? null,
+      organizationId: null,
       answeredAt: params.answeredAt,
     })
   } catch (e) {
@@ -3412,7 +3415,8 @@ export async function recordCallStatusEvent(
   providerCallSid: string,
   callStatus: string,
   durationSeconds: number,
-  occurredAtIso?: string
+  occurredAtIso?: string,
+  options?: { skipAnsweredTelemetry?: boolean }
 ): Promise<void> {
   const sql = getSql()
   const normalizedStatus = callStatus.trim().toLowerCase().replace(/_/g, "-")
@@ -3483,7 +3487,12 @@ export async function recordCallStatusEvent(
           newly_answered: boolean | string | number
         }
       | undefined
-    if (row && isPgTruthy(row.newly_answered) && row.call_type === "incoming") {
+    if (
+      row &&
+      isPgTruthy(row.newly_answered) &&
+      row.call_type === "incoming" &&
+      !options?.skipAnsweredTelemetry
+    ) {
       void notifyInboundCallAnsweredTelemetry({
         ownerUserId: String(row.user_id),
         callSid: providerSid,

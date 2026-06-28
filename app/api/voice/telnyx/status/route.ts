@@ -59,16 +59,14 @@ export async function POST(req: NextRequest) {
 
     const answeredLive = ["answered", "in-progress"].includes(callStatus)
     if (answeredLive && callType === "incoming") {
-      after(async () => {
-        try {
-          await notifyOwnerInboundCallAnswered({
-            providerCallSid: callSid,
-            occurredAtIso: eventTimestamp || undefined,
-          })
-        } catch (telemetryErr) {
-          console.warn("[Telnyx] call-answered telemetry broadcast failed:", telemetryErr)
-        }
-      })
+      try {
+        await notifyOwnerInboundCallAnswered({
+          providerCallSid: callSid,
+          occurredAtIso: eventTimestamp || undefined,
+        })
+      } catch (telemetryErr) {
+        console.warn("[Telnyx] call-answered telemetry broadcast failed:", telemetryErr)
+      }
     }
 
     const terminal = ["completed", "busy", "failed", "no-answer", "canceled"].includes(

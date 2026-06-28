@@ -28,10 +28,10 @@ import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/re
 import { cn } from "@/lib/utils"
 
 const SEEN_KEY = "zing_answered_customer_popup_seen_v1"
-/** After ring, check answered-recent at these offsets (ms) — triggered by call-initiated, not a global poll. */
-const ANSWERED_LOOKUP_DELAYS_MS = [800, 2000, 4000, 8000, 15000, 30000]
-/** Safety net when Pusher or the answer webhook race — only while the dashboard tab is visible. */
-const ANSWERED_VISIBILITY_POLL_MS = 5000
+/** After ring, check answered-recent — triggered by call-initiated (backup to Pusher). */
+const ANSWERED_LOOKUP_DELAYS_MS = [50, 200, 500, 1000]
+/** Safety net when Pusher is slow — only while the dashboard tab is visible. */
+const ANSWERED_VISIBILITY_POLL_MS = 1000
 
 function loadSeen(): Set<string> {
   try {
@@ -101,10 +101,11 @@ function rowFromCompletedPayload(payload: OwnerCallCompletedPayload): ActiveCall
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
   row: ActiveCallRow,
-  seen: Set<string>
+  seen: Set<string>,
+  force = false
 ) {
   if (seen.has(row.id)) return
-  setCurrent((prev) => prev ?? row)
+  setCurrent((prev) => (force || !prev ? row : prev))
 }
 
 export type CallAnsweredModalProps = {
@@ -142,6 +143,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     const scheduleAnsweredLookups = () => {
+      tryShowAnsweredCall()
       for (const timer of lookupTimers) window.clearTimeout(timer)
       lookupTimers.length = 0
       for (const delayMs of ANSWERED_LOOKUP_DELAYS_MS) {
@@ -188,7 +190,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
       const row = rowFromAnsweredPayload(payload)
       if (!row) return
-      showCallRow(setCurrent, row, seenRef.current)
+      showCallRow(setCurrent, row, seenRef.current, true)
     }
 
     const onCompleted = (payload: OwnerCallCompletedPayload) => {

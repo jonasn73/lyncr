@@ -129,6 +129,7 @@ export function buildRoutingPoolDialResponse(params: {
   answer?: {
     appUrl: string
     callSid: string
+    callLogId?: string | null
     callerNumber?: string | null
     callerName?: string | null
     businessName?: string | null
@@ -154,6 +155,7 @@ export function buildRoutingPoolDialResponse(params: {
         toNumber: params.match.line.number,
         receptionistId: r.id,
         callSid: params.answer.callSid,
+        callLogId: params.answer.callLogId,
         businessType,
         callerNumber: params.answer.callerNumber,
         callerName: params.answer.callerName,

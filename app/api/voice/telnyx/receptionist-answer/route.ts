@@ -1,8 +1,9 @@
 // ============================================
 // GET/POST /api/voice/telnyx/receptionist-answer
 // ============================================
-// Telnyx fetches this `<Number url="…" method="POST">` document the instant the receptionist's cell
-// answers (before bridging to the caller). Press 1 to connect; wrong key / timeout hangs up this leg.
+// Telnyx fetches this `<Number url="…" method="POST">` document the instant the callee leg
+// answers (before bridging to the caller). We broadcast `call-answered` synchronously here
+// so the owner CRM modal opens immediately — then return whisper / press-1 TeXML.
 
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
@@ -56,14 +57,12 @@ function xmlResponseBody(body: string): NextResponse {
   })
 }
 
-/** Absolute URL back to this route flagged as the gather gate, preserving the original params. */
 function gateActionUrl(req: NextRequest): string {
   const qs = new URLSearchParams(req.nextUrl.searchParams)
   qs.set("g", "1")
   return `${getAppUrl().replace(/\/+$/, "")}/api/voice/telnyx/receptionist-answer?${qs.toString()}`
 }
 
-/** Read a DTMF digit Telnyx sends to the gather action (form body or query). */
 async function readPressedDigit(req: NextRequest): Promise<string> {
   const fromQuery = param(req, "Digits", "digits")
   if (fromQuery) return fromQuery.trim()
@@ -83,42 +82,37 @@ function resolveProviderCallSid(req: NextRequest): string {
   return param(req, "cl", "callSid", "callLogId") ?? ""
 }
 
-/** Owner CRM modal + optional receptionist HUD — fired the instant the PSTN/WebRTC leg answers. */
-function scheduleAnsweredSideEffects(req: NextRequest, receptionistId?: string | null) {
+/** Push owner CRM modal now; receptionist HUD can follow in the background. */
+async function runAnsweredSideEffects(req: NextRequest, receptionistId?: string | null): Promise<void> {
   const callSid = resolveProviderCallSid(req)
   if (!callSid) return
+
+  await notifyOwnerInboundCallAnswered({
+    providerCallSid: callSid,
+    ownerUserId: param(req, "u", "ownerUserId"),
+    callLogId: param(req, "lid", "callLogId"),
+    fromNumber: param(req, "from", "caller"),
+    toNumber: param(req, "to"),
+    callerName: param(req, "cn", "callerName"),
+  }).catch((e) => {
+    console.error("[receptionist-answer] owner call-answered broadcast failed:", e)
+  })
+
+  if (!receptionistId?.trim()) return
   after(async () => {
     try {
-      await notifyOwnerInboundCallAnswered({
-        providerCallSid: callSid,
-        ownerUserId: param(req, "u", "ownerUserId"),
-        fromNumber: param(req, "from", "caller"),
-        toNumber: param(req, "to"),
+      await handleCallConnected({
+        receptionistId: receptionistId.trim(),
+        callLogId: callSid,
+        businessType: normalizeBusinessType(param(req, "bt", "businessType")),
+        callerNumber: param(req, "from", "caller"),
         callerName: param(req, "cn", "callerName"),
+        businessName: param(req, "bn", "businessName"),
       })
     } catch (e) {
-      console.error("[receptionist-answer] owner call-answered broadcast failed:", e)
-    }
-    if (receptionistId?.trim()) {
-      try {
-        await handleCallConnected({
-          receptionistId: receptionistId.trim(),
-          callLogId: callSid,
-          businessType: normalizeBusinessType(param(req, "bt", "businessType")),
-          callerNumber: param(req, "from", "caller"),
-          callerName: param(req, "cn", "callerName"),
-          businessName: param(req, "bn", "businessName"),
-        })
-      } catch (e) {
-        console.error("[receptionist-answer] receptionist HUD broadcast failed:", e)
-      }
+      console.error("[receptionist-answer] receptionist HUD broadcast failed:", e)
     }
   })
-}
-
-function broadcastConnected(req: NextRequest) {
-  const receptionistId = param(req, "r", "receptionistId")
-  scheduleAnsweredSideEffects(req, receptionistId)
 }
 
 async function respond(req: NextRequest): Promise<NextResponse> {
@@ -128,16 +122,16 @@ async function respond(req: NextRequest): Promise<NextResponse> {
   if (isGate) {
     const digit = await readPressedDigit(req)
     if (digit === "1") {
-      broadcastConnected(req)
+      const receptionistId = param(req, "r", "receptionistId")
+      await runAnsweredSideEffects(req, receptionistId)
       return xmlResponseBody(buildReceptionistPress1AcceptedTexml())
     }
     return xmlResponseBody(buildReceptionistPress1RejectedTexml())
   }
 
-  // Owner / admin override legs omit `r` — bridge immediately (no press-1 gate).
   const receptionistId = param(req, "r", "receptionistId")
   if (!receptionistId?.trim()) {
-    scheduleAnsweredSideEffects(req, null)
+    await runAnsweredSideEffects(req, null)
     const texml = new VoiceResponse()
     const phrase = whisperPhrase(req)
     if (phrase) texmlSayWhisperPlain(texml, phrase)
@@ -145,7 +139,7 @@ async function respond(req: NextRequest): Promise<NextResponse> {
   }
 
   if (PRESS1_SCREEN_DISABLED) {
-    broadcastConnected(req)
+    await runAnsweredSideEffects(req, receptionistId)
     const texml = new VoiceResponse()
     const phrase = whisperPhrase(req)
     if (phrase) texmlSayWhisperPlain(texml, phrase)
