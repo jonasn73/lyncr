@@ -12,8 +12,8 @@ export type PlatformSmsSenderResult =
   | { ok: true; from_e164: string }
   | { ok: false; message: string }
 
-/** Pick the first Telnyx-owned active line usable for platform SMS (not admin-scoped). */
-export async function resolvePlatformSmsFromE164(): Promise<PlatformSmsSenderResult> {
+/** Ordered Telnyx lines to try for platform SMS (env override first, then Neon lines). */
+export async function listPlatformSmsFromCandidates(): Promise<string[]> {
   const candidates: string[] = []
 
   const envFrom = process.env.TELNYX_MESSAGING_FROM_E164?.trim()
@@ -24,20 +24,34 @@ export async function resolvePlatformSmsFromE164(): Promise<PlatformSmsSenderRes
     if (!candidates.includes(normalized)) candidates.push(normalized)
   }
 
+  return candidates
+}
+
+/** Pick the first Telnyx line that is on the account AND on the messaging profile. */
+export async function resolvePlatformSmsFromE164(): Promise<PlatformSmsSenderResult> {
+  const candidates = await listPlatformSmsFromCandidates()
+  const failures: string[] = []
+
   for (const from of candidates) {
-    if (!(await isTelnyxOwnedNumber(from))) continue
+    if (!(await isTelnyxOwnedNumber(from))) {
+      failures.push(`${formatPhoneDisplay(from)} is not on your Telnyx account`)
+      continue
+    }
     try {
       await configureNumberMessaging(from)
+      return { ok: true, from_e164: from }
     } catch (e) {
-      console.warn("[platform-sms] configureNumberMessaging:", from, e)
+      const msg = e instanceof Error ? e.message : String(e)
+      failures.push(`${formatPhoneDisplay(from)}: ${msg}`)
+      console.warn("[platform-sms] skip candidate:", from, msg)
     }
-    return { ok: true, from_e164: from }
   }
 
   if (candidates.length > 0) {
+    const detail = failures[0] ?? "Could not attach any line to the Telnyx messaging profile"
     return {
       ok: false,
-      message: `${formatPhoneDisplay(candidates[0]!)} is not set up for outbound SMS on Telnyx. Open Admin → Dev sandbox and run Repair SMS.`,
+      message: `${detail}. Open Admin → Dev sandbox and click Repair SMS, or set TELNYX_MESSAGING_FROM_E164 to a line that supports SMS (e.g. +15025758166).`,
     }
   }
 

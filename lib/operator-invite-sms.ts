@@ -1,8 +1,12 @@
 // Shared SMS delivery for platform-admin operator onboarding invites.
 
-import { resolvePlatformSmsFromE164 } from "@/lib/platform-sms-sender"
+import {
+  listPlatformSmsFromCandidates,
+  resolvePlatformSmsFromE164,
+} from "@/lib/platform-sms-sender"
 import { getAppUrl } from "@/lib/telnyx"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { configureNumberMessaging, isTelnyxOwnedNumber } from "@/lib/telnyx-messaging-config"
 
 export function formatOperatorPhoneDisplay(e164: string): string {
   const d = e164.replace(/\D/g, "")
@@ -14,6 +18,17 @@ export function formatOperatorPhoneDisplay(e164: string): string {
 export function buildOperatorOnboardUrl(token: string): string {
   const appUrl = getAppUrl().replace(/\/$/, "")
   return `${appUrl}/auth/onboard?token=${encodeURIComponent(token)}`
+}
+
+function isInvalidSmsSenderError(raw: string | undefined): boolean {
+  if (!raw) return false
+  const blob = raw.toLowerCase()
+  return (
+    blob.includes("40305") ||
+    blob.includes("invalid 'from'") ||
+    blob.includes("invalid source number") ||
+    blob.includes("not on your telnyx messaging profile")
+  )
 }
 
 export async function deliverOperatorInviteSms(params: {
@@ -29,22 +44,48 @@ export async function deliverOperatorInviteSms(params: {
   const onboard_url = buildOperatorOnboardUrl(params.token)
   const firstName = params.name.split(/\s+/)[0] || "there"
   const phone_display = formatOperatorPhoneDisplay(params.phone)
+  const text = `Hi ${firstName}! Lyncr invited you as a live operator. Tap to set up (expires in 48h): ${onboard_url}`
 
-  const sender = await resolvePlatformSmsFromE164()
-  if (!sender.ok) {
-    return { onboard_url, phone_display, sms_sent: false, sms_error: sender.message }
+  const candidates = await listPlatformSmsFromCandidates()
+  let lastError: string | undefined
+
+  for (const from of candidates) {
+    if (!(await isTelnyxOwnedNumber(from))) continue
+    try {
+      await configureNumberMessaging(from)
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e)
+      continue
+    }
+
+    const smsResult = await sendTelnyxSms({
+      toE164: params.phone,
+      text,
+      fromE164: from,
+    })
+
+    if (smsResult.ok) {
+      return {
+        onboard_url,
+        phone_display,
+        sms_sent: true,
+        sms_error: smsResult.delivery_warning ?? undefined,
+      }
+    }
+
+    lastError = smsResult.error
+    if (isInvalidSmsSenderError(smsResult.error)) continue
+    break
   }
 
-  const smsResult = await sendTelnyxSms({
-    toE164: params.phone,
-    text: `Hi ${firstName}! Lyncr invited you as a live operator. Tap to set up (expires in 48h): ${onboard_url}`,
-    fromE164: sender.from_e164,
-  })
-
+  const fallback = await resolvePlatformSmsFromE164()
   return {
     onboard_url,
     phone_display,
-    sms_sent: smsResult.ok,
-    sms_error: smsResult.ok ? smsResult.delivery_warning ?? undefined : smsResult.error,
+    sms_sent: false,
+    sms_error:
+      lastError ??
+      (fallback.ok ? "SMS could not be sent." : fallback.message) ??
+      "SMS could not be sent. Copy the setup link below.",
   }
 }
