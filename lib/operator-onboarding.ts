@@ -446,6 +446,7 @@ export async function refreshOperatorInviteForResend(userId: string): Promise<{
 
     const inviteStatus = String(row.invite_status ?? "").toLowerCase()
     const opStatus = String(row.operator_onboarding_status ?? "")
+    if (inviteStatus === "disabled") return null
     if (inviteStatus === "active" || opStatus === "ACTIVE_READY") return null
 
     const phoneRaw = row.phone != null ? String(row.phone) : ""
@@ -476,33 +477,146 @@ export async function listOperatorOnboardingRows(): Promise<OperatorAdminRow[]> 
   const sql = getSql()
   try {
     const rows = (await sql`
-      SELECT id, email, name, phone, timezone, operator_onboarding_status, invitation_expires_at,
-             operator_assigned_workspaces, created_at
-      FROM users
-      WHERE account_role = 'receptionist'
+      SELECT u.id, u.email, u.name, u.phone, u.timezone, u.operator_onboarding_status,
+             u.invitation_expires_at, u.operator_assigned_workspaces, u.created_at, u.invite_status,
+             r.is_active AS receptionist_is_active
+      FROM users u
+      LEFT JOIN receptionists r ON r.portal_user_id = u.id
+      WHERE u.account_role = 'receptionist'
         AND (
-          operator_onboarding_status IS NOT NULL
-          OR coalesce(invite_status, '') IN ('invited', 'active')
+          u.operator_onboarding_status IS NOT NULL
+          OR coalesce(u.invite_status, '') IN ('invited', 'active', 'disabled')
         )
-      ORDER BY created_at DESC
+      ORDER BY u.created_at DESC
       LIMIT 200
     `) as Record<string, unknown>[]
-    return rows.map((r) => ({
-      id: String(r.id),
-      email: String(r.email),
-      phone: r.phone != null && String(r.phone).trim() ? String(r.phone) : null,
-      name: String(r.name ?? ""),
-      timezone: r.timezone != null ? String(r.timezone) : null,
-      operator_onboarding_status: (r.operator_onboarding_status != null
-        ? String(r.operator_onboarding_status)
-        : null) as OperatorOnboardingStatus | null,
-      invitation_expires_at:
-        r.invitation_expires_at != null ? String(r.invitation_expires_at) : null,
-      assigned_workspaces: parseAssignedWorkspaces(r.operator_assigned_workspaces),
-      created_at: String(r.created_at ?? ""),
-    }))
+    return rows.map((r) => mapOperatorAdminRow(r))
   } catch (e) {
     if (isMissingOperatorColumn(e)) return []
     throw e
   }
+}
+
+function mapOperatorAdminRow(r: Record<string, unknown>): OperatorAdminRow {
+  const inviteStatus = r.invite_status != null ? String(r.invite_status) : null
+  const receptionistActive = r.receptionist_is_active == null ? true : r.receptionist_is_active !== false
+  const disabled = inviteStatus === "disabled" || !receptionistActive
+  return {
+    id: String(r.id),
+    email: String(r.email),
+    phone: r.phone != null && String(r.phone).trim() ? String(r.phone) : null,
+    name: String(r.name ?? ""),
+    timezone: r.timezone != null ? String(r.timezone) : null,
+    operator_onboarding_status: (r.operator_onboarding_status != null
+      ? String(r.operator_onboarding_status)
+      : null) as OperatorOnboardingStatus | null,
+    invitation_expires_at:
+      r.invitation_expires_at != null ? String(r.invitation_expires_at) : null,
+    assigned_workspaces: parseAssignedWorkspaces(r.operator_assigned_workspaces),
+    created_at: String(r.created_at ?? ""),
+    invite_status: inviteStatus,
+    is_active: !disabled,
+  }
+}
+
+/** Load one operator row for the admin detail panel. */
+export async function getOperatorAdminRow(userId: string): Promise<OperatorAdminRow | null> {
+  const cleanId = userId.trim()
+  if (!cleanId) return null
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      SELECT u.id, u.email, u.name, u.phone, u.timezone, u.operator_onboarding_status,
+             u.invitation_expires_at, u.operator_assigned_workspaces, u.created_at, u.invite_status,
+             r.is_active AS receptionist_is_active
+      FROM users u
+      LEFT JOIN receptionists r ON r.portal_user_id = u.id
+      WHERE u.id = ${cleanId}
+        AND u.account_role = 'receptionist'
+      LIMIT 1
+    `) as Record<string, unknown>[]
+    const row = rows[0]
+    if (!row) return null
+    return mapOperatorAdminRow(row)
+  } catch (e) {
+    if (isMissingOperatorColumn(e)) return null
+    throw e
+  }
+}
+
+/** Disable an operator — blocks login, routing, and new invite links until re-enabled. */
+export async function disableOperatorAdmin(userId: string): Promise<boolean> {
+  const cleanId = userId.trim()
+  if (!cleanId) return false
+  const sql = getSql()
+  const rows = (await sql`
+    UPDATE users
+    SET invite_status = 'disabled',
+        invitation_token = NULL,
+        invitation_expires_at = NULL
+    WHERE id = ${cleanId}
+      AND account_role = 'receptionist'
+    RETURNING id
+  `) as Record<string, unknown>[]
+  if (!rows[0]) return false
+  await sql`
+    UPDATE receptionists
+    SET is_active = false
+    WHERE portal_user_id = ${cleanId}
+  `
+  return true
+}
+
+/** Re-enable a disabled operator (active operators can answer again; pending must resend invite). */
+export async function enableOperatorAdmin(userId: string): Promise<boolean> {
+  const cleanId = userId.trim()
+  if (!cleanId) return false
+  const sql = getSql()
+  const rows = (await sql`
+    SELECT operator_onboarding_status
+    FROM users
+    WHERE id = ${cleanId}
+      AND account_role = 'receptionist'
+    LIMIT 1
+  `) as Record<string, unknown>[]
+  const row = rows[0]
+  if (!row) return false
+
+  const opStatus = String(row.operator_onboarding_status ?? "")
+  const nextInviteStatus = opStatus === "ACTIVE_READY" ? "active" : "invited"
+
+  await sql`
+    UPDATE users
+    SET invite_status = ${nextInviteStatus}
+    WHERE id = ${cleanId}
+  `
+  await sql`
+    UPDATE receptionists
+    SET is_active = true
+    WHERE portal_user_id = ${cleanId}
+  `
+  return true
+}
+
+/** Remove a platform operator stub or account (admin console only). */
+export async function deleteOperatorAdmin(userId: string): Promise<boolean> {
+  const cleanId = userId.trim()
+  if (!cleanId) return false
+  const sql = getSql()
+  const rows = (await sql`
+    SELECT id FROM users
+    WHERE id = ${cleanId}
+      AND account_role = 'receptionist'
+    LIMIT 1
+  `) as Record<string, unknown>[]
+  if (!rows[0]) return false
+
+  await sql`DELETE FROM receptionists WHERE portal_user_id = ${cleanId}`
+  const deleted = (await sql`
+    DELETE FROM users
+    WHERE id = ${cleanId}
+      AND account_role = 'receptionist'
+    RETURNING id
+  `) as Record<string, unknown>[]
+  return Boolean(deleted[0])
 }

@@ -3,7 +3,16 @@
 // Platform admin — invite operators and track provisioning status.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, MessageSquare, Radio, UserPlus } from "lucide-react"
+import {
+  Ban,
+  ChevronRight,
+  Loader2,
+  MessageSquare,
+  Radio,
+  Trash2,
+  UserPlus,
+  UserCheck,
+} from "lucide-react"
 import type {
   AdminOperatorWorkspaceOption,
   OperatorAdminRow,
@@ -14,6 +23,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 const STATUS_LABEL: Record<OperatorOnboardingStatus, string> = {
@@ -33,6 +50,35 @@ function formatStatus(raw: OperatorOnboardingStatus | null): OperatorOnboardingS
   return "PENDING_INVITE"
 }
 
+function formatPhoneDisplay(phone: string | null): string {
+  if (!phone) return "—"
+  const d = phone.replace(/\D/g, "")
+  if (d.length === 11 && d.startsWith("1")) return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return phone
+}
+
+function formatWhen(iso: string | null): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+}
+
+function canResendInvite(op: OperatorAdminRow): boolean {
+  if (!op.is_active) return false
+  const status = formatStatus(op.operator_onboarding_status)
+  return status === "PENDING_INVITE" || status === "DEVICE_TESTING"
+}
+
+function statusBadge(op: OperatorAdminRow) {
+  if (!op.is_active) {
+    return { label: "Disabled", className: "bg-slate-500/15 text-slate-300 ring-slate-500/30" }
+  }
+  const status = formatStatus(op.operator_onboarding_status)
+  return { label: STATUS_LABEL[status], className: STATUS_CLASS[status] }
+}
+
 export function OperatorOnboardingDashboard() {
   const [operators, setOperators] = useState<OperatorAdminRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,9 +91,10 @@ export function OperatorOnboardingDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [lastSentTo, setLastSentTo] = useState<string | null>(null)
   const [manualLink, setManualLink] = useState<string | null>(null)
-  const [resendingId, setResendingId] = useState<string | null>(null)
-  const [resendNotice, setResendNotice] = useState<string | null>(null)
-  const [queueManualLink, setQueueManualLink] = useState<string | null>(null)
+  const [selectedOperator, setSelectedOperator] = useState<OperatorAdminRow | null>(null)
+  const [detailBusy, setDetailBusy] = useState<string | null>(null)
+  const [detailNotice, setDetailNotice] = useState<string | null>(null)
+  const [detailManualLink, setDetailManualLink] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -55,7 +102,12 @@ export function OperatorOnboardingDashboard() {
       const res = await fetch("/api/admin/receptionists", { credentials: "include", cache: "no-store" })
       const json = (await res.json()) as { data?: { operators?: OperatorAdminRow[] }; error?: string }
       if (!res.ok) throw new Error(json.error ?? "Could not load operators")
-      setOperators(json.data?.operators ?? [])
+      const rows = json.data?.operators ?? []
+      setOperators(rows)
+      setSelectedOperator((prev) => {
+        if (!prev) return null
+        return rows.find((r) => r.id === prev.id) ?? null
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed")
     } finally {
@@ -103,18 +155,17 @@ export function OperatorOnboardingDashboard() {
     })
   }
 
-  function canResendInvite(status: OperatorOnboardingStatus): boolean {
-    return status === "PENDING_INVITE" || status === "DEVICE_TESTING"
+  function openOperatorDetail(op: OperatorAdminRow) {
+    setSelectedOperator(op)
+    setDetailNotice(null)
+    setDetailManualLink(null)
   }
 
   async function resendInvite(op: OperatorAdminRow) {
-    const status = formatStatus(op.operator_onboarding_status)
-    if (!canResendInvite(status)) return
-
-    setResendingId(op.id)
-    setResendNotice(null)
-    setQueueManualLink(null)
-    setError(null)
+    if (!canResendInvite(op)) return
+    setDetailBusy("resend")
+    setDetailNotice(null)
+    setDetailManualLink(null)
     try {
       const res = await fetch("/api/admin/invite-operator/resend", {
         method: "POST",
@@ -134,19 +185,67 @@ export function OperatorOnboardingDashboard() {
       if (!res.ok) throw new Error(json.error ?? "Resend failed")
 
       if (json.data?.sms_sent === false) {
-        setQueueManualLink(json.data?.onboard_url ?? null)
-        setResendNotice(
+        setDetailManualLink(json.data?.onboard_url ?? null)
+        setDetailNotice(
           json.data?.sms_error ??
-            `Text to ${op.name} could not be sent. Copy the setup link below.`
+            "Text could not be sent. Copy the setup link below and send it manually."
         )
       } else {
-        setResendNotice(`Text resent to ${json.data?.phone_display ?? op.phone ?? op.name}.`)
+        setDetailNotice(`Setup text sent to ${json.data?.phone_display ?? formatPhoneDisplay(op.phone)}.`)
       }
       await load()
     } catch (e) {
-      setResendNotice(e instanceof Error ? e.message : "Resend failed")
+      setDetailNotice(e instanceof Error ? e.message : "Resend failed")
     } finally {
-      setResendingId(null)
+      setDetailBusy(null)
+    }
+  }
+
+  async function patchOperator(op: OperatorAdminRow, action: "disable" | "enable") {
+    setDetailBusy(action)
+    setDetailNotice(null)
+    try {
+      const res = await fetch(`/api/admin/receptionists/${encodeURIComponent(op.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      })
+      const json = (await res.json()) as { data?: { message?: string }; error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Update failed")
+      setDetailNotice(json.data?.message ?? (action === "disable" ? "Operator disabled." : "Operator enabled."))
+      await load()
+    } catch (e) {
+      setDetailNotice(e instanceof Error ? e.message : "Update failed")
+    } finally {
+      setDetailBusy(null)
+    }
+  }
+
+  async function deleteOperator(op: OperatorAdminRow) {
+    const label = op.name || formatPhoneDisplay(op.phone)
+    if (
+      !window.confirm(
+        `Delete ${label}? This removes their operator account and cannot be undone.`
+      )
+    ) {
+      return
+    }
+    setDetailBusy("delete")
+    setDetailNotice(null)
+    try {
+      const res = await fetch(`/api/admin/receptionists/${encodeURIComponent(op.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Delete failed")
+      setSelectedOperator(null)
+      await load()
+    } catch (e) {
+      setDetailNotice(e instanceof Error ? e.message : "Delete failed")
+    } finally {
+      setDetailBusy(null)
     }
   }
 
@@ -197,6 +296,8 @@ export function OperatorOnboardingDashboard() {
       setBusy(false)
     }
   }
+
+  const detailBadge = selectedOperator ? statusBadge(selectedOperator) : null
 
   return (
     <div className="space-y-8">
@@ -334,21 +435,6 @@ export function OperatorOnboardingDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            {resendNotice ? (
-              <p
-                className={cn(
-                  "mb-4 rounded-lg border p-3 text-xs",
-                  queueManualLink
-                    ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-                )}
-              >
-                {resendNotice}
-                {queueManualLink ? (
-                  <span className="mt-2 block break-all">Setup link: {queueManualLink}</span>
-                ) : null}
-              </p>
-            ) : null}
             {loading ? (
               <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading operators…
@@ -358,51 +444,36 @@ export function OperatorOnboardingDashboard() {
             ) : (
               <ul className="divide-y divide-slate-800">
                 {operators.map((op) => {
-                  const status = formatStatus(op.operator_onboarding_status)
-                  const resendable = canResendInvite(status)
-                  const resending = resendingId === op.id
+                  const badge = statusBadge(op)
                   return (
-                    <li key={op.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0">
-                      <div className="min-w-0">
-                        {resendable ? (
-                          <button
-                            type="button"
-                            onClick={() => void resendInvite(op)}
-                            disabled={Boolean(resendingId)}
-                            title="Click to resend setup text"
-                            className="group flex items-center gap-2 text-left font-medium text-slate-100 hover:text-violet-200 disabled:opacity-60"
-                          >
-                            {resending ? (
-                              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-violet-300" aria-hidden />
-                            ) : (
-                              <MessageSquare
-                                className="h-3.5 w-3.5 shrink-0 text-slate-500 group-hover:text-violet-300"
-                                aria-hidden
-                              />
-                            )}
-                            {op.name || op.phone || op.email}
-                          </button>
-                        ) : (
-                          <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
-                        )}
-                        <p className="text-xs text-slate-500">{op.phone || op.email}</p>
-                        {resendable ? (
-                          <p className="mt-1 text-[10px] text-violet-300/80">Tap name to resend setup text</p>
-                        ) : null}
-                        {op.assigned_workspaces.length > 0 ? (
-                          <p className="mt-1 text-xs text-slate-400">
-                            {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
-                          </p>
-                        ) : null}
-                      </div>
-                      <span
-                        className={cn(
-                          "inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
-                          STATUS_CLASS[status]
-                        )}
+                    <li key={op.id}>
+                      <button
+                        type="button"
+                        onClick={() => openOperatorDetail(op)}
+                        className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left transition-colors first:pt-0 hover:bg-slate-900/40"
                       >
-                        {STATUS_LABEL[status]}
-                      </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
+                          <p className="text-xs text-slate-500">{formatPhoneDisplay(op.phone)}</p>
+                          {op.assigned_workspaces.length > 0 ? (
+                            <p className="mt-1 text-xs text-slate-400">
+                              {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-[10px] text-slate-600">Tap for details</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                              badge.className
+                            )}
+                          >
+                            {badge.label}
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-slate-600" aria-hidden />
+                        </div>
+                      </button>
                     </li>
                   )
                 })}
@@ -411,6 +482,148 @@ export function OperatorOnboardingDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={Boolean(selectedOperator)} onOpenChange={(open) => !open && setSelectedOperator(null)}>
+        <DialogContent className="border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md">
+          {selectedOperator ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-slate-100">
+                  {selectedOperator.name || formatPhoneDisplay(selectedOperator.phone)}
+                </DialogTitle>
+                <DialogDescription className="text-slate-400">
+                  Operator details and provisioning actions
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-500">Status</span>
+                  {detailBadge ? (
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                        detailBadge.className
+                      )}
+                    >
+                      {detailBadge.label}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Cell</span>
+                  <span className="text-slate-200">{formatPhoneDisplay(selectedOperator.phone)}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Invited</span>
+                  <span className="text-slate-200">{formatWhen(selectedOperator.created_at)}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Link expires</span>
+                  <span className="text-slate-200">{formatWhen(selectedOperator.invitation_expires_at)}</span>
+                </div>
+                {selectedOperator.assigned_workspaces.length > 0 ? (
+                  <div>
+                    <span className="text-slate-500">Workspaces</span>
+                    <p className="mt-1 text-slate-200">
+                      {selectedOperator.assigned_workspaces.map((w) => w.business_name).join(", ")}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              {detailNotice ? (
+                <p
+                  className={cn(
+                    "rounded-lg border p-3 text-xs",
+                    detailManualLink
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                  )}
+                >
+                  {detailNotice}
+                  {detailManualLink ? (
+                    <span className="mt-2 block break-all">Setup link: {detailManualLink}</span>
+                  ) : null}
+                </p>
+              ) : null}
+
+              <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch">
+                {canResendInvite(selectedOperator) ? (
+                  <Button
+                    type="button"
+                    className="w-full bg-violet-600 hover:bg-violet-500"
+                    disabled={Boolean(detailBusy)}
+                    onClick={() => void resendInvite(selectedOperator)}
+                  >
+                    {detailBusy === "resend" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <MessageSquare className="h-4 w-4" aria-hidden />
+                    )}
+                    Resend setup text
+                  </Button>
+                ) : formatStatus(selectedOperator.operator_onboarding_status) === "ACTIVE_READY" ? (
+                  <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-200/90">
+                    This operator finished setup and is active. Disable them to pause routing.
+                  </p>
+                ) : !selectedOperator.is_active ? (
+                  <p className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
+                    Re-enable this operator, then use Resend setup text if they still need to finish onboarding.
+                  </p>
+                ) : null}
+
+                {selectedOperator.is_active ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                    disabled={Boolean(detailBusy)}
+                    onClick={() => void patchOperator(selectedOperator, "disable")}
+                  >
+                    {detailBusy === "disable" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <Ban className="h-4 w-4" aria-hidden />
+                    )}
+                    Disable operator
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                    disabled={Boolean(detailBusy)}
+                    onClick={() => void patchOperator(selectedOperator, "enable")}
+                  >
+                    {detailBusy === "enable" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <UserCheck className="h-4 w-4" aria-hidden />
+                    )}
+                    Re-enable operator
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full"
+                  disabled={Boolean(detailBusy)}
+                  onClick={() => void deleteOperator(selectedOperator)}
+                >
+                  {detailBusy === "delete" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  )}
+                  Delete operator
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

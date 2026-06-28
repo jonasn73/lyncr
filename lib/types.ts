@@ -27,6 +27,10 @@ export interface OperatorAdminRow {
   invitation_expires_at: string | null
   assigned_workspaces: OperatorAssignedWorkspace[]
   created_at: string
+  /** invited | active | disabled */
+  invite_status: string | null
+  /** False when disabled or receptionist row is inactive. */
+  is_active: boolean
 }
 
 /** Workspace + line option for admin operator invite picker. */
