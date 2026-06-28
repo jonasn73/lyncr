@@ -14,10 +14,12 @@ import { useTelnyxWebRtc, WEBRTC_REMOTE_AUDIO_ID } from "@/lib/webrtc/use-telnyx
 
 type Preview = {
   email: string
+  phone: string | null
   name: string
   timezone: string | null
   status: OperatorOnboardingStatus
   assigned_workspaces: OperatorAssignedWorkspace[]
+  phone_verified_by_sms_invite: boolean
 }
 
 export default function OperatorOnboardPage() {
@@ -57,8 +59,8 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
   )
 }
 
-function StepDots({ step }: { step: number }) {
-  const labels = ["Hardware", "Fallback", "Ready"]
+function StepDots({ step, smsInvite }: { step: number; smsInvite?: boolean }) {
+  const labels = smsInvite ? ["Hardware", "Account", "Ready"] : ["Hardware", "Fallback", "Ready"]
   return (
     <div className="mb-8 flex items-center justify-center gap-2">
       {labels.map((label, i) => (
@@ -113,10 +115,12 @@ function OperatorOnboardWizard() {
         if (j.data?.valid) {
           setPreview({
             email: j.data.email,
+            phone: j.data.phone ?? null,
             name: j.data.name,
             timezone: j.data.timezone,
             status: j.data.status,
             assigned_workspaces: j.data.assigned_workspaces ?? [],
+            phone_verified_by_sms_invite: Boolean(j.data.phone_verified_by_sms_invite),
           })
           if (j.data.status === "ACTIVE_READY") setActivated(true)
           else if (j.data.status === "DEVICE_TESTING") setStep(1)
@@ -174,6 +178,33 @@ function OperatorOnboardWizard() {
     }
   }
 
+  async function activateFromSmsInvite() {
+    setError(null)
+    setBusy(true)
+    try {
+      const res = await fetch("/api/auth/onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          action: "activate",
+          token,
+          password,
+          name: preview?.name,
+          prefer_web_routing: micOk,
+        }),
+      })
+      const json = (await res.json()) as { data?: { redirect?: string }; error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Activation failed")
+      setActivated(true)
+      setStep(2)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Activation failed")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function verifyAndFinish() {
     setError(null)
     setBusy(true)
@@ -219,7 +250,7 @@ function OperatorOnboardWizard() {
 
   return (
     <OnboardShell>
-      <StepDots step={step} />
+      <StepDots step={step} smsInvite={preview.phone_verified_by_sms_invite} />
 
       <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-6 shadow-xl backdrop-blur-sm">
         <p className="text-center text-sm text-slate-400">
@@ -256,78 +287,121 @@ function OperatorOnboardWizard() {
         ) : null}
 
         {step === 1 ? (
-          <div className="mt-6 space-y-4">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/15 ring-1 ring-sky-500/30">
-                <Phone className="h-7 w-7 text-sky-300" aria-hidden />
-              </span>
-              <h1 className="text-xl font-semibold">Step 2 · Fallback binding</h1>
-              <p className="text-sm text-slate-400">
-                Add your mobile number and verify with a one-time code. This is your backup when WebRTC is unavailable.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="backup-phone" className="text-slate-300">
-                Mobile number
-              </Label>
-              <Input
-                id="backup-phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(502) 555-0100"
-                className="border-slate-700 bg-slate-900/80"
-              />
-            </div>
-            {!otpSent ? (
-              <Button type="button" className="w-full" variant="secondary" disabled={busy} onClick={() => void sendOtp()}>
-                Send verification code
+          preview.phone_verified_by_sms_invite ? (
+            <div className="mt-6 space-y-4">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/15 ring-1 ring-sky-500/30">
+                  <ShieldCheck className="h-7 w-7 text-sky-300" aria-hidden />
+                </span>
+                <h1 className="text-xl font-semibold">Step 2 · Finish setup</h1>
+                <p className="text-sm text-slate-400">
+                  Your cell was verified when you received the invite text. Choose a password to secure your operator
+                  account.
+                </p>
+              </div>
+              {preview.phone ? (
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-center text-sm text-slate-300">
+                  {preview.phone}
+                </div>
+              ) : null}
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-slate-300">
+                  Create password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="border-slate-700 bg-slate-900/80"
+                />
+              </div>
+              {error ? <p className="text-sm text-red-300">{error}</p> : null}
+              <Button
+                type="button"
+                className="w-full bg-emerald-600 hover:bg-emerald-500"
+                disabled={busy || password.length < 8}
+                onClick={() => void activateFromSmsInvite()}
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                Activate account
               </Button>
-            ) : (
-              <>
-                {devCode ? (
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-center text-xs text-amber-100">
-                    Dev code: <strong>{devCode}</strong>
-                  </p>
-                ) : null}
-                <div className="space-y-2">
-                  <Label htmlFor="otp" className="text-slate-300">
-                    SMS code
-                  </Label>
-                  <Input
-                    id="otp"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="6-digit code"
-                    className="border-slate-700 bg-slate-900/80"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-slate-300">
-                    Create password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
-                    className="border-slate-700 bg-slate-900/80"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  className="w-full bg-emerald-600 hover:bg-emerald-500"
-                  disabled={busy}
-                  onClick={() => void verifyAndFinish()}
-                >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  Verify & activate
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/15 ring-1 ring-sky-500/30">
+                  <Phone className="h-7 w-7 text-sky-300" aria-hidden />
+                </span>
+                <h1 className="text-xl font-semibold">Step 2 · Fallback binding</h1>
+                <p className="text-sm text-slate-400">
+                  Add your mobile number and verify with a one-time code. This is your backup when WebRTC is unavailable.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="backup-phone" className="text-slate-300">
+                  Mobile number
+                </Label>
+                <Input
+                  id="backup-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(502) 555-0100"
+                  className="border-slate-700 bg-slate-900/80"
+                />
+              </div>
+              {!otpSent ? (
+                <Button type="button" className="w-full" variant="secondary" disabled={busy} onClick={() => void sendOtp()}>
+                  Send verification code
                 </Button>
-              </>
-            )}
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          </div>
+              ) : (
+                <>
+                  {devCode ? (
+                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-center text-xs text-amber-100">
+                      Dev code: <strong>{devCode}</strong>
+                    </p>
+                  ) : null}
+                  <div className="space-y-2">
+                    <Label htmlFor="otp" className="text-slate-300">
+                      SMS code
+                    </Label>
+                    <Input
+                      id="otp"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="6-digit code"
+                      className="border-slate-700 bg-slate-900/80"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-slate-300">
+                      Create password
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className="border-slate-700 bg-slate-900/80"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500"
+                    disabled={busy}
+                    onClick={() => void verifyAndFinish()}
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                    Verify & activate
+                  </Button>
+                </>
+              )}
+              {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            </div>
+          )
         ) : null}
 
         {step === 2 ? (

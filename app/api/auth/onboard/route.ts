@@ -7,6 +7,7 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import {
+  activateOperatorFromSmsInvite,
   getOperatorInviteByToken,
   markOperatorDeviceTesting,
   sendOperatorOnboardingOtp,
@@ -28,10 +29,12 @@ export async function GET(req: NextRequest) {
       data: {
         valid: true,
         email: preview.email,
+        phone: preview.phone,
         name: preview.name,
         timezone: preview.timezone,
         status: preview.status,
         assigned_workspaces: preview.assignedWorkspaces,
+        phone_verified_by_sms_invite: preview.phoneVerifiedBySmsInvite,
       },
     })
   } catch (e) {
@@ -77,6 +80,31 @@ export async function POST(req: NextRequest) {
       const activated = await verifyOperatorOtpAndActivate({
         token,
         code,
+        password,
+        name,
+        preferWebRouting,
+      })
+
+      const cookieValue = createSessionCookie(activated.userId)
+      const res = NextResponse.json({
+        data: {
+          status: "ACTIVE_READY",
+          user_id: activated.userId,
+          email: activated.email,
+          redirect: "/receptionist",
+        },
+      })
+      res.cookies.set(getSessionCookieName(), cookieValue, getSessionCookieOptions())
+      return res
+    }
+
+    if (action === "activate") {
+      const password = String(body.password ?? "")
+      const name = String(body.name ?? "").trim() || undefined
+      const preferWebRouting = Boolean(body.prefer_web_routing ?? body.micTestPassed)
+
+      const activated = await activateOperatorFromSmsInvite({
+        token,
         password,
         name,
         preferWebRouting,

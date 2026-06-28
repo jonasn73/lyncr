@@ -32,6 +32,31 @@ function isMissingOperatorColumn(e: unknown): boolean {
 const MIGRATION_HINT =
   "Operator onboarding needs migration 082 — run scripts/082-operator-onboarding.sql in Neon."
 
+/** Placeholder email so phone-only SMS invites satisfy users.email UNIQUE. */
+export function syntheticEmailForPhone(e164: string): string {
+  const digits = e164.replace(/\D/g, "")
+  return `${digits || "unknown"}@invite.lyncr.app`
+}
+
+export function isSyntheticInviteEmail(email: string): boolean {
+  return email.trim().toLowerCase().endsWith("@invite.lyncr.app")
+}
+
+/** Human-readable contact for admin queue (prefer cell over synthetic email). */
+export function formatOperatorContact(email: string, phone: string | null): string {
+  const p = phone?.trim()
+  if (p) {
+    const d = p.replace(/\D/g, "")
+    if (d.length === 11 && d.startsWith("1")) {
+      return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
+    }
+    if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+    return p
+  }
+  if (isSyntheticInviteEmail(email)) return "—"
+  return email
+}
+
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? ""
   const cleaned = local.replace(/[._-]+/g, " ").trim()
@@ -73,42 +98,60 @@ function generateOtpCode(): string {
 export type OperatorInvitePreview = {
   userId: string
   email: string
+  phone: string | null
   name: string
   timezone: string | null
   status: OperatorOnboardingStatus
   assignedWorkspaces: OperatorAssignedWorkspace[]
+  /** True when the invite text already verified this cell — skip OTP on setup. */
+  phoneVerifiedBySmsInvite: boolean
 }
 
-/** Create or refresh an operator invite stub with platform-admin metadata. */
+/** Create or refresh an operator invite stub (SMS-first — phone is required). */
 export async function inviteOperatorStub(params: {
-  email: string
+  phone: string
   name: string
-  timezone: string
+  email?: string | null
+  timezone?: string
   assignedWorkspaces?: OperatorAssignedWorkspace[]
-}): Promise<{ userId: string; token: string; expiresAt: string; created: boolean }> {
+}): Promise<{ userId: string; token: string; expiresAt: string; created: boolean; phone: string }> {
   const sql = getSql()
-  const email = params.email.trim().toLowerCase()
-  const name = params.name.trim() || nameFromEmail(email)
-  const timezone = params.timezone.trim() || "America/New_York"
+  const phone = normalizePhoneNumberE164(params.phone)
+  if (phone.replace(/\D/g, "").length < 10) {
+    throw new Error("Enter a valid US cell phone number.")
+  }
+  const name = params.name.trim() || "Lyncr Operator"
+  const timezone = (params.timezone ?? "America/New_York").trim() || "America/New_York"
+  const email =
+    params.email?.trim() && params.email.includes("@")
+      ? params.email.trim().toLowerCase()
+      : syntheticEmailForPhone(phone)
   const workspaces = JSON.stringify(parseAssignedWorkspaces(params.assignedWorkspaces ?? []))
   const token = crypto.randomUUID()
   const expiresAt = new Date(Date.now() + RECEPTIONIST_INVITE_TTL_MS).toISOString()
+  const phoneDigits = phone.replace(/\D/g, "")
 
   try {
     const existing = (await sql`
-      SELECT id, invite_status, operator_onboarding_status FROM users WHERE lower(email) = ${email} LIMIT 1
+      SELECT id, invite_status, operator_onboarding_status, email
+      FROM users
+      WHERE lower(email) = ${email}
+         OR regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = ${phoneDigits}
+      LIMIT 1
     `) as Record<string, unknown>[]
 
     if (existing[0]) {
       const status = String(existing[0].invite_status ?? "").toLowerCase()
       const opStatus = String(existing[0].operator_onboarding_status ?? "")
       if (status === "active" || opStatus === "ACTIVE_READY") {
-        throw new Error("An active operator account already exists for this email.")
+        throw new Error("An active operator account already exists for this phone number.")
       }
       const id = String(existing[0].id)
       await sql`
         UPDATE users
         SET name = ${name},
+            email = ${email},
+            phone = ${phone},
             invitation_token = ${token},
             invitation_expires_at = ${expiresAt}::timestamptz,
             invite_status = 'invited',
@@ -118,7 +161,7 @@ export async function inviteOperatorStub(params: {
             operator_assigned_workspaces = ${workspaces}::jsonb
         WHERE id = ${id}
       `
-      return { userId: id, token, expiresAt, created: false }
+      return { userId: id, token, expiresAt, created: false, phone }
     }
 
     const id = crypto.randomUUID()
@@ -129,12 +172,12 @@ export async function inviteOperatorStub(params: {
         operator_onboarding_status, timezone, operator_assigned_workspaces, created_at
       )
       VALUES (
-        ${id}, ${email}, ${name}, '', 'Lyncr Operator', 'generic', '',
+        ${id}, ${email}, ${name}, ${phone}, 'Lyncr Operator', 'generic', '',
         'receptionist', 'invited', ${token}, ${expiresAt}::timestamptz,
         'PENDING_INVITE', ${timezone}, ${workspaces}::jsonb, now()
       )
     `
-    return { userId: id, token, expiresAt, created: true }
+    return { userId: id, token, expiresAt, created: true, phone }
   } catch (e) {
     if (isMissingOperatorColumn(e)) throw new Error(MIGRATION_HINT)
     throw e
@@ -148,7 +191,7 @@ export async function getOperatorInviteByToken(token: string): Promise<OperatorI
   const sql = getSql()
   try {
     const rows = (await sql`
-      SELECT id, email, name, timezone, operator_onboarding_status, operator_assigned_workspaces
+      SELECT id, email, name, phone, timezone, operator_onboarding_status, operator_assigned_workspaces
       FROM users
       WHERE invitation_token = ${clean}
         AND coalesce(invite_status, '') = 'invited'
@@ -158,13 +201,18 @@ export async function getOperatorInviteByToken(token: string): Promise<OperatorI
     const row = rows[0]
     if (!row) return null
     const status = String(row.operator_onboarding_status ?? "PENDING_INVITE") as OperatorOnboardingStatus
+    const email = String(row.email)
+    const phoneRaw = row.phone != null ? String(row.phone) : null
+    const phone = phoneRaw?.trim() ? normalizePhoneNumberE164(phoneRaw) : null
     return {
       userId: String(row.id),
-      email: String(row.email),
+      email,
+      phone,
       name: String(row.name ?? ""),
       timezone: row.timezone != null ? String(row.timezone) : null,
       status: status === "DEVICE_TESTING" || status === "ACTIVE_READY" ? status : "PENDING_INVITE",
       assignedWorkspaces: parseAssignedWorkspaces(row.operator_assigned_workspaces),
+      phoneVerifiedBySmsInvite: Boolean(phone && isSyntheticInviteEmail(email)),
     }
   } catch (e) {
     if (isMissingOperatorColumn(e)) return null
@@ -251,8 +299,7 @@ export async function verifyOperatorOtpAndActivate(params: {
 
   const sql = getSql()
   const rows = (await sql`
-    SELECT id, email, name, phone, onboarding_otp_code, onboarding_otp_expires_at,
-           operator_assigned_workspaces, operator_onboarding_status
+    SELECT onboarding_otp_code, onboarding_otp_expires_at
     FROM users
     WHERE id = ${preview.userId}
       AND invitation_token = ${cleanToken}
@@ -268,17 +315,61 @@ export async function verifyOperatorOtpAndActivate(params: {
     throw new Error("Verification code is incorrect or expired.")
   }
 
-  const name = (params.name ?? String(row.name ?? "")).trim() || preview.name
-  const phone = normalizePhoneNumberE164(String(row.phone ?? ""))
+  return finalizeOperatorActivation({
+    preview,
+    token: cleanToken,
+    password: params.password,
+    name: params.name,
+    preferWebRouting: params.preferWebRouting,
+  })
+}
+
+/** SMS invite link already verified the cell — password only, no OTP. */
+export async function activateOperatorFromSmsInvite(params: {
+  token: string
+  password: string
+  name?: string
+  preferWebRouting?: boolean
+}): Promise<{ userId: string; email: string }> {
+  const cleanToken = params.token.trim()
+  const preview = await getOperatorInviteByToken(cleanToken)
+  if (!preview) throw new Error("Invite link is invalid or expired.")
+  if (!preview.phoneVerifiedBySmsInvite || !preview.phone) {
+    throw new Error("This invite requires phone verification.")
+  }
+  if (params.password.length < 8) throw new Error("Password must be at least 8 characters.")
+
+  return finalizeOperatorActivation({
+    preview,
+    token: cleanToken,
+    password: params.password,
+    name: params.name,
+    preferWebRouting: params.preferWebRouting,
+  })
+}
+
+async function finalizeOperatorActivation(params: {
+  preview: OperatorInvitePreview
+  token: string
+  password: string
+  name?: string
+  preferWebRouting?: boolean
+}): Promise<{ userId: string; email: string }> {
+  const sql = getSql()
+  const name = (params.name ?? params.preview.name).trim() || params.preview.name
+  const phone = normalizePhoneNumberE164(params.preview.phone ?? "")
+  if (phone.replace(/\D/g, "").length < 10) {
+    throw new Error("A valid phone number is required.")
+  }
   const backupPhone = phone
-  const workspaces = parseAssignedWorkspaces(row.operator_assigned_workspaces)
+  const workspaces = params.preview.assignedWorkspaces
   const workspacesJson = JSON.stringify(workspaces)
   const passwordHash = await bcrypt.hash(params.password, 10)
   const receptionistId = crypto.randomUUID()
   const routingEndpoint = params.preferWebRouting ? "WEB" : "CELL"
 
   const existingRec = (await sql`
-    SELECT id FROM receptionists WHERE portal_user_id = ${preview.userId} LIMIT 1
+    SELECT id FROM receptionists WHERE portal_user_id = ${params.preview.userId} LIMIT 1
   `) as Record<string, unknown>[]
 
   const ops = [
@@ -294,7 +385,7 @@ export async function verifyOperatorOtpAndActivate(params: {
           invitation_expires_at = NULL,
           onboarding_otp_code = NULL,
           onboarding_otp_expires_at = NULL
-      WHERE id = ${preview.userId}
+      WHERE id = ${params.preview.userId}
     `,
   ]
 
@@ -306,8 +397,8 @@ export async function verifyOperatorOtpAndActivate(params: {
         assigned_workspaces, created_at
       )
       VALUES (
-        ${receptionistId}, ${preview.userId}, ${name}, ${phone}, ${initialsFor(name)}, 'bg-primary', 0.25,
-        'FLAT_RATE', ${DEFAULT_PAYOUT_USD}, true, ${preview.userId}, ${DEFAULT_SIP_USERNAME},
+        ${receptionistId}, ${params.preview.userId}, ${name}, ${phone}, ${initialsFor(name)}, 'bg-primary', 0.25,
+        'FLAT_RATE', ${DEFAULT_PAYOUT_USD}, true, ${params.preview.userId}, ${DEFAULT_SIP_USERNAME},
         ${routingEndpoint}, ${backupPhone}, ${workspacesJson}::jsonb, now()
       )
     `)
@@ -320,12 +411,12 @@ export async function verifyOperatorOtpAndActivate(params: {
           assigned_workspaces = ${workspacesJson}::jsonb,
           routing_endpoint = ${routingEndpoint},
           is_active = true
-      WHERE portal_user_id = ${preview.userId}
+      WHERE portal_user_id = ${params.preview.userId}
     `)
   }
 
   await sql.transaction(ops)
-  return { userId: preview.userId, email: preview.email }
+  return { userId: params.preview.userId, email: params.preview.email }
 }
 
 /** List operator invite/provisioning rows for the platform admin console. */
@@ -333,7 +424,7 @@ export async function listOperatorOnboardingRows(): Promise<OperatorAdminRow[]> 
   const sql = getSql()
   try {
     const rows = (await sql`
-      SELECT id, email, name, timezone, operator_onboarding_status, invitation_expires_at,
+      SELECT id, email, name, phone, timezone, operator_onboarding_status, invitation_expires_at,
              operator_assigned_workspaces, created_at
       FROM users
       WHERE account_role = 'receptionist'
@@ -347,6 +438,7 @@ export async function listOperatorOnboardingRows(): Promise<OperatorAdminRow[]> 
     return rows.map((r) => ({
       id: String(r.id),
       email: String(r.email),
+      phone: r.phone != null && String(r.phone).trim() ? String(r.phone) : null,
       name: String(r.name ?? ""),
       timezone: r.timezone != null ? String(r.timezone) : null,
       operator_onboarding_status: (r.operator_onboarding_status != null

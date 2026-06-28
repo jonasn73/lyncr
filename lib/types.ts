@@ -20,6 +20,7 @@ export interface OperatorAssignedWorkspace {
 export interface OperatorAdminRow {
   id: string
   email: string
+  phone: string | null
   name: string
   timezone: string | null
   operator_onboarding_status: OperatorOnboardingStatus | null

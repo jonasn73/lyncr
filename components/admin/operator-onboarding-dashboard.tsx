@@ -3,7 +3,7 @@
 // Platform admin — invite operators and track provisioning status.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, Mail, Radio, UserPlus } from "lucide-react"
+import { Loader2, MessageSquare, Radio, UserPlus } from "lucide-react"
 import type {
   AdminOperatorWorkspaceOption,
   OperatorAdminRow,
@@ -37,14 +37,13 @@ export function OperatorOnboardingDashboard() {
   const [operators, setOperators] = useState<OperatorAdminRow[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [timezone, setTimezone] = useState("America/New_York")
+  const [phone, setPhone] = useState("")
   const [workspaceOptions, setWorkspaceOptions] = useState<AdminOperatorWorkspaceOption[]>([])
   const [selectedWorkspaceKeys, setSelectedWorkspaceKeys] = useState<Set<string>>(new Set())
   const [workspacesLoading, setWorkspacesLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lastLink, setLastLink] = useState<string | null>(null)
+  const [lastSentTo, setLastSentTo] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,7 +102,7 @@ export function OperatorOnboardingDashboard() {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setLastLink(null)
+    setLastSentTo(null)
     setBusy(true)
     try {
       const assigned_workspaces = selectedWorkspaces
@@ -112,14 +111,21 @@ export function OperatorOnboardingDashboard() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, timezone, assigned_workspaces }),
+        body: JSON.stringify({ name, phone, assigned_workspaces }),
       })
-      const json = (await res.json()) as { data?: { onboard_url?: string }; error?: string }
+      const json = (await res.json()) as {
+        data?: { phone_display?: string; sms_sent?: boolean; sms_error?: string }
+        error?: string
+      }
       if (!res.ok) throw new Error(json.error ?? "Invite failed")
 
-      setLastLink(json.data?.onboard_url ?? null)
+      if (json.data?.sms_sent === false && json.data?.sms_error) {
+        throw new Error(json.data.sms_error)
+      }
+
+      setLastSentTo(json.data?.phone_display ?? phone)
       setName("")
-      setEmail("")
+      setPhone("")
       setSelectedWorkspaceKeys(new Set())
       await load()
     } catch (e) {
@@ -134,8 +140,8 @@ export function OperatorOnboardingDashboard() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Operator onboarding</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-400">
-          Invite receptionists to the Lyncr network. Each operator receives a secure magic link, completes device
-          testing, verifies a backup cell number, then enters the live console.
+          Text a setup link to each operator&apos;s cell. They tap the link, test their mic, set a password, and
+          enter the live console — no email required.
         </p>
       </div>
 
@@ -163,30 +169,20 @@ export function OperatorOnboardingDashboard() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="op-email" className="text-slate-300">
-                  Email
+                <Label htmlFor="op-phone" className="text-slate-300">
+                  Cell phone
                 </Label>
                 <Input
-                  id="op-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="operator@example.com"
+                  id="op-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(502) 555-0100"
                   required
+                  autoComplete="tel"
                   className="border-slate-700 bg-slate-950/80"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="op-tz" className="text-slate-300">
-                  Time zone
-                </Label>
-                <Input
-                  id="op-tz"
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  placeholder="America/New_York"
-                  className="border-slate-700 bg-slate-950/80"
-                />
+                <p className="text-[11px] text-slate-500">We text a one-tap setup link to this number.</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -242,14 +238,18 @@ export function OperatorOnboardingDashboard() {
                 ) : null}
               </div>
               {error ? <p className="text-sm text-red-300">{error}</p> : null}
-              {lastLink ? (
-                <p className="break-all rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-                  Magic link (also emailed): {lastLink}
+              {lastSentTo ? (
+                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                  Text sent to {lastSentTo}. They can tap the link to finish setup.
                 </p>
               ) : null}
               <Button type="submit" disabled={busy} className="w-full bg-violet-600 hover:bg-violet-500">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />}
-                Send invite
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <MessageSquare className="h-4 w-4" aria-hidden />
+                )}
+                Text invite
               </Button>
             </form>
           </CardContent>
@@ -279,8 +279,8 @@ export function OperatorOnboardingDashboard() {
                   return (
                     <li key={op.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0">
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-100">{op.name || op.email}</p>
-                        <p className="text-xs text-slate-500">{op.email}</p>
+                        <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
+                        <p className="text-xs text-slate-500">{op.phone || op.email}</p>
                         {op.assigned_workspaces.length > 0 ? (
                           <p className="mt-1 text-xs text-slate-400">
                             {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
