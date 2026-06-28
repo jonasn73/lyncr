@@ -3317,7 +3317,9 @@ export async function getCallLogUserIdByProviderSid(providerCallSid: string): Pr
 
 /** Snapshot a finished call row for owner-channel Pusher telemetry (HUD metric deltas). */
 export async function getCallLogSnapshotForTelemetry(providerCallSid: string): Promise<{
+  id: string
   user_id: string
+  from_number: string
   to_number: string
   duration_seconds: number
   call_type: string
@@ -3329,11 +3331,11 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT cl.user_id, cl.to_number, cl.duration_seconds, cl.call_type, cl.status,
+      SELECT cl.id, cl.user_id, cl.from_number, cl.to_number, cl.duration_seconds, cl.call_type, cl.status,
              pn.organization_id
       FROM call_logs cl
       LEFT JOIN phone_numbers pn ON pn.user_id = cl.user_id
-        AND regexp_replace(coalesce(pn.phone_number, ''), '\\D', '', 'g')
+        AND regexp_replace(coalesce(pn.number, ''), '\\D', '', 'g')
           = regexp_replace(coalesce(cl.to_number, ''), '\\D', '', 'g')
       WHERE cl.provider_call_sid = ${sid} OR cl.twilio_call_sid = ${sid}
       LIMIT 1
@@ -3341,7 +3343,9 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
     const row = rows[0]
     if (!row?.user_id) return null
     return {
+      id: String(row.id),
       user_id: String(row.user_id),
+      from_number: String(row.from_number ?? ""),
       to_number: String(row.to_number ?? ""),
       duration_seconds: row.duration_seconds == null ? 0 : Number(row.duration_seconds),
       call_type: String(row.call_type ?? ""),
@@ -3350,7 +3354,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
     }
   } catch {
     const rows = await sql`
-      SELECT user_id, to_number, duration_seconds, call_type, status
+      SELECT id, user_id, from_number, to_number, duration_seconds, call_type, status
       FROM call_logs
       WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
       LIMIT 1
@@ -3358,7 +3362,9 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
     const row = rows[0]
     if (!row?.user_id) return null
     return {
+      id: String(row.id),
       user_id: String(row.user_id),
+      from_number: String(row.from_number ?? ""),
       to_number: String(row.to_number ?? ""),
       duration_seconds: row.duration_seconds == null ? 0 : Number(row.duration_seconds),
       call_type: String(row.call_type ?? ""),

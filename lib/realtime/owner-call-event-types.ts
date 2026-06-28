@@ -13,6 +13,9 @@ export type OwnerCallCompletedPayload = {
   call_sid: string
   organization_id?: string | null
   to_number?: string | null
+  from_number?: string | null
+  /** Neon call_logs.id when available — drives answered-call intake popup. */
+  call_log_id?: string | null
   /** Talk time in seconds (0 for missed / canceled). */
   duration_seconds?: number
   call_type?: string | null

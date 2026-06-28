@@ -12,7 +12,7 @@ import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-nu
 import { DashboardLeadsPrefetch } from "@/components/dashboard-leads-prefetch"
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
-import { AnsweredCallCustomerPopup } from "@/components/answered-call-customer-popup"
+import { CallAnsweredModal } from "@/components/dashboard/CallAnsweredModal"
 import {
   DashboardActivationProvider,
   type DashboardActivationSeed,
@@ -30,6 +30,7 @@ import { DashboardSettingsModalsLazyHost } from "@/components/dashboard/settings
 import {
   DashboardSessionProvider,
   type DashboardSessionSnapshot,
+  useDashboardSessionOptional,
 } from "@/components/dashboard-session-context"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "scheduler", "help"]
@@ -39,13 +40,13 @@ function getActivePage(pathname: string): PageId {
   return VALID_PAGES.includes(segment as PageId) ? (segment as PageId) : "dashboard"
 }
 
-/** Popup enabled flag only — avoids passing full account object into memoized children. */
 const DashboardAnsweredCallPopup = memo(function DashboardAnsweredCallPopup({
   enabled,
 }: {
   enabled: boolean
 }) {
-  return <AnsweredCallCustomerPopup enabled={enabled} />
+  const session = useDashboardSessionOptional()
+  return <CallAnsweredModal enabled={enabled} ownerUserId={session?.companyUserId ?? null} />
 })
 
 export function DashboardShell({

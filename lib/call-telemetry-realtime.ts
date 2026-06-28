@@ -27,6 +27,8 @@ export async function broadcastCallCompleted(params: {
   callSid: string
   organizationId?: string | null
   toNumber?: string | null
+  fromNumber?: string | null
+  callLogId?: string | null
   durationSeconds?: number
   callType?: string | null
   status?: string | null
@@ -35,6 +37,8 @@ export async function broadcastCallCompleted(params: {
     call_sid: params.callSid,
     organization_id: params.organizationId ?? null,
     to_number: params.toNumber ?? null,
+    from_number: params.fromNumber ?? null,
+    call_log_id: params.callLogId ?? null,
     duration_seconds: params.durationSeconds ?? 0,
     call_type: params.callType ?? null,
     status: params.status ?? null,
@@ -51,6 +55,8 @@ export async function broadcastCallCompletedBySid(callSid: string): Promise<void
       callSid,
       organizationId: snapshot.organization_id,
       toNumber: snapshot.to_number,
+      fromNumber: snapshot.from_number,
+      callLogId: snapshot.id,
       durationSeconds: snapshot.duration_seconds,
       callType: snapshot.call_type,
       status: snapshot.status,
