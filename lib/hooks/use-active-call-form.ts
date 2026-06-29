@@ -2,7 +2,7 @@
 
 // Client state for the answered-call intake sheet (CRM + vehicle + job dispatch).
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import type { Customer } from "@/lib/types"
 
 export type ActiveCallRow = {
@@ -14,6 +14,8 @@ export type ActiveCallRow = {
 }
 
 export type ActiveCallFormState = {
+  /** Editable caller phone — used for CRM save + repeat-caller lookup. */
+  phoneNumber: string
   displayName: string
   companyName: string
   addressLine1: string
@@ -29,6 +31,7 @@ export type ActiveCallFormState = {
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
+  phoneNumber: "",
   displayName: "",
   companyName: "",
   addressLine1: "",
@@ -43,14 +46,29 @@ const EMPTY_FORM: ActiveCallFormState = {
   vehicleModel: "",
 }
 
+/** Copy saved customer fields into the intake form. */
+function formFromCustomer(c: Customer, prev: ActiveCallFormState): ActiveCallFormState {
+  return {
+    ...prev,
+    displayName: c.display_name || prev.displayName,
+    companyName: c.company_name || "",
+    addressLine1: c.address_line1 || "",
+    addressLine2: c.address_line2 || "",
+    city: c.city || "",
+    region: c.region || "",
+    postalCode: c.postal_code || "",
+    country: c.country || "US",
+    notes: c.notes || "",
+  }
+}
+
 export function useActiveCallForm(current: ActiveCallRow | null) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [jobState, setJobState] = useState<"idle" | "creating" | "created" | "error">("idle")
   const [jobError, setJobError] = useState<string | null>(null)
   const [form, setForm] = useState<ActiveCallFormState>(EMPTY_FORM)
-  const currentRef = useRef(current)
-  currentRef.current = current
+  const callLogId = current?.id ?? null
 
   const patchForm = useCallback((patch: Partial<ActiveCallFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -65,8 +83,9 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     }))
   }, [])
 
+  // Reset only when a *different* call opens — not on every poll refresh.
   useEffect(() => {
-    if (!current) {
+    if (!callLogId || !current) {
       setForm(EMPTY_FORM)
       setMoreOpen(false)
       setSaveState("idle")
@@ -81,38 +100,43 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     setJobError(null)
     setForm({
       ...EMPTY_FORM,
+      phoneNumber: current.from_number,
       displayName: current.caller_name?.trim() || "",
     })
+  }, [callLogId, current?.from_number, current?.caller_name])
+
+  // Look up an existing customer whenever the phone field changes.
+  useEffect(() => {
+    if (!callLogId) return
+    const phone = form.phoneNumber.trim()
+    if (phone.replace(/\D/g, "").length < 10) return
 
     let cancel = false
-    const q = encodeURIComponent(current.from_number)
-    fetch(`/api/customers?phone=${q}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : { customers: [] }))
-      .then((data: { customers?: Customer[] }) => {
-        if (cancel || currentRef.current?.id !== current.id) return
-        const c = data.customers?.[0]
-        if (!c) return
-        setForm((prev) => ({
-          ...prev,
-          displayName: c.display_name || prev.displayName,
-          companyName: c.company_name || "",
-          addressLine1: c.address_line1 || "",
-          addressLine2: c.address_line2 || "",
-          city: c.city || "",
-          region: c.region || "",
-          postalCode: c.postal_code || "",
-          country: c.country || "US",
-          notes: c.notes || "",
-        }))
-      })
-      .catch(() => {})
+    const t = window.setTimeout(() => {
+      const q = encodeURIComponent(phone)
+      void fetch(`/api/customers?phone=${q}`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : { customers: [] }))
+        .then((data: { customers?: Customer[] }) => {
+          if (cancel) return
+          const c = data.customers?.[0]
+          if (!c) return
+          setForm((prev) => formFromCustomer(c, prev))
+        })
+        .catch(() => {})
+    }, 350)
+
     return () => {
       cancel = true
+      window.clearTimeout(t)
     }
-  }, [current])
+  }, [callLogId, form.phoneNumber])
 
+  // Debounced autosave to Customers.
   useEffect(() => {
-    if (!current) return
+    if (!callLogId || !current) return
+    const phone = form.phoneNumber.trim()
+    if (phone.replace(/\D/g, "").length < 10) return
+
     setSaveState("idle")
     const t = window.setTimeout(() => {
       setSaveState("saving")
@@ -121,7 +145,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          phone_e164: current.from_number,
+          phone_e164: phone,
           display_name: form.displayName,
           company_name: form.companyName,
           address_line1: form.addressLine1,
@@ -141,11 +165,12 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
         .catch(() => setSaveState("error"))
     }, 1000)
     return () => window.clearTimeout(t)
-  }, [current, form])
+  }, [callLogId, current, form])
 
   const createJob = useCallback(
     async (organizationId?: string | null): Promise<boolean> => {
       if (!current) return false
+      const phone = form.phoneNumber.trim() || current.from_number
       setJobState("creating")
       setJobError(null)
       try {
@@ -155,7 +180,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             call_log_id: current.id,
-            caller_e164: current.from_number,
+            caller_e164: phone,
             customer_name: form.displayName,
             company_name: form.companyName,
             address_line1: form.addressLine1,

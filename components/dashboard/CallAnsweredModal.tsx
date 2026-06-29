@@ -104,11 +104,14 @@ function rowFromCompletedPayload(payload: OwnerCallCompletedPayload): ActiveCall
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
   row: ActiveCallRow,
-  seen: Set<string>,
-  force = false
+  seen: Set<string>
 ) {
   if (seen.has(row.id)) return
-  setCurrent((prev) => (force || !prev ? row : prev))
+  setCurrent((prev) => {
+    // Keep the same row object while this call is open so typing isn't wiped by polls.
+    if (prev?.id === row.id) return prev
+    return row
+  })
 }
 
 export type CallAnsweredModalProps = {
@@ -154,7 +157,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const tryShowAnsweredCall = () => {
       void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
         if (cancelled || !row) return
-        showCallRow(setCurrent, row, seenRef.current, true)
+        showCallRow(setCurrent, row, seenRef.current)
         stopRingingFastPoll()
       })
     }
@@ -222,7 +225,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const row = rowFromAnsweredPayload(payload)
       if (!row) return
       stopRingingFastPoll()
-      showCallRow(setCurrent, row, seenRef.current, true)
+      showCallRow(setCurrent, row, seenRef.current)
     }
 
     const onCompleted = (payload: OwnerCallCompletedPayload) => {
@@ -288,18 +291,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             </SheetHeader>
 
             <div className="max-h-[min(70vh,560px)] space-y-3 overflow-y-auto px-4 py-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="ac-display" className="text-xs">
-                  Name
-                </Label>
-                <Input
-                  id="ac-display"
-                  value={form.displayName}
-                  onChange={(e) => patchForm({ displayName: e.target.value })}
-                  placeholder="Caller name"
-                  className="h-10"
-                />
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ac-company" className="text-xs">
                   Company
@@ -389,6 +380,42 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+
+              <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                  Contact (saved to customer list)
+                </legend>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ac-phone" className="text-xs">
+                    Phone number
+                  </Label>
+                  <Input
+                    id="ac-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={form.phoneNumber}
+                    onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                    placeholder="(502) 555-1234"
+                    className="h-10 font-mono text-base"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Change this to look up a repeat caller by number. Saves automatically.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ac-display" className="text-xs">
+                    Caller name
+                  </Label>
+                  <Input
+                    id="ac-display"
+                    value={form.displayName}
+                    onChange={(e) => patchForm({ displayName: e.target.value })}
+                    placeholder="Ask before they hang up"
+                    className="h-10"
+                  />
+                </div>
+              </fieldset>
 
               {jobState === "created" ? (
                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
