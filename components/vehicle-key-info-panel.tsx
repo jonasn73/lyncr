@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react"
 import { ExternalLink, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-reference"
+import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 
 export type VehicleKeySelection = {
   profileId: string

@@ -1,5 +1,5 @@
 // Vehicle key / remote FCC reference (year + make + model → FCC IDs, frequency, chipset).
-// Source: open keyfobDB CSV (scraped from oemcarkeymall.com) — not Transponder Island.
+// Server-only — uses node:fs to load data/vehicle-key-fcc-reference.csv.
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -28,19 +28,6 @@ export type VehicleKeyLookupResult = {
   source: "keyfobdb"
   disclaimer: string
 }
-
-const KEY_STYLE_OPTIONS = [
-  "Push start (smart key)",
-  "Turn key (blade)",
-  "Remote head key",
-  "Flip key",
-  "Keyless remote only",
-  "Not sure yet",
-] as const
-
-export type VehicleKeyStyle = (typeof KEY_STYLE_OPTIONS)[number]
-
-export { KEY_STYLE_OPTIONS }
 
 let cachedRows: VehicleKeyProfile[] | null = null
 
