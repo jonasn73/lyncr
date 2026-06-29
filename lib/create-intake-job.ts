@@ -33,6 +33,10 @@ export type CreateIntakeJobInput = {
   vehicleMake?: string | null
   vehicleModel?: string | null
   jobType?: string | null
+  keyFccId?: string | null
+  keyFrequency?: string | null
+  keyChipset?: string | null
+  keyStyle?: string | null
   latitude?: number | null
   longitude?: number | null
 }
@@ -113,6 +117,10 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.region?.trim() ? { region: input.region.trim() } : {}),
     ...(input.postalCode?.trim() ? { postal_code: input.postalCode.trim() } : {}),
     ...(input.notes?.trim() ? { job_notes: input.notes.trim(), notes: input.notes.trim() } : {}),
+    ...(input.keyFccId?.trim() ? { key_fcc_id: input.keyFccId.trim(), fcc_id: input.keyFccId.trim() } : {}),
+    ...(input.keyFrequency?.trim() ? { key_frequency: input.keyFrequency.trim() } : {}),
+    ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
+    ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
     ...(latitude != null ? { customer_lat: latitude } : {}),
     ...(longitude != null ? { customer_lng: longitude } : {}),
   }

@@ -34,6 +34,10 @@ export type ActiveCallFormState = {
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
+  keyFccId: string
+  keyFrequency: string
+  keyChipset: string
+  keyStyle: string
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
@@ -51,6 +55,10 @@ const EMPTY_FORM: ActiveCallFormState = {
   vehicleYear: "",
   vehicleMake: "",
   vehicleModel: "",
+  keyFccId: "",
+  keyFrequency: "",
+  keyChipset: "",
+  keyStyle: "",
 }
 
 function flatAddressFromStructured(addr: StructuredAddress): Pick<
@@ -99,8 +107,25 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       vehicleYear: vehicle.vehicle_year,
       vehicleMake: vehicle.vehicle_make,
       vehicleModel: vehicle.vehicle_model,
+      keyFccId: "",
+      keyFrequency: "",
+      keyChipset: "",
+      keyStyle: "",
     }))
   }, [])
+
+  const setVehicleKeySelection = useCallback(
+    (sel: { fccId: string; frequency: string | null; chipset: string | null; keyStyle: string } | null) => {
+      setForm((prev) => ({
+        ...prev,
+        keyFccId: sel?.fccId ?? "",
+        keyFrequency: sel?.frequency ?? "",
+        keyChipset: sel?.chipset ?? "",
+        keyStyle: sel?.keyStyle ?? "",
+      }))
+    },
+    []
+  )
 
   const setServiceAddress = useCallback((addr: StructuredAddress | null) => {
     setForm((prev) => ({
@@ -232,6 +257,10 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
             vehicle_make: form.vehicleMake,
             vehicle_model: form.vehicleModel,
             job_type: form.jobType,
+            key_fcc_id: form.keyFccId || null,
+            key_frequency: form.keyFrequency || null,
+            key_chipset: form.keyChipset || null,
+            key_style: form.keyStyle || null,
             customer_lat: form.serviceAddress.lat,
             customer_lng: form.serviceAddress.lng,
             organization_id: organizationId ?? null,
@@ -258,6 +287,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     form,
     patchForm,
     setVehicle,
+    setVehicleKeySelection,
     setServiceAddress,
     saveState,
     jobState,

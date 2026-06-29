@@ -8,6 +8,7 @@ import Link from "next/link"
 import { Loader2, MapPin, Phone } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
+import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
 import { INTAKE_LOCKSMITH_JOB_TYPES } from "@/lib/intake-job-types"
 import { cn } from "@/lib/utils"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -128,6 +129,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     form,
     patchForm,
     setVehicle,
+    setVehicleKeySelection,
     setServiceAddress,
     saveState,
     jobState,
@@ -308,6 +310,34 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     vehicle_model: form.vehicleModel,
                   }}
                   onChange={setVehicle}
+                />
+                <VehicleKeyInfoPanel
+                  year={form.vehicleYear}
+                  make={form.vehicleMake}
+                  model={form.vehicleModel}
+                  value={
+                    form.keyFccId
+                      ? {
+                          profileId: "",
+                          fccId: form.keyFccId,
+                          frequency: form.keyFrequency || null,
+                          chipset: form.keyChipset || null,
+                          keyStyle: form.keyStyle || "Not sure yet",
+                        }
+                      : null
+                  }
+                  onChange={(sel) =>
+                    setVehicleKeySelection(
+                      sel
+                        ? {
+                            fccId: sel.fccId,
+                            frequency: sel.frequency,
+                            chipset: sel.chipset,
+                            keyStyle: sel.keyStyle,
+                          }
+                        : null
+                    )
+                  }
                 />
                 <label className="grid gap-1.5 text-sm">
                   <span className="text-xs font-medium text-foreground">What do they need?</span>

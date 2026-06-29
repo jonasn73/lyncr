@@ -14,6 +14,17 @@ export type StructuredAddress = {
 
 export type AddressSuggestion = StructuredAddress & {
   place_id?: string | null
+  /** Google prediction text before place-details resolves structured fields. */
+  label?: string
+}
+
+/** True when a dropdown row can be shown (complete address or Google place_id to resolve). */
+export function isSelectableAddressSuggestion(
+  addr: Partial<AddressSuggestion> | null | undefined
+): boolean {
+  if (!addr) return false
+  if (isCompleteStructuredAddress(addr)) return true
+  return Boolean(addr.place_id?.trim() && (addr.label?.trim() || addr.formatted?.trim()))
 }
 
 /** Required components for a map-ready service address. */
@@ -75,6 +86,41 @@ export function structuredAddressFromNominatim(hit: {
     admin_area: admin,
     lat: hit.lat ? Number(hit.lat) : null,
     lng: hit.lon ? Number(hit.lon) : null,
+    place_id: null,
+  }
+}
+
+/** Parse Photon (Komoot / OSM) feature into our canonical shape. */
+export function structuredAddressFromPhoton(feature: {
+  geometry?: { coordinates?: [number, number] }
+  properties?: {
+    housenumber?: string
+    street?: string
+    city?: string
+    state?: string
+    postcode?: string
+    county?: string
+    country?: string
+    name?: string
+  }
+}): AddressSuggestion {
+  const p = feature.properties ?? {}
+  const streetNumber = String(p.housenumber ?? "").trim()
+  const route = String(p.street ?? p.name ?? "").trim()
+  const locality = String(p.city ?? "").trim()
+  const postal = String(p.postcode ?? "").trim()
+  const admin = String(p.state ?? "").trim()
+  const coords = feature.geometry?.coordinates
+  const formatted = [streetNumber, route, locality, admin, postal].filter(Boolean).join(", ")
+  return {
+    formatted: formatted || [streetNumber, route].filter(Boolean).join(" "),
+    street_number: streetNumber,
+    route,
+    locality,
+    postal_code: postal,
+    admin_area: admin,
+    lat: coords && Number.isFinite(coords[1]) ? coords[1] : null,
+    lng: coords && Number.isFinite(coords[0]) ? coords[0] : null,
     place_id: null,
   }
 }

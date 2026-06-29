@@ -22,6 +22,10 @@ type CreateJobBody = {
   vehicle_make?: string | null
   vehicle_model?: string | null
   job_type?: string | null
+  key_fcc_id?: string | null
+  key_frequency?: string | null
+  key_chipset?: string | null
+  key_style?: string | null
   organization_id?: string | null
   customer_lat?: number | null
   customer_lng?: number | null
@@ -54,6 +58,10 @@ export async function POST(req: NextRequest) {
       vehicleMake: body.vehicle_make?.trim() || null,
       vehicleModel: body.vehicle_model?.trim() || null,
       jobType: body.job_type?.trim() || null,
+      keyFccId: body.key_fcc_id?.trim() || null,
+      keyFrequency: body.key_frequency?.trim() || null,
+      keyChipset: body.key_chipset?.trim() || null,
+      keyStyle: body.key_style?.trim() || null,
       latitude: body.customer_lat != null ? Number(body.customer_lat) : null,
       longitude: body.customer_lng != null ? Number(body.customer_lng) : null,
     })
