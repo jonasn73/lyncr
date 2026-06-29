@@ -157,6 +157,15 @@ export function buildTenDlcOptinMessage(businessName: string): string {
   return `You are subscribed to ${biz} service notifications. Reply STOP to opt out, HELP for help. Msg&data rates may apply.`
 }
 
+/** Telnyx requires comma-separated keywords with no spaces (e.g. STOP,UNSUBSCRIBE). */
+export function normalizeTenDlcKeywords(raw: string): string {
+  return raw
+    .split(",")
+    .map((k) => k.trim().replace(/\s+/g, ""))
+    .filter(Boolean)
+    .join(",")
+}
+
 /** POST /10dlc/campaignBuilder — submit the campaign to TCR. Returns campaignId. */
 export async function createTelnyx10DlcCampaign(
   input: CreateCampaignInput
@@ -181,11 +190,11 @@ export async function createTelnyx10DlcCampaign(
     sample1: input.sample1,
     messageFlow: input.messageFlow,
     helpMessage,
-    optinKeywords: input.optinKeywords || "START, YES",
+    optinKeywords: normalizeTenDlcKeywords(input.optinKeywords || "START,YES"),
     optinMessage,
-    optoutKeywords: input.optoutKeywords || "STOP, UNSUBSCRIBE, CANCEL",
+    optoutKeywords: normalizeTenDlcKeywords(input.optoutKeywords || "STOP,UNSUBSCRIBE,CANCEL"),
     optoutMessage,
-    helpKeywords: input.helpKeywords || "HELP",
+    helpKeywords: normalizeTenDlcKeywords(input.helpKeywords || "HELP"),
     subscriberOptin: true,
     subscriberOptout: true,
     subscriberHelp: true,
