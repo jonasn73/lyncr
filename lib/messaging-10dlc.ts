@@ -6,6 +6,8 @@ import {
   upsertMessaging10DlcRegistration,
   getUser,
   setOrganizationSmsRegistrationStatus,
+  getSmsRegistrationForOwner,
+  upsertSmsRegistration,
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import { resolveActiveLineFor10DlcAssignment } from "@/lib/primary-business-line"
@@ -137,6 +139,31 @@ async function activeLineFor10Dlc(
   organizationId?: string | null
 ): Promise<string | null> {
   return resolveActiveLineFor10DlcAssignment(userId, organizationId)
+}
+
+/** Keep dashboard sms_registrations + org flag aligned when Telnyx rejects a campaign. */
+async function markWorkspaceSmsRegistrationRejected(
+  ownerUserId: string,
+  organizationId: string
+): Promise<void> {
+  await setOrganizationSmsRegistrationStatus(organizationId, ownerUserId, "REJECTED").catch(() => {})
+  const smsReg = await getSmsRegistrationForOwner(ownerUserId, organizationId)
+  if (!smsReg) return
+  await upsertSmsRegistration({
+    owner_user_id: ownerUserId,
+    organization_id: organizationId,
+    legal_business_name: smsReg.legal_business_name,
+    entity_type: smsReg.entity_type,
+    tax_id_ein: smsReg.tax_id_ein,
+    street: smsReg.street,
+    city: smsReg.city,
+    state: smsReg.state,
+    postal_code: smsReg.postal_code,
+    use_case_description: smsReg.use_case_description,
+    status: "REJECTED",
+  }).catch((e) => {
+    console.warn("[10dlc] sms_registrations reject sync failed:", e)
+  })
 }
 
 /** Backfill dashboard submissions that never reached the carrier API (no campaign_id). */
@@ -438,13 +465,26 @@ export async function refreshMessaging10DlcStatus(
   }
 
   if (status.normalized === "rejected") {
+    const detail =
+      status.detail ||
+      `Carrier registration was rejected (${status.raw}). Update your business details and resubmit.`
     const updated = await upsert10(userId, resolvedOrgId, {
       status: "rejected",
-      status_detail: status.detail || `Carrier registration was rejected (${status.raw}).`,
+      status_detail: detail,
     })
     if (resolvedOrgId && !resolvedOrgId.startsWith("legacy-")) {
-      await setOrganizationSmsRegistrationStatus(resolvedOrgId, userId, "REJECTED").catch(() => {})
+      await markWorkspaceSmsRegistrationRejected(userId, resolvedOrgId)
     }
+    return { ok: true, registration: updated }
+  }
+
+  if (status.normalized === "pending_review" && reg.status !== "pending_review") {
+    const updated = await upsert10(userId, resolvedOrgId, {
+      status: "pending_review",
+      status_detail:
+        reg.status_detail?.trim() ||
+        `Carrier review in progress (${status.raw}). This usually takes 1–10 business days.`,
+    })
     return { ok: true, registration: updated }
   }
 

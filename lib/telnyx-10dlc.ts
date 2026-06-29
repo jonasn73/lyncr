@@ -227,14 +227,66 @@ export type TenDlcRegistryStatus = {
   detail: string | null
 }
 
-function normalizeRegistryStatus(raw: string): TenDlcRegistryStatus["normalized"] {
-  const s = raw.toUpperCase()
-  if (["ACTIVE", "APPROVED", "REGISTERED", "VERIFIED", "VETTED_VERIFIED", "SELF_DECLARED"].includes(s))
+/** Map Telnyx/TCR registry status strings to a coarse lifecycle bucket. */
+export function normalizeTelnyxRegistryStatus(raw: string): TenDlcRegistryStatus["normalized"] {
+  const s = raw.toUpperCase().trim()
+  if (!s || s === "UNKNOWN") return "unknown"
+
+  if (
+    [
+      "ACTIVE",
+      "APPROVED",
+      "REGISTERED",
+      "VERIFIED",
+      "VETTED_VERIFIED",
+      "SELF_DECLARED",
+      "MNO_PROVISIONED",
+    ].includes(s)
+  ) {
     return "approved"
-  if (["FAILED", "REJECTED", "EXPIRED", "SUSPENDED", "DECLINED", "UNVERIFIED"].includes(s)) return "rejected"
-  if (["PENDING", "REVIEW", "IN_PROGRESS", "SUBMITTED", "REGISTRATION_PENDING"].includes(s))
+  }
+
+  if (s.includes("FAILED") || s.includes("REJECTED") || s.includes("SUSPENDED") || s === "EXPIRED" || s === "TCR_EXPIRED") {
+    return "rejected"
+  }
+  if (["DECLINED", "UNVERIFIED", "ERROR"].includes(s)) return "rejected"
+
+  if (
+    s.includes("PENDING") ||
+    s.includes("REVIEW") ||
+    s.includes("ACCEPTED") ||
+    s.includes("IN_PROGRESS") ||
+    s.includes("SUBMITTED") ||
+    s === "CREATED" ||
+    s === "REGISTRATION_PENDING"
+  ) {
     return "pending_review"
+  }
+
   return "unknown"
+}
+
+function normalizeRegistryStatus(raw: string): TenDlcRegistryStatus["normalized"] {
+  return normalizeTelnyxRegistryStatus(raw)
+}
+
+function pickCampaignRegistryFields(data: Record<string, unknown>): { raw: string; detail: string | null } {
+  const campaignStatus = String(data.campaignStatus ?? "").trim()
+  const submissionStatus = String(data.submissionStatus ?? "").trim()
+  const legacyStatus = String(data.status ?? "").trim()
+  const failureReasons = String(data.failureReasons ?? "").trim()
+
+  let raw = campaignStatus
+  if (!raw && submissionStatus === "FAILED") raw = "FAILED"
+  if (!raw) raw = legacyStatus || "UNKNOWN"
+
+  const detail =
+    failureReasons ||
+    (campaignStatus.includes("FAILED") || campaignStatus.includes("REJECTED")
+      ? "Campaign creation failed at the carrier registry. Update sample messages and resubmit."
+      : null)
+
+  return { raw: campaignStatus || raw, detail: detail || null }
 }
 
 /** True when Telnyx rejected campaign creation because the brand is not ready yet. */
@@ -294,8 +346,12 @@ export async function getTelnyx10DlcCampaignStatus(
     return { raw: "ERROR", normalized: "unknown", detail: telnyxErrorDetail(json, "Status lookup failed.") }
   }
   const data = (json as { data?: Record<string, unknown> }).data ?? (json as Record<string, unknown>)
-  const raw = String(data.status ?? "UNKNOWN")
-  return { raw, normalized: normalizeRegistryStatus(raw), detail: null }
+  const picked = pickCampaignRegistryFields(data)
+  return {
+    raw: picked.raw,
+    normalized: normalizeRegistryStatus(picked.raw),
+    detail: picked.detail,
+  }
 }
 
 /**
