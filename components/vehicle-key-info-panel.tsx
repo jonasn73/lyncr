@@ -35,6 +35,8 @@ type KeyInfoPayload = {
   transponder_island_url: string
   keysolved_url: string
   disclaimer: string
+  variants?: FccVariant[]
+  photo_disclaimer?: string
 }
 
 type FccVariant = {
@@ -92,6 +94,8 @@ export function VehicleKeyInfoPanel({
     let cancel = false
     setLoading(true)
     setError(false)
+    setInfo(null)
+    setVariants([])
     const q = new URLSearchParams({ year, make, model })
     void fetch(`/api/vehicle/key-info?${q}`, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("key-info"))))
@@ -99,6 +103,7 @@ export function VehicleKeyInfoPanel({
         if (cancel) return
         const payload = j.data?.key_info ?? null
         setInfo(payload)
+        setVariants(payload?.variants ?? [])
         if (!payload || payload.profiles.length === 0) {
           onChange(null)
           return
@@ -137,8 +142,11 @@ export function VehicleKeyInfoPanel({
   const activeFccId = selectedProfile?.fcc_id ?? value?.fccId
 
   useEffect(() => {
-    if (!ready || !activeFccId) {
-      setVariants([])
+    if (!ready || !activeFccId || !info) return
+
+    const primaryFcc = info.profiles[0]?.fcc_id
+    if (activeFccId === primaryFcc && (info.variants?.length ?? 0) > 0) {
+      setVariants(info.variants ?? [])
       return
     }
 
@@ -161,7 +169,7 @@ export function VehicleKeyInfoPanel({
     return () => {
       cancel = true
     }
-  }, [ready, activeFccId, year, make, model])
+  }, [ready, activeFccId, year, make, model, info])
 
   if (!ready) return null
 
