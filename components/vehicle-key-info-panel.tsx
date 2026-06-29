@@ -27,6 +27,8 @@ type KeyInfoPayload = {
   year: number
   make: string
   model: string
+  matched_model: string
+  match_type: "exact" | "family"
   profiles: KeyProfile[]
   transponder_island_url: string
   keysolved_url: string
@@ -149,6 +151,13 @@ export function VehicleKeyInfoPanel({
         <KeyRound className="h-3.5 w-3.5" aria-hidden />
         Key types for {year} {make} {info.model}
       </div>
+
+      {info.match_type === "family" && info.matched_model !== info.model ? (
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+          No exact match for <span className="font-medium">{info.model}</span> — showing closest reference:{" "}
+          <span className="font-medium">{info.matched_model}</span>. Confirm on the vehicle before ordering keys.
+        </p>
+      ) : null}
 
       {info.profiles.length > 1 ? (
         <div className="grid gap-1.5">

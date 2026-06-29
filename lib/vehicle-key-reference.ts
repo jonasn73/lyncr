@@ -20,6 +20,9 @@ export type VehicleKeyLookupResult = {
   year: number
   make: string
   model: string
+  /** Model name used in the reference file when different from the picker (e.g. Silverado for 5500HD). */
+  matched_model: string
+  match_type: "exact" | "family"
   profiles: VehicleKeyProfile[]
   /** Quick search on Transponder Island shop (external). */
   transponder_island_url: string
@@ -96,6 +99,99 @@ function keysolvedBrowseUrl(make: string, model: string, year: number): string {
   return `https://keysolved.com/vehicles/${slug}/${year}`
 }
 
+/** NHTSA commercial trims often differ from locksmith DB names — map to closest line. */
+function familyFallbackModels(makeRaw: string, modelRaw: string): string[] {
+  const make = normalizeToken(makeRaw)
+  const model = normalizeToken(modelRaw)
+  const out: string[] = []
+
+  const isHdTruck =
+    /^(f\d{3}|f\d{4})/.test(model) ||
+    /1500|2500|3500|4500|5500|6500|7500/.test(model) ||
+    model.includes("hd") ||
+    model.includes("superduty") ||
+    model.includes("superduty")
+
+  if (make === "chevrolet" && isHdTruck) out.push("Silverado", "Express", "Suburban", "Tahoe")
+  if (make === "gmc" && isHdTruck) out.push("Sierra", "Savana", "Yukon")
+  if ((make === "ram" || make === "dodge") && isHdTruck) {
+    out.push("Ram 1500", "Ram 2500", "Ram 3500", "Ram 4500", "Ram 5500", "Ram")
+  }
+  if (make === "ford" && isHdTruck) {
+    out.push("F-150", "F-250", "F-350", "F-450", "F-550", "F-650", "F-750")
+  }
+  if (make === "toyota" && /tundra|tacoma|sequoia/.test(model)) {
+    out.push("Tundra", "Tacoma", "Sequoia")
+  }
+  if (make === "nissan" && /titan|frontier|nv/.test(model)) out.push("Titan", "Frontier", "NV")
+  if (make === "honda" && /ridgeline|pilot/.test(model)) out.push("Ridgeline", "Pilot", "CR-V")
+
+  // Strip cab/bed suffixes: "Silverado 1500 Crew Cab" → try token contains "silverado"
+  const stripped = modelRaw
+    .replace(/\b(crew|regular|double|extended)\s*cab\b/gi, "")
+    .replace(/\b\d{4}\s*(hd|xd)?\b/gi, "")
+    .trim()
+  if (stripped && normalizeToken(stripped) !== model) {
+    out.push(stripped)
+  }
+
+  return [...new Set(out.map((m) => m.trim()).filter(Boolean))]
+}
+
+function profilesForYearMakeModel(year: number, makeRaw: string, modelName: string): VehicleKeyProfile[] {
+  const makeKey = normalizeToken(makeRaw)
+  const modelKey = normalizeToken(modelName)
+  return loadProfiles().filter(
+    (r) => r.year === year && normalizeToken(r.make) === makeKey && normalizeToken(r.model) === modelKey
+  )
+}
+
+function profilesWithFuzzyModel(year: number, makeRaw: string, modelRaw: string): VehicleKeyProfile[] {
+  const makeKey = normalizeToken(makeRaw)
+  const modelKey = normalizeToken(modelRaw)
+  return loadProfiles().filter((r) => {
+    if (r.year !== year || normalizeToken(r.make) !== makeKey) return false
+    const rowKey = normalizeToken(r.model)
+    return rowKey.includes(modelKey) || modelKey.includes(rowKey)
+  })
+}
+
+function dedupeProfiles(profiles: VehicleKeyProfile[]): VehicleKeyProfile[] {
+  const deduped = new Map<string, VehicleKeyProfile>()
+  for (const p of profiles) {
+    const key = `${p.fcc_id}|${p.frequency ?? ""}|${p.chipset ?? ""}`
+    if (!deduped.has(key)) deduped.set(key, p)
+  }
+  return [...deduped.values()]
+}
+
+function buildLookupResult(
+  year: number,
+  make: string,
+  model: string,
+  matchedModel: string,
+  matchType: "exact" | "family",
+  profiles: VehicleKeyProfile[]
+): VehicleKeyLookupResult {
+  const familyNote =
+    matchType === "family"
+      ? ` Showing closest reference match (${matchedModel}) — verify key type on the vehicle.`
+      : ""
+  return {
+    year,
+    make,
+    model,
+    matched_model: matchedModel,
+    match_type: matchType,
+    profiles,
+    transponder_island_url: transponderIslandShopUrl(year, make, model),
+    keysolved_url: keysolvedBrowseUrl(make, matchedModel, year),
+    source: "keyfobdb",
+    disclaimer:
+      `Reference data from public FCC listings — verify on the vehicle.${familyNote} For full programming steps use Transponder Island or Keysolved.`,
+  }
+}
+
 /** Look up FCC / frequency profiles for a vehicle year + make + model. */
 export function lookupVehicleKeyProfiles(
   yearRaw: string | number,
@@ -107,31 +203,33 @@ export function lookupVehicleKeyProfiles(
   const model = modelRaw.trim()
   if (!Number.isFinite(year) || year < 1980 || !make || !model) return null
 
-  const makeKey = normalizeToken(make)
-  const modelKey = normalizeToken(model)
-  const profiles = loadProfiles().filter(
-    (r) => r.year === year && normalizeToken(r.make) === makeKey && normalizeToken(r.model) === modelKey
-  )
+  let profiles = profilesForYearMakeModel(year, make, model)
+  let matchedModel = model
+  let matchType: "exact" | "family" = "exact"
 
+  if (profiles.length === 0) {
+    for (const candidate of familyFallbackModels(make, model)) {
+      profiles = profilesForYearMakeModel(year, make, candidate)
+      if (profiles.length > 0) {
+        matchedModel = candidate
+        matchType = "family"
+        break
+      }
+    }
+  }
+
+  if (profiles.length === 0) {
+    profiles = profilesWithFuzzyModel(year, make, model)
+    if (profiles.length > 0) {
+      matchedModel = profiles[0]!.model
+      matchType = "family"
+    }
+  }
+
+  profiles = dedupeProfiles(profiles)
   if (profiles.length === 0) return null
 
-  const deduped = new Map<string, VehicleKeyProfile>()
-  for (const p of profiles) {
-    const key = `${p.fcc_id}|${p.frequency ?? ""}|${p.chipset ?? ""}`
-    if (!deduped.has(key)) deduped.set(key, p)
-  }
-
-  return {
-    year,
-    make,
-    model,
-    profiles: [...deduped.values()],
-    transponder_island_url: transponderIslandShopUrl(year, make, model),
-    keysolved_url: keysolvedBrowseUrl(make, model, year),
-    source: "keyfobdb",
-    disclaimer:
-      "Reference data from public FCC listings — verify on the vehicle. For full programming steps use Transponder Island or Keysolved.",
-  }
+  return buildLookupResult(year, make, model, matchedModel, matchType, profiles)
 }
 
 export function fccGovSearchUrl(fccId: string): string {
