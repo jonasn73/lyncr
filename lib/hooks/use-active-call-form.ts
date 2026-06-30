@@ -259,7 +259,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
         setJobError(
           form.jobType === "Key replacement"
             ? "Select origination or duplication for the key replacement."
-            : "Select what the customer needs (lockout, copy, ignition, etc.)."
+            : "Select what the customer needs (key replacement, lockout, ignition, etc.)."
         )
         return false
       }

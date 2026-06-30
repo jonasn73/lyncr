@@ -2,10 +2,9 @@
 
 export const INTAKE_LOCKSMITH_JOB_TYPES = [
   "Key replacement",
-  "Copy",
   "Lockout",
   "Ignition",
-  "Something else",
+  "Other",
 ] as const
 
 export type IntakeLocksmithJobType = (typeof INTAKE_LOCKSMITH_JOB_TYPES)[number]
