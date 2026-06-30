@@ -6875,6 +6875,22 @@ export async function getOwnerSchedulerEventById(
   }
 }
 
+/** Owner removes a booked job / hopper entry from the scheduler. */
+export async function deleteOwnerSchedulerJob(ownerUserId: string, leadId: string): Promise<boolean> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      DELETE FROM ai_leads
+      WHERE id = ${leadId} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return false
+    throw e
+  }
+}
+
 /** Owner edits job details from the scheduler detail drawer. */
 export async function updateOwnerSchedulerJob(params: {
   ownerUserId: string

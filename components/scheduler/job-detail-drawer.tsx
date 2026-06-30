@@ -2,18 +2,29 @@
 
 // Editable slide-over when you tap a job on the dispatch map or calendar.
 
-import { useEffect, useMemo, useState } from "react"
-import { Loader2, X } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Loader2, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   SCHEDULER_STATUS_LABEL,
   schedulerLifecyclePhase,
   type SchedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
 import { SCHEDULER_DURATION_OPTIONS, toDatetimeLocalValue } from "@/lib/scheduler-utils"
+import { shouldAutoAdvanceAfterSchedulePick } from "@/lib/scheduler-focus-url"
 import { cn } from "@/lib/utils"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -25,6 +36,10 @@ type JobDetailDrawerProps = {
   onClose: () => void
   onSaved?: (event: SchedulerEvent) => void
   onStatusChanged?: (event: SchedulerEvent) => void
+  onDeleted?: (jobId: string) => void
+  /** Intake dispatch flow — focus start time and auto-save when a time is picked. */
+  scheduleIntent?: boolean
+  onScheduleCommitted?: (event: SchedulerEvent) => void
 }
 
 const STATUS_SEGMENTS: {
@@ -63,6 +78,9 @@ export function JobDetailDrawer({
   onClose,
   onSaved,
   onStatusChanged,
+  onDeleted,
+  scheduleIntent = false,
+  onScheduleCommitted,
 }: JobDetailDrawerProps) {
   const source = scheduledEvent ?? poolJob
   const jobId = source?.id ?? ""
@@ -79,9 +97,14 @@ export function JobDetailDrawer({
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [assignedTechId, setAssignedTechId] = useState("")
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [statusUpdating, setStatusUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
+  const startInputRef = useRef<HTMLInputElement>(null)
+  const userPickedScheduleRef = useRef(false)
+  const lastAutoSavedLocalRef = useRef<string | null>(null)
 
   const assignableTechs = useMemo(
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
@@ -125,7 +148,79 @@ export function JobDetailDrawer({
     )
     setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
     setError(null)
+    userPickedScheduleRef.current = false
+    lastAutoSavedLocalRef.current = null
   }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id])
+
+  useEffect(() => {
+    if (!scheduleIntent || !open) return
+    const timer = window.setTimeout(() => startInputRef.current?.focus(), 80)
+    return () => window.clearTimeout(timer)
+  }, [scheduleIntent, open, jobId])
+
+  useEffect(() => {
+    if (!scheduleIntent || !open || !userPickedScheduleRef.current) return
+    if (!shouldAutoAdvanceAfterSchedulePick(startLocal)) return
+    if (lastAutoSavedLocalRef.current === startLocal.trim()) return
+    if (!jobId || customerName.trim().length === 0 || customerPhone.trim().length === 0) return
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setSaving(true)
+        setError(null)
+        try {
+          const body: Record<string, unknown> = {
+            customer_name: customerName.trim(),
+            customer_phone: customerPhone.trim(),
+            job_type: jobType.trim() || "Other",
+            duration_minutes: durationMinutes,
+            vehicle_year: vehicleYear.trim() || null,
+            vehicle_make: vehicleMake.trim() || null,
+            vehicle_model: vehicleModel.trim() || null,
+            job_address: location.trim() || null,
+            job_notes: jobNotes.trim() || null,
+            assigned_tech_id: assignedTechId.trim() || null,
+            scheduled_at: new Date(startLocal).toISOString(),
+          }
+          const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+          const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+          if (!res.ok) throw new Error(json.error ?? "Could not save job")
+          const event = json.data?.event
+          if (!event) throw new Error("No updated job returned")
+          lastAutoSavedLocalRef.current = startLocal.trim()
+          onSaved?.(event)
+          onScheduleCommitted?.(event)
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Could not save job")
+        } finally {
+          setSaving(false)
+        }
+      })()
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [
+    startLocal,
+    scheduleIntent,
+    open,
+    jobId,
+    customerName,
+    customerPhone,
+    jobType,
+    durationMinutes,
+    vehicleYear,
+    vehicleMake,
+    vehicleModel,
+    location,
+    jobNotes,
+    assignedTechId,
+    onSaved,
+    onScheduleCommitted,
+  ])
 
   if (!open || !source) return null
 
@@ -162,7 +257,7 @@ export function JobDetailDrawer({
     }
   }
 
-  async function handleSave() {
+  async function handleSave(options?: { fromScheduleIntent?: boolean }) {
     if (!jobId || !canSave) return
     setSaving(true)
     setError(null)
@@ -193,10 +288,35 @@ export function JobDetailDrawer({
       const event = json.data?.event
       if (!event) throw new Error("No updated job returned")
       onSaved?.(event)
+      if (options?.fromScheduleIntent) {
+        lastAutoSavedLocalRef.current = startLocal.trim()
+        onScheduleCommitted?.(event)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save job")
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!jobId || deleting) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Could not delete job")
+      setDeleteConfirmOpen(false)
+      onDeleted?.(jobId)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete job")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -363,10 +483,14 @@ export function JobDetailDrawer({
                 </label>
                 <Input
                   id="job-start"
+                  ref={startInputRef}
                   type="datetime-local"
                   className={inputClass}
                   value={startLocal}
-                  onChange={(e) => setStartLocal(e.target.value)}
+                  onChange={(e) => {
+                    userPickedScheduleRef.current = true
+                    setStartLocal(e.target.value)
+                  }}
                 />
               </div>
 
@@ -445,15 +569,56 @@ export function JobDetailDrawer({
           {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
         </div>
 
-        <div className="flex gap-2 border-t border-border/60 px-5 py-4">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button type="button" className="flex-1" onClick={() => void handleSave()} disabled={!canSave || saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
+        <div className="flex flex-col gap-2 border-t border-border/60 px-5 py-4">
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving || deleting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              onClick={() => void handleSave()}
+              disabled={!canSave || saving || deleting}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
+            </Button>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={saving || deleting}
+          >
+            <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+            Delete job
           </Button>
         </div>
       </SheetContent>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the job from your scheduler and hopper. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep job</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDelete()
+              }}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete job"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

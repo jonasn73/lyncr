@@ -12,6 +12,7 @@ import {
   setLeadCoordinates,
   updateLeadScheduledAt,
   updateOwnerSchedulerJob,
+  deleteOwnerSchedulerJob,
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
 import type { SchedulerEvent } from "@/lib/types"
@@ -156,5 +157,22 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   } catch (e) {
     console.error("[PATCH /api/owner/scheduler/[id]] update", e)
     return NextResponse.json({ error: "Failed to update job" }, { status: 500 })
+  }
+}
+
+export async function DELETE(_req: NextRequest, context: RouteContext) {
+  const userId = getUserIdFromRequest(_req.headers.get("cookie"))
+  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  const { id: leadId } = await context.params
+  if (!leadId?.trim()) return NextResponse.json({ error: "Missing lead id" }, { status: 400 })
+
+  try {
+    const ok = await deleteOwnerSchedulerJob(userId, leadId.trim())
+    if (!ok) return NextResponse.json({ error: "Job not found" }, { status: 404 })
+    return NextResponse.json({ data: { id: leadId.trim(), deleted: true } })
+  } catch (e) {
+    console.error("[DELETE /api/owner/scheduler/[id]]", e)
+    return NextResponse.json({ error: "Failed to delete job" }, { status: 500 })
   }
 }

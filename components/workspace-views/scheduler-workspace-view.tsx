@@ -4,6 +4,7 @@
 
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronDown, LayoutGrid, Loader2, Map as MapIcon, Plus } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
@@ -39,6 +40,7 @@ import {
   dateAtLocalHour,
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
+import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
 import { useActivePipelineQuery, useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
@@ -47,9 +49,7 @@ import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler
 import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
-import { JobMapMobileSheet } from "@/components/scheduler/job-map-mobile-sheet"
 import { SchedulerMobileDispatchShell } from "@/components/scheduler/scheduler-mobile-dispatch-shell"
-import type { JobMapPopupSource } from "@/components/scheduler/job-map-popup-form"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { setMainScrollLocked } from "@/lib/mobile-scroll-lock"
 import type {
@@ -95,21 +95,6 @@ const JobDetailDrawer = dynamic(
 
 type SchedulerViewMode = "grid" | "map"
 
-function toMapJobSource(job: ActivePipelineJob | SchedulerEvent): JobMapPopupSource {
-  return {
-    id: job.id,
-    customer_name: job.customer_name,
-    customer_phone: job.customer_phone,
-    vehicle_year: job.vehicle_year,
-    vehicle_make: job.vehicle_make,
-    vehicle_model: job.vehicle_model,
-    job_type: job.job_type,
-    job_status: job.job_status,
-    dispatch_status: job.dispatch_status,
-    assigned_tech_id: job.assigned_tech_id,
-  }
-}
-
 const bookingInputClass =
   "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 
@@ -126,6 +111,8 @@ function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
 }
 
 export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
@@ -136,8 +123,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingStart, setBookingStart] = useState(() => toDatetimeLocalValue(new Date()))
   const [viewMode, setViewMode] = useState<SchedulerViewMode>("map")
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
-  const [mobileSheetJob, setMobileSheetJob] = useState<JobMapPopupSource | null>(null)
   const isMobile = useIsMobile()
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -243,34 +228,46 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     }
   }, [viewMode, drawerPoolJob, drawerScheduledEvent, techLocations])
 
-  function selectJobOnMap(jobId: string) {
-    setHighlightId(jobId)
-    setDrawerPoolJob(null)
-    setDrawerScheduledEvent(null)
+  /** Open the edit drawer for a pool job, scheduled event, or active pipeline row. */
+  function openJobForEdit(job: ActivePipelineJob | SchedulerEvent | UnassignedPoolJob) {
+    setHighlightId(job.id)
+    const scheduled = dayEvents.find((ev) => ev.id === job.id)
+    if (scheduled) {
+      setDrawerScheduledEvent(scheduled)
+      setDrawerPoolJob(null)
+    } else {
+      setDrawerPoolJob(job as UnassignedPoolJob)
+      setDrawerScheduledEvent(null)
+    }
   }
 
-  function openMobileJobSheet(job: ActivePipelineJob | SchedulerEvent) {
-    setMobileSheetJob(toMapJobSource(job))
-    setMobileSheetOpen(true)
-  }
-
-  /** Parse lat/lng and snap the map; on mobile open the bottom sheet instead of hover tooltips. */
-  function focusJobOnMap(job: ActivePipelineJob | SchedulerEvent) {
-    selectJobOnMap(job.id)
+  /** Pan the map to a job pin when map view is active. */
+  function panMapToJob(job: ActivePipelineJob | SchedulerEvent | UnassignedPoolJob) {
     const lat =
       typeof job.latitude === "number" ? job.latitude : Number.parseFloat(String(job.latitude ?? ""))
     const lng =
       typeof job.longitude === "number" ? job.longitude : Number.parseFloat(String(job.longitude ?? ""))
     const validLat = Number.isFinite(lat) ? lat : undefined
     const validLng = Number.isFinite(lng) ? lng : undefined
-
-    if (isMobile && viewMode === "map") {
-      openMobileJobSheet(job)
-      mapRef.current?.focusJob(job.id, validLat, validLng)
-      return
-    }
-
     mapRef.current?.focusJob(job.id, validLat, validLng)
+  }
+
+  function openPoolJobDrawer(job: UnassignedPoolJob) {
+    openJobForEdit(job)
+  }
+
+  function openScheduledJobDrawer(ev: SchedulerEvent) {
+    openJobForEdit(ev)
+  }
+
+  function focusPipelineJob(job: ActivePipelineJob) {
+    openJobForEdit(job)
+    if (viewMode === "map") panMapToJob(job)
+  }
+
+  function focusScheduledMapJob(ev: SchedulerEvent) {
+    openJobForEdit(ev)
+    if (viewMode === "map") panMapToJob(ev)
   }
 
   const canSaveBooking =
@@ -440,43 +437,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     setBookingOpen(true)
   }
 
-  function openPoolJobDrawer(job: UnassignedPoolJob) {
-    setHighlightId(job.id)
-    setDrawerPoolJob(job)
-    setDrawerScheduledEvent(null)
-  }
-
-  function openScheduledJobDrawer(ev: SchedulerEvent) {
-    setHighlightId(ev.id)
-    setDrawerScheduledEvent(ev)
-    setDrawerPoolJob(null)
-  }
-
-  function focusScheduledMapJob(ev: SchedulerEvent) {
-    if (viewMode === "grid") {
-      openScheduledJobDrawer(ev)
-      return
-    }
-    focusJobOnMap(ev)
-  }
-
-  function focusPipelineJob(job: ActivePipelineJob) {
-    const scheduled = dayEvents.find((ev) => ev.id === job.id)
-    if (viewMode === "grid") {
-      if (scheduled) openScheduledJobDrawer(scheduled)
-      else openPoolJobDrawer(job)
-      return
-    }
-    focusJobOnMap(job)
-  }
-
   function applyJobEventUpdate(event: SchedulerEvent) {
-    if (viewMode === "grid") {
-      setDrawerScheduledEvent(event)
-      setDrawerPoolJob(null)
-    } else {
-      setHighlightId(event.id)
-    }
+    setDrawerScheduledEvent(event)
+    setDrawerPoolJob(null)
+    setHighlightId(event.id)
     setEvents((prev) => {
       const idx = prev.findIndex((ev) => ev.id === event.id)
       if (idx === -1) return prev
@@ -507,33 +471,29 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     if (viewMode === "map") setHighlightId(null)
   }
 
+  function handleJobDeleted(jobId: string) {
+    closeJobDrawer()
+    setEvents((prev) => prev.filter((ev) => ev.id !== jobId))
+    void mutatePool()
+    void mutateActivePipeline()
+    refreshSchedulerData()
+  }
+
   const handlePhoneLookupResults = useCallback(
     (result: SchedulerPhoneLookupResult | null) => {
       if (!result || (result.pool.length === 0 && result.scheduled.length === 0)) {
         setHighlightId(null)
-        if (viewMode === "grid") closeJobDrawer()
+        closeJobDrawer()
         return
       }
       const poolMatch = result.pool[0]
       if (poolMatch) {
-        if (viewMode === "map") {
-          focusJobOnMap(poolMatch)
-        } else {
-          setHighlightId(poolMatch.id)
-          setDrawerPoolJob(poolMatch)
-          setDrawerScheduledEvent(null)
-        }
+        focusPipelineJob(poolMatch)
         return
       }
       const scheduledMatch = result.scheduled[0]
       if (scheduledMatch) {
-        if (viewMode === "map") {
-          focusJobOnMap(scheduledMatch)
-        } else {
-          setHighlightId(scheduledMatch.id)
-          setDrawerScheduledEvent(scheduledMatch)
-          setDrawerPoolJob(null)
-        }
+        focusScheduledMapJob(scheduledMatch)
         const eventDay = dayKeyLocal(new Date(scheduledMatch.scheduled_at))
         const currentKey = dayKeyLocal(selectedDay)
         if (eventDay !== currentKey) {
@@ -543,7 +503,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         }
       }
     },
-    [selectedDay, viewMode]
+    [selectedDay, viewMode, dayEvents]
   )
 
   function resolveDropHour(techUserId: string, preferredHour: number, durationMinutes: number): number {
@@ -968,14 +928,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         </WorkspacePage>
       )}
 
-      <JobMapMobileSheet
-        open={mobileSheetOpen}
-        job={mobileSheetJob}
-        technicians={technicians}
-        onOpenChange={setMobileSheetOpen}
-        onSaved={applyJobEventUpdate}
-      />
-
       {bookingOpen ? (
         <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
@@ -1081,7 +1033,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         </Dialog>
       ) : null}
 
-      {viewMode === "grid" && drawerOpen ? (
+      {drawerOpen ? (
         <JobDetailDrawer
           open={drawerOpen}
           poolJob={drawerPoolJob}
@@ -1090,6 +1042,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           onClose={closeJobDrawer}
           onSaved={applyJobEventUpdate}
           onStatusChanged={applyJobEventUpdate}
+          onDeleted={handleJobDeleted}
         />
       ) : null}
     </>
