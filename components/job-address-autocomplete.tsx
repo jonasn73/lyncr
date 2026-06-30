@@ -40,7 +40,12 @@ export function JobAddressAutocomplete({
   const [loading, setLoading] = useState(false)
   const [resolving, setResolving] = useState(false)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
-  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [menuRect, setMenuRect] = useState<{
+    top: number
+    left: number
+    width: number
+    strategy: "fixed" | "absolute"
+  } | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -58,9 +63,26 @@ export function JobAddressAutocomplete({
   const syncMenuRect = useCallback(() => {
     const el = inputRef.current
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    setMenuRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
-  }, [])
+    const container = resolvePortalTarget()
+    const inputRect = el.getBoundingClientRect()
+    const inSheet = container.dataset.slot === "sheet-content"
+    if (inSheet) {
+      const containerRect = container.getBoundingClientRect()
+      setMenuRect({
+        top: inputRect.bottom - containerRect.top + 4,
+        left: inputRect.left - containerRect.left,
+        width: inputRect.width,
+        strategy: "absolute",
+      })
+      return
+    }
+    setMenuRect({
+      top: inputRect.bottom + 4,
+      left: inputRect.left,
+      width: inputRect.width,
+      strategy: "fixed",
+    })
+  }, [resolvePortalTarget])
 
   useEffect(() => {
     if (value?.formatted) {
@@ -158,8 +180,9 @@ export function JobAddressAutocomplete({
     open && !validated && suggestions.length > 0 && menuRect ? (
       <ul
         ref={dropdownRef}
+        data-address-suggestions
         style={{
-          position: "fixed",
+          position: menuRect.strategy,
           top: menuRect.top,
           left: menuRect.left,
           width: menuRect.width,

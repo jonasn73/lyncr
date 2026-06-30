@@ -284,7 +284,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         if (!o) dismissOnly()
       }}
     >
-      <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+      <SheetContent
+        side="bottom"
+        className="relative gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement | null
+          if (target?.closest("[data-address-suggestions]")) e.preventDefault()
+        }}
+      >
         {current ? (
           <>
             <SheetHeader className="border-b border-border/60 px-4 pb-3 pt-2 text-left">
