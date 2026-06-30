@@ -9,7 +9,7 @@ import { Loader2, MapPin, Phone } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
 import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
-import { INTAKE_LOCKSMITH_JOB_TYPES } from "@/lib/intake-job-types"
+import { INTAKE_LOCKSMITH_JOB_TYPES, KEY_REPLACEMENT_MODES } from "@/lib/intake-job-types"
 import { cn } from "@/lib/utils"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { Button } from "@/components/ui/button"
@@ -337,7 +337,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       "focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     )}
                     value={form.jobType}
-                    onChange={(e) => patchForm({ jobType: e.target.value })}
+                    onChange={(e) =>
+                      patchForm({
+                        jobType: e.target.value,
+                        keyReplacementMode: e.target.value === "Key replacement" ? form.keyReplacementMode : "",
+                      })
+                    }
                   >
                     <option value="">Select service type…</option>
                     {INTAKE_LOCKSMITH_JOB_TYPES.map((t) => (
@@ -347,6 +352,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     ))}
                   </select>
                 </label>
+                {form.jobType === "Key replacement" ? (
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="text-xs font-medium text-foreground">Key replacement type</span>
+                    <select
+                      className={cn(
+                        "h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground",
+                        "focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      )}
+                      value={form.keyReplacementMode}
+                      onChange={(e) => patchForm({ keyReplacementMode: e.target.value })}
+                    >
+                      <option value="">Origination or duplication?</option>
+                      {KEY_REPLACEMENT_MODES.map((mode) => (
+                        <option key={mode} value={mode}>
+                          {mode}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Origination = no working key to copy from. Duplication = copy from an existing key.
+                    </p>
+                  </label>
+                ) : null}
               </fieldset>
 
               <div className="space-y-1.5">

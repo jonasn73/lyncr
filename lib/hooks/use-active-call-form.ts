@@ -8,7 +8,10 @@ import {
   isCompleteStructuredAddress,
   type StructuredAddress,
 } from "@/lib/structured-address"
-import { INTAKE_LOCKSMITH_JOB_TYPES, isIntakeLocksmithJobType } from "@/lib/intake-job-types"
+import {
+  formatIntakeJobTypeForDispatch,
+  isIntakeJobTypeComplete,
+} from "@/lib/intake-job-types"
 
 export type ActiveCallRow = {
   id: string
@@ -31,6 +34,8 @@ export type ActiveCallFormState = {
   country: string
   notes: string
   jobType: string
+  /** Origination or Duplication when jobType is Key replacement. */
+  keyReplacementMode: string
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
@@ -56,6 +61,7 @@ const EMPTY_FORM: ActiveCallFormState = {
   country: "US",
   notes: "",
   jobType: "",
+  keyReplacementMode: "",
   vehicleYear: "",
   vehicleMake: "",
   vehicleModel: "",
@@ -248,9 +254,13 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
         setJobError("Pick a complete service address from the suggestions so we can place a map pin.")
         return false
       }
-      if (!isIntakeLocksmithJobType(form.jobType)) {
+      if (!isIntakeJobTypeComplete(form.jobType, form.keyReplacementMode)) {
         setJobState("error")
-        setJobError("Select what the customer needs (lockout, copy, ignition, etc.).")
+        setJobError(
+          form.jobType === "Key replacement"
+            ? "Select origination or duplication for the key replacement."
+            : "Select what the customer needs (lockout, copy, ignition, etc.)."
+        )
         return false
       }
 
@@ -275,7 +285,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
             vehicle_year: form.vehicleYear,
             vehicle_make: form.vehicleMake,
             vehicle_model: form.vehicleModel,
-            job_type: form.jobType,
+            job_type: formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode),
             key_fcc_id: form.keyFccId || null,
             key_frequency: form.keyFrequency || null,
             key_chipset: form.keyChipset || null,
@@ -299,7 +309,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
   )
 
   const addressReady = Boolean(form.serviceAddress && isCompleteStructuredAddress(form.serviceAddress))
-  const jobTypeReady = isIntakeLocksmithJobType(form.jobType)
+  const jobTypeReady = isIntakeJobTypeComplete(form.jobType, form.keyReplacementMode)
   const canDispatch = Boolean(form.displayName.trim() && addressReady && jobTypeReady)
 
   return {
