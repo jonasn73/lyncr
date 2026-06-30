@@ -158,6 +158,20 @@ function familyFallbackModels(makeRaw: string, modelRaw: string): string[] {
   return [...new Set(out.map((m) => m.trim()).filter(Boolean))]
 }
 
+/** RAM/Dodge trucks: NHTSA model "1500" → locksmith DB "Ram 1500" (same vehicle). */
+function ramTruckCatalogPair(
+  makeRaw: string,
+  modelRaw: string
+): { make: string; model: string } | null {
+  const make = normalizeToken(makeRaw)
+  if (make !== "ram" && make !== "dodge") return null
+  const tonOnly = modelRaw.trim().match(/^(1500|2500|3500|4500|5500|6500|7500)$/i)?.[1]
+  if (tonOnly) return { make: "Dodge", model: `Ram ${tonOnly}` }
+  const ramTon = modelRaw.trim().match(/^ram\s+(1500|2500|3500|4500|5500|6500|7500)$/i)
+  if (ramTon) return { make: "Dodge", model: `Ram ${ramTon[1]}` }
+  return null
+}
+
 /** NHTSA sometimes lists Scion under Toyota make — reference DB uses Scion make. */
 function alternativeMakeModelPairs(
   makeRaw: string,
@@ -238,6 +252,17 @@ export function lookupVehicleKeyProfiles(
   let profiles = profilesForYearMakeModel(year, make, model)
   let matchedModel = model
   let matchType: "exact" | "family" = "exact"
+
+  if (profiles.length === 0) {
+    const ramTruck = ramTruckCatalogPair(make, model)
+    if (ramTruck) {
+      profiles = profilesForYearMakeModel(year, ramTruck.make, ramTruck.model)
+      if (profiles.length > 0) {
+        matchedModel = ramTruck.model
+        matchType = "exact"
+      }
+    }
+  }
 
   if (profiles.length === 0) {
     for (const alt of alternativeMakeModelPairs(make, model)) {

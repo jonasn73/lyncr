@@ -17,11 +17,18 @@ describe("lookupVehicleKeyProfiles", () => {
     expect(r?.profiles.some((p) => p.fcc_id.includes("M3N"))).toBe(true)
   })
 
-  it("matches 2014 RAM 1500 via Dodge Ram 1500 reference", () => {
+  it("matches 2014 RAM 1500 as exact Dodge Ram 1500 reference", () => {
     const r = lookupVehicleKeyProfiles("2014", "RAM", "1500")
     expect(r).not.toBeNull()
+    expect(r?.match_type).toBe("exact")
+    expect(r?.matched_model).toBe("Ram 1500")
     expect(r?.profiles.some((p) => p.fcc_id === "GQ4-53T")).toBe(true)
-    expect(r?.matched_model).toMatch(/Ram/i)
+  })
+
+  it("matches 2019 RAM 1500 without family fallback warning", () => {
+    const r = lookupVehicleKeyProfiles("2019", "RAM", "1500")
+    expect(r?.match_type).toBe("exact")
+    expect(r?.profiles.map((p) => p.fcc_id).sort()).toEqual(["GQ4-53T", "OHT-4882056"])
   })
 
   it("maps Toyota Scion tC to Scion make in reference DB", () => {
