@@ -358,6 +358,14 @@
   }
 
   /* Scheduler job editor — above Leaflet panes (z-index ~1000 inside map container). */
+  .scheduler-job-detail-overlay {
+    animation: sigo-sheet-overlay-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .scheduler-job-detail-panel {
+    animation: sigo-sheet-slide-in-right 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   [data-slot="sheet-portal"]:has(.scheduler-job-detail-sheet) [data-slot="sheet-overlay"] {
     z-index: 1400 !important;
   }

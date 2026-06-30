@@ -45,6 +45,8 @@ type ActivePipelinePanelProps = {
   loading?: boolean
   highlightId?: string | null
   onFocusJob: (job: ActivePipelineJob) => void
+  /** Opens the edit drawer — defaults to onFocusJob when omitted. */
+  onEditJob?: (job: ActivePipelineJob) => void
   layout?: "default" | "mobileSheet"
 }
 
@@ -53,8 +55,10 @@ export function ActivePipelinePanel({
   loading,
   highlightId,
   onFocusJob,
+  onEditJob,
   layout = "default",
 }: ActivePipelinePanelProps) {
+  const openEditor = onEditJob ?? onFocusJob
   const isMobileSheet = layout === "mobileSheet"
   const grouped = useMemo(() => {
     const buckets = new Map<SchedulerLifecyclePhase, ActivePipelineJob[]>()
@@ -103,7 +107,7 @@ export function ActivePipelinePanel({
               const displayName = job.customer_name?.trim() || "Unknown customer"
               const phone = formatPhone(job.customer_phone)
               return (
-                <li key={job.id} className="w-full">
+                <li key={job.id} className="relative w-full">
                   <button
                     type="button"
                     onClick={() => onFocusJob(job)}
@@ -115,21 +119,10 @@ export function ActivePipelinePanel({
                       highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
                     )}
                   >
-                    <div className="flex items-start justify-between gap-2 pr-1">
+                    <div className="flex items-start justify-between gap-2 pr-14">
                       <p className={cn("font-medium text-zinc-100", isMobileSheet ? "text-base" : "truncate text-sm")}>
                         {displayName}
                       </p>
-                      <span
-                        className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-md border border-zinc-700/80 bg-zinc-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 transition-colors",
-                          highlighted
-                            ? "border-primary/50 bg-primary/15 text-primary"
-                            : "group-hover:border-primary/40 group-hover:text-primary"
-                        )}
-                      >
-                        <Pencil className="h-3 w-3" aria-hidden />
-                        Edit
-                      </span>
                     </div>
 
                     <div className="mt-2 space-y-1.5">
@@ -173,6 +166,18 @@ export function ActivePipelinePanel({
                     >
                       {SCHEDULER_STATUS_LABEL[phase]}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Edit job for ${displayName}`}
+                    onClick={() => openEditor(job)}
+                    className={cn(
+                      "absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-md border border-zinc-700/80 bg-zinc-900/95 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 shadow-sm transition-colors hover:border-primary/50 hover:bg-primary/15 hover:text-primary",
+                      highlighted && "border-primary/50 bg-primary/15 text-primary"
+                    )}
+                  >
+                    <Pencil className="h-3 w-3" aria-hidden />
+                    Edit
                   </button>
                 </li>
               )

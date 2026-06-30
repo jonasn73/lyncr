@@ -12,6 +12,7 @@ type ActivePipelinePanelStreamProps = {
   useStreamedInitialDay: boolean
   highlightId?: string | null
   onFocusJob: (job: ActivePipelineJob) => void
+  onEditJob?: (job: ActivePipelineJob) => void
   layout?: "default" | "mobileSheet"
 }
 
@@ -21,6 +22,7 @@ export function ActivePipelinePanelStream({
   useStreamedInitialDay,
   highlightId,
   onFocusJob,
+  onEditJob,
   layout = "default",
 }: ActivePipelinePanelStreamProps) {
   const { activePipelinePromise } = useDashboardStream()
@@ -32,6 +34,7 @@ export function ActivePipelinePanelStream({
           jobsPromise={activePipelinePromise}
           highlightId={highlightId}
           onFocusJob={onFocusJob}
+          onEditJob={onEditJob}
           layout={layout}
         />
       </Suspense>
@@ -39,6 +42,12 @@ export function ActivePipelinePanelStream({
   }
 
   return (
-    <ActivePipelineList dayKey={dayKey} highlightId={highlightId} onFocusJob={onFocusJob} layout={layout} />
+    <ActivePipelineList
+      dayKey={dayKey}
+      highlightId={highlightId}
+      onFocusJob={onFocusJob}
+      onEditJob={onEditJob}
+      layout={layout}
+    />
   )
 }

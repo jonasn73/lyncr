@@ -46,6 +46,7 @@ export type SchedulerMobileDispatchShellProps = {
   onViewModeChange: (mode: "grid" | "map") => void
   onCreate: () => void
   onFocusJob: (job: ActivePipelineJob) => void
+  onEditJob?: (job: ActivePipelineJob) => void
   onSelectEvent: (event: SchedulerEvent) => void
   onSelectPoolJob: (job: UnassignedPoolJob | ActivePipelineJob) => void
 }
@@ -65,6 +66,7 @@ export function SchedulerMobileDispatchShell({
   onViewModeChange,
   onCreate,
   onFocusJob,
+  onEditJob,
   onSelectEvent,
   onSelectPoolJob,
 }: SchedulerMobileDispatchShellProps) {
@@ -198,6 +200,7 @@ export function SchedulerMobileDispatchShell({
                 useStreamedInitialDay={useStreamedPipeline}
                 highlightId={highlightId}
                 onFocusJob={onFocusJob}
+                onEditJob={onEditJob}
                 layout="mobileSheet"
               />
             </div>

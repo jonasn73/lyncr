@@ -3,11 +3,11 @@
 // Editable slide-over when you tap a job on the dispatch map or calendar.
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Loader2, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -222,6 +222,26 @@ export function JobDetailDrawer({
     onScheduleCommitted,
   ])
 
+  // Lock page scroll while the editor is open (drawer is portaled to document.body).
+  useEffect(() => {
+    if (!open) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [open])
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [open, onClose])
+
   if (!open || !source) return null
 
   const canSave = customerName.trim().length > 0 && customerPhone.trim().length > 0
@@ -320,12 +340,20 @@ export function JobDetailDrawer({
     }
   }
 
-  return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent
-        side="right"
-        variant="drawer"
-        className="scheduler-job-detail-sheet flex w-full max-w-md flex-col gap-0 p-0 sm:max-w-md [&>button]:hidden"
+  // Portal to body so Leaflet map stacking cannot hide the editor panel.
+  return createPortal(
+    <>
+      <button
+        type="button"
+        aria-label="Close job editor"
+        className="scheduler-job-detail-overlay fixed inset-0 z-[1400] bg-zinc-950/70"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit job"
+        className="scheduler-job-detail-panel fixed inset-y-0 right-0 z-[1410] flex w-full max-w-md flex-col border-l border-border/60 bg-background shadow-lg"
       >
         <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-14">
           <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Job details</p>
@@ -594,7 +622,7 @@ export function JobDetailDrawer({
             Delete job
           </Button>
         </div>
-      </SheetContent>
+      </div>
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
@@ -619,6 +647,7 @@ export function JobDetailDrawer({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Sheet>
+    </>,
+    document.body
   )
 }

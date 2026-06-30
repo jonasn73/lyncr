@@ -821,6 +821,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           onViewModeChange={setViewMode}
           onCreate={openBookingDefault}
           onFocusJob={focusPipelineJob}
+          onEditJob={focusPipelineJob}
           onSelectEvent={focusScheduledMapJob}
           onSelectPoolJob={(job) => focusPipelineJob(job as ActivePipelineJob)}
         />
@@ -1019,6 +1020,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                     useStreamedInitialDay={useStreamedPipeline}
                     highlightId={highlightId}
                     onFocusJob={focusPipelineJob}
+                    onEditJob={focusPipelineJob}
                   />
                 </div>
                 <div className="min-h-[320px] min-w-0 flex-1 lg:min-h-0">
@@ -1151,21 +1153,19 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         </Dialog>
       ) : null}
 
-      {drawerOpen ? (
-        <JobDetailDrawer
-          key={drawerScheduledEvent?.id ?? drawerPoolJob?.id ?? "job-drawer"}
-          open
-          poolJob={drawerPoolJob}
-          scheduledEvent={drawerScheduledEvent}
-          technicians={technicians}
-          onClose={closeJobDrawer}
-          onSaved={applyJobEventUpdate}
-          onStatusChanged={applyJobEventUpdate}
-          onDeleted={handleJobDeleted}
-          scheduleIntent={Boolean(scheduleIntentLeadId && drawerPoolJob?.id === scheduleIntentLeadId)}
-          onScheduleCommitted={handleScheduleCommitted}
-        />
-      ) : null}
+      <JobDetailDrawer
+        key={drawerScheduledEvent?.id ?? drawerPoolJob?.id ?? "job-drawer-closed"}
+        open={drawerOpen}
+        poolJob={drawerPoolJob}
+        scheduledEvent={drawerScheduledEvent}
+        technicians={technicians}
+        onClose={closeJobDrawer}
+        onSaved={applyJobEventUpdate}
+        onStatusChanged={applyJobEventUpdate}
+        onDeleted={handleJobDeleted}
+        scheduleIntent={Boolean(scheduleIntentLeadId && drawerPoolJob?.id === scheduleIntentLeadId)}
+        onScheduleCommitted={handleScheduleCommitted}
+      />
     </>
   )
 }
