@@ -231,14 +231,24 @@ export function pickVariantsForVehicle(
     return true
   }
 
-  // Prefer listings that spell out button count (3-button vs 4-button + trunk, etc.).
+  // Phase 1: listings that spell out button count (3-button vs 4-button + trunk, etc.).
   for (const v of ranked) tryPick(v, true)
-  for (const v of ranked) tryPick(v, false)
+
+  // Phase 2: at most one fallback when the supplier title omits button count.
+  let unknownPicked = false
+  for (const v of ranked) {
+    if (unknownPicked) break
+    const sig = buttonSignature(v)
+    if (hasKnownButtonCount(sig)) continue
+    if (tryPick(v, false)) unknownPicked = true
+  }
 
   let result = dedupeByImage(attachReferencePhotos(picked, parsed))
   const knownLayouts = result.filter((row) => hasKnownButtonCount(buttonSignature(row))).length
   if (knownLayouts >= 2) {
-    return result.slice(0, Math.min(limit, 4))
+    return result
+      .filter((row) => hasKnownButtonCount(buttonSignature(row)))
+      .slice(0, Math.min(limit, 4))
   }
 
   const resultSignatures = new Set(result.map((row) => buttonSignature(row)))
