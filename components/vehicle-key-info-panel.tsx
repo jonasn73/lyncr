@@ -48,6 +48,7 @@ type FccVariant = {
   buttons: string | null
   battery: string | null
   suggested_key_style: string | null
+  reference_image?: boolean
 }
 
 type VehicleKeyInfoPanelProps = {
@@ -340,6 +341,9 @@ export function VehicleKeyInfoPanel({
                     ) : null}
                     {v.battery ? (
                       <span className="text-[10px] text-muted-foreground">Battery: {v.battery}</span>
+                    ) : null}
+                    {v.reference_image ? (
+                      <span className="text-[10px] text-amber-200/90">Reference photo (same FCC)</span>
                     ) : null}
                   </div>
                 </button>

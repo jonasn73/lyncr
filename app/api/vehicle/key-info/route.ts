@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { lookupFccRemoteVariants } from "@/lib/fccid-remote-variants"
+import { lookupFccRemoteVariants, mergeVariantLists } from "@/lib/fccid-remote-variants"
 import { lookupVehicleKeyProfiles } from "@/lib/vehicle-key-reference"
 
 export const maxDuration = 30
@@ -27,20 +27,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: { key_info: result } })
     }
 
-    const primaryFcc = result.profiles[0]!.fcc_id
-    const photoDetail = await lookupFccRemoteVariants({
-      fcc_id: primaryFcc,
-      year,
-      make,
-      model,
-    })
+    const variantLists = await Promise.all(
+      result.profiles.map((profile) =>
+        lookupFccRemoteVariants({
+          fcc_id: profile.fcc_id,
+          year,
+          make,
+          model,
+        }).then((detail) => detail.variants)
+      )
+    )
+    const variants = mergeVariantLists(variantLists, 6)
 
     return NextResponse.json({
       data: {
         key_info: {
           ...result,
-          variants: photoDetail.variants,
-          photo_disclaimer: photoDetail.disclaimer,
+          variants,
+          photo_disclaimer:
+            variants.some((v) => v.reference_image)
+              ? "Some photos are reference images from the same FCC ID — always confirm the key on the vehicle."
+              : "Photos and titles come from public FCC ID replacement listings. Always confirm the physical key on the vehicle before ordering.",
         },
       },
     })

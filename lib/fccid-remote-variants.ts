@@ -18,6 +18,8 @@ export type FccRemoteVariant = {
   source_url: string | null
   /** Human hint for the intake sheet key-style dropdown. */
   suggested_key_style: string | null
+  /** Photo borrowed from another listing with the same FCC ID. */
+  reference_image?: boolean
 }
 
 type CacheEntry = { expires: number; variants: FccRemoteVariant[] }
@@ -241,28 +243,70 @@ export function pickVariantsForVehicle(
   const seenPick = new Set<string>()
   for (const bucket of BUCKET_PICK_ORDER) {
     const cap = BUCKET_PICK_LIMIT[bucket] ?? 1
+    const withPhoto = buckets[bucket].filter((v) => Boolean(v.image_url))
+    const withoutPhoto = buckets[bucket].filter((v) => !v.image_url)
+    const ordered = [...withPhoto, ...withoutPhoto]
+
     let taken = 0
-    for (const v of buckets[bucket]) {
+    let gotPhoto = false
+    for (const v of ordered) {
       if (taken >= cap || picked.length >= limit) break
+      if (gotPhoto && !v.image_url) continue
       const pickKey = `${bucket}|${v.image_url ?? v.title.slice(0, 48)}`
       if (seenPick.has(pickKey)) continue
       seenPick.add(pickKey)
       picked.push(v)
       taken++
+      if (v.image_url) gotPhoto = true
+    }
+
+    if (taken === 0 && withoutPhoto.length > 0 && picked.length < limit) {
+      const v = withoutPhoto[0]!
+      const pickKey = `${bucket}|${v.title.slice(0, 48)}`
+      if (!seenPick.has(pickKey)) {
+        seenPick.add(pickKey)
+        picked.push(v)
+      }
     }
   }
 
-  return picked
+  return attachReferencePhotos(picked, parsed)
+}
+
+/** Fill in missing photos from other listings on the same FCC page (same key family). */
+function attachReferencePhotos(
+  picked: FccRemoteVariant[],
+  pool: FccRemoteVariant[]
+): FccRemoteVariant[] {
+  const photoPool = pool.filter((v) => v.image_url && !isJunkListing(v.title))
+  if (photoPool.length === 0) return picked
+
+  return picked.map((v) => {
+    if (v.image_url) return v
+    const bucket = classifyKeyStyleBucket(v.title, v.key_type)
+    const fallback =
+      photoPool.find((p) => classifyKeyStyleBucket(p.title, p.key_type) === bucket) ??
+      photoPool.find((p) => bucket === "smart" && classifyKeyStyleBucket(p.title, p.key_type) === "smart") ??
+      photoPool[0]
+    if (!fallback?.image_url) return v
+    return { ...v, image_url: fallback.image_url, reference_image: true }
+  })
+}
+
+/** Merge variant lists from multiple FCC profiles — prefer entries that have photos. */
+export function mergeVariantLists(lists: FccRemoteVariant[], limit = 6): FccRemoteVariant[] {
+  const merged = dedupeByImage(dedupeVariants(lists.flat()))
+  return [...merged].sort((a, b) => Number(Boolean(b.image_url)) - Number(Boolean(a.image_url))).slice(0, limit)
 }
 
 function scoreVariant(v: FccRemoteVariant, year: number): number {
   let score = 0
-  if (v.image_url) score += 40
+  if (v.image_url) score += 55
   const blob = `${v.title} ${v.fits_text ?? ""}`.toLowerCase()
-  if (blob.includes(String(year))) score += 25
+  if (yearMatchesText(year, v.title, v.fits_text ?? "")) score += 25
   if (v.key_type) score += 10
   if (v.buttons) score += 5
-  if (/\boem\b|new oem|factory oem/.test(blob)) score += 20
+  if (/\boem\b|new oem|factory oem/.test(blob)) score += 15
   if (/aftermarket/.test(blob)) score += 4
   if (/refurb|used|reconditioned/.test(blob)) score -= 12
   if (isJunkListing(v.title)) score -= 100
