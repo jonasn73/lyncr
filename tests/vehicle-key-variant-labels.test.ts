@@ -41,4 +41,14 @@ describe("vehicle-key-variant-labels", () => {
       variantButtonLabel("2020 Ford Explorer ST Smart Remote w/ Trunk", "Remote", null)
     ).toBe("Smart key + trunk")
   })
+
+  it("reads Ford OEM 3B / 4B shorthand in titles", () => {
+    expect(
+      variantButtonLabel(
+        "Ford New OEM 2017-2024 F-150 Smart Key 3B FCCID: M3N-A2C93142300",
+        null,
+        null
+      )
+    ).toBe("3-button")
+  })
 })

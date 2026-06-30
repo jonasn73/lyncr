@@ -34,6 +34,21 @@ describe("pickVariantsForVehicle photos", () => {
     expect(buttonTitles).toMatch(/4\s*[- ]?button/)
   })
 
+  it("uses 3-button F-series photo for 2020 F-150 M3N-A2C93142300", () => {
+    const cache = JSON.parse(
+      readFileSync(join(process.cwd(), "data", "fcc-remote-variants-cache.json"), "utf8")
+    ) as Record<string, Parameters<typeof pickVariantsForVehicle>[0]>
+    const picked = pickVariantsForVehicle(cache["M3N-A2C93142300"] ?? [], {
+      year: 2020,
+      make: "Ford",
+      model: "F-150",
+    })
+    expect(picked.length).toBe(1)
+    expect(picked[0]?.title.toLowerCase()).toContain("f-150")
+    expect(picked[0]?.title.toLowerCase()).toMatch(/3b|3.button/)
+    expect(picked[0]?.image_url).toMatch(/3b|hc3t/i)
+  })
+
   it("mergeVariantLists prefers variants with photos from alternate FCC profiles", () => {
     const cache = JSON.parse(
       readFileSync(join(process.cwd(), "data", "fcc-remote-variants-cache.json"), "utf8")

@@ -55,6 +55,7 @@ type FccVariant = {
   fits_text: string | null
   suggested_key_style: string | null
   reference_image?: boolean
+  reference_note?: string
 }
 
 type ProfileDetail = {
@@ -157,9 +158,11 @@ function VariantGrid({
               {variant.fits_text ? (
                 <span className="text-[10px] text-muted-foreground line-clamp-2">{variant.fits_text}</span>
               ) : null}
-              {variant.reference_image ? (
-                <span className="text-[10px] text-amber-200/90">Reference photo (same FCC)</span>
-              ) : null}
+                    {variant.reference_image ? (
+                      <span className="text-[10px] text-amber-200/90">
+                        {variant.reference_note ?? "Reference photo (same FCC)"}
+                      </span>
+                    ) : null}
             </div>
           </button>
         )

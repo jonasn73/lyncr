@@ -36,6 +36,20 @@ export function variantDisplayLabel(title: string, keyType: string | null): stri
   }
 }
 
+/** Pull button count from supplier titles like "4-Button", "4 Button", or Ford "3B". */
+export function extractButtonCount(
+  title: string,
+  buttons: string | null,
+  fitsText?: string | null
+): string | null {
+  const blob = `${title} ${buttons ?? ""} ${fitsText ?? ""}`.toLowerCase()
+  const standard = blob.match(/(\d)\s*[- ]?button/)
+  if (standard) return standard[1]!
+  const fordShort = blob.match(/\b(\d)\s*b\b/)
+  if (fordShort) return fordShort[1]!
+  return null
+}
+
 /** Human label for button layout, e.g. "4-button + trunk" or "Smart key + trunk". */
 export function variantButtonLabel(
   title: string,
@@ -44,9 +58,9 @@ export function variantButtonLabel(
   keyType?: string | null
 ): string | null {
   const blob = `${title} ${buttons ?? ""} ${fitsText ?? ""}`.toLowerCase()
-  const countMatch = blob.match(/(\d)\s*[- ]?button/)
-  if (countMatch) {
-    const parts = [`${countMatch[1]}-button`]
+  const count = extractButtonCount(title, buttons, fitsText)
+  if (count) {
+    const parts = [`${count}-button`]
     if (/remote start|engine start|push start/.test(blob)) parts.push("remote start")
     if (/trunk|liftgate|hatch|w\/\s*trunk/.test(blob)) parts.push("trunk")
     if (/panic/.test(blob)) parts.push("panic")
@@ -72,16 +86,16 @@ export function variantButtonSignature(
   keyType?: string | null
 ): string {
   const blob = `${title} ${buttons ?? ""} ${fitsText ?? ""}`.toLowerCase()
-  const countMatch = blob.match(/(\d)\s*[- ]?button/)
-  let count = countMatch ? countMatch[1]! : "?"
-  if (!countMatch && classifyKeyStyleBucket(title, keyType ?? null) === "smart") {
-    count = "smart"
+  const count = extractButtonCount(title, buttons, fitsText)
+  let countToken = count ?? "?"
+  if (!count && classifyKeyStyleBucket(title, keyType ?? null) === "smart") {
+    countToken = "smart"
   }
   const features: string[] = []
   if (/trunk|liftgate|hatch|w\/\s*trunk/.test(blob)) features.push("trunk")
   if (/panic/.test(blob)) features.push("panic")
   if (/remote start|engine start|push start/.test(blob)) features.push("start")
-  return `${count}|${features.sort().join(",")}`
+  return `${countToken}|${features.sort().join(",")}`
 }
 
 /** Map a variant bucket to the intake form key-style dropdown value. */

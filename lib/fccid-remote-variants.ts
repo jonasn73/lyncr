@@ -3,7 +3,7 @@
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { classifyKeyStyleBucket, variantButtonSignature, type KeyStyleBucket } from "@/lib/vehicle-key-variant-labels"
+import { classifyKeyStyleBucket, extractButtonCount, variantButtonSignature, type KeyStyleBucket } from "@/lib/vehicle-key-variant-labels"
 
 export type FccRemoteVariant = {
   /** Stable id for UI selection (hash of title + image). */
@@ -20,6 +20,8 @@ export type FccRemoteVariant = {
   suggested_key_style: string | null
   /** Photo borrowed from another listing with the same FCC ID. */
   reference_image?: boolean
+  /** Shown when the borrowed photo may be a different trim but same button count. */
+  reference_note?: string
 }
 
 type CacheEntry = { expires: number; variants: FccRemoteVariant[] }
@@ -172,7 +174,8 @@ function buttonSignature(v: FccRemoteVariant): string {
 }
 
 function hasKnownButtonCount(signature: string): boolean {
-  return !signature.startsWith("?|")
+  const count = signature.split("|")[0] ?? "?"
+  return /^\d$/.test(count)
 }
 
 /** Rank and filter parsed listings — distinct button layouts with unique photos. */
@@ -236,19 +239,27 @@ export function pickVariantsForVehicle(
 
   // Phase 2: at most one fallback when the supplier title omits button count.
   let unknownPicked = false
-  for (const v of ranked) {
-    if (unknownPicked) break
-    const sig = buttonSignature(v)
-    if (hasKnownButtonCount(sig)) continue
-    if (tryPick(v, false)) unknownPicked = true
+  if (picked.filter((row) => hasKnownButtonCount(buttonSignature(row))).length === 0) {
+    for (const v of ranked) {
+      if (unknownPicked) break
+      const sig = buttonSignature(v)
+      if (hasKnownButtonCount(sig)) continue
+      if (tryPick(v, false)) unknownPicked = true
+    }
   }
 
   let result = dedupeByImage(attachReferencePhotos(picked, parsed))
+  if (result.some((row) => row.image_url && hasKnownButtonCount(buttonSignature(row)))) {
+    result = result.filter((row) => Boolean(row.image_url))
+  }
   const knownLayouts = result.filter((row) => hasKnownButtonCount(buttonSignature(row))).length
   if (knownLayouts >= 2) {
     return result
       .filter((row) => hasKnownButtonCount(buttonSignature(row)))
       .slice(0, Math.min(limit, 4))
+  }
+  if (knownLayouts >= 1 && result.some((row) => row.image_url)) {
+    return result.filter((row) => row.image_url).slice(0, Math.min(limit, 4))
   }
 
   const resultSignatures = new Set(result.map((row) => buttonSignature(row)))
@@ -280,6 +291,7 @@ function attachReferencePhotos(
     if (v.image_url) return v
     const sig = buttonSignature(v)
     const bucket = classifyKeyStyleBucket(v.title, v.key_type)
+    const targetCount = extractButtonCount(v.title, v.buttons, v.fits_text)
     const fallback =
       photoPool.find(
         (p) =>
@@ -287,14 +299,33 @@ function attachReferencePhotos(
           hasKnownButtonCount(sig) &&
           buttonSignature(p) === sig
       ) ??
-      photoPool.find(
-        (p) =>
-          !usedImages.has(p.image_url!) && classifyKeyStyleBucket(p.title, p.key_type) === bucket
-      ) ??
-      photoPool.find((p) => !usedImages.has(p.image_url!))
+      (targetCount
+        ? photoPool.find(
+            (p) =>
+              !usedImages.has(p.image_url!) &&
+              extractButtonCount(p.title, p.buttons, p.fits_text) === targetCount
+          )
+        : undefined) ??
+      (!hasKnownButtonCount(sig)
+        ? photoPool.find(
+            (p) =>
+              !usedImages.has(p.image_url!) &&
+              classifyKeyStyleBucket(p.title, p.key_type) === bucket
+          )
+        : undefined)
     if (!fallback?.image_url) return v
     usedImages.add(fallback.image_url)
-    return { ...v, image_url: fallback.image_url, reference_image: true }
+    const sameLayout = buttonSignature(fallback) === sig
+    return {
+      ...v,
+      image_url: fallback.image_url,
+      reference_image: true,
+      reference_note: sameLayout
+        ? undefined
+        : targetCount
+          ? `${targetCount}-button reference (same FCC, confirm on key)`
+          : "Reference photo (same FCC, confirm on key)",
+    }
   })
 }
 
@@ -312,6 +343,7 @@ function scoreVariant(v: FccRemoteVariant, year: number): number {
   if (v.key_type) score += 10
   if (v.buttons) score += 5
   if (/\d\s*[- ]?button/.test(v.title.toLowerCase())) score += 12
+  if (/\b\d\s*b\b/i.test(v.title)) score += 12
   if (/\boem\b|new oem|factory oem/.test(blob)) score += 15
   if (/aftermarket/.test(blob)) score += 4
   if (/refurb|used|reconditioned/.test(blob)) score -= 12
