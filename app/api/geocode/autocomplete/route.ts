@@ -81,6 +81,20 @@ async function suggestWithNominatim(query: string): Promise<AddressSuggestion[]>
     .filter((addr) => isCompleteStructuredAddress(addr))
 }
 
+function mergeSuggestions(lists: AddressSuggestion[][]): AddressSuggestion[] {
+  const seen = new Set<string>()
+  const merged: AddressSuggestion[] = []
+  for (const list of lists) {
+    for (const s of list) {
+      const key = s.place_id?.trim() || s.formatted.trim().toLowerCase()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      merged.push(s)
+    }
+  }
+  return merged
+}
+
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
@@ -93,17 +107,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const key = googleKey()
-    let suggestions: AddressSuggestion[] = []
-    if (key) {
-      suggestions = await suggestWithGoogle(q, key)
-    }
-    if (suggestions.length === 0) {
-      suggestions = await suggestWithPhoton(q)
-    }
-    if (suggestions.length === 0) {
-      suggestions = await suggestWithNominatim(q)
-    }
-    suggestions = suggestions.filter(isSelectableAddressSuggestion)
+    const [googleResults, photonResults, nominatimResults] = await Promise.all([
+      key ? suggestWithGoogle(q, key) : Promise.resolve([]),
+      suggestWithPhoton(q),
+      suggestWithNominatim(q),
+    ])
+    let suggestions = mergeSuggestions([photonResults, googleResults, nominatimResults])
+    suggestions = suggestions.filter(isSelectableAddressSuggestion).slice(0, 8)
     return NextResponse.json({ data: { suggestions } })
   } catch (e) {
     console.error("[geocode/autocomplete]", e)

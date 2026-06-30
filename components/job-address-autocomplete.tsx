@@ -2,7 +2,8 @@
 
 // Validated structured job-site address — must pick a complete suggestion.
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Loader2, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -39,8 +40,18 @@ export function JobAddressAutocomplete({
   const [loading, setLoading] = useState(false)
   const [resolving, setResolving] = useState(false)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLUListElement>(null)
+
+  const syncMenuRect = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setMenuRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [])
 
   useEffect(() => {
     if (value?.formatted) {
@@ -51,11 +62,26 @@ export function JobAddressAutocomplete({
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (wrapRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener("mousedown", onDocClick)
     return () => document.removeEventListener("mousedown", onDocClick)
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+    syncMenuRect()
+    const onMove = () => syncMenuRect()
+    window.addEventListener("resize", onMove)
+    window.addEventListener("scroll", onMove, true)
+    return () => {
+      window.removeEventListener("resize", onMove)
+      window.removeEventListener("scroll", onMove, true)
+    }
+  }, [open, syncMenuRect, suggestions])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -80,7 +106,7 @@ export function JobAddressAutocomplete({
         })
         .catch(() => setSuggestions([]))
         .finally(() => setLoading(false))
-    }, 180)
+    }, 150)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
@@ -119,11 +145,39 @@ export function JobAddressAutocomplete({
   const validationError = validated ? null : structuredAddressValidationError(value)
   const minLen = /^\d/.test(query.trim()) ? 2 : 3
 
+  const dropdown =
+    open && !validated && suggestions.length > 0 && menuRect ? (
+      <ul
+        ref={dropdownRef}
+        style={{
+          position: "fixed",
+          top: menuRect.top,
+          left: menuRect.left,
+          width: menuRect.width,
+          zIndex: 9999,
+        }}
+        className="max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-xl"
+      >
+        {suggestions.map((s, idx) => (
+          <li key={`${s.place_id ?? s.formatted}-${idx}`}>
+            <button
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted/60"
+              onClick={() => void pickSuggestion(s)}
+            >
+              {suggestionLabel(s)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : null
+
   return (
     <div ref={wrapRef} className="relative grid gap-1">
       <div className="relative">
         <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
         <input
+          ref={inputRef}
           type="text"
           className={cn(
             "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-9 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
@@ -139,7 +193,8 @@ export function JobAddressAutocomplete({
             onChange(null)
           }}
           onFocus={() => {
-            if (suggestions.length > 0 && !validated) setOpen(true)
+            syncMenuRect()
+            if (!validated && query.trim().length >= minLen) setOpen(true)
           }}
           autoComplete="off"
         />
@@ -147,21 +202,7 @@ export function JobAddressAutocomplete({
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" aria-hidden />
         ) : null}
       </div>
-      {open && !validated && suggestions.length > 0 ? (
-        <ul className="absolute z-[130] mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-lg top-full">
-          {suggestions.map((s, idx) => (
-            <li key={`${s.place_id ?? s.formatted}-${idx}`}>
-              <button
-                type="button"
-                className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted/60"
-                onClick={() => void pickSuggestion(s)}
-              >
-                {suggestionLabel(s)}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {typeof document !== "undefined" && dropdown ? createPortal(dropdown, document.body) : null}
       {!validated && query.trim().length >= minLen && !loading && !resolving && suggestions.length === 0 ? (
         <p className="text-xs text-amber-400">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
       ) : null}
