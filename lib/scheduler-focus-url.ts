@@ -7,7 +7,7 @@ export const SCHEDULER_FOCUS_PARAM = "focus"
 export const SCHEDULER_SCHEDULE_PARAM = "schedule"
 
 export type SchedulerFocusUrlOptions = {
-  /** When true, land in grid view with the schedule drawer open. */
+  /** When true, open the post-intake schedule dialog (date + time) on the map. */
   schedule?: boolean
 }
 

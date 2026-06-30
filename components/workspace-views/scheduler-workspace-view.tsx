@@ -51,6 +51,7 @@ import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
 import { SchedulerMobileDispatchShell } from "@/components/scheduler/scheduler-mobile-dispatch-shell"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
+import { IntakeScheduleDialog } from "@/components/scheduler/intake-schedule-dialog"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { setMainScrollLocked } from "@/lib/mobile-scroll-lock"
 import type {
@@ -136,7 +137,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [gridScheduleSaving, setGridScheduleSaving] = useState(false)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [scheduleIntentLeadId, setScheduleIntentLeadId] = useState<string | null>(null)
-  const intakeFocusHandledRef = useRef<string | null>(null)
+  const [intakeScheduleJob, setIntakeScheduleJob] = useState<UnassignedPoolJob | null>(null)
   const initialBootstrapDoneRef = useRef(false)
 
   const { focusLeadId, scheduleFromIntake } = useMemo(
@@ -151,6 +152,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   const {
     jobs: poolJobs,
+    isLoading: poolLoading,
     mutate: mutatePool,
   } = useJobPoolQuery(activeOrganizationId)
 
@@ -498,6 +500,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const completeScheduleIntent = useCallback(
     (event?: SchedulerEvent) => {
       setScheduleIntentLeadId(null)
+      setIntakeScheduleJob(null)
       intakeFocusHandledRef.current = null
       router.replace("/dashboard/scheduler", { scroll: false })
       setViewMode("map")
@@ -657,6 +660,28 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     [completeScheduleIntent, selectedKey]
   )
 
+  const handleIntakeScheduleSkip = useCallback(() => {
+    const job = intakeScheduleJob
+    completeScheduleIntent()
+    if (job) {
+      setHighlightId(job.id)
+      const lat = typeof job.latitude === "number" ? job.latitude : undefined
+      const lng = typeof job.longitude === "number" ? job.longitude : undefined
+      window.setTimeout(() => mapRef.current?.focusJob(job.id, lat, lng), 120)
+    }
+  }, [intakeScheduleJob, completeScheduleIntent])
+
+  const intakeScheduleDialogOpen = Boolean(
+    scheduleFromIntake && focusLeadId && scheduleIntentLeadId === focusLeadId
+  )
+
+  const intakeScheduleNotFound = Boolean(
+    intakeScheduleDialogOpen &&
+      !poolLoading &&
+      !intakeScheduleJob &&
+      !events.some((e) => e.id === focusLeadId)
+  )
+
   function setIntakeField(
     name: string,
     value: string | boolean | import("@/lib/structured-address").StructuredAddress | null
@@ -706,7 +731,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     if (!isActive || !focusLeadId) return
     if (scheduleFromIntake) {
       setScheduleIntentLeadId(focusLeadId)
-      setViewMode("grid")
       void mutatePool()
     }
   }, [isActive, focusLeadId, scheduleFromIntake, mutatePool])
@@ -719,18 +743,16 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     const pipelineJob = activePipelineJobs.find((j) => j.id === focusLeadId)
 
     if (scheduleFromIntake && scheduleIntentLeadId === focusLeadId) {
-      if (poolJob && intakeFocusHandledRef.current !== focusLeadId) {
-        intakeFocusHandledRef.current = focusLeadId
+      if (poolJob) {
+        setIntakeScheduleJob(poolJob)
         setHighlightId(focusLeadId)
-        setDrawerPoolJob(poolJob)
-        setDrawerScheduledEvent(null)
         return
       }
       if (scheduled) {
         completeScheduleIntent(scheduled)
         return
       }
-      if (pipelineJob && !poolJob) {
+      if (pipelineJob && !poolJob && !poolLoading) {
         completeScheduleIntent()
         openJobForEdit(pipelineJob)
         panMapToJob(pipelineJob)
@@ -767,6 +789,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     viewMode,
     completeScheduleIntent,
     dayEvents,
+    poolLoading,
   ])
 
   useEffect(() => {
@@ -1059,10 +1082,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                     onSaved={applyJobEventUpdate}
                     onStatusChanged={applyJobEventUpdate}
                     onDeleted={handleJobDeleted}
-                    scheduleIntent={Boolean(
-                      scheduleIntentLeadId && drawerPoolJob?.id === scheduleIntentLeadId
-                    )}
-                    onScheduleCommitted={handleScheduleCommitted}
                     placement="embedded"
                   />
                 </div>
@@ -1191,11 +1210,19 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           onSaved={applyJobEventUpdate}
           onStatusChanged={applyJobEventUpdate}
           onDeleted={handleJobDeleted}
-          scheduleIntent={Boolean(scheduleIntentLeadId && drawerPoolJob?.id === scheduleIntentLeadId)}
-          onScheduleCommitted={handleScheduleCommitted}
           placement="fixed"
         />
       ) : null}
+
+      <IntakeScheduleDialog
+        open={intakeScheduleDialogOpen}
+        loading={poolLoading && !intakeScheduleJob}
+        notFound={intakeScheduleNotFound}
+        job={intakeScheduleJob}
+        technicians={technicians}
+        onSchedule={handleScheduleCommitted}
+        onSkip={handleIntakeScheduleSkip}
+      />
     </>
   )
 }
