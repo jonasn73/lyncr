@@ -38,6 +38,10 @@ export type ActiveCallFormState = {
   keyFrequency: string
   keyChipset: string
   keyStyle: string
+  /** Which photo variant the user tapped in the key panel. */
+  keyVariantId: string
+  /** Row id from the FCC reference CSV for the selected profile. */
+  keyProfileId: string
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
@@ -59,6 +63,8 @@ const EMPTY_FORM: ActiveCallFormState = {
   keyFrequency: "",
   keyChipset: "",
   keyStyle: "",
+  keyVariantId: "",
+  keyProfileId: "",
 }
 
 function flatAddressFromStructured(addr: StructuredAddress): Pick<
@@ -111,17 +117,30 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       keyFrequency: "",
       keyChipset: "",
       keyStyle: "",
+      keyVariantId: "",
+      keyProfileId: "",
     }))
   }, [])
 
   const setVehicleKeySelection = useCallback(
-    (sel: { fccId: string; frequency: string | null; chipset: string | null; keyStyle: string } | null) => {
+    (
+      sel: {
+        profileId: string
+        fccId: string
+        frequency: string | null
+        chipset: string | null
+        keyStyle: string
+        variantId?: string | null
+      } | null
+    ) => {
       setForm((prev) => ({
         ...prev,
+        keyProfileId: sel?.profileId ?? "",
         keyFccId: sel?.fccId ?? "",
         keyFrequency: sel?.frequency ?? "",
         keyChipset: sel?.chipset ?? "",
         keyStyle: sel?.keyStyle ?? "",
+        keyVariantId: sel?.variantId ?? "",
       }))
     },
     []

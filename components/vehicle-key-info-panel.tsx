@@ -67,6 +67,23 @@ function shortVariantLabel(title: string, keyType: string | null): string {
   return "Remote key"
 }
 
+/** Guess key style from variant title when fccid.io omits a suggestion. */
+function resolveKeyStyle(variant: FccVariant, currentStyle: string): string {
+  if (
+    variant.suggested_key_style &&
+    (KEY_STYLE_OPTIONS as readonly string[]).includes(variant.suggested_key_style)
+  ) {
+    return variant.suggested_key_style
+  }
+  const blob = `${variant.key_type ?? ""} ${variant.title}`.toLowerCase()
+  if (/smart|proximity|push\s*start/.test(blob)) return "Push start (smart key)"
+  if (/flip/.test(blob)) return "Flip key"
+  if (/remote head|combo\s*key|transponder/.test(blob)) return "Remote head key"
+  if (/remote|fob|keyless/.test(blob)) return "Keyless remote only"
+  if (currentStyle && currentStyle !== KEY_STYLE_OPTIONS[5]) return currentStyle
+  return KEY_STYLE_OPTIONS[5]
+}
+
 export function VehicleKeyInfoPanel({
   year,
   make,
@@ -210,17 +227,12 @@ export function VehicleKeyInfoPanel({
   const profile = selectedProfile!
 
   const applyVariant = (variant: FccVariant) => {
-    const style =
-      variant.suggested_key_style &&
-      (KEY_STYLE_OPTIONS as readonly string[]).includes(variant.suggested_key_style)
-        ? variant.suggested_key_style
-        : value?.keyStyle || KEY_STYLE_OPTIONS[5]
     onChange({
       profileId: profile.id,
       fccId: profile.fcc_id,
       frequency: profile.frequency,
       chipset: profile.chipset,
-      keyStyle: style,
+      keyStyle: resolveKeyStyle(variant, value?.keyStyle || KEY_STYLE_OPTIONS[5]),
       variantId: variant.id,
     })
   }

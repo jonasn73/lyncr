@@ -318,26 +318,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   value={
                     form.keyFccId
                       ? {
-                          profileId: "",
+                          profileId: form.keyProfileId,
                           fccId: form.keyFccId,
                           frequency: form.keyFrequency || null,
                           chipset: form.keyChipset || null,
                           keyStyle: form.keyStyle || "Not sure yet",
+                          variantId: form.keyVariantId || null,
                         }
                       : null
                   }
-                  onChange={(sel) =>
-                    setVehicleKeySelection(
-                      sel
-                        ? {
-                            fccId: sel.fccId,
-                            frequency: sel.frequency,
-                            chipset: sel.chipset,
-                            keyStyle: sel.keyStyle,
-                          }
-                        : null
-                    )
-                  }
+                  onChange={(sel) => setVehicleKeySelection(sel)}
                 />
                 <label className="grid gap-1.5 text-sm">
                   <span className="text-xs font-medium text-foreground">What do they need?</span>
