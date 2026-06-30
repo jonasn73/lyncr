@@ -12,6 +12,11 @@ import {
   formatIntakeJobTypeForDispatch,
   isIntakeJobTypeComplete,
 } from "@/lib/intake-job-types"
+import {
+  buildFlatAddressQuery,
+  listIntakeDispatchBlockers,
+  resolveStructuredAddressFromQuery,
+} from "@/lib/intake-address-helpers"
 
 export type ActiveCallRow = {
   id: string
@@ -204,6 +209,49 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     }
   }, [callLogId, form.phoneNumber])
 
+  // When a repeat customer has a saved street/city/ZIP, verify it for the map pin automatically.
+  useEffect(() => {
+    if (!callLogId) return
+    if (form.serviceAddress && isCompleteStructuredAddress(form.serviceAddress)) return
+
+    const query = buildFlatAddressQuery({
+      addressLine1: form.addressLine1,
+      addressLine2: form.addressLine2,
+      city: form.city,
+      region: form.region,
+      postalCode: form.postalCode,
+    })
+    if (!query) return
+
+    let cancel = false
+    const t = window.setTimeout(() => {
+      void resolveStructuredAddressFromQuery(query).then((addr) => {
+        if (cancel || !addr) return
+        setForm((prev) => {
+          if (prev.serviceAddress && isCompleteStructuredAddress(prev.serviceAddress)) return prev
+          return {
+            ...prev,
+            serviceAddress: addr,
+            ...flatAddressFromStructured(addr),
+          }
+        })
+      })
+    }, 400)
+
+    return () => {
+      cancel = true
+      window.clearTimeout(t)
+    }
+  }, [
+    callLogId,
+    form.addressLine1,
+    form.addressLine2,
+    form.city,
+    form.region,
+    form.postalCode,
+    form.serviceAddress,
+  ])
+
   useEffect(() => {
     if (!callLogId || !current) return
     const phone = form.phoneNumber.trim()
@@ -316,6 +364,15 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
   const addressReady = Boolean(form.serviceAddress && isCompleteStructuredAddress(form.serviceAddress))
   const jobTypeReady = isIntakeJobTypeComplete(form.jobType, form.keyReplacementMode)
   const canDispatch = Boolean(form.displayName.trim() && addressReady && jobTypeReady)
+  const dispatchBlockers = listIntakeDispatchBlockers(form)
+  const addressSeedQuery =
+    buildFlatAddressQuery({
+      addressLine1: form.addressLine1,
+      addressLine2: form.addressLine2,
+      city: form.city,
+      region: form.region,
+      postalCode: form.postalCode,
+    }) ?? ""
 
   return {
     form,
@@ -329,5 +386,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     createJob,
     canDispatch,
     addressReady,
+    dispatchBlockers,
+    addressSeedQuery,
   }
 }

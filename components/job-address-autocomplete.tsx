@@ -18,6 +18,8 @@ type AddressSuggestion = StructuredAddress & { place_id?: string | null; label?:
 type JobAddressAutocompleteProps = {
   value: StructuredAddress | null
   onChange: (value: StructuredAddress | null) => void
+  /** Pre-fill the input when CRM has a saved address (before structured verify). */
+  seedQuery?: string
   placeholder?: string
   className?: string
   disabled?: boolean
@@ -30,6 +32,7 @@ function suggestionLabel(s: AddressSuggestion): string {
 export function JobAddressAutocomplete({
   value,
   onChange,
+  seedQuery = "",
   placeholder = "123 Main St, city, state ZIP",
   className,
   disabled,
@@ -88,8 +91,13 @@ export function JobAddressAutocomplete({
     if (value?.formatted) {
       setQuery(value.formatted)
       setValidated(isCompleteStructuredAddress(value))
+      return
     }
-  }, [value])
+    const seed = seedQuery.trim()
+    if (seed && !validated) {
+      setQuery(seed)
+    }
+  }, [value, seedQuery, validated])
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {

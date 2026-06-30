@@ -140,6 +140,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     createJob,
     canDispatch,
     addressReady,
+    dispatchBlockers,
+    addressSeedQuery,
   } = useActiveCallForm(current)
 
   useEffect(() => {
@@ -406,6 +408,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 <JobAddressAutocomplete
                   value={form.serviceAddress}
                   onChange={setServiceAddress}
+                  seedQuery={addressSeedQuery}
                   placeholder="Start typing street address…"
                 />
                 <p className="text-[10px] text-muted-foreground">
@@ -474,6 +477,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
                 Send to dispatch map
               </Button>
+              {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
+                <p className="text-center text-[11px] text-amber-200/90">
+                  Still needed: {dispatchBlockers.join(" · ")}
+                </p>
+              ) : null}
               <div className="flex w-full items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground">
                   {saveState === "saving" ? "Saving customer…" : null}
