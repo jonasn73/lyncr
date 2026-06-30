@@ -81,7 +81,7 @@ async function suggestWithNominatim(query: string): Promise<AddressSuggestion[]>
     .filter((addr) => isCompleteStructuredAddress(addr))
 }
 
-function mergeSuggestions(lists: AddressSuggestion[][]): AddressSuggestion[] {
+function mergeSuggestions(lists: AddressSuggestion[][], query: string): AddressSuggestion[] {
   const seen = new Set<string>()
   const merged: AddressSuggestion[] = []
   for (const list of lists) {
@@ -92,7 +92,18 @@ function mergeSuggestions(lists: AddressSuggestion[][]): AddressSuggestion[] {
       merged.push(s)
     }
   }
-  return merged
+  const q = query.toLowerCase()
+  return merged.sort((a, b) => scoreLocalSuggestion(b, q) - scoreLocalSuggestion(a, q))
+}
+
+/** Prefer in-area matches (502 / Louisville) over distant Photon hits. */
+function scoreLocalSuggestion(s: AddressSuggestion, q: string): number {
+  let score = 0
+  const blob = `${s.formatted} ${s.locality} ${s.admin_area} ${s.postal_code}`.toLowerCase()
+  if (blob.includes("kentucky") || blob.includes(" ky ")) score += 25
+  if (blob.includes("louisville") || blob.startsWith("40")) score += 20
+  if (/^\d/.test(q) && s.street_number) score += 10
+  return score
 }
 
 export async function GET(req: NextRequest) {
@@ -112,7 +123,7 @@ export async function GET(req: NextRequest) {
       suggestWithPhoton(q),
       suggestWithNominatim(q),
     ])
-    let suggestions = mergeSuggestions([photonResults, googleResults, nominatimResults])
+    let suggestions = mergeSuggestions([photonResults, googleResults, nominatimResults], q)
     suggestions = suggestions.filter(isSelectableAddressSuggestion).slice(0, 8)
     return NextResponse.json({ data: { suggestions } })
   } catch (e) {

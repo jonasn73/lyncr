@@ -45,6 +45,15 @@ export function JobAddressAutocomplete({
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLUListElement>(null)
+  const portalRef = useRef<HTMLElement | null>(null)
+
+  const resolvePortalTarget = useCallback((): HTMLElement => {
+    if (typeof document === "undefined") return document.body
+    // Must render inside the sheet so Radix modal does not swallow clicks.
+    const sheet = document.querySelector('[data-slot="sheet-content"]')
+    portalRef.current = (sheet as HTMLElement | null) ?? document.body
+    return portalRef.current
+  }, [])
 
   const syncMenuRect = useCallback(() => {
     const el = inputRef.current
@@ -61,14 +70,14 @@ export function JobAddressAutocomplete({
   }, [value])
 
   useEffect(() => {
-    function onDocClick(e: MouseEvent) {
+    function onDocPointerDown(e: PointerEvent) {
       const target = e.target as Node
       if (wrapRef.current?.contains(target)) return
       if (dropdownRef.current?.contains(target)) return
       setOpen(false)
     }
-    document.addEventListener("mousedown", onDocClick)
-    return () => document.removeEventListener("mousedown", onDocClick)
+    document.addEventListener("pointerdown", onDocPointerDown)
+    return () => document.removeEventListener("pointerdown", onDocPointerDown)
   }, [])
 
   useEffect(() => {
@@ -154,16 +163,20 @@ export function JobAddressAutocomplete({
           top: menuRect.top,
           left: menuRect.left,
           width: menuRect.width,
-          zIndex: 9999,
+          zIndex: 120,
         }}
-        className="max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-xl"
+        className="pointer-events-auto max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-xl"
       >
         {suggestions.map((s, idx) => (
           <li key={`${s.place_id ?? s.formatted}-${idx}`}>
             <button
               type="button"
               className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted/60"
-              onClick={() => void pickSuggestion(s)}
+              onPointerDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                void pickSuggestion(s)
+              }}
             >
               {suggestionLabel(s)}
             </button>
@@ -193,6 +206,7 @@ export function JobAddressAutocomplete({
             onChange(null)
           }}
           onFocus={() => {
+            resolvePortalTarget()
             syncMenuRect()
             if (!validated && query.trim().length >= minLen) setOpen(true)
           }}
@@ -202,7 +216,9 @@ export function JobAddressAutocomplete({
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" aria-hidden />
         ) : null}
       </div>
-      {typeof document !== "undefined" && dropdown ? createPortal(dropdown, document.body) : null}
+      {typeof document !== "undefined" && dropdown
+        ? createPortal(dropdown, resolvePortalTarget())
+        : null}
       {!validated && query.trim().length >= minLen && !loading && !resolving && suggestions.length === 0 ? (
         <p className="text-xs text-amber-400">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
       ) : null}
