@@ -12,7 +12,7 @@
     "audit:vehicle-keys": "npx tsx scripts/audit-vehicle-key-coverage.ts",
     "build:fcc-cache": "npx tsx scripts/build-fcc-remote-cache.ts",
     "mirror:fcc-images": "npx tsx scripts/mirror-fcc-key-images.ts",
-    "deploy:vercel": "npx vercel@latest deploy --prod --yes"
+    "deploy:vercel": "npx vercel@latest deploy --prod --yes --archive=tgz"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
