@@ -279,3 +279,99 @@ export function fccGovSearchUrl(fccId: string): string {
   const clean = fccId.trim().replace(/\s+/g, "")
   return `https://fccid.io/${encodeURIComponent(clean)}`
 }
+
+/** Normalize FCC IDs so `N5F-A08TAA` and `N5FA08TAA` match the same reference rows. */
+export function normalizeFccIdForMatch(raw: string): string {
+  return raw.trim().replace(/[\s-]+/g, "").toUpperCase()
+}
+
+export type CompatibleVehicle = {
+  year: number
+  make: string
+  model: string
+}
+
+/** Every year/make/model in our CSV that shares this FCC ID. */
+export function lookupCompatibleVehiclesForFcc(fccId: string): CompatibleVehicle[] {
+  const key = normalizeFccIdForMatch(fccId)
+  const seen = new Set<string>()
+  const out: CompatibleVehicle[] = []
+  for (const row of loadProfiles()) {
+    if (normalizeFccIdForMatch(row.fcc_id) !== key) continue
+    const rowKey = `${row.year}|${normalizeToken(row.make)}|${normalizeToken(row.model)}`
+    if (seen.has(rowKey)) continue
+    seen.add(rowKey)
+    out.push({ year: row.year, make: row.make, model: row.model })
+  }
+  return out.sort(
+    (a, b) => a.year - b.year || a.make.localeCompare(b.make) || a.model.localeCompare(b.model)
+  )
+}
+
+export type CompatibleVehicleGroup = {
+  make: string
+  model: string
+  minYear: number
+  maxYear: number
+}
+
+/** Collapse many CSV rows into make/model year ranges (e.g. Ford Escape 2007–2018). */
+export function groupCompatibleVehicles(vehicles: CompatibleVehicle[]): CompatibleVehicleGroup[] {
+  const map = new Map<string, CompatibleVehicleGroup>()
+  for (const v of vehicles) {
+    const groupKey = `${normalizeToken(v.make)}|${normalizeToken(v.model)}`
+    const existing = map.get(groupKey)
+    if (!existing) {
+      map.set(groupKey, { make: v.make, model: v.model, minYear: v.year, maxYear: v.year })
+      continue
+    }
+    existing.minYear = Math.min(existing.minYear, v.year)
+    existing.maxYear = Math.max(existing.maxYear, v.year)
+  }
+  return [...map.values()].sort((a, b) => a.make.localeCompare(b.make) || a.model.localeCompare(b.model))
+}
+
+function formatVehicleGroupLabel(group: CompatibleVehicleGroup, highlightYear?: number): string {
+  if (group.minYear === group.maxYear) {
+    return `${group.minYear} ${group.make} ${group.model}`
+  }
+  if (
+    highlightYear != null &&
+    highlightYear >= group.minYear &&
+    highlightYear <= group.maxYear
+  ) {
+    return `${highlightYear} ${group.make} ${group.model} (${group.minYear}–${group.maxYear})`
+  }
+  return `${group.make} ${group.model} (${group.minYear}–${group.maxYear})`
+}
+
+/** Human-readable compatible-vehicle lines for the intake sheet (current vehicle first). */
+export function formatCompatibleVehicleSummary(
+  vehicles: CompatibleVehicle[],
+  current: { year: number; make: string; model: string },
+  maxGroups = 6
+): { lines: string[]; overflow: number } {
+  const currentMake = normalizeToken(current.make)
+  const currentModel = normalizeToken(current.model)
+  const groups = groupCompatibleVehicles(vehicles)
+
+  const sameModel = groups.filter(
+    (g) => normalizeToken(g.make) === currentMake && normalizeToken(g.model) === currentModel
+  )
+  const otherModels = groups.filter(
+    (g) => !(normalizeToken(g.make) === currentMake && normalizeToken(g.model) === currentModel)
+  )
+
+  otherModels.sort((a, b) => {
+    const aSameMake = normalizeToken(a.make) === currentMake ? 0 : 1
+    const bSameMake = normalizeToken(b.make) === currentMake ? 0 : 1
+    if (aSameMake !== bSameMake) return aSameMake - bSameMake
+    return a.make.localeCompare(b.make) || a.model.localeCompare(b.model)
+  })
+
+  const lines: string[] = []
+  for (const group of sameModel) lines.push(formatVehicleGroupLabel(group, current.year))
+  for (const group of otherModels.slice(0, maxGroups)) lines.push(formatVehicleGroupLabel(group))
+
+  return { lines, overflow: Math.max(0, otherModels.length - maxGroups) }
+}

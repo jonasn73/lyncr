@@ -1,10 +1,14 @@
 // GET /api/vehicle/key-info?year=2017&make=Toyota&model=RAV4
-// Returns FCC / frequency key profiles plus key photos for the intake sheet.
+// Returns FCC profiles grouped with key photos and compatible vehicles per FCC ID.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { lookupFccRemoteVariants, mergeVariantLists } from "@/lib/fccid-remote-variants"
-import { lookupVehicleKeyProfiles } from "@/lib/vehicle-key-reference"
+import { lookupFccRemoteVariants } from "@/lib/fccid-remote-variants"
+import {
+  formatCompatibleVehicleSummary,
+  lookupCompatibleVehiclesForFcc,
+  lookupVehicleKeyProfiles,
+} from "@/lib/vehicle-key-reference"
 
 export const maxDuration = 30
 
@@ -27,27 +31,43 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: { key_info: result } })
     }
 
-    const variantLists = await Promise.all(
-      result.profiles.map((profile) =>
-        lookupFccRemoteVariants({
+    const profile_details = await Promise.all(
+      result.profiles.map(async (profile) => {
+        const variants = await lookupFccRemoteVariants({
           fcc_id: profile.fcc_id,
           year,
           make,
           model,
         }).then((detail) => detail.variants)
-      )
+
+        const compatible_vehicles = lookupCompatibleVehiclesForFcc(profile.fcc_id)
+        const compatible_summary = formatCompatibleVehicleSummary(compatible_vehicles, {
+          year,
+          make,
+          model,
+        })
+
+        return {
+          profile,
+          variants,
+          compatible_vehicles,
+          compatible_summary,
+        }
+      })
     )
-    const variants = mergeVariantLists(variantLists, 6)
+
+    const hasReferencePhotos = profile_details.some((detail) =>
+      detail.variants.some((variant) => variant.reference_image)
+    )
 
     return NextResponse.json({
       data: {
         key_info: {
           ...result,
-          variants,
-          photo_disclaimer:
-            variants.some((v) => v.reference_image)
-              ? "Some photos are reference images from the same FCC ID — always confirm the key on the vehicle."
-              : "Photos and titles come from public FCC ID replacement listings. Always confirm the physical key on the vehicle before ordering.",
+          profile_details,
+          photo_disclaimer: hasReferencePhotos
+            ? "Some photos are reference images from the same FCC ID — always confirm the key on the vehicle."
+            : "Photos and titles come from public FCC ID replacement listings. Always confirm the physical key on the vehicle before ordering.",
         },
       },
     })

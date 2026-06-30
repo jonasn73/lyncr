@@ -1,6 +1,6 @@
 "use client"
 
-// Key / remote reference panel — FCC IDs, photos, frequency, chipset after year + make + model.
+// Key / remote reference panel — FCC IDs grouped with photos and compatible vehicles per FCC.
 
 import { useEffect, useState } from "react"
 import { ExternalLink, KeyRound, Loader2 } from "lucide-react"
@@ -26,20 +26,6 @@ type KeyProfile = {
   chipset: string | null
 }
 
-type KeyInfoPayload = {
-  year: number
-  make: string
-  model: string
-  matched_model: string
-  match_type: "exact" | "family"
-  profiles: KeyProfile[]
-  transponder_island_url: string
-  keysolved_url: string
-  disclaimer: string
-  variants?: FccVariant[]
-  photo_disclaimer?: string
-}
-
 type FccVariant = {
   id: string
   title: string
@@ -47,8 +33,32 @@ type FccVariant = {
   key_type: string | null
   buttons: string | null
   battery: string | null
+  fits_text: string | null
   suggested_key_style: string | null
   reference_image?: boolean
+}
+
+type ProfileDetail = {
+  profile: KeyProfile
+  variants: FccVariant[]
+  compatible_summary: {
+    lines: string[]
+    overflow: number
+  }
+}
+
+type KeyInfoPayload = {
+  year: number
+  make: string
+  model: string
+  matched_model: string
+  match_type: "exact" | "family"
+  profiles: KeyProfile[]
+  profile_details: ProfileDetail[]
+  transponder_island_url: string
+  keysolved_url: string
+  disclaimer: string
+  photo_disclaimer?: string
 }
 
 type VehicleKeyInfoPanelProps = {
@@ -58,6 +68,78 @@ type VehicleKeyInfoPanelProps = {
   value: VehicleKeySelection | null
   onChange: (next: VehicleKeySelection | null) => void
   disabled?: boolean
+}
+
+function VariantGrid({
+  variants,
+  selectedVariantId,
+  disabled,
+  onPick,
+}: {
+  variants: FccVariant[]
+  selectedVariantId: string | null | undefined
+  disabled?: boolean
+  onPick: (variant: FccVariant) => void
+}) {
+  if (variants.length === 0) {
+    return (
+      <p className="text-[10px] text-muted-foreground">
+        No key photos for this FCC on this vehicle — use the key style dropdown below.
+      </p>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {variants.map((variant) => {
+        const selected = selectedVariantId === variant.id
+        const label = variantDisplayLabel(variant.title, variant.key_type)
+        return (
+          <button
+            key={variant.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(variant)}
+            className={cn(
+              "flex flex-col overflow-hidden rounded-lg border text-left transition-colors",
+              selected
+                ? "border-primary bg-primary/15 ring-1 ring-primary/40"
+                : "border-border/70 bg-background hover:border-primary/50"
+            )}
+          >
+            <div className="flex h-20 items-center justify-center bg-muted/30 p-1">
+              {variant.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- external fccid.io thumbnails
+                <img
+                  src={variant.image_url}
+                  alt={label}
+                  loading="lazy"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <KeyRound className="h-8 w-8 text-muted-foreground/50" aria-hidden />
+              )}
+            </div>
+            <div className="grid gap-0.5 p-2">
+              <span className="text-[11px] font-medium leading-tight text-foreground">{label}</span>
+              {variant.buttons ? (
+                <span className="text-[10px] text-muted-foreground">{variant.buttons}</span>
+              ) : null}
+              {variant.battery ? (
+                <span className="text-[10px] text-muted-foreground">Battery: {variant.battery}</span>
+              ) : null}
+              {variant.fits_text ? (
+                <span className="text-[10px] text-muted-foreground line-clamp-2">{variant.fits_text}</span>
+              ) : null}
+              {variant.reference_image ? (
+                <span className="text-[10px] text-amber-200/90">Reference photo (same FCC)</span>
+              ) : null}
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 export function VehicleKeyInfoPanel({
@@ -71,8 +153,6 @@ export function VehicleKeyInfoPanel({
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
   const [error, setError] = useState(false)
-  const [variantsLoading, setVariantsLoading] = useState(false)
-  const [variants, setVariants] = useState<FccVariant[]>([])
 
   const ready = Boolean(year && make && model)
 
@@ -88,7 +168,6 @@ export function VehicleKeyInfoPanel({
     setLoading(true)
     setError(false)
     setInfo(null)
-    setVariants([])
     const q = new URLSearchParams({ year, make, model })
     void fetch(`/api/vehicle/key-info?${q}`, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("key-info"))))
@@ -96,7 +175,6 @@ export function VehicleKeyInfoPanel({
         if (cancel) return
         const payload = j.data?.key_info ?? null
         setInfo(payload)
-        setVariants(payload?.variants ?? [])
         if (!payload || payload.profiles.length === 0) {
           onChange(null)
           return
@@ -131,38 +209,6 @@ export function VehicleKeyInfoPanel({
   const selectedProfile =
     info?.profiles.find((p) => p.id === value?.profileId || p.fcc_id === value?.fccId) ??
     info?.profiles[0]
-
-  const activeFccId = selectedProfile?.fcc_id ?? value?.fccId
-
-  useEffect(() => {
-    if (!ready || !activeFccId || !info) return
-
-    const primaryFcc = info.profiles[0]?.fcc_id
-    if (activeFccId === primaryFcc && (info.variants?.length ?? 0) > 0) {
-      setVariants(info.variants ?? [])
-      return
-    }
-
-    let cancel = false
-    setVariantsLoading(true)
-    const q = new URLSearchParams({ fcc_id: activeFccId, year, make, model })
-    void fetch(`/api/vehicle/fcc-detail?${q}`, { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("fcc-detail"))))
-      .then((j: { data?: { fcc_detail?: { variants?: FccVariant[] } | null } }) => {
-        if (cancel) return
-        setVariants(j.data?.fcc_detail?.variants ?? [])
-      })
-      .catch(() => {
-        if (!cancel) setVariants([])
-      })
-      .finally(() => {
-        if (!cancel) setVariantsLoading(false)
-      })
-
-    return () => {
-      cancel = true
-    }
-  }, [ready, activeFccId, year, make, model, info])
 
   if (!ready) return null
 
@@ -201,13 +247,33 @@ export function VehicleKeyInfoPanel({
   }
 
   const profile = selectedProfile!
+  const profileDetails = info.profile_details?.length
+    ? info.profile_details
+    : info.profiles.map((p) => ({
+        profile: p,
+        variants: [] as FccVariant[],
+        compatible_summary: { lines: [], overflow: 0 },
+      }))
 
-  const applyVariant = (variant: FccVariant) => {
+  const multipleFcc = profileDetails.length > 1
+
+  const selectProfile = (p: KeyProfile) => {
     onChange({
-      profileId: profile.id,
-      fccId: profile.fcc_id,
-      frequency: profile.frequency,
-      chipset: profile.chipset,
+      profileId: p.id,
+      fccId: p.fcc_id,
+      frequency: p.frequency,
+      chipset: p.chipset,
+      keyStyle: value?.keyStyle || KEY_STYLE_OPTIONS[5],
+      variantId: null,
+    })
+  }
+
+  const applyVariant = (p: KeyProfile, variant: FccVariant) => {
+    onChange({
+      profileId: p.id,
+      fccId: p.fcc_id,
+      frequency: p.frequency,
+      chipset: p.chipset,
       keyStyle: resolveVariantKeyStyle(
         variant.title,
         variant.key_type,
@@ -233,128 +299,101 @@ export function VehicleKeyInfoPanel({
         </p>
       ) : null}
 
-      {info.profiles.length > 1 ? (
-        <div className="grid gap-1.5">
-          <span className="text-[11px] font-medium text-foreground">FCC ID / remote variant</span>
-          <div className="flex flex-wrap gap-1.5">
-            {info.profiles.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                disabled={disabled}
-                className={cn(
-                  "rounded-md border px-2 py-1 text-[11px] font-mono transition-colors",
-                  value?.profileId === p.id || value?.fccId === p.fcc_id
-                    ? "border-primary bg-primary/20 text-foreground"
-                    : "border-border/70 bg-background text-muted-foreground hover:border-primary/50"
-                )}
-                onClick={() =>
-                  onChange({
-                    profileId: p.id,
-                    fccId: p.fcc_id,
-                    frequency: p.frequency,
-                    chipset: p.chipset,
-                    keyStyle: value?.keyStyle || KEY_STYLE_OPTIONS[5],
-                    variantId: null,
-                  })
-                }
-              >
-                {p.fcc_id}
-              </button>
-            ))}
-          </div>
-        </div>
+      {multipleFcc ? (
+        <p className="rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-1.5 text-[11px] text-sky-100">
+          This vehicle has <span className="font-semibold">{profileDetails.length} possible FCC IDs</span>. Only one
+          remote applies — check the FCC sticker on the customer&apos;s key or match the photo below.
+        </p>
       ) : (
-        <p className="font-mono text-sm text-foreground">FCC ID: {profile.fcc_id}</p>
+        <p className="text-[11px] text-muted-foreground">
+          Reference FCC for this vehicle. Confirm the physical key before ordering.
+        </p>
       )}
 
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        {profile.frequency ? (
-          <>
-            <dt>Frequency</dt>
-            <dd className="text-foreground">{profile.frequency} MHz</dd>
-          </>
-        ) : null}
-        {profile.modulation && profile.modulation !== "XXX" ? (
-          <>
-            <dt>Modulation</dt>
-            <dd className="text-foreground">{profile.modulation}</dd>
-          </>
-        ) : null}
-        {profile.chipset ? (
-          <>
-            <dt>Chip / transponder</dt>
-            <dd className="text-foreground">{profile.chipset}</dd>
-          </>
-        ) : null}
-      </dl>
+      <div className="grid gap-3">
+        {profileDetails.map((detail) => {
+          const p = detail.profile
+          const selected = value?.profileId === p.id || value?.fccId === p.fcc_id
+          const summary = detail.compatible_summary
 
-      <div className="grid gap-1.5">
-        <span className="text-[11px] font-medium text-foreground">
-          Which key does the customer have? (tap to match)
-        </span>
-        <p className="text-[10px] text-muted-foreground">
-          Flip keys fold in the middle. Remote head keys have rubber buttons on the plastic head above the metal
-          blade.
-        </p>
-
-        {variantsLoading ? (
-          <div className="flex items-center gap-2 py-2 text-[11px] text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            Loading key photos…
-          </div>
-        ) : variants.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {variants.map((v) => {
-              const selected = value?.variantId === v.id
-              const label = variantDisplayLabel(v.title, v.key_type)
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => applyVariant(v)}
+          return (
+            <section
+              key={p.id}
+              className={cn(
+                "grid gap-2 rounded-lg border p-2.5 transition-colors",
+                selected
+                  ? "border-primary/50 bg-primary/10"
+                  : "border-border/60 bg-background/40 hover:border-primary/30"
+              )}
+            >
+              <button
+                type="button"
+                disabled={disabled}
+                className="flex w-full flex-wrap items-center gap-2 text-left"
+                onClick={() => selectProfile(p)}
+              >
+                <span
                   className={cn(
-                    "flex flex-col overflow-hidden rounded-lg border text-left transition-colors",
+                    "rounded-md border px-2 py-0.5 font-mono text-xs font-semibold",
                     selected
-                      ? "border-primary bg-primary/15 ring-1 ring-primary/40"
-                      : "border-border/70 bg-background hover:border-primary/50"
+                      ? "border-primary bg-primary/20 text-foreground"
+                      : "border-border/70 bg-muted/30 text-muted-foreground"
                   )}
                 >
-                  <div className="flex h-20 items-center justify-center bg-muted/30 p-1">
-                    {v.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- external fccid.io thumbnails
-                      <img
-                        src={v.image_url}
-                        alt={label}
-                        loading="lazy"
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    ) : (
-                      <KeyRound className="h-8 w-8 text-muted-foreground/50" aria-hidden />
-                    )}
-                  </div>
-                  <div className="grid gap-0.5 p-2">
-                    <span className="text-[11px] font-medium leading-tight text-foreground">{label}</span>
-                    {v.buttons ? (
-                      <span className="text-[10px] text-muted-foreground">{v.buttons}</span>
-                    ) : null}
-                    {v.battery ? (
-                      <span className="text-[10px] text-muted-foreground">Battery: {v.battery}</span>
-                    ) : null}
-                    {v.reference_image ? (
-                      <span className="text-[10px] text-amber-200/90">Reference photo (same FCC)</span>
-                    ) : null}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-[10px] text-muted-foreground">
-            Could not load key style photos — use the key style dropdown and supplier links below.
-          </p>
-        )}
+                  {p.fcc_id}
+                </span>
+                {p.frequency ? (
+                  <span className="text-[11px] text-muted-foreground">{p.frequency} MHz</span>
+                ) : null}
+                {p.modulation && p.modulation !== "XXX" ? (
+                  <span className="text-[11px] text-muted-foreground">{p.modulation}</span>
+                ) : null}
+                {p.chipset ? (
+                  <span className="text-[11px] text-muted-foreground">Chip: {p.chipset}</span>
+                ) : null}
+              </button>
+
+              {summary.lines.length > 0 ? (
+                <div className="grid gap-1 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Compatible vehicles
+                  </span>
+                  <ul className="grid gap-0.5 text-[10px] text-foreground">
+                    {summary.lines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                  {summary.overflow > 0 ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      + {summary.overflow} more model{summary.overflow === 1 ? "" : "s"} share this FCC ID
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="grid gap-1.5">
+                <span className="text-[11px] font-medium text-foreground">
+                  Keys for {p.fcc_id} — tap to match
+                </span>
+                <VariantGrid
+                  variants={detail.variants}
+                  selectedVariantId={selected ? value?.variantId : null}
+                  disabled={disabled}
+                  onPick={(variant) => applyVariant(p, variant)}
+                />
+              </div>
+
+              <a
+                href={`https://fccid.io/${encodeURIComponent(p.fcc_id.replace(/\s+/g, ""))}/Remote-Keyfob-Replacement`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+              >
+                All photos for {p.fcc_id} on FCCID.io <ExternalLink className="h-3 w-3" />
+              </a>
+            </section>
+          )
+        })}
       </div>
 
       <label className="grid gap-1 text-[11px]">
@@ -384,14 +423,6 @@ export function VehicleKeyInfoPanel({
 
       <div className="flex flex-wrap gap-3 text-[11px]">
         <a
-          href={`https://fccid.io/${encodeURIComponent(profile.fcc_id.replace(/\s+/g, ""))}/Remote-Keyfob-Replacement`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-primary hover:underline"
-        >
-          More photos (FCC) <ExternalLink className="h-3 w-3" />
-        </a>
-        <a
           href={info.transponder_island_url}
           target="_blank"
           rel="noopener noreferrer"
@@ -409,6 +440,9 @@ export function VehicleKeyInfoPanel({
         </a>
       </div>
 
+      {info.photo_disclaimer ? (
+        <p className="text-[10px] text-muted-foreground">{info.photo_disclaimer}</p>
+      ) : null}
       <p className="text-[10px] text-muted-foreground">{info.disclaimer}</p>
     </div>
   )
