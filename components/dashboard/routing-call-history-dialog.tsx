@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isUtcThisWeek, isUtcToday } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -104,26 +104,11 @@ function formatTimestamp(iso: string): string {
 }
 
 function isToday(iso: string): boolean {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return false
-  const now = new Date()
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
+  return isUtcToday(iso)
 }
 
 function isThisWeek(iso: string): boolean {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return false
-  const now = new Date()
-  const startOfWeek = new Date(now)
-  const day = startOfWeek.getDay()
-  const diff = day === 0 ? 6 : day - 1
-  startOfWeek.setHours(0, 0, 0, 0)
-  startOfWeek.setDate(startOfWeek.getDate() - diff)
-  return d >= startOfWeek
+  return isUtcThisWeek(iso)
 }
 
 function isMissedRow(row: CallHistoryRow): boolean {

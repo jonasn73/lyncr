@@ -33,3 +33,25 @@ export type DailyCallTelemetry = {
   weekly_talk_seconds: number
   owner_user_id: string
 }
+
+/** UTC calendar day — matches Neon `date_trunc('day', now())` used by HUD telemetry. */
+export function isUtcToday(iso: string, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
+  )
+}
+
+/** UTC week (Mon–Sun) — matches Neon `date_trunc('week', now())`. */
+export function isUtcThisWeek(iso: string, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const day = start.getUTCDay()
+  const diff = day === 0 ? 6 : day - 1
+  start.setUTCDate(start.getUTCDate() - diff)
+  return d >= start
+}
