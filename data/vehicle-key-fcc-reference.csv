@@ -2463,6 +2463,10 @@ Year,Make,Model,FCCid,Frequency,Modulation,Exploit,ExploitSource,Chipset
 2015,Toyota,Venza,GQ4-29T,315,ASK,,,
 2015,Toyota,Venza,HYQ14ACX,314.35,FSK,,,
 2015,Toyota,Yaris,HYQ12BBY,314.35,ASK,,,
+2016,Toyota,Yaris,HYQ12BBY,314.35,ASK,,,
+2017,Toyota,Yaris,HYQ12BBY,314.35,ASK,,,
+2018,Toyota,Yaris,HYQ12BBY,314.35,ASK,,,
+2019,Toyota,Yaris,HYQ12BBY,314.35,ASK,,,
 2016,Acura,ILX,KR580399900,924/924.6,FSK,,,
 2016,Acura,ILX,KR5V1X,313.55/314.15,FSK,Rollback 5 Strict,https://medium.com/codex/rollback-important-details-about-the-new-keyfob-vulnerability-86ea5727f3d3,NXP F2951X
 2016,Acura,MDX,KR580399900,924/924.6,FSK,,,

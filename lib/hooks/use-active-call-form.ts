@@ -12,6 +12,7 @@ import {
   formatIntakeJobTypeForDispatch,
   isIntakeJobTypeComplete,
 } from "@/lib/intake-job-types"
+import type { VehicleClarificationOption } from "@/lib/vehicle-intake-clarifications"
 import {
   buildFlatAddressQuery,
   isIntakeAddressReady,
@@ -54,6 +55,8 @@ export type ActiveCallFormState = {
   keyVariantId: string
   /** Row id from the FCC reference CSV for the selected profile. */
   keyProfileId: string
+  /** Intake clarification prompts already answered for this vehicle. */
+  vehicleClarificationAnswers: string[]
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
@@ -78,6 +81,7 @@ const EMPTY_FORM: ActiveCallFormState = {
   keyStyle: "",
   keyVariantId: "",
   keyProfileId: "",
+  vehicleClarificationAnswers: [],
 }
 
 function flatAddressFromStructured(addr: StructuredAddress): Pick<
@@ -132,7 +136,40 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       keyStyle: "",
       keyVariantId: "",
       keyProfileId: "",
+      vehicleClarificationAnswers: [],
     }))
+  }, [])
+
+  const applyVehicleClarification = useCallback((promptId: string, option: VehicleClarificationOption) => {
+    setForm((prev) => {
+      const nextAnswers = prev.vehicleClarificationAnswers.includes(promptId)
+        ? prev.vehicleClarificationAnswers
+        : [...prev.vehicleClarificationAnswers, promptId]
+      const noteLine = option.note?.trim()
+      const notes =
+        noteLine && !prev.notes.includes(noteLine)
+          ? prev.notes.trim()
+            ? `${prev.notes.trim()} · ${noteLine}`
+            : noteLine
+          : prev.notes
+      return {
+        ...prev,
+        vehicleClarificationAnswers: nextAnswers,
+        vehicleMake: option.make?.trim() || prev.vehicleMake,
+        vehicleModel: option.model?.trim() || prev.vehicleModel,
+        notes,
+        ...(option.model || option.make
+          ? {
+              keyFccId: "",
+              keyFrequency: "",
+              keyChipset: "",
+              keyStyle: "",
+              keyVariantId: "",
+              keyProfileId: "",
+            }
+          : {}),
+      }
+    })
   }, [])
 
   const setVehicleKeySelection = useCallback(
@@ -393,6 +430,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     form,
     patchForm,
     setVehicle,
+    applyVehicleClarification,
     setVehicleKeySelection,
     setServiceAddress,
     commitAddressQuery,
@@ -404,5 +442,6 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
     addressReady,
     dispatchBlockers,
     addressSeedQuery,
+    answeredClarificationIds: form.vehicleClarificationAnswers,
   }
 }

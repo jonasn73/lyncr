@@ -200,12 +200,20 @@ function profilesForYearMakeModel(year: number, makeRaw: string, modelName: stri
   )
 }
 
+function isSafeFuzzyModelMatch(modelRaw: string, rowModel: string): boolean {
+  const q = modelRaw.trim().toLowerCase()
+  const r = rowModel.trim().toLowerCase()
+  if (normalizeToken(modelRaw) === normalizeToken(rowModel)) return true
+  // Only extend on word boundaries — "Yaris" must not match "Yaris iA" unless customer picks iA.
+  if (r.startsWith(`${q} `) || r.startsWith(`${q}-`)) return true
+  if (q.startsWith(`${r} `) || q.startsWith(`${r}-`)) return true
+  return false
+}
+
 function profilesWithFuzzyModel(year: number, makeRaw: string, modelRaw: string): VehicleKeyProfile[] {
-  const modelKey = normalizeToken(modelRaw)
   return loadProfiles().filter((r) => {
     if (r.year !== year || !makesMatch(r.make, makeRaw)) return false
-    const rowKey = normalizeToken(r.model)
-    return rowKey.includes(modelKey) || modelKey.includes(rowKey)
+    return isSafeFuzzyModelMatch(modelRaw, r.model)
   })
 }
 

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { Loader2, MapPin, Phone } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
+import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
 import { INTAKE_LOCKSMITH_JOB_TYPES, KEY_REPLACEMENT_MODES } from "@/lib/intake-job-types"
 import { cn } from "@/lib/utils"
@@ -132,6 +133,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     form,
     patchForm,
     setVehicle,
+    applyVehicleClarification,
     setVehicleKeySelection,
     setServiceAddress,
     commitAddressQuery,
@@ -143,6 +145,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     addressReady,
     dispatchBlockers,
     addressSeedQuery,
+    answeredClarificationIds,
   } = useActiveCallForm(current)
 
   useEffect(() => {
@@ -313,37 +316,46 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             </SheetHeader>
 
             <div className="max-h-[min(70vh,560px)] space-y-3 overflow-y-auto overflow-x-hidden px-4 py-3">
-              <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                 <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                  Contact (saved to customer list)
+                  Ask first — year, make &amp; model
                 </legend>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ac-display" className="text-xs">
-                    Caller name <span className="text-primary">*</span>
-                  </Label>
-                  <Input
-                    id="ac-display"
-                    value={form.displayName}
-                    onChange={(e) => patchForm({ displayName: e.target.value })}
-                    placeholder="Ask before they hang up"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ac-phone" className="text-xs">
-                    Phone number
-                  </Label>
-                  <Input
-                    id="ac-phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    value={form.phoneNumber}
-                    onChange={(e) => patchForm({ phoneNumber: e.target.value })}
-                    placeholder="(502) 555-1234"
-                    className="h-10 font-mono text-base"
-                  />
-                </div>
+                <p className="text-[11px] text-primary/90">
+                  Get the vehicle before service type or address. Tap the customer&apos;s answers below.
+                </p>
+                <VehiclePickerCascade
+                  value={{
+                    vehicle_year: form.vehicleYear,
+                    vehicle_make: form.vehicleMake,
+                    vehicle_model: form.vehicleModel,
+                  }}
+                  onChange={setVehicle}
+                />
+                <VehicleIntakeClarificationsPanel
+                  year={form.vehicleYear}
+                  make={form.vehicleMake}
+                  model={form.vehicleModel}
+                  answeredIds={new Set(answeredClarificationIds)}
+                  onAnswer={applyVehicleClarification}
+                />
+                <VehicleKeyInfoPanel
+                  year={form.vehicleYear}
+                  make={form.vehicleMake}
+                  model={form.vehicleModel}
+                  value={
+                    form.keyFccId
+                      ? {
+                          profileId: form.keyProfileId,
+                          fccId: form.keyFccId,
+                          frequency: form.keyFrequency || null,
+                          chipset: form.keyChipset || null,
+                          keyStyle: form.keyStyle || "Not sure yet",
+                          variantId: form.keyVariantId || null,
+                        }
+                      : null
+                  }
+                  onChange={(sel) => setVehicleKeySelection(sel)}
+                />
               </fieldset>
 
               <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
@@ -428,36 +440,37 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </div>
               </fieldset>
 
-              <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
-                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
-                  Vehicle details
+              <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                  Contact (saved to customer list)
                 </legend>
-                <VehiclePickerCascade
-                  value={{
-                    vehicle_year: form.vehicleYear,
-                    vehicle_make: form.vehicleMake,
-                    vehicle_model: form.vehicleModel,
-                  }}
-                  onChange={setVehicle}
-                />
-                <VehicleKeyInfoPanel
-                  year={form.vehicleYear}
-                  make={form.vehicleMake}
-                  model={form.vehicleModel}
-                  value={
-                    form.keyFccId
-                      ? {
-                          profileId: form.keyProfileId,
-                          fccId: form.keyFccId,
-                          frequency: form.keyFrequency || null,
-                          chipset: form.keyChipset || null,
-                          keyStyle: form.keyStyle || "Not sure yet",
-                          variantId: form.keyVariantId || null,
-                        }
-                      : null
-                  }
-                  onChange={(sel) => setVehicleKeySelection(sel)}
-                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="ac-display" className="text-xs">
+                    Caller name <span className="text-primary">*</span>
+                  </Label>
+                  <Input
+                    id="ac-display"
+                    value={form.displayName}
+                    onChange={(e) => patchForm({ displayName: e.target.value })}
+                    placeholder="Ask before they hang up"
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ac-phone" className="text-xs">
+                    Phone number
+                  </Label>
+                  <Input
+                    id="ac-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={form.phoneNumber}
+                    onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                    placeholder="(502) 555-1234"
+                    className="h-10 font-mono text-base"
+                  />
+                </div>
               </fieldset>
 
               {jobState === "created" ? (
