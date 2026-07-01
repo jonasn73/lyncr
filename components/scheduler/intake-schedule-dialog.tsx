@@ -61,7 +61,7 @@ export function IntakeScheduleDialog({
   notFound = false,
   job,
   technicians,
-  scheduledEvents,
+  scheduledEvents = [],
   organizationQuery = "",
   onSchedule,
   onSkip,

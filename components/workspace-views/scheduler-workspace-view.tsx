@@ -1222,6 +1222,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         notFound={intakeScheduleNotFound}
         job={intakeScheduleJob}
         technicians={technicians}
+        scheduledEvents={events}
+        organizationQuery={orgQuery}
         onSchedule={handleScheduleCommitted}
         onSkip={handleIntakeScheduleSkip}
       />
