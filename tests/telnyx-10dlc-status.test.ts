@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest"
-import { normalizeTelnyxRegistryStatus } from "@/lib/telnyx-10dlc"
+import { formatTelnyxRegistryText, normalizeTelnyxRegistryStatus } from "@/lib/telnyx-10dlc"
+
+describe("formatTelnyxRegistryText", () => {
+  it("returns null for [object Object] strings", () => {
+    expect(formatTelnyxRegistryText("[object Object]")).toBeNull()
+  })
+
+  it("extracts nested failure reason objects", () => {
+    expect(formatTelnyxRegistryText({ description: "Sample messages missing STOP language." })).toBe(
+      "Sample messages missing STOP language."
+    )
+  })
+
+  it("joins array failure reasons", () => {
+    expect(formatTelnyxRegistryText(["Invalid sample", "Missing opt-in flow"])).toBe(
+      "Invalid sample; Missing opt-in flow"
+    )
+  })
+})
 
 describe("normalizeTelnyxRegistryStatus", () => {
   it("treats TCR_FAILED as rejected", () => {

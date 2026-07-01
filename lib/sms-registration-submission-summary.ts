@@ -1,6 +1,7 @@
 // Server-only: build structured carrier submission summary for the 10DLC status modal.
 
 import { resolvePrimaryBusinessLineForOrganization } from "@/lib/primary-business-line"
+import { formatTelnyxRegistryText } from "@/lib/telnyx-10dlc"
 import type {
   SmsRegistrationLifecycleStage,
   SmsRegistrationSubmissionSummary,
@@ -97,8 +98,10 @@ export async function buildSmsRegistrationSubmissionSummary(
 
   const rejectionReason =
     lifecycleStage === "rejected"
-      ? telnyx?.status_detail?.trim() ||
-        (reg?.status === "REJECTED" ? "Carrier rejected this registration. Update your details and resubmit." : null)
+      ? formatTelnyxRegistryText(telnyx?.status_detail) ||
+        (reg?.status === "REJECTED"
+          ? "Carrier rejected this registration. Update your details and resubmit."
+          : null)
       : null
 
   const submissionDate =
@@ -119,7 +122,7 @@ export async function buildSmsRegistrationSubmissionSummary(
     registration_status: reg?.status ?? null,
     organization_status: compliance.organization_status,
     telnyx_status: telnyxStatus,
-    status_detail: telnyx?.status_detail?.trim() || null,
+    status_detail: formatTelnyxRegistryText(telnyx?.status_detail),
     lifecycle_stage: lifecycleStage,
     rejection_reason: rejectionReason,
   }

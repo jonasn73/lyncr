@@ -60,6 +60,39 @@ function telnyxErrorDetail(body: unknown, fallback: string): string {
   return errors?.[0]?.detail || errors?.[0]?.title || fallback
 }
 
+/** Turn Telnyx registry fields (string, array, or nested object) into readable text — never "[object Object]". */
+export function formatTelnyxRegistryText(value: unknown): string | null {
+  if (value == null) return null
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === "[object Object]") return null
+    return trimmed
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => formatTelnyxRegistryText(item))
+      .filter((part): part is string => Boolean(part?.trim()))
+    return parts.length > 0 ? parts.join("; ") : null
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>
+    for (const key of ["detail", "message", "reason", "description", "title", "failureReasons"]) {
+      const part = formatTelnyxRegistryText(record[key])
+      if (part) return part
+    }
+    try {
+      const json = JSON.stringify(value)
+      if (json && json !== "{}" && json !== "[]") return json
+    } catch {
+      /* ignore circular refs */
+    }
+  }
+  return null
+}
+
 export type CreateBrandInput = {
   entityType: TenDlcEntityType
   displayName: string
@@ -274,7 +307,7 @@ function pickCampaignRegistryFields(data: Record<string, unknown>): { raw: strin
   const campaignStatus = String(data.campaignStatus ?? "").trim()
   const submissionStatus = String(data.submissionStatus ?? "").trim()
   const legacyStatus = String(data.status ?? "").trim()
-  const failureReasons = String(data.failureReasons ?? "").trim()
+  const failureReasons = formatTelnyxRegistryText(data.failureReasons)
 
   let raw = campaignStatus
   if (!raw && submissionStatus === "FAILED") raw = "FAILED"

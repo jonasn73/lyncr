@@ -123,6 +123,15 @@ async function repairMisclassified10DlcFailure(
       status_detail: BRAND_WAIT_DETAIL,
     })
   }
+  if (
+    (reg.status === "rejected" || reg.status === "failed") &&
+    formatTelnyxRegistryText(reg.status_detail) == null &&
+    reg.status_detail?.includes("[object Object]")
+  ) {
+    return upsert10(userId, reg.organization_id, {
+      status_detail: null,
+    })
+  }
   return reg
 }
 
@@ -466,7 +475,7 @@ export async function refreshMessaging10DlcStatus(
 
   if (status.normalized === "rejected") {
     const detail =
-      status.detail ||
+      formatTelnyxRegistryText(status.detail) ||
       `Carrier registration was rejected (${status.raw}). Update your business details and resubmit.`
     const updated = await upsert10(userId, resolvedOrgId, {
       status: "rejected",
