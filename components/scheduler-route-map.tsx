@@ -108,6 +108,9 @@ function techInitials(name: string): string {
 /** Default zoom when an operator selects a job on the dispatch map. */
 const JOB_SELECT_ZOOM = 14
 
+/** Right padding when the job editor drawer is open (matches max-w-md ≈ 28rem). */
+export const SCHEDULER_JOB_EDITOR_MAP_PADDING_RIGHT = 448
+
 /** Instant camera snap — no slow fly animation. */
 function snapMapToJob(map: LeafletMap, lat: number, lng: number, zoom = JOB_SELECT_ZOOM) {
   if (map.getZoom() !== zoom) {
@@ -173,7 +176,7 @@ export type SchedulerRouteMapHandle = {
   panTo: (lat: number, lng: number, zoom?: number, options?: SchedulerRouteMapPanOptions) => void
   flyTo: (lat: number, lng: number, zoom?: number) => void
   /** Snap camera to a job pin and open its hover tooltip (sidebar / list selection). */
-  focusJob: (jobId: string, lat?: number, lng?: number) => void
+  focusJob: (jobId: string, lat?: number, lng?: number, options?: SchedulerRouteMapPanOptions) => void
   fitDrivingRoute: (focus: DrivingRouteFocus) => void
 }
 
@@ -184,6 +187,8 @@ type SchedulerRouteMapProps = {
   techLocations?: TechLiveLocation[]
   selectedDayLabel: string
   highlightId?: string | null
+  /** When true, pan the selected pin left of the open job editor drawer. */
+  reserveRightForEditor?: boolean
   /** Tech → job driving route + viewport when the job drawer is open. */
   routeFocus?: DrivingRouteFocus | null
   /** Hide top stats chrome so the map fills the split pane edge-to-edge. */
@@ -205,6 +210,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       techLocations = [],
       selectedDayLabel,
       highlightId,
+      reserveRightForEditor = false,
       routeFocus,
       embedded = false,
       disableHoverTooltips = false,
@@ -222,6 +228,8 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
   /** Job id → Leaflet marker for programmatic tooltip + camera focus from the sidebar. */
   const jobMarkerRefs = useRef<Map<string, Marker>>(new Map())
   const highlightIdRef = useRef<string | null>(highlightId ?? null)
+  const reserveRightForEditorRef = useRef(reserveRightForEditor)
+  reserveRightForEditorRef.current = reserveRightForEditor
   const lineRef = useRef<Polyline | null>(null)
   const routeGlowRef = useRef<Polyline | null>(null)
   const routeLineRef = useRef<Polyline | null>(null)
@@ -235,15 +243,39 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     }
   }, [])
 
+  const focusJobOnMap = useCallback(
+    (lat: number, lng: number, options?: SchedulerRouteMapPanOptions) => {
+      const map = mapRef.current
+      if (!map || !ready) return
+
+      if (options?.accountForDrawer) {
+        map.setView([lat, lng], JOB_SELECT_ZOOM, { animate: true })
+        const padding = {
+          top: 50,
+          right: SCHEDULER_JOB_EDITOR_MAP_PADDING_RIGHT,
+          left: 50,
+          bottom: 50,
+        }
+        const nudge = () => panToWithEdgePadding(map, lat, lng, padding, noopSyncTooltip)
+        map.once("moveend", nudge)
+        requestAnimationFrame(() => requestAnimationFrame(nudge))
+        return
+      }
+
+      snapMapToJob(map, lat, lng)
+    },
+    [ready]
+  )
+
   const focusJobMarker = useCallback(
-    (jobId: string, lat?: number, lng?: number) => {
+    (jobId: string, lat?: number, lng?: number, options?: SchedulerRouteMapPanOptions) => {
       const map = mapRef.current
       if (!map || !ready) return
 
       const marker = jobMarkerRefs.current.get(jobId)
       if (marker) {
         const ll = marker.getLatLng()
-        snapMapToJob(map, ll.lat, ll.lng)
+        focusJobOnMap(ll.lat, ll.lng, options)
         if (!disableHoverTooltips) {
           closeAllJobTooltips()
           marker.openTooltip()
@@ -252,10 +284,10 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       }
 
       if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
-        snapMapToJob(map, lat, lng)
+        focusJobOnMap(lat, lng, options)
       }
     },
-    [ready, closeAllJobTooltips, disableHoverTooltips]
+    [ready, closeAllJobTooltips, disableHoverTooltips, focusJobOnMap]
   )
 
   const fitDrivingRouteBounds = useCallback(
@@ -323,23 +355,15 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       panTo(lat: number, lng: number, zoom = 15, options?: SchedulerRouteMapPanOptions) {
         const map = mapRef.current
         if (!map) return
-        if (!options?.accountForDrawer) {
-          snapMapToJob(map, lat, lng, zoom)
-          return
-        }
-        map.setView([lat, lng], zoom, { animate: true })
-        const padding = { top: 50, right: 50, left: 50, bottom: 50 }
-        const nudgeForDrawer = () => panToWithEdgePadding(map, lat, lng, padding, noopSyncTooltip)
-        map.once("moveend", nudgeForDrawer)
-        requestAnimationFrame(() => requestAnimationFrame(nudgeForDrawer))
+        focusJobOnMap(lat, lng, options)
       },
       flyTo(lat: number, lng: number, zoom = JOB_SELECT_ZOOM) {
         const map = mapRef.current
         if (!map) return
         snapMapToJob(map, lat, lng, zoom)
       },
-      focusJob(jobId: string, lat?: number, lng?: number) {
-        focusJobMarker(jobId, lat, lng)
+      focusJob(jobId: string, lat?: number, lng?: number, options?: SchedulerRouteMapPanOptions) {
+        focusJobMarker(jobId, lat, lng, options)
       },
       fitDrivingRoute(focus: DrivingRouteFocus) {
         void (async () => {
@@ -382,7 +406,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         })()
       },
     }),
-    [drawDrivingRoute, fitDrivingRouteBounds, focusJobMarker]
+    [drawDrivingRoute, fitDrivingRouteBounds, focusJobMarker, focusJobOnMap]
   )
 
   const stops = useMemo((): RoutedStop[] => {
@@ -653,7 +677,9 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       const stop = scheduledPins.find((s) => s.event.id === highlightId)
       const lat = poolPin?.lat ?? stop?.lat
       const lng = poolPin?.lng ?? stop?.lng
-      focusJobMarker(highlightId, lat, lng)
+      focusJobMarker(highlightId, lat, lng, {
+        accountForDrawer: reserveRightForEditorRef.current,
+      })
     } else if (!disableHoverTooltips) {
       closeAllJobTooltips()
     }
@@ -669,6 +695,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
     onSelectEvent,
     onSelectPoolJob,
     highlightId,
+    reserveRightForEditor,
     routeFocus,
     focusJobMarker,
     closeAllJobTooltips,

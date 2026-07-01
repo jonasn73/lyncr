@@ -239,8 +239,8 @@ export function JobDetailDrawer({
 
   const panelPositionClass =
     placement === "embedded"
-      ? "absolute inset-y-0 right-0 z-[1200]"
-      : "fixed inset-y-0 right-0 z-[9999]"
+      ? "absolute inset-y-0 right-0 z-[1200] h-full"
+      : "fixed inset-y-0 right-0 z-[9999] h-dvh max-h-dvh"
 
   const canSave = customerName.trim().length > 0 && customerPhone.trim().length > 0
 

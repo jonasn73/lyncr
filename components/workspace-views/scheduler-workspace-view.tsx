@@ -306,14 +306,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     intakeValuesComplete(intakeFields, intakeValues)
 
   useEffect(() => {
-    if (!isActive || viewMode !== "map" || !drawerOpen) return
-    const job = drawerScheduledEvent ?? drawerPoolJob
-    if (!job) return
-    const timer = window.setTimeout(() => panMapToJob(job, true), 60)
-    return () => window.clearTimeout(timer)
-  }, [isActive, viewMode, drawerOpen, drawerScheduledEvent?.id, drawerPoolJob?.id])
-
-  useEffect(() => {
     if (bookingOpen) {
       setBookingError(null)
     } else {
@@ -469,6 +461,14 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   })
 
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
+
+  useEffect(() => {
+    if (!isActive || viewMode !== "map" || !drawerOpen) return
+    const job = drawerScheduledEvent ?? drawerPoolJob
+    if (!job) return
+    const timer = window.setTimeout(() => panMapToJob(job, true), 60)
+    return () => window.clearTimeout(timer)
+  }, [isActive, viewMode, drawerOpen, drawerScheduledEvent?.id, drawerPoolJob?.id])
 
   function openBookingAtHour(hour24: number) {
     setBookingStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
