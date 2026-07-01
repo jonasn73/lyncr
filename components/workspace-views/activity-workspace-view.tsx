@@ -2,8 +2,10 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { CalendarDays } from "lucide-react"
+import { CalendarDays, ClipboardList, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import type { CallActivityContext } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import {
@@ -263,9 +265,89 @@ function buildCallSummary(call: UiCallRecord): string {
   return `${caller} called in and was answered by ${who}. The conversation lasted ${dur}. The caller's request and any details collected during the call are noted below for your follow-up.`
 }
 
+function intakeActionTone(action: string): string {
+  if (action === "Sent to dispatch" || action === "Booked") {
+    return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  }
+  if (action === "Contact saved" || action === "Pending time") {
+    return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+  }
+  if (action === "Price rejected" || action === "Failed") {
+    return "border-red-500/35 bg-red-500/10 text-red-300"
+  }
+  if (action === "No intake recorded") {
+    return "border-zinc-700/70 bg-zinc-800/40 text-zinc-500"
+  }
+  return "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
+}
+
+function ActivityIntakeSummary({
+  activity,
+  compact = false,
+}: {
+  activity: CallActivityContext
+  compact?: boolean
+}) {
+  const schedulerHref = activity.leadId
+    ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
+    : null
+
+  return (
+    <div className={cn("space-y-1", compact && "space-y-0.5")}>
+      <span
+        className={cn(
+          "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+          intakeActionTone(activity.intakeAction)
+        )}
+      >
+        {activity.intakeAction}
+      </span>
+      {activity.intakeDetail ? (
+        <p className={cn("text-zinc-400", compact ? "text-[11px] leading-snug" : "text-xs leading-relaxed")}>
+          {activity.intakeDetail}
+        </p>
+      ) : null}
+      {activity.scheduleLabel ? (
+        <p className={cn("flex items-center gap-1 text-emerald-300/90", compact ? "text-[11px]" : "text-xs")}>
+          <CalendarDays className="h-3 w-3 shrink-0" aria-hidden />
+          <span>{activity.scheduleLabel}</span>
+        </p>
+      ) : null}
+      {activity.callerScheduleHint ? (
+        <p className={cn("text-zinc-500", compact ? "text-[10px]" : "text-[11px]")}>{activity.callerScheduleHint}</p>
+      ) : null}
+      {schedulerHref ? (
+        <Link
+          href={schedulerHref}
+          className={cn(
+            "inline-flex items-center gap-1 font-medium text-cyan-400 hover:text-cyan-300",
+            compact ? "text-[11px]" : "text-xs"
+          )}
+        >
+          <MapPin className="h-3 w-3" aria-hidden />
+          Open in scheduler
+        </Link>
+      ) : null}
+    </div>
+  )
+}
+
 function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => void }) {
   const agent = resolveCallAgent(call)
   const summary = buildCallSummary(call)
+  const activity = call.activity ?? {
+    intakeAction: "No intake recorded",
+    intakeDetail: null,
+    scheduleLabel: null,
+    scheduleAt: null,
+    leadId: null,
+    callerScheduleHint: null,
+    callerPoolCount: 0,
+  }
+  const schedulerHref = activity.leadId
+    ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
+    : null
+
   return (
     <>
       <DrawerStepHeader
@@ -285,10 +367,29 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </span>
           </div>
 
+          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
+              <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+              Answered panel &amp; scheduling
+            </p>
+            <div className="mt-3">
+              <ActivityIntakeSummary activity={activity} />
+            </div>
+            {schedulerHref ? (
+              <Link
+                href={schedulerHref}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/15"
+              >
+                <CalendarDays className="h-4 w-4" aria-hidden />
+                {activity.scheduleAt ? "View on scheduler map" : "Schedule this job"}
+              </Link>
+            ) : null}
+          </div>
+
           <div className="rounded-2xl border border-cyan-500/25 bg-cyan-500/[0.06] p-4">
             <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-300">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" aria-hidden />
-              Lyncr AI Call Summary &amp; Notes
+              Call summary
             </p>
             <p className="mt-3 text-sm leading-relaxed text-zinc-200">{summary}</p>
           </div>
@@ -352,6 +453,9 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                 <p className="truncate font-medium text-foreground">{call.callerName}</p>
                 <p className="truncate text-xs text-zinc-500">{call.callerNumber}</p>
               </div>
+              {call.activity ? (
+                <ActivityIntakeSummary activity={call.activity} compact />
+              ) : null}
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
                 <AgentBadge agent={resolveCallAgent(call)} />
                 <span className="truncate" title={targetLabel}>
@@ -379,17 +483,19 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
       <div className="hidden md:block">
       <WorkspaceTableWrap className="min-h-[340px]" bleed>
         <colgroup>
-          <col className="w-[14%]" />
+          <col className="w-[11%]" />
+          <col className="w-[18%]" />
           <col className="w-[24%]" />
-          <col className="w-[10%]" />
-          <col className="w-[20%]" />
-          <col className="w-[22%]" />
-          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+          <col className="w-[16%]" />
+          <col className="w-[15%]" />
+          <col className="w-[8%]" />
         </colgroup>
         <thead>
           <tr>
             <WorkspaceTh>Status</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
+            <WorkspaceTh>Intake &amp; schedule</WorkspaceTh>
             <WorkspaceTh>Duration</WorkspaceTh>
             <WorkspaceTh>Agent</WorkspaceTh>
             <WorkspaceTh>Target line</WorkspaceTh>
@@ -399,7 +505,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <WorkspaceTd colSpan={6} className="py-12 text-center text-zinc-600">
+              <WorkspaceTd colSpan={7} className="py-12 text-center text-zinc-600">
                 No calls yet
               </WorkspaceTd>
             </tr>
@@ -418,6 +524,13 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     <p className="mt-1 text-[11px] tabular-nums text-zinc-600">
                       {formatCallTimestamp(call)}
                     </p>
+                  </WorkspaceTd>
+                  <WorkspaceTd>
+                    {call.activity ? (
+                      <ActivityIntakeSummary activity={call.activity} compact />
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
                   </WorkspaceTd>
                   <WorkspaceTd className="tabular-nums text-zinc-400">
                     {formatDuration(call.durationSeconds)}

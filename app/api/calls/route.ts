@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getCallLogs } from "@/lib/db"
+import { buildCallActivityContextMap } from "@/lib/activity-call-context"
+import { fetchCallActivityEnrichmentRows, getCallLogs, normalizePhoneNumberE164 } from "@/lib/db"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -25,7 +26,42 @@ export async function GET(req: NextRequest) {
 
     const calls = await getCallLogs(userId, { limit, offset, type })
 
-    return NextResponse.json({ calls })
+    const callLogIds = calls.map((call) => call.id)
+    const phoneE164ByCallId = new Map<string, string>()
+    const callerPhonesE164: string[] = []
+    for (const call of calls) {
+      try {
+        const phone = normalizePhoneNumberE164(call.from_number)
+        phoneE164ByCallId.set(call.id, phone)
+        callerPhonesE164.push(phone)
+      } catch {
+        /* skip invalid numbers */
+      }
+    }
+
+    const { leadRows, customerCallLogIds } = await fetchCallActivityEnrichmentRows(
+      userId,
+      callLogIds,
+      callerPhonesE164
+    )
+
+    const activityByCallId = buildCallActivityContextMap({
+      calls: calls.map((call) => ({
+        id: call.id,
+        from_number: phoneE164ByCallId.get(call.id) ?? call.from_number,
+        disposition: call.disposition ?? null,
+      })),
+      leadRows,
+      customerCallLogIds,
+      phoneE164ByCallId,
+    })
+
+    const enrichedCalls = calls.map((call) => ({
+      ...call,
+      activity: activityByCallId.get(call.id) ?? null,
+    }))
+
+    return NextResponse.json({ calls: enrichedCalls })
   } catch (error) {
     console.error("[Sigo] Error fetching calls:", error)
     return NextResponse.json(

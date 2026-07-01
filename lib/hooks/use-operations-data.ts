@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useState } from "react"
+import type { CallActivityContext } from "@/lib/types"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -22,6 +23,8 @@ export interface UiCallRecord {
   durationSeconds: number
   hasRecording: boolean
   recordingUrl: string | null
+  /** Intake panel action + scheduling summary from /api/calls. */
+  activity: CallActivityContext | null
 }
 
 export interface VoiceQualitySummary {
@@ -155,6 +158,18 @@ function normalizeCallType(value: unknown): UiCallType {
   return "incoming"
 }
 
+function emptyActivityContext(): CallActivityContext {
+  return {
+    intakeAction: "No intake recorded",
+    intakeDetail: null,
+    scheduleLabel: null,
+    scheduleAt: null,
+    leadId: null,
+    callerScheduleHint: null,
+    callerPoolCount: 0,
+  }
+}
+
 /** Backfill fields missing from older session-cache rows. */
 function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
   return {
@@ -162,6 +177,7 @@ function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
     targetLineE164: c.targetLineE164 ?? "",
     routedToReceptionistId: c.routedToReceptionistId ?? null,
     createdAt: c.createdAt ?? "",
+    activity: c.activity ?? emptyActivityContext(),
   }
 }
 
@@ -237,6 +253,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
                 ? "AI Receptionist"
                 : routedToRaw || "Owner"
             const receptionistId = c.routed_to_receptionist_id ? String(c.routed_to_receptionist_id) : null
+            const activityRaw = c.activity as CallActivityContext | null | undefined
             return {
               id: String(c.id || c.provider_call_sid || c.twilio_call_sid || crypto.randomUUID()),
               type: normalizeCallType(c.call_type),
@@ -253,6 +270,10 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
               durationSeconds: Number(c.duration_seconds || 0),
               hasRecording: Boolean(c.has_recording),
               recordingUrl: c.recording_url ? String(c.recording_url) : null,
+              activity:
+                activityRaw && typeof activityRaw.intakeAction === "string"
+                  ? activityRaw
+                  : emptyActivityContext(),
             }
           })
           : []

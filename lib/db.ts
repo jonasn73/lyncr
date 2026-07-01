@@ -3968,7 +3968,132 @@ function parseCallLogRow(row: Record<string, unknown>): CallLog {
     ended_at: row.ended_at ? String(row.ended_at) : null,
     setup_duration_ms: row.setup_duration_ms == null ? null : Number(row.setup_duration_ms),
     post_dial_delay_ms: row.post_dial_delay_ms == null ? null : Number(row.post_dial_delay_ms),
+    disposition: row.disposition != null ? String(row.disposition) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  }
+}
+
+/** Leads + customer saves linked to recent call logs (Live Activity enrichment). */
+export async function fetchCallActivityEnrichmentRows(
+  userId: string,
+  callLogIds: string[],
+  callerPhonesE164: string[]
+): Promise<{
+  leadRows: Record<string, unknown>[]
+  customerCallLogIds: Set<string>
+}> {
+  const sql = getSql()
+  const ids = [...new Set(callLogIds.map((id) => id.trim()).filter(Boolean))]
+  const phones = [...new Set(callerPhonesE164.map((p) => p.trim()).filter(Boolean))]
+  if (ids.length === 0 && phones.length === 0) {
+    return { leadRows: [], customerCallLogIds: new Set() }
+  }
+
+  let leadRows: Record<string, unknown>[] = []
+  try {
+    if (ids.length > 0 && phones.length > 0) {
+      leadRows = await sql`
+        SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.dispatch_status,
+               l.disposition, l.scheduled_at, l.created_at, t.name AS assigned_tech_name
+        FROM ai_leads l
+        LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+        WHERE l.user_id = ${userId}
+          AND (
+            l.collected->>'call_log_id' = ANY(${ids}::text[])
+            OR l.caller_e164 = ANY(${phones}::text[])
+          )
+        ORDER BY l.created_at DESC
+        LIMIT 300
+      `
+    } else if (ids.length > 0) {
+      leadRows = await sql`
+        SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.dispatch_status,
+               l.disposition, l.scheduled_at, l.created_at, t.name AS assigned_tech_name
+        FROM ai_leads l
+        LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+        WHERE l.user_id = ${userId}
+          AND l.collected->>'call_log_id' = ANY(${ids}::text[])
+        ORDER BY l.created_at DESC
+        LIMIT 300
+      `
+    } else {
+      leadRows = await sql`
+        SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.dispatch_status,
+               l.disposition, l.scheduled_at, l.created_at, t.name AS assigned_tech_name
+        FROM ai_leads l
+        LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+        WHERE l.user_id = ${userId}
+          AND l.caller_e164 = ANY(${phones}::text[])
+        ORDER BY l.created_at DESC
+        LIMIT 300
+      `
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) {
+      leadRows = []
+    } else if (isMissingAssignedTechColumnError(e)) {
+      try {
+        if (ids.length > 0 && phones.length > 0) {
+          leadRows = await sql`
+            SELECT id, caller_e164, collected, summary, disposition, scheduled_at, created_at
+            FROM ai_leads
+            WHERE user_id = ${userId}
+              AND (
+                collected->>'call_log_id' = ANY(${ids}::text[])
+                OR caller_e164 = ANY(${phones}::text[])
+              )
+            ORDER BY created_at DESC
+            LIMIT 300
+          `
+        } else if (ids.length > 0) {
+          leadRows = await sql`
+            SELECT id, caller_e164, collected, summary, disposition, scheduled_at, created_at
+            FROM ai_leads
+            WHERE user_id = ${userId}
+              AND collected->>'call_log_id' = ANY(${ids}::text[])
+            ORDER BY created_at DESC
+            LIMIT 300
+          `
+        } else {
+          leadRows = await sql`
+            SELECT id, caller_e164, collected, summary, disposition, scheduled_at, created_at
+            FROM ai_leads
+            WHERE user_id = ${userId}
+              AND caller_e164 = ANY(${phones}::text[])
+            ORDER BY created_at DESC
+            LIMIT 300
+          `
+        }
+      } catch (e2) {
+        if (isUndefinedRelationError(e2, "ai_leads")) leadRows = []
+        else throw e2
+      }
+    } else {
+      throw e
+    }
+  }
+
+  const customerCallLogIds = new Set<string>()
+  if (ids.length > 0) {
+    try {
+      const customerRows = await sql`
+        SELECT source_last_call_log_id
+        FROM customers
+        WHERE user_id = ${userId}
+          AND source_last_call_log_id = ANY(${ids}::text[])
+      `
+      for (const row of customerRows as Record<string, unknown>[]) {
+        const src = row.source_last_call_log_id ? String(row.source_last_call_log_id) : ""
+        if (src) customerCallLogIds.add(src)
+      }
+    } catch (e) {
+      if (!isUndefinedRelationError(e, "customers")) throw e
+    }
+  }
+
+  return {
+    leadRows: leadRows as Record<string, unknown>[],
+    customerCallLogIds,
   }
 }
 

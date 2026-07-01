@@ -1055,7 +1055,20 @@ export interface CallLog {
   ended_at?: string | null
   setup_duration_ms?: number | null
   post_dial_delay_ms?: number | null
+  /** Operator SMS outcome when scripts/059 is applied (BOOKED, PENDING_TIME, …). */
+  disposition?: string | null
   created_at: string
+}
+
+/** Intake + scheduling summary attached to a call row on Live Activity. */
+export interface CallActivityContext {
+  intakeAction: string
+  intakeDetail: string | null
+  scheduleLabel: string | null
+  scheduleAt: string | null
+  leadId: string | null
+  callerScheduleHint: string | null
+  callerPoolCount: number
 }
 
 // --- Analytics / Payroll ---
