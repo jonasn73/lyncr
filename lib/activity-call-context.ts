@@ -94,8 +94,44 @@ function emptyContext(): CallActivityContext {
   }
 }
 
+/** Last 10 digits — matches numbers stored as +1…, 1…, or 10-digit US. */
+function phoneDigitsKey(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1)
+  return digits.length >= 10 ? digits.slice(-10) : digits
+}
+
+function parseCollectedField(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      /* ignore malformed JSON */
+    }
+  }
+  return {}
+}
+
+function callLogIdFromLeadRow(row: Record<string, unknown>, collected: Record<string, unknown>): string | null {
+  const fromCollected = pickCollected(collected, ["call_log_id"])
+  if (fromCollected) return fromCollected
+  const vapi = row.vapi_call_id != null ? String(row.vapi_call_id).trim() : ""
+  const suffix = "-intake-job"
+  if (vapi.endsWith(suffix)) {
+    const id = vapi.slice(0, -suffix.length).trim()
+    return id || null
+  }
+  return null
+}
+
 function leadFromRow(row: Record<string, unknown>): LeadActivityRow {
-  const collected = (row.collected as Record<string, unknown>) || {}
+  const collected = parseCollectedField(row.collected)
   const scheduledRaw = row.scheduled_at
   const scheduledAt =
     scheduledRaw instanceof Date
@@ -114,7 +150,7 @@ function leadFromRow(row: Record<string, unknown>): LeadActivityRow {
     scheduled_at: scheduledAt,
     assigned_tech_name: row.assigned_tech_name != null ? String(row.assigned_tech_name) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
-    call_log_id: pickCollected(collected, ["call_log_id"]),
+    call_log_id: callLogIdFromLeadRow(row, collected),
   }
 }
 
@@ -133,7 +169,7 @@ function isFutureScheduled(lead: LeadActivityRow): boolean {
 
 /** Map call log ids → intake/scheduling context for the Activity feed. */
 export function buildCallActivityContextMap(params: {
-  calls: { id: string; from_number: string; disposition?: string | null }[]
+  calls: { id: string; from_number: string; created_at?: string | null; disposition?: string | null }[]
   leadRows: Record<string, unknown>[]
   customerCallLogIds: Set<string>
   phoneE164ByCallId: Map<string, string>
@@ -149,19 +185,58 @@ export function buildCallActivityContextMap(params: {
 
   const leadsByPhone = new Map<string, LeadActivityRow[]>()
   for (const lead of leads) {
-    const phone = lead.caller_e164.trim()
-    if (!phone) continue
-    const list = leadsByPhone.get(phone) ?? []
+    const key = phoneDigitsKey(lead.caller_e164)
+    if (!key) continue
+    const list = leadsByPhone.get(key) ?? []
     list.push(lead)
-    leadsByPhone.set(phone, list)
+    leadsByPhone.set(key, list)
+  }
+
+  const usedLeadIds = new Set<string>()
+
+  function phoneLeadsForCall(call: { id: string; from_number: string }): LeadActivityRow[] {
+    const phone = params.phoneE164ByCallId.get(call.id) ?? call.from_number
+    return leadsByPhone.get(phoneDigitsKey(phone)) ?? []
+  }
+
+  function findLeadForCall(call: {
+    id: string
+    from_number: string
+    created_at?: string | null
+  }): LeadActivityRow | null {
+    const direct = leadsByCallLogId.get(call.id)
+    if (direct) return direct
+
+    const phoneLeads = phoneLeadsForCall(call)
+    const callTimeRaw = call.created_at
+    const callTime = callTimeRaw ? new Date(callTimeRaw).getTime() : Number.NaN
+
+    const unused = phoneLeads.filter((lead) => !usedLeadIds.has(lead.id))
+    if (!Number.isNaN(callTime) && unused.length > 0) {
+      const windowed = unused
+        .filter((lead) => {
+          const leadTime = new Date(lead.created_at).getTime()
+          if (Number.isNaN(leadTime)) return false
+          return leadTime >= callTime - 5 * 60_000 && leadTime <= callTime + 4 * 60 * 60_000
+        })
+        .sort((a, b) => {
+          const aDelta = Math.abs(new Date(a.created_at).getTime() - callTime)
+          const bDelta = Math.abs(new Date(b.created_at).getTime() - callTime)
+          return aDelta - bDelta
+        })
+      if (windowed[0]) return windowed[0]
+    }
+
+    return unused.sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null
   }
 
   const result = new Map<string, CallActivityContext>()
 
   for (const call of params.calls) {
-    const linkedLead = leadsByCallLogId.get(call.id)
-    const phone = params.phoneE164ByCallId.get(call.id) ?? call.from_number
-    const phoneLeads = leadsByPhone.get(phone) ?? []
+    const linkedLead = findLeadForCall(call)
+    if (linkedLead) usedLeadIds.add(linkedLead.id)
+
+    const phoneLeads = phoneLeadsForCall(call)
 
     if (linkedLead) {
       const scheduleLabel = scheduleLabelForLead(linkedLead)

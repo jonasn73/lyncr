@@ -30,25 +30,27 @@ export async function GET(req: NextRequest) {
     const phoneE164ByCallId = new Map<string, string>()
     const callerPhonesE164: string[] = []
     for (const call of calls) {
-      try {
-        const phone = normalizePhoneNumberE164(call.from_number)
-        phoneE164ByCallId.set(call.id, phone)
-        callerPhonesE164.push(phone)
-      } catch {
-        /* skip invalid numbers */
-      }
+      const phone = normalizePhoneNumberE164(call.from_number)
+      if (!phone) continue
+      phoneE164ByCallId.set(call.id, phone)
+      callerPhonesE164.push(phone)
     }
 
-    const { leadRows, customerCallLogIds } = await fetchCallActivityEnrichmentRows(
-      userId,
-      callLogIds,
-      callerPhonesE164
-    )
+    let leadRows: Record<string, unknown>[] = []
+    let customerCallLogIds = new Set<string>()
+    try {
+      const enrichment = await fetchCallActivityEnrichmentRows(userId, callLogIds, callerPhonesE164)
+      leadRows = enrichment.leadRows
+      customerCallLogIds = enrichment.customerCallLogIds
+    } catch (enrichError) {
+      console.error("[GET /api/calls] activity enrichment failed:", enrichError)
+    }
 
     const activityByCallId = buildCallActivityContextMap({
       calls: calls.map((call) => ({
         id: call.id,
         from_number: phoneE164ByCallId.get(call.id) ?? call.from_number,
+        created_at: call.created_at,
         disposition: call.disposition ?? null,
       })),
       leadRows,

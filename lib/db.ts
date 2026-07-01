@@ -3985,91 +3985,99 @@ export async function fetchCallActivityEnrichmentRows(
   const sql = getSql()
   const ids = [...new Set(callLogIds.map((id) => id.trim()).filter(Boolean))]
   const phones = [...new Set(callerPhonesE164.map((p) => p.trim()).filter(Boolean))]
+  const vapiKeys = ids.map((id) => `${id}-intake-job`)
   if (ids.length === 0 && phones.length === 0) {
     return { leadRows: [], customerCallLogIds: new Set() }
   }
 
   let leadRows: Record<string, unknown>[] = []
-  try {
-    if (ids.length > 0 && phones.length > 0) {
-      leadRows = await sql`
-        SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.dispatch_status,
-               l.disposition, l.scheduled_at, l.created_at, t.name AS assigned_tech_name
+
+  async function queryLeadsMinimal(): Promise<Record<string, unknown>[]> {
+    if (phones.length > 0 && vapiKeys.length > 0 && ids.length > 0) {
+      return (await sql`
+        SELECT id, caller_e164, collected, summary, created_at, vapi_call_id
+        FROM ai_leads
+        WHERE user_id = ${userId}
+          AND (
+            caller_e164 = ANY(${phones})
+            OR vapi_call_id = ANY(${vapiKeys})
+            OR collected->>'call_log_id' = ANY(${ids})
+          )
+        ORDER BY created_at DESC
+        LIMIT 300
+      `) as Record<string, unknown>[]
+    }
+    if (phones.length > 0 && vapiKeys.length > 0) {
+      return (await sql`
+        SELECT id, caller_e164, collected, summary, created_at, vapi_call_id
+        FROM ai_leads
+        WHERE user_id = ${userId}
+          AND (caller_e164 = ANY(${phones}) OR vapi_call_id = ANY(${vapiKeys}))
+        ORDER BY created_at DESC
+        LIMIT 300
+      `) as Record<string, unknown>[]
+    }
+    if (phones.length > 0) {
+      return (await sql`
+        SELECT id, caller_e164, collected, summary, created_at, vapi_call_id
+        FROM ai_leads
+        WHERE user_id = ${userId} AND caller_e164 = ANY(${phones})
+        ORDER BY created_at DESC
+        LIMIT 300
+      `) as Record<string, unknown>[]
+    }
+    if (vapiKeys.length > 0) {
+      return (await sql`
+        SELECT id, caller_e164, collected, summary, created_at, vapi_call_id
+        FROM ai_leads
+        WHERE user_id = ${userId} AND vapi_call_id = ANY(${vapiKeys})
+        ORDER BY created_at DESC
+        LIMIT 300
+      `) as Record<string, unknown>[]
+    }
+    return (await sql`
+      SELECT id, caller_e164, collected, summary, created_at, vapi_call_id
+      FROM ai_leads
+      WHERE user_id = ${userId} AND collected->>'call_log_id' = ANY(${ids})
+      ORDER BY created_at DESC
+      LIMIT 300
+    `) as Record<string, unknown>[]
+  }
+
+  async function queryLeadsExtended(): Promise<Record<string, unknown>[]> {
+    if (phones.length > 0 && vapiKeys.length > 0 && ids.length > 0) {
+      return (await sql`
+        SELECT l.id, l.caller_e164, l.collected, l.summary, l.created_at, l.vapi_call_id,
+               l.disposition, l.scheduled_at, l.dispatch_status, l.job_status,
+               t.name AS assigned_tech_name
         FROM ai_leads l
         LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
         WHERE l.user_id = ${userId}
           AND (
-            l.collected->>'call_log_id' = ANY(${ids}::text[])
-            OR l.caller_e164 = ANY(${phones}::text[])
+            l.caller_e164 = ANY(${phones})
+            OR l.vapi_call_id = ANY(${vapiKeys})
+            OR l.collected->>'call_log_id' = ANY(${ids})
           )
         ORDER BY l.created_at DESC
         LIMIT 300
-      `
-    } else if (ids.length > 0) {
-      leadRows = await sql`
-        SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.dispatch_status,
-               l.disposition, l.scheduled_at, l.created_at, t.name AS assigned_tech_name
-        FROM ai_leads l
-        LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
-        WHERE l.user_id = ${userId}
-          AND l.collected->>'call_log_id' = ANY(${ids}::text[])
-        ORDER BY l.created_at DESC
-        LIMIT 300
-      `
-    } else {
-      leadRows = await sql`
-        SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.dispatch_status,
-               l.disposition, l.scheduled_at, l.created_at, t.name AS assigned_tech_name
-        FROM ai_leads l
-        LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
-        WHERE l.user_id = ${userId}
-          AND l.caller_e164 = ANY(${phones}::text[])
-        ORDER BY l.created_at DESC
-        LIMIT 300
-      `
+      `) as Record<string, unknown>[]
     }
+    return queryLeadsMinimal()
+  }
+
+  try {
+    leadRows = await queryLeadsExtended()
   } catch (e) {
     if (isUndefinedRelationError(e, "ai_leads")) {
       leadRows = []
-    } else if (isMissingAssignedTechColumnError(e)) {
+    } else {
+      console.warn("[db] fetchCallActivityEnrichmentRows extended query failed, using minimal:", e)
       try {
-        if (ids.length > 0 && phones.length > 0) {
-          leadRows = await sql`
-            SELECT id, caller_e164, collected, summary, disposition, scheduled_at, created_at
-            FROM ai_leads
-            WHERE user_id = ${userId}
-              AND (
-                collected->>'call_log_id' = ANY(${ids}::text[])
-                OR caller_e164 = ANY(${phones}::text[])
-              )
-            ORDER BY created_at DESC
-            LIMIT 300
-          `
-        } else if (ids.length > 0) {
-          leadRows = await sql`
-            SELECT id, caller_e164, collected, summary, disposition, scheduled_at, created_at
-            FROM ai_leads
-            WHERE user_id = ${userId}
-              AND collected->>'call_log_id' = ANY(${ids}::text[])
-            ORDER BY created_at DESC
-            LIMIT 300
-          `
-        } else {
-          leadRows = await sql`
-            SELECT id, caller_e164, collected, summary, disposition, scheduled_at, created_at
-            FROM ai_leads
-            WHERE user_id = ${userId}
-              AND caller_e164 = ANY(${phones}::text[])
-            ORDER BY created_at DESC
-            LIMIT 300
-          `
-        }
+        leadRows = await queryLeadsMinimal()
       } catch (e2) {
         if (isUndefinedRelationError(e2, "ai_leads")) leadRows = []
         else throw e2
       }
-    } else {
-      throw e
     }
   }
 
@@ -4080,19 +4088,21 @@ export async function fetchCallActivityEnrichmentRows(
         SELECT source_last_call_log_id
         FROM customers
         WHERE user_id = ${userId}
-          AND source_last_call_log_id = ANY(${ids}::text[])
+          AND source_last_call_log_id::text = ANY(${ids})
       `
       for (const row of customerRows as Record<string, unknown>[]) {
         const src = row.source_last_call_log_id ? String(row.source_last_call_log_id) : ""
         if (src) customerCallLogIds.add(src)
       }
     } catch (e) {
-      if (!isUndefinedRelationError(e, "customers")) throw e
+      if (!isUndefinedRelationError(e, "customers")) {
+        console.warn("[db] fetchCallActivityEnrichmentRows customers lookup failed:", e)
+      }
     }
   }
 
   return {
-    leadRows: leadRows as Record<string, unknown>[],
+    leadRows,
     customerCallLogIds,
   }
 }

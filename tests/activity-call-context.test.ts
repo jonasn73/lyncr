@@ -12,11 +12,12 @@ describe("activity call context", () => {
   it("maps dispatched intake from linked lead", () => {
     const callId = "call-1"
     const map = buildCallActivityContextMap({
-      calls: [{ id: callId, from_number: "+15025369252", disposition: null }],
+      calls: [{ id: callId, from_number: "+15025369252", created_at: "2026-06-30T19:00:00.000Z", disposition: null }],
       leadRows: [
         {
           id: "lead-1",
           caller_e164: "+15025369252",
+          vapi_call_id: `${callId}-intake-job`,
           collected: {
             call_log_id: callId,
             source: "answered_call_intake",
@@ -27,7 +28,7 @@ describe("activity call context", () => {
           },
           summary: "Key replacement — 2017 TOYOTA RAV4 — Allen",
           scheduled_at: "2026-06-30T20:00:00.000Z",
-          created_at: "2026-06-30T19:00:00.000Z",
+          created_at: "2026-06-30T19:05:00.000Z",
         },
       ],
       customerCallLogIds: new Set(),
@@ -39,6 +40,26 @@ describe("activity call context", () => {
     expect(ctx?.intakeDetail).toContain("Key replacement")
     expect(ctx?.leadId).toBe("lead-1")
     expect(ctx?.scheduleLabel).toBeTruthy()
+  })
+
+  it("links intake via vapi_call_id suffix when collected omits call_log_id", () => {
+    const callId = "call-vapi"
+    const map = buildCallActivityContextMap({
+      calls: [{ id: callId, from_number: "+15025369252", created_at: "2026-06-30T19:00:00.000Z" }],
+      leadRows: [
+        {
+          id: "lead-vapi",
+          caller_e164: "+15025369252",
+          vapi_call_id: `${callId}-intake-job`,
+          collected: { source: "answered_call_intake", job_type: "Lockout" },
+          summary: "Lockout",
+          created_at: "2026-06-30T19:02:00.000Z",
+        },
+      ],
+      customerCallLogIds: new Set(),
+      phoneE164ByCallId: new Map([[callId, "+15025369252"]]),
+    })
+    expect(map.get(callId)?.intakeAction).toBe("Sent to dispatch")
   })
 
   it("shows contact saved when no lead but customer row exists", () => {

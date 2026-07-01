@@ -76,7 +76,7 @@ function cacheIsFresh(c: OperationsCache) {
   return Date.now() - c.fetchedAt < CACHE_TTL_MS
 }
 
-const SESSION_STORAGE_KEY = "zing_operations_v1"
+const SESSION_STORAGE_KEY = "zing_operations_v2"
 /** Keep JSON small for sessionStorage quota (~5MB). */
 const SESSION_MAX_CALLS = 80
 /** Drop storage older than this so we do not show very stale KPIs forever without refetch. */
