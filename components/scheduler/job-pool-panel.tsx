@@ -1,32 +1,27 @@
 "use client"
 
 import { Suspense } from "react"
-import { useDashboardStream } from "@/components/dashboard-stream-context"
-import { JobPoolFromPromise } from "@/components/scheduler/job-pool-from-promise"
 import { JobPoolList } from "@/components/scheduler/job-pool-list"
+import { JobPoolTray } from "@/components/scheduler/job-pool-tray"
 import { JobPoolPanelSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 type JobPoolPanelProps = {
+  /** Live hopper jobs from SWR — parent must pass so deletes/edits reflect immediately. */
+  jobs?: UnassignedPoolJob[]
   highlightId?: string | null
   onSelectJob?: (job: UnassignedPoolJob) => void
 }
 
-/** Hopper tray — streams in behind Suspense while the scheduler shell paints first. */
-export function JobPoolPanel({ highlightId, onSelectJob }: JobPoolPanelProps) {
-  const { jobPoolPromise } = useDashboardStream()
-
-  if (jobPoolPromise) {
-    return (
-      <Suspense fallback={<JobPoolPanelSkeleton />}>
-        <JobPoolFromPromise
-          jobsPromise={jobPoolPromise}
-          highlightId={highlightId}
-          onSelectJob={onSelectJob}
-        />
-      </Suspense>
-    )
+/** Hopper tray — uses live SWR jobs from the parent when provided. */
+export function JobPoolPanel({ jobs, highlightId, onSelectJob }: JobPoolPanelProps) {
+  if (jobs !== undefined) {
+    return <JobPoolTray jobs={jobs} highlightId={highlightId} onSelectJob={onSelectJob} />
   }
 
-  return <JobPoolList highlightId={highlightId} onSelectJob={onSelectJob} />
+  return (
+    <Suspense fallback={<JobPoolPanelSkeleton />}>
+      <JobPoolList highlightId={highlightId} onSelectJob={onSelectJob} />
+    </Suspense>
+  )
 }

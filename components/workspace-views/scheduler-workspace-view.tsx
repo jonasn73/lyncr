@@ -5,6 +5,7 @@
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { mutate as globalMutate } from "swr"
 import { ChevronDown, LayoutGrid, Loader2, Map as MapIcon, Plus } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
@@ -41,7 +42,13 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
-import { useActivePipelineQuery, useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
+import {
+  jobPoolActiveUrl,
+  jobPoolHopperUrl,
+  useActivePipelineQuery,
+  useJobPoolQuery,
+} from "@/lib/hooks/use-job-pool-query"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
@@ -138,7 +145,13 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [scheduleIntentLeadId, setScheduleIntentLeadId] = useState<string | null>(null)
   const [intakeScheduleJob, setIntakeScheduleJob] = useState<UnassignedPoolJob | null>(null)
+  /** Jobs removed this session — UI filters immediately even if SWR/stream cache is stale. */
+  const [deletedJobIds, setDeletedJobIds] = useState<ReadonlySet<string>>(() => new Set())
   const initialBootstrapDoneRef = useRef(false)
+  /** Ignores stale bootstrap responses that started before a newer load or delete. */
+  const loadSeqRef = useRef(0)
+  /** Job ids removed this session — filters racey bootstrap/SWR responses until revalidate. */
+  const deletedJobIdsRef = useRef<Set<string>>(new Set())
   /** Prevents URL focus effects from closing a job the user opened manually via Edit. */
   const suppressUrlFocusRef = useRef(false)
 
@@ -165,7 +178,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const {
     jobs: activePipelineJobs,
     mutate: mutateActivePipeline,
-  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, viewMode === "map")
+  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, isActive)
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -205,6 +218,55 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
     [technicians]
   )
+
+  const excludeDeletedJobs = useCallback(
+    <T extends { id: string }>(rows: T[]) => {
+      if (deletedJobIds.size === 0) return rows
+      return rows.filter((row) => !deletedJobIds.has(row.id))
+    },
+    [deletedJobIds]
+  )
+
+  const displayPoolJobs = useMemo(
+    () => excludeDeletedJobs(poolJobs),
+    [poolJobs, excludeDeletedJobs]
+  )
+
+  const displayPipelineJobs = useMemo(
+    () => excludeDeletedJobs(activePipelineJobs),
+    [activePipelineJobs, excludeDeletedJobs]
+  )
+
+  const displayEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
+
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, SchedulerEvent[]>()
+    for (const ev of displayEvents) {
+      const key = dayKeyLocal(new Date(ev.scheduled_at))
+      const list = map.get(key) ?? []
+      list.push(ev)
+      map.set(key, list)
+    }
+    for (const [, list] of map) list.sort(sortEventsByTime)
+    return map
+  }, [displayEvents])
+
+  const daysWithEvents = useMemo(() => {
+    const set = new Set<Date>()
+    for (const key of eventsByDay.keys()) {
+      const [y, m, d] = key.split("-").map(Number)
+      set.add(new Date(y, m - 1, d))
+    }
+    return set
+  }, [eventsByDay])
+
+  const selectedKey = dayKeyLocal(selectedDay)
+  const dayEvents = useMemo(() => eventsByDay.get(selectedKey) ?? [], [eventsByDay, selectedKey])
+  const selectedDayLabel = selectedDay.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })
 
   const mapRouteFocus = useMemo((): DrivingRouteFocus | null => {
     if (viewMode !== "grid") return null
@@ -341,6 +403,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [])
 
   const load = useCallback(() => {
+    const seq = ++loadSeqRef.current
     if (!initialBootstrapDoneRef.current) setLoading(true)
     const bootstrapUrl = `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQuery}`
 
@@ -355,7 +418,12 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
             ownerUserId?: string
           }
         }) => {
-          setEvents(Array.isArray(j.data?.events) ? j.data!.events! : [])
+          if (seq !== loadSeqRef.current) return
+          const deleted = deletedJobIdsRef.current
+          const rawEvents = Array.isArray(j.data?.events) ? j.data!.events! : []
+          setEvents(
+            deleted.size > 0 ? rawEvents.filter((ev) => !deleted.has(ev.id)) : rawEvents
+          )
           setTechnicians(Array.isArray(j.data?.technicians) ? j.data!.technicians! : [])
           setLineIndustryTags(Array.isArray(j.data?.lineIndustryTags) ? j.data!.lineIndustryTags! : [])
           if (j.data?.ownerUserId) setOwnerUserId(j.data.ownerUserId)
@@ -446,35 +514,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     }
   }, [ownerUserId, refreshSchedulerData, load, viewMode, loadTechLocations, mutatePool, mutateActivePipeline])
 
-  const eventsByDay = useMemo(() => {
-    const map = new Map<string, SchedulerEvent[]>()
-    for (const ev of events) {
-      const key = dayKeyLocal(new Date(ev.scheduled_at))
-      const list = map.get(key) ?? []
-      list.push(ev)
-      map.set(key, list)
-    }
-    for (const [, list] of map) list.sort(sortEventsByTime)
-    return map
-  }, [events])
-
-  const daysWithEvents = useMemo(() => {
-    const set = new Set<Date>()
-    for (const key of eventsByDay.keys()) {
-      const [y, m, d] = key.split("-").map(Number)
-      set.add(new Date(y, m - 1, d))
-    }
-    return set
-  }, [eventsByDay])
-
-  const selectedKey = dayKeyLocal(selectedDay)
-  const dayEvents = eventsByDay.get(selectedKey) ?? []
-  const selectedDayLabel = selectedDay.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
 
   function openBookingAtHour(hour24: number) {
@@ -541,11 +580,33 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   )
 
   function handleJobDeleted(jobId: string) {
+    deletedJobIdsRef.current.add(jobId)
+    setDeletedJobIds((prev) => {
+      const next = new Set(prev)
+      next.add(jobId)
+      return next
+    })
+    loadSeqRef.current += 1
     closeJobDrawer()
+    setHighlightId(null)
     setEvents((prev) => prev.filter((ev) => ev.id !== jobId))
-    void mutatePool()
-    void mutateActivePipeline()
-    refreshSchedulerData()
+
+    const orgCacheKey = orgId ?? "default"
+    const nextPool = poolJobs.filter((j) => j.id !== jobId)
+    const nextPipeline = activePipelineJobs.filter((j) => j.id !== jobId)
+    const hopperUrl = jobPoolHopperUrl(activeOrganizationId)
+    const pipelineUrl = jobPoolActiveUrl(activeOrganizationId, pipelineDayKey)
+
+    writePersistedCache(persistedCacheKey("job-pool-hopper", orgCacheKey), nextPool)
+    writePersistedCache(
+      persistedCacheKey("job-pool-active", `${orgCacheKey}:${pipelineDayKey}`),
+      nextPipeline
+    )
+
+    void mutatePool(nextPool, { revalidate: false })
+    void mutateActivePipeline(nextPipeline, { revalidate: false })
+    void globalMutate(hopperUrl, nextPool, { revalidate: false })
+    void globalMutate(pipelineUrl, nextPipeline, { revalidate: false })
   }
 
   const handlePhoneLookupResults = useCallback(
@@ -864,8 +925,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         <SchedulerMobileDispatchShell
           mapRef={mapRef}
           dayEvents={dayEvents}
-          activePipelineJobs={activePipelineJobs}
-          poolJobs={poolJobs}
+          activePipelineJobs={displayPipelineJobs}
+          poolJobs={displayPoolJobs}
           techLocations={techLocations}
           selectedDayLabel={selectedDayLabel}
           selectedDay={selectedDay}
@@ -918,13 +979,13 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       </div>
 
       {viewMode === "grid" ? (
-        <JobPoolPanel highlightId={highlightId} onSelectJob={openPoolJobDrawer} />
+        <JobPoolPanel jobs={displayPoolJobs} highlightId={highlightId} onSelectJob={openPoolJobDrawer} />
       ) : null}
 
       {viewMode === "map" ? (
         <DispatchOperationsMetricStrip
-          poolJobs={poolJobs}
-          activePipelineJobs={activePipelineJobs}
+          poolJobs={displayPoolJobs}
+          activePipelineJobs={displayPipelineJobs}
           dayEvents={dayEvents}
         />
       ) : null}
@@ -965,8 +1026,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                   <SchedulerCalendarStatsSkeleton />
                 ) : (
                   <p className="mt-2 text-center text-xs text-zinc-500">
-                    {events.length} scheduled this month
-                    {poolJobs.length > 0 ? ` · ${poolJobs.length} in hopper` : ""}
+                    {displayEvents.length} scheduled this month
+                    {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
                   </p>
                 )}
               </div>
@@ -1043,8 +1104,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                     <SchedulerCalendarStatsSkeleton />
                   ) : (
                     <p className="mt-2 text-center text-xs text-zinc-500">
-                      {events.length} scheduled this month
-                      {poolJobs.length > 0 ? ` · ${poolJobs.length} in hopper` : ""}
+                      {displayEvents.length} scheduled this month
+                      {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
                     </p>
                   )}
                 </div>
@@ -1058,8 +1119,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                     {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
                   </h2>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Dispatch map · {activePipelineJobs.length} active job
-                    {activePipelineJobs.length === 1 ? "" : "s"} · {techLocations.length} tech
+                    Dispatch map · {displayPipelineJobs.length} active job
+                    {displayPipelineJobs.length === 1 ? "" : "s"} · {techLocations.length} tech
                     {techLocations.length === 1 ? "" : "s"} live
                   </p>
                 </div>
@@ -1071,6 +1132,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               <div className="flex min-h-0 flex-1 flex-col lg:min-h-[min(720px,70vh)] lg:flex-row">
                 <div className="min-h-0 flex-1 overflow-y-auto border-b border-border/60 bg-card/40 lg:w-[40%] lg:flex-none lg:border-b-0 lg:border-r">
                   <ActivePipelinePanelStream
+                    jobs={displayPipelineJobs}
                     dayKey={pipelineDayKey}
                     useStreamedInitialDay={useStreamedPipeline}
                     highlightId={highlightId}
@@ -1082,8 +1144,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                   <SchedulerRouteMap
                     ref={mapRef}
                     events={dayEvents}
-                    pipelineJobs={activePipelineJobs}
-                    poolJobs={poolJobs}
+                    pipelineJobs={displayPipelineJobs}
+                    poolJobs={displayPoolJobs}
                     techLocations={techLocations}
                     selectedDayLabel={selectedDayLabel}
                     highlightId={highlightId}

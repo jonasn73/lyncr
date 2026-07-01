@@ -253,7 +253,7 @@ export function VehicleKeyInfoPanel({
   if (error) {
     return (
       <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-        Could not load key reference. Use Transponder Island below.
+        Could not load key reference for this vehicle.
       </p>
     )
   }
@@ -262,15 +262,7 @@ export function VehicleKeyInfoPanel({
     return (
       <div className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-xs text-muted-foreground">
         <p className="font-medium text-foreground">No FCC reference for this vehicle in our database.</p>
-        <p className="mt-1">Search your supplier for parts and programming steps:</p>
-        <a
-          href={`https://transponderisland.com/shop?search=${encodeURIComponent(`${year} ${make} ${model}`)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 text-primary hover:underline"
-        >
-          Transponder Island <ExternalLink className="h-3 w-3" />
-        </a>
+        <p className="mt-1">Confirm the FCC ID on the customer&apos;s key before ordering parts.</p>
       </div>
     )
   }
@@ -457,25 +449,6 @@ export function VehicleKeyInfoPanel({
           ))}
         </select>
       </label>
-
-      <div className="flex flex-wrap gap-3 text-[11px]">
-        <a
-          href={info.transponder_island_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-primary hover:underline"
-        >
-          Transponder Island <ExternalLink className="h-3 w-3" />
-        </a>
-        <a
-          href={info.keysolved_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-primary hover:underline"
-        >
-          Keysolved <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
 
       {info.photo_disclaimer ? (
         <p className="text-[10px] text-muted-foreground">{info.photo_disclaimer}</p>

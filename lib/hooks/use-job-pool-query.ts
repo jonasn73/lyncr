@@ -13,19 +13,19 @@ type PoolResponse<T> = { data?: { jobs?: T[] } }
 const EMPTY_POOL_JOBS: UnassignedPoolJob[] = []
 const EMPTY_PIPELINE_JOBS: ActivePipelineJob[] = []
 
-function poolHopperUrl(activeOrganizationId: string | null): string {
+export function jobPoolHopperUrl(activeOrganizationId: string | null): string {
   const orgQs = organizationQueryString(activeOrganizationId)
   return `/api/owner/jobs/pool${orgQs}`
 }
 
-function poolActiveUrl(activeOrganizationId: string | null, dayKey: string): string {
+export function jobPoolActiveUrl(activeOrganizationId: string | null, dayKey: string): string {
   const orgQs = organizationQueryString(activeOrganizationId)
   const sep = orgQs ? "&" : "?"
   return `/api/owner/jobs/pool${orgQs}${sep}scope=active&day=${encodeURIComponent(dayKey)}`
 }
 
 export function useJobPoolQuery(activeOrganizationId: string | null) {
-  const url = poolHopperUrl(activeOrganizationId)
+  const url = jobPoolHopperUrl(activeOrganizationId)
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
 
   const fallbackData = useMemo(
@@ -60,7 +60,7 @@ export function useJobPoolQuery(activeOrganizationId: string | null) {
 }
 
 export function useJobPoolSuspenseQuery(activeOrganizationId: string | null) {
-  const url = poolHopperUrl(activeOrganizationId)
+  const url = jobPoolHopperUrl(activeOrganizationId)
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
   const fallbackData = useMemo(
     () => readPersistedCache<UnassignedPoolJob[]>(cacheKey),
@@ -84,7 +84,7 @@ export function useActivePipelineQuery(
   dayKey: string,
   enabled = true
 ) {
-  const url = enabled ? poolActiveUrl(activeOrganizationId, dayKey) : null
+  const url = enabled ? jobPoolActiveUrl(activeOrganizationId, dayKey) : null
   const cacheKey = persistedCacheKey(
     "job-pool-active",
     `${activeOrganizationId ?? "default"}:${dayKey}`
@@ -126,7 +126,7 @@ export function useActivePipelineSuspenseQuery(
   dayKey: string,
   enabled = true
 ) {
-  const url = enabled ? poolActiveUrl(activeOrganizationId, dayKey) : null
+  const url = enabled ? jobPoolActiveUrl(activeOrganizationId, dayKey) : null
   const cacheKey = persistedCacheKey(
     "job-pool-active",
     `${activeOrganizationId ?? "default"}:${dayKey}`

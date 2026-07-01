@@ -241,7 +241,7 @@ function buildLookupResult(
     keysolved_url: keysolvedBrowseUrl(make, matchedModel, year),
     source: "keyfobdb",
     disclaimer:
-      `Reference data from public FCC listings — verify on the vehicle.${familyNote} For full programming steps use Transponder Island or Keysolved.`,
+      `Reference data from public FCC listings — verify on the vehicle.${familyNote} Always confirm the physical key before ordering.`,
   }
 }
 
