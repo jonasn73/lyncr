@@ -91,6 +91,7 @@ function runTerminalCallSideEffects(
           durationSeconds: Math.max(durationSeconds, snapshot.duration_seconds ?? 0),
           callType: snapshot.call_type,
           status: snapshot.status,
+          answeredAt: snapshot.answered_at,
         })
       } catch (e) {
         console.warn("[telnyx-cc] call-completed broadcast failed:", e)

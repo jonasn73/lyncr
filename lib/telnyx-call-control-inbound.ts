@@ -334,7 +334,9 @@ async function handleCallHangup(
 
   const hadConversation =
     Boolean(state?.inboundCallControlId) &&
-    (event.hangupCause === "normal_clearing" || state?.phase === "recording")
+    event.hangupCause === "normal_clearing" &&
+    state?.phase !== "recording" &&
+    state?.phase !== "await_voicemail_prompt_end"
 
   await finalizeCallControlCallLog(inboundSid, event, {
     callType: state?.phase === "recording" ? "voicemail" : undefined,

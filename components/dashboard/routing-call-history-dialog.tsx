@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { formatTalkDuration, formatTalkTime } from "@/lib/daily-call-telemetry"
+import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 
@@ -126,17 +127,11 @@ function isThisWeek(iso: string): boolean {
 }
 
 function isMissedRow(row: CallHistoryRow): boolean {
-  const type = row.call_type.toLowerCase()
-  const status = row.status.toLowerCase()
-  return (
-    type === "missed" ||
-    type === "voicemail" ||
-    status.includes("no-answer") ||
-    status.includes("busy") ||
-    status.includes("missed") ||
-    status.includes("canceled") ||
-    status.includes("cancelled")
-  )
+  return isMissedCallRecord({
+    call_type: row.call_type,
+    status: row.status,
+    answered_at: row.answered_at,
+  })
 }
 
 /** Match HUD talk-time logic: duration, recording, or answered→ended delta. */

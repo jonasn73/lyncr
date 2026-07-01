@@ -3444,7 +3444,7 @@ export async function recordCallStatusEvent(
             ELSE GREATEST(COALESCE(cl.duration_seconds, 0), ${durationSeconds})
           END,
           answered_at = CASE
-            WHEN ${normalizedStatus} IN ('answered', 'in-progress', 'completed') AND cl.answered_at IS NULL THEN ${occurredAt}
+            WHEN ${normalizedStatus} IN ('answered', 'in-progress') AND cl.answered_at IS NULL THEN ${occurredAt}
             ELSE cl.answered_at
           END,
           ended_at = CASE
@@ -3679,7 +3679,18 @@ export async function getDailyCallTelemetryForOwner(
   const talkableWhere = sql`
     talk_seconds > 0
     AND call_type IS DISTINCT FROM 'missed'
+    AND call_type IS DISTINCT FROM 'voicemail'
     AND lower(COALESCE(status, '')) NOT IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled', 'failed')
+  `
+
+  const missedWhere = sql`
+    call_type IN ('missed', 'voicemail')
+    OR lower(COALESCE(status, '')) IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled')
+    OR (
+      call_type = 'incoming'
+      AND answered_at IS NULL
+      AND lower(COALESCE(status, '')) IN ('completed', 'canceled', 'cancelled')
+    )
   `
 
   const rows = lineNumbers
@@ -3689,6 +3700,7 @@ export async function getDailyCallTelemetryForOwner(
             created_at,
             call_type,
             status,
+            answered_at,
             GREATEST(
               0,
               COALESCE(duration_seconds, 0),
@@ -3707,10 +3719,7 @@ export async function getDailyCallTelemetryForOwner(
           COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int AS daily_calls,
           COUNT(*) FILTER (
             WHERE created_at >= date_trunc('day', now())
-              AND (
-                call_type = 'missed'
-                OR lower(COALESCE(status, '')) IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled')
-              )
+              AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
@@ -3738,6 +3747,7 @@ export async function getDailyCallTelemetryForOwner(
             created_at,
             call_type,
             status,
+            answered_at,
             GREATEST(
               0,
               COALESCE(duration_seconds, 0),
@@ -3755,10 +3765,7 @@ export async function getDailyCallTelemetryForOwner(
           COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int AS daily_calls,
           COUNT(*) FILTER (
             WHERE created_at >= date_trunc('day', now())
-              AND (
-                call_type = 'missed'
-                OR lower(COALESCE(status, '')) IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled')
-              )
+              AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
