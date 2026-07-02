@@ -28,9 +28,13 @@ import type {
 import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import {
+  loadAnsweredIntakeDismissed,
+  markAnsweredIntakeDismissed,
+  subscribeAnsweredIntakeDismissed,
+} from "@/lib/answered-call-intake-dismiss"
 import { cn } from "@/lib/utils"
 
-const SEEN_KEY = "zing_answered_customer_popup_seen_v1"
 /** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
 const RINGING_LOOKUP_DELAYS_MS = [0, 50, 150, 350]
 /** While a call is ringing, poll quickly until answered_at lands in Neon. */
@@ -39,22 +43,24 @@ const RINGING_FAST_POLL_MAX_MS = 90_000
 /** Safety net when Pusher is slow — only while the dashboard tab is visible. */
 const ANSWERED_VISIBILITY_POLL_MS = 800
 
-function loadSeen(): Set<string> {
-  try {
-    const raw = sessionStorage.getItem(SEEN_KEY)
-    const arr = raw ? (JSON.parse(raw) as unknown) : []
-    return new Set(Array.isArray(arr) ? arr.map(String) : [])
-  } catch {
-    return new Set()
-  }
-}
-
-function persistSeen(s: Set<string>) {
-  try {
-    sessionStorage.setItem(SEEN_KEY, JSON.stringify([...s].slice(-100)))
-  } catch {
-    /* ignore quota */
-  }
+function showCallRow(
+  setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
+  row: ActiveCallRow,
+  dismissed: Set<string>
+) {
+  if (dismissed.has(row.id)) return
+  setCurrent((prev) => {
+    if (prev && dismissed.has(prev.id)) return null
+    if (prev?.id === row.id) {
+      return {
+        ...prev,
+        ...row,
+        answered_at: row.answered_at ?? prev.answered_at,
+        caller_name: row.caller_name ?? prev.caller_name,
+      }
+    }
+    return row
+  })
 }
 
 function rowFromAnsweredPayload(payload: OwnerCallAnsweredPayload): ActiveCallRow | null {
@@ -143,25 +149,6 @@ function rowFromCompletedPayload(payload: OwnerCallCompletedPayload): ActiveCall
   }
 }
 
-function showCallRow(
-  setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
-  row: ActiveCallRow,
-  seen: Set<string>
-) {
-  if (seen.has(row.id)) return
-  setCurrent((prev) => {
-    if (prev?.id === row.id) {
-      return {
-        ...prev,
-        ...row,
-        answered_at: row.answered_at ?? prev.answered_at,
-        caller_name: row.caller_name ?? prev.caller_name,
-      }
-    }
-    return row
-  })
-}
-
 export type CallAnsweredModalProps = {
   enabled: boolean
   ownerUserId?: string | null
@@ -169,7 +156,8 @@ export type CallAnsweredModalProps = {
 
 export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalProps) {
   const router = useRouter()
-  const seenRef = useRef(loadSeen())
+  const dismissedRef = useRef<Set<string>>(new Set())
+  const ringAliasRef = useRef<string | null>(null)
   const [current, setCurrent] = useState<ActiveCallRow | null>(null)
   const { activeOrganizationId } = useDashboardWorkspace()
   const {
@@ -192,7 +180,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   } = useActiveCallForm(current)
 
   useEffect(() => {
+    if (!ownerUserId) return
+    dismissedRef.current = loadAnsweredIntakeDismissed(ownerUserId)
+    return subscribeAnsweredIntakeDismissed(ownerUserId, (ids) => {
+      for (const id of ids) dismissedRef.current.add(id)
+      setCurrent((prev) => (prev && dismissedRef.current.has(prev.id) ? null : prev))
+    })
+  }, [ownerUserId])
+
+  useEffect(() => {
     if (!enabled || !ownerUserId) return
+
+    dismissedRef.current = loadAnsweredIntakeDismissed(ownerUserId)
 
     let cancelled = false
     const lookupTimers: ReturnType<typeof window.setTimeout>[] = []
@@ -211,15 +210,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     const tryShowActiveCall = () => {
-      void fetchFirstUnseenRingingCall(seenRef.current).then((ringing) => {
+      void fetchFirstUnseenRingingCall(dismissedRef.current).then((ringing) => {
         if (cancelled) return
         if (ringing) {
-          showCallRow(setCurrent, ringing, seenRef.current)
+          showCallRow(setCurrent, ringing, dismissedRef.current)
           return
         }
-        void fetchFirstUnseenAnsweredCall(seenRef.current).then((answered) => {
+        void fetchFirstUnseenAnsweredCall(dismissedRef.current).then((answered) => {
           if (cancelled || !answered) return
-          showCallRow(setCurrent, answered, seenRef.current)
+          showCallRow(setCurrent, answered, dismissedRef.current)
           stopRingingFastPoll()
         })
       })
@@ -282,7 +281,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onInitiated = (payload: OwnerCallInitiatedPayload) => {
       const row = rowFromInitiatedPayload(payload)
-      if (row) showCallRow(setCurrent, row, seenRef.current)
+      if (row) showCallRow(setCurrent, row, dismissedRef.current)
       scheduleRingingLookups()
     }
 
@@ -290,13 +289,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const row = rowFromAnsweredPayload(payload)
       if (!row) return
       stopRingingFastPoll()
-      showCallRow(setCurrent, row, seenRef.current)
+      setCurrent((prev) => {
+        if (dismissedRef.current.has(row.id)) return null
+        if (prev?.id.startsWith("ring-") && prev.from_number === row.from_number) {
+          ringAliasRef.current = prev.id
+        }
+        return {
+          ...row,
+          caller_name: row.caller_name ?? prev?.caller_name ?? null,
+        }
+      })
     }
 
     const onCompleted = (payload: OwnerCallCompletedPayload) => {
       const row = rowFromCompletedPayload(payload)
       if (!row) return
-      showCallRow(setCurrent, row, seenRef.current)
+      showCallRow(setCurrent, row, dismissedRef.current)
     }
 
     channel.bind("call-initiated", onInitiated)
@@ -317,31 +325,42 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!enabled) setCurrent(null)
   }, [enabled])
 
+  const dismissCallIntake = useCallback(
+    (row: ActiveCallRow | null) => {
+      if (!row || !ownerUserId) return
+      const ids = [row.id, ringAliasRef.current].filter((id): id is string => Boolean(id))
+      markAnsweredIntakeDismissed(ownerUserId, ids)
+      for (const id of ids) dismissedRef.current.add(id)
+      ringAliasRef.current = null
+    },
+    [ownerUserId]
+  )
+
   const dismissOnly = useCallback(() => {
     if (!current) return
-    seenRef.current.add(current.id)
-    persistSeen(seenRef.current)
+    dismissCallIntake(current)
     const closedId = current.id
     setCurrent(null)
-    void fetchFirstUnseenRingingCall(seenRef.current).then((ringing) => {
+    void fetchFirstUnseenRingingCall(dismissedRef.current).then((ringing) => {
       if (ringing) {
-        showCallRow(setCurrent, ringing, seenRef.current)
+        showCallRow(setCurrent, ringing, dismissedRef.current)
         return
       }
-      void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
+      void fetchFirstUnseenAnsweredCall(dismissedRef.current).then((row) => {
         if (!row || row.id === closedId) return
-        showCallRow(setCurrent, row, seenRef.current)
+        showCallRow(setCurrent, row, dismissedRef.current)
       })
     })
-  }, [current])
+  }, [current, dismissCallIntake])
 
   const sendToDispatch = useCallback(async () => {
-    if (!current) return
+    if (!current || !ownerUserId) return
     const result = await createJob(activeOrganizationId)
     if (!result.ok) return
-    dismissOnly()
+    dismissCallIntake(current)
+    setCurrent(null)
     router.push(buildSchedulerFocusUrl(result.leadId, { schedule: true }))
-  }, [activeOrganizationId, createJob, current, dismissOnly, router])
+  }, [activeOrganizationId, createJob, current, dismissCallIntake, ownerUserId, router])
 
   if (!enabled) return null
 

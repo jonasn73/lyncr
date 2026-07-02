@@ -4,6 +4,7 @@ import {
   applyLeadDisposition,
   getUser,
   isReasonablePstnDialString,
+  markCallLogOwnerIntakeDismissed,
   normalizePhoneNumberE164,
   setLeadCoordinates,
   updateAiLeadSmsOutcome,
@@ -163,6 +164,12 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     dispatch_status: UNASSIGNED_POOL_STATUS,
     is_salvageable: false,
   })
+
+  if (input.callLogId?.trim()) {
+    await markCallLogOwnerIntakeDismissed(input.ownerUserId, input.callLogId.trim()).catch((e) =>
+      console.warn("[create-intake-job] intake dismiss stamp failed:", e)
+    )
+  }
 
   if (latitude != null && longitude != null) {
     await setLeadCoordinates(id, latitude, longitude)

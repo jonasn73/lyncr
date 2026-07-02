@@ -4201,20 +4201,63 @@ export async function listRecentlyAnsweredIncomingCalls(
   let rows: Record<string, unknown>[]
   try {
     rows = await sql`
-      SELECT * FROM call_logs
-      WHERE user_id = ${userId}
-        AND call_type = 'incoming'
-        AND answered_at IS NOT NULL
-        AND answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
-      ORDER BY answered_at DESC
+      SELECT cl.* FROM call_logs cl
+      WHERE cl.user_id = ${userId}
+        AND cl.call_type = 'incoming'
+        AND cl.answered_at IS NOT NULL
+        AND cl.answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+        AND cl.owner_intake_dismissed_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM ai_leads l
+          WHERE l.user_id = cl.user_id
+            AND (
+              l.collected->>'call_log_id' = cl.id::text
+              OR l.vapi_call_id = cl.id::text || '-intake-job'
+            )
+        )
+      ORDER BY cl.answered_at DESC
       LIMIT 40
     `
   } catch (e) {
-    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("answered_at")) {
-      console.warn("[db] listRecentlyAnsweredIncomingCalls: answered_at missing — run scripts/007-call-quality-metrics.sql.")
-      return []
+    if (pgErrorCode(e) === "42703") {
+      const msg = pgErrorMessage(e)
+      if (msg.includes("owner_intake_dismissed_at")) {
+        console.warn(
+          "[db] listRecentlyAnsweredIncomingCalls: owner_intake_dismissed_at missing — run scripts/083-call-log-owner-intake-dismissed.sql."
+        )
+        try {
+          rows = await sql`
+            SELECT cl.* FROM call_logs cl
+            WHERE cl.user_id = ${userId}
+              AND cl.call_type = 'incoming'
+              AND cl.answered_at IS NOT NULL
+              AND cl.answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+              AND NOT EXISTS (
+                SELECT 1 FROM ai_leads l
+                WHERE l.user_id = cl.user_id
+                  AND (
+                    l.collected->>'call_log_id' = cl.id::text
+                    OR l.vapi_call_id = cl.id::text || '-intake-job'
+                  )
+              )
+            ORDER BY cl.answered_at DESC
+            LIMIT 40
+          `
+        } catch (inner) {
+          if (pgErrorCode(inner) === "42703" && pgErrorMessage(inner).includes("answered_at")) {
+            return []
+          }
+          throw inner
+        }
+      } else if (msg.includes("answered_at")) {
+        console.warn("[db] listRecentlyAnsweredIncomingCalls: answered_at missing — run scripts/007-call-quality-metrics.sql.")
+        return []
+      } else {
+        throw e
+      }
+    } else {
+      throw e
     }
-    throw e
   }
   return rows.map((row) => parseCallLogRow(row as Record<string, unknown>))
 }
@@ -4227,19 +4270,71 @@ export async function listRecentlyRingingIncomingCalls(
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT * FROM call_logs
-      WHERE user_id = ${userId}
-        AND call_type = 'incoming'
-        AND lower(status) = 'ringing'
-        AND answered_at IS NULL
-        AND created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
-      ORDER BY created_at DESC
+      SELECT cl.* FROM call_logs cl
+      WHERE cl.user_id = ${userId}
+        AND cl.call_type = 'incoming'
+        AND lower(cl.status) = 'ringing'
+        AND cl.answered_at IS NULL
+        AND cl.created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+        AND cl.owner_intake_dismissed_at IS NULL
+      ORDER BY cl.created_at DESC
       LIMIT 20
     `
     return rows.map((row) => parseCallLogRow(row as Record<string, unknown>))
   } catch (e) {
-    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("answered_at")) {
-      return []
+    if (pgErrorCode(e) === "42703") {
+      const msg = pgErrorMessage(e)
+      if (msg.includes("owner_intake_dismissed_at")) {
+        try {
+          const rows = await sql`
+            SELECT * FROM call_logs
+            WHERE user_id = ${userId}
+              AND call_type = 'incoming'
+              AND lower(status) = 'ringing'
+              AND answered_at IS NULL
+              AND created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+            ORDER BY created_at DESC
+            LIMIT 20
+          `
+          return rows.map((row) => parseCallLogRow(row as Record<string, unknown>))
+        } catch (inner) {
+          if (pgErrorCode(inner) === "42703" && pgErrorMessage(inner).includes("answered_at")) {
+            return []
+          }
+          throw inner
+        }
+      }
+      if (msg.includes("answered_at")) {
+        return []
+      }
+    }
+    throw e
+  }
+}
+
+/** Owner closed or dispatched the answered-call intake sheet — suppress re-open everywhere. */
+export async function markCallLogOwnerIntakeDismissed(
+  userId: string,
+  callLogId: string
+): Promise<boolean> {
+  const sql = getSql()
+  const id = String(callLogId).trim()
+  if (!id) return false
+  try {
+    const rows = await sql`
+      UPDATE call_logs
+      SET owner_intake_dismissed_at = COALESCE(owner_intake_dismissed_at, now())
+      WHERE id = ${id}::uuid
+        AND user_id = ${userId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("owner_intake_dismissed_at")) {
+      console.warn(
+        "[db] markCallLogOwnerIntakeDismissed: column missing — run scripts/083-call-log-owner-intake-dismissed.sql."
+      )
+      return true
     }
     throw e
   }
