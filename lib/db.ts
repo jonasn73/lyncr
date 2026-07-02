@@ -3068,8 +3068,9 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
       )
       RETURNING id
     `
-    void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-    return rows[0]?.id != null ? String(rows[0].id) : null
+    const callLogId = rows[0]?.id != null ? String(rows[0].id) : null
+    void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
+    return callLogId
   } catch (e) {
     const code = pgErrorCode(e)
     const msg = pgErrorMessage(e)
@@ -3087,8 +3088,9 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
         )
         RETURNING id
       `
-      void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-      return rows[0]?.id != null ? String(rows[0].id) : null
+      const callLogId = rows[0]?.id != null ? String(rows[0].id) : null
+      void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
+      return callLogId
     }
     // Legacy DB: twilio_call_sid NOT NULL — duplicate sid into both columns
     if (msg.includes("twilio_call_sid")) {
@@ -3105,8 +3107,9 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
           )
           RETURNING id
         `
-        void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-        return rows[0]?.id != null ? String(rows[0].id) : null
+        const callLogId = rows[0]?.id != null ? String(rows[0].id) : null
+        void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
+        return callLogId
       } catch (e2) {
         const m2 = pgErrorMessage(e2)
         if (pgErrorCode(e2) === "42703" && m2.includes("first_ring_at")) {
@@ -3122,8 +3125,9 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
             )
             RETURNING id
           `
-          void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum)
-          return rows[0]?.id != null ? String(rows[0].id) : null
+          const callLogId = rows[0]?.id != null ? String(rows[0].id) : null
+          void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
+          return callLogId
         }
         throw e2
       }
@@ -3132,12 +3136,13 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
   }
 }
 
-/** Push a realtime HUD tick when a new inbound call row is created. */
+/** Push intake sheet + HUD tick when a new inbound call row is created (ringing). */
 async function notifyInboundCallInitiatedTelemetry(
   log: Omit<CallLog, "id" | "created_at">,
   sid: string,
   fromNum: string,
-  toNum: string
+  toNum: string,
+  callLogId: string | null
 ): Promise<void> {
   if (log.call_type !== "incoming" || log.status !== "ringing") return
   try {
@@ -3145,6 +3150,7 @@ async function notifyInboundCallInitiatedTelemetry(
     const line = await getActivePhoneNumberByE164(toNum).catch(() => null)
     await publishOwnerEvent(log.user_id, "call-initiated", {
       call_sid: sid,
+      call_log_id: callLogId,
       from_number: fromNum,
       to_number: toNum,
       organization_id: line?.organization_id ?? null,
@@ -4211,6 +4217,32 @@ export async function listRecentlyAnsweredIncomingCalls(
     throw e
   }
   return rows.map((row) => parseCallLogRow(row as Record<string, unknown>))
+}
+
+/** Inbound calls still ringing — for early intake sheet before answer. */
+export async function listRecentlyRingingIncomingCalls(
+  userId: string,
+  withinMinutes = 5
+): Promise<CallLog[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM call_logs
+      WHERE user_id = ${userId}
+        AND call_type = 'incoming'
+        AND lower(status) = 'ringing'
+        AND answered_at IS NULL
+        AND created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+      ORDER BY created_at DESC
+      LIMIT 20
+    `
+    return rows.map((row) => parseCallLogRow(row as Record<string, unknown>))
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("answered_at")) {
+      return []
+    }
+    throw e
+  }
 }
 
 function parseCustomerRow(row: Record<string, unknown>): Customer {

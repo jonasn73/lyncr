@@ -12,12 +12,14 @@ import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 export async function broadcastCallInitiated(params: {
   ownerUserId: string
   callSid: string
+  callLogId?: string | null
   fromNumber: string
   toNumber: string
   organizationId?: string | null
 }): Promise<void> {
   const payload: OwnerCallInitiatedPayload = {
     call_sid: params.callSid,
+    call_log_id: params.callLogId ?? null,
     from_number: params.fromNumber,
     to_number: params.toNumber,
     organization_id: params.organizationId ?? null,

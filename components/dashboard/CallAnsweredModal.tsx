@@ -1,7 +1,6 @@
 "use client"
 
-// Answered-call intake sheet — listens on owner-{userId} Pusher `call-answered`
-// (broadcast from carrier answer webhooks via lib/inbound-call-answered-broadcast.ts).
+// Answered-call intake sheet — opens on `call-initiated` (ringing) via Pusher, then upgrades on `call-answered`.
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import Link from "next/link"
@@ -29,10 +28,11 @@ import type {
 import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import { cn } from "@/lib/utils"
 
 const SEEN_KEY = "zing_answered_customer_popup_seen_v1"
-/** After ring, check answered-recent — triggered by call-initiated (backup to Pusher). */
-const ANSWERED_LOOKUP_DELAYS_MS = [50, 150, 350, 700]
+/** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
+const RINGING_LOOKUP_DELAYS_MS = [0, 50, 150, 350]
 /** While a call is ringing, poll quickly until answered_at lands in Neon. */
 const RINGING_FAST_POLL_MS = 250
 const RINGING_FAST_POLL_MAX_MS = 90_000
@@ -70,6 +70,51 @@ function rowFromAnsweredPayload(payload: OwnerCallAnsweredPayload): ActiveCallRo
   }
 }
 
+function rowFromInitiatedPayload(payload: OwnerCallInitiatedPayload): ActiveCallRow | null {
+  const fromNumber = String(payload.from_number ?? "").trim()
+  if (!fromNumber) return null
+  const callLogId = String(payload.call_log_id ?? "").trim()
+  const callSid = String(payload.call_sid ?? "").trim()
+  const id = callLogId || (callSid ? `ring-${callSid}` : "")
+  if (!id) return null
+  return {
+    id: callLogId || id,
+    from_number: fromNumber,
+    to_number: payload.to_number ?? "",
+    caller_name: null,
+    answered_at: null,
+  }
+}
+
+function callLogRowFromApi(row: {
+  id: string
+  from_number: string
+  to_number?: string | null
+  caller_name?: string | null
+  answered_at?: string | null
+}): ActiveCallRow {
+  return {
+    id: row.id,
+    from_number: row.from_number,
+    to_number: row.to_number ?? "",
+    caller_name: row.caller_name ?? null,
+    answered_at: row.answered_at ?? null,
+  }
+}
+
+function fetchFirstUnseenRingingCall(seen: Set<string>): Promise<ActiveCallRow | null> {
+  return fetch("/api/calls/ringing-recent", { credentials: "include" })
+    .then((r) => (r.ok ? r.json() : { calls: [] }))
+    .then((data: { calls?: ActiveCallRow[] }) => {
+      const calls = Array.isArray(data.calls) ? data.calls : []
+      for (const row of calls) {
+        if (!seen.has(row.id)) return callLogRowFromApi(row)
+      }
+      return null
+    })
+    .catch(() => null)
+}
+
 function fetchFirstUnseenAnsweredCall(seen: Set<string>): Promise<ActiveCallRow | null> {
   return fetch("/api/calls/answered-recent", { credentials: "include" })
     .then((r) => (r.ok ? r.json() : { calls: [] }))
@@ -77,13 +122,7 @@ function fetchFirstUnseenAnsweredCall(seen: Set<string>): Promise<ActiveCallRow 
       const calls = Array.isArray(data.calls) ? data.calls : []
       for (const row of calls) {
         if (!seen.has(row.id)) {
-          return {
-            id: row.id,
-            from_number: row.from_number,
-            to_number: row.to_number ?? "",
-            caller_name: row.caller_name ?? null,
-            answered_at: row.answered_at ?? null,
-          }
+          return callLogRowFromApi(row)
         }
       }
       return null
@@ -111,8 +150,14 @@ function showCallRow(
 ) {
   if (seen.has(row.id)) return
   setCurrent((prev) => {
-    // Keep the same row object while this call is open so typing isn't wiped by polls.
-    if (prev?.id === row.id) return prev
+    if (prev?.id === row.id) {
+      return {
+        ...prev,
+        ...row,
+        answered_at: row.answered_at ?? prev.answered_at,
+        caller_name: row.caller_name ?? prev.caller_name,
+      }
+    }
     return row
   })
 }
@@ -165,45 +210,52 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       }
     }
 
-    const tryShowAnsweredCall = () => {
-      void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
-        if (cancelled || !row) return
-        showCallRow(setCurrent, row, seenRef.current)
-        stopRingingFastPoll()
+    const tryShowActiveCall = () => {
+      void fetchFirstUnseenRingingCall(seenRef.current).then((ringing) => {
+        if (cancelled) return
+        if (ringing) {
+          showCallRow(setCurrent, ringing, seenRef.current)
+          return
+        }
+        void fetchFirstUnseenAnsweredCall(seenRef.current).then((answered) => {
+          if (cancelled || !answered) return
+          showCallRow(setCurrent, answered, seenRef.current)
+          stopRingingFastPoll()
+        })
       })
     }
 
     const startRingingFastPoll = () => {
       stopRingingFastPoll()
-      tryShowAnsweredCall()
+      tryShowActiveCall()
       ringingFastPollId = window.setInterval(() => {
         if (document.visibilityState !== "visible") return
-        tryShowAnsweredCall()
+        tryShowActiveCall()
       }, RINGING_FAST_POLL_MS)
       ringingFastPollStopId = window.setTimeout(() => {
         stopRingingFastPoll()
       }, RINGING_FAST_POLL_MAX_MS)
     }
 
-    const scheduleAnsweredLookups = () => {
+    const scheduleRingingLookups = () => {
       startRingingFastPoll()
       for (const timer of lookupTimers) window.clearTimeout(timer)
       lookupTimers.length = 0
-      for (const delayMs of ANSWERED_LOOKUP_DELAYS_MS) {
+      for (const delayMs of RINGING_LOOKUP_DELAYS_MS) {
         lookupTimers.push(
           window.setTimeout(() => {
             if (cancelled) return
-            tryShowAnsweredCall()
+            tryShowActiveCall()
           }, delayMs)
         )
       }
     }
 
-    tryShowAnsweredCall()
+    tryShowActiveCall()
 
     const pollId = window.setInterval(() => {
       if (document.visibilityState !== "visible") return
-      tryShowAnsweredCall()
+      tryShowActiveCall()
     }, ANSWERED_VISIBILITY_POLL_MS)
 
     if (!isRealtimeClientConfigured()) {
@@ -228,8 +280,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const channelName = `owner-${ownerUserId}`
     const channel = pusher.subscribe(channelName)
 
-    const onInitiated = (_payload: OwnerCallInitiatedPayload) => {
-      scheduleAnsweredLookups()
+    const onInitiated = (payload: OwnerCallInitiatedPayload) => {
+      const row = rowFromInitiatedPayload(payload)
+      if (row) showCallRow(setCurrent, row, seenRef.current)
+      scheduleRingingLookups()
     }
 
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
@@ -269,9 +323,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     persistSeen(seenRef.current)
     const closedId = current.id
     setCurrent(null)
-    void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
-      if (!row || row.id === closedId) return
-      showCallRow(setCurrent, row, seenRef.current)
+    void fetchFirstUnseenRingingCall(seenRef.current).then((ringing) => {
+      if (ringing) {
+        showCallRow(setCurrent, ringing, seenRef.current)
+        return
+      }
+      void fetchFirstUnseenAnsweredCall(seenRef.current).then((row) => {
+        if (!row || row.id === closedId) return
+        showCallRow(setCurrent, row, seenRef.current)
+      })
     })
   }, [current])
 
@@ -284,6 +344,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   }, [activeOrganizationId, createJob, current, dismissOnly, router])
 
   if (!enabled) return null
+
+  const isRinging = current != null && !current.answered_at
 
   return (
     <Sheet
@@ -303,13 +365,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         {current ? (
           <>
             <SheetHeader className="border-b border-border/60 px-4 pb-3 pt-2 text-left">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Call answered</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                {isRinging ? "Incoming call" : "Call answered"}
+              </p>
               <SheetTitle className="flex items-center gap-2 text-left text-lg">
-                <Phone className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                <Phone
+                  className={cn("h-5 w-5 shrink-0 text-primary", isRinging && "animate-pulse")}
+                  aria-hidden
+                />
                 {formatPhoneDisplay(current.from_number)}
               </SheetTitle>
               <p className="text-left text-xs text-muted-foreground">
-                Line {formatPhoneDisplay(current.to_number)} · customer details save automatically.
+                {isRinging
+                  ? `Line ${formatPhoneDisplay(current.to_number)} · ringing — start intake while the line connects.`
+                  : `Line ${formatPhoneDisplay(current.to_number)} · customer details save automatically.`}
               </p>
             </SheetHeader>
 

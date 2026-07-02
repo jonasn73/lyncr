@@ -5,6 +5,8 @@ import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 /** Fired when a new inbound call row is created (ringing). */
 export type OwnerCallInitiatedPayload = {
   call_sid: string
+  /** Neon call_logs.id — opens the intake sheet before the call is answered. */
+  call_log_id?: string | null
   from_number?: string | null
   to_number?: string | null
   organization_id?: string | null

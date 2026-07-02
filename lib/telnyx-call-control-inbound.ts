@@ -31,7 +31,6 @@ import { resolveInboundForwardDialTimeoutSeconds } from "@/lib/telnyx-inbound-me
 import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
 import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
-import { broadcastCallInitiated } from "@/lib/call-telemetry-realtime"
 import {
   getActivePhoneNumberByE164,
   getIncomingRoutingForVoiceWebhook,
@@ -185,35 +184,25 @@ async function handleCallInitiated(
     wantsAi
   )
 
-  void (async () => {
-    try {
-      await insertCallLog({
-        user_id: routing.user_id,
-        provider_call_sid: event.callControlId,
-        from_number: callerE164,
-        to_number: businessLineE164 || event.to,
-        caller_name: null,
-        call_type: "incoming",
-        status: "ringing",
-        duration_seconds: 0,
-        routed_to_receptionist_id: routing.selected_receptionist_id,
-        routed_to_name: null,
-        has_recording: false,
-        recording_url: null,
-        recording_duration_seconds: null,
-      })
-      await broadcastCallInitiated({
-        ownerUserId: routing.user_id,
-        callSid: event.callControlId,
-        fromNumber: callerE164,
-        toNumber: businessLineE164 || event.to,
-        organizationId: (await getActivePhoneNumberByE164(businessLineE164 || event.to).catch(() => null))
-          ?.organization_id,
-      })
-    } catch (e) {
-      console.error("[telnyx-cc] call log insert failed:", e)
-    }
-  })()
+  try {
+    await insertCallLog({
+      user_id: routing.user_id,
+      provider_call_sid: event.callControlId,
+      from_number: callerE164,
+      to_number: businessLineE164 || event.to,
+      caller_name: null,
+      call_type: "incoming",
+      status: "ringing",
+      duration_seconds: 0,
+      routed_to_receptionist_id: routing.selected_receptionist_id,
+      routed_to_name: null,
+      has_recording: false,
+      recording_url: null,
+      recording_duration_seconds: null,
+    })
+  } catch (e) {
+    console.error("[telnyx-cc] call log insert failed:", e)
+  }
 
   const answerState = encodeTelnyxCallControlState(
     baseState(routing, businessLineE164, callerE164, dialTargetE164, ringTimeoutSec, "await_caller_answered")
