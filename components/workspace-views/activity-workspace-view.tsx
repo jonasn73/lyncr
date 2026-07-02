@@ -1,9 +1,12 @@
 "use client"
 
-import { memo, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { CalendarDays, ClipboardList, MapPin } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { CalendarDays, ClipboardList, MapPin, Phone, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { buildTelHref } from "@/lib/phone-e164"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
@@ -194,6 +197,102 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
   return "missed"
 }
 
+type ActivityCallFilter = "all" | "missed"
+
+function isMissedActivityCall(call: UiCallRecord): boolean {
+  if (call.type === "outgoing") return false
+  const status = classifyCall(call)
+  return status === "missed" || status === "voicemail"
+}
+
+function canCallBack(call: UiCallRecord): boolean {
+  return isMissedActivityCall(call) && buildTelHref(call.callerNumber) != null
+}
+
+function CallBackButton({
+  phone,
+  className,
+  compact = false,
+}: {
+  phone: string
+  className?: string
+  compact?: boolean
+}) {
+  const href = buildTelHref(phone)
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]",
+        compact ? "min-h-10 px-3 py-2 text-xs" : "min-h-11 w-full px-4 py-2.5 text-sm",
+        className
+      )}
+    >
+      <Phone className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
+      Call back
+    </a>
+  )
+}
+
+function ActivityCallFilterBar({
+  filter,
+  missedCount,
+  onChange,
+}: {
+  filter: ActivityCallFilter
+  missedCount: number
+  onChange: (next: ActivityCallFilter) => void
+}) {
+  const chips: { id: ActivityCallFilter; label: string; badge?: number }[] = [
+    { id: "missed", label: "Missed", badge: missedCount },
+    { id: "all", label: "All calls" },
+  ]
+
+  return (
+    <div
+      className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="tablist"
+      aria-label="Call list filter"
+    >
+      {chips.map((chip) => {
+        const active = filter === chip.id
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(chip.id)}
+            className={cn(
+              "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition touch-manipulation",
+              active
+                ? chip.id === "missed"
+                  ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
+                  : "border-primary/40 bg-primary/15 text-primary"
+                : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            {chip.id === "missed" ? <PhoneMissed className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+            {chip.label}
+            {chip.badge != null && chip.badge > 0 ? (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                  active ? "bg-amber-500/25 text-amber-50" : "bg-amber-500/15 text-amber-300"
+                )}
+              >
+                {chip.badge}
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 type CallAgent = { label: string; kind: "operator" | "ai" | "owner" | "none" }
 
 /** Resolve who handled the call traffic for the Agent badge. */
@@ -335,6 +434,7 @@ function ActivityIntakeSummary({
 function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => void }) {
   const agent = resolveCallAgent(call)
   const summary = buildCallSummary(call)
+  const showCallBack = canCallBack(call)
   const activity = call.activity ?? {
     intakeAction: "No intake recorded",
     intakeDetail: null,
@@ -357,6 +457,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
       />
       <DrawerScrollBody>
         <div className="space-y-4">
+          {showCallBack ? <CallBackButton phone={call.callerNumber} /> : null}
           <div className="flex flex-wrap items-center gap-2">
             <AgentBadge agent={agent} />
             <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
@@ -451,8 +552,21 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               </div>
               <div className="min-w-0">
                 <p className="truncate font-medium text-foreground">{call.callerName}</p>
-                <p className="truncate text-xs text-zinc-500">{call.callerNumber}</p>
+                {canCallBack(call) ? (
+                  <a
+                    href={buildTelHref(call.callerNumber) ?? undefined}
+                    onClick={(e) => e.stopPropagation()}
+                    className="truncate text-xs font-medium text-cyan-400 underline-offset-2 hover:underline"
+                  >
+                    {call.callerNumber}
+                  </a>
+                ) : (
+                  <p className="truncate text-xs text-zinc-500">{call.callerNumber}</p>
+                )}
               </div>
+              {canCallBack(call) ? (
+                <CallBackButton phone={call.callerNumber} compact className="w-full" />
+              ) : null}
               {call.activity ? (
                 <ActivityIntakeSummary activity={call.activity} compact />
               ) : null}
@@ -575,6 +689,9 @@ type ActivityBodyProps = {
   loadError: string | null
   refreshing: boolean
   lineLabelMap: Map<string, string>
+  filter: ActivityCallFilter
+  missedCount: number
+  onFilterChange: (next: ActivityCallFilter) => void
 }
 
 const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
@@ -583,26 +700,62 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   loadError,
   refreshing,
   lineLabelMap,
+  filter,
+  missedCount,
+  onFilterChange,
 }: ActivityBodyProps) {
   const { activeLine } = useDashboardWorkspace()
+  const isMobile = useIsMobile()
 
   const rows = useMemo(() => {
     let list = calls
     if (activeLine) {
       list = list.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
     }
+    if (filter === "missed") {
+      list = list.filter((c) => isMissedActivityCall(c))
+    }
     return [...list].sort((a, b) => {
       const aTs = a.createdAt || `${a.date} ${a.time}`
       const bTs = b.createdAt || `${b.date} ${b.time}`
       return bTs.localeCompare(aTs)
     })
-  }, [calls, activeLine])
+  }, [calls, activeLine, filter])
+
+  const showMapFirst = !isMobile || filter !== "missed"
+
+  const callList = (
+    <>
+      <ActivityCallFilterBar filter={filter} missedCount={missedCount} onChange={onFilterChange} />
+      {filter === "missed" && rows.length === 0 && !loading ? (
+        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
+          <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
+          <p className="text-sm font-medium text-zinc-200">No missed calls</p>
+          <p className="mt-1 text-xs text-zinc-500">When someone calls and no one answers, they show up here.</p>
+        </div>
+      ) : null}
+      {loading && calls.length === 0 ? (
+        <ActivityTableSkeleton />
+      ) : loadError && calls.length === 0 ? (
+        <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
+      ) : (
+        <ActivityCallsTable rows={rows} lineLabelMap={lineLabelMap} />
+      )}
+    </>
+  )
+
+  const mapSection = (
+    <>
+      <DispatchLiveMap />
+      <DispatchJobsPanel />
+    </>
+  )
 
   return (
     <WorkspacePage>
       <WorkspacePageHeader
         eyebrow="Live"
-        title="Activity"
+        title={filter === "missed" ? "Missed calls" : "Activity"}
         action={
           <div className="flex flex-wrap items-center gap-3">
             {refreshing ? (
@@ -612,7 +765,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
             ) : null}
             <Link
               href="/dashboard/scheduler"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/15"
+              className="hidden items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/15 sm:inline-flex"
             >
               <CalendarDays className="h-3.5 w-3.5" aria-hidden />
               Job scheduler
@@ -627,16 +780,16 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         }
       />
 
-      <DispatchLiveMap />
-
-      <DispatchJobsPanel />
-
-      {loading && calls.length === 0 ? (
-        <ActivityTableSkeleton />
-      ) : loadError && calls.length === 0 ? (
-        <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
+      {showMapFirst ? (
+        <>
+          {mapSection}
+          {callList}
+        </>
       ) : (
-        <ActivityCallsTable rows={rows} lineLabelMap={lineLabelMap} />
+        <>
+          {callList}
+          {mapSection}
+        </>
       )}
     </WorkspacePage>
   )
@@ -659,7 +812,36 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   const { calls, loading, loadError, refreshing } = useOperationsData({ refetchIntervalMs: 12_000 })
   const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [filter, setFilter] = useState<ActivityCallFilter>(() => {
+    if (searchParams.get("filter") === "missed") return "missed"
+    if (searchParams.get("filter") === "all") return "all"
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) return "missed"
+    return "all"
+  })
   useBookingAlerts()
+
+  useEffect(() => {
+    const param = searchParams.get("filter")
+    if (param === "missed") setFilter("missed")
+    else if (param === "all") setFilter("all")
+  }, [searchParams])
+
+  const missedCount = useMemo(
+    () => calls.filter((c) => isMissedActivityCall(c)).length,
+    [calls]
+  )
+
+  const handleFilterChange = useCallback(
+    (next: ActivityCallFilter) => {
+      setFilter(next)
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("filter", next)
+      router.replace(`/dashboard/activity?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams]
+  )
 
   useEffect(() => {
     setActivityLogs(calls)
@@ -683,6 +865,9 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
         loadError={loadError}
         refreshing={refreshing}
         lineLabelMap={lineLabelMap}
+        filter={filter}
+        missedCount={missedCount}
+        onFilterChange={handleFilterChange}
       />
     </WorkspaceRightSheetGate>
   )

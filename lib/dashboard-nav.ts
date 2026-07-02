@@ -42,7 +42,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
-  { id: "pay", label: "Analytics", icon: BarChart3 },
+  { id: "activity", label: "Calls", icon: ClipboardList },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
@@ -57,4 +57,9 @@ export const DASHBOARD_PAGE_HREF: Record<PageId, string> = {
   settings: "/dashboard/settings",
   scheduler: "/dashboard/scheduler",
   help: "/dashboard/help",
+}
+
+/** Mobile bottom bar may deep-link (e.g. Calls tab opens missed filter). */
+export const DASHBOARD_MOBILE_PAGE_HREF: Partial<Record<PageId, string>> = {
+  activity: "/dashboard/activity?filter=missed",
 }

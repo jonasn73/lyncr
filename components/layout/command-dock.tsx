@@ -5,6 +5,7 @@ import { memo, useLayoutEffect, useRef, useState, type MutableRefObject, type Re
 import { cn } from "@/lib/utils"
 import {
   DASHBOARD_PAGE_HREF,
+  DASHBOARD_MOBILE_PAGE_HREF,
   dashboardNavItems,
   mobileBottomNavItems,
   type DashboardNavItem,
@@ -66,6 +67,7 @@ const DockNavItems = memo(function DockNavItems({
   orientation,
   navRef,
   itemRefs,
+  hrefOverrides,
 }: {
   items: DashboardNavItem[]
   activePage: PageId
@@ -74,6 +76,8 @@ const DockNavItems = memo(function DockNavItems({
   orientation: DockOrientation
   navRef: RefObject<HTMLElement | null>
   itemRefs: MutableRefObject<(HTMLAnchorElement | HTMLButtonElement | null)[]>
+  /** When set (mobile dock), overrides default tab hrefs. */
+  hrefOverrides?: Partial<Record<PageId, string>>
 }) {
   const isVertical = orientation === "vertical"
   const indicator = useDockIndicator(navRef, itemRefs, activePage, orientation, items)
@@ -148,10 +152,11 @@ const DockNavItems = memo(function DockNavItems({
         )
 
         if (useLinks) {
+          const href = hrefOverrides?.[item.id] ?? DASHBOARD_PAGE_HREF[item.id]
           return (
             <Link
               key={item.id}
-              href={DASHBOARD_PAGE_HREF[item.id]}
+              href={href}
               prefetch
               scroll={false}
               ref={(node) => {
@@ -245,6 +250,7 @@ const CommandDockInner = memo(function CommandDockInner({
             orientation="horizontal"
             navRef={mobileNavRef}
             itemRefs={mobileItemRefs}
+            hrefOverrides={DASHBOARD_MOBILE_PAGE_HREF}
           />
         </div>
       </nav>

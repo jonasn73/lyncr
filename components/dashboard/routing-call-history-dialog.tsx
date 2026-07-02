@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import {
   Clock,
   Loader2,
+  Phone,
   PhoneIncoming,
   PhoneMissed,
   PhoneOutgoing,
@@ -22,6 +23,7 @@ import { formatTalkDuration, formatTalkTime, isUtcThisWeek, isUtcToday } from "@
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import { buildTelHref } from "@/lib/phone-e164"
 
 export type CallHistoryFilter = "daily" | "missed" | "daily_talk" | "weekly_talk"
 
@@ -535,6 +537,8 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
             <ul className="space-y-2">
               {listRows.map((call) => {
                 const talkSec = effectiveTalkSeconds(call)
+                const callBackHref =
+                  filter === "missed" || isMissedRow(call) ? buildTelHref(call.from_number) : null
                 return (
                   <li
                     key={call.id}
@@ -544,9 +548,18 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                       <DirectionIcon callType={call.call_type} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-                          <p className="truncate text-sm font-medium text-zinc-100">
-                            {formatPhoneDisplay(call.from_number)}
-                          </p>
+                          {callBackHref ? (
+                            <a
+                              href={callBackHref}
+                              className="truncate text-sm font-medium text-cyan-300 underline-offset-2 hover:underline"
+                            >
+                              {formatPhoneDisplay(call.from_number)}
+                            </a>
+                          ) : (
+                            <p className="truncate text-sm font-medium text-zinc-100">
+                              {formatPhoneDisplay(call.from_number)}
+                            </p>
+                          )}
                           <span
                             className={cn(
                               "shrink-0 text-xs tabular-nums font-semibold",
@@ -574,6 +587,15 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                             preload="none"
                             className="mt-2 h-8 w-full accent-cyan-400 opacity-80"
                           />
+                        ) : null}
+                        {callBackHref ? (
+                          <a
+                            href={callBackHref}
+                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]"
+                          >
+                            <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                            Call back
+                          </a>
                         ) : null}
                       </div>
                     </div>
