@@ -90,6 +90,48 @@ type VehicleKeyInfoPanelProps = {
   disabled?: boolean
 }
 
+function compactCompatibleLabel(summary: { lines: string[]; overflow: number }): string {
+  if (summary.lines.length === 0) return "Compatible vehicles"
+  const total = summary.lines.length + summary.overflow
+  if (total === 1) return summary.lines[0]!
+  const preview = summary.lines.slice(0, 2).join(" · ")
+  const hidden = total - Math.min(2, summary.lines.length)
+  if (hidden <= 0) return preview
+  return `${preview} · +${hidden} more`
+}
+
+function CompatibleVehiclesBlock({
+  summary,
+}: {
+  summary: { lines: string[]; overflow: number }
+}) {
+  if (summary.lines.length === 0) return null
+
+  return (
+    <details className="group rounded-md border border-border/50 bg-muted/15">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-1.5 text-[10px] [&::-webkit-details-marker]:hidden">
+        <span className="font-semibold uppercase tracking-wide text-muted-foreground">Compatible vehicles</span>
+        <span className="min-w-0 truncate text-right text-foreground group-open:hidden">
+          {compactCompatibleLabel(summary)}
+        </span>
+        <span className="hidden text-muted-foreground group-open:inline">Hide</span>
+      </summary>
+      <ul className="grid max-h-24 gap-0.5 overflow-y-auto border-t border-border/40 px-2 py-1.5 text-[10px] text-foreground">
+        {summary.lines.map((line) => (
+          <li key={line} className="truncate">
+            {line}
+          </li>
+        ))}
+        {summary.overflow > 0 ? (
+          <li className="text-muted-foreground">
+            + {summary.overflow} more model{summary.overflow === 1 ? "" : "s"} share this FCC ID
+          </li>
+        ) : null}
+      </ul>
+    </details>
+  )
+}
+
 function VariantGrid({
   variants,
   selectedVariantId,
@@ -382,23 +424,7 @@ export function VehicleKeyInfoPanel({
                 </p>
               ) : null}
 
-              {summary.lines.length > 0 ? (
-                <div className="grid gap-1 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Compatible vehicles
-                  </span>
-                  <ul className="grid gap-0.5 text-[10px] text-foreground">
-                    {summary.lines.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                  {summary.overflow > 0 ? (
-                    <p className="text-[10px] text-muted-foreground">
-                      + {summary.overflow} more model{summary.overflow === 1 ? "" : "s"} share this FCC ID
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
+              {summary.lines.length > 0 ? <CompatibleVehiclesBlock summary={summary} /> : null}
 
               <div className="grid gap-1.5">
                 <span className="text-[11px] font-medium text-foreground">

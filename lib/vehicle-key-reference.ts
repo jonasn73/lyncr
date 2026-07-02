@@ -415,7 +415,7 @@ export function relatedFccIdsForProfile(
 export function formatCompatibleVehicleSummary(
   vehicles: CompatibleVehicle[],
   current: { year: number; make: string; model: string },
-  maxGroups = 6
+  maxGroups = 3
 ): { lines: string[]; overflow: number } {
   const currentMake = normalizeToken(current.make)
   const currentModel = normalizeToken(current.model)
