@@ -8,3 +8,11 @@ describe("isUtcToday", () => {
     expect(isUtcToday("2026-06-30T23:57:00.310Z", now)).toBe(false)
   })
 })
+
+describe("isLocalCalendarToday", () => {
+  it("uses the browser-local calendar day for activity missed lists", () => {
+    const now = new Date("2026-07-02T14:00:00")
+    expect(isLocalCalendarToday("2026-07-02T06:32:00", now)).toBe(true)
+    expect(isLocalCalendarToday("2026-07-01T23:59:00", now)).toBe(false)
+  })
+})
