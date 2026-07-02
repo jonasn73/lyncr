@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isUtcToday } from "@/lib/daily-call-telemetry"
+import { isLocalCalendarToday, isUtcToday } from "@/lib/daily-call-telemetry"
 
 describe("isUtcToday", () => {
   it("matches Neon UTC day boundaries used by HUD telemetry", () => {

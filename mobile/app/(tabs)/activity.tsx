@@ -55,6 +55,20 @@ function isMissedCall(call: CallLog): boolean {
   return false
 }
 
+function isLocalCalendarToday(iso: string, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
+function isMissedCallToday(call: CallLog, now: Date = new Date()): boolean {
+  return isMissedCall(call) && isLocalCalendarToday(call.created_at, now)
+}
+
 export default function ActivityScreen() {
   const router = useRouter()
   const [calls, setCalls] = useState<CallLog[]>([])
@@ -80,10 +94,10 @@ export default function ActivityScreen() {
       .finally(() => setLoading(false))
   }, [])
 
-  const missedCount = useMemo(() => calls.filter(isMissedCall).length, [calls])
+  const missedCount = useMemo(() => calls.filter(isMissedCallToday).length, [calls])
 
   const visibleCalls = useMemo(() => {
-    const list = filter === "missed" ? calls.filter(isMissedCall) : calls
+    const list = filter === "missed" ? calls.filter(isMissedCallToday) : calls
     return [...list].sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [calls, filter])
 
@@ -112,14 +126,14 @@ export default function ActivityScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{filter === "missed" ? "Missed calls" : "All calls"}</Text>
+      <Text style={styles.title}>{filter === "missed" ? "Missed calls today" : "All calls"}</Text>
       <View style={styles.filterRow}>
         <Pressable
           onPress={() => setFilter("missed")}
           style={[styles.filterChip, filter === "missed" && styles.filterChipActiveMissed]}
         >
           <Text style={[styles.filterChipText, filter === "missed" && styles.filterChipTextActive]}>
-            Missed{missedCount > 0 ? ` (${missedCount})` : ""}
+            Missed today{missedCount > 0 ? ` (${missedCount})` : ""}
           </Text>
         </Pressable>
         <Pressable
@@ -142,7 +156,7 @@ export default function ActivityScreen() {
         </View>
       </View>
       {visibleCalls.length === 0 ? (
-        <Text style={styles.muted}>{filter === "missed" ? "No missed calls" : "No calls yet"}</Text>
+        <Text style={styles.muted}>{filter === "missed" ? "No missed calls today" : "No calls yet"}</Text>
       ) : (
         visibleCalls.map((c) => {
           const missed = isMissedCall(c)

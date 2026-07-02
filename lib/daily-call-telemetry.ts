@@ -45,6 +45,17 @@ export function isUtcToday(iso: string, now: Date = new Date()): boolean {
   )
 }
 
+/** Browser-local calendar day — matches “Today, 6:32 AM” labels in the activity list. */
+export function isLocalCalendarToday(iso: string, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
 /** UTC week (Mon–Sun) — matches Neon `date_trunc('week', now())`. */
 export function isUtcThisWeek(iso: string, now: Date = new Date()): boolean {
   const d = new Date(iso)

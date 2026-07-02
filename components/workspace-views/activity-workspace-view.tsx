@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { CalendarDays, ClipboardList, MapPin, Phone, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buildTelHref } from "@/lib/phone-e164"
+import { isLocalCalendarToday } from "@/lib/daily-call-telemetry"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
@@ -205,6 +206,13 @@ function isMissedActivityCall(call: UiCallRecord): boolean {
   return status === "missed" || status === "voicemail"
 }
 
+/** Missed inbound/voicemail on the owner’s local calendar day (resets at midnight). */
+function isMissedActivityCallToday(call: UiCallRecord, now: Date = new Date()): boolean {
+  if (!isMissedActivityCall(call)) return false
+  if (!call.createdAt) return false
+  return isLocalCalendarToday(call.createdAt, now)
+}
+
 function canCallBack(call: UiCallRecord): boolean {
   return isMissedActivityCall(call) && buildTelHref(call.callerNumber) != null
 }
@@ -246,7 +254,7 @@ function ActivityCallFilterBar({
   onChange: (next: ActivityCallFilter) => void
 }) {
   const chips: { id: ActivityCallFilter; label: string; badge?: number }[] = [
-    { id: "missed", label: "Missed", badge: missedCount },
+    { id: "missed", label: "Missed today", badge: missedCount },
     { id: "all", label: "All calls" },
   ]
 
@@ -713,7 +721,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       list = list.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
     }
     if (filter === "missed") {
-      list = list.filter((c) => isMissedActivityCall(c))
+      list = list.filter((c) => isMissedActivityCallToday(c))
     }
     return [...list].sort((a, b) => {
       const aTs = a.createdAt || `${a.date} ${a.time}`
@@ -730,8 +738,8 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       {filter === "missed" && rows.length === 0 && !loading ? (
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
           <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
-          <p className="text-sm font-medium text-zinc-200">No missed calls</p>
-          <p className="mt-1 text-xs text-zinc-500">When someone calls and no one answers, they show up here.</p>
+          <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
+          <p className="mt-1 text-xs text-zinc-500">This list resets at midnight. Yesterday’s missed calls stay in All calls.</p>
         </div>
       ) : null}
       {loading && calls.length === 0 ? (
@@ -755,7 +763,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     <WorkspacePage>
       <WorkspacePageHeader
         eyebrow="Live"
-        title={filter === "missed" ? "Missed calls" : "Activity"}
+        title={filter === "missed" ? "Missed calls today" : "Activity"}
         action={
           <div className="flex flex-wrap items-center gap-3">
             {refreshing ? (
@@ -829,7 +837,7 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   }, [searchParams])
 
   const missedCount = useMemo(
-    () => calls.filter((c) => isMissedActivityCall(c)).length,
+    () => calls.filter((c) => isMissedActivityCallToday(c)).length,
     [calls]
   )
 
