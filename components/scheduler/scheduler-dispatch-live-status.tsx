@@ -94,6 +94,10 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   completingJobId,
   className,
   embedded = false,
+  /** Slim single-row toolbar for mobile map overlay. */
+  compact = false,
+  /** Only the upcoming jobs row (mobile bottom sheet). */
+  upcomingOnly = false,
 }: {
   selectedDay: Date
   poolJobs: UnassignedPoolJob[]
@@ -104,6 +108,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   completingJobId?: string | null
   className?: string
   embedded?: boolean
+  compact?: boolean
+  upcomingOnly?: boolean
 }) {
   const now = useLiveClock()
   const clockLabel = formatSchedulerLiveClock(now)
@@ -121,27 +127,65 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
     [now, selectedDay, activePipelineJobs, dayEvents, poolJobs]
   )
 
+  if (upcomingOnly) {
+    return (
+      <div className={cn(className)} aria-label="Upcoming jobs">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Coming up next</p>
+        {upcoming.length === 0 ? (
+          <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
+        ) : (
+          <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {upcoming.map((job) => (
+              <UpcomingJobChip
+                key={job.id}
+                job={job}
+                now={now}
+                onSelectJob={onSelectJob}
+                onMarkComplete={onMarkComplete}
+                completingJobId={completingJobId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={cn(!embedded && WORKSPACE_MOBILE_BLEED, className)} aria-label="Dispatch live status">
       <div
         className={cn(
-          "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur",
-          embedded ? "rounded-t-xl" : ""
+          compact ? "bg-transparent" : "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur",
+          embedded && !compact ? "rounded-t-xl" : ""
         )}
       >
-        <div className="flex flex-col gap-0 md:flex-row md:items-stretch">
-          <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3">
-            <Clock3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+        <div className={cn("flex gap-2", compact ? "flex-row items-center" : "flex-col gap-0 md:flex-row md:items-stretch")}>
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-1.5",
+              compact ? "px-0 py-0" : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
+            )}
+          >
+            <Clock3 className={cn("shrink-0 text-primary", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
             <div className="flex min-w-0 flex-col">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Now</span>
-              <time dateTime={now.toISOString()} className="text-sm font-bold tabular-nums text-zinc-100">
+              {!compact ? (
+                <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Now</span>
+              ) : null}
+              <time
+                dateTime={now.toISOString()}
+                className={cn(
+                  "font-bold tabular-nums text-zinc-100",
+                  compact ? "text-xs" : "text-sm"
+                )}
+              >
                 {clockLabel}
               </time>
             </div>
           </div>
           <div className="min-w-0 flex-1">
             <DispatchOperationsMetricStrip
-              embedded
+              embedded={embedded}
+              compact={compact}
               poolJobs={poolJobs}
               activePipelineJobs={activePipelineJobs}
               dayEvents={dayEvents}
@@ -149,27 +193,29 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
           </div>
         </div>
 
-        <div className="border-t border-zinc-800/80 px-3 py-2 md:px-4">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-            Coming up next
-          </p>
-          {upcoming.length === 0 ? (
-            <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
-          ) : (
-            <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {upcoming.map((job) => (
-                <UpcomingJobChip
-                  key={job.id}
-                  job={job}
-                  now={now}
-                  onSelectJob={onSelectJob}
-                  onMarkComplete={onMarkComplete}
-                  completingJobId={completingJobId}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {!compact ? (
+          <div className="border-t border-zinc-800/80 px-3 py-2 md:px-4">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              Coming up next
+            </p>
+            {upcoming.length === 0 ? (
+              <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {upcoming.map((job) => (
+                  <UpcomingJobChip
+                    key={job.id}
+                    job={job}
+                    now={now}
+                    onSelectJob={onSelectJob}
+                    onMarkComplete={onMarkComplete}
+                    completingJobId={completingJobId}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   )

@@ -928,20 +928,20 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   ])
 
   useEffect(() => {
-    const shouldLock = isActive && isMobile && viewMode === "map"
+    const shouldLock = isActive && isMobile
     if (!shouldLock) return
     setMainScrollLocked(true)
     return () => setMainScrollLocked(false)
-  }, [isActive, isMobile, viewMode])
+  }, [isActive, isMobile])
 
-  const isMobileMap = isActive && isMobile && viewMode === "map"
+  const isMobileDispatch = isActive && isMobile
 
   const headerAction = (
     <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
       <PhoneLookupBar
         organizationId={orgId}
         onResults={handlePhoneLookupResults}
-        className={cn("order-first w-full sm:order-none sm:mr-1", isMobileMap && "hidden")}
+        className={cn("order-first w-full sm:order-none sm:mr-1", isMobileDispatch && "hidden")}
       />
       <div className="hidden rounded-md border border-border/70 p-0.5 sm:flex">
         <Button
@@ -974,7 +974,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   return (
     <>
-      {isMobileMap ? (
+      {isMobileDispatch ? (
         <SchedulerMobileDispatchShell
           mapRef={mapRef}
           dayEvents={dayEvents}

@@ -3,6 +3,7 @@ import {
   CalendarDays,
   ClipboardList,
   Inbox,
+  Phone,
   Settings,
   Users,
   Zap,
@@ -42,7 +43,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
-  { id: "activity", label: "Calls", icon: ClipboardList },
+  { id: "activity", label: "Calls", icon: Phone },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 

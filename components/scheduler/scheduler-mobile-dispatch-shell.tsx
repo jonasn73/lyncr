@@ -26,10 +26,10 @@ const SchedulerRouteMap = dynamic(
   { ssr: false, loading: MapLoadingSkeleton }
 )
 
-/** Collapsed peek — pixels from bottom; shows handle, date, and swipe hint. */
-const SHEET_PEEK = "220px"
-/** Expanded — fraction of the shell height (not viewport). */
-const SHEET_EXPANDED = 0.88
+/** Collapsed peek — handle + one line of summary. */
+const SHEET_PEEK = "7.5rem"
+/** Expanded — most of the shell for jobs list. */
+const SHEET_EXPANDED = 0.9
 
 export type SchedulerMobileDispatchShellProps = {
   mapRef: RefObject<SchedulerRouteMapHandle | null>
@@ -54,7 +54,7 @@ export type SchedulerMobileDispatchShellProps = {
   completingJobId?: string | null
 }
 
-/** Mobile dispatch — full-bleed map with a draggable bottom sheet for the job list. */
+/** Mobile dispatch — full-screen map with a slim top toolbar and draggable job sheet. */
 export function SchedulerMobileDispatchShell({
   mapRef,
   dayEvents,
@@ -88,9 +88,7 @@ export function SchedulerMobileDispatchShell({
       ref={setSheetContainer}
       className="fixed inset-x-0 top-[var(--shell-header-h)] bottom-[var(--shell-dock-h)] z-[45] flex flex-col overflow-hidden md:hidden"
       data-scheduler-mobile-map=""
-      style={{ ["--scheduler-chrome-h" as string]: "9.25rem" }}
     >
-      {/* Map fills the shell; chrome and sheet float above it. */}
       <div className="absolute inset-0 z-0">
         <SchedulerRouteMap
           key="mobile-dispatch-map"
@@ -110,61 +108,67 @@ export function SchedulerMobileDispatchShell({
         />
       </div>
 
-      {/* Single top card — title, view toggle, and metrics in one stack (no overlap). */}
-      <div className="pointer-events-none relative z-20 shrink-0 px-2 pt-2">
-        <div className="pointer-events-auto overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/92 shadow-lg backdrop-blur-md">
-          <div className="flex items-center gap-2 border-b border-zinc-800/70 px-3 py-2">
+      {/* Slim floating toolbar — clock + metrics, does not cover the whole map. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 px-2 pt-2">
+        <div className="pointer-events-auto rounded-2xl border border-zinc-800/70 bg-zinc-950/88 p-2 shadow-lg backdrop-blur-md">
+          <div className="mb-2 flex items-center gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Dispatch</p>
-              <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">Scheduler</h1>
+              <SchedulerDispatchLiveStatus
+                embedded
+                compact
+                selectedDay={selectedDay}
+                poolJobs={poolJobs}
+                activePipelineJobs={activePipelineJobs}
+                dayEvents={dayEvents}
+                className="w-full"
+              />
             </div>
-            <div className="flex shrink-0 rounded-lg border border-border/70 bg-zinc-900/80 p-0.5">
+            <div className="flex shrink-0 items-center gap-1">
+              <div className="flex rounded-lg border border-border/70 bg-zinc-900/80 p-0.5">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={viewMode === "map" ? "default" : "ghost"}
+                  className={cn("h-9 w-9", MOBILE_TAP_TARGET)}
+                  onClick={() => onViewModeChange("map")}
+                  aria-label="Map view"
+                >
+                  <MapIcon className="h-4 w-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  className={cn("h-9 w-9", MOBILE_TAP_TARGET)}
+                  onClick={() => onViewModeChange("grid")}
+                  aria-label="Grid view"
+                >
+                  <LayoutGrid className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
               <Button
                 type="button"
-                size="sm"
-                variant={viewMode === "map" ? "default" : "ghost"}
-                className={cn("h-9 gap-1 px-2.5 text-xs", MOBILE_TAP_TARGET)}
-                onClick={() => onViewModeChange("map")}
+                size="icon"
+                className={cn("h-9 w-9 shrink-0", MOBILE_TAP_TARGET)}
+                onClick={onCreate}
+                aria-label="Create appointment"
               >
-                <MapIcon className="h-3.5 w-3.5" aria-hidden />
-                Map
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={viewMode === "grid" ? "default" : "ghost"}
-                className={cn("h-9 gap-1 px-2.5 text-xs", MOBILE_TAP_TARGET)}
-                onClick={() => onViewModeChange("grid")}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
-                Grid
+                <Plus className="h-4 w-4" aria-hidden />
               </Button>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              className={cn("h-9 shrink-0 gap-1 px-2.5", MOBILE_TAP_TARGET)}
-              onClick={onCreate}
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              <span className="sr-only sm:not-sr-only">Create</span>
-            </Button>
           </div>
-          <SchedulerDispatchLiveStatus
-            embedded
-            selectedDay={selectedDay}
-            poolJobs={poolJobs}
-            activePipelineJobs={activePipelineJobs}
-            dayEvents={dayEvents}
-            onSelectJob={onSelectUpcomingJob}
-            onMarkComplete={onMarkComplete}
-            completingJobId={completingJobId}
-            className="w-full"
-          />
+          {poolCount > 0 ? (
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100"
+              onClick={() => setSheetSnap(SHEET_EXPANDED)}
+            >
+              {poolCount} unassigned job{poolCount === 1 ? "" : "s"} in hopper — tap to assign
+            </button>
+          ) : null}
         </div>
       </div>
 
-      {/* Bottom sheet — rendered inside the shell (no portal) so it sits above the nav, not under it. */}
       <DrawerPrimitive.Root
         open
         modal={false}
@@ -184,28 +188,39 @@ export function SchedulerMobileDispatchShell({
               "rounded-t-2xl"
             )}
           >
-            <DrawerPrimitive.Handle className="flex w-full shrink-0 flex-col items-center gap-1.5 px-4 pb-1 pt-3">
-              <div className="h-1.5 w-12 rounded-full bg-zinc-500" aria-hidden />
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+            <DrawerPrimitive.Handle className="flex w-full shrink-0 flex-col items-center gap-1 px-4 pb-1 pt-2.5">
+              <div className="h-1 w-10 rounded-full bg-zinc-500" aria-hidden />
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                 <ChevronUp
-                  className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")}
+                  className={cn("h-3.5 w-3.5 text-primary transition-transform duration-200", isExpanded && "rotate-180")}
                   aria-hidden
                 />
-                {isExpanded ? "Pull down for map" : "Pull up for jobs"}
+                {isExpanded ? "Swipe down for map" : "Swipe up for jobs"}
               </div>
             </DrawerPrimitive.Handle>
 
             <div className="shrink-0 border-b border-zinc-800 px-4 pb-3">
-              <h2 className="text-base font-semibold text-foreground">
-                {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+              <h2 className="text-sm font-semibold text-foreground">
+                {selectedDay.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
               </h2>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                {jobCount} active job{jobCount === 1 ? "" : "s"}
-                {poolCount > 0 ? ` · ${poolCount} in hopper` : ""}
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                {jobCount} active · {poolCount} in hopper
               </p>
+              <div className="mt-2">
+                <SchedulerDispatchLiveStatus
+                  upcomingOnly
+                  selectedDay={selectedDay}
+                  poolJobs={poolJobs}
+                  activePipelineJobs={activePipelineJobs}
+                  dayEvents={dayEvents}
+                  onSelectJob={onSelectUpcomingJob}
+                  onMarkComplete={onMarkComplete}
+                  completingJobId={completingJobId}
+                />
+              </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 pb-4 pt-2">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
               <ActivePipelinePanelStream
                 jobs={activePipelineJobs}
                 dayKey={pipelineDayKey}
