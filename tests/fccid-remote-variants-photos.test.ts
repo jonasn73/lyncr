@@ -49,6 +49,19 @@ describe("pickVariantsForVehicle photos", () => {
     expect(picked[0]?.image_url).toMatch(/3b|hc3t/i)
   })
 
+  it("shows at most three distinct layouts for 2017 Dodge Challenger M3N-40821302", () => {
+    const cache = JSON.parse(
+      readFileSync(join(process.cwd(), "data", "fcc-remote-variants-cache.json"), "utf8")
+    ) as Record<string, Parameters<typeof pickVariantsForVehicle>[0]>
+    const picked = pickVariantsForVehicle(cache["M3N-40821302"] ?? [], {
+      year: 2017,
+      make: "DODGE",
+      model: "Challenger",
+    })
+    expect(picked.length).toBeLessThanOrEqual(3)
+    expect(picked.length).toBeGreaterThan(0)
+  })
+
   it("mergeVariantLists prefers variants with photos from alternate FCC profiles", () => {
     const cache = JSON.parse(
       readFileSync(join(process.cwd(), "data", "fcc-remote-variants-cache.json"), "utf8")

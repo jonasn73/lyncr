@@ -153,6 +153,17 @@ function rowMatchesVehicle(
   return yearMatchesText(year, row.title, row.fits)
 }
 
+/** Max key photos shown on the answered-call intake sheet. */
+export const INTAKE_KEY_VARIANT_LIMIT = 3
+
+function trimForIntakeSheet(variants: FccRemoteVariant[], max: number): FccRemoteVariant[] {
+  if (variants.length <= max) return variants
+  const smart = variants.filter((v) => classifyKeyStyleBucket(v.title, v.key_type) === "smart")
+  const rest = variants.filter((v) => classifyKeyStyleBucket(v.title, v.key_type) !== "smart")
+  if (smart.length >= max) return smart.slice(0, max)
+  return [...smart, ...rest].slice(0, max)
+}
+
 function dedupeVariants(list: FccRemoteVariant[]): FccRemoteVariant[] {
   const seen = new Set<string>()
   return list.filter((v) => {
@@ -185,8 +196,9 @@ function hasKnownButtonCount(signature: string): boolean {
 export function pickVariantsForVehicle(
   parsed: FccRemoteVariant[],
   input: { year: number; make: string; model: string },
-  limit = 6
+  limit = INTAKE_KEY_VARIANT_LIMIT
 ): FccRemoteVariant[] {
+  const intakeCap = Math.min(limit, INTAKE_KEY_VARIANT_LIMIT)
   const sort = (list: FccRemoteVariant[]) =>
     [...list].sort((a, b) => scoreVariant(b, input.year) - scoreVariant(a, input.year))
 
@@ -220,13 +232,18 @@ export function pickVariantsForVehicle(
     )
   )
 
+  const rankedExact = sort(
+    exact.filter(
+      (v) => !isJunkListing(v.title) && (v.image_url || classifyKeyStyleBucket(v.title, v.key_type) !== "other")
+    )
+  )
   const ranked = sort(candidates)
   const picked: FccRemoteVariant[] = []
   const seenSignatures = new Set<string>()
   const seenImages = new Set<string>()
 
   const tryPick = (v: FccRemoteVariant, requireKnownButtons: boolean) => {
-    if (picked.length >= limit) return false
+    if (picked.length >= intakeCap) return false
     const sig = buttonSignature(v)
     if (requireKnownButtons && !hasKnownButtonCount(sig)) return false
     if (seenSignatures.has(sig)) return false
@@ -237,17 +254,26 @@ export function pickVariantsForVehicle(
     return true
   }
 
-  // Phase 1: listings that spell out button count (3-button vs 4-button + trunk, etc.).
+  // Phase 1: exact year+make+model listings with known button counts.
+  for (const v of rankedExact) tryPick(v, true)
   for (const v of ranked) tryPick(v, true)
 
   // Phase 2: at most one fallback when the supplier title omits button count.
   let unknownPicked = false
   if (picked.filter((row) => hasKnownButtonCount(buttonSignature(row))).length === 0) {
-    for (const v of ranked) {
+    for (const v of rankedExact) {
       if (unknownPicked) break
       const sig = buttonSignature(v)
       if (hasKnownButtonCount(sig)) continue
       if (tryPick(v, false)) unknownPicked = true
+    }
+    if (!unknownPicked) {
+      for (const v of ranked) {
+        if (unknownPicked) break
+        const sig = buttonSignature(v)
+        if (hasKnownButtonCount(sig)) continue
+        if (tryPick(v, false)) unknownPicked = true
+      }
     }
   }
 
@@ -257,18 +283,19 @@ export function pickVariantsForVehicle(
   }
   const knownLayouts = result.filter((row) => hasKnownButtonCount(buttonSignature(row))).length
   if (knownLayouts >= 2) {
-    return result
-      .filter((row) => hasKnownButtonCount(buttonSignature(row)))
-      .slice(0, Math.min(limit, 4))
+    return trimForIntakeSheet(
+      result.filter((row) => hasKnownButtonCount(buttonSignature(row))),
+      intakeCap
+    )
   }
   if (knownLayouts >= 1 && result.some((row) => row.image_url)) {
-    return result.filter((row) => row.image_url).slice(0, Math.min(limit, 4))
+    return trimForIntakeSheet(result.filter((row) => row.image_url), intakeCap)
   }
 
   const resultSignatures = new Set(result.map((row) => buttonSignature(row)))
 
-  for (const v of ranked) {
-    if (result.length >= Math.min(limit, 4)) break
+  for (const v of [...rankedExact, ...ranked]) {
+    if (result.length >= intakeCap) break
     if (result.some((row) => row.id === v.id)) continue
     if (v.image_url && result.some((row) => row.image_url === v.image_url)) continue
     const sig = buttonSignature(v)
@@ -277,7 +304,7 @@ export function pickVariantsForVehicle(
     resultSignatures.add(sig)
   }
 
-  result = dedupeByImage(result).slice(0, Math.min(limit, 4))
+  result = trimForIntakeSheet(dedupeByImage(result), intakeCap)
 
   // Last resort: same FCC page photos for this make when YMM filter found nothing.
   if (result.length === 0) {
@@ -290,7 +317,7 @@ export function pickVariantsForVehicle(
       )
     )
     if (makePhotos.length > 0) {
-      return makePhotos.slice(0, Math.min(limit, 4)).map((v) => ({
+      return makePhotos.slice(0, intakeCap).map((v) => ({
         ...v,
         reference_image: true,
         reference_note: "Reference photo (same FCC ID — confirm on vehicle)",
@@ -486,7 +513,7 @@ export async function lookupFccRemoteVariants(
 
   const staticParsed = loadStaticParsedByFcc()[fccClean]
   if (staticParsed?.length) {
-    let filtered = pickVariantsForVehicle(staticParsed, input, 6)
+    let filtered = pickVariantsForVehicle(staticParsed, input)
     filtered = attachLocalBundledPhotos(fccClean, filtered, input, join(process.cwd(), "public"))
     if (filtered.length > 0) {
       cache.set(cacheKey, { expires: Date.now() + CACHE_TTL_MS, variants: filtered })
@@ -504,7 +531,7 @@ export async function lookupFccRemoteVariants(
   }
 
   const parsed = parseFccidReplacementHtml(html)
-  let filtered = pickVariantsForVehicle(parsed, input, 6)
+  let filtered = pickVariantsForVehicle(parsed, input)
   filtered = attachLocalBundledPhotos(fccClean, filtered, input, join(process.cwd(), "public"))
 
   if (filtered.length > 0) {

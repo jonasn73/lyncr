@@ -197,7 +197,7 @@ function VariantGrid({
               {variant.battery ? (
                 <span className="text-[10px] text-muted-foreground">Battery: {variant.battery}</span>
               ) : null}
-              {variant.fits_text ? (
+              {variant.fits_text && !buttonLabel ? (
                 <span className="text-[10px] text-muted-foreground line-clamp-2">{variant.fits_text}</span>
               ) : null}
                     {variant.reference_image ? (
