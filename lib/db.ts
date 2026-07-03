@@ -3694,8 +3694,6 @@ export async function getDailyCallTelemetryForOwner(
     talk_seconds > 0
     AND call_type IS DISTINCT FROM 'missed'
     AND call_type IS DISTINCT FROM 'voicemail'
-    AND NULLIF(trim(COALESCE(routed_to_name, '')), '') IS NOT NULL
-    AND lower(COALESCE(status, '')) NOT IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled', 'failed')
   `
 
   const missedWhere = sql`
@@ -3716,7 +3714,7 @@ export async function getDailyCallTelemetryForOwner(
   `
 
   const tz = sanitizeIanaTimezone(timezone)
-  const localDayMatch = sql`(timezone(${tz}, created_at))::date = (timezone(${tz}, now()))::date`
+  const rollingDayMatch = sql`created_at >= now() - interval '24 hours'`
   const localWeekMatch = sql`date_trunc('week', timezone(${tz}, created_at)) = date_trunc('week', timezone(${tz}, now()))`
 
   const rows = lineNumbers
@@ -3744,20 +3742,20 @@ export async function getDailyCallTelemetryForOwner(
             AND to_number = ANY(${lineNumbers})
         )
         SELECT
-          COUNT(*) FILTER (WHERE ${localDayMatch})::int AS daily_calls,
+          COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
-            WHERE ${localDayMatch}
+            WHERE ${rollingDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
-              WHERE ${localDayMatch} AND ${talkableWhere}
+              WHERE ${rollingDayMatch} AND ${talkableWhere}
             ),
             0
           )::float8 AS avg_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE ${localDayMatch} AND ${talkableWhere}
+              WHERE ${rollingDayMatch} AND ${talkableWhere}
             ),
             0
           )::int AS daily_talk_seconds,
@@ -3792,20 +3790,20 @@ export async function getDailyCallTelemetryForOwner(
           WHERE user_id = ${telemetryOwnerUserId}
         )
         SELECT
-          COUNT(*) FILTER (WHERE ${localDayMatch})::int AS daily_calls,
+          COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
-            WHERE ${localDayMatch}
+            WHERE ${rollingDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
-              WHERE ${localDayMatch} AND ${talkableWhere}
+              WHERE ${rollingDayMatch} AND ${talkableWhere}
             ),
             0
           )::float8 AS avg_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE ${localDayMatch} AND ${talkableWhere}
+              WHERE ${rollingDayMatch} AND ${talkableWhere}
             ),
             0
           )::int AS daily_talk_seconds,

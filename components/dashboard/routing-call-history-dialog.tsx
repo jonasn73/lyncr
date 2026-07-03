@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime, isLocalCalendarThisWeek, isLocalCalendarToday } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isLocalCalendarThisWeek, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -56,18 +56,18 @@ const FILTER_META: Record<
 > = {
   daily: {
     title: "Call history today",
-    description: "Every inbound and outbound call logged today for this workspace.",
-    emptyMessage: "No calls logged today for this workspace.",
+    description: "Every inbound and outbound call logged in the last 24 hours for this workspace.",
+    emptyMessage: "No calls logged in the last 24 hours for this workspace.",
   },
   missed: {
     title: "Missed calls today",
-    description: "Inbound calls you missed today on this workspace.",
-    emptyMessage: "No missed calls today — nice work.",
+    description: "Inbound calls you missed in the last 24 hours on this workspace.",
+    emptyMessage: "No missed calls in the last 24 hours — nice work.",
   },
   daily_talk: {
     title: "Daily talk summary",
-    description: "Calls with talk time today — who called, how long, and who answered.",
-    emptyMessage: "No talk time logged yet today.",
+    description: "Calls with talk time in the last 24 hours — who called, how long, and who answered.",
+    emptyMessage: "No talk time logged in the last 24 hours.",
   },
   weekly_talk: {
     title: "Weekly talk summary",
@@ -105,8 +105,8 @@ function formatTimestamp(iso: string): string {
   return `${d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`
 }
 
-function isToday(iso: string): boolean {
-  return isLocalCalendarToday(iso)
+function isRollingDay(iso: string): boolean {
+  return isWithinLast24Hours(iso)
 }
 
 function isThisWeek(iso: string): boolean {
@@ -159,7 +159,7 @@ function filterRows(
     .filter((row) => {
       if (!matchesWorkspaceLine(row, businessNumbers)) return false
       if (filter === "daily" || filter === "missed" || filter === "daily_talk") {
-        if (!isToday(row.created_at)) return false
+        if (!isRollingDay(row.created_at)) return false
       }
       if (filter === "weekly_talk") {
         if (!isThisWeek(row.created_at)) return false

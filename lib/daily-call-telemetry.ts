@@ -45,7 +45,7 @@ export function isUtcToday(iso: string, now: Date = new Date()): boolean {
   )
 }
 
-/** Browser-local calendar day — matches “Today, 6:32 AM” labels in the activity list. */
+/** Browser-local calendar day — activity “Missed today” badge (resets at local midnight). */
 export function isLocalCalendarToday(iso: string, now: Date = new Date()): boolean {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return false
@@ -54,6 +54,14 @@ export function isLocalCalendarToday(iso: string, now: Date = new Date()): boole
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   )
+}
+
+/** Rolling 24h window — routing HUD “today” stats (no midnight cliff for late-night calls). */
+export function isWithinLast24Hours(iso: string, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  const ageMs = now.getTime() - d.getTime()
+  return ageMs >= 0 && ageMs <= 24 * 60 * 60 * 1000
 }
 
 /** Local calendar week (Mon–Sun) — matches weekly talk breakdown in call history. */
