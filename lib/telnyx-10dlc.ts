@@ -199,6 +199,9 @@ export function normalizeTenDlcKeywords(raw: string): string {
     .join(",")
 }
 
+/** TCR requires at least one sub-usecase when the primary use case is LOW_VOLUME. */
+export const LOW_VOLUME_SUB_USECASES = ["ACCOUNT_NOTIFICATION"] as const
+
 /** POST /10dlc/campaignBuilder — submit the campaign to TCR. Returns campaignId. */
 export async function createTelnyx10DlcCampaign(
   input: CreateCampaignInput
@@ -235,6 +238,9 @@ export async function createTelnyx10DlcCampaign(
     embeddedPhone: true,
   }
   if (input.sample2) body.sample2 = input.sample2
+  if (input.useCase === "LOW_VOLUME") {
+    body.subUsecases = [...LOW_VOLUME_SUB_USECASES]
+  }
 
   const res = await fetch(`${TELNYX_BASE}/10dlc/campaignBuilder`, {
     method: "POST",

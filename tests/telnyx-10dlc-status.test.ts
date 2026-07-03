@@ -3,6 +3,7 @@ import {
   effectiveTelnyx10DlcCampaignId,
   formatTelnyxRegistryText,
   isTelnyxRegistryRejected,
+  LOW_VOLUME_SUB_USECASES,
   normalizeTelnyxRegistryStatus,
 } from "@/lib/telnyx-10dlc"
 
@@ -49,6 +50,13 @@ describe("isTelnyxRegistryRejected", () => {
 
   it("ignores pending statuses", () => {
     expect(isTelnyxRegistryRejected("TCR_PENDING")).toBe(false)
+  })
+})
+
+describe("LOW_VOLUME_SUB_USECASES", () => {
+  it("includes account notifications for transactional lead alerts", () => {
+    expect(LOW_VOLUME_SUB_USECASES).toContain("ACCOUNT_NOTIFICATION")
+    expect(LOW_VOLUME_SUB_USECASES.length).toBeGreaterThanOrEqual(1)
   })
 })
 
