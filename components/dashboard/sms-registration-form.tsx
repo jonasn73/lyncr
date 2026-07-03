@@ -290,16 +290,27 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
   )
 
   const useCaseField = (
-    <label className="block space-y-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Brief use case description</span>
-      <textarea
-        required
-        rows={4}
-        value={useCase}
-        onChange={(e) => setUseCase(e.target.value)}
-        className={cn(workspaceFieldClass, "min-h-[6rem] resize-y")}
-      />
-    </label>
+    <div className="space-y-3">
+      <label className="block space-y-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Brief use case description</span>
+        <textarea
+          required
+          rows={4}
+          value={useCase}
+          onChange={(e) => setUseCase(e.target.value)}
+          className={cn(workspaceFieldClass, "min-h-[6rem] resize-y")}
+        />
+      </label>
+      {requiresSmsRegistrationEin(entityType) ? (
+        <p className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-violet-200/90">Carrier sub-usecase (added automatically):</span>{" "}
+          Registered businesses like yours are sent to carriers as{" "}
+          <span className="text-foreground">Low volume</span> with sub-usecase{" "}
+          <span className="text-foreground">Account notifications</span> (lead alerts and appointment texts). You do
+          not pick this — lyncr includes it when you click Submit.
+        </p>
+      ) : null}
+    </div>
   )
 
   const showStatusView =
