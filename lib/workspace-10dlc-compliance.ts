@@ -7,9 +7,29 @@ import {
   getPhoneNumbers,
 } from "@/lib/db"
 import { getPlatform10DlcCampaignId, isUsLocalDid } from "@/lib/telnyx-shared-campaign"
+import { isTelnyxRegistryRejected, normalizeTelnyxRegistryStatus } from "@/lib/telnyx-10dlc"
 import type { Messaging10DlcRegistration, SmsRegistration, SmsRegistrationOrgStatus } from "@/lib/types"
 
 const TELNYX_PENDING_STATUSES = new Set(["paid", "submitted", "pending_review"])
+
+function telnyxDetailLooksLikeFailure(detail: string | null | undefined): boolean {
+  const blob = (detail ?? "").toLowerCase()
+  return (
+    blob.includes("campaign creation failed") ||
+    blob.includes("campaign registration failed") ||
+    blob.includes("brand verification failed") ||
+    blob.includes("brand registration failed")
+  )
+}
+
+function telnyxRegistryIsRejected(telnyx: Messaging10DlcRegistration | null): boolean {
+  if (!telnyx) return false
+  const status = (telnyx.status ?? "").trim().toLowerCase()
+  if (status === "failed" || status === "rejected") return true
+  if (isTelnyxRegistryRejected(telnyx.status ?? "")) return true
+  if (normalizeTelnyxRegistryStatus(telnyx.status ?? "") === "rejected") return true
+  return telnyxDetailLooksLikeFailure(telnyx.status_detail)
+}
 
 export type Workspace10DlcCompliance = {
   organization_id: string | null
@@ -66,7 +86,7 @@ export async function getWorkspace10DlcCompliance(
   const sms_ready = dashboardApproved || telnyxReady || sharedCampaignReady
 
   const telnyxStatus = (telnyx?.status ?? "").trim().toLowerCase()
-  const telnyxFailed = telnyxStatus === "failed" || telnyxStatus === "rejected"
+  const telnyxFailed = telnyxRegistryIsRejected(telnyx)
   const dashboardRejected =
     registration?.status === "REJECTED" || organization_status === "REJECTED"
 

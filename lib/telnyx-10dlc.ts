@@ -304,7 +304,7 @@ function normalizeRegistryStatus(raw: string): TenDlcRegistryStatus["normalized"
 }
 
 function pickCampaignRegistryFields(data: Record<string, unknown>): { raw: string; detail: string | null } {
-  const campaignStatus = String(data.campaignStatus ?? "").trim()
+  const campaignStatus = String(data.campaignStatus ?? data.tcrCampaignStatus ?? "").trim()
   const submissionStatus = String(data.submissionStatus ?? "").trim()
   const legacyStatus = String(data.status ?? "").trim()
   const failureReasons = formatTelnyxRegistryText(data.failureReasons)
@@ -313,13 +313,141 @@ function pickCampaignRegistryFields(data: Record<string, unknown>): { raw: strin
   if (!raw && submissionStatus === "FAILED") raw = "FAILED"
   if (!raw) raw = legacyStatus || "UNKNOWN"
 
+  const failed =
+    campaignStatus.includes("FAILED") ||
+    campaignStatus.includes("REJECTED") ||
+    normalizeTelnyxRegistryStatus(campaignStatus || raw) === "rejected"
+
   const detail =
     failureReasons ||
-    (campaignStatus.includes("FAILED") || campaignStatus.includes("REJECTED")
-      ? "Campaign creation failed at the carrier registry. Update sample messages and resubmit."
-      : null)
+    (failed ? "Campaign creation failed." : null)
 
   return { raw: campaignStatus || raw, detail: detail || null }
+}
+
+/** True when a Telnyx/TCR status string means the registration was rejected. */
+export function isTelnyxRegistryRejected(raw: string | null | undefined): boolean {
+  const text = String(raw ?? "").trim()
+  if (!text) return false
+  return normalizeTelnyxRegistryStatus(text) === "rejected"
+}
+
+/**
+ * Campaign id stored in our DB — ignores rows where brand_id was accidentally saved as campaign_id.
+ */
+export function effectiveTelnyx10DlcCampaignId(reg: {
+  brand_id?: string | null
+  campaign_id?: string | null
+}): string | null {
+  const brandId = reg.brand_id?.trim() || null
+  const campaignId = reg.campaign_id?.trim() || null
+  if (!campaignId) return null
+  if (brandId && campaignId === brandId) return null
+  return campaignId
+}
+
+export type Telnyx10DlcCampaignRegistryRow = {
+  campaignId: string
+  raw: string
+  normalized: TenDlcRegistryStatus["normalized"]
+  detail: string | null
+}
+
+/** GET /10dlc/campaign?brandId= — list campaigns so we can read TCR_FAILED even without a stored campaign id. */
+export async function listTelnyx10DlcCampaignsForBrand(
+  brandId: string
+): Promise<Telnyx10DlcCampaignRegistryRow[]> {
+  try {
+    getTelnyxApiKey()
+  } catch {
+    return []
+  }
+  const url = `${TELNYX_BASE}/10dlc/campaign?brandId=${encodeURIComponent(brandId)}&recordsPerPage=50`
+  const res = await fetch(url, { headers: telnyxHeaders() })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) return []
+
+  const records = (
+    (json as { records?: Record<string, unknown>[] }).records ??
+    (json as { data?: Record<string, unknown>[] }).data ??
+    []
+  ) as Record<string, unknown>[]
+
+  return records
+    .map((record) => {
+      const campaignId = String(record.campaignId ?? "").trim()
+      if (!campaignId) return null
+      const picked = pickCampaignRegistryFields(record)
+      return {
+        campaignId,
+        raw: picked.raw,
+        normalized: normalizeRegistryStatus(picked.raw),
+        detail: picked.detail,
+      }
+    })
+    .filter((row): row is Telnyx10DlcCampaignRegistryRow => row != null)
+}
+
+const REGISTRY_STATUS_RANK: Record<TenDlcRegistryStatus["normalized"], number> = {
+  rejected: 4,
+  pending_review: 3,
+  approved: 2,
+  unknown: 1,
+}
+
+function pickStrongerRegistryStatus(
+  current: TenDlcRegistryStatus | null,
+  next: TenDlcRegistryStatus
+): TenDlcRegistryStatus {
+  if (!current) return next
+  const currentRank = REGISTRY_STATUS_RANK[current.normalized] ?? 0
+  const nextRank = REGISTRY_STATUS_RANK[next.normalized] ?? 0
+  return nextRank >= currentRank ? next : current
+}
+
+export type PolledTelnyx10DlcRegistryStatus = TenDlcRegistryStatus & {
+  /** Real campaign id discovered from Telnyx (may differ from what we stored). */
+  resolvedCampaignId: string | null
+}
+
+/** Poll campaign + brand list at Telnyx and return the strongest lifecycle signal. */
+export async function pollTelnyx10DlcRegistryStatus(reg: {
+  brand_id?: string | null
+  campaign_id?: string | null
+}): Promise<PolledTelnyx10DlcRegistryStatus | null> {
+  const brandId = reg.brand_id?.trim() || null
+  const storedCampaignId = effectiveTelnyx10DlcCampaignId(reg)
+
+  let best: TenDlcRegistryStatus | null = null
+  let resolvedCampaignId: string | null = storedCampaignId
+
+  if (storedCampaignId) {
+    const campaign = await getTelnyx10DlcCampaignStatus(storedCampaignId)
+    if (campaign && campaign.normalized !== "unknown") {
+      best = pickStrongerRegistryStatus(best, campaign)
+    }
+  }
+
+  if (brandId) {
+    const listed = await listTelnyx10DlcCampaignsForBrand(brandId)
+    for (const row of listed) {
+      const status: TenDlcRegistryStatus = { raw: row.raw, normalized: row.normalized, detail: row.detail }
+      best = pickStrongerRegistryStatus(best, status)
+      if (row.normalized === "rejected" || !resolvedCampaignId) {
+        resolvedCampaignId = row.campaignId
+      }
+    }
+
+    if (!best || best.normalized === "pending_review" || best.normalized === "unknown") {
+      const brand = await getTelnyx10DlcBrandStatus(brandId)
+      if (brand && brand.normalized !== "unknown") {
+        best = pickStrongerRegistryStatus(best, brand)
+      }
+    }
+  }
+
+  if (!best) return null
+  return { ...best, resolvedCampaignId }
 }
 
 /** True when Telnyx rejected campaign creation because the brand is not ready yet. */

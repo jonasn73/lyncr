@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { formatTelnyxRegistryText, normalizeTelnyxRegistryStatus } from "@/lib/telnyx-10dlc"
+import {
+  effectiveTelnyx10DlcCampaignId,
+  formatTelnyxRegistryText,
+  isTelnyxRegistryRejected,
+  normalizeTelnyxRegistryStatus,
+} from "@/lib/telnyx-10dlc"
 
 describe("formatTelnyxRegistryText", () => {
   it("returns null for [object Object] strings", () => {
@@ -34,5 +39,36 @@ describe("normalizeTelnyxRegistryStatus", () => {
 
   it("treats TELNYX_FAILED as rejected", () => {
     expect(normalizeTelnyxRegistryStatus("TELNYX_FAILED")).toBe("rejected")
+  })
+})
+
+describe("isTelnyxRegistryRejected", () => {
+  it("detects TCR_FAILED", () => {
+    expect(isTelnyxRegistryRejected("TCR_FAILED")).toBe(true)
+  })
+
+  it("ignores pending statuses", () => {
+    expect(isTelnyxRegistryRejected("TCR_PENDING")).toBe(false)
+  })
+})
+
+describe("effectiveTelnyx10DlcCampaignId", () => {
+  it("returns null when campaign id equals brand id", () => {
+    const id = "4b30019f-1bf7-b266-793c-2acecbd29e6b"
+    expect(
+      effectiveTelnyx10DlcCampaignId({
+        brand_id: id,
+        campaign_id: id,
+      })
+    ).toBeNull()
+  })
+
+  it("returns campaign id when distinct from brand id", () => {
+    expect(
+      effectiveTelnyx10DlcCampaignId({
+        brand_id: "brand-1",
+        campaign_id: "campaign-2",
+      })
+    ).toBe("campaign-2")
   })
 })

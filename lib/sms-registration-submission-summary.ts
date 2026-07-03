@@ -1,7 +1,12 @@
 // Server-only: build structured carrier submission summary for the 10DLC status modal.
 
 import { resolvePrimaryBusinessLineForOrganization } from "@/lib/primary-business-line"
-import { formatTelnyxRegistryText } from "@/lib/telnyx-10dlc"
+import {
+  effectiveTelnyx10DlcCampaignId,
+  formatTelnyxRegistryText,
+  isTelnyxRegistryRejected,
+  normalizeTelnyxRegistryStatus,
+} from "@/lib/telnyx-10dlc"
 import type {
   SmsRegistrationLifecycleStage,
   SmsRegistrationSubmissionSummary,
@@ -15,6 +20,41 @@ export type {
 
 const TELNYX_PENDING = new Set(["paid", "submitted", "pending_review"])
 const TELNYX_REJECTED = new Set(["rejected", "failed"])
+
+function statusDetailIsHardFailure(detail: string | null | undefined): boolean {
+  const blob = (detail ?? "").toLowerCase()
+  return (
+    blob.includes("campaign creation failed") ||
+    blob.includes("campaign registration failed") ||
+    blob.includes("brand verification failed") ||
+    blob.includes("brand registration failed")
+  )
+}
+
+function telnyxStatusIsRejected(status: string | null, statusDetail: string | null | undefined): boolean {
+  if (!status) return statusDetailIsHardFailure(statusDetail)
+  const lower = status.toLowerCase()
+  if (TELNYX_REJECTED.has(lower)) return true
+  return isTelnyxRegistryRejected(status) || normalizeTelnyxRegistryStatus(status) === "rejected"
+}
+
+function extractCarrierCodeFromDetail(detail: string | null | undefined): string | null {
+  const match = detail?.match(/Carrier code:\s*([A-Z0-9_]+)/i)
+  return match?.[1]?.trim() || null
+}
+
+function resolveTelnyxStatusLabel(
+  telnyxStatus: string | null,
+  statusDetail: string | null | undefined
+): string | null {
+  const carrierCode = extractCarrierCodeFromDetail(statusDetail)
+  if (carrierCode) return carrierCode
+  if (!telnyxStatus) return null
+  if (telnyxStatusIsRejected(telnyxStatus, statusDetail)) {
+    return telnyxStatus.toUpperCase().includes("TCR") ? telnyxStatus : telnyxStatus.replace(/_/g, " ")
+  }
+  return telnyxStatus.replace(/_/g, " ")
+}
 
 function formatAddress(parts: {
   street?: string | null
@@ -36,11 +76,13 @@ function resolveLifecycleStage(
 ): SmsRegistrationLifecycleStage {
   const regStatus = compliance.registration?.status ?? null
   const orgStatus = compliance.organization_status
+  const statusDetail = compliance.telnyx_registration?.status_detail
 
   if (
     regStatus === "REJECTED" ||
     orgStatus === "REJECTED" ||
-    TELNYX_REJECTED.has(telnyxStatus ?? "")
+    telnyxStatusIsRejected(telnyxStatus, statusDetail) ||
+    statusDetailIsHardFailure(statusDetail)
   ) {
     return "rejected"
   }
@@ -50,10 +92,11 @@ function resolveLifecycleStage(
   }
 
   if (
-    compliance.pending_approval ||
-    regStatus === "PENDING_APPROVAL" ||
-    orgStatus === "PENDING_APPROVAL" ||
-    TELNYX_PENDING.has(telnyxStatus ?? "")
+    (compliance.pending_approval ||
+      regStatus === "PENDING_APPROVAL" ||
+      orgStatus === "PENDING_APPROVAL" ||
+      TELNYX_PENDING.has(telnyxStatus ?? "")) &&
+    !statusDetailIsHardFailure(statusDetail)
   ) {
     return "carrier_review"
   }
@@ -83,7 +126,7 @@ export async function buildSmsRegistrationSubmissionSummary(
     telnyx?.assigned_number
   )
 
-  const campaignId = telnyx?.campaign_id?.trim() || null
+  const campaignId = effectiveTelnyx10DlcCampaignId(telnyx ?? {})
   const brandId = telnyx?.brand_id?.trim() || null
   const carrierReferenceId = campaignId || brandId
   const carrierReferenceKind: "campaign" | "brand" | null = campaignId ? "campaign" : brandId ? "brand" : null
@@ -98,10 +141,10 @@ export async function buildSmsRegistrationSubmissionSummary(
 
   const rejectionReason =
     lifecycleStage === "rejected"
-      ? formatTelnyxRegistryText(telnyx?.status_detail) ||
+      ? formatTelnyxRegistryText(telnyx?.status_detail)?.replace(/\s*Carrier code:\s*[A-Z0-9_]+\.?$/i, "") ||
         (reg?.status === "REJECTED"
           ? "Carrier rejected this registration. Update your details and resubmit."
-          : null)
+          : "Campaign creation failed.")
       : null
 
   const submissionDate =
@@ -121,7 +164,7 @@ export async function buildSmsRegistrationSubmissionSummary(
     carrier_reference_kind: carrierReferenceKind,
     registration_status: reg?.status ?? null,
     organization_status: compliance.organization_status,
-    telnyx_status: telnyxStatus,
+    telnyx_status: resolveTelnyxStatusLabel(telnyxStatus, telnyx?.status_detail),
     status_detail: formatTelnyxRegistryText(telnyx?.status_detail),
     lifecycle_stage: lifecycleStage,
     rejection_reason: rejectionReason,

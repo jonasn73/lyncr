@@ -36,6 +36,7 @@ function detailLooksLikeFailure(detail: string): boolean {
   }
   return (
     blob.includes("registration failed") ||
+    blob.includes("campaign creation failed") ||
     blob.includes("cannot associate campaign") ||
     blob.includes("carrier rejected") ||
     blob.includes("brand registration failed") ||
@@ -65,6 +66,8 @@ export function resolveSmsNoticeState(view: SmsComplianceView): SmsNoticeState {
     orgStatus === "REJECTED" ||
     telnyxStatus === "failed" ||
     telnyxStatus === "rejected" ||
+    telnyxStatus.includes("tcr_failed") ||
+    telnyxStatus.includes("telnyx_failed") ||
     detailLooksLikeFailure(detail)
   ) {
     return "rejected"

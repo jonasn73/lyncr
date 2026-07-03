@@ -17,11 +17,12 @@ import {
   createTelnyx10DlcBrand,
   createTelnyx10DlcCampaign,
   getTelnyx10DlcBrandStatus,
-  getTelnyx10DlcCampaignStatus,
   assignNumberToTelnyx10DlcCampaign,
   getTelnyx10DlcRegistrationFeeCents,
   isTelnyxBrandNotReadyForCampaignError,
   isTelnyxCampaignOnlyFailure,
+  pollTelnyx10DlcRegistryStatus,
+  formatTelnyxRegistryText,
   type TenDlcUseCaseKey,
 } from "@/lib/telnyx-10dlc"
 import { getStripeClient } from "@/lib/stripe-config"
@@ -432,16 +433,19 @@ export async function refreshMessaging10DlcStatus(
 ): Promise<TenDlcActionResult> {
   await ensureMessaging10DlcSubmittedToCarrier(userId, organizationId)
 
-  const reg = await getMessaging10DlcRegistration(userId, organizationId)
+  let reg = await getMessaging10DlcRegistration(userId, organizationId)
   if (!reg) return { ok: false, error: "No registration found." }
   const resolvedOrgId = organizationId ?? reg.organization_id ?? null
 
-  if (!reg.campaign_id) {
-    return { ok: true, registration: reg }
+  if ((reg.status === "failed" || reg.status === "rejected") && resolvedOrgId) {
+    await markWorkspaceSmsRegistrationRejected(userId, resolvedOrgId)
   }
 
-  const status = await getTelnyx10DlcCampaignStatus(reg.campaign_id)
-  if (!status) return { ok: true, registration: reg }
+  const polled = await pollTelnyx10DlcRegistryStatus(reg)
+  if (!polled) return { ok: true, registration: reg }
+
+  const assignCampaignId = polled.resolvedCampaignId ?? reg.campaign_id?.trim() ?? null
+  const status = polled
 
   if (status.normalized === "approved") {
     let assigned = reg.assigned_number
@@ -450,9 +454,9 @@ export async function refreshMessaging10DlcStatus(
     if (targetLine && normalizePhoneNumberE164(targetLine) !== normalizePhoneNumberE164(assigned ?? "")) {
       assigned = null
     }
-    if (!assigned) {
+    if (!assigned && assignCampaignId) {
       if (targetLine) {
-        const res = await assignNumberToTelnyx10DlcCampaign(targetLine, reg.campaign_id)
+        const res = await assignNumberToTelnyx10DlcCampaign(targetLine, assignCampaignId)
         if (res.ok) {
           assigned = targetLine
         } else {
@@ -465,6 +469,7 @@ export async function refreshMessaging10DlcStatus(
     const updated = await upsert10(userId, resolvedOrgId, {
       status: "approved",
       assigned_number: assigned,
+      campaign_id: assignCampaignId,
       status_detail: detail,
     })
     if (resolvedOrgId && !resolvedOrgId.startsWith("legacy-")) {
@@ -476,10 +481,13 @@ export async function refreshMessaging10DlcStatus(
   if (status.normalized === "rejected") {
     const detail =
       formatTelnyxRegistryText(status.detail) ||
-      `Carrier registration was rejected (${status.raw}). Update your business details and resubmit.`
+      (status.raw.includes("FAILED")
+        ? "Campaign creation failed."
+        : `Carrier registration was rejected (${status.raw}). Update your business details and resubmit.`)
     const updated = await upsert10(userId, resolvedOrgId, {
       status: "rejected",
-      status_detail: detail,
+      campaign_id: assignCampaignId,
+      status_detail: `${detail} Carrier code: ${status.raw}.`,
     })
     if (resolvedOrgId && !resolvedOrgId.startsWith("legacy-")) {
       await markWorkspaceSmsRegistrationRejected(userId, resolvedOrgId)
@@ -487,12 +495,13 @@ export async function refreshMessaging10DlcStatus(
     return { ok: true, registration: updated }
   }
 
-  if (status.normalized === "pending_review" && reg.status !== "pending_review") {
+  if (status.normalized === "pending_review") {
     const updated = await upsert10(userId, resolvedOrgId, {
       status: "pending_review",
+      campaign_id: assignCampaignId ?? reg.campaign_id,
       status_detail:
         reg.status_detail?.trim() ||
-        `Carrier review in progress (${status.raw}). This usually takes 1–10 business days.`,
+        `Carrier review in progress (${status.raw}). This usually takes 5–10 business days.`,
     })
     return { ok: true, registration: updated }
   }
