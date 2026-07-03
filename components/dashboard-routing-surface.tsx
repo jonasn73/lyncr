@@ -88,7 +88,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
           className="lg:sticky lg:top-24"
           onConfigureRouting={() => setWhoAnswersOpen(true)}
         />
-        <div className="min-w-0 flex-1 space-y-8 sm:space-y-10">
+        <div className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-10">
       {quickSetupDecided && !isSetupComplete ? (
         <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
           <div className="flex items-start gap-3">

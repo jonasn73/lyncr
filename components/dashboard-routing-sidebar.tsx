@@ -113,7 +113,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
   )
 
   return (
-    <details className="group w-full shrink-0 lg:contents">
+    <details className="group hidden w-full shrink-0 lg:contents">
       <summary
         className={cn(
           "flex cursor-pointer list-none items-center gap-2 rounded-2xl border border-white/8 bg-neutral-950/50 px-4 py-3 shadow-sm ring-1 ring-white/5 backdrop-blur-md lg:hidden",
