@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime, isUtcThisWeek, isUtcToday } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isLocalCalendarThisWeek, isLocalCalendarToday } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -106,11 +106,11 @@ function formatTimestamp(iso: string): string {
 }
 
 function isToday(iso: string): boolean {
-  return isUtcToday(iso)
+  return isLocalCalendarToday(iso)
 }
 
 function isThisWeek(iso: string): boolean {
-  return isUtcThisWeek(iso)
+  return isLocalCalendarThisWeek(iso)
 }
 
 function isMissedRow(row: CallHistoryRow): boolean {

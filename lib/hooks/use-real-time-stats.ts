@@ -26,7 +26,7 @@ import {
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
-import { organizationQueryString } from "@/lib/workspace-organizations"
+import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
 
 /** Tracks one ringing/connected leg until call-completed removes it. */
 export type ActiveCallSession = {
@@ -115,7 +115,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   )
 
   const refreshBaseline = useCallback(async () => {
-    const orgQs = organizationQueryString(activeOrganizationId)
+    const orgQs = routingTelemetryQueryString(activeOrganizationId)
     try {
       const res = await fetch(`/api/routing/telemetry${orgQs}`, { credentials: "include", cache: "no-store" })
       if (!res.ok) return

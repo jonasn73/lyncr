@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getDailyCallTelemetryForOwner } from "@/lib/db"
 import { formatAvgTalkTime, formatTalkDuration } from "@/lib/daily-call-telemetry"
+import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
 export const dynamic = "force-dynamic"
 
@@ -14,9 +15,10 @@ export async function GET(req: NextRequest) {
   }
 
   const organizationId = req.nextUrl.searchParams.get("organization_id")?.trim() || null
+  const timezone = sanitizeIanaTimezone(req.nextUrl.searchParams.get("timezone"))
 
   try {
-    const metrics = await getDailyCallTelemetryForOwner(userId, organizationId)
+    const metrics = await getDailyCallTelemetryForOwner(userId, organizationId, timezone)
     return NextResponse.json({
       data: {
         ...metrics,

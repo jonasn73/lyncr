@@ -10,6 +10,7 @@ import { unstable_cache, revalidateTag } from "next/cache"
 import { neighborhoodFromLocation } from "@/lib/job-pool"
 import { localDayRangeIso } from "@/lib/scheduler-utils"
 import { parseAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
+import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOverrideE164 } from "@/lib/phone-e164"
 import { SITE_NAME } from "@/lib/brand"
@@ -3646,7 +3647,8 @@ export async function getCallQualitySummary(userId: string, days = 7): Promise<{
 /** Today's call HUD metrics for the routing strip (workspace-scoped via business line DIDs). */
 export async function getDailyCallTelemetryForOwner(
   sessionUserId: string,
-  organizationId?: string | null
+  organizationId?: string | null,
+  timezone?: string | null
 ): Promise<{
   daily_calls: number
   missed_calls: number
@@ -3713,6 +3715,10 @@ export async function getDailyCallTelemetryForOwner(
     )
   `
 
+  const tz = sanitizeIanaTimezone(timezone)
+  const localDayMatch = sql`(timezone(${tz}, created_at))::date = (timezone(${tz}, now()))::date`
+  const localWeekMatch = sql`date_trunc('week', timezone(${tz}, created_at)) = date_trunc('week', timezone(${tz}, now()))`
+
   const rows = lineNumbers
     ? await sql`
         WITH scoped AS (
@@ -3738,26 +3744,26 @@ export async function getDailyCallTelemetryForOwner(
             AND to_number = ANY(${lineNumbers})
         )
         SELECT
-          COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int AS daily_calls,
+          COUNT(*) FILTER (WHERE ${localDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
-            WHERE created_at >= date_trunc('day', now())
+            WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
-              WHERE created_at >= date_trunc('day', now()) AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::float8 AS avg_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE created_at >= date_trunc('day', now()) AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::int AS daily_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE created_at >= date_trunc('week', now()) AND ${talkableWhere}
+              WHERE ${localWeekMatch} AND ${talkableWhere}
             ),
             0
           )::int AS weekly_talk_seconds
@@ -3786,26 +3792,26 @@ export async function getDailyCallTelemetryForOwner(
           WHERE user_id = ${telemetryOwnerUserId}
         )
         SELECT
-          COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int AS daily_calls,
+          COUNT(*) FILTER (WHERE ${localDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
-            WHERE created_at >= date_trunc('day', now())
+            WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
-              WHERE created_at >= date_trunc('day', now()) AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::float8 AS avg_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE created_at >= date_trunc('day', now()) AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::int AS daily_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE created_at >= date_trunc('week', now()) AND ${talkableWhere}
+              WHERE ${localWeekMatch} AND ${talkableWhere}
             ),
             0
           )::int AS weekly_talk_seconds
