@@ -17,8 +17,11 @@ type TelemetryPillProps = {
   label: string
   value: string | number
   icon: typeof Phone
-  tone?: "default" | "amber" | "teal"
+  tone?: "default" | "amber" | "teal" | "success"
   valueClassName?: string
+  /** Shown instead of 0 / 0:00 — keeps empty tiles from feeling broken. */
+  emptyLabel?: string
+  isEmpty?: boolean
   /** When set, the pill becomes a clickable button that opens call history. */
   onClick?: () => void
 }
@@ -29,6 +32,8 @@ function TelemetryPill({
   icon: Icon,
   tone = "default",
   valueClassName,
+  emptyLabel,
+  isEmpty = false,
   onClick,
 }: TelemetryPillProps) {
   const sharedClasses = cn(
@@ -36,6 +41,7 @@ function TelemetryPill({
     "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
     tone === "amber" && "border-amber-500/25 text-amber-100/90",
     tone === "teal" && "border-teal-500/25 text-teal-100/90",
+    tone === "success" && "border-emerald-500/20 text-emerald-100/90",
     tone === "default" && "border-white/8 text-foreground/90",
     onClick && "cursor-pointer hover:bg-zinc-900/50"
   )
@@ -46,7 +52,16 @@ function TelemetryPill({
       <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className={cn("text-sm font-bold tabular-nums text-foreground", valueClassName)}>{value}</span>
+      <span
+        className={cn(
+          "tabular-nums",
+          isEmpty
+            ? "text-xs font-medium text-zinc-500"
+            : cn("text-sm font-bold text-foreground", valueClassName)
+        )}
+      >
+        {isEmpty && emptyLabel ? emptyLabel : value}
+      </span>
     </>
   )
 
@@ -77,35 +92,65 @@ function TelemetryTile({
   icon: Icon,
   tone = "default",
   valueClassName,
+  emptyLabel,
+  isEmpty = false,
   onClick,
   className,
 }: TelemetryPillProps & { className?: string }) {
   const shared = cn(
     "flex flex-col gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors",
     "min-h-[4.25rem] touch-manipulation active:scale-[0.98]",
-    tone === "amber" && "border-amber-500/20 bg-amber-500/5",
-    tone === "teal" && "border-teal-500/20 bg-teal-500/5",
-    tone === "default" && "border-border/40 bg-zinc-950/50",
+    isEmpty && "border-border/25 bg-zinc-950/30",
+    !isEmpty && tone === "amber" && "border-amber-500/20 bg-amber-500/5",
+    !isEmpty && tone === "teal" && "border-teal-500/20 bg-teal-500/5",
+    !isEmpty && tone === "success" && "border-emerald-500/20 bg-emerald-500/5",
+    !isEmpty && tone === "default" && "border-border/40 bg-zinc-950/50",
     onClick && "cursor-pointer hover:bg-zinc-900/60",
     className
   )
+  const display = isEmpty && emptyLabel ? emptyLabel : value
   const body = (
     <>
       <div className="flex items-center gap-1.5">
-        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <Icon
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            isEmpty ? "text-zinc-600" : "text-muted-foreground"
+          )}
+          aria-hidden
+        />
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
       </div>
-      <span className={cn("text-lg font-bold tabular-nums leading-none text-foreground", valueClassName)}>{value}</span>
+      <span
+        className={cn(
+          "leading-snug tabular-nums",
+          isEmpty
+            ? "text-sm font-medium text-zinc-500"
+            : cn("text-lg font-bold leading-none text-foreground", valueClassName)
+        )}
+      >
+        {display}
+      </span>
     </>
   )
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={shared} aria-label={`${label}: ${value}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={shared}
+        aria-label={`${label}: ${isEmpty && emptyLabel ? emptyLabel : value}`}
+      >
         {body}
       </button>
     )
   }
   return <div className={shared}>{body}</div>
+}
+
+function isZeroTalkDisplay(display: string): boolean {
+  const normalized = display.trim()
+  return normalized === "0:00" || normalized === "0:0" || normalized === "0:00:00" || normalized === "0:0:0"
 }
 
 export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
@@ -129,6 +174,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
 
   const dailyTalkDisplay = formatTalkTime(dailyTalkSeconds)
   const weeklyTalkDisplay = formatTalkDuration(weeklyTalkSeconds)
+  const callsEmpty = dailyCalls === 0
+  const missedEmpty = missedCalls === 0
+  const dailyTalkEmpty = dailyTalkSeconds === 0 || isZeroTalkDisplay(dailyTalkDisplay)
+  const weeklyTalkEmpty = weeklyTalkSeconds === 0 || isZeroTalkDisplay(weeklyTalkDisplay)
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -154,13 +203,17 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               label="Calls today"
               value={dailyCalls}
               icon={PhoneIncoming}
+              isEmpty={callsEmpty}
+              emptyLabel="Quiet so far"
               onClick={() => openCallHistory("daily")}
             />
             <TelemetryTile
               label="Missed today"
               value={missedCalls}
               icon={PhoneMissed}
-              tone={missedCalls > 0 ? "amber" : "default"}
+              isEmpty={missedEmpty}
+              emptyLabel="All clear"
+              tone={missedEmpty ? "success" : "amber"}
               valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
               onClick={() => openCallHistory("missed")}
             />
@@ -168,6 +221,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               label="Talk today"
               value={dailyTalkDisplay}
               icon={Clock}
+              isEmpty={dailyTalkEmpty}
+              emptyLabel="No talk yet"
               tone="teal"
               onClick={() => openCallHistory("daily_talk")}
             />
@@ -175,6 +230,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               label="Talk week"
               value={weeklyTalkDisplay}
               icon={CalendarRange}
+              isEmpty={weeklyTalkEmpty}
+              emptyLabel="No talk this week"
               tone="teal"
               onClick={() => openCallHistory("weekly_talk")}
               className="col-span-2"
@@ -187,13 +244,17 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               label="Daily calls"
               value={dailyCalls}
               icon={PhoneIncoming}
+              isEmpty={callsEmpty}
+              emptyLabel="Quiet so far"
               onClick={() => openCallHistory("daily")}
             />
             <TelemetryPill
               label="Missed calls"
               value={missedCalls}
               icon={PhoneMissed}
-              tone={missedCalls > 0 ? "amber" : "default"}
+              isEmpty={missedEmpty}
+              emptyLabel="All clear"
+              tone={missedEmpty ? "success" : "amber"}
               valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
               onClick={() => openCallHistory("missed")}
             />
@@ -201,6 +262,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               label="Daily talk"
               value={dailyTalkDisplay}
               icon={Clock}
+              isEmpty={dailyTalkEmpty}
+              emptyLabel="No talk yet"
               tone="teal"
               onClick={() => openCallHistory("daily_talk")}
             />
