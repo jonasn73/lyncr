@@ -21,6 +21,7 @@ import {
   dayKeyLocal,
   dateAtLocalHour,
 } from "@/lib/scheduler-utils"
+import { isActivePipelineFeedJob } from "@/lib/scheduler-job-status"
 import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
 import {
   jobPoolActiveUrl,
@@ -152,7 +153,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   )
 
   const displayPipelineJobs = useMemo(
-    () => excludeDeletedJobs(activePipelineJobs),
+    () => excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob),
     [activePipelineJobs, excludeDeletedJobs]
   )
 

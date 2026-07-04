@@ -7642,21 +7642,15 @@ export async function listOwnerActivePipelineJobsForDay(params: {
               l.disposition IN ('BOOKED', 'PENDING_TIME')
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
+            AND l.assigned_tech_id IS NOT NULL
+            AND TRIM(l.assigned_tech_id) <> ''
             AND (
-              (
-                l.scheduled_at IS NOT NULL
-                AND l.scheduled_at >= ${fromIso}::timestamptz
-                AND l.scheduled_at < ${toIso}::timestamptz
-              )
-              OR (
-                l.assigned_tech_id IS NULL
-                AND (
-                  l.dispatch_status = 'unassigned_pool'
-                  OR l.dispatch_status IS NULL
-                  OR l.collected->>'dispatch_status' = 'unassigned_pool'
-                )
-              )
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN ('completed', 'unassigned')
             )
+            AND l.scheduled_at IS NOT NULL
+            AND l.scheduled_at >= ${fromIso}::timestamptz
+            AND l.scheduled_at < ${toIso}::timestamptz
             AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
           ORDER BY COALESCE(l.scheduled_at, l.created_at) ASC
           LIMIT ${lim}
@@ -7672,21 +7666,15 @@ export async function listOwnerActivePipelineJobsForDay(params: {
               l.disposition IN ('BOOKED', 'PENDING_TIME')
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
+            AND l.assigned_tech_id IS NOT NULL
+            AND TRIM(l.assigned_tech_id) <> ''
             AND (
-              (
-                l.scheduled_at IS NOT NULL
-                AND l.scheduled_at >= ${fromIso}::timestamptz
-                AND l.scheduled_at < ${toIso}::timestamptz
-              )
-              OR (
-                l.assigned_tech_id IS NULL
-                AND (
-                  l.dispatch_status = 'unassigned_pool'
-                  OR l.dispatch_status IS NULL
-                  OR l.collected->>'dispatch_status' = 'unassigned_pool'
-                )
-              )
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN ('completed', 'unassigned')
             )
+            AND l.scheduled_at IS NOT NULL
+            AND l.scheduled_at >= ${fromIso}::timestamptz
+            AND l.scheduled_at < ${toIso}::timestamptz
           ORDER BY COALESCE(l.scheduled_at, l.created_at) ASC
           LIMIT ${lim}
         `

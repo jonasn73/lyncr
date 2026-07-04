@@ -78,6 +78,8 @@ export type ActiveCallFormState = {
   serviceQuoteTypeId: string
   /** Last computed quote total in cents (stored on booked jobs + lost leads). */
   quotedPriceCents: number
+  /** When true, auto-quote changes do not overwrite quotedPriceCents. */
+  quotedPriceOverridden: boolean
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
@@ -105,6 +107,7 @@ const EMPTY_FORM: ActiveCallFormState = {
   vehicleClarificationAnswers: [],
   serviceQuoteTypeId: "lockout",
   quotedPriceCents: 0,
+  quotedPriceOverridden: false,
 }
 
 function flatAddressFromStructured(addr: StructuredAddress): Pick<
@@ -335,7 +338,7 @@ export function useActiveCallForm(
       if (
         prev.jobType === nextJobType &&
         prev.keyReplacementMode === nextKeyMode &&
-        prev.quotedPriceCents === nextQuoted
+        (prev.quotedPriceOverridden || prev.quotedPriceCents === nextQuoted)
       ) {
         return prev
       }
@@ -343,7 +346,11 @@ export function useActiveCallForm(
         ...prev,
         jobType: nextJobType,
         keyReplacementMode: nextKeyMode,
-        quotedPriceCents: nextQuoted,
+        ...(prev.quotedPriceOverridden
+          ? {}
+          : {
+              quotedPriceCents: nextQuoted,
+            }),
       }
     })
   }, [
@@ -587,7 +594,12 @@ export function useActiveCallForm(
     }) ?? ""
 
   const setServiceQuoteTypeId = useCallback((serviceQuoteTypeId: ServiceQuoteTypeId) => {
-    setForm((prev) => ({ ...prev, serviceQuoteTypeId }))
+    setForm((prev) => ({ ...prev, serviceQuoteTypeId, quotedPriceOverridden: false }))
+  }, [])
+
+  const setQuotedPriceDollars = useCallback((dollars: number) => {
+    const cents = Number.isFinite(dollars) && dollars >= 0 ? Math.round(dollars * 100) : 0
+    setForm((prev) => ({ ...prev, quotedPriceCents: cents, quotedPriceOverridden: true }))
   }, [])
 
   const liveQuote = calculateServiceQuote({
@@ -604,6 +616,7 @@ export function useActiveCallForm(
     form,
     patchForm,
     setServiceQuoteTypeId,
+    setQuotedPriceDollars,
     liveQuote,
     rateCardSource,
     travelDistanceMiles: travelDistanceMilesValue,

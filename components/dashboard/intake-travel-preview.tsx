@@ -8,7 +8,7 @@ import "leaflet/dist/leaflet.css"
 import type { Map as LeafletMap, Marker, Polyline } from "leaflet"
 import { loadLeafletClient } from "@/lib/leaflet-client"
 import { attachBaseMapTiles } from "@/lib/map-tiles"
-import { formatDistanceMiles } from "@/lib/geo"
+import { formatDistanceMiles, estimateTravelMinutes, formatTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
 type IntakeTravelPreviewProps = {
@@ -46,6 +46,8 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
   const hasJobPin = jobLat != null && jobLng != null
   const hasDispatcherPin = dispatcherLat != null && dispatcherLng != null
   const canDrawRoute = hasJobPin && hasDispatcherPin
+  const travelMinutes =
+    canDrawRoute && distanceMiles != null ? estimateTravelMinutes(distanceMiles) : null
 
   useEffect(() => {
     if (!hasJobPin || !containerRef.current) return
@@ -168,8 +170,18 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
               About{" "}
               <span className="font-semibold tabular-nums text-foreground">
                 {formatDistanceMiles(distanceMiles)}
-              </span>{" "}
-              straight-line from you
+              </span>
+              {travelMinutes != null ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {formatTravelMinutes(travelMinutes)}
+                  </span>{" "}
+                  drive
+                </>
+              ) : null}{" "}
+              from you
             </span>
           ) : locationStatus === "requesting" ? (
             <span>Finding your location…</span>
@@ -180,8 +192,15 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
           )}
         </div>
         {canDrawRoute && distanceMiles != null ? (
-          <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 font-semibold tabular-nums text-cyan-200">
-            {formatDistanceMiles(distanceMiles)}
+          <span className="flex items-center gap-1.5">
+            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 font-semibold tabular-nums text-cyan-200">
+              {formatDistanceMiles(distanceMiles)}
+            </span>
+            {travelMinutes != null ? (
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-semibold tabular-nums text-emerald-200">
+                {formatTravelMinutes(travelMinutes)}
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>

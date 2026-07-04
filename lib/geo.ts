@@ -38,3 +38,22 @@ export function formatDistanceMiles(miles: number): string {
   if (miles < 10) return `${miles.toFixed(1)} mi`
   return `${Math.round(miles)} mi`
 }
+
+/** Straight-line miles are shorter than driven distance — scale for a rough ETA. */
+const DISPATCH_ETA_ROAD_FACTOR = 1.35
+/** Typical urban/suburban drive speed for dispatcher ETAs. */
+const DISPATCH_ETA_MPH = 32
+
+/** Estimate drive time in minutes from straight-line miles (no routing API). */
+export function estimateTravelMinutes(straightLineMiles: number): number {
+  if (!Number.isFinite(straightLineMiles) || straightLineMiles <= 0) return 0
+  const roadMiles = straightLineMiles * DISPATCH_ETA_ROAD_FACTOR
+  return Math.max(1, Math.round((roadMiles / DISPATCH_ETA_MPH) * 60))
+}
+
+/** Human-readable ETA for intake travel preview. */
+export function formatTravelMinutes(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "—"
+  if (minutes === 1) return "~1 min"
+  return `~${minutes} min`
+}

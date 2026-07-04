@@ -17,6 +17,7 @@ import {
   type ServiceQuoteResult,
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
+import { estimateTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
 type ServiceQuoteCalculatorPanelProps = {
@@ -92,7 +93,9 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
           {vehicleYear || vehicleMake || vehicleModel
             ? ` · ${[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")}`
             : ""}
-          {quote.distanceMiles != null ? ` · ${quote.distanceMiles.toFixed(1)} mi travel` : ""}
+          {quote.distanceMiles != null
+            ? ` · ${quote.distanceMiles.toFixed(1)} mi travel · ~${estimateTravelMinutes(quote.distanceMiles)} min ETA`
+            : ""}
         </p>
       </div>
     </fieldset>

@@ -79,7 +79,7 @@ export function ActivePipelinePanel({
     }
     for (const job of jobs) {
       const phase = jobPhase(job)
-      if (phase === "completed") continue
+      if (phase === "completed" || phase === "unassigned") continue
       buckets.get(phase)?.push(job)
     }
     return PIPELINE_PANEL_GROUP_ORDER.map((phase) => ({

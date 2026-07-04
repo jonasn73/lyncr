@@ -33,7 +33,6 @@ import {
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
 import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
-import { formatQuoteDollars } from "@/lib/service-quote-calculator"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import type {
   OwnerCallAnsweredPayload,
@@ -198,6 +197,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     form,
     patchForm,
     setServiceQuoteTypeId,
+    setQuotedPriceDollars,
     liveQuote,
     travelDistanceMiles,
     dispatcherLocation,
@@ -733,12 +733,45 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             </div>
 
             <SheetFooter className="flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3">
-              <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2">
+                <Label htmlFor="ac-quote-price" className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Quote before dispatch
-                </p>
-                <p className="text-base font-bold tabular-nums text-emerald-300">
-                  {formatQuoteDollars(liveQuote.totalCents)}
+                </Label>
+                <div className="relative mt-1.5">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg font-semibold text-emerald-400/90">
+                    $
+                  </span>
+                  <Input
+                    id="ac-quote-price"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    value={
+                      form.quotedPriceCents > 0
+                        ? String(Math.round(form.quotedPriceCents / 100))
+                        : liveQuote.totalCents > 0
+                          ? String(Math.round(liveQuote.totalCents / 100))
+                          : ""
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.trim()
+                      if (!raw) {
+                        setQuotedPriceDollars(0)
+                        return
+                      }
+                      const dollars = Number.parseFloat(raw)
+                      if (!Number.isFinite(dollars)) return
+                      setQuotedPriceDollars(dollars)
+                    }}
+                    className="h-12 border-emerald-500/30 bg-emerald-500/5 pl-8 text-center text-2xl font-bold tabular-nums text-emerald-300"
+                    aria-describedby="ac-quote-price-hint"
+                  />
+                </div>
+                <p id="ac-quote-price-hint" className="mt-1 text-center text-[10px] text-muted-foreground">
+                  {form.quotedPriceOverridden
+                    ? "Custom quote — tap to adjust before you dispatch."
+                    : `Auto-calculated from service type${liveQuote.distanceMiles != null ? " and travel" : ""}.`}
                 </p>
               </div>
               <Button

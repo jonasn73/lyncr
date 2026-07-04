@@ -21,9 +21,27 @@ export function schedulerLifecyclePhase(params: {
   if (status === "completed") return "completed"
   if (status === "arrived") return "on_site"
   if (status === "en_route") return "en_route"
+  if (status === "unassigned") return "unassigned"
   const dispatch = (params.dispatch_status ?? "").trim().toLowerCase()
-  if (dispatch === "unassigned_pool" || !params.assigned_tech_id) return "unassigned"
+  if (dispatch === "unassigned_pool" || !params.assigned_tech_id?.trim()) return "unassigned"
   return "scheduled"
+}
+
+type SchedulerJobPhaseInput = {
+  job_status?: string | null
+  dispatch_status?: string | null
+  assigned_tech_id?: string | null
+}
+
+/** Hopper-only ticket — no tech yet or still in the unassigned pool. */
+export function isHopperPoolJob(job: SchedulerJobPhaseInput): boolean {
+  return schedulerLifecyclePhase(job) === "unassigned"
+}
+
+/** Right-column active pipeline — assigned, scheduled, en route, or on site. */
+export function isActivePipelineFeedJob(job: SchedulerJobPhaseInput): boolean {
+  const phase = schedulerLifecyclePhase(job)
+  return phase === "scheduled" || phase === "en_route" || phase === "on_site"
 }
 
 export const SCHEDULER_BADGE_STYLE: Record<SchedulerLifecyclePhase, string> = {

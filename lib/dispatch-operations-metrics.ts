@@ -1,7 +1,7 @@
 // Live dispatch counters for the scheduler operations metric strip.
 
 import { dayKeyLocal } from "@/lib/scheduler-utils"
-import { schedulerLifecyclePhase } from "@/lib/scheduler-job-status"
+import { isActivePipelineFeedJob, schedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 /** One row of live dispatch KPIs for the selected day. */
@@ -96,7 +96,8 @@ export function computeDispatchOperationsMetrics(params: {
   /** Optimistic completion timestamps keyed by job id. */
   completedTodayLedger?: ReadonlyMap<string, string>
 }): DispatchOperationsMetrics {
-  const merged = mergedActiveJobs(params.activePipelineJobs, params.dayEvents)
+  const assignedPipelineJobs = params.activePipelineJobs.filter(isActivePipelineFeedJob)
+  const merged = mergedActiveJobs(assignedPipelineJobs, params.dayEvents)
   const todayKey = params.todayKey ?? dayKeyLocal(new Date())
   const rawCalendarJobs = params.rawCalendarJobs ?? params.dayEvents
 
