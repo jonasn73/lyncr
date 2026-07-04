@@ -1,30 +1,13 @@
 "use client"
 
-// Owner job scheduler — month calendar, tech swimlanes, manual booking.
+// Owner job scheduler — month calendar, tech swimlanes, manual-call dispatch.
 
-import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { mutate as globalMutate } from "swr"
-import { ChevronDown, Loader2, Plus } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  intakeFieldsFromWorkspaceContext,
-  intakeTitleFromWorkspaceContext,
-  intakeValuesComplete,
-  serializeIntakeValues,
-  type IntakeFormValues,
-} from "@/lib/intake-form-helpers"
 import {
   WorkspacePage,
   WorkspacePageHeader,
@@ -33,12 +16,10 @@ import {
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
-  SCHEDULER_DURATION_OPTIONS,
   SCHEDULER_GRID_END_HOUR,
   SCHEDULER_GRID_START_HOUR,
   dayKeyLocal,
   dateAtLocalHour,
-  toDatetimeLocalValue,
 } from "@/lib/scheduler-utils"
 import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
 import {
@@ -48,6 +29,7 @@ import {
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
@@ -68,39 +50,20 @@ import type {
   UnassignedPoolJob,
 } from "@/lib/types"
 
-const IndustryIntakeFormFields = dynamic(
-  () =>
-    import("@/components/industry-intake-form-fields").then((m) => ({
-      default: m.IndustryIntakeFormFields,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-zinc-500" aria-hidden />
-      </div>
-    ),
-  }
-)
-
-const bookingInputClass =
-  "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-
-function formatPhone(num: string | null): string {
-  if (!num) return "—"
-  const d = num.replace(/\D/g, "")
-  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
-  if (d.length === 11 && d.startsWith("1")) return `+1 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
-  return num
-}
-
 function sortEventsByTime(a: SchedulerEvent, b: SchedulerEvent): number {
   return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+}
+
+function shiftCalendarDay(day: Date, delta: number): Date {
+  const next = new Date(day)
+  next.setDate(next.getDate() + delta)
+  return next
 }
 
 export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
@@ -108,15 +71,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [technicians, setTechnicians] = useState<FieldTechnician[]>([])
   const [lineIndustryTags, setLineIndustryTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [bookingOpen, setBookingOpen] = useState(false)
-  const [bookingStart, setBookingStart] = useState(() => toDatetimeLocalValue(new Date()))
-  const [customerName, setCustomerName] = useState("")
-  const [customerPhone, setCustomerPhone] = useState("")
-  const [intakeValues, setIntakeValues] = useState<IntakeFormValues>({})
-  const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60)
-  const [assignedTechId, setAssignedTechId] = useState("")
-  const [bookingSaving, setBookingSaving] = useState(false)
-  const [bookingError, setBookingError] = useState<string | null>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [drawerPoolJob, setDrawerPoolJob] = useState<UnassignedPoolJob | null>(null)
   const [drawerScheduledEvent, setDrawerScheduledEvent] = useState<SchedulerEvent | null>(null)
@@ -173,26 +127,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         industryTags: lineIndustryTags,
       }),
     [activeOrgName, lineIndustryTags]
-  )
-
-  const intakeFields = useMemo(
-    () =>
-      intakeFieldsFromWorkspaceContext({
-        intakeProfile,
-        organizationName: activeOrgName,
-        industryTags: lineIndustryTags,
-      }),
-    [intakeProfile, activeOrgName, lineIndustryTags]
-  )
-
-  const intakeModalTitle = useMemo(
-    () =>
-      intakeTitleFromWorkspaceContext({
-        intakeProfile,
-        organizationName: activeOrgName,
-        industryTags: lineIndustryTags,
-      }),
-    [intakeProfile, activeOrgName, lineIndustryTags]
   )
 
   const assignableTechs = useMemo(
@@ -335,21 +269,12 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     [displayPipelineJobs, dayEvents, displayPoolJobs]
   )
 
-  const canSaveBooking =
-    customerName.trim() &&
-    customerPhone.trim() &&
-    intakeValuesComplete(intakeFields, intakeValues)
-
-  useEffect(() => {
-    if (bookingOpen) {
-      setBookingError(null)
-    } else {
-      setCustomerName("")
-      setCustomerPhone("")
-      setIntakeValues({})
-      setAssignedTechId("")
-    }
-  }, [bookingOpen])
+  const openManualCallFromScheduler = useCallback(
+    (_techUserId: string, _hour24: number) => {
+      inboundCallPanel?.openManualCallPanel()
+    },
+    [inboundCallPanel]
+  )
 
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current
@@ -461,11 +386,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [ownerUserId, refreshSchedulerData, load, mutatePool, mutateActivePipeline])
 
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
-
-  function openBookingAtHour(hour24: number) {
-    setBookingStart(toDatetimeLocalValue(dateAtLocalHour(selectedDay, hour24)))
-    setBookingOpen(true)
-  }
 
   function applyJobEventUpdate(event: SchedulerEvent) {
     setDrawerScheduledEvent(event)
@@ -668,16 +588,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     }
   }
 
-  function openBookingOnTechLane(techUserId: string, hour24: number) {
-    setAssignedTechId(techUserId)
-    openBookingAtHour(hour24)
-  }
-
-  function openBookingDefault() {
-    const defaultHour = Math.max(SCHEDULER_GRID_START_HOUR, Math.min(new Date().getHours(), SCHEDULER_GRID_END_HOUR))
-    openBookingAtHour(defaultHour)
-  }
-
   function handleAppointmentCreated(event: SchedulerEvent) {
     setEvents((prev) => {
       const next = [...prev.filter((e) => e.id !== event.id), event]
@@ -718,51 +628,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       !intakeScheduleJob &&
       !events.some((e) => e.id === focusLeadId)
   )
-
-  function setIntakeField(
-    name: string,
-    value: string | boolean | import("@/lib/structured-address").StructuredAddress | null
-  ) {
-    setIntakeValues((prev) => ({ ...prev, [name]: value }))
-  }
-
-  async function saveBooking() {
-    setBookingSaving(true)
-    setBookingError(null)
-    try {
-      const serialized = serializeIntakeValues(intakeValues)
-      const res = await fetch("/api/owner/scheduler", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
-          scheduled_at: new Date(bookingStart).toISOString(),
-          duration_minutes: bookingDurationMinutes,
-          assigned_tech_id: assignedTechId.trim() || null,
-          organization_id: orgId,
-          job_type: String(serialized.job_type ?? "Other"),
-          vehicle_year: serialized.vehicle_year ?? null,
-          vehicle_make: serialized.vehicle_make ?? null,
-          vehicle_model: serialized.vehicle_model ?? null,
-          job_notes: serialized.job_notes ?? null,
-          structured_address: intakeValues.job_address ?? null,
-          intake_fields: serialized,
-        }),
-      })
-      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
-      if (!res.ok) throw new Error(json.error ?? "Could not save appointment")
-      const event = json.data?.event
-      if (!event) throw new Error("No event returned")
-      handleAppointmentCreated(event)
-      setBookingOpen(false)
-    } catch (e) {
-      setBookingError(e instanceof Error ? e.message : "Could not save appointment")
-    } finally {
-      setBookingSaving(false)
-    }
-  }
 
   useEffect(() => {
     if (!isActive || !focusLeadId) return
@@ -825,17 +690,11 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   ])
 
   const headerAction = (
-    <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-      <PhoneLookupBar
-        organizationId={orgId}
-        onResults={handlePhoneLookupResults}
-        className="order-first w-full sm:order-none sm:mr-1"
-      />
-      <Button type="button" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
-        <Plus className="h-4 w-4" aria-hidden />
-        Create appointment
-      </Button>
-    </div>
+    <PhoneLookupBar
+      organizationId={orgId}
+      onResults={handlePhoneLookupResults}
+      className="w-full sm:w-auto"
+    />
   )
 
   return (
@@ -843,7 +702,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" action={headerAction} />
 
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-zinc-500 lg:text-xs">
           {intakeProfile === "locksmith"
             ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
             : intakeProfile === "detailing"
@@ -851,19 +710,9 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               : "Automotive field jobs with industry-specific intake fields and validated addresses."}
         </p>
 
-        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-3 lg:gap-6 lg:pb-2">
-          {/* Left control column — hopper, live metrics, calendar (desktop) */}
-          <div className="flex min-w-0 flex-col gap-3 lg:gap-4">
-            <Button
-              type="button"
-              size="sm"
-              className="hidden w-full gap-1.5 lg:inline-flex"
-              onClick={openBookingDefault}
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              Create appointment
-            </Button>
-
+        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-3 lg:gap-6 lg:pb-0">
+          {/* Left control column — hopper + live metrics / manual call */}
+          <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
             <div className="lg:hidden">
               <JobPoolPanel
                 jobs={displayPoolJobs}
@@ -905,34 +754,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 completingJobId={completingId}
               />
             </div>
-
-            <WorkspacePanel className="hidden flex-col p-2 lg:flex">
-              <Calendar
-                mode="single"
-                selected={selectedDay}
-                onSelect={(d) => d && setSelectedDay(d)}
-                month={visibleMonth}
-                onMonthChange={setVisibleMonth}
-                modifiers={{ hasJob: [...daysWithEvents] }}
-                modifiersClassNames={{
-                  hasJob:
-                    "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
-                }}
-                className="mx-auto w-full p-0"
-              />
-              {loading ? (
-                <SchedulerCalendarStatsSkeleton />
-              ) : (
-                <p className="mt-1 text-center text-[11px] text-zinc-500">
-                  {displayEvents.length} scheduled this month
-                  {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
-                </p>
-              )}
-            </WorkspacePanel>
           </div>
 
           {/* Main workspace — pipeline + swimlanes */}
-          <div className="flex w-full min-w-0 flex-col gap-3 lg:col-span-2 lg:gap-4">
+          <div className="flex w-full min-w-0 flex-col gap-4 lg:col-span-2 lg:gap-6">
             {markCompleteError ? (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                 {markCompleteError}
@@ -940,13 +765,13 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
             ) : null}
 
             <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-              <div className="border-b border-border/60 px-3 py-2 lg:px-4 lg:py-2.5">
+              <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                 <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-                <p className="mt-0.5 text-xs text-zinc-500">
+                <p className="text-xs text-zinc-500">
                   {displayPipelineJobs.length} active job{displayPipelineJobs.length === 1 ? "" : "s"} today
                 </p>
               </div>
-              <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40 lg:max-h-[min(220px,30vh)]">
+              <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
                 <ActivePipelinePanelStream
                   jobs={displayPipelineJobs}
                   dayKey={pipelineDayKey}
@@ -1001,21 +826,42 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 </div>
               </details>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 lg:px-4 lg:py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                 <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-foreground">
                     {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
                   </h2>
-                  <p className="mt-0.5 text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500">
                     Tech swimlanes · {assignableTechs.length} technician
                     {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
                     {dayEvents.length === 1 ? "" : "s"} scheduled
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
-                  <Plus className="h-3.5 w-3.5" aria-hidden />
-                  Create
-                </Button>
+                <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay((day) => shiftCalendarDay(day, -1))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                    aria-label="Previous day"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay(() => new Date())}
+                    className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay((day) => shiftCalendarDay(day, 1))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                    aria-label="Next day"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
               </div>
               {gridScheduleError ? (
                 <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:px-4">
@@ -1029,7 +875,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 highlightId={highlightId}
                 onSelectEvent={openScheduledJobDrawer}
                 onDropPoolJob={schedulePoolOnTechLane}
-                onBookEmptySlot={openBookingOnTechLane}
+                onBookEmptySlot={openManualCallFromScheduler}
                 mobileAssignRequest={mobileAssignRequest}
                 onMobileAssignRequestClear={() => setMobileAssignRequest(null)}
               />
@@ -1037,111 +883,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           </div>
         </div>
       </WorkspacePage>
-
-      {bookingOpen ? (
-        <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Create appointment</DialogTitle>
-              <DialogDescription>
-                {intakeModalTitle}
-                {activeOrgName ? ` · ${activeOrgName}` : ""}
-                {lineIndustryTags[0] ? ` (${lineIndustryTags[0]})` : ""}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-2">
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-medium text-foreground">Customer name</span>
-                <input
-                  className={bookingInputClass}
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Jane Smith"
-                />
-              </label>
-
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-medium text-foreground">Phone number</span>
-                <input
-                  className={bookingInputClass}
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="(502) 555-0100"
-                />
-              </label>
-
-              <IndustryIntakeFormFields
-                intakeProfile={intakeProfile}
-                organizationName={activeOrgName}
-                industryTags={lineIndustryTags}
-                values={intakeValues}
-                onChange={setIntakeField}
-                gridClassName="grid gap-4"
-              />
-
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-medium text-foreground">Assigned tech</span>
-                <select
-                  className={bookingInputClass}
-                  value={assignedTechId}
-                  onChange={(e) => setAssignedTechId(e.target.value)}
-                >
-                  <option value="">Unassigned</option>
-                  {assignableTechs.map((t) => (
-                    <option key={t.id} value={t.portal_user_id!}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm">
-                  <span className="font-medium text-foreground">Start time</span>
-                  <input
-                    className={bookingInputClass}
-                    type="datetime-local"
-                    value={bookingStart}
-                    onChange={(e) => setBookingStart(e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-sm">
-                  <span className="font-medium text-foreground">Duration</span>
-                  <select
-                    className={bookingInputClass}
-                    value={bookingDurationMinutes}
-                    onChange={(e) => setBookingDurationMinutes(Number(e.target.value))}
-                  >
-                    {SCHEDULER_DURATION_OPTIONS.map((o) => (
-                      <option key={o.minutes} value={o.minutes}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {bookingError ? (
-                <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {bookingError}
-                </p>
-              ) : null}
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => setBookingOpen(false)} disabled={bookingSaving}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={() => void saveBooking()} disabled={bookingSaving || !canSaveBooking}>
-                {bookingSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                Save appointment
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
 
       <JobDetailDrawer
         open={drawerOpen}
