@@ -86,7 +86,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       <PresencePane active={activePage === "dashboard"} label="Routing">
         <RoutingPane />
       </PresencePane>
-      <PresencePane active={activePage === "activity"} label="Activity" deferUntilVisit>
+      <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
         <ActivityWorkspaceView />
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>

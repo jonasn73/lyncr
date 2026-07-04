@@ -254,8 +254,8 @@ function ActivityCallFilterBar({
   onChange: (next: ActivityCallFilter) => void
 }) {
   const chips: { id: ActivityCallFilter; label: string; badge?: number }[] = [
+    { id: "all", label: "All activity" },
     { id: "missed", label: "Missed today", badge: missedCount },
-    { id: "all", label: "All calls" },
   ]
 
   return (
@@ -763,7 +763,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     <WorkspacePage>
       <WorkspacePageHeader
         eyebrow="Live"
-        title={filter === "missed" ? "Missed calls today" : "Activity"}
+        title={filter === "missed" ? "Missed calls today" : "Activities"}
         action={
           <div className="flex flex-wrap items-center gap-3">
             {refreshing ? (
@@ -824,8 +824,6 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   const router = useRouter()
   const [filter, setFilter] = useState<ActivityCallFilter>(() => {
     if (searchParams.get("filter") === "missed") return "missed"
-    if (searchParams.get("filter") === "all") return "all"
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) return "missed"
     return "all"
   })
   useBookingAlerts()

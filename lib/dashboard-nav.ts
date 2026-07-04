@@ -1,9 +1,9 @@
 import {
+  Activity,
   BarChart3,
   CalendarDays,
   ClipboardList,
   Inbox,
-  Phone,
   Settings,
   Users,
   Zap,
@@ -43,7 +43,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
-  { id: "activity", label: "Calls", icon: Phone },
+  { id: "activity", label: "Activities", icon: Activity },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
@@ -60,7 +60,7 @@ export const DASHBOARD_PAGE_HREF: Record<PageId, string> = {
   help: "/dashboard/help",
 }
 
-/** Mobile bottom bar may deep-link (e.g. Calls tab opens missed filter). */
+/** Mobile Activities tab opens the full activity hub (not missed-only deep link). */
 export const DASHBOARD_MOBILE_PAGE_HREF: Partial<Record<PageId, string>> = {
-  activity: "/dashboard/activity?filter=missed",
+  activity: "/dashboard/activity?filter=all",
 }
