@@ -7,6 +7,10 @@
     {
       "path": "/api/sms/flush-scheduled",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/recover-leads",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {

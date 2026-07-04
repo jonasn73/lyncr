@@ -38,6 +38,7 @@ import type {
   OwnerCallAnsweredPayload,
   OwnerCallCompletedPayload,
   OwnerCallInitiatedPayload,
+  OwnerCallRecordingReadyPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -56,9 +57,6 @@ const RINGING_FAST_POLL_MS = 250
 const RINGING_FAST_POLL_MAX_MS = 90_000
 /** Safety net when Pusher is slow — only while the dashboard tab is visible. */
 const ANSWERED_VISIBILITY_POLL_MS = 800
-
-/** Poll interval while waiting for Telnyx to attach a recording URL to the call log. */
-const RECORDING_URL_POLL_MS = 4_000
 
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
@@ -128,21 +126,6 @@ function callLogRowFromApi(row: {
   }
 }
 
-/** Lightweight poll — recording URLs arrive after answer via Telnyx recording-status webhook. */
-async function fetchRecordingUrlForCallLog(callLogId: string): Promise<string | null> {
-  if (!callLogId || callLogId.startsWith("ring-")) return null
-  try {
-    const res = await fetch("/api/calls/answered-recent?withinMinutes=30", { credentials: "include" })
-    if (!res.ok) return null
-    const data = (await res.json()) as { calls?: Array<{ id?: string; recording_url?: string | null }> }
-    const match = (Array.isArray(data.calls) ? data.calls : []).find((row) => row.id === callLogId)
-    const url = match?.recording_url?.trim()
-    return url ? url : null
-  } catch {
-    return null
-  }
-}
-
 function fetchFirstUnseenRingingCall(seen: Set<string>): Promise<ActiveCallRow | null> {
   return fetch("/api/calls/ringing-recent", { credentials: "include" })
     .then((r) => (r.ok ? r.json() : { calls: [] }))
@@ -199,6 +182,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [failureReason, setFailureReason] = useState("Price too high")
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
+  const manualCallRowRef = useRef(manualCallRow)
+  manualCallRowRef.current = manualCallRow
   const effectiveCurrent = manualCallRow ?? current
 
   const linkManualCallLog = useCallback(
@@ -357,9 +342,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       showCallRow(setCurrent, row, dismissedRef.current)
     }
 
+    const onRecordingReady = (payload: OwnerCallRecordingReadyPayload) => {
+      const callLogId = String(payload.call_log_id ?? "").trim()
+      const url = String(payload.recording_url ?? "").trim()
+      if (!callLogId || !url) return
+
+      setCurrent((prev) => {
+        if (!prev || prev.id !== callLogId) return prev
+        if (dismissedRef.current.has(callLogId)) return prev
+        return { ...prev, recording_url: url }
+      })
+
+      if (manualCallRowRef.current?.id === callLogId) {
+        patchManualCallRow({ recording_url: url })
+      }
+    }
+
     channel.bind("call-initiated", onInitiated)
     channel.bind("call-answered", onAnswered)
     channel.bind("call-completed", onCompleted)
+    channel.bind("call-recording-ready", onRecordingReady)
     return () => {
       cancelled = true
       stopRingingFastPoll()
@@ -368,45 +370,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       channel.unbind("call-initiated", onInitiated)
       channel.unbind("call-answered", onAnswered)
       channel.unbind("call-completed", onCompleted)
+      channel.unbind("call-recording-ready", onRecordingReady)
     }
-  }, [enabled, ownerUserId])
+  }, [enabled, ownerUserId, patchManualCallRow])
 
   useEffect(() => {
     if (!enabled) setCurrent(null)
   }, [enabled])
-
-  /** Poll for recording_url while the intake sheet is open and the carrier has not posted one yet. */
-  useEffect(() => {
-    const row = effectiveCurrent
-    if (!row?.id || row.isManual || row.recording_url) return
-    if (row.id.startsWith("ring-")) return
-
-    let cancelled = false
-    const applyRecordingUrl = (url: string | null) => {
-      if (cancelled || !url) return
-      if (manualCallRow?.id === row.id) {
-        patchManualCallRow({ recording_url: url })
-      } else {
-        setCurrent((prev) => (prev?.id === row.id ? { ...prev, recording_url: url } : prev))
-      }
-    }
-
-    void fetchRecordingUrlForCallLog(row.id).then(applyRecordingUrl)
-    const pollId = window.setInterval(() => {
-      void fetchRecordingUrlForCallLog(row.id).then(applyRecordingUrl)
-    }, RECORDING_URL_POLL_MS)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(pollId)
-    }
-  }, [
-    effectiveCurrent?.id,
-    effectiveCurrent?.isManual,
-    effectiveCurrent?.recording_url,
-    manualCallRow?.id,
-    patchManualCallRow,
-  ])
 
   const dismissCallIntake = useCallback(
     (row: ActiveCallRow | null) => {

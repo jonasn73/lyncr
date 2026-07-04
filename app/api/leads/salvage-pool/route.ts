@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
           last_quoted_price_cents: e.last_quoted_price_cents,
           manual_retry_required: e.manual_retry_required,
           recovery_blocked_reason: e.recovery_blocked_reason,
+          has_receptionist_log: e.has_receptionist_log,
         })),
       },
     })

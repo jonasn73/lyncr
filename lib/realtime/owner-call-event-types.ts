@@ -40,7 +40,17 @@ export type OwnerCallCompletedPayload = {
   routed_to_name?: string | null
 }
 
-export type OwnerCallChannelEvent = "call-initiated" | "call-answered" | "call-completed"
+/** Fired when Telnyx posts a recording URL to call_logs — drives inline intake player. */
+export type OwnerCallRecordingReadyPayload = {
+  call_log_id: string
+  recording_url: string
+}
+
+export type OwnerCallChannelEvent =
+  | "call-initiated"
+  | "call-answered"
+  | "call-completed"
+  | "call-recording-ready"
 
 /** Normalize E.164 / display numbers to digits-only for workspace line matching. */
 export function normalizeCallEventPhoneDigits(raw: string | null | undefined): string {

@@ -5,7 +5,8 @@
 // Supports TeXML-compatible callback parameter names.
 
 import { NextRequest, NextResponse } from "next/server"
-import { updateCallLog } from "@/lib/db"
+import { broadcastCallRecordingReady } from "@/lib/call-telemetry-realtime"
+import { getCallLogSnapshotForTelemetry, updateCallLog } from "@/lib/db"
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
@@ -20,11 +21,23 @@ export async function POST(req: NextRequest) {
 
   try {
     if (recordingStatus === "completed" && recordingUrl) {
+      const normalizedUrl = recordingUrl.endsWith(".mp3") ? recordingUrl : `${recordingUrl}.mp3`
       await updateCallLog(callSid, {
         has_recording: true,
-        recording_url: recordingUrl.endsWith(".mp3") ? recordingUrl : `${recordingUrl}.mp3`,
+        recording_url: normalizedUrl,
         recording_duration_seconds: recordingDuration,
       })
+
+      const snapshot = await getCallLogSnapshotForTelemetry(callSid)
+      if (snapshot?.user_id && snapshot.id) {
+        await broadcastCallRecordingReady({
+          ownerUserId: snapshot.user_id,
+          callLogId: snapshot.id,
+          recordingUrl: normalizedUrl,
+        }).catch((e) => {
+          console.warn("[Telnyx] call-recording-ready publish failed:", e)
+        })
+      }
     }
   } catch (error) {
     console.error("[Telnyx] Error in recording status callback:", error)

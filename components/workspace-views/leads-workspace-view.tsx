@@ -376,6 +376,11 @@ function LeadSalvageSection({ leads }: { leads: SalvageLead[] }) {
               >
                 {badge.label}
               </span>
+              {lead.has_receptionist_log ? (
+                <span className="inline-flex w-fit items-center rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+                  Receptionist + intake
+                </span>
+              ) : null}
 
               {href ? (
                 <a
@@ -412,7 +417,11 @@ function LeadSalvageSection({ leads }: { leads: SalvageLead[] }) {
 
               <p className="mt-auto text-[11px] text-zinc-600">
                 {operator ? `Logged by ${operator} · ` : ""}
-                {lead.source === "lost_lead" ? "Intake sheet · " : ""}
+                {lead.has_receptionist_log
+                  ? "Receptionist log + intake sheet · "
+                  : lead.source === "lost_lead"
+                    ? "Intake sheet · "
+                    : ""}
                 {formatCapturedDate(lead.created_at)}
               </p>
             </div>

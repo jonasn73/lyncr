@@ -5,6 +5,7 @@ import type {
   OwnerCallAnsweredPayload,
   OwnerCallCompletedPayload,
   OwnerCallInitiatedPayload,
+  OwnerCallRecordingReadyPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 
@@ -77,6 +78,19 @@ export async function broadcastCallCompleted(params: {
     routed_to_name: params.routedToName ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-completed", payload)
+}
+
+/** Fired when a call recording URL is saved — opens the intake sheet audio player instantly. */
+export async function broadcastCallRecordingReady(params: {
+  ownerUserId: string
+  callLogId: string
+  recordingUrl: string
+}): Promise<void> {
+  const payload: OwnerCallRecordingReadyPayload = {
+    call_log_id: params.callLogId,
+    recording_url: params.recordingUrl,
+  }
+  await publishOwnerEvent(params.ownerUserId, "call-recording-ready", payload)
 }
 
 /** Resolve call row and publish call-answered for the intake sheet (TeXML + Call Control). */

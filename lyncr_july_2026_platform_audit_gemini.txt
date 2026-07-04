@@ -1,0 +1,490 @@
+LYNCR JULY 2026 PLATFORM AUDIT — TELEMETRY, SALVAGE, PRICING & MOBILE DISPATCH
+Upload this file to Google Gemini for architectural review, gap analysis, and follow-up planning.
+Format: plain text operational + implementation audit.
+Generated: July 4, 2026
+Repository: /Users/JR/Desktop/zing
+Product: Lyncr (lyncr.app) — VoIP call routing + field dispatch
+Production commit: 31189a4 (deployed to https://lyncr.app)
+
+INSTRUCTIONS FOR GEMINI:
+- Treat this as the authoritative audit for the July 2026 second-wave release (post dispatch-intake modernization).
+- Builds on prior reports: lyncr_dispatch_intake_modernization_gemini.txt, lyncr_realtime_call_audit_gemini.txt.
+- Covers four tracks: (A) call telemetry + recording player, (B) unified lead salvage pool, (C) dynamic rate cards, (D) mobile scheduler touch dispatch.
+- When recommending changes, cite file paths from this document and preserve Next.js 16 / Neon / Telnyx / Pusher patterns.
+- Production DB migrations are manual in Neon SQL Editor — agents cannot apply them; point owners to scripts/MIGRATE-ALL.md.
+
+RELATED PRIOR REPORTS (read for full context):
+- lyncr_dispatch_intake_modernization_gemini.txt — manual call panel, quote calculator v1, lost_leads table, mobile timeline v1
+- lyncr_realtime_call_audit_gemini.txt — TeXML vs Call Control, Pusher events, call_logs lifecycle, four-console gaps
+
+================================================================================
+
+# Lyncr July 2026 Platform Audit
+
+Scope: Second-wave release after dispatch intake modernization — fixes stalling talk-time HUD counters, adds inline call recording playback, unifies salvage queues, loads owner-configurable pricing, and replaces mobile drag-and-drop with double-tap technician assignment.
+
+Production URL: https://lyncr.app (Vercel, alias lyncr.app)
+Telephony: Telnyx (TeXML primary; Call Control optional via ZING_INBOUND_CALL_CONTROL)
+Realtime: Pusher Channels on owner-{userId}
+Database: Neon Postgres (migrations 083–085 documented; not auto-applied)
+
+--------------------------------------------------------------------------------
+
+## Executive Summary
+
+| Track | Feature | Status | Primary entry points |
+|-------|---------|--------|----------------------|
+| A | Telemetry formatters + live talk-time HUD | SHIPPED | lib/telemetry-formatters.ts, lib/hooks/use-real-time-stats.ts, routing-telemetry-strip.tsx |
+| A | Inline call recording player (intake sheet) | SHIPPED | components/dashboard/CallAnsweredModal.tsx |
+| B | Unified lead salvage pool (ai_leads + lost_leads) | SHIPPED | lib/salvage-pool.ts, GET /api/leads/salvage-pool, leads-workspace-view.tsx |
+| B | 10DLC-safe recovery SMS + owner alert | SHIPPED | lib/lost-lead-recovery-sms.ts, GET /api/cron/recover-leads |
+| C | Dynamic service rate cards from onboarding | SHIPPED | lib/service-rate-card.ts, GET /api/service-quote/rate-card |
+| C | pricing_metadata on booked jobs | SHIPPED | lib/create-intake-job.ts, lib/hooks/use-active-call-form.ts |
+| D | Mobile touch dispatch (no drag on coarse pointers) | SHIPPED | hooks/use-scheduler-mobile-timeline.ts, technician-swimlane-board.tsx, job-pool-card.tsx |
+
+Git commits in this release arc:
+- 31189a4 Add telemetry formatters, salvage pool, rate cards, and mobile scheduler dispatch.
+- ef83d48 Bridge manual dispatch intake to call_logs for unified telemetry.
+- 6d22eb3 Add dispatch intake modernization (manual calls, quotes, lost-lead recovery, mobile timeline v1).
+
+--------------------------------------------------------------------------------
+
+## Track A — Call Telemetry, Live Talk-Time & Recording Player
+
+### A.1 Problem (pre-fix)
+
+- Talk-time display logic was duplicated across lib/daily-call-telemetry.ts, routing-call-history-dialog.tsx, activity views, and routing-telemetry-cache.ts with inconsistent padding (e.g. 1:5 vs 1:05).
+- HUD Daily Talk / Weekly Talk pills could appear to "stall" during active calls because:
+  1. Baseline seconds only updated on call-completed Pusher event or REST refresh.
+  2. scheduleRefreshBaseline() after hangup could overwrite optimistic increments with stale Neon reads (race).
+  3. call-answered was not tracked in useRealTimeStats — no live tick while caller still on line.
+
+### A.2 Solution — unified formatters
+
+File: lib/telemetry-formatters.ts
+
+Exports:
+- formatSecondsToClock(sec) → m:ss or h:mm:ss; "0:00" for null/NaN
+- parseTalkSecondsFromDisplay(display) → seconds from "12:05" or "1:02:03"
+
+Wired into:
+- lib/daily-call-telemetry.ts (formatTalkTime, formatTalkDuration, formatAvgTalkTime all delegate here)
+- lib/routing-telemetry-cache.ts (re-exports parseTalkSecondsFromDisplay)
+
+Tests: tests/telemetry-formatters.test.ts
+
+### A.3 Solution — live talk-time counters
+
+File: lib/hooks/use-real-time-stats.ts
+
+Changes:
+1. ActiveCallSession now includes answeredAt (set on Pusher call-answered).
+2. Subscribes to call-answered on owner-{userId} channel (in addition to call-initiated / call-completed).
+3. liveTalkTick interval (1s) while any session has answeredAt.
+4. inProgressTalkSeconds = sum of (now - answeredAt) for active answered legs.
+5. liveDailyTalkSeconds = dailyTalkSeconds + inProgressTalkSeconds
+6. liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
+7. refreshBaseline merge: Math.max(prev, apiValue) for talk seconds — prevents stale API from resetting HUD after optimistic call-completed increment.
+
+File: components/dashboard/routing-telemetry-strip.tsx
+- Displays liveDailyTalkSeconds / liveWeeklyTalkSeconds (not raw baseline).
+- Passes live values to RoutingCallHistoryDialog expectedTalkSeconds for HUD parity checks.
+
+Pusher events consumed (owner channel):
+| Event | HUD effect |
+|-------|------------|
+| call-initiated | dailyCalls++, active session added |
+| call-answered | session.answeredAt set → live tick starts |
+| call-completed | session removed; talkSec added to baseline; debounced REST refresh |
+
+### A.4 Solution — inline recording player
+
+File: components/dashboard/CallAnsweredModal.tsx
+
+ActiveCallRow extended (lib/hooks/use-active-call-form.ts):
+- recording_url?: string | null
+
+Behavior:
+- callLogRowFromApi + showCallRow merge preserve recording_url from API rows.
+- Poll GET /api/calls/answered-recent?withinMinutes=30 every 4s until recording_url lands (Telnyx recording-status webhook is async).
+- When recording_url present, renders HTML5 audio row in sheet header:
+
+  <audio src={recording_url} controls className="h-8 w-full accent-cyan-400" />
+
+Note: recording URLs arrive after answer via POST /api/voice/telnyx/recording-status (or Call Control equivalent). Manual intake rows typically have no recording.
+
+Gap: OwnerCallCompletedPayload and getCallLogSnapshotForTelemetry do not yet include recording_url — polling is the current bridge.
+
+--------------------------------------------------------------------------------
+
+## Track B — Unified Lead Salvage Pool & Recovery SMS
+
+### B.1 Problem (pre-fix)
+
+- Price-shopper / hang-up leads lived in two silos:
+  1. ai_leads with disposition PRICE_REJECTED + is_salvageable (receptionist portal)
+  2. lost_leads table from owner intake sheet (POST /api/leads/lost)
+- Recovery cron called sendTelnyxSms directly without 10DLC failure classification.
+- No single owner dashboard queue; no realtime alert when carrier blocks recovery SMS.
+
+### B.2 Solution — unified salvage pool
+
+File: lib/salvage-pool.ts
+
+SalvagePoolEntry normalized shape:
+- source: ai_lead | lost_lead
+- caller_e164, summary, failure_reason, status, last_quoted_price_cents
+- manual_retry_required, recovery_blocked_reason (when status=failed_10dlc)
+- vehicle_label, service_type, call_log_id, collected JSONB
+
+listUnifiedSalvagePool(ownerUserId, limit):
+- Parallel fetch: listSalvageableLeads (ai_leads) + listLostLeadsForSalvagePool (lost_leads)
+- Merge sort by created_at DESC
+- Returns counts: ai_lead, lost_lead, manual_retry
+
+API routes:
+- GET /api/leads/salvage-pool — standalone JSON feed
+- lib/server/leads-workspace-data.ts — includes salvageLeads in workspace SSR payload
+
+UI: components/workspace-views/leads-workspace-view.tsx
+- LeadSalvageSection — amber cards, tel: links, badges:
+  - "Price rejected" (ai_lead)
+  - "Lost lead" (lost_lead intake)
+  - "SMS blocked — call back" (failed_10dlc / manual_retry_required)
+- Shows recovery_blocked_reason when 10DLC blocked
+
+### B.3 Solution — 10DLC-safe recovery SMS
+
+File: lib/lost-lead-recovery-sms.ts
+
+sendLostLeadRecoverySms(row):
+1. generateLostLeadRecoverySms(row) — OpenAI gpt-4o-mini optional; template fallback
+2. sendTelnyxSms via lib/telnyx-sms.ts
+3. classifyTelnyxSmsError on failure
+
+Outcomes:
+| Result | DB status | Pusher |
+|--------|-----------|--------|
+| SMS sent | recovery_sent | (none extra) |
+| 10DLC block | failed_10dlc | salvage-recovery-blocked + lead-salvageable |
+| Other error | lost_lead (retry eligible) | — |
+
+Pusher event salvage-recovery-blocked (NEW):
+- Payload: lost_lead_id, phone_number, error, manual_retry_required, attempted_sms_preview
+- Owner should call back manually or use approved SMS channel
+
+Cron: GET /api/cron/recover-leads
+- Now uses sendLostLeadRecoverySms() (not inline Telnyx)
+- Response includes blocked_10dlc count
+
+Tests: tests/lost-lead-recovery-sms.test.ts
+
+### B.4 Database dependency
+
+Migration 84: scripts/084-lost-leads-recovery.sql (lost_leads table)
+Migration 85: scripts/085-manual-call-log-bridge.sql (manual_intake call_logs)
+
+OWNER ACTION: Run 084 + 085 in Neon SQL Editor per scripts/MIGRATE-ALL.md.
+
+Cron gap: vercel.json does NOT yet include /api/cron/recover-leads — only /api/voice/warm and /api/sms/flush-scheduled. Owner must add Vercel Cron + CRON_SECRET.
+
+--------------------------------------------------------------------------------
+
+## Track C — Dynamic Service Rate Cards
+
+### C.1 Problem (pre-fix)
+
+- lib/service-quote-calculator.ts used hardcoded base rates and adjustment tiers.
+- Prior modernization report gap #3: "Pricing matrix not connected to owner-configurable rate cards."
+
+### C.2 Solution — rate card loader
+
+File: lib/service-rate-card.ts
+
+Storage: onboarding_profiles.service_rules JSONB text column
+
+Expected JSON shape (embedded in service_rules):
+{
+  "rate_card": {
+    "version": 1,
+    "services": { "lockout": 8500, "key_gen": 17500, ... },
+    "vehicle_age_tiers": [ { "min_age_years": 12, "cents": 1500 }, ... ],
+    "premium_makes": ["BMW", "Mercedes-Benz", "Tesla", ...],
+    "premium_make_cents": 2500
+  }
+}
+
+Plain-text service_rules (non-JSON) → falls back to DEFAULT_SERVICE_RATE_CARD.
+
+Functions:
+- parseServiceRateCardFromRules(raw)
+- getOwnerServiceRateCard(ownerUserId) — Neon query with 42703 defensive fallback
+- resolveServiceRateCard(partial)
+- buildIntakePricingMetadata({ quote, vehicle, rateCardSource }) → IntakePricingMetadata
+
+API: GET /api/service-quote/rate-card
+- Returns { rate_card, source: "onboarding_profiles.service_rules" | "default" }
+
+### C.3 Calculator + intake wiring
+
+File: lib/service-quote-calculator.ts
+- calculateServiceQuote({ ..., rateCard?: ServiceRateCard }) uses owner card when provided
+
+File: lib/hooks/use-active-call-form.ts
+- On intake open: fetch /api/service-quote/rate-card
+- liveQuote recalculates when YMM + service type + rateCard change
+- createJob sends service_quote_type_id + quoted_price_cents
+
+File: lib/create-intake-job.ts
+- Persists pricing_metadata in ai_leads.collected JSONB at booking time (audit trail)
+
+File: app/api/jobs/create/route.ts
+- Accepts service_quote_type_id in POST body
+
+Tests: tests/service-rate-card.test.ts, tests/service-quote-calculator.test.ts (updated)
+
+Gap: No owner UI to edit rate_card JSON yet — must be set via onboarding_profiles.service_rules in DB or future Settings screen.
+
+--------------------------------------------------------------------------------
+
+## Track D — Mobile Scheduler Touch Dispatch
+
+### D.1 Problem (pre-fix)
+
+- Mobile timeline (md:hidden) enabled drag-and-drop (HOPPER_DRAG_MIME) on hour cells.
+- Touch drag conflicted with horizontal scroll (layout jank).
+- Pool job cards used draggable on all devices — poor mobile UX.
+
+### D.2 Solution — touch detection
+
+File: hooks/use-scheduler-mobile-timeline.ts
+
+- useSchedulerMobileTimeline() → true when viewport < 768px (matches Tailwind md:hidden)
+- useSchedulerTouchInteraction() → mobile timeline OR (pointer: coarse) media query
+
+### D.3 Solution — disable drag on touch
+
+File: components/scheduler/job-pool-card.tsx
+- draggable={!touchInteraction}
+- onDragStart omitted on touch
+- onClick: if touch + onMobileAssign → queue mobile assign; else onSelect
+- GripVertical hidden on touch; cursor-pointer instead of grab
+
+File: components/scheduler/technician-swimlane-board.tsx
+- Mobile timeline hour cells: tap only (no onDragOver/onDrop)
+- Desktop swimlanes: drag handlers skipped when touchInteraction true
+
+File: components/scheduler/job-pool-tray.tsx
+- Mobile hint: "Tap a job, then double-tap a technician on the timeline to dispatch"
+
+### D.4 Solution — MobileTechnicianAssignOverlay
+
+File: components/scheduler/technician-swimlane-board.tsx
+
+Trigger paths:
+1. Tap unassigned pool card → scheduler-workspace-view sets mobileAssignRequest → overlay opens with default hour (next whole hour, clamped 7–18)
+2. Tap hour cell on mobile timeline → overlay opens with that hour; pre-selects tech from tapped row
+
+Overlay UX:
+- Dialog with technician list
+- Each row: min 44×44px tap target (MOBILE_TAP_TARGET + h-11 w-11 avatar)
+- Single tap selects/highlights tech
+- Double-tap same tech within 450ms confirms:
+  - With jobId → onDropPoolJob(jobId, techUserId, hour24)
+  - Without jobId → onBookEmptySlot(techUserId, hour24)
+
+Props added to TechnicianSwimlaneBoard:
+- mobileAssignRequest?: { jobId, jobLabel }
+- onMobileAssignRequestClear?: () => void
+
+Parent: components/workspace-views/scheduler-workspace-view.tsx
+- queueMobilePoolAssign(job) sets mobileAssignRequest
+- Passed to JobPoolPanel onMobileAssignJob + swimlane board
+
+--------------------------------------------------------------------------------
+
+## Cross-Track Data Flows
+
+### Flow 1 — Live call → ticking HUD → recording playback
+
+Telnyx answer → Pusher call-answered → useRealTimeStats sets answeredAt
+  → liveDailyTalkSeconds ticks every 1s in routing telemetry strip
+Telnyx hangup → Pusher call-completed → baseline += duration; session removed
+  → refreshBaseline with Math.max merge (no stall/regression)
+Telnyx recording-status → call_logs.recording_url
+  → CallAnsweredModal poll finds URL → inline <audio controls>
+
+### Flow 2 — Price decline → salvage pool → recovery SMS
+
+CallAnsweredModal "Customer declined" → POST /api/leads/lost
+  → INSERT lost_leads → Pusher lead-salvageable
+  → Leads workspace LeadSalvageSection (via listUnifiedSalvagePool)
+  → [20+ min] GET /api/cron/recover-leads → sendLostLeadRecoverySms
+  → success: status recovery_sent | 10DLC: status failed_10dlc + salvage-recovery-blocked
+
+### Flow 3 — Mobile dispatch from hopper
+
+Mobile: tap JobPoolCard → mobileAssignRequest set
+  → MobileTechnicianAssignOverlay opens
+  → optional: tap hour cell to set time slot
+  → double-tap technician → POST /api/owner/jobs/pool/{id}/schedule
+  → Pusher job-booked → scheduler refreshes
+
+### Flow 4 — Owner rate card → quote → booked job audit
+
+Intake sheet open → GET /api/service-quote/rate-card
+  → calculateServiceQuote with owner card
+  → Confirm & book → POST /api/jobs/create
+  → createUnassignedJobFromIntake stores pricing_metadata in ai_leads.collected
+
+--------------------------------------------------------------------------------
+
+## Pusher Event Catalog (owner-{userId}) — updated
+
+| Event | Source | Consumer |
+|-------|--------|----------|
+| call-initiated | call-telemetry-realtime | useRealTimeStats, CallAnsweredModal |
+| call-answered | call-telemetry-realtime | useRealTimeStats (live tick), CallAnsweredModal |
+| call-completed | call-telemetry-realtime | useRealTimeStats, CallAnsweredModal |
+| job-booked | create-intake-job | scheduler-workspace-view, dispatch-live-map |
+| lead-salvageable | lost-leads insert, recovery block | leads cache (future realtime refresh) |
+| salvage-recovery-blocked | lost-lead-recovery-sms 10DLC | owner notification / salvage UI |
+
+--------------------------------------------------------------------------------
+
+## File Index (this release)
+
+NEW FILES:
+- lib/telemetry-formatters.ts
+- lib/salvage-pool.ts
+- lib/service-rate-card.ts
+- hooks/use-scheduler-mobile-timeline.ts
+- app/api/leads/salvage-pool/route.ts
+- app/api/service-quote/rate-card/route.ts
+- tests/telemetry-formatters.test.ts
+- tests/service-rate-card.test.ts
+- tests/lost-lead-recovery-sms.test.ts
+- lyncr_july_2026_platform_audit_gemini.txt (this file)
+
+MODIFIED (key paths):
+- lib/hooks/use-real-time-stats.ts — live talk tick, call-answered, merge refresh
+- lib/daily-call-telemetry.ts — delegates to telemetry-formatters
+- lib/routing-telemetry-cache.ts — parseTalkSecondsFromDisplay import
+- components/dashboard/routing-telemetry-strip.tsx — liveDailyTalkSeconds display
+- components/dashboard/CallAnsweredModal.tsx — recording_url poll + audio player
+- lib/hooks/use-active-call-form.ts — recording_url, rate card fetch
+- lib/service-quote-calculator.ts — optional rateCard param
+- lib/create-intake-job.ts — pricing_metadata in collected
+- lib/lost-lead-recovery-sms.ts — sendLostLeadRecoverySms, 10DLC handling
+- lib/lost-leads.ts — listLostLeadsForSalvagePool, markLostLeadFailed10Dlc
+- app/api/cron/recover-leads/route.ts — uses sendLostLeadRecoverySms
+- lib/server/leads-workspace-data.ts — salvageLeads in payload
+- components/workspace-views/leads-workspace-view.tsx — LeadSalvageSection
+- components/scheduler/technician-swimlane-board.tsx — MobileTechnicianAssignOverlay
+- components/scheduler/job-pool-card.tsx — touch mode, onMobileAssign
+- components/scheduler/job-pool-tray.tsx — mobile hint
+- components/scheduler/job-pool-panel.tsx — onMobileAssignJob prop
+- components/workspace-views/scheduler-workspace-view.tsx — mobileAssignRequest wiring
+- lib/realtime/pusher-server.ts — salvage-recovery-blocked type (if typed)
+- lib/leads-cache.ts — salvage pool cache keys
+
+PRIOR RELEASE FILES (still relevant — see lyncr_dispatch_intake_modernization_gemini.txt):
+- lib/inbound-call-panel-context.tsx, POST /api/calls/manual, scripts/085
+- lib/service-quote-calculator.ts (base), POST /api/leads/lost, scripts/084
+- components/dashboard/service-quote-calculator-panel.tsx
+
+--------------------------------------------------------------------------------
+
+## Known Gaps & Recommendations for Gemini Review
+
+1. CRON NOT SCHEDULED — Add /api/cron/recover-leads to vercel.json crons (every 15–30 min) + CRON_SECRET in production.
+
+2. NEON MIGRATIONS 084/085 — Must be run manually; lost lead logging and manual call_log bridge fail gracefully with console warnings but features are degraded without them.
+
+3. RATE CARD EDITOR UI — JSON in onboarding_profiles.service_rules works but no self-serve Settings form; recommend admin or owner pricing screen.
+
+4. RECORDING URL LATENCY — 4s poll in CallAnsweredModal; consider Pusher call-recording-ready event when recording-status webhook fires.
+
+5. SALVAGE REALTIME — lead-salvageable and salvage-recovery-blocked published but leads-workspace-view primarily SSR/SWR; add client Pusher bind for instant salvage card appearance.
+
+6. MOBILE ASSIGN HOUR — Pool card tap uses next whole hour default; user may want explicit hour picker in overlay before double-tap confirm.
+
+7. DOUBLE-TAP DISCOVERABILITY — 450ms double-tap on technician rows may be non-obvious; consider explicit "Confirm assign" button as accessibility fallback.
+
+8. TALK TIME BASELINE vs LIVE — History dialog summary totals from call_logs may lag live HUD by in-progress seconds until hangup; documented in HUD comparison footnote.
+
+9. AI_LEAD vs LOST_LEAD dedup — Same phone could appear twice if receptionist logs PRICE_REJECTED and owner logs lost_leads for same call; consider dedupe key on caller_e164 + day.
+
+10. PRIOR REALTIME AUDIT GAPS UNCHANGED — Platform Admin still has no Pusher; no RTP/MOS quality; receptionist WebRTC end-call sync; see lyncr_realtime_call_audit_gemini.txt sections 7–9.
+
+11. OPENAI RECOVERY COPY — Optional; template always available when OPENAI_API_KEY unset.
+
+12. 10DLC — All outbound recovery SMS requires approved workspace campaign (same as lead alerts).
+
+--------------------------------------------------------------------------------
+
+## Environment Variables (relevant to this audit)
+
+DATABASE_URL — Neon Postgres
+TELNYX_API_KEY — voice + SMS + recording URLs
+CRON_SECRET — protects /api/cron/recover-leads (NOT in vercel.json yet)
+OPENAI_API_KEY — optional recovery SMS personalization
+NEXT_PUBLIC_APP_URL — webhooks + tracking
+Pusher keys — call events, job-booked, salvage-recovery-blocked
+ZING_INBOUND_CALL_CONTROL — optional Call Control pipeline
+
+--------------------------------------------------------------------------------
+
+## Testing
+
+Automated:
+  npm test -- tests/telemetry-formatters.test.ts
+  npm test -- tests/service-rate-card.test.ts
+  npm test -- tests/lost-lead-recovery-sms.test.ts
+  npm test -- tests/service-quote-calculator.test.ts
+
+Manual QA checklist:
+- Place live call → Daily Talk pill ticks up during conversation → holds after hangup
+- Open intake sheet after answer → recording player appears when Telnyx posts URL
+- Leads workspace → Lead Salvage Pool shows ai_lead + lost_lead rows
+- Decline price on intake → row appears in salvage pool (after migration 084)
+- Mobile scheduler grid → tap pool job → overlay → double-tap tech → job scheduled
+- Mobile timeline → tap hour cell → overlay with pre-selected tech row
+- Set rate_card JSON in onboarding_profiles.service_rules → quote updates on intake sheet
+
+--------------------------------------------------------------------------------
+
+## Architecture Diagram (prose)
+
+OWNER DASHBOARD (browser)
+  ├── Routing telemetry strip ← useRealTimeStats (Pusher + /api/routing/telemetry)
+  │     └── liveDailyTalkSeconds = baseline + in-progress answered legs
+  ├── CallAnsweredModal ← Pusher call-* + recording poll
+  │     └── Service quote ← /api/service-quote/rate-card → calculateServiceQuote
+  ├── Leads workspace ← listUnifiedSalvagePool (ai_leads ∪ lost_leads)
+  └── Scheduler grid (mobile)
+        ├── JobPoolCard (touch: no drag, onMobileAssign)
+        └── TechnicianSwimlaneBoard md:hidden timeline
+              └── MobileTechnicianAssignOverlay (double-tap confirm)
+
+BACKEND (Vercel serverless + Neon)
+  ├── call_logs — telemetry source, recording_url, manual_intake bridge
+  ├── lost_leads — intake price-shopper telemetry
+  ├── ai_leads — PRICE_REJECTED salvage + pricing_metadata on BOOKED
+  ├── onboarding_profiles.service_rules — rate_card JSON
+  └── Cron (manual setup): /api/cron/recover-leads → sendLostLeadRecoverySms
+
+TELNYX
+  ├── Inbound voice → call_logs lifecycle → Pusher owner events
+  ├── Recording callback → recording_url on call_logs
+  └── Outbound SMS → 10DLC gate → recovery or failed_10dlc
+
+================================================================================
+END OF REPORT
+
+Suggested Gemini prompts after upload:
+1. "Prioritize the top 5 engineering gaps in section 'Known Gaps' by revenue impact for a mobile locksmith SaaS."
+2. "Design a Pusher event for recording-ready that eliminates the 4s poll in CallAnsweredModal."
+3. "Propose a dedupe strategy for the unified salvage pool when ai_lead and lost_lead refer to the same caller."
+4. "Review double-tap mobile assign UX against Apple HIG and suggest an accessible confirm pattern."
+5. "Compare live talk-time HUD math to call_logs aggregation in getDailyCallTelemetryForOwner — identify drift scenarios."

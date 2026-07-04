@@ -21,6 +21,7 @@ export type CachedSalvageLead = {
   last_quoted_price_cents?: number | null
   manual_retry_required?: boolean
   recovery_blocked_reason?: string | null
+  has_receptionist_log?: boolean
 }
 
 export type LeadsWorkspaceCache = {

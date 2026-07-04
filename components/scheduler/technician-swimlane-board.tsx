@@ -112,6 +112,7 @@ function MobileTechnicianAssignOverlay({
 
   const hourLabel = overlay ? formatHourLabel(overlay.hour24) : ""
   const jobLabel = overlay?.jobLabel?.trim()
+  const selectedTech = assignableTechs.find((tech) => tech.portal_user_id === selectedTechUserId)
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -127,7 +128,7 @@ function MobileTechnicianAssignOverlay({
                 {" · "}
               </>
             ) : null}
-            {hourLabel} · double-tap a technician to confirm
+            {hourLabel} · select a technician, then tap Confirm
           </DialogDescription>
         </DialogHeader>
 
@@ -144,15 +145,20 @@ function MobileTechnicianAssignOverlay({
                     "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition touch-manipulation",
                     MOBILE_TAP_TARGET,
                     selected
-                      ? "border-primary/60 bg-primary/15 ring-2 ring-primary/40"
+                      ? "border-cyan-500 bg-cyan-950/40 ring-2 ring-cyan-500/30"
                       : "border-zinc-800 bg-zinc-900/80 active:scale-[0.98] active:bg-zinc-800"
                   )}
                   aria-pressed={selected}
+                  aria-label={
+                    selected
+                      ? `${tech.name} selected. Double-tap to assign immediately.`
+                      : `Select ${tech.name}`
+                  }
                 >
                   <span
                     className={cn(
                       "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                      selected ? "bg-primary text-primary-foreground" : "bg-zinc-800 text-zinc-200"
+                      selected ? "bg-cyan-500 text-zinc-950" : "bg-zinc-800 text-zinc-200"
                     )}
                     aria-hidden
                   >
@@ -161,7 +167,9 @@ function MobileTechnicianAssignOverlay({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-zinc-100">{tech.name}</span>
                     <span className="block text-xs text-zinc-500">
-                      {selected ? "Double-tap again to dispatch" : "Tap once, then double-tap to dispatch"}
+                      {selected
+                        ? "Selected — tap Confirm below or double-tap to assign"
+                        : "Tap to select"}
                     </span>
                   </span>
                 </button>
@@ -170,11 +178,24 @@ function MobileTechnicianAssignOverlay({
           })}
         </ul>
 
-        <div className="border-t border-zinc-800 px-3 py-2">
-          <Button type="button" variant="ghost" className="w-full gap-2" onClick={onClose}>
-            <X className="h-4 w-4" aria-hidden />
-            Cancel
-          </Button>
+        <div className="border-t border-zinc-800">
+          {selectedTech && selectedTechUserId ? (
+            <div className="overflow-hidden px-3 pt-3 transition-all duration-200 ease-out animate-in slide-in-from-bottom-2 fade-in">
+              <Button
+                type="button"
+                className="min-h-11 w-full touch-manipulation bg-cyan-500 text-zinc-950 hover:bg-cyan-400"
+                onClick={() => onConfirm(selectedTechUserId)}
+              >
+                Confirm Assignment to {selectedTech.name}
+              </Button>
+            </div>
+          ) : null}
+          <div className="px-3 py-2">
+            <Button type="button" variant="ghost" className="w-full gap-2" onClick={onClose}>
+              <X className="h-4 w-4" aria-hidden />
+              Cancel
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
