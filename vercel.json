@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/recover-leads",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 15 * * *"
     }
   ],
   "functions": {
