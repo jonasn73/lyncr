@@ -63,6 +63,9 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   sidebar = false,
   /** Hide the primary intake action (rendered elsewhere in the scheduler sidebar). */
   hidePrimaryAction = false,
+  rawCalendarJobs,
+  todayKey,
+  completedTodayLedger,
 }: {
   poolJobs: UnassignedPoolJob[]
   activePipelineJobs: ActivePipelineJob[]
@@ -72,6 +75,9 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   compact?: boolean
   sidebar?: boolean
   hidePrimaryAction?: boolean
+  rawCalendarJobs?: readonly SchedulerEvent[]
+  todayKey?: string
+  completedTodayLedger?: ReadonlyMap<string, string>
 }) {
   const isMobile = useIsMobile()
   const showPillRow = compact
@@ -83,8 +89,11 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
         poolJobs,
         activePipelineJobs,
         dayEvents,
+        rawCalendarJobs,
+        todayKey,
+        completedTodayLedger,
       }),
-    [poolJobs, activePipelineJobs, dayEvents]
+    [poolJobs, activePipelineJobs, dayEvents, rawCalendarJobs, todayKey, completedTodayLedger]
   )
 
   return (

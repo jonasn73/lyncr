@@ -179,6 +179,8 @@ export interface SchedulerEvent {
   job_status: string | null
   /** Dispatch pipeline: unassigned_pool | DISPATCHED | pending_review */
   dispatch_status: string | null
+  /** ISO timestamp when the job was marked completed (collected.completed_at). */
+  completed_at?: string | null
 }
 
 /** Job waiting in the unassigned pool (no tech yet). */

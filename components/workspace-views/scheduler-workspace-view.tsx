@@ -71,6 +71,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [technicians, setTechnicians] = useState<FieldTechnician[]>([])
   const [lineIndustryTags, setLineIndustryTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  /** Optimistic completion timestamps for the Done counter (job id → ISO time). */
+  const [completedTodayLedger, setCompletedTodayLedger] = useState<ReadonlyMap<string, string>>(
+    () => new Map()
+  )
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [drawerPoolJob, setDrawerPoolJob] = useState<UnassignedPoolJob | null>(null)
   const [drawerScheduledEvent, setDrawerScheduledEvent] = useState<SchedulerEvent | null>(null)
@@ -176,6 +180,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [eventsByDay])
 
   const selectedKey = dayKeyLocal(selectedDay)
+  const todayKey = dayKeyLocal(new Date())
   const dayEvents = useMemo(() => eventsByDay.get(selectedKey) ?? [], [eventsByDay, selectedKey])
 
   /** Clear intake deep-link params so URL focus logic does not override manual job clicks. */
@@ -273,6 +278,17 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     inboundCallPanel?.openManualCallPanel()
   }, [inboundCallPanel])
 
+  const registerJobCompletedToday = useCallback((jobId: string, completedAt?: string | null) => {
+    const at = completedAt?.trim() || new Date().toISOString()
+    if (dayKeyLocal(new Date(at)) !== todayKey) return
+    setCompletedTodayLedger((prev) => {
+      if (prev.get(jobId) === at) return prev
+      const next = new Map(prev)
+      next.set(jobId, at)
+      return next
+    })
+  }, [todayKey])
+
   const openManualCallFromScheduler = useCallback(
     (_techUserId: string, _hour24: number) => {
       inboundCallPanel?.openManualCallPanel()
@@ -349,12 +365,19 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
     const onJobStatus = (payload: { leadId?: string; status?: string }) => {
       if (!payload?.leadId || !payload?.status) return
+      if (payload.status === "completed") {
+        registerJobCompletedToday(payload.leadId)
+      }
       setEvents((prev) =>
         prev.map((ev) =>
           ev.id === payload.leadId
             ? {
                 ...ev,
                 job_status: payload.status ?? ev.job_status,
+                completed_at:
+                  payload.status === "completed"
+                    ? ev.completed_at ?? new Date().toISOString()
+                    : ev.completed_at,
                 dispatch_status:
                   payload.status === "assigned" || payload.status === "en_route"
                     ? "DISPATCHED"
@@ -387,7 +410,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       channel.unbind("disposition-updated", refreshSchedulerData)
       pusher.unsubscribe(`owner-${ownerUserId}`)
     }
-  }, [ownerUserId, refreshSchedulerData, load, mutatePool, mutateActivePipeline])
+  }, [ownerUserId, refreshSchedulerData, load, mutatePool, mutateActivePipeline, registerJobCompletedToday])
 
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
 
@@ -408,11 +431,18 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   const handleJobCompletedFromQuickAction = useCallback(
     (event: SchedulerEvent) => {
+      const completedAt = event.completed_at ?? new Date().toISOString()
+      const completedEvent: SchedulerEvent = {
+        ...event,
+        job_status: "completed",
+        completed_at: completedAt,
+      }
+      registerJobCompletedToday(event.id, completedAt)
       setEvents((prev) => {
         const idx = prev.findIndex((ev) => ev.id === event.id)
-        if (idx === -1) return prev
+        if (idx === -1) return [...prev, completedEvent]
         const next = [...prev]
-        next[idx] = event
+        next[idx] = completedEvent
         return next
       })
       setDrawerPoolJob((prev) => (prev?.id === event.id ? null : prev))
@@ -422,7 +452,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       void mutatePool()
       refreshSchedulerData()
     },
-    [mutateActivePipeline, mutatePool, refreshSchedulerData]
+    [mutateActivePipeline, mutatePool, refreshSchedulerData, registerJobCompletedToday]
   )
 
   const { markComplete, completingId, error: markCompleteError } = useMarkJobComplete(
@@ -752,6 +782,9 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 poolJobs={displayPoolJobs}
                 activePipelineJobs={displayPipelineJobs}
                 dayEvents={dayEvents}
+                rawCalendarJobs={displayEvents}
+                todayKey={todayKey}
+                completedTodayLedger={completedTodayLedger}
                 onSelectJob={focusJobById}
                 onMarkComplete={handleMarkJobComplete}
                 completingJobId={completingId}
@@ -765,6 +798,9 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 poolJobs={displayPoolJobs}
                 activePipelineJobs={displayPipelineJobs}
                 dayEvents={dayEvents}
+                rawCalendarJobs={displayEvents}
+                todayKey={todayKey}
+                completedTodayLedger={completedTodayLedger}
                 onSelectJob={focusJobById}
                 onMarkComplete={handleMarkJobComplete}
                 completingJobId={completingId}

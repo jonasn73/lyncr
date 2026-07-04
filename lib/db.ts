@@ -6941,6 +6941,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
       row.dispatch_status != null && String(row.dispatch_status).trim()
         ? String(row.dispatch_status)
         : pick(["dispatch_status"]),
+    completed_at: pick(["completed_at"]),
   }
 }
 
@@ -7989,12 +7990,26 @@ export async function setJobStatusForOwner(
   status: string
 ): Promise<boolean> {
   const sql = getSql()
-  const rows = await sql`
-    UPDATE ai_leads
-    SET job_status = ${status}
-    WHERE id = ${leadId} AND user_id = ${ownerUserId}
-    RETURNING id
-  `
+  const rows =
+    status === "completed"
+      ? await sql`
+          UPDATE ai_leads
+          SET job_status = ${status},
+              collected = jsonb_set(
+                coalesce(collected, '{}'::jsonb),
+                '{completed_at}',
+                to_jsonb(now()::timestamptz::text),
+                true
+              )
+          WHERE id = ${leadId} AND user_id = ${ownerUserId}
+          RETURNING id
+        `
+      : await sql`
+          UPDATE ai_leads
+          SET job_status = ${status}
+          WHERE id = ${leadId} AND user_id = ${ownerUserId}
+          RETURNING id
+        `
   return rows.length > 0
 }
 

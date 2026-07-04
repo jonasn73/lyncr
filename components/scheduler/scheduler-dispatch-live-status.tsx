@@ -99,6 +99,9 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   sidebar = false,
   /** Primary intake action is rendered above the sidebar stack in scheduler workspace. */
   hidePrimaryAction = false,
+  rawCalendarJobs,
+  todayKey,
+  completedTodayLedger,
   /** Only the upcoming jobs row (mobile bottom sheet). */
   upcomingOnly = false,
 }: {
@@ -114,6 +117,9 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   compact?: boolean
   sidebar?: boolean
   hidePrimaryAction?: boolean
+  rawCalendarJobs?: readonly SchedulerEvent[]
+  todayKey?: string
+  completedTodayLedger?: ReadonlyMap<string, string>
   upcomingOnly?: boolean
 }) {
   const now = useLiveClock()
@@ -198,6 +204,9 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               compact={compact}
               sidebar={sidebar}
               hidePrimaryAction={hidePrimaryAction}
+              rawCalendarJobs={rawCalendarJobs}
+              todayKey={todayKey}
+              completedTodayLedger={completedTodayLedger}
               poolJobs={poolJobs}
               activePipelineJobs={activePipelineJobs}
               dayEvents={dayEvents}
