@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isLocalCalendarToday, isLocalCalendarThisMonth, isLocalCalendarThisWeek, isUtcToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
+import { isLocalCalendarToday, isLocalCalendarThisMonth, isLocalCalendarThisWeek, isLocalCalendarThisWeekInMonth, isUtcToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
 
 describe("isUtcToday", () => {
   it("matches Neon UTC day boundaries used by HUD telemetry", () => {
@@ -38,5 +38,14 @@ describe("isLocalCalendarThisMonth", () => {
     const now = new Date("2026-07-15T14:00:00")
     expect(isLocalCalendarThisMonth("2026-07-01T10:00:00", now)).toBe(true)
     expect(isLocalCalendarThisMonth("2026-06-30T23:59:00", now)).toBe(false)
+  })
+})
+
+describe("isLocalCalendarThisWeekInMonth", () => {
+  it("excludes prior-month days that still fall in the current ISO week", () => {
+    const now = new Date("2026-07-04T17:00:00")
+    expect(isLocalCalendarThisWeek("2026-06-30T10:00:00", now)).toBe(true)
+    expect(isLocalCalendarThisWeekInMonth("2026-06-30T10:00:00", now)).toBe(false)
+    expect(isLocalCalendarThisWeekInMonth("2026-07-04T10:00:00", now)).toBe(true)
   })
 })

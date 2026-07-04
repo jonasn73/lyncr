@@ -3717,6 +3717,8 @@ export async function getDailyCallTelemetryForOwner(
   const localDayMatch = sql`date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))`
   const localWeekMatch = sql`date_trunc('week', timezone(${tz}, created_at)) = date_trunc('week', timezone(${tz}, now()))`
   const localMonthMatch = sql`date_trunc('month', timezone(${tz}, created_at)) = date_trunc('month', timezone(${tz}, now()))`
+  /** Week ∩ month — avoids weekly > monthly when Mon–Sun spans two months (e.g. Jun 30 + July). */
+  const localWeekInMonthMatch = sql`${localWeekMatch} AND ${localMonthMatch}`
 
   const rows = lineNumbers
     ? await sql`
@@ -3762,7 +3764,7 @@ export async function getDailyCallTelemetryForOwner(
           )::int AS daily_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE ${localWeekMatch} AND ${talkableWhere}
+              WHERE ${localWeekInMonthMatch} AND ${talkableWhere}
             ),
             0
           )::int AS weekly_talk_seconds,
@@ -3816,7 +3818,7 @@ export async function getDailyCallTelemetryForOwner(
           )::int AS daily_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE ${localWeekMatch} AND ${talkableWhere}
+              WHERE ${localWeekInMonthMatch} AND ${talkableWhere}
             ),
             0
           )::int AS weekly_talk_seconds,

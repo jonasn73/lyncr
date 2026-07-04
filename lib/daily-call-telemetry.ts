@@ -71,6 +71,11 @@ export function isLocalCalendarThisWeek(iso: string, now: Date = new Date()): bo
   return d >= start && d < end
 }
 
+/** This calendar week, but only days in the current month — weekly HUD is always ≤ monthly. */
+export function isLocalCalendarThisWeekInMonth(iso: string, now: Date = new Date()): boolean {
+  return isLocalCalendarThisWeek(iso, now) && isLocalCalendarThisMonth(iso, now)
+}
+
 /** Local calendar month — matches monthly talk HUD + call history. */
 export function isLocalCalendarThisMonth(iso: string, now: Date = new Date()): boolean {
   const d = new Date(iso)
