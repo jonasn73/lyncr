@@ -1022,7 +1022,7 @@ async function handleIncomingCall(
         status: "ringing",
         duration_seconds: 0,
         routed_to_receptionist_id: selectedReceptionistId || null,
-        routed_to_name: resolveInboundRoutedToName(routing, selectedReceptionistId, receptionistDisplayName),
+        routed_to_name: null,
         has_recording: false,
         recording_url: null,
         recording_duration_seconds: null,

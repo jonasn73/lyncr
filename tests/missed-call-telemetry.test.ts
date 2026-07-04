@@ -25,6 +25,16 @@ describe("isMissedCallRecord", () => {
     ).toBe(true)
   })
 
+  it("counts completed inbound rows preset with Owner but never bridged", () => {
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        routed_to_name: "Owner",
+      })
+    ).toBe(true)
+  })
+
   it("does not count live answered conversations", () => {
     expect(
       isMissedCallRecord({

@@ -24,15 +24,12 @@ function normalizeCallStatus(raw: string | null | undefined): string {
 }
 
 function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
-  const routed = String(input.routed_to_name ?? "").trim()
-  if (routed.length > 0) return true
-
   const answeredAt = input.answered_at ? Date.parse(input.answered_at) : NaN
   const endedAt = input.ended_at ? Date.parse(input.ended_at) : NaN
   if (Number.isFinite(answeredAt) && Number.isFinite(endedAt) && endedAt - answeredAt >= 2000) {
     return true
   }
-
+  // Inbound rows preset routed_to_name ("Owner", "AI Receptionist") before anyone picks up — ignore it here.
   return false
 }
 

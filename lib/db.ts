@@ -3702,13 +3702,10 @@ export async function getDailyCallTelemetryForOwner(
     OR (
       call_type = 'incoming'
       AND lower(COALESCE(status, '')) IN ('completed', 'canceled', 'cancelled')
-      AND (
-        NULLIF(trim(COALESCE(routed_to_name, '')), '') IS NULL
-        OR (
-          answered_at IS NOT NULL
-          AND ended_at IS NOT NULL
-          AND answered_at >= ended_at - interval '2 seconds'
-        )
+      AND NOT (
+        answered_at IS NOT NULL
+        AND ended_at IS NOT NULL
+        AND answered_at < ended_at - interval '2 seconds'
       )
     )
   `
