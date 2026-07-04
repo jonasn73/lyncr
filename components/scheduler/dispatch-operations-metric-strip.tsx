@@ -61,6 +61,8 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   compact = false,
   /** Narrow sidebar — keep metrics in a 2×2 grid. */
   sidebar = false,
+  /** Hide the primary intake action (rendered elsewhere in the scheduler sidebar). */
+  hidePrimaryAction = false,
 }: {
   poolJobs: UnassignedPoolJob[]
   activePipelineJobs: ActivePipelineJob[]
@@ -69,6 +71,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   embedded?: boolean
   compact?: boolean
   sidebar?: boolean
+  hidePrimaryAction?: boolean
 }) {
   const isMobile = useIsMobile()
   const showPillRow = compact
@@ -122,7 +125,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           value={metrics.completedToday}
           valueClassName="text-zinc-400"
         />
-        {showPillRow && inboundCallPanel ? (
+        {showPillRow && inboundCallPanel && !hidePrimaryAction ? (
           <Button
             type="button"
             size="sm"
@@ -134,7 +137,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           </Button>
         ) : null}
       </div>
-      {!showPillRow && inboundCallPanel ? (
+      {!showPillRow && inboundCallPanel && !hidePrimaryAction ? (
         <div className={cn("px-2.5 pb-2", sidebar ? "pt-0" : "px-3 md:px-8", !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-2.5")}>
           <Button
             type="button"

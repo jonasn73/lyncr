@@ -269,6 +269,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     [displayPipelineJobs, dayEvents, displayPoolJobs]
   )
 
+  const openNewIntake = useCallback(() => {
+    inboundCallPanel?.openManualCallPanel()
+  }, [inboundCallPanel])
+
   const openManualCallFromScheduler = useCallback(
     (_techUserId: string, _hour24: number) => {
       inboundCallPanel?.openManualCallPanel()
@@ -711,8 +715,18 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         </p>
 
         <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-3 lg:gap-6 lg:pb-0">
-          {/* Left control column — hopper + live metrics / manual call */}
-          <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
+          {/* Left control column — new intake, hopper, live metrics */}
+          <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)]">
+            {inboundCallPanel ? (
+              <button
+                type="button"
+                onClick={openNewIntake}
+                className="inline-flex w-full items-center justify-center rounded-lg bg-cyan-500 py-2.5 text-sm font-medium text-black transition-colors hover:bg-cyan-400"
+              >
+                + New Intake
+              </button>
+            ) : null}
+
             <div className="lg:hidden">
               <JobPoolPanel
                 jobs={displayPoolJobs}
@@ -733,6 +747,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
             <div className="lg:hidden">
               <SchedulerDispatchLiveStatus
+                hidePrimaryAction
                 selectedDay={selectedDay}
                 poolJobs={displayPoolJobs}
                 activePipelineJobs={displayPipelineJobs}
@@ -745,6 +760,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
             <div className="hidden lg:block">
               <SchedulerDispatchLiveStatus
                 sidebar
+                hidePrimaryAction
                 selectedDay={selectedDay}
                 poolJobs={displayPoolJobs}
                 activePipelineJobs={displayPipelineJobs}

@@ -97,6 +97,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   compact = false,
   /** Dense left sidebar on desktop — hides upcoming row and tightens padding. */
   sidebar = false,
+  /** Primary intake action is rendered above the sidebar stack in scheduler workspace. */
+  hidePrimaryAction = false,
   /** Only the upcoming jobs row (mobile bottom sheet). */
   upcomingOnly = false,
 }: {
@@ -111,6 +113,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   embedded?: boolean
   compact?: boolean
   sidebar?: boolean
+  hidePrimaryAction?: boolean
   upcomingOnly?: boolean
 }) {
   const now = useLiveClock()
@@ -194,6 +197,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               embedded
               compact={compact}
               sidebar={sidebar}
+              hidePrimaryAction={hidePrimaryAction}
               poolJobs={poolJobs}
               activePipelineJobs={activePipelineJobs}
               dayEvents={dayEvents}
