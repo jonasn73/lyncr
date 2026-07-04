@@ -86,6 +86,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 81 | `081-inbound-caller-greeting-enabled.sql` | **Caller greeting toggle.** Adds **`inbound_caller_greeting_enabled`** on `routing_config` and denormalized on `phone_numbers` (default true). **Required** for the Routing tab “Greeting first” vs “Ring immediately” setting. |
 | 82 | `082-operator-onboarding.sql` | **Platform-admin operator provisioning.** Adds **`users.operator_onboarding_status`** (`PENDING_INVITE` → `DEVICE_TESTING` → `ACTIVE_READY`), **`timezone`**, **`operator_assigned_workspaces`**, OTP columns, and **`receptionists.backup_phone_number`** + **`assigned_workspaces`**. **Required** for `/admin/receptionists` and `/auth/onboard`. |
 | 83 | `083-call-log-owner-intake-dismissed.sql` | **`call_logs.owner_intake_dismissed_at`** — after you dismiss or **Send to dispatch map** on the answered-call intake sheet, that call stops re-opening in other tabs/windows. **Recommended** for multi-tab owners; localStorage sync works without it, but the column is the cross-device source of truth. |
+| 84 | `084-lost-leads-recovery.sql` | **`lost_leads`** table — price-shopper / hang-up telemetry from the intake sheet (`POST /api/leads/lost`) + recovery SMS cron (`GET /api/cron/recover-leads`, 20-minute delay). **Required** for lost-lead logging and automated recovery texts. |
 
 ## Platform admin (`admin@lyncr.app`)
 

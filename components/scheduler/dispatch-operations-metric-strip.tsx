@@ -3,8 +3,11 @@
 // Live KPI banner for the dispatch map — stays inside the main column (no viewport bleed).
 
 import { memo, useMemo } from "react"
+import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { computeDispatchOperationsMetrics } from "@/lib/dispatch-operations-metrics"
 import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -64,6 +67,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   embedded?: boolean
   compact?: boolean
 }) {
+  const inboundCallPanel = useInboundCallPanelOptional()
   const metrics = useMemo(
     () =>
       computeDispatchOperationsMetrics({
@@ -117,6 +121,22 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           value={metrics.completedToday}
           valueClassName="text-zinc-400"
         />
+        {inboundCallPanel ? (
+          <Button
+            type="button"
+            size={compact ? "sm" : "default"}
+            className={cn(
+              "shrink-0 snap-start gap-1.5 font-semibold",
+              compact
+                ? "h-7 rounded-full bg-primary px-2.5 text-[11px] text-primary-foreground"
+                : "ml-auto bg-primary text-primary-foreground shadow-md hover:bg-primary/90 md:ml-0"
+            )}
+            onClick={() => inboundCallPanel.openManualCallPanel()}
+          >
+            <Plus className={cn(compact ? "h-3 w-3" : "h-4 w-4")} aria-hidden />
+            + Manual Call
+          </Button>
+        ) : null}
       </div>
     </div>
   )

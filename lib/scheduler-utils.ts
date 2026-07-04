@@ -51,6 +51,10 @@ export function localDayRangeIso(dayKey: string): { fromIso: string; toIso: stri
 export const SCHEDULER_GRID_START_HOUR = 7
 export const SCHEDULER_GRID_END_HOUR = 19
 export const SCHEDULER_HOUR_ROW_PX = 64
+/** Column width for mobile horizontal timeline (time on X axis). */
+export const SCHEDULER_HOUR_COL_PX = 56
+/** Row height for each technician lane on mobile timeline. */
+export const SCHEDULER_TECH_ROW_PX = 52
 
 /** Inclusive hour labels for the timeline (7 AM … 7 PM). */
 export function schedulerHourSlots(): number[] {
@@ -101,6 +105,26 @@ export function schedulerEventPlacement(
   const duration = Math.max(durationMinutes, 15)
   const heightPx = Math.max(SCHEDULER_HOUR_ROW_PX / 2, (duration / 60) * SCHEDULER_HOUR_ROW_PX)
   return { topPx, heightPx, start }
+}
+
+/** Horizontal placement for mobile timeline (time left → right). */
+export function schedulerEventHorizontalPlacement(
+  scheduledAtIso: string,
+  durationMinutes: number,
+  tentative: boolean
+): { leftPx: number; widthPx: number; start: Date } {
+  const start = new Date(scheduledAtIso)
+  let hour = start.getHours()
+  let minute = start.getMinutes()
+  if (tentative && hour === 0 && minute === 0) {
+    hour = 9
+    minute = 0
+  }
+  const minutesFromGridStart = (hour - SCHEDULER_GRID_START_HOUR) * 60 + minute
+  const leftPx = Math.max(0, (minutesFromGridStart / 60) * SCHEDULER_HOUR_COL_PX)
+  const duration = Math.max(durationMinutes, 15)
+  const widthPx = Math.max(SCHEDULER_HOUR_COL_PX / 2, (duration / 60) * SCHEDULER_HOUR_COL_PX)
+  return { leftPx, widthPx, start }
 }
 
 export const SCHEDULER_JOB_TYPES = [

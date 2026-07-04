@@ -8,6 +8,7 @@ import { DashboardNumbersModalProvider } from "@/components/dashboard-numbers-mo
 import { UpgradeSubscriptionModal } from "@/components/upgrade-subscription-modal"
 import { AddCarrierCreditModal } from "@/components/add-carrier-credit-modal"
 import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-context"
+import { InboundCallPanelProvider } from "@/lib/inbound-call-panel-context"
 import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-numbers-sync"
 import { DashboardLeadsPrefetch } from "@/components/dashboard-leads-prefetch"
 import { SwrProvider } from "@/components/swr-provider"
@@ -193,6 +194,7 @@ export function DashboardShell({
         <DashboardChromeProvider activePage={activePage}>
           <SwrProvider>
             <DashboardWorkspaceProvider initialBootstrap={initialBootstrap}>
+              <InboundCallPanelProvider>
               <DashboardBootstrapShellGate initialBootstrap={initialBootstrap}>
                 <DashboardBusinessNumbersSync />
                 <DashboardLeadsPrefetch />
@@ -217,6 +219,7 @@ export function DashboardShell({
                   </LeadsWorkspaceInitialProvider>
                 </DashboardNumbersModalProvider>
               </DashboardBootstrapShellGate>
+              </InboundCallPanelProvider>
             </DashboardWorkspaceProvider>
           </SwrProvider>
         </DashboardChromeProvider>

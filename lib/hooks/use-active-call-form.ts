@@ -16,6 +16,14 @@ import {
   resolveStructuredAddressFromQuery,
 } from "@/lib/intake-address-helpers"
 import type { VehicleClarificationOption } from "@/lib/vehicle-intake-clarifications"
+import {
+  calculateServiceQuote,
+  type ServiceQuoteTypeId,
+} from "@/lib/service-quote-calculator"
+import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
+
+/** Manual-only call lifecycle shown in the intake sheet header. */
+export type ManualCallStatus = "ringing" | "answered" | "on_hold" | "completed"
 
 export type ActiveCallRow = {
   id: string
@@ -23,6 +31,13 @@ export type ActiveCallRow = {
   to_number: string
   caller_name: string | null
   answered_at: string | null
+  /** True when opened via openManualCallPanel (not a Telnyx webhook row). */
+  isManual?: boolean
+  manualCallStatus?: ManualCallStatus
+  /** Optional vehicle seed for manual calls. */
+  vehicleYear?: string
+  vehicleMake?: string
+  vehicleModel?: string
 }
 
 export type ActiveCallFormState = {
@@ -53,6 +68,10 @@ export type ActiveCallFormState = {
   keyProfileId: string
   /** Intake clarification prompts already answered for this vehicle. */
   vehicleClarificationAnswers: string[]
+  /** Service quote calculator selection id (see lib/service-quote-calculator). */
+  serviceQuoteTypeId: string
+  /** Last computed quote total in cents (stored on booked jobs + lost leads). */
+  quotedPriceCents: number
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
@@ -78,6 +97,8 @@ const EMPTY_FORM: ActiveCallFormState = {
   keyVariantId: "",
   keyProfileId: "",
   vehicleClarificationAnswers: [],
+  serviceQuoteTypeId: "lockout",
+  quotedPriceCents: 0,
 }
 
 function flatAddressFromStructured(addr: StructuredAddress): Pick<
@@ -229,8 +250,53 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       ...EMPTY_FORM,
       phoneNumber: current.from_number,
       displayName: current.caller_name?.trim() || "",
+      vehicleYear: current.vehicleYear?.trim() || "",
+      vehicleMake: current.vehicleMake?.trim() || "",
+      vehicleModel: current.vehicleModel?.trim() || "",
     })
-  }, [callLogId, current?.from_number, current?.caller_name])
+  }, [
+    callLogId,
+    current?.from_number,
+    current?.caller_name,
+    current?.vehicleYear,
+    current?.vehicleMake,
+    current?.vehicleModel,
+  ])
+
+  // Keep job type + quote total in sync with YMM + service quote selection.
+  useEffect(() => {
+    if (!callLogId) return
+    const quote = calculateServiceQuote({
+      serviceTypeId: (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId,
+      vehicleYear: form.vehicleYear,
+      vehicleMake: form.vehicleMake,
+      vehicleModel: form.vehicleModel,
+    })
+    setForm((prev) => {
+      const nextJobType = quote.jobType
+      const nextKeyMode = quote.keyReplacementMode
+      const nextQuoted = quote.totalCents
+      if (
+        prev.jobType === nextJobType &&
+        prev.keyReplacementMode === nextKeyMode &&
+        prev.quotedPriceCents === nextQuoted
+      ) {
+        return prev
+      }
+      return {
+        ...prev,
+        jobType: nextJobType,
+        keyReplacementMode: nextKeyMode,
+        quotedPriceCents: nextQuoted,
+      }
+    })
+  }, [
+    callLogId,
+    form.serviceQuoteTypeId,
+    form.vehicleYear,
+    form.vehicleMake,
+    form.vehicleModel,
+  ])
 
   useEffect(() => {
     if (!callLogId) return
@@ -323,7 +389,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
           postal_code: form.postalCode,
           country: form.country,
           notes: form.notes,
-          source_last_call_log_id: current.id,
+          source_last_call_log_id: current.isManual ? null : current.id,
         }),
       })
         .then(async (res) => {
@@ -354,12 +420,13 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       setJobState("creating")
       setJobError(null)
       try {
+        const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
         const res = await fetch("/api/jobs/create", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            call_log_id: current.id,
+            call_log_id: current.isManual ? null : current.id,
             caller_e164: phone,
             customer_name: name,
             address_line1: form.addressLine1,
@@ -372,7 +439,8 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
             vehicle_year: form.vehicleYear,
             vehicle_make: form.vehicleMake,
             vehicle_model: form.vehicleModel,
-            job_type: null,
+            job_type: dispatchJobType || null,
+            quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
             key_fcc_id: form.keyFccId || null,
             key_frequency: form.keyFrequency || null,
             key_chipset: form.keyChipset || null,
@@ -412,9 +480,22 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       postalCode: form.postalCode,
     }) ?? ""
 
+  const setServiceQuoteTypeId = useCallback((serviceQuoteTypeId: ServiceQuoteTypeId) => {
+    setForm((prev) => ({ ...prev, serviceQuoteTypeId }))
+  }, [])
+
+  const liveQuote = calculateServiceQuote({
+    serviceTypeId: (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId,
+    vehicleYear: form.vehicleYear,
+    vehicleMake: form.vehicleMake,
+    vehicleModel: form.vehicleModel,
+  })
+
   return {
     form,
     patchForm,
+    setServiceQuoteTypeId,
+    liveQuote,
     setVehicle,
     applyVehicleClarification,
     setVehicleKeySelection,

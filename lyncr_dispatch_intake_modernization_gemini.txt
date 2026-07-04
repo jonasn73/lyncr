@@ -1,0 +1,364 @@
+LYNCR DISPATCH INTAKE & SCHEDULER MODERNIZATION — IMPLEMENTATION REPORT
+Upload this file to Google Gemini for architectural review, follow-up planning, and gap analysis.
+Format: plain text operational + implementation summary.
+Generated: July 2026
+Repository: /Users/JR/Desktop/zing
+Product: Lyncr (lyncr.app) — VoIP call routing + field dispatch
+
+INSTRUCTIONS FOR GEMINI:
+- Treat this as the authoritative summary of the July 2026 dispatch intake modernization track.
+- Covers: manual call panel overrides, quick booking + service quote calculator, lost-lead recovery SMS cron, mobile scheduler timeline layout.
+- When recommending changes, cite file paths from this document and preserve existing Next.js 16 / Neon / Telnyx / Pusher patterns.
+- Production DB migrations are manual in Neon SQL Editor — agents cannot apply them; point owners to scripts/MIGRATE-ALL.md.
+
+================================================================================
+
+# Lyncr Dispatch Intake & Scheduler Modernization
+
+Scope: End-to-end audit, optimization, and modernization of incoming call handling pane, booking flow, pricing matrix logic, and scheduler workflows (4-step implementation track).
+
+Production URL: https://lyncr.app (Vercel)
+Telephony: Telnyx (TeXML primary inbound; Call Control optional via ZING_INBOUND_CALL_CONTROL)
+Realtime: Pusher Channels (owner-{userId} events including job-booked, lead-salvageable, call-initiated, call-answered, call-completed)
+
+--------------------------------------------------------------------------------
+
+## Executive Summary
+
+| Step | Feature | Status | Primary entry points |
+|------|---------|--------|----------------------|
+| 1 | Manual call panel + programmatic intake sheet | SHIPPED | lib/inbound-call-panel-context.tsx, dispatch-operations-metric-strip.tsx, CallAnsweredModal.tsx |
+| 2 | Quick booking + service quote calculator | SHIPPED | lib/service-quote-calculator.ts, service-quote-calculator-panel.tsx, POST /api/jobs/create |
+| 3 | Lost lead logging + recovery SMS cron | SHIPPED (DB migration required) | POST /api/leads/lost, GET /api/cron/recover-leads, scripts/084-lost-leads-recovery.sql |
+| 4 | Mobile scheduler horizontal timeline | SHIPPED | technician-swimlane-board.tsx, lib/scheduler-utils.ts |
+
+Key design choice: The answered-call intake sheet (CallAnsweredModal) remains the single UI surface for both Telnyx webhook-driven calls AND owner-initiated manual calls. Manual rows bypass the answered-call popup user setting so dispatchers can always open the sheet from the scheduler metric strip.
+
+--------------------------------------------------------------------------------
+
+## 1. Incoming Call Panel — Manual Interaction Overrides
+
+### 1.1 Problem
+
+Previously, CallAnsweredModal only opened from automated sources:
+- Pusher events: call-initiated, call-answered, call-completed on channel owner-{userId}
+- Polling fallbacks: GET /api/calls/ringing-recent, GET /api/calls/answered-recent
+- No programmatic way for dispatch staff to simulate or enter a walk-in / off-phone lead on the intake sheet
+
+### 1.2 Solution — InboundCallPanelProvider
+
+File: lib/inbound-call-panel-context.tsx
+
+Exports:
+- openManualCallPanel(input?) — creates synthetic ActiveCallRow with id manual-{uuid}
+- patchManualCallRow(patch) — update phone, status, vehicle seed while sheet is open
+- clearManualCallRow() — dismiss manual override
+- useInboundCallPanel() — required hook inside dashboard shell
+- useInboundCallPanelOptional() — safe for metric strip (returns null outside provider)
+
+Manual row shape (extends ActiveCallRow in lib/hooks/use-active-call-form.ts):
+- isManual: true
+- manualCallStatus: ringing | answered | on_hold | completed
+- vehicleYear / vehicleMake / vehicleModel optional seeds
+- answered_at null when status is ringing
+
+Provider mounted in components/dashboard-shell.tsx inside DashboardWorkspaceProvider wrapping the full AppShell + CallAnsweredModal.
+
+### 1.3 UI — + Manual Call button
+
+File: components/scheduler/dispatch-operations-metric-strip.tsx
+
+High-visibility primary button in the live dispatch KPI row (also appears in compact mobile toolbar via SchedulerDispatchLiveStatus).
+
+Click → openManualCallPanel() → CallAnsweredModal opens immediately.
+
+### 1.4 CallAnsweredModal merge logic
+
+File: components/dashboard/CallAnsweredModal.tsx
+
+- effectiveCurrent = manualCallRow ?? current (webhook state)
+- Sheet open when effectiveCurrent != null
+- Renders even when users.answered_call_customer_popup_enabled is false IF manualCallRow is set
+- Manual mode shows Call status Select + editable phone (existing contact field)
+- Header label: Manual call intake vs Incoming call / Call answered
+
+Dismiss behavior:
+- Manual: clearManualCallRow only
+- Webhook: existing dismissedRef + markAnsweredIntakeDismissed + queue next ringing/answered call
+
+--------------------------------------------------------------------------------
+
+## 2. Quick Booking + Service Quote Calculator
+
+### 2.1 Pricing matrix
+
+File: lib/service-quote-calculator.ts
+
+Service types (SERVICE_QUOTE_TYPES):
+- lockout → Lockout — base $85
+- key_gen → Key Generation (Key replacement — Origination) — base $175
+- key_dup → Key Duplication — base $95
+- ignition → Ignition Repair — base $220
+- other → Other Service — base $120
+
+Adjustments (transparent line items):
+- Vehicle age: +$15 if 12+ years old, +$35 if 20+ years old
+- Premium make: +$25 for luxury OEM list (BMW, Mercedes, Tesla, etc.)
+
+Functions:
+- calculateServiceQuote({ serviceTypeId, vehicleYear, vehicleMake, vehicleModel })
+- formatQuoteDollars(cents)
+- formatIntakeJobTypeForDispatch integration via lib/intake-job-types.ts
+
+Tests: tests/service-quote-calculator.test.ts (Vitest)
+
+### 2.2 UI panel
+
+File: components/dashboard/service-quote-calculator-panel.tsx
+
+Embedded at top of CallAnsweredModal scroll area (above vehicle metadata fieldset).
+
+Live breakdown with aria-live region; updates as YMM + service type change.
+
+### 2.3 Form state wiring
+
+File: lib/hooks/use-active-call-form.ts
+
+New form fields:
+- serviceQuoteTypeId (default lockout)
+- quotedPriceCents (auto-synced via useEffect from calculateServiceQuote)
+
+createJob() now sends:
+- job_type: formatIntakeJobTypeForDispatch(...)
+- quoted_price_cents
+- call_log_id: null for manual calls (isManual)
+
+Customer auto-save skips manual call_log_id on source_last_call_log_id.
+
+### 2.4 Job creation + realtime pool/map sync
+
+File: lib/create-intake-job.ts
+- Stores last_quoted_price_cents + quoted_price_cents in ai_leads.collected JSONB
+- Publishes Pusher owner-{userId} event job-booked
+
+File: app/api/jobs/create/route.ts
+- Accepts quoted_price_cents in POST body
+
+CallAnsweredModal actions:
+- Confirm & book — createJob + dismiss; NO navigation (pool/map refresh via Pusher job-booked)
+- Send to dispatch map & schedule — createJob + router.push(buildSchedulerFocusUrl(...))
+
+Existing consumers of job-booked:
+- components/workspace-views/scheduler-workspace-view.tsx (refreshSchedulerData)
+- components/workspace-views/dispatch-live-map.tsx
+
+No page refresh required for hopper/map after Confirm & book.
+
+--------------------------------------------------------------------------------
+
+## 3. Lost Lead Recovery Pipeline (Price-Shopper / Hang-Up)
+
+### 3.1 Database schema
+
+File: scripts/084-lost-leads-recovery.sql
+Listed in scripts/MIGRATE-ALL.md as migration 84.
+
+Table: lost_leads
+Columns:
+- id UUID PK
+- user_id → users(id)
+- organization_id → organizations(id) nullable
+- call_log_id TEXT nullable
+- phone_number TEXT NOT NULL (E.164)
+- last_quoted_price_cents INTEGER nullable
+- failure_reason TEXT NOT NULL
+- status TEXT DEFAULT lost_lead (becomes recovery_sent after SMS)
+- vehicle_year, vehicle_make, vehicle_model, service_type TEXT nullable
+- collected JSONB default {}
+- recovery_sms_sent_at, recovery_sms_body, recovery_sms_error TIMESTAMPTZ/TEXT nullable
+- created_at TIMESTAMPTZ
+
+Indexes:
+- lost_leads_recovery_idx (user_id, status, created_at DESC)
+- lost_leads_pending_recovery_idx (status, created_at) WHERE recovery_sms_sent_at IS NULL
+
+OWNER ACTION REQUIRED: Run 084 in Neon SQL Editor before production lost-lead logging.
+
+### 3.2 API — log lost lead
+
+Route: POST /api/leads/lost
+File: app/api/leads/lost/route.ts
+
+Body:
+- phone_number (required)
+- failure_reason (required) — e.g. Price too high, Abrupt hang-up
+- last_quoted_price_cents, vehicle_*, service_type, call_log_id, organization_id
+
+Writes via lib/lost-leads.ts insertLostLead().
+Publishes Pusher lead-salvageable to owner channel.
+
+UI: CallAnsweredModal fieldset Price-shopper recovery
+- Failure reason Select
+- Button: Customer declined price / hang up
+
+### 3.3 Recovery SMS cron (scaffold)
+
+Route: GET /api/cron/recover-leads
+File: app/api/cron/recover-leads/route.ts
+
+Auth: Bearer CRON_SECRET (same pattern as GET /api/sms/flush-scheduled)
+
+Logic:
+1. listLostLeadsPendingRecovery(minAgeMinutes=20, limit=20)
+2. For each row: generateLostLeadRecoverySms(row) in lib/lost-lead-recovery-sms.ts
+   - Template fallback always available
+   - OpenAI gpt-4o-mini personalization when OPENAI_API_KEY set
+3. sendTelnyxSms() via lib/telnyx-sms.ts (uses owner purchased line + 10DLC)
+4. markLostLeadRecoverySms({ id, body, error })
+
+Vercel cron setup (recommended):
+- Schedule: every 15–30 minutes
+- URL: https://lyncr.app/api/cron/recover-leads
+- Header: Authorization: Bearer {CRON_SECRET}
+
+10DLC note: Recovery SMS will fail on US carriers if workspace 10DLC not approved (same as other outbound SMS).
+
+--------------------------------------------------------------------------------
+
+## 4. Scheduler Mobile Timeline Layout
+
+### 4.1 Problem
+
+TechnicianSwimlaneBoard used vertical time axis + horizontal tech columns — cramped on small viewports.
+
+### 4.2 Solution — dual layout
+
+File: components/scheduler/technician-swimlane-board.tsx
+
+Mobile (md:hidden):
+- Technicians listed vertically (sticky left column, 112px)
+- Time hours scroll horizontally (overflow-x-auto whitespace-nowrap)
+- SCHEDULER_HOUR_COL_PX = 56 per hour column
+- SCHEDULER_TECH_ROW_PX = 52 per tech row
+- Hour cells: min-h 44px touch targets — tap to assign, drag-and-drop pool jobs (HOPPER_DRAG_MIME)
+- TimelineAppointmentBlock: horizontal placement via schedulerEventHorizontalPlacement()
+
+Desktop (hidden md:block):
+- Original vertical swimlane unchanged (time down, tech columns across)
+
+Helpers added in lib/scheduler-utils.ts:
+- SCHEDULER_HOUR_COL_PX, SCHEDULER_TECH_ROW_PX
+- schedulerEventHorizontalPlacement() → { leftPx, widthPx, start }
+
+Used from: components/workspace-views/scheduler-workspace-view.tsx (TechnicianSwimlaneBoard unchanged API)
+
+--------------------------------------------------------------------------------
+
+## 5. File Index (new / modified)
+
+NEW FILES:
+- lib/inbound-call-panel-context.tsx
+- lib/service-quote-calculator.ts
+- lib/lost-leads.ts
+- lib/lost-lead-recovery-sms.ts
+- components/dashboard/service-quote-calculator-panel.tsx
+- app/api/leads/lost/route.ts
+- app/api/cron/recover-leads/route.ts
+- scripts/084-lost-leads-recovery.sql
+- tests/service-quote-calculator.test.ts
+- lyncr_dispatch_intake_modernization_gemini.txt (this file)
+
+MODIFIED FILES:
+- components/dashboard-shell.tsx (InboundCallPanelProvider)
+- components/dashboard/CallAnsweredModal.tsx (manual merge, quote, lost lead, Confirm & book)
+- components/scheduler/dispatch-operations-metric-strip.tsx (+ Manual Call button)
+- components/scheduler/technician-swimlane-board.tsx (mobile timeline)
+- lib/hooks/use-active-call-form.ts (ActiveCallRow extensions, quote sync, job_type)
+- lib/create-intake-job.ts (quoted price in collected)
+- lib/scheduler-utils.ts (horizontal placement)
+- app/api/jobs/create/route.ts (quoted_price_cents)
+- scripts/MIGRATE-ALL.md (migration 84 entry)
+
+--------------------------------------------------------------------------------
+
+## 6. Data Flow Diagrams (prose)
+
+### 6.1 Manual call → booked job
+
+Owner clicks + Manual Call on dispatch metric strip
+  → openManualCallPanel() sets manualCallRow
+  → CallAnsweredModal opens (effectiveCurrent = manualCallRow)
+  → User fills YMM, service type, address, name
+  → calculateServiceQuote updates quotedPriceCents live
+  → Confirm & book → POST /api/jobs/create
+  → createUnassignedJobFromIntake inserts ai_leads (disposition BOOKED, dispatch_status unassigned_pool)
+  → publishOwnerEvent job-booked
+  → scheduler-workspace-view + dispatch-live-map refresh pool/map via Pusher
+  → clearManualCallRow()
+
+### 6.2 Live Telnyx call → intake (unchanged path + enhancements)
+
+Telnyx /incoming → insertCallLog → Pusher call-initiated / call-answered
+  → CallAnsweredModal showCallRow
+  → Same quote + Confirm & book flow
+  → call_log_id linked when not manual
+
+### 6.3 Price decline → recovery SMS
+
+User clicks Customer declined price / hang up
+  → POST /api/leads/lost
+  → INSERT lost_leads (status lost_lead)
+  → Pusher lead-salvageable
+  → [20+ min later] GET /api/cron/recover-leads
+  → generateLostLeadRecoverySms + sendTelnyxSms
+  → UPDATE lost_leads recovery_sms_sent_at, status recovery_sent
+
+--------------------------------------------------------------------------------
+
+## 7. Known Gaps & Follow-Up Recommendations
+
+1. Migration 084 not auto-applied — owners must run SQL in Neon; API returns clear error if table missing.
+
+2. Recovery cron not in vercel.json by default — add Vercel Cron job + CRON_SECRET in production env.
+
+3. Pricing matrix is baseline/transparent estimate only — not connected to owner-configurable rate cards or onboarding_profiles.service_rules.
+
+4. Lost leads separate from ai_leads PRICE_REJECTED disposition — receptionist log-job still uses PRICE_REJECTED + is_salvageable on ai_leads; owner intake lost_lead uses lost_leads table. Consider unifying salvage queue UI to show both feeds.
+
+5. Manual calls do not create call_logs rows — intentional (no Telnyx leg). If reporting needs them, add optional POST /api/calls/manual stub.
+
+6. Confirm & book does not auto-open scheduler drawer — by design (stay on map). Send to dispatch map & schedule still navigates.
+
+7. OPENAI_API_KEY optional for recovery copy — template SMS used when absent.
+
+8. Related prior fixes (same release cycle context):
+   - Missed call detection: routed_to_name no longer preset at insert (lib/missed-call-telemetry.ts)
+   - Rolling 24h telemetry window (lib/telemetry-timezone.ts)
+   - Cross-tab intake dismiss (scripts/083-call-log-owner-intake-dismissed.sql)
+
+--------------------------------------------------------------------------------
+
+## 8. Environment Variables (relevant)
+
+DATABASE_URL — Neon Postgres
+TELNYX_API_KEY — voice + SMS
+CRON_SECRET — protects /api/cron/recover-leads and /api/sms/flush-scheduled
+OPENAI_API_KEY — optional recovery SMS personalization
+NEXT_PUBLIC_APP_URL — webhook + tracking URLs
+Pusher keys — realtime job-booked / call events
+
+--------------------------------------------------------------------------------
+
+## 9. Testing
+
+npm test -- tests/service-quote-calculator.test.ts
+
+Manual QA checklist:
+- Scheduler → + Manual Call → sheet opens with status select
+- Change service type + YMM → quote updates
+- Confirm & book → job appears in unassigned pool without refresh
+- Customer declined → lost lead saved (after migration 084)
+- Mobile scheduler → horizontal time scroll, tap hour cell to assign
+
+================================================================================
+END OF REPORT

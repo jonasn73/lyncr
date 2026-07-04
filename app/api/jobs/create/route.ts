@@ -29,6 +29,7 @@ type CreateJobBody = {
   organization_id?: string | null
   customer_lat?: number | null
   customer_lng?: number | null
+  quoted_price_cents?: number | null
 }
 
 export async function POST(req: NextRequest) {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
       keyStyle: body.key_style?.trim() || null,
       latitude: body.customer_lat != null ? Number(body.customer_lat) : null,
       longitude: body.customer_lng != null ? Number(body.customer_lng) : null,
+      quotedPriceCents: body.quoted_price_cents != null ? Number(body.quoted_price_cents) : null,
     })
 
     return NextResponse.json({ data: result })

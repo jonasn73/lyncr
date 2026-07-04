@@ -40,6 +40,7 @@ export type CreateIntakeJobInput = {
   keyStyle?: string | null
   latitude?: number | null
   longitude?: number | null
+  quotedPriceCents?: number | null
 }
 
 export type CreateIntakeJobResult = {
@@ -122,6 +123,9 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.keyFrequency?.trim() ? { key_frequency: input.keyFrequency.trim() } : {}),
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
     ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
+    ...(input.quotedPriceCents != null && input.quotedPriceCents > 0
+      ? { last_quoted_price_cents: input.quotedPriceCents, quoted_price_cents: input.quotedPriceCents }
+      : {}),
     ...(latitude != null ? { customer_lat: latitude } : {}),
     ...(longitude != null ? { customer_lng: longitude } : {}),
   }
