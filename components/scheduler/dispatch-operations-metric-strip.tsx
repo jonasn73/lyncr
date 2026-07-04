@@ -59,6 +59,8 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   embedded = false,
   /** Pill chips for the mobile map toolbar. */
   compact = false,
+  /** Narrow sidebar — keep metrics in a 2×2 grid. */
+  sidebar = false,
 }: {
   poolJobs: UnassignedPoolJob[]
   activePipelineJobs: ActivePipelineJob[]
@@ -66,10 +68,11 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   className?: string
   embedded?: boolean
   compact?: boolean
+  sidebar?: boolean
 }) {
   const isMobile = useIsMobile()
   const showPillRow = compact
-  const useShortLabels = showPillRow || isMobile
+  const useShortLabels = showPillRow || isMobile || sidebar
   const inboundCallPanel = useInboundCallPanelOptional()
   const metrics = useMemo(
     () =>
@@ -87,7 +90,8 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
         className={cn(
           showPillRow
             ? "flex flex-nowrap gap-1.5 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            : "grid grid-cols-2 gap-x-3 gap-y-2 px-3 py-2 md:grid-cols-4 md:gap-4 md:px-8 md:py-3",
+            : "grid grid-cols-2 gap-x-2 gap-y-1.5 px-2.5 py-2 xl:grid-cols-4 xl:gap-4 xl:px-8 xl:py-3",
+          sidebar && !showPillRow && "xl:grid-cols-2 xl:px-2.5 xl:py-2",
           !showPillRow && !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
         )}
       >
@@ -131,11 +135,11 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
         ) : null}
       </div>
       {!showPillRow && inboundCallPanel ? (
-        <div className={cn("px-3 pb-2 md:px-8", !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-3")}>
+        <div className={cn("px-2.5 pb-2", sidebar ? "pt-0" : "px-3 md:px-8", !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-2.5")}>
           <Button
             type="button"
             size="sm"
-            className="h-9 w-full gap-1.5 font-semibold bg-primary text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
+            className="h-8 w-full gap-1.5 font-semibold bg-primary text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-4 w-4" aria-hidden />

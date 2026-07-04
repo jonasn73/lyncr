@@ -831,7 +831,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         onResults={handlePhoneLookupResults}
         className="order-first w-full sm:order-none sm:mr-1"
       />
-      <Button type="button" size="sm" className="gap-1.5" onClick={openBookingDefault}>
+      <Button type="button" size="sm" className="gap-1.5 lg:hidden" onClick={openBookingDefault}>
         <Plus className="h-4 w-4" aria-hidden />
         Create appointment
       </Button>
@@ -843,63 +843,126 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" action={headerAction} />
 
-        <div className="flex w-full min-h-[calc(100vh-120px)] flex-col gap-4 p-4 pb-28 md:gap-6 md:p-6 md:pb-6">
-          <p className="text-sm text-zinc-500">
-            {intakeProfile === "locksmith"
-              ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
-              : intakeProfile === "detailing"
-                ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
-                : "Automotive field jobs with industry-specific intake fields and validated addresses."}
-          </p>
+        <p className="text-sm text-zinc-500">
+          {intakeProfile === "locksmith"
+            ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
+            : intakeProfile === "detailing"
+              ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
+              : "Automotive field jobs with industry-specific intake fields and validated addresses."}
+        </p>
 
-          <JobPoolPanel
-            jobs={displayPoolJobs}
-            highlightId={highlightId}
-            onSelectJob={openPoolJobDrawer}
-            onMobileAssignJob={queueMobilePoolAssign}
-          />
+        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-3 lg:gap-6 lg:pb-2">
+          {/* Left control column — hopper, live metrics, calendar (desktop) */}
+          <div className="flex min-w-0 flex-col gap-3 lg:gap-4">
+            <Button
+              type="button"
+              size="sm"
+              className="hidden w-full gap-1.5 lg:inline-flex"
+              onClick={openBookingDefault}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Create appointment
+            </Button>
 
-          <SchedulerDispatchLiveStatus
-            selectedDay={selectedDay}
-            poolJobs={displayPoolJobs}
-            activePipelineJobs={displayPipelineJobs}
-            dayEvents={dayEvents}
-            onSelectJob={focusJobById}
-            onMarkComplete={handleMarkJobComplete}
-            completingJobId={completingId}
-          />
-
-          {markCompleteError ? (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-              {markCompleteError}
-            </p>
-          ) : null}
-
-          <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-            <div className="border-b border-border/60 px-4 py-3 md:px-5 md:py-4">
-              <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                {displayPipelineJobs.length} active job{displayPipelineJobs.length === 1 ? "" : "s"} today
-              </p>
-            </div>
-            <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40">
-              <ActivePipelinePanelStream
-                jobs={displayPipelineJobs}
-                dayKey={pipelineDayKey}
-                useStreamedInitialDay={useStreamedPipeline}
+            <div className="lg:hidden">
+              <JobPoolPanel
+                jobs={displayPoolJobs}
                 highlightId={highlightId}
-                onFocusJob={highlightPipelineJob}
-                onEditJob={editPipelineJob}
+                onSelectJob={openPoolJobDrawer}
+                onMobileAssignJob={queueMobilePoolAssign}
+              />
+            </div>
+            <div className="hidden lg:block">
+              <JobPoolPanel
+                jobs={displayPoolJobs}
+                highlightId={highlightId}
+                onSelectJob={openPoolJobDrawer}
+                onMobileAssignJob={queueMobilePoolAssign}
+                variant="sidebar"
+              />
+            </div>
+
+            <div className="lg:hidden">
+              <SchedulerDispatchLiveStatus
+                selectedDay={selectedDay}
+                poolJobs={displayPoolJobs}
+                activePipelineJobs={displayPipelineJobs}
+                dayEvents={dayEvents}
+                onSelectJob={focusJobById}
                 onMarkComplete={handleMarkJobComplete}
                 completingJobId={completingId}
               />
             </div>
-          </WorkspacePanel>
+            <div className="hidden lg:block">
+              <SchedulerDispatchLiveStatus
+                sidebar
+                selectedDay={selectedDay}
+                poolJobs={displayPoolJobs}
+                activePipelineJobs={displayPipelineJobs}
+                dayEvents={dayEvents}
+                onSelectJob={focusJobById}
+                onMarkComplete={handleMarkJobComplete}
+                completingJobId={completingId}
+              />
+            </div>
 
-          <div className="grid w-full flex-1 gap-4 lg:grid-cols-[minmax(0,280px)_1fr]">
-            <WorkspacePanel className="flex w-full flex-col p-3">
-              <details className="group">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+            <WorkspacePanel className="hidden flex-col p-2 lg:flex">
+              <Calendar
+                mode="single"
+                selected={selectedDay}
+                onSelect={(d) => d && setSelectedDay(d)}
+                month={visibleMonth}
+                onMonthChange={setVisibleMonth}
+                modifiers={{ hasJob: [...daysWithEvents] }}
+                modifiersClassNames={{
+                  hasJob:
+                    "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
+                }}
+                className="mx-auto w-full p-0"
+              />
+              {loading ? (
+                <SchedulerCalendarStatsSkeleton />
+              ) : (
+                <p className="mt-1 text-center text-[11px] text-zinc-500">
+                  {displayEvents.length} scheduled this month
+                  {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
+                </p>
+              )}
+            </WorkspacePanel>
+          </div>
+
+          {/* Main workspace — pipeline + swimlanes */}
+          <div className="flex w-full min-w-0 flex-col gap-3 lg:col-span-2 lg:gap-4">
+            {markCompleteError ? (
+              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                {markCompleteError}
+              </p>
+            ) : null}
+
+            <WorkspacePanel className="flex w-full flex-col overflow-hidden">
+              <div className="border-b border-border/60 px-3 py-2 lg:px-4 lg:py-2.5">
+                <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {displayPipelineJobs.length} active job{displayPipelineJobs.length === 1 ? "" : "s"} today
+                </p>
+              </div>
+              <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40 lg:max-h-[min(220px,30vh)]">
+                <ActivePipelinePanelStream
+                  jobs={displayPipelineJobs}
+                  dayKey={pipelineDayKey}
+                  useStreamedInitialDay={useStreamedPipeline}
+                  highlightId={highlightId}
+                  onFocusJob={highlightPipelineJob}
+                  onEditJob={editPipelineJob}
+                  onMarkComplete={handleMarkJobComplete}
+                  completingJobId={completingId}
+                />
+              </div>
+            </WorkspacePanel>
+
+            <WorkspacePanel className="flex w-full min-w-0 flex-col overflow-hidden">
+              <details className="group border-b border-border/60 lg:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                   <span>
                     {selectedDay.toLocaleDateString([], {
                       weekday: "short",
@@ -913,7 +976,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                     aria-hidden
                   />
                 </summary>
-                <div className="mt-2">
+                <div className="px-2 pb-2">
                   <Calendar
                     mode="single"
                     selected={selectedDay}
@@ -930,22 +993,20 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                   {loading ? (
                     <SchedulerCalendarStatsSkeleton />
                   ) : (
-                    <p className="mt-2 text-center text-xs text-zinc-500">
+                    <p className="mt-1 text-center text-xs text-zinc-500">
                       {displayEvents.length} scheduled this month
                       {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
                     </p>
                   )}
                 </div>
               </details>
-            </WorkspacePanel>
 
-            <WorkspacePanel className="flex w-full min-w-0 flex-col overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 md:px-5 md:py-4">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 lg:px-4 lg:py-2.5">
+                <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-foreground">
                     {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
                   </h2>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-0.5 text-xs text-zinc-500">
                     Tech swimlanes · {assignableTechs.length} technician
                     {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
                     {dayEvents.length === 1 ? "" : "s"} scheduled
@@ -957,7 +1018,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 </Button>
               </div>
               {gridScheduleError ? (
-                <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive md:px-5">
+                <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:px-4">
                   {gridScheduleError}
                 </div>
               ) : null}

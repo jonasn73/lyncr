@@ -12,10 +12,17 @@ type JobPoolPanelProps = {
   highlightId?: string | null
   onSelectJob?: (job: UnassignedPoolJob) => void
   onMobileAssignJob?: (job: UnassignedPoolJob) => void
+  variant?: "default" | "sidebar"
 }
 
 /** Hopper tray — uses live SWR jobs from the parent when provided. */
-export function JobPoolPanel({ jobs, highlightId, onSelectJob, onMobileAssignJob }: JobPoolPanelProps) {
+export function JobPoolPanel({
+  jobs,
+  highlightId,
+  onSelectJob,
+  onMobileAssignJob,
+  variant = "default",
+}: JobPoolPanelProps) {
   if (jobs !== undefined) {
     return (
       <JobPoolTray
@@ -23,6 +30,7 @@ export function JobPoolPanel({ jobs, highlightId, onSelectJob, onMobileAssignJob
         highlightId={highlightId}
         onSelectJob={onSelectJob}
         onMobileAssignJob={onMobileAssignJob}
+        variant={variant}
       />
     )
   }

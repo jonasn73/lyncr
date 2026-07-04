@@ -95,6 +95,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   embedded = false,
   /** Slim single-row toolbar for mobile map overlay. */
   compact = false,
+  /** Dense left sidebar on desktop — hides upcoming row and tightens padding. */
+  sidebar = false,
   /** Only the upcoming jobs row (mobile bottom sheet). */
   upcomingOnly = false,
 }: {
@@ -108,6 +110,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   className?: string
   embedded?: boolean
   compact?: boolean
+  sidebar?: boolean
   upcomingOnly?: boolean
 }) {
   const now = useLiveClock()
@@ -161,11 +164,13 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
       aria-label="Dispatch live status"
     >
       <div>
-        <div className={cn("flex gap-2", compact ? "flex-row items-center" : "flex-col gap-0 md:flex-row md:items-stretch")}>
+        <div className={cn("flex gap-2", compact || sidebar ? "flex-col gap-0" : "flex-col gap-0 md:flex-row md:items-stretch")}>
           <div
             className={cn(
               "flex shrink-0 items-center gap-1.5",
-              compact ? "px-0 py-0" : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
+              compact ? "px-0 py-0" : sidebar
+                ? "border-b border-zinc-800/80 px-2.5 py-1.5"
+                : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
             )}
           >
             <Clock3 className={cn("shrink-0 text-primary", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
@@ -188,6 +193,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
             <DispatchOperationsMetricStrip
               embedded
               compact={compact}
+              sidebar={sidebar}
               poolJobs={poolJobs}
               activePipelineJobs={activePipelineJobs}
               dayEvents={dayEvents}
@@ -195,7 +201,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
           </div>
         </div>
 
-        {!compact ? (
+        {!compact && !sidebar ? (
           <div className="border-t border-zinc-800/80 px-3 py-2 md:px-4">
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               Coming up next
