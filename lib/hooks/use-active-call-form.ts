@@ -130,7 +130,13 @@ function formFromCustomer(c: Customer, prev: ActiveCallFormState): ActiveCallFor
   }
 }
 
-export function useActiveCallForm(current: ActiveCallRow | null) {
+export function useActiveCallForm(
+  current: ActiveCallRow | null,
+  options?: {
+    /** Replace synthetic manual-{uuid} row id with real call_logs.id after POST /api/calls/manual. */
+    linkManualCallLog?: (patch: Partial<ActiveCallRow>) => void
+  }
+) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [jobState, setJobState] = useState<"idle" | "creating" | "created" | "error">("idle")
   const [jobError, setJobError] = useState<string | null>(null)
@@ -389,7 +395,8 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
           postal_code: form.postalCode,
           country: form.country,
           notes: form.notes,
-          source_last_call_log_id: current.isManual ? null : current.id,
+          source_last_call_log_id:
+            current.isManual && current.id.startsWith("manual-") ? null : current.id,
         }),
       })
         .then(async (res) => {
@@ -421,12 +428,55 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
       setJobError(null)
       try {
         const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
+        let callLogIdForJob = current.id
+
+        // Manual walk-in rows start as manual-{uuid}; provision a real call_logs stub first.
+        if (current.isManual && current.id.startsWith("manual-")) {
+          const manualRes = await fetch("/api/calls/manual", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone_number: phone,
+              caller_name: name,
+              to_number: current.to_number?.trim() || null,
+              metadata: {
+                direction: "manual_intake",
+                source: "walk_in",
+                manual_call_status: current.manualCallStatus ?? "answered",
+                organization_id: organizationId ?? null,
+                vehicle_year: form.vehicleYear,
+                vehicle_make: form.vehicleMake,
+                vehicle_model: form.vehicleModel,
+                job_type: dispatchJobType,
+                quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
+                service_address_line1: form.addressLine1,
+                city: form.city,
+                region: form.region,
+                postal_code: form.postalCode,
+                notes: form.notes,
+              },
+            }),
+          })
+          const manualJson = (await manualRes.json()) as {
+            data?: { call_log_id?: string }
+            error?: string
+          }
+          if (!manualRes.ok) {
+            throw new Error(manualJson.error ?? "Could not create manual call log.")
+          }
+          const provisionedId = String(manualJson.data?.call_log_id ?? "").trim()
+          if (!provisionedId) throw new Error("Manual call log created but no id returned.")
+          callLogIdForJob = provisionedId
+          options?.linkManualCallLog?.({ id: provisionedId, isManual: true })
+        }
+
         const res = await fetch("/api/jobs/create", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            call_log_id: current.isManual ? null : current.id,
+            call_log_id: callLogIdForJob,
             caller_e164: phone,
             customer_name: name,
             address_line1: form.addressLine1,
@@ -465,7 +515,7 @@ export function useActiveCallForm(current: ActiveCallRow | null) {
         return { ok: false }
       }
     },
-    [current, form]
+    [current, form, options?.linkManualCallLog]
   )
 
   const addressReady = isIntakeAddressReady(form)

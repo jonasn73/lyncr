@@ -325,7 +325,7 @@ User clicks Customer declined price / hang up
 
 4. Lost leads separate from ai_leads PRICE_REJECTED disposition — receptionist log-job still uses PRICE_REJECTED + is_salvageable on ai_leads; owner intake lost_lead uses lost_leads table. Consider unifying salvage queue UI to show both feeds.
 
-5. Manual calls do not create call_logs rows — intentional (no Telnyx leg). If reporting needs them, add optional POST /api/calls/manual stub.
+5. Manual calls now provision call_logs via POST /api/calls/manual before job create (migration 085). Fallback works without migration using call_type=incoming + status=manual_intake.
 
 6. Confirm & book does not auto-open scheduler drawer — by design (stay on map). Send to dispatch map & schedule still navigates.
 
@@ -362,3 +362,21 @@ Manual QA checklist:
 
 ================================================================================
 END OF REPORT
+
+--------------------------------------------------------------------------------
+ADDENDUM — Manual call log bridge (July 2026)
+--------------------------------------------------------------------------------
+
+POST /api/calls/manual (app/api/calls/manual/route.ts)
+  Body: phone_number, technician_id?, to_number?, caller_name?, metadata?
+  Inserts call_logs with call_type=manual_intake, intake_source=walk_in, answered_at=now()
+  Returns: { call_log_id, direction: manual_intake, source: walk_in }
+
+Migration: scripts/085-manual-call-log-bridge.sql (extends call_type CHECK, intake_metadata JSONB)
+
+lib/hooks/use-active-call-form.ts createJob():
+  If current.isManual && id starts with manual- → POST /api/calls/manual first
+  Then POST /api/jobs/create with stable call_log_id
+  linkManualCallLog patches synthetic row id in InboundCallPanelProvider
+
+Pre-migration fallback: call_type=incoming, status=manual_intake, provider_call_sid=manual-intake-{uuid}

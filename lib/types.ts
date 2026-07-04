@@ -466,7 +466,7 @@ export interface AdminCallHistoryRow {
   id: string
   /** Provider trunk identifier (call_logs.provider_call_sid). */
   call_uuid: string
-  /** Flow direction (call_logs.call_type): incoming | outgoing | missed | voicemail. */
+  /** Flow direction (call_logs.call_type): incoming | outgoing | missed | voicemail | manual_intake. */
   direction: string
   from_number: string
   to_number: string
@@ -1021,7 +1021,7 @@ export interface AdminPortingCorrectionRequest {
 }
 
 // --- Call Logs ---
-export type CallType = "incoming" | "outgoing" | "missed" | "voicemail"
+export type CallType = "incoming" | "outgoing" | "missed" | "voicemail" | "manual_intake"
 
 /** Row from ai_leads — legacy tool webhooks / future Telnyx lead hooks. */
 export interface AiLead {

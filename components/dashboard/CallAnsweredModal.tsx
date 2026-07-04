@@ -179,6 +179,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const effectiveCurrent = manualCallRow ?? current
+
+  const linkManualCallLog = useCallback(
+    (patch: Partial<ActiveCallRow>) => {
+      patchManualCallRow(patch)
+    },
+    [patchManualCallRow]
+  )
+
   const {
     form,
     patchForm,
@@ -198,7 +206,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dispatchBlockers,
     addressSeedQuery,
     answeredClarificationIds,
-  } = useActiveCallForm(effectiveCurrent)
+  } = useActiveCallForm(effectiveCurrent, { linkManualCallLog })
 
   useEffect(() => {
     if (!ownerUserId) return
