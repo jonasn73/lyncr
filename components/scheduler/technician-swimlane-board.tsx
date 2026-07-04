@@ -345,8 +345,8 @@ function MobileTimelineBoard({
   const techColWidth = 112
 
   return (
-    <div className="flex max-h-[min(480px,55vh)] flex-1 flex-col overflow-hidden md:hidden">
-      <div className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="w-full md:hidden">
+      <div className="overflow-x-auto overscroll-x-contain whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="inline-flex min-w-full flex-col" style={{ minWidth: techColWidth + timelineWidthPx }}>
           <div className="flex border-b border-border/40 bg-card/95">
             <div
@@ -549,7 +549,7 @@ export function TechnicianSwimlaneBoard({
         onConfirm={confirmMobileAssign}
       />
 
-      <div className="hidden max-h-[min(720px,70vh)] flex-1 overflow-auto md:block">
+      <div className="hidden w-full flex-1 overflow-auto md:block">
         <div className="flex min-h-0 min-w-max">
           <div className="sticky left-0 z-20 w-14 shrink-0 border-r border-border/40 bg-card">
             <div className="h-16 border-b border-border/40" aria-hidden />

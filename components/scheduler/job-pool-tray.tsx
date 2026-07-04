@@ -3,6 +3,7 @@
 // Horizontal "Unassigned Job Pool" tray above the scheduler grid.
 
 import { Inbox, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { JobPoolCard } from "@/components/scheduler/job-pool-card"
 import { useSchedulerMobileTimeline } from "@/hooks/use-scheduler-mobile-timeline"
 import type { UnassignedPoolJob } from "@/lib/types"
@@ -43,7 +44,13 @@ export function JobPoolTray({ jobs, loading, highlightId, onSelectJob, onMobileA
         )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        className={cn(
+          mobileTimeline
+            ? "flex max-h-[min(420px,50vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
+            : "flex gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        )}
+      >
         {!loading && jobs.length === 0 ? (
           <p className="py-2 text-xs text-zinc-500">No unassigned jobs — new bookings without a tech land here.</p>
         ) : null}
