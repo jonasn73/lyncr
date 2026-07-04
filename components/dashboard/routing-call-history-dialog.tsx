@@ -192,15 +192,17 @@ function buildSummary(rows: CallHistoryRow[]): CallSummary {
   }
 }
 
-/** One calendar day in the current week (Mon–Sun) for the weekly talk breakdown. */
+/** One calendar day in the current week for the weekly talk breakdown. */
 type WeeklyDayBucket = {
   key: string
+  /** Primary label: Today, Yesterday, or weekday name. */
+  displayLabel: string
   weekdayLabel: string
   dateLabel: string
   callCount: number
   talkSeconds: number
   isToday: boolean
-  isFuture: boolean
+  isYesterday: boolean
 }
 
 /** Stable YYYY-MM-DD key in local time — groups calls onto the owner's calendar day. */
@@ -222,38 +224,51 @@ function startOfLocalWeek(now = new Date()): Date {
   return start
 }
 
-/** Build Mon–Sun buckets with call + talk totals (zeros on quiet days). */
+/** Build week buckets (today → yesterday → … back to Monday). Future days are omitted. */
 function buildWeeklyDayBreakdown(rows: CallHistoryRow[]): WeeklyDayBucket[] {
   const now = new Date()
   const todayKey = localDateKey(now)
   const todayStart = new Date(now)
   todayStart.setHours(0, 0, 0, 0)
   const weekStart = startOfLocalWeek(now)
-  const buckets: WeeklyDayBucket[] = []
+  const yesterdayStart = new Date(todayStart)
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1)
 
-  for (let i = 0; i < 7; i += 1) {
-    const date = new Date(weekStart)
-    date.setDate(weekStart.getDate() + i)
-    const key = localDateKey(date)
-    const dayStart = new Date(date)
-    dayStart.setHours(0, 0, 0, 0)
-    buckets.push({
-      key,
-      weekdayLabel: date.toLocaleDateString([], { weekday: "short" }),
-      dateLabel: date.toLocaleDateString([], { month: "short", day: "numeric" }),
-      callCount: 0,
-      talkSeconds: 0,
-      isToday: key === todayKey,
-      isFuture: dayStart > todayStart,
-    })
+  const byKey = new Map<string, { callCount: number; talkSeconds: number }>()
+  for (const row of rows) {
+    const key = localDateKey(row.created_at)
+    const existing = byKey.get(key) ?? { callCount: 0, talkSeconds: 0 }
+    existing.callCount += 1
+    existing.talkSeconds += effectiveTalkSeconds(row)
+    byKey.set(key, existing)
   }
 
-  const indexByKey = new Map(buckets.map((b, i) => [b.key, i]))
-  for (const row of rows) {
-    const idx = indexByKey.get(localDateKey(row.created_at))
-    if (idx == null) continue
-    buckets[idx].callCount += 1
-    buckets[idx].talkSeconds += effectiveTalkSeconds(row)
+  const buckets: WeeklyDayBucket[] = []
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(todayStart)
+    date.setDate(todayStart.getDate() - offset)
+    if (date < weekStart) break
+
+    const key = localDateKey(date)
+    const totals = byKey.get(key) ?? { callCount: 0, talkSeconds: 0 }
+    const dayStart = new Date(date)
+    dayStart.setHours(0, 0, 0, 0)
+    const isToday = key === todayKey
+    const isYesterday = dayStart.getTime() === yesterdayStart.getTime()
+    const weekdayLabel = date.toLocaleDateString([], { weekday: "short" })
+    const dateLabel = date.toLocaleDateString([], { month: "short", day: "numeric" })
+    const displayLabel = isToday ? "Today" : isYesterday ? "Yesterday" : weekdayLabel
+
+    buckets.push({
+      key,
+      displayLabel,
+      weekdayLabel,
+      dateLabel,
+      callCount: totals.callCount,
+      talkSeconds: totals.talkSeconds,
+      isToday,
+      isYesterday,
+    })
   }
 
   return buckets
@@ -270,7 +285,7 @@ function WeeklyDayBreakdownChart({
 }) {
   const maxCalls = Math.max(1, ...days.map((d) => d.callCount))
   const busiest = days.reduce((best, d) => (d.callCount > best.callCount ? d : best), days[0])
-  const quietDays = days.filter((d) => !d.isFuture && d.callCount === 0)
+  const quietDays = days.filter((d) => !d.isToday && d.callCount === 0)
   const hasActivity = days.some((d) => d.callCount > 0)
 
   return (
@@ -281,7 +296,10 @@ function WeeklyDayBreakdownChart({
           <p className="text-[11px] text-zinc-500">
             Busiest:{" "}
             <span className="font-medium text-teal-400">
-              {busiest.weekdayLabel} ({busiest.callCount} call{busiest.callCount === 1 ? "" : "s"})
+              {busiest.displayLabel === "Today" || busiest.displayLabel === "Yesterday"
+                ? busiest.displayLabel
+                : `${busiest.weekdayLabel} (${busiest.dateLabel})`}{" "}
+              ({busiest.callCount} call{busiest.callCount === 1 ? "" : "s"})
             </span>
             {quietDays.length > 0 ? (
               <span className="text-zinc-600">
@@ -297,31 +315,29 @@ function WeeklyDayBreakdownChart({
         {days.map((day) => {
           const barPct = day.callCount > 0 ? Math.round((day.callCount / maxCalls) * 100) : 0
           const isSelected = selectedDayKey === day.key
-          const isMuted = day.isFuture || (day.callCount === 0 && !day.isToday)
+          const isMuted = day.callCount === 0 && !day.isToday
 
           return (
             <li key={day.key}>
               <button
                 type="button"
                 onClick={() => onSelectDay(isSelected ? null : day.key)}
-                disabled={day.isFuture}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors",
-                  day.isFuture && "cursor-not-allowed opacity-40",
-                  !day.isFuture && "hover:bg-zinc-900/60",
+                  "hover:bg-zinc-900/60",
                   isSelected && "bg-teal-950/40 ring-1 ring-teal-500/30"
                 )}
                 aria-pressed={isSelected}
-                aria-label={`${day.weekdayLabel} ${day.dateLabel}: ${day.callCount} calls, ${formatTalkDuration(day.talkSeconds)} talk`}
+                aria-label={`${day.displayLabel} ${day.dateLabel}: ${day.callCount} calls, ${formatTalkDuration(day.talkSeconds)} talk`}
               >
-                <div className="w-14 shrink-0">
+                <div className="w-[4.5rem] shrink-0">
                   <p
                     className={cn(
                       "text-xs font-semibold",
                       day.isToday ? "text-teal-300" : isMuted ? "text-zinc-600" : "text-zinc-300"
                     )}
                   >
-                    {day.weekdayLabel}
+                    {day.displayLabel}
                   </p>
                   <p className="text-[10px] text-zinc-600">{day.dateLabel}</p>
                 </div>
@@ -359,7 +375,8 @@ function WeeklyDayBreakdownChart({
 
       {selectedDayKey ? (
         <p className="mt-2 text-center text-[11px] text-zinc-500">
-          Showing {days.find((d) => d.key === selectedDayKey)?.weekdayLabel ?? "day"} only ·{" "}
+          Showing{" "}
+          {days.find((d) => d.key === selectedDayKey)?.displayLabel ?? "day"} only ·{" "}
           <button
             type="button"
             className="text-teal-400 underline-offset-2 hover:underline"
@@ -369,7 +386,9 @@ function WeeklyDayBreakdownChart({
           </button>
         </p>
       ) : (
-        <p className="mt-2 text-center text-[11px] text-zinc-600">Tap a day to filter the list below</p>
+        <p className="mt-2 text-center text-[11px] text-zinc-600">
+          Tap a day to see that day&apos;s calls below
+        </p>
       )}
     </section>
   )
@@ -449,9 +468,15 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
   }, [filter])
 
   useEffect(() => {
-    if (open) void loadCalls()
-    else setSelectedWeekDayKey(null)
-  }, [open, loadCalls])
+    if (open) {
+      void loadCalls()
+      if (filter === "weekly_talk") {
+        setSelectedWeekDayKey(localDateKey(new Date()))
+      }
+    } else {
+      setSelectedWeekDayKey(null)
+    }
+  }, [open, loadCalls, filter])
 
   const filtered = useMemo(
     () => filterRows(rows, filter, businessNumbers),
@@ -468,7 +493,12 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
     return filtered.filter((row) => localDateKey(row.created_at) === selectedWeekDayKey)
   }, [filter, filtered, selectedWeekDayKey])
 
-  const summary = useMemo(() => buildSummary(listRows), [listRows])
+  const weekSummary = useMemo(() => buildSummary(filtered), [filtered])
+  const daySummary = useMemo(() => buildSummary(listRows), [listRows])
+  const summary = useMemo(
+    () => (filter === "weekly_talk" ? weekSummary : daySummary),
+    [filter, weekSummary, daySummary]
+  )
   const meta = FILTER_META[filter]
   const showTalkSummary = filter === "daily_talk" || filter === "weekly_talk"
   const hudTalkDisplay =
@@ -503,6 +533,13 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
         {!loading && !error && showTalkSummary && summary.callCount > 0 ? (
           <div className="border-b border-zinc-800/60 px-5 py-2 text-xs text-zinc-500">
             Avg {formatDuration(summary.avgTalkSeconds)} per call
+            {filter === "weekly_talk" && selectedWeekDayKey ? (
+              <span className="text-zinc-600">
+                {" "}
+                · Week total: {formatTalkDuration(weekSummary.totalTalkSeconds)} ({weekSummary.callCount}{" "}
+                calls)
+              </span>
+            ) : null}
             {hudTalkDisplay ? (
               <span className="text-zinc-600">
                 {" "}
@@ -608,9 +645,13 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
 
         <div className="border-t border-zinc-800 px-5 py-2 text-center text-[11px] text-zinc-600">
           {listRows.length} call{listRows.length === 1 ? "" : "s"}
-          {selectedWeekDayKey ? " this day" : filter === "weekly_talk" ? " this week" : ""}
-          {showTalkSummary && summary.totalTalkSeconds > 0
-            ? ` · ${formatTalkDuration(summary.totalTalkSeconds)} total talk`
+          {selectedWeekDayKey && filter === "weekly_talk"
+            ? ` on ${weeklyDayBreakdown.find((d) => d.key === selectedWeekDayKey)?.displayLabel ?? "this day"}`
+            : filter === "weekly_talk"
+              ? " this week"
+              : ""}
+          {showTalkSummary && (filter === "weekly_talk" ? daySummary : summary).totalTalkSeconds > 0
+            ? ` · ${formatTalkDuration((filter === "weekly_talk" ? daySummary : summary).totalTalkSeconds)} total talk`
             : ""}{" "}
           · tap a stat pill to reopen
         </div>
