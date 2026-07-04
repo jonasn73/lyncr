@@ -5,7 +5,7 @@ import { CalendarDays, CalendarRange, Clock, Phone, PhoneIncoming, PhoneMissed }
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
-import { formatTalkDuration, formatTalkTime } from "@/lib/daily-call-telemetry"
+import { formatTalkTime } from "@/lib/daily-call-telemetry"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
   RoutingCallHistoryDialog,
@@ -131,8 +131,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const [historyFilter, setHistoryFilter] = useState<CallHistoryFilter>("daily")
 
   const dailyTalkDisplay = formatTalkTime(liveDailyTalkSeconds)
-  const weeklyTalkDisplay = formatTalkDuration(liveWeeklyTalkSeconds)
-  const monthlyTalkDisplay = formatTalkDuration(liveMonthlyTalkSeconds)
+  const weeklyTalkDisplay = formatTalkTime(liveWeeklyTalkSeconds)
+  const monthlyTalkDisplay = formatTalkTime(liveMonthlyTalkSeconds)
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)

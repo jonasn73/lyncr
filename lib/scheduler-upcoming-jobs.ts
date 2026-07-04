@@ -53,6 +53,26 @@ function mergeDayJobs(
   return [...byId.values()]
 }
 
+/** Pool + pipeline rows for mobile list — pipeline wins when the same id exists in both. */
+export function mergeSchedulerListJobs(
+  activePipelineJobs: ActivePipelineJob[],
+  poolJobs: UnassignedPoolJob[]
+): ActivePipelineJob[] {
+  const byId = new Map<string, ActivePipelineJob>()
+  for (const job of poolJobs) {
+    byId.set(job.id, {
+      ...job,
+      job_status: null,
+      assigned_tech_id: null,
+      assigned_tech_name: null,
+    })
+  }
+  for (const job of activePipelineJobs) {
+    byId.set(job.id, job)
+  }
+  return [...byId.values()]
+}
+
 /** Non-completed jobs for the selected day, sorted for the "coming up next" strip. */
 export function listUpcomingSchedulerJobs(params: {
   now: Date

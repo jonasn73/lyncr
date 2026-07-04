@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarThisWeek, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarThisWeek, isLocalCalendarToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -61,8 +61,8 @@ const FILTER_META: Record<
   },
   missed: {
     title: "Missed calls today",
-    description: "Inbound calls you missed in the last 24 hours on this workspace.",
-    emptyMessage: "No missed calls in the last 24 hours — nice work.",
+    description: "Inbound calls you missed today on this workspace (resets at local midnight).",
+    emptyMessage: "No missed calls today — nice work.",
   },
   daily_talk: {
     title: "Daily talk summary",
@@ -112,6 +112,10 @@ function formatTimestamp(iso: string): string {
 
 function isRollingDay(iso: string): boolean {
   return isWithinLast24Hours(iso)
+}
+
+function isLocalToday(iso: string): boolean {
+  return isLocalCalendarToday(iso)
 }
 
 function isThisWeek(iso: string): boolean {
@@ -167,8 +171,11 @@ function filterRows(
   return rows
     .filter((row) => {
       if (!matchesWorkspaceLine(row, businessNumbers)) return false
-      if (filter === "daily" || filter === "missed" || filter === "daily_talk") {
+      if (filter === "daily" || filter === "daily_talk") {
         if (!isRollingDay(row.created_at)) return false
+      }
+      if (filter === "missed") {
+        if (!isLocalToday(row.created_at)) return false
       }
       if (filter === "weekly_talk") {
         if (!isThisWeek(row.created_at)) return false

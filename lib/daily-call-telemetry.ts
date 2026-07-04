@@ -1,10 +1,10 @@
 // Daily call HUD metrics — formatting helpers shared by API + dashboard strip.
 
-import { formatSecondsToClock } from "@/lib/telemetry-formatters"
+import { formatSecondsToClock, formatTalkHudMinutes } from "@/lib/telemetry-formatters"
 
-/** Format seconds as m:ss (or h:mm:ss) for short HUD pills (daily talk). */
+/** Format seconds as m:ss for routing HUD talk pills (daily / weekly / monthly). */
 export function formatTalkTime(totalSeconds: number): string {
-  return formatSecondsToClock(totalSeconds)
+  return formatTalkHudMinutes(totalSeconds)
 }
 
 /** Format seconds as m:ss (or h:mm:ss) for average talk HUD pills. */
@@ -12,7 +12,7 @@ export function formatAvgTalkTime(seconds: number): string {
   return formatSecondsToClock(seconds)
 }
 
-/** Format seconds as h:mm:ss when over an hour, otherwise m:ss. */
+/** Format seconds as h:mm:ss when over an hour, otherwise m:ss (call history summaries). */
 export function formatTalkDuration(seconds: number): string {
   return formatSecondsToClock(seconds)
 }
@@ -38,7 +38,7 @@ export function isUtcToday(iso: string, now: Date = new Date()): boolean {
   )
 }
 
-/** Browser-local calendar day — activity “Missed today” badge (resets at local midnight). */
+/** Browser-local calendar day — “Missed today” badge + HUD missed pill (resets at local midnight). */
 export function isLocalCalendarToday(iso: string, now: Date = new Date()): boolean {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return false

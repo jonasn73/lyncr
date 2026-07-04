@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
+import { isMissedCallRecord, isMissedCallTodayRecord } from "@/lib/missed-call-telemetry"
 import { isMissedCallTelemetry } from "@/lib/realtime/owner-call-event-types"
 
 describe("isMissedCallRecord", () => {
@@ -76,6 +76,32 @@ describe("isMissedCallTelemetry", () => {
         ended_at: "2026-06-27T17:01:11.000Z",
         routed_to_name: "Owner",
       })
+    ).toBe(false)
+  })
+})
+
+describe("isMissedCallTodayRecord", () => {
+  it("requires local calendar day and missed rules", () => {
+    const now = new Date("2026-07-04T17:00:00-04:00")
+    expect(
+      isMissedCallTodayRecord(
+        {
+          call_type: "missed",
+          status: "canceled",
+          created_at: "2026-07-04T14:00:00-04:00",
+        },
+        now
+      )
+    ).toBe(true)
+    expect(
+      isMissedCallTodayRecord(
+        {
+          call_type: "missed",
+          status: "canceled",
+          created_at: "2026-07-03T14:00:00-04:00",
+        },
+        now
+      )
     ).toBe(false)
   })
 })

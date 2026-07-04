@@ -3714,6 +3714,7 @@ export async function getDailyCallTelemetryForOwner(
 
   const tz = sanitizeIanaTimezone(timezone)
   const rollingDayMatch = sql`created_at >= now() - interval '24 hours'`
+  const localDayMatch = sql`date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))`
   const localWeekMatch = sql`date_trunc('week', timezone(${tz}, created_at)) = date_trunc('week', timezone(${tz}, now()))`
   const localMonthMatch = sql`date_trunc('month', timezone(${tz}, created_at)) = date_trunc('month', timezone(${tz}, now()))`
 
@@ -3744,7 +3745,7 @@ export async function getDailyCallTelemetryForOwner(
         SELECT
           COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
-            WHERE ${rollingDayMatch}
+            WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
@@ -3798,7 +3799,7 @@ export async function getDailyCallTelemetryForOwner(
         SELECT
           COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
-            WHERE ${rollingDayMatch}
+            WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(

@@ -20,6 +20,12 @@ export interface UiCallRecord {
   time: string
   /** ISO timestamp from call_logs.created_at for sorting and display. */
   createdAt: string
+  /** Raw call_logs.call_type before UI normalization (e.g. manual_intake). */
+  rawCallType: string
+  /** Raw call_logs.status for missed-call detection. */
+  callStatus: string
+  answeredAt: string | null
+  endedAt: string | null
   durationSeconds: number
   hasRecording: boolean
   recordingUrl: string | null
@@ -177,6 +183,10 @@ function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
     targetLineE164: c.targetLineE164 ?? "",
     routedToReceptionistId: c.routedToReceptionistId ?? null,
     createdAt: c.createdAt ?? "",
+    rawCallType: c.rawCallType ?? c.type ?? "incoming",
+    callStatus: c.callStatus ?? "",
+    answeredAt: c.answeredAt ?? null,
+    endedAt: c.endedAt ?? null,
     activity: c.activity ?? emptyActivityContext(),
   }
 }
@@ -267,6 +277,10 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
               date: getDateLabel(createdAt),
               time: createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
               createdAt: createdAt.toISOString(),
+              rawCallType: String(c.call_type || "incoming"),
+              callStatus: String(c.status || ""),
+              answeredAt: c.answered_at ? String(c.answered_at) : null,
+              endedAt: c.ended_at ? String(c.ended_at) : null,
               durationSeconds: Number(c.duration_seconds || 0),
               hasRecording: Boolean(c.has_recording),
               recordingUrl: c.recording_url ? String(c.recording_url) : null,

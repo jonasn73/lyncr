@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatSecondsToClock, parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
+import { formatSecondsToClock, formatTalkHudMinutes, parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 
 describe("formatSecondsToClock", () => {
   it("formats sub-hour durations as m:ss", () => {
@@ -21,9 +21,18 @@ describe("formatSecondsToClock", () => {
   })
 })
 
+describe("formatTalkHudMinutes", () => {
+  it("uses total minutes so HUD pills share one m:ss shape", () => {
+    expect(formatTalkHudMinutes(541)).toBe("9:01")
+    expect(formatTalkHudMinutes(3058)).toBe("50:58")
+    expect(formatTalkHudMinutes(8173)).toBe("136:13")
+  })
+})
+
 describe("parseTalkSecondsFromDisplay", () => {
   it("round-trips common HUD display strings", () => {
     expect(parseTalkSecondsFromDisplay("12:05")).toBe(725)
+    expect(parseTalkSecondsFromDisplay("136:13")).toBe(8173)
     expect(parseTalkSecondsFromDisplay("1:02:03")).toBe(3723)
     expect(parseTalkSecondsFromDisplay("")).toBe(0)
   })

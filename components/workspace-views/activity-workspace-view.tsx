@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { CalendarDays, ClipboardList, MapPin, Phone, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buildTelHref } from "@/lib/phone-e164"
-import { isLocalCalendarToday } from "@/lib/daily-call-telemetry"
+import { isMissedCallRecord, isMissedCallTodayRecord, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
@@ -189,11 +189,22 @@ function formatRoutedToLabel(routedTo: string): string {
   return `Routed to ${raw}`
 }
 
+function missedRecordFromUiCall(call: UiCallRecord): MissedCallRecordInput {
+  return {
+    call_type: call.rawCallType || call.type,
+    status: call.callStatus,
+    answered_at: call.answeredAt,
+    ended_at: call.endedAt,
+    routed_to_name: call.routedTo,
+  }
+}
+
 function classifyCall(call: UiCallRecord): ActivityCallStatus {
   const routed = call.routedTo ?? ""
   if (call.type === "voicemail") return "voicemail"
   if (call.type === "missed") return "missed"
   if (/ai receptionist|voice ai|assistant/i.test(routed)) return "ai_handled"
+  if (isMissedCallRecord(missedRecordFromUiCall(call))) return "missed"
   if (call.durationSeconds > 0) return "answered"
   return "missed"
 }
@@ -206,11 +217,13 @@ function isMissedActivityCall(call: UiCallRecord): boolean {
   return status === "missed" || status === "voicemail"
 }
 
-/** Missed inbound/voicemail on the owner’s local calendar day (resets at midnight). */
+/** Same rules as the Lines HUD “Missed today” pill — local calendar day + shared missed detection. */
 function isMissedActivityCallToday(call: UiCallRecord, now: Date = new Date()): boolean {
-  if (!isMissedActivityCall(call)) return false
-  if (!call.createdAt) return false
-  return isLocalCalendarToday(call.createdAt, now)
+  if (call.type === "outgoing") return false
+  return isMissedCallTodayRecord(
+    { ...missedRecordFromUiCall(call), created_at: call.createdAt || null },
+    now
+  )
 }
 
 function canCallBack(call: UiCallRecord): boolean {
@@ -698,7 +711,6 @@ type ActivityBodyProps = {
   refreshing: boolean
   lineLabelMap: Map<string, string>
   filter: ActivityCallFilter
-  missedCount: number
   onFilterChange: (next: ActivityCallFilter) => void
 }
 
@@ -709,17 +721,23 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   refreshing,
   lineLabelMap,
   filter,
-  missedCount,
   onFilterChange,
 }: ActivityBodyProps) {
   const { activeLine } = useDashboardWorkspace()
   const isMobile = useIsMobile()
 
+  const scopedCalls = useMemo(() => {
+    if (!activeLine) return calls
+    return calls.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
+  }, [calls, activeLine])
+
+  const missedCount = useMemo(
+    () => scopedCalls.filter((c) => isMissedActivityCallToday(c)).length,
+    [scopedCalls]
+  )
+
   const rows = useMemo(() => {
-    let list = calls
-    if (activeLine) {
-      list = list.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
-    }
+    let list = scopedCalls
     if (filter === "missed") {
       list = list.filter((c) => isMissedActivityCallToday(c))
     }
@@ -728,7 +746,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       const bTs = b.createdAt || `${b.date} ${b.time}`
       return bTs.localeCompare(aTs)
     })
-  }, [calls, activeLine, filter])
+  }, [scopedCalls, filter])
 
   const showMapFirst = !isMobile || filter !== "missed"
 
@@ -834,11 +852,6 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
     else if (param === "all") setFilter("all")
   }, [searchParams])
 
-  const missedCount = useMemo(
-    () => calls.filter((c) => isMissedActivityCallToday(c)).length,
-    [calls]
-  )
-
   const handleFilterChange = useCallback(
     (next: ActivityCallFilter) => {
       setFilter(next)
@@ -872,7 +885,6 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
         refreshing={refreshing}
         lineLabelMap={lineLabelMap}
         filter={filter}
-        missedCount={missedCount}
         onFilterChange={handleFilterChange}
       />
     </WorkspaceRightSheetGate>

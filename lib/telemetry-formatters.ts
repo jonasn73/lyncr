@@ -16,6 +16,18 @@ export function formatSecondsToClock(sec: number | null | undefined): string {
     : `${m}:${s.toString().padStart(2, "0")}`
 }
 
+/**
+ * Routing HUD talk pills — always m:ss where m is total elapsed minutes (may exceed 59).
+ * Keeps daily / weekly / monthly tiles visually consistent (avoids 2:16:13 vs 50:58).
+ */
+export function formatTalkHudMinutes(sec: number | null | undefined): string {
+  if (sec == null || Number.isNaN(Number(sec))) return "0:00"
+  const total = Math.max(0, Math.round(Number(sec)))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
+
 /** Parse cached HUD strings like "12:05" or "1:02:03" back into seconds. */
 export function parseTalkSecondsFromDisplay(display?: string): number {
   // Empty display strings mean zero seconds.

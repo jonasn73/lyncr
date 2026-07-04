@@ -1,6 +1,6 @@
 // Session-scoped cache for routing telemetry — instant paint on hard refresh.
 
-import { formatTalkDuration, formatTalkTime } from "@/lib/daily-call-telemetry"
+import { formatTalkTime } from "@/lib/daily-call-telemetry"
 import { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
@@ -71,7 +71,7 @@ export function telemetryTalkDisplays(
 ) {
   return {
     dailyTalkDisplay: formatTalkTime(snapshot.dailyTalkSeconds),
-    weeklyTalkDisplay: formatTalkDuration(snapshot.weeklyTalkSeconds),
-    monthlyTalkDisplay: formatTalkDuration(snapshot.monthlyTalkSeconds),
+    weeklyTalkDisplay: formatTalkTime(snapshot.weeklyTalkSeconds),
+    monthlyTalkDisplay: formatTalkTime(snapshot.monthlyTalkSeconds),
   }
 }

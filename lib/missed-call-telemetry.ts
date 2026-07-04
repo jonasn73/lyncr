@@ -1,5 +1,7 @@
 // Shared rules for "missed call" — routing HUD, Pusher deltas, and call-history dialog.
 
+import { isLocalCalendarToday } from "@/lib/daily-call-telemetry"
+
 export type MissedCallRecordInput = {
   call_type?: string | null
   status?: string | null
@@ -54,4 +56,13 @@ export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
   }
 
   return false
+}
+
+/** Missed inbound/voicemail on the owner’s local calendar day (resets at local midnight). */
+export function isMissedCallTodayRecord(
+  input: MissedCallRecordInput & { created_at?: string | null },
+  now: Date = new Date()
+): boolean {
+  if (!input.created_at || !isLocalCalendarToday(input.created_at, now)) return false
+  return isMissedCallRecord(input)
 }

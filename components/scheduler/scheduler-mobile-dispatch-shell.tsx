@@ -1,7 +1,8 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { type RefObject, useState } from "react"
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react"
+import { mergeSchedulerListJobs } from "@/lib/scheduler-upcoming-jobs"
 import { Drawer as DrawerPrimitive } from "vaul"
 import { ChevronUp, LayoutGrid, Map as MapIcon, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -26,10 +27,10 @@ const SchedulerRouteMap = dynamic(
   { ssr: false, loading: MapLoadingSkeleton }
 )
 
-/** Collapsed peek — handle + one line of summary. */
-const SHEET_PEEK = "7.5rem"
-/** Expanded — most of the shell for jobs list. */
-const SHEET_EXPANDED = 0.9
+/** Collapsed peek — handle, day summary, and one upcoming chip. */
+const SHEET_PEEK = "11rem"
+/** Expanded — most of the shell for the full job list. */
+const SHEET_EXPANDED = 0.92
 
 export type SchedulerMobileDispatchShellProps = {
   mapRef: RefObject<SchedulerRouteMapHandle | null>
@@ -79,9 +80,25 @@ export function SchedulerMobileDispatchShell({
 }: SchedulerMobileDispatchShellProps) {
   const [sheetContainer, setSheetContainer] = useState<HTMLElement | null>(null)
   const [sheetSnap, setSheetSnap] = useState<string | number | null>(SHEET_PEEK)
+  const autoExpandedRef = useRef(false)
   const isExpanded = sheetSnap === SHEET_EXPANDED
-  const jobCount = activePipelineJobs.length
   const poolCount = poolJobs.length
+  const listJobs = useMemo(
+    () => mergeSchedulerListJobs(activePipelineJobs, poolJobs),
+    [activePipelineJobs, poolJobs]
+  )
+  const jobCount = listJobs.length
+
+  useEffect(() => {
+    if (autoExpandedRef.current || jobCount === 0) return
+    autoExpandedRef.current = true
+    setSheetSnap(SHEET_EXPANDED)
+  }, [jobCount])
+
+  function handleFocusJob(job: ActivePipelineJob) {
+    onFocusJob(job)
+    setSheetSnap(SHEET_PEEK)
+  }
 
   return (
     <div
@@ -200,33 +217,39 @@ export function SchedulerMobileDispatchShell({
             </DrawerPrimitive.Handle>
 
             <div className="shrink-0 border-b border-zinc-800 px-4 pb-3">
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="text-base font-semibold text-foreground">
                 {selectedDay.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
               </h2>
-              <p className="mt-0.5 text-[11px] text-zinc-500">
-                {jobCount} active · {poolCount} in hopper
+              <p className="mt-0.5 text-xs text-zinc-500">
+                {jobCount} job{jobCount === 1 ? "" : "s"}
+                {poolCount > 0 ? ` · ${poolCount} unassigned` : ""}
               </p>
-              <div className="mt-2">
-                <SchedulerDispatchLiveStatus
-                  upcomingOnly
-                  selectedDay={selectedDay}
-                  poolJobs={poolJobs}
-                  activePipelineJobs={activePipelineJobs}
-                  dayEvents={dayEvents}
-                  onSelectJob={onSelectUpcomingJob}
-                  onMarkComplete={onMarkComplete}
-                  completingJobId={completingJobId}
-                />
-              </div>
+              {!isExpanded ? (
+                <div className="mt-2">
+                  <SchedulerDispatchLiveStatus
+                    upcomingOnly
+                    selectedDay={selectedDay}
+                    poolJobs={poolJobs}
+                    activePipelineJobs={activePipelineJobs}
+                    dayEvents={dayEvents}
+                    onSelectJob={(jobId) => {
+                      onSelectUpcomingJob?.(jobId)
+                      setSheetSnap(SHEET_EXPANDED)
+                    }}
+                    onMarkComplete={onMarkComplete}
+                    completingJobId={completingJobId}
+                  />
+                </div>
+              ) : null}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
               <ActivePipelinePanelStream
-                jobs={activePipelineJobs}
+                jobs={listJobs}
                 dayKey={pipelineDayKey}
                 useStreamedInitialDay={useStreamedPipeline}
                 highlightId={highlightId}
-                onFocusJob={onFocusJob}
+                onFocusJob={handleFocusJob}
                 onEditJob={onEditJob}
                 onMarkComplete={onMarkComplete}
                 completingJobId={completingJobId}

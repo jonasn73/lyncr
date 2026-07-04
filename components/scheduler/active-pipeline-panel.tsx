@@ -3,8 +3,9 @@
 // Group active pipeline jobs by execution phase for the map split-view left panel.
 
 import { useMemo } from "react"
-import { Car, Check, Clock, Loader2, MapPin, Pencil, Phone, User } from "lucide-react"
+import { Car, Check, Clock, Loader2, MapPin, MapPinned, Pencil, Phone, User } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { buildTelHref } from "@/lib/phone-e164"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
 import {
@@ -106,7 +107,12 @@ export function ActivePipelinePanel({
     <div className={cn("flex flex-col", isMobileSheet ? "gap-4" : "min-h-0 gap-4 p-4")}>
       {grouped.map((group) => (
         <section key={group.phase} aria-label={group.title} className="shrink-0">
-          <h3 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+          <h3
+            className={cn(
+              "mb-2 font-bold uppercase tracking-wider text-zinc-500",
+              isMobileSheet ? "text-xs" : "text-[10px]"
+            )}
+          >
             {group.title}
             <span className="ml-2 font-normal text-zinc-600">({group.jobs.length})</span>
           </h3>
@@ -123,7 +129,131 @@ export function ActivePipelinePanel({
               const highlighted = highlightId === job.id
               const displayName = job.customer_name?.trim() || "Unknown customer"
               const phone = formatPhone(job.customer_phone)
+              const telHref = buildTelHref(job.customer_phone)
               const isCompleting = completingJobId === job.id
+              const addressLine = job.location?.trim() || job.summary?.trim() || null
+              const notesLine = job.job_notes?.trim() || null
+
+              if (isMobileSheet) {
+                return (
+                  <li key={job.id}>
+                    <article
+                      className={cn(
+                        SCHEDULER_LIST_CARD_SHELL,
+                        SCHEDULER_URGENCY_CARD_BORDER_CLASS[urgency],
+                        "px-4 py-4",
+                        highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-lg font-semibold leading-tight text-zinc-50">{displayName}</p>
+                          {job.job_type ? (
+                            <p className="mt-1 text-sm font-medium text-primary">{job.job_type}</p>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Edit job for ${displayName}`}
+                          onClick={() => onEditJob(job)}
+                          className={cn(
+                            "inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-900/95 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-300",
+                            highlighted && "border-primary/50 bg-primary/15 text-primary"
+                          )}
+                        >
+                          <Pencil className="h-3.5 w-3.5" aria-hidden />
+                          Edit
+                        </button>
+                      </div>
+
+                      <div className="mt-3 space-y-2.5 text-sm text-zinc-300">
+                        <p className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                          {telHref ? (
+                            <a
+                              href={telHref}
+                              className="font-medium text-zinc-100 underline decoration-zinc-600 underline-offset-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {phone}
+                            </a>
+                          ) : (
+                            <span>{phone}</span>
+                          )}
+                        </p>
+                        <p className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                          <span className={cn("font-medium", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
+                            {formatTime(job.scheduled_at)}
+                            {countdown ? ` · ${countdown}` : ""}
+                          </span>
+                        </p>
+                        {vehicle ? (
+                          <p className="flex items-center gap-2">
+                            <Car className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                            <span>{vehicle}</span>
+                          </p>
+                        ) : null}
+                        {job.assigned_tech_name ? (
+                          <p className="flex items-center gap-2">
+                            <User className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                            <span>{job.assigned_tech_name}</span>
+                          </p>
+                        ) : null}
+                        <p className="flex items-start gap-2">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                          {addressLine ? (
+                            <span className="break-words text-zinc-100">{addressLine}</span>
+                          ) : (
+                            <span className="text-zinc-500">No address on file — tap Edit to add one</span>
+                          )}
+                        </p>
+                        {notesLine ? (
+                          <p className="rounded-lg border border-zinc-800/80 bg-zinc-900/50 px-3 py-2 text-xs leading-relaxed text-zinc-400">
+                            {notesLine}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <span
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
+                            SCHEDULER_BADGE_STYLE[phase]
+                          )}
+                        >
+                          {SCHEDULER_STATUS_LABEL[phase]}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onFocusJob(job)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-300"
+                        >
+                          <MapPinned className="h-3.5 w-3.5" aria-hidden />
+                          Map
+                        </button>
+                        {onMarkComplete ? (
+                          <button
+                            type="button"
+                            disabled={isCompleting}
+                            aria-label={`Mark ${displayName} as done`}
+                            onClick={() => onMarkComplete(job.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-500/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200"
+                          >
+                            {isCompleting ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" aria-hidden />
+                            )}
+                            Done
+                          </button>
+                        ) : null}
+                      </div>
+                    </article>
+                  </li>
+                )
+              }
+
               return (
                 <li key={job.id}>
                   <div
