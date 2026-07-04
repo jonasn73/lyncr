@@ -119,16 +119,16 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const {
     dailyCalls,
     missedCalls,
-    dailyTalkSeconds,
-    weeklyTalkSeconds,
+    liveDailyTalkSeconds,
+    liveWeeklyTalkSeconds,
     liveLineCount,
   } = useRealTimeStatsContext()
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<CallHistoryFilter>("daily")
 
-  const dailyTalkDisplay = formatTalkTime(dailyTalkSeconds)
-  const weeklyTalkDisplay = formatTalkDuration(weeklyTalkSeconds)
+  const dailyTalkDisplay = formatTalkTime(liveDailyTalkSeconds)
+  const weeklyTalkDisplay = formatTalkDuration(liveWeeklyTalkSeconds)
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -222,9 +222,9 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         businessNumbers={_businessNumbers}
         expectedTalkSeconds={
           historyFilter === "daily_talk"
-            ? dailyTalkSeconds
+            ? liveDailyTalkSeconds
             : historyFilter === "weekly_talk"
-              ? weeklyTalkSeconds
+              ? liveWeeklyTalkSeconds
               : undefined
         }
       />

@@ -20,6 +20,7 @@ import {
   calculateServiceQuote,
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
+import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 
 /** Manual-only call lifecycle shown in the intake sheet header. */
@@ -31,6 +32,8 @@ export type ActiveCallRow = {
   to_number: string
   caller_name: string | null
   answered_at: string | null
+  /** Telnyx recording URL when the carrier callback has landed in call_logs. */
+  recording_url?: string | null
   /** True when opened via openManualCallPanel (not a Telnyx webhook row). */
   isManual?: boolean
   manualCallStatus?: ManualCallStatus
@@ -141,6 +144,8 @@ export function useActiveCallForm(
   const [jobState, setJobState] = useState<"idle" | "creating" | "created" | "error">("idle")
   const [jobError, setJobError] = useState<string | null>(null)
   const [form, setForm] = useState<ActiveCallFormState>(EMPTY_FORM)
+  const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
+  const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const callLogId = current?.id ?? null
 
   const patchForm = useCallback((patch: Partial<ActiveCallFormState>) => {
@@ -269,6 +274,33 @@ export function useActiveCallForm(
     current?.vehicleModel,
   ])
 
+  // Load owner rate profile from onboarding_profiles.service_rules (JSON rate_card block).
+  useEffect(() => {
+    if (!callLogId) {
+      setRateCard(null)
+      setRateCardSource("default")
+      return
+    }
+    let cancel = false
+    void fetch("/api/service-quote/rate-card", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { data: null }))
+      .then((data: { data?: { rate_card?: ServiceRateCard; source?: string } }) => {
+        if (cancel) return
+        if (data.data?.rate_card) {
+          setRateCard(data.data.rate_card)
+          setRateCardSource(
+            data.data.source === "onboarding_profiles.service_rules"
+              ? "onboarding_profiles.service_rules"
+              : "default"
+          )
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancel = true
+    }
+  }, [callLogId])
+
   // Keep job type + quote total in sync with YMM + service quote selection.
   useEffect(() => {
     if (!callLogId) return
@@ -277,6 +309,8 @@ export function useActiveCallForm(
       vehicleYear: form.vehicleYear,
       vehicleMake: form.vehicleMake,
       vehicleModel: form.vehicleModel,
+      rateCard,
+      rateCardSource,
     })
     setForm((prev) => {
       const nextJobType = quote.jobType
@@ -302,6 +336,8 @@ export function useActiveCallForm(
     form.vehicleYear,
     form.vehicleMake,
     form.vehicleModel,
+    rateCard,
+    rateCardSource,
   ])
 
   useEffect(() => {
@@ -491,6 +527,7 @@ export function useActiveCallForm(
             vehicle_model: form.vehicleModel,
             job_type: dispatchJobType || null,
             quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
+            service_quote_type_id: form.serviceQuoteTypeId || "lockout",
             key_fcc_id: form.keyFccId || null,
             key_frequency: form.keyFrequency || null,
             key_chipset: form.keyChipset || null,
@@ -539,6 +576,8 @@ export function useActiveCallForm(
     vehicleYear: form.vehicleYear,
     vehicleMake: form.vehicleMake,
     vehicleModel: form.vehicleModel,
+    rateCard,
+    rateCardSource,
   })
 
   return {
@@ -546,6 +585,7 @@ export function useActiveCallForm(
     patchForm,
     setServiceQuoteTypeId,
     liveQuote,
+    rateCardSource,
     setVehicle,
     applyVehicleClarification,
     setVehicleKeySelection,

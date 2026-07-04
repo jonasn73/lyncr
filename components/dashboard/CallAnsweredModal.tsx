@@ -57,6 +57,9 @@ const RINGING_FAST_POLL_MAX_MS = 90_000
 /** Safety net when Pusher is slow — only while the dashboard tab is visible. */
 const ANSWERED_VISIBILITY_POLL_MS = 800
 
+/** Poll interval while waiting for Telnyx to attach a recording URL to the call log. */
+const RECORDING_URL_POLL_MS = 4_000
+
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
   row: ActiveCallRow,
@@ -71,6 +74,7 @@ function showCallRow(
         ...row,
         answered_at: row.answered_at ?? prev.answered_at,
         caller_name: row.caller_name ?? prev.caller_name,
+        recording_url: row.recording_url ?? prev.recording_url,
       }
     }
     return row
@@ -112,6 +116,7 @@ function callLogRowFromApi(row: {
   to_number?: string | null
   caller_name?: string | null
   answered_at?: string | null
+  recording_url?: string | null
 }): ActiveCallRow {
   return {
     id: row.id,
@@ -119,6 +124,22 @@ function callLogRowFromApi(row: {
     to_number: row.to_number ?? "",
     caller_name: row.caller_name ?? null,
     answered_at: row.answered_at ?? null,
+    recording_url: row.recording_url ?? null,
+  }
+}
+
+/** Lightweight poll — recording URLs arrive after answer via Telnyx recording-status webhook. */
+async function fetchRecordingUrlForCallLog(callLogId: string): Promise<string | null> {
+  if (!callLogId || callLogId.startsWith("ring-")) return null
+  try {
+    const res = await fetch("/api/calls/answered-recent?withinMinutes=30", { credentials: "include" })
+    if (!res.ok) return null
+    const data = (await res.json()) as { calls?: Array<{ id?: string; recording_url?: string | null }> }
+    const match = (Array.isArray(data.calls) ? data.calls : []).find((row) => row.id === callLogId)
+    const url = match?.recording_url?.trim()
+    return url ? url : null
+  } catch {
+    return null
   }
 }
 
@@ -354,6 +375,39 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!enabled) setCurrent(null)
   }, [enabled])
 
+  /** Poll for recording_url while the intake sheet is open and the carrier has not posted one yet. */
+  useEffect(() => {
+    const row = effectiveCurrent
+    if (!row?.id || row.isManual || row.recording_url) return
+    if (row.id.startsWith("ring-")) return
+
+    let cancelled = false
+    const applyRecordingUrl = (url: string | null) => {
+      if (cancelled || !url) return
+      if (manualCallRow?.id === row.id) {
+        patchManualCallRow({ recording_url: url })
+      } else {
+        setCurrent((prev) => (prev?.id === row.id ? { ...prev, recording_url: url } : prev))
+      }
+    }
+
+    void fetchRecordingUrlForCallLog(row.id).then(applyRecordingUrl)
+    const pollId = window.setInterval(() => {
+      void fetchRecordingUrlForCallLog(row.id).then(applyRecordingUrl)
+    }, RECORDING_URL_POLL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(pollId)
+    }
+  }, [
+    effectiveCurrent?.id,
+    effectiveCurrent?.isManual,
+    effectiveCurrent?.recording_url,
+    manualCallRow?.id,
+    patchManualCallRow,
+  ])
+
   const dismissCallIntake = useCallback(
     (row: ActiveCallRow | null) => {
       if (!row || !ownerUserId) return
@@ -548,6 +602,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+              ) : null}
+              {!isManual && effectiveCurrent.recording_url ? (
+                <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
+                  <span className="font-mono text-xs text-zinc-400">Recording:</span>
+                  <audio
+                    src={effectiveCurrent.recording_url}
+                    controls
+                    className="h-8 w-full accent-cyan-400"
+                  />
                 </div>
               ) : null}
             </SheetHeader>

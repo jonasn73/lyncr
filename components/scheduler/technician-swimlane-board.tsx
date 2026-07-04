@@ -2,16 +2,30 @@
 
 // Per-tech schedule board — desktop vertical swimlanes + mobile horizontal timeline.
 
-import { useMemo, useState } from "react"
-import { Loader2, User } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Loader2, User, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { HOPPER_DRAG_MIME } from "@/components/scheduler/job-pool-card"
+import {
+  useSchedulerMobileTimeline,
+  useSchedulerTouchInteraction,
+} from "@/hooks/use-scheduler-mobile-timeline"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import {
   SCHEDULER_CARD_STYLE,
   SCHEDULER_STATUS_LABEL,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
 import {
+  SCHEDULER_GRID_END_HOUR,
   SCHEDULER_GRID_START_HOUR,
   SCHEDULER_HOUR_COL_PX,
   SCHEDULER_HOUR_ROW_PX,
@@ -31,6 +45,140 @@ type TechnicianSwimlaneBoardProps = {
   onSelectEvent?: (event: SchedulerEvent) => void
   onDropPoolJob?: (jobId: string, techUserId: string, hour24: number) => void
   onBookEmptySlot?: (techUserId: string, hour24: number) => void
+  /** Mobile hopper card tapped — opens the technician assign overlay. */
+  mobileAssignRequest?: MobileSchedulerAssignRequest | null
+  onMobileAssignRequestClear?: () => void
+}
+
+/** Payload when a pool job is queued for mobile tap-to-assign. */
+export type MobileSchedulerAssignRequest = {
+  jobId: string
+  jobLabel: string
+}
+
+type MobileAssignOverlayState = {
+  hour24: number
+  jobId: string | null
+  jobLabel: string | null
+  /** Tech row the user tapped (pre-selects in the overlay list). */
+  suggestedTechUserId: string | null
+}
+
+const MOBILE_DOUBLE_TAP_MS = 450
+
+function defaultMobileAssignHour(): number {
+  const now = new Date()
+  let hour = now.getHours()
+  if (now.getMinutes() > 0) hour += 1
+  return Math.max(SCHEDULER_GRID_START_HOUR, Math.min(hour, SCHEDULER_GRID_END_HOUR - 1))
+}
+
+function MobileTechnicianAssignOverlay({
+  open,
+  assignableTechs,
+  overlay,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean
+  assignableTechs: FieldTechnician[]
+  overlay: MobileAssignOverlayState | null
+  onClose: () => void
+  onConfirm: (techUserId: string) => void
+}) {
+  const [selectedTechUserId, setSelectedTechUserId] = useState<string | null>(null)
+  const lastTapRef = useRef<{ techUserId: string; at: number } | null>(null)
+
+  useEffect(() => {
+    if (!open || !overlay) return
+    setSelectedTechUserId(overlay.suggestedTechUserId)
+    lastTapRef.current = null
+  }, [open, overlay?.hour24, overlay?.jobId, overlay?.suggestedTechUserId])
+
+  const handleTechTap = useCallback(
+    (techUserId: string) => {
+      const now = Date.now()
+      const last = lastTapRef.current
+      if (last?.techUserId === techUserId && now - last.at <= MOBILE_DOUBLE_TAP_MS) {
+        onConfirm(techUserId)
+        lastTapRef.current = null
+        return
+      }
+      lastTapRef.current = { techUserId, at: now }
+      setSelectedTechUserId(techUserId)
+    },
+    [onConfirm]
+  )
+
+  const hourLabel = overlay ? formatHourLabel(overlay.hour24) : ""
+  const jobLabel = overlay?.jobLabel?.trim()
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-sm gap-0 border-zinc-800 bg-zinc-950 p-0 sm:max-w-md">
+        <DialogHeader className="border-b border-zinc-800 px-4 py-3 text-left">
+          <DialogTitle className="text-base text-zinc-50">
+            {overlay?.jobId ? "Assign job" : "Book time slot"}
+          </DialogTitle>
+          <DialogDescription className="text-zinc-400">
+            {jobLabel ? (
+              <>
+                <span className="font-medium text-zinc-200">{jobLabel}</span>
+                {" · "}
+              </>
+            ) : null}
+            {hourLabel} · double-tap a technician to confirm
+          </DialogDescription>
+        </DialogHeader>
+
+        <ul className="max-h-[min(50vh,360px)] overflow-y-auto p-3">
+          {assignableTechs.map((tech) => {
+            const techUserId = tech.portal_user_id!
+            const selected = selectedTechUserId === techUserId
+            return (
+              <li key={tech.id} className="mb-2 last:mb-0">
+                <button
+                  type="button"
+                  onClick={() => handleTechTap(techUserId)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition touch-manipulation",
+                    MOBILE_TAP_TARGET,
+                    selected
+                      ? "border-primary/60 bg-primary/15 ring-2 ring-primary/40"
+                      : "border-zinc-800 bg-zinc-900/80 active:scale-[0.98] active:bg-zinc-800"
+                  )}
+                  aria-pressed={selected}
+                >
+                  <span
+                    className={cn(
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                      selected ? "bg-primary text-primary-foreground" : "bg-zinc-800 text-zinc-200"
+                    )}
+                    aria-hidden
+                  >
+                    {tech.name.trim().charAt(0).toUpperCase() || "?"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-zinc-100">{tech.name}</span>
+                    <span className="block text-xs text-zinc-500">
+                      {selected ? "Double-tap again to dispatch" : "Tap once, then double-tap to dispatch"}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+
+        <div className="border-t border-zinc-800 px-3 py-2">
+          <Button type="button" variant="ghost" className="w-full gap-2" onClick={onClose}>
+            <X className="h-4 w-4" aria-hidden />
+            Cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 function formatBlockTime(iso: string): string {
@@ -156,11 +304,8 @@ function MobileTimelineBoard({
   timelineWidthPx,
   highlightId,
   loading,
-  dragOverCell,
-  setDragOverCell,
   onSelectEvent,
-  onDropPoolJob,
-  onBookEmptySlot,
+  onOpenMobileAssign,
 }: {
   assignableTechs: FieldTechnician[]
   eventsByTech: Map<string, SchedulerEvent[]>
@@ -168,11 +313,13 @@ function MobileTimelineBoard({
   timelineWidthPx: number
   highlightId?: string | null
   loading?: boolean
-  dragOverCell: { techId: string; hour: number } | null
-  setDragOverCell: (cell: { techId: string; hour: number } | null) => void
   onSelectEvent?: (event: SchedulerEvent) => void
-  onDropPoolJob?: (jobId: string, techUserId: string, hour24: number) => void
-  onBookEmptySlot?: (techUserId: string, hour24: number) => void
+  onOpenMobileAssign: (payload: {
+    hour24: number
+    suggestedTechUserId: string
+    jobId?: string | null
+    jobLabel?: string | null
+  }) => void
 }) {
   const techColWidth = 112
 
@@ -220,39 +367,25 @@ function MobileTimelineBoard({
                   style={{ width: timelineWidthPx, height: SCHEDULER_TECH_ROW_PX }}
                 >
                   {hourSlots.map((hour) => {
-                    const isOver = dragOverCell?.techId === techUserId && dragOverCell.hour === hour
                     return (
                       <button
                         key={hour}
                         type="button"
                         aria-label={`Assign to ${tech.name} at ${formatHourLabel(hour)}`}
                         className={cn(
-                          "absolute top-0 min-h-[44px] border-r border-border/20 transition active:bg-primary/10",
-                          isOver && "bg-primary/15 ring-2 ring-inset ring-primary/50"
+                          "absolute top-0 min-h-[44px] border-r border-border/20 transition touch-manipulation active:bg-primary/10"
                         )}
                         style={{
                           left: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_COL_PX,
                           width: SCHEDULER_HOUR_COL_PX,
                           height: SCHEDULER_TECH_ROW_PX,
                         }}
-                        onClick={() => onBookEmptySlot?.(techUserId, hour)}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.dataTransfer.dropEffect = "move"
-                          setDragOverCell({ techId: techUserId, hour })
-                        }}
-                        onDragLeave={() => {
-                          setDragOverCell((cell) =>
-                            cell?.techId === techUserId && cell.hour === hour ? null : cell
-                          )
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          setDragOverCell(null)
-                          const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
-                          if (!jobId) return
-                          onDropPoolJob?.(jobId, techUserId, hour)
-                        }}
+                        onClick={() =>
+                          onOpenMobileAssign({
+                            hour24: hour,
+                            suggestedTechUserId: techUserId,
+                          })
+                        }
                       />
                     )
                   })}
@@ -288,7 +421,11 @@ export function TechnicianSwimlaneBoard({
   onSelectEvent,
   onDropPoolJob,
   onBookEmptySlot,
+  mobileAssignRequest,
+  onMobileAssignRequestClear,
 }: TechnicianSwimlaneBoardProps) {
+  const mobileTimeline = useSchedulerMobileTimeline()
+  const touchInteraction = useSchedulerTouchInteraction()
   const hourSlots = schedulerHourSlots()
   const gridHeightPx = hourSlots.length * SCHEDULER_HOUR_ROW_PX
   const timelineWidthPx = hourSlots.length * SCHEDULER_HOUR_COL_PX
@@ -311,6 +448,52 @@ export function TechnicianSwimlaneBoard({
   }, [assignableTechs, dayEvents])
 
   const [dragOverCell, setDragOverCell] = useState<{ techId: string; hour: number } | null>(null)
+  const [mobileOverlay, setMobileOverlay] = useState<MobileAssignOverlayState | null>(null)
+
+  const openMobileAssign = useCallback(
+    (payload: {
+      hour24: number
+      suggestedTechUserId: string
+      jobId?: string | null
+      jobLabel?: string | null
+    }) => {
+      setMobileOverlay({
+        hour24: payload.hour24,
+        jobId: payload.jobId ?? mobileAssignRequest?.jobId ?? null,
+        jobLabel: payload.jobLabel ?? mobileAssignRequest?.jobLabel ?? null,
+        suggestedTechUserId: payload.suggestedTechUserId,
+      })
+    },
+    [mobileAssignRequest]
+  )
+
+  useEffect(() => {
+    if (!mobileTimeline || !mobileAssignRequest) return
+    setMobileOverlay({
+      hour24: defaultMobileAssignHour(),
+      jobId: mobileAssignRequest.jobId,
+      jobLabel: mobileAssignRequest.jobLabel,
+      suggestedTechUserId: assignableTechs[0]?.portal_user_id ?? null,
+    })
+  }, [mobileAssignRequest, mobileTimeline, assignableTechs])
+
+  const closeMobileOverlay = useCallback(() => {
+    setMobileOverlay(null)
+    onMobileAssignRequestClear?.()
+  }, [onMobileAssignRequestClear])
+
+  const confirmMobileAssign = useCallback(
+    (techUserId: string) => {
+      if (!mobileOverlay) return
+      if (mobileOverlay.jobId) {
+        onDropPoolJob?.(mobileOverlay.jobId, techUserId, mobileOverlay.hour24)
+      } else {
+        onBookEmptySlot?.(techUserId, mobileOverlay.hour24)
+      }
+      closeMobileOverlay()
+    },
+    [closeMobileOverlay, mobileOverlay, onBookEmptySlot, onDropPoolJob]
+  )
 
   if (assignableTechs.length === 0) {
     return (
@@ -333,11 +516,16 @@ export function TechnicianSwimlaneBoard({
         timelineWidthPx={timelineWidthPx}
         highlightId={highlightId}
         loading={loading}
-        dragOverCell={dragOverCell}
-        setDragOverCell={setDragOverCell}
         onSelectEvent={onSelectEvent}
-        onDropPoolJob={onDropPoolJob}
-        onBookEmptySlot={onBookEmptySlot}
+        onOpenMobileAssign={openMobileAssign}
+      />
+
+      <MobileTechnicianAssignOverlay
+        open={mobileTimeline && mobileOverlay != null}
+        assignableTechs={assignableTechs}
+        overlay={mobileOverlay}
+        onClose={closeMobileOverlay}
+        onConfirm={confirmMobileAssign}
       />
 
       <div className="hidden max-h-[min(720px,70vh)] flex-1 overflow-auto md:block">
@@ -388,23 +576,35 @@ export function TechnicianSwimlaneBoard({
                           height: SCHEDULER_HOUR_ROW_PX,
                         }}
                         onClick={() => onBookEmptySlot?.(techUserId, hour)}
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.dataTransfer.dropEffect = "move"
-                          setDragOverCell({ techId: techUserId, hour })
-                        }}
-                        onDragLeave={() => {
-                          setDragOverCell((cell) =>
-                            cell?.techId === techUserId && cell.hour === hour ? null : cell
-                          )
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          setDragOverCell(null)
-                          const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
-                          if (!jobId) return
-                          onDropPoolJob?.(jobId, techUserId, hour)
-                        }}
+                        onDragOver={
+                          touchInteraction
+                            ? undefined
+                            : (e) => {
+                                e.preventDefault()
+                                e.dataTransfer.dropEffect = "move"
+                                setDragOverCell({ techId: techUserId, hour })
+                              }
+                        }
+                        onDragLeave={
+                          touchInteraction
+                            ? undefined
+                            : () => {
+                                setDragOverCell((cell) =>
+                                  cell?.techId === techUserId && cell.hour === hour ? null : cell
+                                )
+                              }
+                        }
+                        onDrop={
+                          touchInteraction
+                            ? undefined
+                            : (e) => {
+                                e.preventDefault()
+                                setDragOverCell(null)
+                                const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
+                                if (!jobId) return
+                                onDropPoolJob?.(jobId, techUserId, hour)
+                              }
+                        }
                       />
                     )
                   })}

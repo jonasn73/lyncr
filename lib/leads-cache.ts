@@ -11,10 +11,16 @@ export type CachedLeadRow = {
 
 export type CachedSalvageLead = {
   id: string
+  source?: "ai_lead" | "lost_lead"
   caller_e164: string | null
   summary: string | null
   collected: Record<string, unknown>
   created_at: string
+  status?: string | null
+  failure_reason?: string | null
+  last_quoted_price_cents?: number | null
+  manual_retry_required?: boolean
+  recovery_blocked_reason?: string | null
 }
 
 export type LeadsWorkspaceCache = {
@@ -71,7 +77,7 @@ export function writeLeadsWorkspaceCache(data: LeadsWorkspaceCache): void {
 export async function refreshLeadsWorkspaceCache(): Promise<LeadsWorkspaceCache> {
   const [leadsRes, salvageRes] = await Promise.all([
     fetch("/api/ai-leads", { credentials: "include" }),
-    fetch("/api/owner/lead-salvage", { credentials: "include" }),
+    fetch("/api/leads/salvage-pool", { credentials: "include" }),
   ])
 
   let leads: CachedLeadRow[] = []
@@ -84,8 +90,14 @@ export async function refreshLeadsWorkspaceCache(): Promise<LeadsWorkspaceCache>
 
   let salvageLeads: CachedSalvageLead[] = []
   if (salvageRes.ok) {
-    const json = (await salvageRes.json()) as { data?: { leads?: CachedSalvageLead[] } }
-    salvageLeads = Array.isArray(json.data?.leads) ? json.data!.leads! : []
+    const json = (await salvageRes.json()) as {
+      data?: { leads?: CachedSalvageLead[]; entries?: CachedSalvageLead[] }
+    }
+    salvageLeads = Array.isArray(json.data?.leads)
+      ? json.data!.leads!
+      : Array.isArray(json.data?.entries)
+        ? json.data!.entries!
+        : []
   }
 
   const payload = { leads, salvageLeads }

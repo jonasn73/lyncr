@@ -55,7 +55,10 @@ import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipelin
 import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 import type { SchedulerRouteMapHandle, DrivingRouteFocus } from "@/components/scheduler-route-map"
 import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
-import { TechnicianSwimlaneBoard } from "@/components/scheduler/technician-swimlane-board"
+import {
+  TechnicianSwimlaneBoard,
+  type MobileSchedulerAssignRequest,
+} from "@/components/scheduler/technician-swimlane-board"
 import { SchedulerMobileDispatchShell } from "@/components/scheduler/scheduler-mobile-dispatch-shell"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { IntakeScheduleDialog } from "@/components/scheduler/intake-schedule-dialog"
@@ -143,6 +146,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [drawerScheduledEvent, setDrawerScheduledEvent] = useState<SchedulerEvent | null>(null)
   const [gridScheduleError, setGridScheduleError] = useState<string | null>(null)
   const [gridScheduleSaving, setGridScheduleSaving] = useState(false)
+  const [mobileAssignRequest, setMobileAssignRequest] = useState<MobileSchedulerAssignRequest | null>(null)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [scheduleIntentLeadId, setScheduleIntentLeadId] = useState<string | null>(null)
   const [intakeScheduleJob, setIntakeScheduleJob] = useState<UnassignedPoolJob | null>(null)
@@ -340,6 +344,13 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   function openPoolJobDrawer(job: UnassignedPoolJob) {
     openJobForEdit(job)
+  }
+
+  function queueMobilePoolAssign(job: UnassignedPoolJob) {
+    setMobileAssignRequest({
+      jobId: job.id,
+      jobLabel: job.customer_name?.trim() || job.job_type || "Service call",
+    })
   }
 
   function openScheduledJobDrawer(ev: SchedulerEvent) {
@@ -1035,7 +1046,12 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       </div>
 
       {viewMode === "grid" ? (
-        <JobPoolPanel jobs={displayPoolJobs} highlightId={highlightId} onSelectJob={openPoolJobDrawer} />
+        <JobPoolPanel
+          jobs={displayPoolJobs}
+          highlightId={highlightId}
+          onSelectJob={openPoolJobDrawer}
+          onMobileAssignJob={queueMobilePoolAssign}
+        />
       ) : null}
 
       <SchedulerDispatchLiveStatus
@@ -1127,6 +1143,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               onSelectEvent={openScheduledJobDrawer}
               onDropPoolJob={schedulePoolOnTechLane}
               onBookEmptySlot={openBookingOnTechLane}
+              mobileAssignRequest={mobileAssignRequest}
+              onMobileAssignRequestClear={() => setMobileAssignRequest(null)}
             />
           </WorkspacePanel>
         </div>

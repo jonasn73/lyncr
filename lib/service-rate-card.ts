@@ -1,0 +1,291 @@
+// Owner-configurable service quote rate profiles (from onboarding_profiles.service_rules JSON).
+
+import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
+import { neon } from "@neondatabase/serverless"
+
+export type ServiceQuoteTypeId = "lockout" | "key_gen" | "key_dup" | "ignition" | "other"
+
+/** One line item in a stored pricing_metadata breakdown. */
+export type PricingMetadataLine = {
+  kind: "base_rate" | "vehicle_age_tier" | "premium_brand"
+  label: string
+  cents: number
+}
+
+/** Snapshot persisted on ai_leads.collected.pricing_metadata at booking time. */
+export type IntakePricingMetadata = {
+  version: 1
+  quoted_price_cents: number
+  service_type_id: ServiceQuoteTypeId
+  dispatch_job_type_label: string
+  vehicle_year: string | null
+  vehicle_make: string | null
+  vehicle_model: string | null
+  lines: PricingMetadataLine[]
+  rate_card_source: "onboarding_profiles.service_rules" | "default"
+  computed_at: string
+}
+
+/** Vehicle age surcharge tier (years old → extra cents). */
+export type ServiceRateVehicleAgeTier = {
+  min_age_years: number
+  cents: number
+  label?: string
+}
+
+/**
+ * Structured rate profile used by lib/service-quote-calculator.ts.
+ * Owners can store JSON in onboarding_profiles.service_rules:
+ *
+ * {
+ *   "rate_card": {
+ *     "version": 1,
+ *     "services": { "lockout": 8500, "key_gen": 17500, "key_dup": 9500, "ignition": 22000, "other": 12000 },
+ *     "vehicle_age_tiers": [
+ *       { "min_age_years": 12, "cents": 1500, "label": "Vehicle age adjustment" },
+ *       { "min_age_years": 20, "cents": 3500, "label": "Older vehicle adjustment" }
+ *     ],
+ *     "premium_makes": ["BMW", "Mercedes-Benz", "Tesla"],
+ *     "premium_make_cents": 2500,
+ *     "premium_make_label": "Premium make adjustment"
+ *   }
+ * }
+ *
+ * Plain-text service_rules (no JSON) still works for operator briefing — quotes fall back to defaults.
+ */
+export type ServiceRateCard = {
+  version: 1
+  services: Record<ServiceQuoteTypeId, number>
+  vehicle_age_tiers: ServiceRateVehicleAgeTier[]
+  premium_makes: string[]
+  premium_make_cents: number
+  premium_make_label: string
+  vehicle_age_default_label: string
+}
+
+export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
+  version: 1,
+  services: {
+    lockout: 8500,
+    key_gen: 17500,
+    key_dup: 9500,
+    ignition: 22000,
+    other: 12000,
+  },
+  vehicle_age_tiers: [
+    { min_age_years: 20, cents: 3500, label: "Vehicle age adjustment" },
+    { min_age_years: 12, cents: 1500, label: "Vehicle age adjustment" },
+  ],
+  premium_makes: [
+    "Acura",
+    "Audi",
+    "BMW",
+    "Cadillac",
+    "Genesis",
+    "Infiniti",
+    "Jaguar",
+    "Land Rover",
+    "Lexus",
+    "Lincoln",
+    "Mercedes-Benz",
+    "Mercedes",
+    "Porsche",
+    "Tesla",
+    "Volvo",
+  ],
+  premium_make_cents: 2500,
+  premium_make_label: "Premium make adjustment",
+  vehicle_age_default_label: "Vehicle age adjustment",
+}
+
+let cachedSql: ReturnType<typeof neon> | null = null
+
+function getSql(): ReturnType<typeof neon> {
+  if (cachedSql) return cachedSql
+  cachedSql = neon(resolveNeonDatabaseUrl())
+  return cachedSql
+}
+
+function pgErrorCode(e: unknown): string | undefined {
+  if (e && typeof e === "object" && "code" in e) return String((e as { code: unknown }).code)
+  return undefined
+}
+
+function isMissingOnboardingProfilesTableError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e)
+  return msg.includes('relation "onboarding_profiles" does not exist')
+}
+
+function coerceServiceCents(raw: unknown, fallback: number): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return fallback
+  return Math.round(n)
+}
+
+function normalizeAgeTiers(raw: unknown): ServiceRateVehicleAgeTier[] {
+  if (!Array.isArray(raw)) return DEFAULT_SERVICE_RATE_CARD.vehicle_age_tiers
+  const tiers: ServiceRateVehicleAgeTier[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue
+    const row = item as Record<string, unknown>
+    const minAge = Number(row.min_age_years)
+    const cents = Number(row.cents)
+    if (!Number.isFinite(minAge) || minAge < 0 || !Number.isFinite(cents) || cents < 0) continue
+    tiers.push({
+      min_age_years: Math.floor(minAge),
+      cents: Math.round(cents),
+      label: typeof row.label === "string" ? row.label.trim() : undefined,
+    })
+  }
+  return tiers.length > 0
+    ? tiers.sort((a, b) => b.min_age_years - a.min_age_years)
+    : DEFAULT_SERVICE_RATE_CARD.vehicle_age_tiers
+}
+
+function normalizePremiumMakes(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return DEFAULT_SERVICE_RATE_CARD.premium_makes
+  const makes = raw.map((m) => String(m).trim()).filter(Boolean)
+  return makes.length > 0 ? makes : DEFAULT_SERVICE_RATE_CARD.premium_makes
+}
+
+/** Merge a partial profile onto platform defaults (missing keys inherit defaults). */
+export function resolveServiceRateCard(rateCard?: Partial<ServiceRateCard> | null): ServiceRateCard {
+  if (!rateCard) return DEFAULT_SERVICE_RATE_CARD
+  const services = { ...DEFAULT_SERVICE_RATE_CARD.services, ...(rateCard.services ?? {}) }
+  return {
+    version: 1,
+    services,
+    vehicle_age_tiers: rateCard.vehicle_age_tiers?.length
+      ? normalizeAgeTiers(rateCard.vehicle_age_tiers)
+      : DEFAULT_SERVICE_RATE_CARD.vehicle_age_tiers,
+    premium_makes: rateCard.premium_makes?.length
+      ? normalizePremiumMakes(rateCard.premium_makes)
+      : DEFAULT_SERVICE_RATE_CARD.premium_makes,
+    premium_make_cents:
+      rateCard.premium_make_cents != null && rateCard.premium_make_cents >= 0
+        ? Math.round(rateCard.premium_make_cents)
+        : DEFAULT_SERVICE_RATE_CARD.premium_make_cents,
+    premium_make_label: rateCard.premium_make_label?.trim() || DEFAULT_SERVICE_RATE_CARD.premium_make_label,
+    vehicle_age_default_label:
+      rateCard.vehicle_age_default_label?.trim() || DEFAULT_SERVICE_RATE_CARD.vehicle_age_default_label,
+  }
+}
+
+/** Parse structured JSON from onboarding_profiles.service_rules (null → defaults). */
+export function parseServiceRateCardFromRules(raw: string | null | undefined): {
+  rateCard: ServiceRateCard
+  source: "onboarding_profiles.service_rules" | "default"
+} {
+  const text = raw?.trim()
+  if (!text) return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
+  }
+
+  const root = parsed as Record<string, unknown>
+  const cardRaw = (root.rate_card ?? root.rateCard ?? root) as Record<string, unknown>
+  if (!cardRaw || typeof cardRaw !== "object") {
+    return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
+  }
+
+  const servicesRaw = (cardRaw.services ?? cardRaw.base_rates) as Record<string, unknown> | undefined
+  const services: Partial<Record<ServiceQuoteTypeId, number>> = {}
+  if (servicesRaw && typeof servicesRaw === "object") {
+    for (const key of ["lockout", "key_gen", "key_dup", "ignition", "other"] as ServiceQuoteTypeId[]) {
+      if (servicesRaw[key] != null) {
+        services[key] = coerceServiceCents(servicesRaw[key], DEFAULT_SERVICE_RATE_CARD.services[key])
+      }
+    }
+  }
+
+  const hasCustom =
+    Object.keys(services).length > 0 ||
+    cardRaw.vehicle_age_tiers != null ||
+    cardRaw.premium_makes != null ||
+    cardRaw.premium_make_cents != null
+
+  if (!hasCustom) {
+    return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
+  }
+
+  return {
+    rateCard: resolveServiceRateCard({
+      services: services as ServiceRateCard["services"],
+      vehicle_age_tiers: normalizeAgeTiers(cardRaw.vehicle_age_tiers),
+      premium_makes: normalizePremiumMakes(cardRaw.premium_makes),
+      premium_make_cents: coerceServiceCents(
+        cardRaw.premium_make_cents,
+        DEFAULT_SERVICE_RATE_CARD.premium_make_cents
+      ),
+      premium_make_label:
+        typeof cardRaw.premium_make_label === "string" ? cardRaw.premium_make_label : undefined,
+      vehicle_age_default_label:
+        typeof cardRaw.vehicle_age_default_label === "string"
+          ? cardRaw.vehicle_age_default_label
+          : undefined,
+    }),
+    source: "onboarding_profiles.service_rules",
+  }
+}
+
+/** Load owner rate profile from Neon (defensive when column/table missing). */
+export async function getOwnerServiceRateCard(ownerUserId: string): Promise<{
+  rateCard: ServiceRateCard
+  source: "onboarding_profiles.service_rules" | "default"
+}> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT service_rules FROM onboarding_profiles WHERE user_id = ${ownerUserId} LIMIT 1
+    `
+    const raw = rows[0] as { service_rules?: unknown } | undefined
+    const text = raw?.service_rules != null ? String(raw.service_rules) : null
+    return parseServiceRateCardFromRules(text)
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" || isMissingOnboardingProfilesTableError(e)) {
+      return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
+    }
+    throw e
+  }
+}
+
+/** Build the historical pricing_metadata blob stored on ai_leads.collected. */
+export function buildIntakePricingMetadata(params: {
+  quote: {
+    serviceTypeId: ServiceQuoteTypeId
+    dispatchJobTypeLabel: string
+    totalCents: number
+    lines: { label: string; cents: number; kind?: PricingMetadataLine["kind"] }[]
+  }
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  rateCardSource: "onboarding_profiles.service_rules" | "default"
+}): IntakePricingMetadata {
+  return {
+    version: 1,
+    quoted_price_cents: params.quote.totalCents,
+    service_type_id: params.quote.serviceTypeId,
+    dispatch_job_type_label: params.quote.dispatchJobTypeLabel,
+    vehicle_year: params.vehicleYear?.trim() || null,
+    vehicle_make: params.vehicleMake?.trim() || null,
+    vehicle_model: params.vehicleModel?.trim() || null,
+    lines: params.quote.lines.map((line, index) => ({
+      kind:
+        line.kind ??
+        (index === 0 ? "base_rate" : line.label.toLowerCase().includes("premium") ? "premium_brand" : "vehicle_age_tier"),
+      label: line.label,
+      cents: line.cents,
+    })),
+    rate_card_source: params.rateCardSource,
+    computed_at: new Date().toISOString(),
+  }
+}

@@ -142,20 +142,97 @@ export async function listLostLeadsPendingRecovery(minAgeMinutes: number, limit 
   }
 }
 
+/** Active lost-lead rows surfaced in the unified salvage dashboard. */
+export async function listLostLeadsForSalvagePool(ownerUserId: string, limit = 25): Promise<LostLeadRow[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT
+        id::text AS id,
+        user_id::text AS user_id,
+        organization_id::text AS organization_id,
+        call_log_id,
+        phone_number,
+        last_quoted_price_cents,
+        failure_reason,
+        status,
+        vehicle_year,
+        vehicle_make,
+        vehicle_model,
+        service_type,
+        collected,
+        recovery_sms_sent_at::text AS recovery_sms_sent_at,
+        recovery_sms_body,
+        recovery_sms_error,
+        created_at::text AS created_at
+      FROM lost_leads
+      WHERE user_id = ${ownerUserId}::uuid
+        AND status IN ('lost_lead', 'failed_10dlc')
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return rows as LostLeadRow[]
+  } catch (e) {
+    if (isUndefinedRelationError(e, "lost_leads")) return []
+    throw e
+  }
+}
+
+export type LostLeadRecoveryStatus = "recovery_sent" | "lost_lead" | "failed_10dlc"
+
 export async function markLostLeadRecoverySms(params: {
   id: string
   body: string
   error?: string | null
+  status?: LostLeadRecoveryStatus
+}): Promise<void> {
+  const sql = getSql()
+  const nextStatus: LostLeadRecoveryStatus = params.status ?? (params.error ? "lost_lead" : "recovery_sent")
+  const hasError = Boolean(params.error)
+  try {
+    if (hasError) {
+      await sql`
+        UPDATE lost_leads
+        SET
+          recovery_sms_sent_at = NULL,
+          recovery_sms_body = ${params.body},
+          recovery_sms_error = ${params.error ?? null},
+          status = ${nextStatus}
+        WHERE id = ${params.id}::uuid
+      `
+    } else {
+      await sql`
+        UPDATE lost_leads
+        SET
+          recovery_sms_sent_at = now(),
+          recovery_sms_body = ${params.body},
+          recovery_sms_error = NULL,
+          status = ${nextStatus}
+        WHERE id = ${params.id}::uuid
+      `
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "lost_leads")) return
+    throw e
+  }
+}
+
+/** Mark automated SMS blocked by carrier 10DLC — dispatcher must retry manually. */
+export async function markLostLeadFailed10Dlc(params: {
+  id: string
+  body: string
+  error: string
 }): Promise<void> {
   const sql = getSql()
   try {
     await sql`
       UPDATE lost_leads
       SET
-        recovery_sms_sent_at = now(),
+        recovery_sms_sent_at = NULL,
         recovery_sms_body = ${params.body},
-        recovery_sms_error = ${params.error ?? null},
-        status = ${params.error ? "lost_lead" : "recovery_sent"}
+        recovery_sms_error = ${params.error},
+        status = 'failed_10dlc'
       WHERE id = ${params.id}::uuid
     `
   } catch (e) {

@@ -1,28 +1,20 @@
 // Daily call HUD metrics — formatting helpers shared by API + dashboard strip.
 
-/** Format seconds as mm:ss for short HUD pills (daily talk). */
+import { formatSecondsToClock } from "@/lib/telemetry-formatters"
+
+/** Format seconds as m:ss (or h:mm:ss) for short HUD pills (daily talk). */
 export function formatTalkTime(totalSeconds: number): string {
-  const total = Math.max(0, Math.round(totalSeconds))
-  const mins = Math.floor(total / 60)
-  const secs = total % 60
-  return `${mins}:${secs < 10 ? "0" : ""}${secs}`
+  return formatSecondsToClock(totalSeconds)
 }
 
-/** Format seconds as mm:ss for short HUD pills. */
+/** Format seconds as m:ss (or h:mm:ss) for average talk HUD pills. */
 export function formatAvgTalkTime(seconds: number): string {
-  return formatTalkDuration(seconds)
+  return formatSecondsToClock(seconds)
 }
 
 /** Format seconds as h:mm:ss when over an hour, otherwise m:ss. */
 export function formatTalkDuration(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds))
-  const hours = Math.floor(total / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const remainder = total % 60
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
-  }
-  return `${minutes}:${String(remainder).padStart(2, "0")}`
+  return formatSecondsToClock(seconds)
 }
 
 export type DailyCallTelemetry = {

@@ -4,6 +4,7 @@
 
 import { Inbox, Loader2 } from "lucide-react"
 import { JobPoolCard } from "@/components/scheduler/job-pool-card"
+import { useSchedulerMobileTimeline } from "@/hooks/use-scheduler-mobile-timeline"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 type JobPoolTrayProps = {
@@ -11,9 +12,12 @@ type JobPoolTrayProps = {
   loading?: boolean
   highlightId?: string | null
   onSelectJob?: (job: UnassignedPoolJob) => void
+  onMobileAssignJob?: (job: UnassignedPoolJob) => void
 }
 
-export function JobPoolTray({ jobs, loading, highlightId, onSelectJob }: JobPoolTrayProps) {
+export function JobPoolTray({ jobs, loading, highlightId, onSelectJob, onMobileAssignJob }: JobPoolTrayProps) {
+  const mobileTimeline = useSchedulerMobileTimeline()
+
   return (
     <section className="rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-card to-card px-4 py-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -23,7 +27,11 @@ export function JobPoolTray({ jobs, loading, highlightId, onSelectJob }: JobPool
           </span>
           <div>
             <h2 className="text-sm font-semibold text-foreground">Active job pool</h2>
-            <p className="text-[11px] text-zinc-500">Drag onto a technician column to assign & schedule</p>
+            <p className="text-[11px] text-zinc-500">
+              {mobileTimeline
+                ? "Tap a job, then double-tap a technician on the timeline to dispatch"
+                : "Drag onto a technician column to assign & schedule"}
+            </p>
           </div>
         </div>
         {loading ? (
@@ -45,6 +53,7 @@ export function JobPoolTray({ jobs, loading, highlightId, onSelectJob }: JobPool
             job={job}
             highlighted={highlightId === job.id}
             onSelect={onSelectJob}
+            onMobileAssign={onMobileAssignJob}
           />
         ))}
       </div>

@@ -1,6 +1,12 @@
-// Transparent baseline locksmith pricing for the answered-call quick-booking sheet.
+// Transparent locksmith pricing for the answered-call quick-booking sheet (DB-backed rate profiles).
 
 import { formatIntakeJobTypeForDispatch, type IntakeLocksmithJobType } from "@/lib/intake-job-types"
+import {
+  DEFAULT_SERVICE_RATE_CARD,
+  resolveServiceRateCard,
+  type ServiceRateCard,
+  type ServiceQuoteTypeId,
+} from "@/lib/service-rate-card"
 
 /** Service types shown in the quote calculator (maps to intake job types). */
 export const SERVICE_QUOTE_TYPES = [
@@ -11,39 +17,12 @@ export const SERVICE_QUOTE_TYPES = [
   { id: "other", label: "Other Service", jobType: "Other" as IntakeLocksmithJobType, keyMode: "" },
 ] as const
 
-export type ServiceQuoteTypeId = (typeof SERVICE_QUOTE_TYPES)[number]["id"]
-
-const BASE_CENTS: Record<ServiceQuoteTypeId, number> = {
-  lockout: 8500,
-  key_gen: 17500,
-  key_dup: 9500,
-  ignition: 22000,
-  other: 12000,
-}
-
-const LUXURY_MAKES = new Set(
-  [
-    "Acura",
-    "Audi",
-    "BMW",
-    "Cadillac",
-    "Genesis",
-    "Infiniti",
-    "Jaguar",
-    "Land Rover",
-    "Lexus",
-    "Lincoln",
-    "Mercedes-Benz",
-    "Mercedes",
-    "Porsche",
-    "Tesla",
-    "Volvo",
-  ].map((m) => m.toLowerCase())
-)
+export type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 
 export type ServiceQuoteBreakdownLine = {
   label: string
   cents: number
+  kind: "base_rate" | "vehicle_age_tier" | "premium_brand"
 }
 
 export type ServiceQuoteResult = {
@@ -53,21 +32,34 @@ export type ServiceQuoteResult = {
   dispatchJobTypeLabel: string
   totalCents: number
   lines: ServiceQuoteBreakdownLine[]
+  rateCardSource: "onboarding_profiles.service_rules" | "default"
 }
 
-function yearSurchargeCents(year: string): number {
+function vehicleAgeYears(year: string): number | null {
   const y = Number.parseInt(year, 10)
-  if (!Number.isFinite(y)) return 0
-  const age = new Date().getFullYear() - y
-  if (age >= 20) return 3500
-  if (age >= 12) return 1500
-  return 0
+  if (!Number.isFinite(y)) return null
+  return Math.max(0, new Date().getFullYear() - y)
 }
 
-function makeSurchargeCents(make: string): number {
+function vehicleAgeSurchargeCents(year: string, rateCard: ServiceRateCard): { cents: number; label: string } {
+  const age = vehicleAgeYears(year)
+  if (age == null) return { cents: 0, label: rateCard.vehicle_age_default_label }
+  for (const tier of rateCard.vehicle_age_tiers) {
+    if (age >= tier.min_age_years) {
+      return {
+        cents: tier.cents,
+        label: tier.label?.trim() || rateCard.vehicle_age_default_label,
+      }
+    }
+  }
+  return { cents: 0, label: rateCard.vehicle_age_default_label }
+}
+
+function makeSurchargeCents(make: string, rateCard: ServiceRateCard): number {
   const key = make.trim().toLowerCase()
   if (!key) return 0
-  return LUXURY_MAKES.has(key) ? 2500 : 0
+  const premium = new Set(rateCard.premium_makes.map((m) => m.trim().toLowerCase()))
+  return premium.has(key) ? rateCard.premium_make_cents : 0
 }
 
 /** Resolve a quote type id from intake job type + key mode strings. */
@@ -80,23 +72,33 @@ export function serviceQuoteTypeIdFromIntake(jobType: string, keyMode: string): 
   return "other"
 }
 
-/** Compute a live baseline quote from YMM + service selection. */
+/** Compute a live quote from YMM + service selection + optional owner rate profile. */
 export function calculateServiceQuote(params: {
   serviceTypeId: ServiceQuoteTypeId
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
+  rateCard?: Partial<ServiceRateCard> | null
+  rateCardSource?: "onboarding_profiles.service_rules" | "default"
 }): ServiceQuoteResult {
+  const rateCard = resolveServiceRateCard(params.rateCard)
+  const source = params.rateCardSource ?? "default"
   const spec = SERVICE_QUOTE_TYPES.find((s) => s.id === params.serviceTypeId) ?? SERVICE_QUOTE_TYPES[0]
-  const base = BASE_CENTS[spec.id]
-  const yearExtra = yearSurchargeCents(params.vehicleYear ?? "")
-  const makeExtra = makeSurchargeCents(params.vehicleMake ?? "")
+  const base = rateCard.services[spec.id] ?? DEFAULT_SERVICE_RATE_CARD.services[spec.id]
+  const ageTier = vehicleAgeSurchargeCents(params.vehicleYear ?? "", rateCard)
+  const makeExtra = makeSurchargeCents(params.vehicleMake ?? "", rateCard)
 
-  const lines: ServiceQuoteBreakdownLine[] = [{ label: `${spec.label} base`, cents: base }]
-  if (yearExtra > 0) lines.push({ label: "Vehicle age adjustment", cents: yearExtra })
-  if (makeExtra > 0) lines.push({ label: "Premium make adjustment", cents: makeExtra })
+  const lines: ServiceQuoteBreakdownLine[] = [
+    { kind: "base_rate", label: `${spec.label} base`, cents: base },
+  ]
+  if (ageTier.cents > 0) {
+    lines.push({ kind: "vehicle_age_tier", label: ageTier.label, cents: ageTier.cents })
+  }
+  if (makeExtra > 0) {
+    lines.push({ kind: "premium_brand", label: rateCard.premium_make_label, cents: makeExtra })
+  }
 
-  const totalCents = base + yearExtra + makeExtra
+  const totalCents = base + ageTier.cents + makeExtra
 
   return {
     serviceTypeId: spec.id,
@@ -105,9 +107,13 @@ export function calculateServiceQuote(params: {
     dispatchJobTypeLabel: formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode),
     totalCents,
     lines,
+    rateCardSource: source,
   }
 }
 
 export function formatQuoteDollars(cents: number): string {
   return `$${(cents / 100).toFixed(0)}`
 }
+
+// Re-export for callers that need the default profile without a DB round-trip.
+export { DEFAULT_SERVICE_RATE_CARD, type ServiceRateCard } from "@/lib/service-rate-card"

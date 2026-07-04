@@ -20,6 +20,7 @@ function ownerEventKind(event: OwnerChannelEvent): "inbound" | "disposition" | "
     event === "job-booked" ||
     event === "disposition-updated" ||
     event === "lead-salvageable" ||
+    event === "salvage-recovery-blocked" ||
     event === "job-assigned" ||
     event === "job-status-updated"
   ) {

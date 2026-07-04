@@ -74,6 +74,7 @@ export type OwnerChannelEvent =
   | "job-booked"
   | "job-assigned"
   | "lead-salvageable"
+  | "salvage-recovery-blocked"
   | "disposition-updated"
   | "job-status-updated"
   | "tech-location-updated"

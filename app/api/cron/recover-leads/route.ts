@@ -2,9 +2,8 @@
 // Trigger from Vercel Cron (or manually with CRON_SECRET bearer token).
 
 import { NextRequest, NextResponse } from "next/server"
-import { listLostLeadsPendingRecovery, markLostLeadRecoverySms } from "@/lib/lost-leads"
-import { generateLostLeadRecoverySms } from "@/lib/lost-lead-recovery-sms"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { listLostLeadsPendingRecovery } from "@/lib/lost-leads"
+import { sendLostLeadRecoverySms } from "@/lib/lost-lead-recovery-sms"
 
 export const dynamic = "force-dynamic"
 
@@ -23,24 +22,29 @@ export async function GET(req: NextRequest) {
     const pending = await listLostLeadsPendingRecovery(MIN_AGE_MINUTES, 20)
     let sent = 0
     let failed = 0
-    const details: { id: string; ok: boolean; error?: string }[] = []
+    let blocked10Dlc = 0
+    const details: {
+      id: string
+      ok: boolean
+      error?: string
+      failed_10dlc?: boolean
+    }[] = []
 
     for (const row of pending) {
-      const smsBody = await generateLostLeadRecoverySms(row)
-      const result = await sendTelnyxSms({
-        toE164: row.phone_number,
-        text: smsBody,
-        userId: row.user_id,
-      })
+      const result = await sendLostLeadRecoverySms(row)
 
       if (result.ok) {
         sent += 1
-        await markLostLeadRecoverySms({ id: row.id, body: smsBody, error: null })
         details.push({ id: row.id, ok: true })
       } else {
         failed += 1
-        await markLostLeadRecoverySms({ id: row.id, body: smsBody, error: result.error })
-        details.push({ id: row.id, ok: false, error: result.error })
+        if (result.failed10Dlc) blocked10Dlc += 1
+        details.push({
+          id: row.id,
+          ok: false,
+          error: result.error,
+          failed_10dlc: result.failed10Dlc,
+        })
       }
     }
 
@@ -49,6 +53,7 @@ export async function GET(req: NextRequest) {
         scanned: pending.length,
         sent,
         failed,
+        blocked_10dlc: blocked10Dlc,
         min_age_minutes: MIN_AGE_MINUTES,
         details,
       },

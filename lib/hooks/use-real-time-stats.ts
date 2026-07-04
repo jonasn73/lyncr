@@ -17,6 +17,7 @@ import {
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
 import type {
+  OwnerCallAnsweredPayload,
   OwnerCallCompletedPayload,
   OwnerCallInitiatedPayload,
 } from "@/lib/realtime/owner-call-event-types"
@@ -32,6 +33,8 @@ import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
 export type ActiveCallSession = {
   callSid: string
   toNumberDigits: string
+  /** Set on call-answered — drives live talk-time ticks before hangup. */
+  answeredAt: string | null
 }
 
 export type UseRealTimeStatsOptions = {
@@ -45,6 +48,9 @@ export type UseRealTimeStatsResult = {
   missedCalls: number
   dailyTalkSeconds: number
   weeklyTalkSeconds: number
+  /** Baseline + elapsed seconds for in-progress answered legs (HUD display). */
+  liveDailyTalkSeconds: number
+  liveWeeklyTalkSeconds: number
   /** Count of provisioned active phone lines (static until numbers list changes). */
   liveLineCount: number
   /** In-progress calls on the selected line (drives Step 1 badge). */
@@ -57,17 +63,26 @@ export type UseRealTimeStatsResult = {
   refreshBaseline: () => Promise<void>
 }
 
-function applySnapshot(setters: {
-  setDailyCalls: (n: number) => void
-  setMissedCalls: (n: number) => void
-  setDailyTalkSeconds: (n: number) => void
-  setWeeklyTalkSeconds: (n: number) => void
-  setOwnerUserId: (id: string | null) => void
-}, snap: RoutingTelemetrySnapshot) {
+function applySnapshot(
+  setters: {
+    setDailyCalls: (n: number) => void
+    setMissedCalls: (n: number) => void
+    setDailyTalkSeconds: (n: number | ((prev: number) => number)) => void
+    setWeeklyTalkSeconds: (n: number | ((prev: number) => number)) => void
+    setOwnerUserId: (id: string | null) => void
+  },
+  snap: RoutingTelemetrySnapshot,
+  mergeTalk = false
+) {
   setters.setDailyCalls(snap.dailyCalls)
   setters.setMissedCalls(snap.missedCalls)
-  setters.setDailyTalkSeconds(snap.dailyTalkSeconds)
-  setters.setWeeklyTalkSeconds(snap.weeklyTalkSeconds)
+  if (mergeTalk) {
+    setters.setDailyTalkSeconds((prev) => Math.max(prev, snap.dailyTalkSeconds))
+    setters.setWeeklyTalkSeconds((prev) => Math.max(prev, snap.weeklyTalkSeconds))
+  } else {
+    setters.setDailyTalkSeconds(snap.dailyTalkSeconds)
+    setters.setWeeklyTalkSeconds(snap.weeklyTalkSeconds)
+  }
   setters.setOwnerUserId(snap.ownerUserId)
 }
 
@@ -87,6 +102,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const [ownerUserId, setOwnerUserId] = useState<string | null>(cachedMetrics.ownerUserId)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
+  /** Bumps every second while answered legs are live so talk pills keep ticking. */
+  const [liveTalkTick, setLiveTalkTick] = useState(0)
 
   const activeSessionsRef = useRef(activeCallSessions)
   activeSessionsRef.current = activeCallSessions
@@ -149,7 +166,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       }
       applySnapshot(
         { setDailyCalls, setMissedCalls, setDailyTalkSeconds, setWeeklyTalkSeconds, setOwnerUserId },
-        snap
+        snap,
+        true
       )
       writeRoutingTelemetryCache(activeOrganizationId, snap)
     } catch {
@@ -164,6 +182,27 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       void refreshBaseline()
     }, 500)
   }, [refreshBaseline])
+
+  useEffect(() => {
+    const hasAnsweredLeg = activeCallSessions.some((s) => Boolean(s.answeredAt))
+    if (!hasAnsweredLeg) return
+    const id = window.setInterval(() => setLiveTalkTick((t) => t + 1), 1000)
+    return () => window.clearInterval(id)
+  }, [activeCallSessions])
+
+  const inProgressTalkSeconds = useMemo(() => {
+    void liveTalkTick
+    const now = Date.now()
+    return activeCallSessions.reduce((sum, session) => {
+      if (!session.answeredAt) return sum
+      const startMs = new Date(session.answeredAt).getTime()
+      if (!Number.isFinite(startMs)) return sum
+      return sum + Math.max(0, Math.floor((now - startMs) / 1000))
+    }, 0)
+  }, [activeCallSessions, liveTalkTick])
+
+  const liveDailyTalkSeconds = dailyTalkSeconds + inProgressTalkSeconds
+  const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
 
   useEffect(() => {
     const snap = readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot()
@@ -233,6 +272,30 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           {
             callSid,
             toNumberDigits: normalizeCallEventPhoneDigits(raw.to_number),
+            answeredAt: null,
+          },
+        ]
+      })
+    }
+
+    const onCallAnswered = (raw: OwnerCallAnsweredPayload) => {
+      if (!eventMatchesWorkspace(raw)) return
+      const callSid = String(raw.call_sid ?? "").trim()
+      if (!callSid) return
+      const answeredAt = raw.answered_at ?? new Date().toISOString()
+      setActiveCallSessions((prev) => {
+        const idx = prev.findIndex((s) => s.callSid === callSid)
+        if (idx >= 0) {
+          const next = [...prev]
+          next[idx] = { ...next[idx], answeredAt }
+          return next
+        }
+        return [
+          ...prev,
+          {
+            callSid,
+            toNumberDigits: normalizeCallEventPhoneDigits(raw.to_number),
+            answeredAt,
           },
         ]
       })
@@ -254,9 +317,11 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     }
 
     channel.bind("call-initiated", onCallInitiated)
+    channel.bind("call-answered", onCallAnswered)
     channel.bind("call-completed", onCallCompleted)
     return () => {
       channel.unbind("call-initiated", onCallInitiated)
+      channel.unbind("call-answered", onCallAnswered)
       channel.unbind("call-completed", onCallCompleted)
       pusher.unsubscribe(channelName)
       setRealtimeConnected(false)
@@ -282,6 +347,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     missedCalls,
     dailyTalkSeconds,
     weeklyTalkSeconds,
+    liveDailyTalkSeconds,
+    liveWeeklyTalkSeconds,
     liveLineCount,
     activeCallsOnSelectedLine,
     activeCallSessions,

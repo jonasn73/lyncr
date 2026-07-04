@@ -314,8 +314,28 @@ function salvageOperator(collected: Record<string, unknown>): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null
 }
 
+function salvageBadge(lead: SalvageLead): { label: string; className: string } {
+  if (lead.manual_retry_required || lead.status === "failed_10dlc") {
+    return {
+      label: "SMS blocked — call manually",
+      className: "border-red-500/40 bg-red-500/10 text-red-200",
+    }
+  }
+  if (lead.source === "lost_lead") {
+    return {
+      label: "Lost lead",
+      className: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+    }
+  }
+  return {
+    label: "Price rejected",
+    className: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  }
+}
+
 function LeadSalvageSection({ leads }: { leads: SalvageLead[] }) {
   if (leads.length === 0) return null
+  const manualCount = leads.filter((l) => l.manual_retry_required).length
   return (
     <section className="mb-7">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -323,27 +343,38 @@ function LeadSalvageSection({ leads }: { leads: SalvageLead[] }) {
           <LifeBuoy className="h-4 w-4 text-amber-300" aria-hidden />
         </span>
         <div>
-          <h2 className="text-sm font-semibold text-foreground sm:text-base">Lyncr Lead Salvage</h2>
+          <h2 className="text-sm font-semibold text-foreground sm:text-base">Lead Salvage Pool</h2>
           <p className="text-xs text-zinc-500">
-            Callers who balked at pricing — call them back to rescue the deal.
+            Price rejections and intake hang-ups — unified queue to rescue the deal.
           </p>
         </div>
         <span className="ml-auto inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
           {leads.length} to rescue
         </span>
+        {manualCount > 0 ? (
+          <span className="inline-flex items-center rounded-full border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-[11px] font-bold text-red-200">
+            {manualCount} need manual SMS retry
+          </span>
+        ) : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {leads.map((lead) => {
           const href = telHref(lead.caller_e164)
           const operator = salvageOperator(lead.collected)
+          const badge = salvageBadge(lead)
           return (
             <div
-              key={lead.id}
+              key={`${lead.source ?? "ai"}-${lead.id}`}
               className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/15 p-5"
             >
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
-                Price rejected
+              <span
+                className={cn(
+                  "inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                  badge.className
+                )}
+              >
+                {badge.label}
               </span>
 
               {href ? (
@@ -363,12 +394,25 @@ function LeadSalvageSection({ leads }: { leads: SalvageLead[] }) {
                 </p>
               ) : null}
 
+              {lead.manual_retry_required && lead.recovery_blocked_reason ? (
+                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2 text-xs text-red-100">
+                  Automated recovery SMS blocked (10DLC). {lead.recovery_blocked_reason}
+                </p>
+              ) : null}
+
+              {lead.last_quoted_price_cents != null && lead.last_quoted_price_cents > 0 ? (
+                <p className="text-xs font-semibold tabular-nums text-emerald-300">
+                  Last quote: ${Math.round(lead.last_quoted_price_cents / 100)}
+                </p>
+              ) : null}
+
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-                {lead.summary?.trim() || "No operator notes captured."}
+                {lead.summary?.trim() || lead.failure_reason?.trim() || "No operator notes captured."}
               </p>
 
               <p className="mt-auto text-[11px] text-zinc-600">
                 {operator ? `Logged by ${operator} · ` : ""}
+                {lead.source === "lost_lead" ? "Intake sheet · " : ""}
                 {formatCapturedDate(lead.created_at)}
               </p>
             </div>

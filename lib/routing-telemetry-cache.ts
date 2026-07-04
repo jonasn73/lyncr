@@ -1,7 +1,10 @@
 // Session-scoped cache for routing telemetry — instant paint on hard refresh.
 
 import { formatTalkDuration, formatTalkTime } from "@/lib/daily-call-telemetry"
+import { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+
+export { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 
 /** Snapshot of call metrics shown in the routing telemetry strip. */
 export type RoutingTelemetrySnapshot = {
@@ -37,16 +40,6 @@ export function readRoutingTelemetryCache(
       typeof raw.weeklyTalkSeconds === "number" ? raw.weeklyTalkSeconds : 0,
     ownerUserId: raw.ownerUserId,
   }
-}
-
-/** Best-effort parse cached display strings like "12:05" or "1:02:03". */
-export function parseTalkSecondsFromDisplay(display?: string): number {
-  if (!display?.trim()) return 0
-  const parts = display.split(":").map((p) => Number(p))
-  if (parts.some((n) => Number.isNaN(n))) return 0
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
-  if (parts.length === 2) return parts[0] * 60 + parts[1]
-  return 0
 }
 
 /** Persist telemetry after a successful API response. */

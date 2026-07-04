@@ -12,6 +12,15 @@ import {
 import { geocodeAddress } from "@/lib/geocode"
 import { UNASSIGNED_POOL_STATUS } from "@/lib/job-pool"
 import { sendIntakeBookingCustomerSms } from "@/lib/intake-booking-customer-sms"
+import {
+  buildIntakePricingMetadata,
+  getOwnerServiceRateCard,
+} from "@/lib/service-rate-card"
+import {
+  calculateServiceQuote,
+  serviceQuoteTypeIdFromIntake,
+  type ServiceQuoteTypeId,
+} from "@/lib/service-quote-calculator"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { neon } from "@neondatabase/serverless"
@@ -41,6 +50,8 @@ export type CreateIntakeJobInput = {
   latitude?: number | null
   longitude?: number | null
   quotedPriceCents?: number | null
+  /** Calculator service id (lockout, key_gen, …) — used with DB rate card server-side. */
+  serviceQuoteTypeId?: string | null
 }
 
 export type CreateIntakeJobResult = {
@@ -88,6 +99,11 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   const vehicleLabel = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")
   const summary = [jobType, vehicleLabel || null, customerName].filter(Boolean).join(" — ")
 
+  let keyMode = ""
+  if (jobType.includes("Duplication")) keyMode = "Duplication"
+  else if (jobType.includes("Origination")) keyMode = "Origination"
+  const intakeJobType = jobType.startsWith("Key replacement") ? "Key replacement" : jobType
+
   let latitude: number | null = input.latitude ?? null
   let longitude: number | null = input.longitude ?? null
   if ((latitude == null || longitude == null) && jobAddress) {
@@ -97,6 +113,28 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       longitude = coords.lng
     }
   }
+
+  const { rateCard, source: rateCardSource } = await getOwnerServiceRateCard(input.ownerUserId)
+  const serviceTypeId = (
+    input.serviceQuoteTypeId?.trim() ||
+    serviceQuoteTypeIdFromIntake(intakeJobType, keyMode)
+  ) as ServiceQuoteTypeId
+  const quote = calculateServiceQuote({
+    serviceTypeId,
+    vehicleYear: vehicleYear ?? undefined,
+    vehicleMake: vehicleMake ?? undefined,
+    vehicleModel: vehicleModel ?? undefined,
+    rateCard,
+    rateCardSource,
+  })
+  const quotedPriceCents = quote.totalCents
+  const pricingMetadata = buildIntakePricingMetadata({
+    quote,
+    vehicleYear,
+    vehicleMake,
+    vehicleModel,
+    rateCardSource,
+  })
 
   const collected: Record<string, unknown> = {
     customer_name: customerName,
@@ -123,8 +161,12 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.keyFrequency?.trim() ? { key_frequency: input.keyFrequency.trim() } : {}),
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
     ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
-    ...(input.quotedPriceCents != null && input.quotedPriceCents > 0
-      ? { last_quoted_price_cents: input.quotedPriceCents, quoted_price_cents: input.quotedPriceCents }
+    ...(quotedPriceCents > 0
+      ? {
+          last_quoted_price_cents: quotedPriceCents,
+          quoted_price_cents: quotedPriceCents,
+          pricing_metadata: pricingMetadata,
+        }
       : {}),
     ...(latitude != null ? { customer_lat: latitude } : {}),
     ...(longitude != null ? { customer_lng: longitude } : {}),
