@@ -7,7 +7,7 @@ export type ServiceQuoteTypeId = "lockout" | "key_gen" | "key_dup" | "ignition" 
 
 /** One line item in a stored pricing_metadata breakdown. */
 export type PricingMetadataLine = {
-  kind: "base_rate" | "vehicle_age_tier" | "premium_brand"
+  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel"
   label: string
   cents: number
 }
@@ -47,7 +47,10 @@ export type ServiceRateVehicleAgeTier = {
  *     ],
  *     "premium_makes": ["BMW", "Mercedes-Benz", "Tesla"],
  *     "premium_make_cents": 2500,
- *     "premium_make_label": "Premium make adjustment"
+ *     "premium_make_label": "Premium make adjustment",
+ *     "distance_included_miles": 10,
+ *     "distance_per_mile_cents": 200,
+ *     "distance_label": "Travel distance"
  *   }
  * }
  *
@@ -61,6 +64,11 @@ export type ServiceRateCard = {
   premium_make_cents: number
   premium_make_label: string
   vehicle_age_default_label: string
+  /** Miles included before per-mile travel surcharge applies. */
+  distance_included_miles: number
+  /** Cents charged per mile beyond distance_included_miles. */
+  distance_per_mile_cents: number
+  distance_label: string
 }
 
 export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
@@ -96,6 +104,9 @@ export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
   premium_make_cents: 2500,
   premium_make_label: "Premium make adjustment",
   vehicle_age_default_label: "Vehicle age adjustment",
+  distance_included_miles: 10,
+  distance_per_mile_cents: 200,
+  distance_label: "Travel distance",
 }
 
 let cachedSql: ReturnType<typeof neon> | null = null
@@ -168,6 +179,15 @@ export function resolveServiceRateCard(rateCard?: Partial<ServiceRateCard> | nul
     premium_make_label: rateCard.premium_make_label?.trim() || DEFAULT_SERVICE_RATE_CARD.premium_make_label,
     vehicle_age_default_label:
       rateCard.vehicle_age_default_label?.trim() || DEFAULT_SERVICE_RATE_CARD.vehicle_age_default_label,
+    distance_included_miles:
+      rateCard.distance_included_miles != null && rateCard.distance_included_miles >= 0
+        ? rateCard.distance_included_miles
+        : DEFAULT_SERVICE_RATE_CARD.distance_included_miles,
+    distance_per_mile_cents:
+      rateCard.distance_per_mile_cents != null && rateCard.distance_per_mile_cents >= 0
+        ? Math.round(rateCard.distance_per_mile_cents)
+        : DEFAULT_SERVICE_RATE_CARD.distance_per_mile_cents,
+    distance_label: rateCard.distance_label?.trim() || DEFAULT_SERVICE_RATE_CARD.distance_label,
   }
 }
 
@@ -210,7 +230,9 @@ export function parseServiceRateCardFromRules(raw: string | null | undefined): {
     Object.keys(services).length > 0 ||
     cardRaw.vehicle_age_tiers != null ||
     cardRaw.premium_makes != null ||
-    cardRaw.premium_make_cents != null
+    cardRaw.premium_make_cents != null ||
+    cardRaw.distance_included_miles != null ||
+    cardRaw.distance_per_mile_cents != null
 
   if (!hasCustom) {
     return { rateCard: DEFAULT_SERVICE_RATE_CARD, source: "default" }
@@ -231,6 +253,15 @@ export function parseServiceRateCardFromRules(raw: string | null | undefined): {
         typeof cardRaw.vehicle_age_default_label === "string"
           ? cardRaw.vehicle_age_default_label
           : undefined,
+      distance_included_miles:
+        cardRaw.distance_included_miles != null
+          ? Number(cardRaw.distance_included_miles)
+          : undefined,
+      distance_per_mile_cents:
+        cardRaw.distance_per_mile_cents != null
+          ? Number(cardRaw.distance_per_mile_cents)
+          : undefined,
+      distance_label: typeof cardRaw.distance_label === "string" ? cardRaw.distance_label : undefined,
     }),
     source: "onboarding_profiles.service_rules",
   }
@@ -281,7 +312,14 @@ export function buildIntakePricingMetadata(params: {
     lines: params.quote.lines.map((line, index) => ({
       kind:
         line.kind ??
-        (index === 0 ? "base_rate" : line.label.toLowerCase().includes("premium") ? "premium_brand" : "vehicle_age_tier"),
+        (index === 0
+          ? "base_rate"
+          : line.kind ??
+            (line.label.toLowerCase().includes("travel") || line.label.toLowerCase().includes("distance")
+              ? "distance_travel"
+              : line.label.toLowerCase().includes("premium")
+                ? "premium_brand"
+                : "vehicle_age_tier")),
       label: line.label,
       cents: line.cents,
     })),

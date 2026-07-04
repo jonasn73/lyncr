@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useState } from "react"
-import { CalendarRange, Clock, Phone, PhoneIncoming, PhoneMissed } from "lucide-react"
+import { CalendarDays, CalendarRange, Clock, Phone, PhoneIncoming, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
@@ -12,6 +12,8 @@ import {
   type CallHistoryFilter,
 } from "@/components/dashboard/routing-call-history-dialog"
 import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
+
+const MOBILE_DURATION_VALUE = "text-[15px] font-bold tabular-nums leading-none sm:text-base"
 
 type TelemetryPillProps = {
   label: string
@@ -121,6 +123,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     missedCalls,
     liveDailyTalkSeconds,
     liveWeeklyTalkSeconds,
+    liveMonthlyTalkSeconds,
     liveLineCount,
   } = useRealTimeStatsContext()
 
@@ -129,6 +132,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
 
   const dailyTalkDisplay = formatTalkTime(liveDailyTalkSeconds)
   const weeklyTalkDisplay = formatTalkDuration(liveWeeklyTalkSeconds)
+  const monthlyTalkDisplay = formatTalkDuration(liveMonthlyTalkSeconds)
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -140,7 +144,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       <section
         className={cn(
           isMobile
-            ? "grid grid-cols-2 gap-2"
+            ? "grid grid-cols-2 gap-2 sm:grid-cols-3"
             : "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:px-4 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden",
           !isMobile && WORKSPACE_MOBILE_BLEED,
           className
@@ -176,8 +180,16 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               value={weeklyTalkDisplay}
               icon={CalendarRange}
               tone="teal"
+              valueClassName={MOBILE_DURATION_VALUE}
               onClick={() => openCallHistory("weekly_talk")}
-              className="col-span-2"
+            />
+            <TelemetryTile
+              label="Talk month"
+              value={monthlyTalkDisplay}
+              icon={CalendarDays}
+              tone="teal"
+              valueClassName={MOBILE_DURATION_VALUE}
+              onClick={() => openCallHistory("monthly_talk")}
             />
           </>
         ) : (
@@ -211,6 +223,13 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
               tone="teal"
               onClick={() => openCallHistory("weekly_talk")}
             />
+            <TelemetryPill
+              label="Monthly talk"
+              value={monthlyTalkDisplay}
+              icon={CalendarDays}
+              tone="teal"
+              onClick={() => openCallHistory("monthly_talk")}
+            />
           </>
         )}
       </section>
@@ -225,7 +244,9 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             ? liveDailyTalkSeconds
             : historyFilter === "weekly_talk"
               ? liveWeeklyTalkSeconds
-              : undefined
+              : historyFilter === "monthly_talk"
+                ? liveMonthlyTalkSeconds
+                : undefined
         }
       />
     </>

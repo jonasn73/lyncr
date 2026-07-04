@@ -50,6 +50,8 @@ export type CreateIntakeJobInput = {
   latitude?: number | null
   longitude?: number | null
   quotedPriceCents?: number | null
+  /** Straight-line miles from dispatcher to job (from intake GPS + address). */
+  distanceMiles?: number | null
   /** Calculator service id (lockout, key_gen, …) — used with DB rate card server-side. */
   serviceQuoteTypeId?: string | null
 }
@@ -126,6 +128,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     vehicleModel: vehicleModel ?? undefined,
     rateCard,
     rateCardSource,
+    distanceMiles: input.distanceMiles ?? null,
   })
   const quotedPriceCents = quote.totalCents
   const pricingMetadata = buildIntakePricingMetadata({

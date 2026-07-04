@@ -11,6 +11,7 @@ import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   useInboundCallPanel,
@@ -198,6 +199,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     patchForm,
     setServiceQuoteTypeId,
     liveQuote,
+    travelDistanceMiles,
+    dispatcherLocation,
     setVehicle,
     applyVehicleClarification,
     setVehicleKeySelection,
@@ -588,6 +591,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
             <div className="max-h-[min(70vh,560px)] space-y-3 overflow-y-auto overflow-x-hidden px-4 py-3">
               <ServiceQuoteCalculatorPanel
+                quote={liveQuote}
                 serviceTypeId={(form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId}
                 vehicleYear={form.vehicleYear}
                 vehicleMake={form.vehicleMake}
@@ -657,6 +661,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       ? "Address ready — tap Send to dispatch map."
                       : "Type street + city, tap a suggestion, or tap out of the field when done."}
                   </p>
+                  <IntakeTravelPreview
+                    dispatcherLat={dispatcherLocation.lat}
+                    dispatcherLng={dispatcherLocation.lng}
+                    jobLat={form.serviceAddress?.lat ?? null}
+                    jobLng={form.serviceAddress?.lng ?? null}
+                    distanceMiles={travelDistanceMiles}
+                    locationStatus={dispatcherLocation.status}
+                    locationError={dispatcherLocation.error}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ac-notes" className="text-xs">

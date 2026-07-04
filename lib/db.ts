@@ -3655,6 +3655,7 @@ export async function getDailyCallTelemetryForOwner(
   avg_talk_seconds: number
   daily_talk_seconds: number
   weekly_talk_seconds: number
+  monthly_talk_seconds: number
   /** Business owner whose call_logs + Pusher channel back these metrics. */
   telemetry_owner_user_id: string
 }> {
@@ -3685,6 +3686,7 @@ export async function getDailyCallTelemetryForOwner(
         avg_talk_seconds: 0,
         daily_talk_seconds: 0,
         weekly_talk_seconds: 0,
+        monthly_talk_seconds: 0,
         telemetry_owner_user_id: telemetryOwnerUserId,
       }
     }
@@ -3713,6 +3715,7 @@ export async function getDailyCallTelemetryForOwner(
   const tz = sanitizeIanaTimezone(timezone)
   const rollingDayMatch = sql`created_at >= now() - interval '24 hours'`
   const localWeekMatch = sql`date_trunc('week', timezone(${tz}, created_at)) = date_trunc('week', timezone(${tz}, now()))`
+  const localMonthMatch = sql`date_trunc('month', timezone(${tz}, created_at)) = date_trunc('month', timezone(${tz}, now()))`
 
   const rows = lineNumbers
     ? await sql`
@@ -3761,7 +3764,13 @@ export async function getDailyCallTelemetryForOwner(
               WHERE ${localWeekMatch} AND ${talkableWhere}
             ),
             0
-          )::int AS weekly_talk_seconds
+          )::int AS weekly_talk_seconds,
+          COALESCE(
+            SUM(talk_seconds) FILTER (
+              WHERE ${localMonthMatch} AND ${talkableWhere}
+            ),
+            0
+          )::int AS monthly_talk_seconds
         FROM scoped
       `
     : await sql`
@@ -3809,7 +3818,13 @@ export async function getDailyCallTelemetryForOwner(
               WHERE ${localWeekMatch} AND ${talkableWhere}
             ),
             0
-          )::int AS weekly_talk_seconds
+          )::int AS weekly_talk_seconds,
+          COALESCE(
+            SUM(talk_seconds) FILTER (
+              WHERE ${localMonthMatch} AND ${talkableWhere}
+            ),
+            0
+          )::int AS monthly_talk_seconds
         FROM scoped
       `
 
@@ -3820,6 +3835,7 @@ export async function getDailyCallTelemetryForOwner(
     avg_talk_seconds: Number(row?.avg_talk_seconds ?? 0),
     daily_talk_seconds: Number(row?.daily_talk_seconds ?? 0),
     weekly_talk_seconds: Number(row?.weekly_talk_seconds ?? 0),
+    monthly_talk_seconds: Number(row?.monthly_talk_seconds ?? 0),
     telemetry_owner_user_id: telemetryOwnerUserId,
   }
 }

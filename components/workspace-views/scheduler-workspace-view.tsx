@@ -489,12 +489,24 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   const refreshSchedulerData = useCallback(() => {
     load()
-    void mutatePool()
+    void mutatePool(undefined, { revalidate: true })
     if (viewMode === "map") {
-      void mutateActivePipeline()
+      void mutateActivePipeline(undefined, { revalidate: true })
       loadTechLocations()
     }
   }, [load, mutatePool, viewMode, mutateActivePipeline, loadTechLocations])
+
+  useEffect(() => {
+    const onWorkspaceChanged = () => refreshSchedulerData()
+    window.addEventListener("lyncr-workspace-data-changed", onWorkspaceChanged)
+    return () => window.removeEventListener("lyncr-workspace-data-changed", onWorkspaceChanged)
+  }, [refreshSchedulerData])
+
+  useEffect(() => {
+    if (!isActive) return
+    void mutatePool(undefined, { revalidate: true })
+    if (viewMode === "map") void mutateActivePipeline(undefined, { revalidate: true })
+  }, [isActive, mutatePool, mutateActivePipeline, viewMode])
 
   useEffect(() => {
     if (!ownerUserId) return

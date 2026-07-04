@@ -48,9 +48,11 @@ export type UseRealTimeStatsResult = {
   missedCalls: number
   dailyTalkSeconds: number
   weeklyTalkSeconds: number
+  monthlyTalkSeconds: number
   /** Baseline + elapsed seconds for in-progress answered legs (HUD display). */
   liveDailyTalkSeconds: number
   liveWeeklyTalkSeconds: number
+  liveMonthlyTalkSeconds: number
   /** Count of provisioned active phone lines (static until numbers list changes). */
   liveLineCount: number
   /** In-progress calls on the selected line (drives Step 1 badge). */
@@ -69,6 +71,7 @@ function applySnapshot(
     setMissedCalls: (n: number) => void
     setDailyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setWeeklyTalkSeconds: (n: number | ((prev: number) => number)) => void
+    setMonthlyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setOwnerUserId: (id: string | null) => void
   },
   snap: RoutingTelemetrySnapshot,
@@ -79,9 +82,11 @@ function applySnapshot(
   if (mergeTalk) {
     setters.setDailyTalkSeconds((prev) => Math.max(prev, snap.dailyTalkSeconds))
     setters.setWeeklyTalkSeconds((prev) => Math.max(prev, snap.weeklyTalkSeconds))
+    setters.setMonthlyTalkSeconds((prev) => Math.max(prev, snap.monthlyTalkSeconds))
   } else {
     setters.setDailyTalkSeconds(snap.dailyTalkSeconds)
     setters.setWeeklyTalkSeconds(snap.weeklyTalkSeconds)
+    setters.setMonthlyTalkSeconds(snap.monthlyTalkSeconds)
   }
   setters.setOwnerUserId(snap.ownerUserId)
 }
@@ -99,6 +104,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const [missedCalls, setMissedCalls] = useState(cachedMetrics.missedCalls)
   const [dailyTalkSeconds, setDailyTalkSeconds] = useState(cachedMetrics.dailyTalkSeconds)
   const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(cachedMetrics.weeklyTalkSeconds)
+  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(cachedMetrics.monthlyTalkSeconds)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(cachedMetrics.ownerUserId)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
@@ -142,8 +148,10 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           missed_calls?: number
           daily_talk_seconds?: number
           weekly_talk_seconds?: number
+          monthly_talk_seconds?: number
           daily_talk_time_display?: string
           weekly_talk_time_display?: string
+          monthly_talk_time_display?: string
           owner_user_id?: string
         }
       }
@@ -157,15 +165,27 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         Number(data.weekly_talk_seconds ?? 0) > 0
           ? Number(data.weekly_talk_seconds)
           : parseTalkSecondsFromDisplay(String(data.weekly_talk_time_display ?? ""))
+      const parsedMonthlyTalk =
+        Number(data.monthly_talk_seconds ?? 0) > 0
+          ? Number(data.monthly_talk_seconds)
+          : parseTalkSecondsFromDisplay(String(data.monthly_talk_time_display ?? ""))
       const snap: RoutingTelemetrySnapshot = {
         dailyCalls: Number(data.daily_calls ?? 0),
         missedCalls: Number(data.missed_calls ?? 0),
         dailyTalkSeconds: parsedDailyTalk,
         weeklyTalkSeconds: parsedWeeklyTalk,
+        monthlyTalkSeconds: parsedMonthlyTalk,
         ownerUserId: data.owner_user_id ? String(data.owner_user_id) : null,
       }
       applySnapshot(
-        { setDailyCalls, setMissedCalls, setDailyTalkSeconds, setWeeklyTalkSeconds, setOwnerUserId },
+        {
+          setDailyCalls,
+          setMissedCalls,
+          setDailyTalkSeconds,
+          setWeeklyTalkSeconds,
+          setMonthlyTalkSeconds,
+          setOwnerUserId,
+        },
         snap,
         true
       )
@@ -203,11 +223,19 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
 
   const liveDailyTalkSeconds = dailyTalkSeconds + inProgressTalkSeconds
   const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
+  const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
 
   useEffect(() => {
     const snap = readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot()
     applySnapshot(
-      { setDailyCalls, setMissedCalls, setDailyTalkSeconds, setWeeklyTalkSeconds, setOwnerUserId },
+      {
+        setDailyCalls,
+        setMissedCalls,
+        setDailyTalkSeconds,
+        setWeeklyTalkSeconds,
+        setMonthlyTalkSeconds,
+        setOwnerUserId,
+      },
       snap
     )
     void refreshBaseline()
@@ -312,6 +340,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       if (talkSec > 0) {
         setDailyTalkSeconds((prev) => prev + talkSec)
         setWeeklyTalkSeconds((prev) => prev + talkSec)
+        setMonthlyTalkSeconds((prev) => prev + talkSec)
       }
       scheduleRefreshBaseline()
     }
@@ -347,8 +376,10 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     missedCalls,
     dailyTalkSeconds,
     weeklyTalkSeconds,
+    monthlyTalkSeconds,
     liveDailyTalkSeconds,
     liveWeeklyTalkSeconds,
+    liveMonthlyTalkSeconds,
     liveLineCount,
     activeCallsOnSelectedLine,
     activeCallSessions,

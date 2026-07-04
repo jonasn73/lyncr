@@ -19,13 +19,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime, isLocalCalendarThisWeek, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarThisWeek, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { buildTelHref } from "@/lib/phone-e164"
 
-export type CallHistoryFilter = "daily" | "missed" | "daily_talk" | "weekly_talk"
+export type CallHistoryFilter = "daily" | "missed" | "daily_talk" | "weekly_talk" | "monthly_talk"
 
 type CallHistoryRow = {
   id: string
@@ -74,6 +74,11 @@ const FILTER_META: Record<
     description: "Calls with talk time this week — see which days were busiest.",
     emptyMessage: "No talk time logged yet this week.",
   },
+  monthly_talk: {
+    title: "Monthly talk summary",
+    description: "Calls with talk time this calendar month for this workspace.",
+    emptyMessage: "No talk time logged yet this month.",
+  },
 }
 
 function formatPhoneDisplay(num: string): string {
@@ -111,6 +116,10 @@ function isRollingDay(iso: string): boolean {
 
 function isThisWeek(iso: string): boolean {
   return isLocalCalendarThisWeek(iso)
+}
+
+function isThisMonth(iso: string): boolean {
+  return isLocalCalendarThisMonth(iso)
 }
 
 function isMissedRow(row: CallHistoryRow): boolean {
@@ -164,8 +173,13 @@ function filterRows(
       if (filter === "weekly_talk") {
         if (!isThisWeek(row.created_at)) return false
       }
+      if (filter === "monthly_talk") {
+        if (!isThisMonth(row.created_at)) return false
+      }
       if (filter === "missed") return isMissedRow(row)
-      if (filter === "daily_talk" || filter === "weekly_talk") return isTalkableRow(row)
+      if (filter === "daily_talk" || filter === "weekly_talk" || filter === "monthly_talk") {
+        return isTalkableRow(row)
+      }
       return true
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -454,7 +468,8 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
     setLoading(true)
     setError(null)
     try {
-      const limit = filter === "weekly_talk" ? 250 : 150
+      const limit =
+        filter === "weekly_talk" ? 250 : filter === "monthly_talk" ? 400 : 150
       const res = await fetch(`/api/calls?limit=${limit}`, { credentials: "include", cache: "no-store" })
       if (!res.ok) throw new Error("Could not load call history")
       const json = (await res.json()) as { calls?: CallHistoryRow[] }
@@ -500,7 +515,8 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
     [filter, weekSummary, daySummary]
   )
   const meta = FILTER_META[filter]
-  const showTalkSummary = filter === "daily_talk" || filter === "weekly_talk"
+  const showTalkSummary =
+    filter === "daily_talk" || filter === "weekly_talk" || filter === "monthly_talk"
   const hudTalkDisplay =
     expectedTalkSeconds != null && expectedTalkSeconds > 0
       ? filter === "daily_talk"

@@ -2,7 +2,7 @@
 
 // Client state for the answered-call intake sheet (CRM + vehicle + job dispatch).
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { Customer } from "@/lib/types"
 import {
   isCompleteStructuredAddress,
@@ -22,6 +22,9 @@ import {
 } from "@/lib/service-quote-calculator"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
+import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
+import { travelDistanceMiles } from "@/lib/geo"
+import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 
 /** Manual-only call lifecycle shown in the intake sheet header. */
 export type ManualCallStatus = "ringing" | "answered" | "on_hold" | "completed"
@@ -147,6 +150,18 @@ export function useActiveCallForm(
   const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const callLogId = current?.id ?? null
+  const dispatcherLocation = useDispatcherLocation(Boolean(callLogId))
+
+  const travelDistanceMilesValue = useMemo(() => {
+    const jobLat = form.serviceAddress?.lat
+    const jobLng = form.serviceAddress?.lng
+    if (jobLat == null || jobLng == null) return null
+    if (dispatcherLocation.lat == null || dispatcherLocation.lng == null) return null
+    return travelDistanceMiles(
+      { lat: dispatcherLocation.lat, lng: dispatcherLocation.lng },
+      { lat: jobLat, lng: jobLng }
+    )
+  }, [form.serviceAddress?.lat, form.serviceAddress?.lng, dispatcherLocation.lat, dispatcherLocation.lng])
 
   const patchForm = useCallback((patch: Partial<ActiveCallFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -311,6 +326,7 @@ export function useActiveCallForm(
       vehicleModel: form.vehicleModel,
       rateCard,
       rateCardSource,
+      distanceMiles: travelDistanceMilesValue,
     })
     setForm((prev) => {
       const nextJobType = quote.jobType
@@ -338,6 +354,7 @@ export function useActiveCallForm(
     form.vehicleModel,
     rateCard,
     rateCardSource,
+    travelDistanceMilesValue,
   ])
 
   useEffect(() => {
@@ -528,6 +545,7 @@ export function useActiveCallForm(
             job_type: dispatchJobType || null,
             quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
             service_quote_type_id: form.serviceQuoteTypeId || "lockout",
+            distance_miles: travelDistanceMilesValue,
             key_fcc_id: form.keyFccId || null,
             key_frequency: form.keyFrequency || null,
             key_chipset: form.keyChipset || null,
@@ -545,6 +563,7 @@ export function useActiveCallForm(
         const leadId = String(json.data?.lead_id ?? "").trim()
         if (!leadId) throw new Error("Job created but no lead id returned.")
         setJobState("created")
+        notifyWorkspaceDataChanged({ reason: "job-created", organizationId: organizationId ?? null })
         return { ok: true, leadId }
       } catch (e) {
         setJobState("error")
@@ -552,7 +571,7 @@ export function useActiveCallForm(
         return { ok: false }
       }
     },
-    [current, form, options?.linkManualCallLog]
+    [current, form, options?.linkManualCallLog, travelDistanceMilesValue]
   )
 
   const addressReady = isIntakeAddressReady(form)
@@ -578,6 +597,7 @@ export function useActiveCallForm(
     vehicleModel: form.vehicleModel,
     rateCard,
     rateCardSource,
+    distanceMiles: travelDistanceMilesValue,
   })
 
   return {
@@ -586,6 +606,8 @@ export function useActiveCallForm(
     setServiceQuoteTypeId,
     liveQuote,
     rateCardSource,
+    travelDistanceMiles: travelDistanceMilesValue,
+    dispatcherLocation,
     setVehicle,
     applyVehicleClarification,
     setVehicleKeySelection,

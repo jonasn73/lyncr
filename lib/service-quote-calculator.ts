@@ -7,6 +7,7 @@ import {
   type ServiceRateCard,
   type ServiceQuoteTypeId,
 } from "@/lib/service-rate-card"
+import { formatDistanceMiles } from "@/lib/geo"
 
 /** Service types shown in the quote calculator (maps to intake job types). */
 export const SERVICE_QUOTE_TYPES = [
@@ -22,7 +23,7 @@ export type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 export type ServiceQuoteBreakdownLine = {
   label: string
   cents: number
-  kind: "base_rate" | "vehicle_age_tier" | "premium_brand"
+  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel"
 }
 
 export type ServiceQuoteResult = {
@@ -33,6 +34,8 @@ export type ServiceQuoteResult = {
   totalCents: number
   lines: ServiceQuoteBreakdownLine[]
   rateCardSource: "onboarding_profiles.service_rules" | "default"
+  /** Straight-line miles used for travel surcharge (null when unknown). */
+  distanceMiles: number | null
 }
 
 function vehicleAgeYears(year: string): number | null {
@@ -62,6 +65,28 @@ function makeSurchargeCents(make: string, rateCard: ServiceRateCard): number {
   return premium.has(key) ? rateCard.premium_make_cents : 0
 }
 
+function distanceSurchargeCents(
+  distanceMiles: number | null | undefined,
+  rateCard: ServiceRateCard
+): { cents: number; label: string } {
+  if (distanceMiles == null || !Number.isFinite(distanceMiles) || distanceMiles <= 0) {
+    return { cents: 0, label: rateCard.distance_label }
+  }
+  const included = rateCard.distance_included_miles
+  const billableMiles = Math.max(0, distanceMiles - included)
+  if (billableMiles <= 0) {
+    return {
+      cents: 0,
+      label: `${rateCard.distance_label} (${formatDistanceMiles(distanceMiles)} — within ${included} mi included)`,
+    }
+  }
+  const cents = Math.round(billableMiles * rateCard.distance_per_mile_cents)
+  return {
+    cents,
+    label: `${rateCard.distance_label} (${formatDistanceMiles(distanceMiles)}, ${billableMiles.toFixed(1)} mi over ${included} mi included)`,
+  }
+}
+
 /** Resolve a quote type id from intake job type + key mode strings. */
 export function serviceQuoteTypeIdFromIntake(jobType: string, keyMode: string): ServiceQuoteTypeId {
   if (jobType === "Lockout") return "lockout"
@@ -80,6 +105,8 @@ export function calculateServiceQuote(params: {
   vehicleModel?: string
   rateCard?: Partial<ServiceRateCard> | null
   rateCardSource?: "onboarding_profiles.service_rules" | "default"
+  /** Straight-line miles from dispatcher to job site — adds travel surcharge when set. */
+  distanceMiles?: number | null
 }): ServiceQuoteResult {
   const rateCard = resolveServiceRateCard(params.rateCard)
   const source = params.rateCardSource ?? "default"
@@ -87,6 +114,11 @@ export function calculateServiceQuote(params: {
   const base = rateCard.services[spec.id] ?? DEFAULT_SERVICE_RATE_CARD.services[spec.id]
   const ageTier = vehicleAgeSurchargeCents(params.vehicleYear ?? "", rateCard)
   const makeExtra = makeSurchargeCents(params.vehicleMake ?? "", rateCard)
+  const distanceMiles =
+    params.distanceMiles != null && Number.isFinite(params.distanceMiles) && params.distanceMiles > 0
+      ? params.distanceMiles
+      : null
+  const distanceTier = distanceSurchargeCents(distanceMiles, rateCard)
 
   const lines: ServiceQuoteBreakdownLine[] = [
     { kind: "base_rate", label: `${spec.label} base`, cents: base },
@@ -97,8 +129,11 @@ export function calculateServiceQuote(params: {
   if (makeExtra > 0) {
     lines.push({ kind: "premium_brand", label: rateCard.premium_make_label, cents: makeExtra })
   }
+  if (distanceTier.cents > 0) {
+    lines.push({ kind: "distance_travel", label: distanceTier.label, cents: distanceTier.cents })
+  }
 
-  const totalCents = base + ageTier.cents + makeExtra
+  const totalCents = base + ageTier.cents + makeExtra + distanceTier.cents
 
   return {
     serviceTypeId: spec.id,
@@ -108,6 +143,7 @@ export function calculateServiceQuote(params: {
     totalCents,
     lines,
     rateCardSource: source,
+    distanceMiles,
   }
 }
 

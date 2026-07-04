@@ -12,14 +12,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  calculateServiceQuote,
   formatQuoteDollars,
   SERVICE_QUOTE_TYPES,
+  type ServiceQuoteResult,
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
 import { cn } from "@/lib/utils"
 
 type ServiceQuoteCalculatorPanelProps = {
+  quote: ServiceQuoteResult
   serviceTypeId: ServiceQuoteTypeId
   vehicleYear: string
   vehicleMake: string
@@ -29,6 +30,7 @@ type ServiceQuoteCalculatorPanelProps = {
 }
 
 export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
+  quote,
   serviceTypeId,
   vehicleYear,
   vehicleMake,
@@ -36,13 +38,6 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   onServiceTypeChange,
   className,
 }: ServiceQuoteCalculatorPanelProps) {
-  const quote = calculateServiceQuote({
-    serviceTypeId,
-    vehicleYear,
-    vehicleMake,
-    vehicleModel,
-  })
-
   return (
     <fieldset
       className={cn(
@@ -80,9 +75,9 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
         </p>
         <ul className="mt-1 space-y-0.5">
           {quote.lines.map((line) => (
-            <li key={line.label} className="flex justify-between text-xs text-muted-foreground">
-              <span>{line.label}</span>
-              <span className="tabular-nums text-foreground">{formatQuoteDollars(line.cents)}</span>
+            <li key={line.label} className="flex justify-between gap-2 text-xs text-muted-foreground">
+              <span className="min-w-0">{line.label}</span>
+              <span className="shrink-0 tabular-nums text-foreground">{formatQuoteDollars(line.cents)}</span>
             </li>
           ))}
         </ul>
@@ -97,6 +92,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
           {vehicleYear || vehicleMake || vehicleModel
             ? ` · ${[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")}`
             : ""}
+          {quote.distanceMiles != null ? ` · ${quote.distanceMiles.toFixed(1)} mi travel` : ""}
         </p>
       </div>
     </fieldset>

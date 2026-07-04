@@ -30,6 +30,7 @@ type CreateJobBody = {
   customer_lat?: number | null
   customer_lng?: number | null
   quoted_price_cents?: number | null
+  distance_miles?: number | null
   service_quote_type_id?: string | null
 }
 
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       latitude: body.customer_lat != null ? Number(body.customer_lat) : null,
       longitude: body.customer_lng != null ? Number(body.customer_lng) : null,
       quotedPriceCents: body.quoted_price_cents != null ? Number(body.quoted_price_cents) : null,
+      distanceMiles: body.distance_miles != null ? Number(body.distance_miles) : null,
       serviceQuoteTypeId: body.service_quote_type_id?.trim() || null,
     })
 

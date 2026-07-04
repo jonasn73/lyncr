@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
         avg_talk_time_display: formatAvgTalkTime(metrics.avg_talk_seconds),
         daily_talk_time_display: formatTalkDuration(metrics.daily_talk_seconds),
         weekly_talk_time_display: formatTalkDuration(metrics.weekly_talk_seconds),
+        monthly_talk_time_display: formatTalkDuration(metrics.monthly_talk_seconds),
         owner_user_id: metrics.telemetry_owner_user_id,
         organization_id: organizationId,
       },

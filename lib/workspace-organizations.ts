@@ -20,10 +20,19 @@ export function writeActiveOrganizationId(organizationId: string | null): void {
     if (!next) localStorage.removeItem(ACTIVE_ORGANIZATION_STORAGE_KEY)
     else localStorage.setItem(ACTIVE_ORGANIZATION_STORAGE_KEY, next)
     window.dispatchEvent(new CustomEvent("lyncr-organization-changed", { detail: { organizationId: next } }))
-    window.dispatchEvent(new CustomEvent("lyncr-workspace-data-changed", { detail: { organizationId: next } }))
+    notifyWorkspaceDataChanged({ organizationId: next })
   } catch {
     // ignore quota / private mode
   }
+}
+
+/** Tell mounted dashboard views (scheduler pool, routing stats, etc.) to re-fetch. */
+export function notifyWorkspaceDataChanged(detail?: {
+  organizationId?: string | null
+  reason?: string
+}): void {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent("lyncr-workspace-data-changed", { detail }))
 }
 
 /** Append ?organization_id= when a workspace is selected (for dashboard API fetches). */

@@ -13,6 +13,7 @@ export type RoutingTelemetrySnapshot = {
   /** Raw seconds from API — display is derived via formatTalkTime. */
   dailyTalkSeconds: number
   weeklyTalkSeconds: number
+  monthlyTalkSeconds: number
   ownerUserId: string | null
 }
 
@@ -38,6 +39,8 @@ export function readRoutingTelemetryCache(
         : parseTalkSecondsFromDisplay(raw.dailyTalkDisplay),
     weeklyTalkSeconds:
       typeof raw.weeklyTalkSeconds === "number" ? raw.weeklyTalkSeconds : 0,
+    monthlyTalkSeconds:
+      typeof raw.monthlyTalkSeconds === "number" ? raw.monthlyTalkSeconds : 0,
     ownerUserId: raw.ownerUserId,
   }
 }
@@ -57,14 +60,18 @@ export function emptyRoutingTelemetrySnapshot(): RoutingTelemetrySnapshot {
     missedCalls: 0,
     dailyTalkSeconds: 0,
     weeklyTalkSeconds: 0,
+    monthlyTalkSeconds: 0,
     ownerUserId: null,
   }
 }
 
 /** Derived labels for pills — always computed from live seconds. */
-export function telemetryTalkDisplays(snapshot: Pick<RoutingTelemetrySnapshot, "dailyTalkSeconds" | "weeklyTalkSeconds">) {
+export function telemetryTalkDisplays(
+  snapshot: Pick<RoutingTelemetrySnapshot, "dailyTalkSeconds" | "weeklyTalkSeconds" | "monthlyTalkSeconds">
+) {
   return {
     dailyTalkDisplay: formatTalkTime(snapshot.dailyTalkSeconds),
     weeklyTalkDisplay: formatTalkDuration(snapshot.weeklyTalkSeconds),
+    monthlyTalkDisplay: formatTalkDuration(snapshot.monthlyTalkSeconds),
   }
 }

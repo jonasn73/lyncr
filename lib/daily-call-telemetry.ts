@@ -23,6 +23,7 @@ export type DailyCallTelemetry = {
   avg_talk_seconds: number
   daily_talk_seconds: number
   weekly_talk_seconds: number
+  monthly_talk_seconds: number
   owner_user_id: string
 }
 
@@ -68,4 +69,11 @@ export function isLocalCalendarThisWeek(iso: string, now: Date = new Date()): bo
   const end = new Date(start)
   end.setDate(start.getDate() + 7)
   return d >= start && d < end
+}
+
+/** Local calendar month — matches monthly talk HUD + call history. */
+export function isLocalCalendarThisMonth(iso: string, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
 }
