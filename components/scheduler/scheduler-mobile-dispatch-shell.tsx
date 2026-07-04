@@ -200,7 +200,7 @@ export function SchedulerMobileDispatchShell({
         <DrawerPrimitive.Portal>
           <DrawerPrimitive.Content
             className={cn(
-              "fixed inset-x-0 bottom-0 z-[46] flex flex-col outline-none",
+              "fixed inset-x-0 bottom-[var(--shell-dock-h)] z-[46] flex max-h-[calc(100dvh-var(--shell-dock-h))] flex-col outline-none",
               "border-t border-zinc-700/80 bg-zinc-950/98 shadow-[0_-12px_40px_rgba(0,0,0,0.55)] backdrop-blur-md",
               "rounded-t-2xl"
             )}
@@ -216,45 +216,47 @@ export function SchedulerMobileDispatchShell({
               </div>
             </DrawerPrimitive.Handle>
 
-            <div className="shrink-0 border-b border-zinc-800 px-4 pb-3">
-              <h2 className="text-base font-semibold text-foreground">
-                {selectedDay.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
-              </h2>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                {jobCount} job{jobCount === 1 ? "" : "s"}
-                {poolCount > 0 ? ` · ${poolCount} unassigned` : ""}
-              </p>
-              {!isExpanded ? (
-                <div className="mt-2">
-                  <SchedulerDispatchLiveStatus
-                    upcomingOnly
-                    selectedDay={selectedDay}
-                    poolJobs={poolJobs}
-                    activePipelineJobs={activePipelineJobs}
-                    dayEvents={dayEvents}
-                    onSelectJob={(jobId) => {
-                      onSelectUpcomingJob?.(jobId)
-                      setSheetSnap(SHEET_EXPANDED)
-                    }}
-                    onMarkComplete={onMarkComplete}
-                    completingJobId={completingJobId}
-                  />
-                </div>
-              ) : null}
-            </div>
+            <div className="h-[calc(100vh-220px)] max-h-[calc(100vh-220px)] overflow-y-auto overscroll-y-contain pb-24">
+              <div className="shrink-0 border-b border-zinc-800 px-4 pb-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  {selectedDay.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
+                </h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {jobCount} job{jobCount === 1 ? "" : "s"}
+                  {poolCount > 0 ? ` · ${poolCount} unassigned` : ""}
+                </p>
+                {!isExpanded ? (
+                  <div className="mt-2">
+                    <SchedulerDispatchLiveStatus
+                      upcomingOnly
+                      selectedDay={selectedDay}
+                      poolJobs={poolJobs}
+                      activePipelineJobs={activePipelineJobs}
+                      dayEvents={dayEvents}
+                      onSelectJob={(jobId) => {
+                        onSelectUpcomingJob?.(jobId)
+                        setSheetSnap(SHEET_EXPANDED)
+                      }}
+                      onMarkComplete={onMarkComplete}
+                      completingJobId={completingJobId}
+                    />
+                  </div>
+                ) : null}
+              </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-              <ActivePipelinePanelStream
-                jobs={listJobs}
-                dayKey={pipelineDayKey}
-                useStreamedInitialDay={useStreamedPipeline}
-                highlightId={highlightId}
-                onFocusJob={handleFocusJob}
-                onEditJob={onEditJob}
-                onMarkComplete={onMarkComplete}
-                completingJobId={completingJobId}
-                layout="mobileSheet"
-              />
+              <div className="flex flex-col gap-3 px-4 pt-2">
+                <ActivePipelinePanelStream
+                  jobs={listJobs}
+                  dayKey={pipelineDayKey}
+                  useStreamedInitialDay={useStreamedPipeline}
+                  highlightId={highlightId}
+                  onFocusJob={handleFocusJob}
+                  onEditJob={onEditJob}
+                  onMarkComplete={onMarkComplete}
+                  completingJobId={completingJobId}
+                  layout="mobileSheet"
+                />
+              </div>
             </div>
           </DrawerPrimitive.Content>
         </DrawerPrimitive.Portal>

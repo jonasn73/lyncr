@@ -141,7 +141,7 @@ export function ActivePipelinePanel({
                       className={cn(
                         SCHEDULER_LIST_CARD_SHELL,
                         SCHEDULER_URGENCY_CARD_BORDER_CLASS[urgency],
-                        "px-4 py-4",
+                        "px-3 py-3 md:px-4 md:py-4",
                         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
                       )}
                     >

@@ -58,8 +58,8 @@ export function JobPoolCard({ job, highlighted, onSelect, onMobileAssign }: JobP
       }}
       className={cn(
         SCHEDULER_LIST_CARD_SHELL,
-        "group min-w-[200px] max-w-[240px] shrink-0 touch-manipulation",
-        touchInteraction ? "cursor-pointer active:scale-[0.98]" : "cursor-grab active:cursor-grabbing",
+        "group shrink-0 touch-manipulation px-3 pt-3 pb-9 md:px-4 md:pt-4 md:pb-10",
+        touchInteraction ? "min-w-0 w-full max-w-none cursor-pointer active:scale-[0.98]" : "min-w-[200px] max-w-[240px] cursor-grab active:cursor-grabbing",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
       )}
     >
@@ -76,19 +76,21 @@ export function JobPoolCard({ job, highlighted, onSelect, onMobileAssign }: JobP
             {job.customer_phone ? (
               <p className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <Phone className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                <span className="truncate">{formatPhone(job.customer_phone)}</span>
+                <span className={cn(touchInteraction ? "break-words" : "truncate")}>
+                  {formatPhone(job.customer_phone)}
+                </span>
               </p>
             ) : null}
             {vehicle ? (
               <p className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <Car className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                <span className="truncate">{vehicle}</span>
+                <span className={cn(touchInteraction ? "break-words" : "truncate")}>{vehicle}</span>
               </p>
             ) : null}
             {area ? (
-              <p className="flex items-center gap-1.5 text-xs text-zinc-500">
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
-                <span className="truncate">{area}</span>
+              <p className="flex items-start gap-1.5 text-xs text-zinc-500">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
+                <span className={cn(touchInteraction ? "break-words" : "truncate")}>{area}</span>
               </p>
             ) : null}
           </div>
