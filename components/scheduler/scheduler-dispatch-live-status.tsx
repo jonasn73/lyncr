@@ -5,7 +5,6 @@
 import { memo, useMemo } from "react"
 import { Check, Clock3, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
 import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
 import { formatSchedulerLiveClock, useLiveClock } from "@/lib/hooks/use-live-clock"
 import {
@@ -152,13 +151,16 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   }
 
   return (
-    <div className={cn(!embedded && WORKSPACE_MOBILE_BLEED, className)} aria-label="Dispatch live status">
-      <div
-        className={cn(
-          compact ? "bg-transparent" : "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur",
-          embedded && !compact ? "rounded-t-xl" : ""
-        )}
-      >
+    <div
+      className={cn(
+        "min-w-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/90 backdrop-blur",
+        compact && "border-0 bg-transparent",
+        embedded && !compact && "rounded-t-xl",
+        className
+      )}
+      aria-label="Dispatch live status"
+    >
+      <div>
         <div className={cn("flex gap-2", compact ? "flex-row items-center" : "flex-col gap-0 md:flex-row md:items-stretch")}>
           <div
             className={cn(
@@ -182,9 +184,9 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               </time>
             </div>
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <DispatchOperationsMetricStrip
-              embedded={embedded}
+              embedded
               compact={compact}
               poolJobs={poolJobs}
               activePipelineJobs={activePipelineJobs}

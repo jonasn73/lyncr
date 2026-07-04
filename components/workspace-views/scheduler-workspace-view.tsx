@@ -843,7 +843,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" action={headerAction} />
 
-        <div className="flex w-full min-h-[calc(100vh-120px)] flex-col gap-4 p-4 md:gap-6 md:p-6">
+        <div className="flex w-full min-h-[calc(100vh-120px)] flex-col gap-4 p-4 pb-28 md:gap-6 md:p-6 md:pb-6">
           <p className="text-sm text-zinc-500">
             {intakeProfile === "locksmith"
               ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
