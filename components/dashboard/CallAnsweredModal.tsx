@@ -543,7 +543,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     >
       <SheetContent
         side="bottom"
-        className="gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
+        className="grid h-[min(92dvh,900px)] max-h-[96dvh] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
         onPointerDownOutside={(e) => {
           const target = e.target as HTMLElement | null
           if (target?.closest("[data-address-suggestions]")) e.preventDefault()
@@ -604,7 +604,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
 
-            <div className="min-h-0 flex-1 max-h-[85vh] overflow-y-auto overflow-x-hidden px-1 content-start space-y-4 py-3 sm:px-4">
+            <div className="min-h-0 overflow-y-auto overscroll-y-contain px-1 py-3 sm:px-4">
+              <div className="space-y-4">
               <ServiceQuoteCalculatorPanel
                 quote={liveQuote}
                 serviceTypeId={(form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId}
@@ -777,50 +778,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </p>
               </div>
 
-              {jobState === "created" ? (
-                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-                  Job added to the unassigned pool — pin will appear on your dispatch map.
-                </p>
-              ) : null}
-              {lostLeadState === "saved" ? (
-                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                  Lost lead logged — recovery SMS will queue after 20 minutes.
-                </p>
-              ) : null}
-              {jobError ? <p className="text-xs text-red-300">{jobError}</p> : null}
-              {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
-            </div>
-
-            <SheetFooter className="shrink-0 flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3">
-              <Button
-                type="button"
-                size="lg"
-                className="w-full gap-2"
-                disabled={jobState === "creating" || !canDispatch}
-                onClick={() => void confirmAndBook()}
-              >
-                {jobState === "creating" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-                )}
-                Confirm &amp; book
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                className="w-full gap-2"
-                disabled={jobState === "creating" || !canDispatch}
-                onClick={() => void sendToDispatch()}
-              >
-                Send to dispatch map &amp; schedule
-              </Button>
-              {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                <p className="text-center text-[11px] text-amber-200/90">
-                  Still needed: {dispatchBlockers.join(" · ")}
-                </p>
-              ) : null}
               <fieldset className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                 <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
                   Price-shopper recovery
@@ -857,6 +814,52 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   Customer declined price / hang up
                 </Button>
               </fieldset>
+
+              {jobState === "created" ? (
+                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                  Job added to the unassigned pool — pin will appear on your dispatch map.
+                </p>
+              ) : null}
+              {lostLeadState === "saved" ? (
+                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                  Lost lead logged — recovery SMS will queue after 20 minutes.
+                </p>
+              ) : null}
+              {jobError ? <p className="text-xs text-red-300">{jobError}</p> : null}
+              {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
+              </div>
+            </div>
+
+            <SheetFooter className="mt-0 shrink-0 flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3">
+              <Button
+                type="button"
+                size="lg"
+                className="w-full gap-2"
+                disabled={jobState === "creating" || !canDispatch}
+                onClick={() => void confirmAndBook()}
+              >
+                {jobState === "creating" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                Confirm &amp; book
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="w-full gap-2"
+                disabled={jobState === "creating" || !canDispatch}
+                onClick={() => void sendToDispatch()}
+              >
+                Send to dispatch map &amp; schedule
+              </Button>
+              {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
+                <p className="text-center text-[11px] text-amber-200/90">
+                  Still needed: {dispatchBlockers.join(" · ")}
+                </p>
+              ) : null}
               <div className="flex w-full items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground">
                   {saveState === "saving" ? "Saving customer…" : null}
