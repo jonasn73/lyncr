@@ -63,22 +63,32 @@ export function applyNegotiationDiscount(params: {
   }
 }
 
-/** Authorized route-match recovery price pitched when customer says quote is too high. */
-export const ROUTE_MATCH_RECOVERY_PRICE_DOLLARS = 265
+/** Save-the-deal recovery step targets derived from the active quoted price. */
+export function recoveryStepPrices(currentPriceDollars: number): {
+  step1Price: number
+  step2Price: number
+  step3Price: number
+} {
+  const currentPriceVar = Math.max(0, Math.round(currentPriceDollars))
+  return {
+    step1Price: Math.max(currentPriceVar - 25, 45),
+    step2Price: Math.round(currentPriceVar * 0.85),
+    step3Price: Math.round(currentPriceVar * 0.75),
+  }
+}
 
-export const ROUTE_MATCH_RECOVERY_SCRIPT =
-  'I want to get you taken care of. If we can bypass immediate dispatch and book a flexible 2-hour window on an optimized route, I can authorize a special field reduction down to $265. Does that keep us within your budget?'
+export function routeMatchRecoveryScript(step1Price: number): string {
+  return `I want to get you taken care of. If we can bypass immediate dispatch and book a flexible 2-hour window on an optimized route, I can authorize a special field reduction down to $${step1Price}. Does that keep us within your budget?`
+}
 
-/** Step 2 — aftermarket hardware downgrade when route match is rejected. */
-export const AFTERMARKET_RECOVERY_PRICE_DOLLARS = 225
+export function aftermarketRecoveryScript(step2Price: number): string {
+  return `I hear you. If you don't mind an aftermarket key instead of the premium factory fob, I can bypass the 12-month warranty tier. That cuts the hardware cost down and brings your total clean to $${step2Price} out the door. How does that sound?`
+}
 
-export const AFTERMARKET_RECOVERY_SCRIPT =
-  "I hear you. If you don't mind an aftermarket key instead of the premium factory fob, I can bypass the 12-month warranty tier. That cuts the hardware cost down and brings your total clean to $225 out the door. How does that sound?"
-
-/** Step 3 — final management floor when customer still wants to book. */
-export const MANAGEMENT_FLOOR_PRICE_DOLLARS = 199
-
-export function managementFloorRecoveryScript(customerName?: string | null): string {
+export function managementFloorRecoveryScript(
+  customerName: string | null | undefined,
+  step3Price: number
+): string {
   const name = customerName?.trim() || "there"
-  return `Look, ${name}, I want to help you out today. The absolute absolute lowest my supervisor will let me drop this ticket to cover our fuel and programming licensing costs is a flat $199. I can lock that in right now if we can get your details taken care of.`
+  return `Look, ${name}, I want to help you out today. The absolute absolute lowest my supervisor will let me drop this ticket to cover our fuel and programming licensing costs is a flat $${step3Price}. I can lock that in right now if we can get your details taken care of.`
 }

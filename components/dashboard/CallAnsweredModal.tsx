@@ -2,7 +2,7 @@
 
 // Answered-call intake sheet — opens on `call-initiated` (ringing) via Pusher, then upgrades on `call-answered`.
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Loader2, MapPin, Phone, PhoneOff } from "lucide-react"
@@ -38,11 +38,9 @@ import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import {
   negotiationDiscountLabel,
   parseQuoteDollars,
-  ROUTE_MATCH_RECOVERY_PRICE_DOLLARS,
-  ROUTE_MATCH_RECOVERY_SCRIPT,
-  AFTERMARKET_RECOVERY_PRICE_DOLLARS,
-  AFTERMARKET_RECOVERY_SCRIPT,
-  MANAGEMENT_FLOOR_PRICE_DOLLARS,
+  recoveryStepPrices,
+  routeMatchRecoveryScript,
+  aftermarketRecoveryScript,
   managementFloorRecoveryScript,
 } from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
@@ -243,6 +241,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     useState<NegotiationDiscountId | null>(null)
   const [negotiationDiscountsTried, setNegotiationDiscountsTried] = useState<NegotiationDiscountId[]>([])
 
+  const currentPriceVar = useMemo(() => {
+    const parsed = Number.parseFloat(customPrice.trim())
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed)
+    if (autoTotalDollars > 0) return autoTotalDollars
+    return 120
+  }, [customPrice, autoTotalDollars])
+
+  const { step1Price, step2Price, step3Price } = useMemo(
+    () => recoveryStepPrices(currentPriceVar),
+    [currentPriceVar]
+  )
+
   useEffect(() => {
     setNegotiationDiscountApplied(null)
     setNegotiationDiscountsTried([])
@@ -333,25 +343,25 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const handleApplyRouteMatchDiscount = useCallback(() => {
     applyRecoveryOffer({
-      dollars: ROUTE_MATCH_RECOVERY_PRICE_DOLLARS,
+      dollars: step1Price,
       discountId: "route_optimization",
       markRouteRecovery: true,
     })
-  }, [applyRecoveryOffer])
+  }, [applyRecoveryOffer, step1Price])
 
   const handleApplyAftermarketRecovery = useCallback(() => {
     applyRecoveryOffer({
-      dollars: AFTERMARKET_RECOVERY_PRICE_DOLLARS,
+      dollars: step2Price,
       discountId: "aftermarket_key_swap",
     })
-  }, [applyRecoveryOffer])
+  }, [applyRecoveryOffer, step2Price])
 
   const handleApplyManagementFloor = useCallback(() => {
     applyRecoveryOffer({
-      dollars: MANAGEMENT_FLOOR_PRICE_DOLLARS,
+      dollars: step3Price,
       discountId: "first_time_callback",
     })
-  }, [applyRecoveryOffer])
+  }, [applyRecoveryOffer, step3Price])
 
   const jobCreateExtras = useCallback(
     (quotedPriceCents: number) => ({
@@ -974,7 +984,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             <span className="mr-1" aria-hidden>
                               💬
                             </span>
-                            &ldquo;{ROUTE_MATCH_RECOVERY_SCRIPT}&rdquo;
+                            &ldquo;{routeMatchRecoveryScript(step1Price)}&rdquo;
                           </p>
                           <Button
                             type="button"
@@ -982,7 +992,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
                             onClick={handleApplyRouteMatchDiscount}
                           >
-                            Apply Router Match Discount (${ROUTE_MATCH_RECOVERY_PRICE_DOLLARS})
+                            Apply Router Match Discount (${step1Price})
                           </Button>
                           <button
                             type="button"
@@ -1005,7 +1015,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             <span className="mr-1" aria-hidden>
                               💬
                             </span>
-                            &ldquo;{AFTERMARKET_RECOVERY_SCRIPT}&rdquo;
+                            &ldquo;{aftermarketRecoveryScript(step2Price)}&rdquo;
                           </p>
                           <Button
                             type="button"
@@ -1013,7 +1023,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
                             onClick={handleApplyAftermarketRecovery}
                           >
-                            Apply Aftermarket Hardware Swap (${AFTERMARKET_RECOVERY_PRICE_DOLLARS})
+                            Apply Aftermarket Hardware Swap (${step2Price})
                           </Button>
                           <div className="flex flex-col gap-1.5">
                             <button
@@ -1040,7 +1050,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             <span className="mr-1" aria-hidden>
                               💬
                             </span>
-                            &ldquo;{managementFloorRecoveryScript(form.displayName)}&rdquo;
+                            &ldquo;{managementFloorRecoveryScript(form.displayName, step3Price)}&rdquo;
                           </p>
                           <Button
                             type="button"
@@ -1048,7 +1058,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
                             onClick={handleApplyManagementFloor}
                           >
-                            Apply Final Management Floor (${MANAGEMENT_FLOOR_PRICE_DOLLARS})
+                            Apply Final Management Floor (${step3Price})
                           </Button>
                           <button
                             type="button"
