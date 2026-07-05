@@ -87,6 +87,7 @@ export function JobPoolTray({
             highlighted={highlightId === job.id}
             onSelect={onSelectJob}
             onMobileAssign={onMobileAssignJob}
+            variant={sidebar ? "sidebar" : "default"}
           />
         ))}
       </div>

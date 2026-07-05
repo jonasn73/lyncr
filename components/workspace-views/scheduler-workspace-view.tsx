@@ -745,9 +745,9 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               : "Automotive field jobs with industry-specific intake fields and validated addresses."}
         </p>
 
-        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-3 lg:gap-6 lg:pb-0">
+        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-4 lg:gap-6 lg:pb-0">
           {/* Left control column — new intake, hopper, live metrics */}
-          <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)]">
+          <div className="flex w-full min-w-0 flex-col gap-4 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)]">
             {inboundCallPanel ? (
               <button
                 type="button"
@@ -810,7 +810,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           </div>
 
           {/* Main workspace — pipeline + swimlanes */}
-          <div className="flex w-full min-w-0 flex-col gap-4 lg:col-span-2 lg:gap-6">
+          <div className="flex w-full min-w-0 flex-col gap-4 lg:col-span-3 lg:gap-6">
             {markCompleteError ? (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                 {markCompleteError}
