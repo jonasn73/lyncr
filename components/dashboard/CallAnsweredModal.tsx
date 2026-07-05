@@ -851,56 +851,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     />
                   </div>
                 </fieldset>
-              </div>
-
-              <div className="sticky bottom-0 shrink-0 space-y-4 border-t border-slate-800 bg-slate-900 p-6">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
-                  <Label
-                    htmlFor="ac-quote-price"
-                    className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-                  >
-                    Quote before dispatch
-                  </Label>
-                  <div className="relative mt-2">
-                    <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
-                      $
-                    </span>
-                    <input
-                      id="ac-quote-price"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={1}
-                      value={customPrice}
-                      onChange={(e) => {
-                        setCustomPrice(e.target.value)
-                        const raw = e.target.value.trim()
-                        if (!raw) return
-                        const dollars = Number.parseFloat(raw)
-                        if (Number.isFinite(dollars) && dollars >= 0) {
-                          setQuotedPriceDollars(dollars)
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!customPrice.trim()) {
-                          syncQuotedPriceToAuto()
-                          setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-                        }
-                      }}
-                      className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
-                      aria-describedby="ac-quote-price-hint"
-                    />
-                  </div>
-                  <p id="ac-quote-price-hint" className="mt-2 text-center text-[10px] text-muted-foreground">
-                    {form.quotedPriceOverridden
-                      ? "Custom quote — edit live before you dispatch."
-                      : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel} base${
-                          liveQuote.distanceMiles != null
-                            ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
-                            : ""
-                        }.`}
-                  </p>
-                </div>
 
                 <fieldset className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                   <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
@@ -948,26 +898,49 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     )}
                     Customer declined price / hang up
                   </Button>
+                  {lostLeadState === "saved" ? (
+                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      Lost lead logged — recovery SMS will queue after 20 minutes.
+                    </p>
+                  ) : null}
+                  {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
                 </fieldset>
+              </div>
 
-                {jobState === "created" ? (
-                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-                    Job added to the active job pool — open the hopper in the scheduler sidebar to assign when ready.
-                  </p>
-                ) : null}
-                {lostLeadState === "saved" ? (
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                    Lost lead logged — recovery SMS will queue after 20 minutes.
-                  </p>
-                ) : null}
-                {jobError ? <p className="text-xs text-red-300">{jobError}</p> : null}
-                {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
-
-                <div className="flex flex-col gap-2">
+              <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-slate-800 bg-slate-900 p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                    <span className="font-bold text-emerald-400">$</span>
+                    <input
+                      id="ac-quote-price"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={1}
+                      value={customPrice}
+                      onChange={(e) => {
+                        setCustomPrice(e.target.value)
+                        const raw = e.target.value.trim()
+                        if (!raw) return
+                        const dollars = Number.parseFloat(raw)
+                        if (Number.isFinite(dollars) && dollars >= 0) {
+                          setQuotedPriceDollars(dollars)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!customPrice.trim()) {
+                          syncQuotedPriceToAuto()
+                          setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                        }
+                      }}
+                      className="w-16 border-none bg-transparent p-0 text-xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                      aria-label="Quote before dispatch"
+                    />
+                  </div>
                   <Button
                     type="button"
                     size="lg"
-                    className="w-full gap-2"
+                    className="min-w-0 flex-1 gap-2"
                     disabled={jobState === "creating" || !canDispatch}
                     onClick={() => void confirmAndBook()}
                   >
@@ -978,52 +951,59 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     )}
                     Confirm &amp; book
                   </Button>
-                  <button
-                    type="button"
-                    disabled={jobState === "creating" || !canSavePendingLead}
-                    onClick={() => void savePendingLead()}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
-                  </button>
+                </div>
+                <button
+                  type="button"
+                  disabled={jobState === "creating" || !canSavePendingLead}
+                  onClick={() => void savePendingLead()}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
+                </button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="default"
+                  className="h-10 w-full gap-2"
+                  disabled={jobState === "creating" || !canDispatch}
+                  onClick={() => void sendToDispatch()}
+                >
+                  Send to dispatch map &amp; schedule
+                </Button>
+                {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
+                  <p className="text-center text-[10px] text-amber-200/90">
+                    Still needed: {dispatchBlockers.join(" · ")}
+                  </p>
+                ) : null}
+                {jobState === "created" ? (
+                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+                    Job added to the hopper — assign when ready.
+                  </p>
+                ) : null}
+                {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <p className="text-[10px] text-muted-foreground">
+                    {saveState === "saving" ? "Saving…" : null}
+                    {saveState === "saved" ? "Saved." : null}
+                    {saveState === "error" ? "Save failed." : null}
+                    {saveState === "idle" ? "Auto-save on." : null}{" "}
+                    <Link
+                      href="/dashboard/customers"
+                      className="font-semibold text-primary underline-offset-2 hover:underline"
+                    >
+                      Customers
+                    </Link>
+                  </p>
                   <Button
                     type="button"
-                    variant="secondary"
-                    size="lg"
-                    className="w-full gap-2"
-                    disabled={jobState === "creating" || !canDispatch}
-                    onClick={() => void sendToDispatch()}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    disabled={jobState === "creating"}
+                    onClick={dismissOnly}
                   >
-                    Send to dispatch map &amp; schedule
+                    Dismiss
                   </Button>
-                  {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                    <p className="text-center text-[11px] text-amber-200/90">
-                      Still needed: {dispatchBlockers.join(" · ")}
-                    </p>
-                  ) : null}
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <p className="text-[11px] text-muted-foreground">
-                      {saveState === "saving" ? "Saving customer…" : null}
-                      {saveState === "saved" ? "Customer saved." : null}
-                      {saveState === "error" ? "Customer save failed." : null}
-                      {saveState === "idle" ? "Customer saves automatically." : null}{" "}
-                      <Link
-                        href="/dashboard/customers"
-                        className="font-semibold text-primary underline-offset-2 hover:underline"
-                      >
-                        Customers
-                      </Link>
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={jobState === "creating"}
-                      onClick={dismissOnly}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
