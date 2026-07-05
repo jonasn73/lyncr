@@ -71,7 +71,7 @@ export function JobPoolTray({
       <div
         className={cn(
           sidebar
-            ? "flex w-full max-h-[min(180px,22vh)] flex-col gap-3 overflow-y-auto overscroll-y-contain"
+            ? "flex w-full max-h-[min(320px,38vh)] flex-col gap-3 overflow-y-auto overscroll-y-contain"
             : mobileTimeline
               ? "flex max-h-[min(420px,50vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
               : "flex gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

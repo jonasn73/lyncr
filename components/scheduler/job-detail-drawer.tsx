@@ -70,7 +70,7 @@ const STATUS_SEGMENTS: {
 
 const fieldBlockClass = "flex w-full min-w-0 flex-col"
 const labelClass = "mb-1.5 text-xs font-medium text-zinc-400"
-const sectionClass = "mb-4 rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-4"
+const sectionClass = "mb-4 min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-4"
 const sectionTitleClass = "mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500"
 const inputClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
@@ -543,7 +543,7 @@ export function JobDetailDrawer({
         <DialogContent
           showCloseButton={false}
           overlayClassName="bg-zinc-950/75"
-          className="flex h-[min(92dvh,880px)] w-full max-w-lg flex-col gap-0 overflow-hidden border-border bg-card p-0 sm:max-w-lg"
+          className="!flex h-[min(92dvh,880px)] w-full max-w-lg flex-col gap-0 overflow-hidden border-border bg-card p-0 sm:max-w-lg"
           onPointerDownOutside={(event) => {
             if (Date.now() - openedAtRef.current < 400) event.preventDefault()
           }}
@@ -577,7 +577,7 @@ export function JobDetailDrawer({
           </button>
         </header>
 
-        <div className="min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">
+        <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 py-4">
           <section className={sectionClass}>
             <h3 className={sectionTitleClass}>Customer Information</h3>
             <div className="space-y-3">
@@ -665,7 +665,7 @@ export function JobDetailDrawer({
               </div>
 
               {requiresVehicle ? (
-                <fieldset className="grid gap-3 rounded-lg border border-primary/40 bg-primary/10 p-3">
+                <fieldset className="@container grid min-w-0 max-w-full gap-3 overflow-hidden rounded-lg border border-primary/40 bg-primary/10 p-3">
                   <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                     Vehicle metadata
                   </legend>
@@ -837,7 +837,7 @@ export function JobDetailDrawer({
           {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-border/60 px-5 py-4">
+        <div className="flex shrink-0 flex-col gap-2 border-t border-border/60 bg-card px-5 py-4">
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving || deleting}>
               Cancel

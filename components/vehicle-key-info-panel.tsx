@@ -160,7 +160,7 @@ function VariantGrid({
   if (visibleVariants.length === 0) return null
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="grid min-w-0 grid-cols-2 gap-2 @min-[26rem]:grid-cols-3">
       {visibleVariants.map((variant) => {
         const selected = selectedVariantId === variant.id
         const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
@@ -391,7 +391,7 @@ export function VehicleKeyInfoPanel({
       : null
 
   return (
-    <div className="grid gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
+    <div className="@container grid w-full min-w-0 gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
         <KeyRound className="h-3.5 w-3.5" aria-hidden />
         Key types for {year} {make} {info.model}

@@ -71,12 +71,13 @@ export function JobPoolCard({
       }}
       className={cn(
         SCHEDULER_LIST_CARD_SHELL,
-        "group shrink-0 touch-manipulation px-3 pt-3 pb-9 md:px-4 md:pt-4 md:pb-10",
-        touchInteraction
-          ? "min-w-0 w-full max-w-none shrink-0 cursor-pointer active:scale-[0.98]"
-          : sidebar
-            ? "w-full max-w-none shrink-0 cursor-grab active:cursor-grabbing"
-            : "min-w-[200px] max-w-[240px] shrink-0 cursor-grab active:cursor-grabbing",
+        "group touch-manipulation text-left",
+        sidebar
+          ? "flex w-full max-w-none shrink-0 cursor-grab flex-col gap-2 px-3 py-3 active:cursor-grabbing"
+          : touchInteraction
+            ? "min-w-0 w-full max-w-none shrink-0 cursor-pointer px-3 pt-3 pb-9 active:scale-[0.98] md:px-4 md:pt-4 md:pb-10"
+            : "min-w-[200px] max-w-[240px] shrink-0 cursor-grab px-3 pt-3 pb-9 active:cursor-grabbing md:px-4 md:pt-4 md:pb-10",
+        !sidebar && !touchInteraction && "cursor-grab active:cursor-grabbing",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
       )}
     >
@@ -100,7 +101,13 @@ export function JobPoolCard({
             {job.customer_phone ? (
               <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-400")}>
                 <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-400")}>
+                <span
+                  className={cn(
+                    sidebar
+                      ? "min-w-0 text-[11px] tabular-nums leading-snug text-zinc-400"
+                      : cn(detailTextClass, !wrapText && "text-xs text-zinc-400")
+                  )}
+                >
                   {formatPhone(job.customer_phone)}
                 </span>
               </p>
@@ -123,7 +130,8 @@ export function JobPoolCard({
 
       <span
         className={cn(
-          "absolute bottom-2.5 right-2.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+          "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+          sidebar ? "self-end" : "absolute bottom-2.5 right-2.5",
           SCHEDULER_BADGE_STYLE.unassigned
         )}
       >

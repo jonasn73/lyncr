@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react"
 import { vehicleYearOptions } from "@/lib/nhtsa-vpic"
 
 const selectClass =
-  "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  "min-w-0 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 
 export type VehicleCascadeValue = {
   vehicle_year: string
@@ -58,8 +58,9 @@ export function VehiclePickerCascade({ value, onChange, disabled }: VehiclePicke
   }, [value.vehicle_year, value.vehicle_make])
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <label className="grid gap-1.5 text-sm">
+    <div className="@container w-full min-w-0">
+      <div className="grid min-w-0 grid-cols-1 gap-3 @min-[26rem]:grid-cols-3">
+      <label className="grid min-w-0 gap-1.5 text-sm">
         <span className="font-medium text-foreground">Year</span>
         <select
           className={selectClass}
@@ -75,7 +76,7 @@ export function VehiclePickerCascade({ value, onChange, disabled }: VehiclePicke
           ))}
         </select>
       </label>
-      <label className="grid gap-1.5 text-sm">
+      <label className="grid min-w-0 gap-1.5 text-sm">
         <span className="font-medium text-foreground">Make</span>
         <div className="relative">
           <select
@@ -96,7 +97,7 @@ export function VehiclePickerCascade({ value, onChange, disabled }: VehiclePicke
           ) : null}
         </div>
       </label>
-      <label className="grid gap-1.5 text-sm">
+      <label className="grid min-w-0 gap-1.5 text-sm">
         <span className="font-medium text-foreground">Model</span>
         <div className="relative">
           <select
@@ -117,6 +118,7 @@ export function VehiclePickerCascade({ value, onChange, disabled }: VehiclePicke
           ) : null}
         </div>
       </label>
+      </div>
     </div>
   )
 }
