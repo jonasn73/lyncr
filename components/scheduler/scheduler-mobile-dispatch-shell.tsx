@@ -4,12 +4,14 @@ import dynamic from "next/dynamic"
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react"
 import { mergeSchedulerListJobs } from "@/lib/scheduler-upcoming-jobs"
 import { Drawer as DrawerPrimitive } from "vaul"
-import { ChevronUp, LayoutGrid, Map as MapIcon, Plus } from "lucide-react"
+import { ChevronDown, ChevronUp, Clock3, LayoutGrid, Map as MapIcon, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { Button } from "@/components/ui/button"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
+import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
+import { formatSchedulerLiveClock, useLiveClock } from "@/lib/hooks/use-live-clock"
 import type { SchedulerRouteMapHandle } from "@/components/scheduler-route-map"
 import type {
   ActivePipelineJob,
@@ -80,7 +82,10 @@ export function SchedulerMobileDispatchShell({
 }: SchedulerMobileDispatchShellProps) {
   const [sheetContainer, setSheetContainer] = useState<HTMLElement | null>(null)
   const [sheetSnap, setSheetSnap] = useState<string | number | null>(SHEET_PEEK)
+  const [toolbarExpanded, setToolbarExpanded] = useState(false)
   const autoExpandedRef = useRef(false)
+  const now = useLiveClock()
+  const clockLabel = formatSchedulerLiveClock(now)
   const isExpanded = sheetSnap === SHEET_EXPANDED
   const poolCount = poolJobs.length
   const listJobs = useMemo(
@@ -94,6 +99,10 @@ export function SchedulerMobileDispatchShell({
     autoExpandedRef.current = true
     setSheetSnap(SHEET_EXPANDED)
   }, [jobCount])
+
+  useEffect(() => {
+    if (poolCount > 0) setToolbarExpanded(true)
+  }, [poolCount])
 
   function handleFocusJob(job: ActivePipelineJob) {
     onFocusJob(job)
@@ -125,21 +134,40 @@ export function SchedulerMobileDispatchShell({
         />
       </div>
 
-      {/* Slim floating toolbar — clock + metrics, does not cover the whole map. */}
+      {/* Collapsible floating toolbar — collapsed by default for maximum map area. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 px-2 pt-2">
-        <div className="pointer-events-auto rounded-2xl border border-zinc-800/70 bg-zinc-950/88 p-2 shadow-lg backdrop-blur-md">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <SchedulerDispatchLiveStatus
-                embedded
-                compact
-                selectedDay={selectedDay}
-                poolJobs={poolJobs}
-                activePipelineJobs={activePipelineJobs}
-                dayEvents={dayEvents}
-                className="w-full"
+        <div className="pointer-events-auto rounded-2xl border border-zinc-800/70 bg-zinc-950/88 shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2 p-2">
+            <button
+              type="button"
+              onClick={() => setToolbarExpanded((open) => !open)}
+              className={cn(
+                "flex min-w-0 flex-1 items-center gap-1.5 rounded-lg py-1 pl-1 text-left touch-manipulation",
+                MOBILE_TAP_TARGET
+              )}
+              aria-expanded={toolbarExpanded}
+              aria-label={toolbarExpanded ? "Collapse dispatch stats" : "Expand dispatch stats"}
+            >
+              <Clock3 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+              <time
+                dateTime={now.toISOString()}
+                className="truncate text-xs font-bold tabular-nums text-zinc-100"
+              >
+                {clockLabel}
+              </time>
+              {!toolbarExpanded && poolCount > 0 ? (
+                <span className="shrink-0 rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                  {poolCount} in pool
+                </span>
+              ) : null}
+              <ChevronDown
+                className={cn(
+                  "ml-auto h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-200",
+                  toolbarExpanded && "rotate-180"
+                )}
+                aria-hidden
               />
-            </div>
+            </button>
             <div className="flex shrink-0 items-center gap-1">
               <div className="flex rounded-lg border border-border/70 bg-zinc-900/80 p-0.5">
                 <Button
@@ -174,15 +202,32 @@ export function SchedulerMobileDispatchShell({
               </Button>
             </div>
           </div>
-          {poolCount > 0 ? (
-            <button
-              type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100"
-              onClick={() => setSheetSnap(SHEET_EXPANDED)}
-            >
-              {poolCount} unassigned job{poolCount === 1 ? "" : "s"} in hopper — tap to assign
-            </button>
-          ) : null}
+
+          <div
+            className={cn(
+              "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+              toolbarExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            )}
+          >
+            <div className="overflow-hidden px-2 pb-2">
+              <DispatchOperationsMetricStrip
+                embedded
+                compact
+                poolJobs={poolJobs}
+                activePipelineJobs={activePipelineJobs}
+                dayEvents={dayEvents}
+              />
+              {poolCount > 0 ? (
+                <button
+                  type="button"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100"
+                  onClick={() => setSheetSnap(SHEET_EXPANDED)}
+                >
+                  {poolCount} unassigned job{poolCount === 1 ? "" : "s"} in hopper — tap to assign
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
 
