@@ -3,6 +3,18 @@
 /** dispatch_status value when a job has no assigned tech and sits in the hopper. */
 export const UNASSIGNED_POOL_STATUS = "unassigned_pool"
 
+/** dispatch_status when intake saved without a map-ready address (callback / pending). */
+export const UNASSIGNED_CALLBACK_STATUS = "unassigned_callback"
+
+/** Placeholder street line for pending callback leads (no address yet). */
+export const PENDING_CALLBACK_ADDRESS = "PENDING_CALLBACK"
+
+/** dispatch_status values that appear in the owner hopper sidebar. */
+export const HOPPER_DISPATCH_STATUSES = [
+  UNASSIGNED_POOL_STATUS,
+  UNASSIGNED_CALLBACK_STATUS,
+] as const
+
 /** dispatch_status after a tech is assigned or claims a job. */
 export const DISPATCHED_STATUS = "DISPATCHED"
 

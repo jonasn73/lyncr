@@ -23,7 +23,9 @@ export function schedulerLifecyclePhase(params: {
   if (status === "en_route") return "en_route"
   if (status === "unassigned") return "unassigned"
   const dispatch = (params.dispatch_status ?? "").trim().toLowerCase()
-  if (dispatch === "unassigned_pool" || !params.assigned_tech_id?.trim()) return "unassigned"
+  if (dispatch === "unassigned_pool" || dispatch === "unassigned_callback" || !params.assigned_tech_id?.trim()) {
+    return "unassigned"
+  }
   return "scheduled"
 }
 

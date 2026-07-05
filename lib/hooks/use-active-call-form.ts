@@ -475,7 +475,10 @@ export function useActiveCallForm(
   }, [callLogId, current, form])
 
   const createJob = useCallback(
-    async (organizationId?: string | null): Promise<{ ok: true; leadId: string } | { ok: false }> => {
+    async (
+      organizationId?: string | null,
+      options?: { pendingCallback?: boolean; quotedPriceCents?: number }
+    ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
       if (!current) return { ok: false }
       const phone = form.phoneNumber.trim() || current.from_number
       const name = form.displayName.trim()
@@ -484,9 +487,21 @@ export function useActiveCallForm(
         setJobError("Enter the caller name before sending to dispatch.")
         return { ok: false }
       }
-      if (!isIntakeAddressReady(form)) {
+      const pendingCallback = Boolean(options?.pendingCallback)
+      const quotedPriceCents =
+        options?.quotedPriceCents != null && options.quotedPriceCents > 0
+          ? Math.round(options.quotedPriceCents)
+          : form.quotedPriceCents > 0
+            ? form.quotedPriceCents
+            : 0
+      if (!pendingCallback && !isIntakeAddressReady(form)) {
         setJobState("error")
         setJobError("Enter a service street address and city (pick a suggestion if you can).")
+        return { ok: false }
+      }
+      if (pendingCallback && phone.replace(/\D/g, "").length < 10) {
+        setJobState("error")
+        setJobError("Enter a valid phone number before saving a pending callback lead.")
         return { ok: false }
       }
 
@@ -495,6 +510,8 @@ export function useActiveCallForm(
       try {
         const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
         let callLogIdForJob = current.id
+        const addressLine1 = form.addressLine1.trim()
+        const city = form.city.trim()
 
         // Manual walk-in rows start as manual-{uuid}; provision a real call_logs stub first.
         if (current.isManual && current.id.startsWith("manual-")) {
@@ -508,16 +525,16 @@ export function useActiveCallForm(
               to_number: current.to_number?.trim() || null,
               metadata: {
                 direction: "manual_intake",
-                source: "walk_in",
+                source: pendingCallback ? "pending_callback" : "walk_in",
                 manual_call_status: current.manualCallStatus ?? "answered",
                 organization_id: organizationId ?? null,
                 vehicle_year: form.vehicleYear,
                 vehicle_make: form.vehicleMake,
                 vehicle_model: form.vehicleModel,
                 job_type: dispatchJobType,
-                quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
-                service_address_line1: form.addressLine1,
-                city: form.city,
+                quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
+                service_address_line1: addressLine1 || null,
+                city: city || null,
                 region: form.region,
                 postal_code: form.postalCode,
                 notes: form.notes,
@@ -556,16 +573,18 @@ export function useActiveCallForm(
             vehicle_make: form.vehicleMake,
             vehicle_model: form.vehicleModel,
             job_type: dispatchJobType || null,
-            quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
+            quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
             service_quote_type_id: form.serviceQuoteTypeId || "lockout",
             distance_miles: travelDistanceMilesValue,
             key_fcc_id: form.keyFccId || null,
             key_frequency: form.keyFrequency || null,
             key_chipset: form.keyChipset || null,
             key_style: form.keyStyle || null,
+            key_variant_id: form.keyVariantId || null,
             customer_lat: form.serviceAddress?.lat ?? null,
             customer_lng: form.serviceAddress?.lng ?? null,
             organization_id: organizationId ?? null,
+            pending_callback: pendingCallback,
           }),
         })
         const json = (await res.json()) as {
@@ -589,6 +608,10 @@ export function useActiveCallForm(
 
   const addressReady = isIntakeAddressReady(form)
   const canDispatch = Boolean(form.displayName.trim() && addressReady)
+  const canSavePendingLead = Boolean(
+    form.displayName.trim() &&
+      (form.phoneNumber.trim() || current?.from_number || "").replace(/\D/g, "").length >= 10
+  )
   const dispatchBlockers = listIntakeDispatchBlockers(form)
   const addressSeedQuery =
     buildFlatAddressQuery({
@@ -645,6 +668,7 @@ export function useActiveCallForm(
     jobError,
     createJob,
     canDispatch,
+    canSavePendingLead,
     addressReady,
     dispatchBlockers,
     addressSeedQuery,

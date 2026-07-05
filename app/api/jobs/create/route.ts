@@ -32,6 +32,8 @@ type CreateJobBody = {
   quoted_price_cents?: number | null
   distance_miles?: number | null
   service_quote_type_id?: string | null
+  pending_callback?: boolean
+  key_variant_id?: string | null
 }
 
 export async function POST(req: NextRequest) {
@@ -70,6 +72,10 @@ export async function POST(req: NextRequest) {
       quotedPriceCents: body.quoted_price_cents != null ? Number(body.quoted_price_cents) : null,
       distanceMiles: body.distance_miles != null ? Number(body.distance_miles) : null,
       serviceQuoteTypeId: body.service_quote_type_id?.trim() || null,
+      keyStyle: body.key_style?.trim() || null,
+      keyChipset: body.key_chipset?.trim() || null,
+      keyVariantId: body.key_variant_id?.trim() || null,
+      pendingCallback: body.pending_callback === true,
     })
 
     return NextResponse.json({ data: result })

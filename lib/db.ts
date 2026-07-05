@@ -7712,9 +7712,9 @@ export async function listOwnerUnassignedPoolJobs(params: {
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
             AND (
-              l.dispatch_status = 'unassigned_pool'
+              l.dispatch_status IN ('unassigned_pool', 'unassigned_callback')
               OR l.dispatch_status IS NULL
-              OR l.collected->>'dispatch_status' = 'unassigned_pool'
+              OR l.collected->>'dispatch_status' IN ('unassigned_pool', 'unassigned_callback')
             )
             AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
           ORDER BY l.created_at DESC
@@ -7733,9 +7733,9 @@ export async function listOwnerUnassignedPoolJobs(params: {
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
             AND (
-              l.dispatch_status = 'unassigned_pool'
+              l.dispatch_status IN ('unassigned_pool', 'unassigned_callback')
               OR l.dispatch_status IS NULL
-              OR l.collected->>'dispatch_status' = 'unassigned_pool'
+              OR l.collected->>'dispatch_status' IN ('unassigned_pool', 'unassigned_callback')
             )
           ORDER BY l.created_at DESC
           LIMIT ${lim}
@@ -7781,9 +7781,9 @@ export async function listUnassignedPoolForTech(techUserId: string, limit = 30):
           OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
         )
         AND (
-          l.dispatch_status = 'unassigned_pool'
+          l.dispatch_status IN ('unassigned_pool', 'unassigned_callback')
           OR l.dispatch_status IS NULL
-          OR l.collected->>'dispatch_status' = 'unassigned_pool'
+          OR l.collected->>'dispatch_status' IN ('unassigned_pool', 'unassigned_callback')
         )
       ORDER BY l.created_at DESC
       LIMIT ${lim}

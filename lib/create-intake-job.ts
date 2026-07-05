@@ -10,7 +10,7 @@ import {
   updateAiLeadSmsOutcome,
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
-import { UNASSIGNED_POOL_STATUS } from "@/lib/job-pool"
+import { UNASSIGNED_POOL_STATUS, UNASSIGNED_CALLBACK_STATUS, PENDING_CALLBACK_ADDRESS } from "@/lib/job-pool"
 import { sendIntakeBookingCustomerSms } from "@/lib/intake-booking-customer-sms"
 import {
   buildIntakePricingMetadata,
@@ -54,12 +54,17 @@ export type CreateIntakeJobInput = {
   distanceMiles?: number | null
   /** Calculator service id (lockout, key_gen, …) — used with DB rate card server-side. */
   serviceQuoteTypeId?: string | null
+  keyStyle?: string | null
+  keyChipset?: string | null
+  keyVariantId?: string | null
+  /** Save without map-ready address — lands in hopper as a callback lead. */
+  pendingCallback?: boolean
 }
 
 export type CreateIntakeJobResult = {
   lead_id: string
   job_status: "UNASSIGNED"
-  dispatch_status: typeof UNASSIGNED_POOL_STATUS
+  dispatch_status: typeof UNASSIGNED_POOL_STATUS | typeof UNASSIGNED_CALLBACK_STATUS
   latitude: number | null
   longitude: number | null
   customer_sms_sent: boolean
@@ -93,11 +98,27 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   const customerName = input.customerName.trim()
   if (!customerName) throw new Error("Customer name is required.")
 
+  const pendingCallback = Boolean(input.pendingCallback)
+  const addressLine1 =
+    input.addressLine1?.trim() ||
+    (pendingCallback ? PENDING_CALLBACK_ADDRESS : null)
+  const city = input.city?.trim() || (pendingCallback ? "CALLBACK" : null)
+  const region = input.region?.trim() || null
+  const postalCode = input.postalCode?.trim() || null
+  const country = input.country?.trim() || "US"
+
   const vehicleYear = input.vehicleYear?.trim() || null
   const vehicleMake = input.vehicleMake?.trim() || null
   const vehicleModel = input.vehicleModel?.trim() || null
   const jobType = input.jobType?.trim() || "Lockout"
-  const jobAddress = formatAddress(input)
+  const jobAddress = formatAddress({
+    ...input,
+    addressLine1,
+    city,
+    region,
+    postalCode,
+    country,
+  })
   const vehicleLabel = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")
   const summary = [jobType, vehicleLabel || null, customerName].filter(Boolean).join(" — ")
 
@@ -108,7 +129,12 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
 
   let latitude: number | null = input.latitude ?? null
   let longitude: number | null = input.longitude ?? null
-  if ((latitude == null || longitude == null) && jobAddress) {
+  if (
+    !pendingCallback &&
+    addressLine1 !== PENDING_CALLBACK_ADDRESS &&
+    (latitude == null || longitude == null) &&
+    jobAddress
+  ) {
     const coords = await geocodeAddress(jobAddress)
     if (coords) {
       latitude = coords.lat
@@ -129,41 +155,54 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     rateCard,
     rateCardSource,
     distanceMiles: input.distanceMiles ?? null,
+    keyStyle: input.keyStyle ?? undefined,
+    keyChipset: input.keyChipset ?? undefined,
+    keyVariantId: input.keyVariantId ?? undefined,
   })
-  const quotedPriceCents = quote.totalCents
+  const quotedPriceCents =
+    input.quotedPriceCents != null &&
+    Number.isFinite(input.quotedPriceCents) &&
+    input.quotedPriceCents > 0
+      ? Math.round(input.quotedPriceCents)
+      : quote.totalCents
   const pricingMetadata = buildIntakePricingMetadata({
-    quote,
+    quote: { ...quote, totalCents: quotedPriceCents },
     vehicleYear,
     vehicleMake,
     vehicleModel,
     rateCardSource,
   })
 
+  const dispatchStatus = pendingCallback ? UNASSIGNED_CALLBACK_STATUS : UNASSIGNED_POOL_STATUS
+  const disposition = pendingCallback ? "PENDING_TIME" : "BOOKED"
+
   const collected: Record<string, unknown> = {
     customer_name: customerName,
     company_name: input.companyName?.trim() || null,
     job_type: jobType,
     business_type: "locksmith",
-    disposition: "BOOKED",
-    dispatch_status: UNASSIGNED_POOL_STATUS,
+    disposition,
+    dispatch_status: dispatchStatus,
     job_status: "UNASSIGNED",
     is_salvageable: false,
-    source: "answered_call_intake",
+    source: pendingCallback ? "answered_call_pending_callback" : "answered_call_intake",
+    ...(pendingCallback ? { pending_callback: true } : {}),
     ...(input.callLogId ? { call_log_id: input.callLogId } : {}),
     ...(vehicleYear ? { vehicle_year: vehicleYear, year: vehicleYear } : {}),
     ...(vehicleMake ? { vehicle_make: vehicleMake, make: vehicleMake } : {}),
     ...(vehicleModel ? { vehicle_model: vehicleModel, model: vehicleModel } : {}),
     ...(jobAddress ? { job_address: jobAddress, location: jobAddress, service_address: jobAddress } : {}),
-    ...(input.addressLine1?.trim() ? { address_line1: input.addressLine1.trim() } : {}),
+    ...(addressLine1 ? { address_line1: addressLine1 } : {}),
     ...(input.addressLine2?.trim() ? { address_line2: input.addressLine2.trim() } : {}),
-    ...(input.city?.trim() ? { city: input.city.trim() } : {}),
-    ...(input.region?.trim() ? { region: input.region.trim() } : {}),
-    ...(input.postalCode?.trim() ? { postal_code: input.postalCode.trim() } : {}),
+    ...(city ? { city } : {}),
+    ...(region ? { region } : {}),
+    ...(postalCode ? { postal_code: postalCode } : {}),
     ...(input.notes?.trim() ? { job_notes: input.notes.trim(), notes: input.notes.trim() } : {}),
     ...(input.keyFccId?.trim() ? { key_fcc_id: input.keyFccId.trim(), fcc_id: input.keyFccId.trim() } : {}),
     ...(input.keyFrequency?.trim() ? { key_frequency: input.keyFrequency.trim() } : {}),
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
     ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
+    ...(input.keyVariantId?.trim() ? { key_variant_id: input.keyVariantId.trim() } : {}),
     ...(quotedPriceCents > 0
       ? {
           last_quoted_price_cents: quotedPriceCents,
@@ -189,7 +228,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       ) VALUES (
         ${id}, ${input.ownerUserId}, ${orgId}::uuid, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
-        'BOOKED', ${UNASSIGNED_POOL_STATUS}, false,
+        ${disposition}, ${dispatchStatus}, false,
         NULL, 'UNASSIGNED', false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
       )
     `
@@ -202,15 +241,15 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       ) VALUES (
         ${id}, ${input.ownerUserId}, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
-        'BOOKED', ${UNASSIGNED_POOL_STATUS}, false,
+        ${disposition}, ${dispatchStatus}, false,
         NULL, 'UNASSIGNED', false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
       )
     `
   }
 
   await applyLeadDisposition(id, {
-    disposition: "BOOKED",
-    dispatch_status: UNASSIGNED_POOL_STATUS,
+    disposition,
+    dispatch_status: dispatchStatus,
     is_salvageable: false,
   })
 
@@ -224,18 +263,22 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     await setLeadCoordinates(id, latitude, longitude)
   }
 
-  const sms = await sendIntakeBookingCustomerSms({
-    ownerUserId: input.ownerUserId,
-    leadId: id,
-    customerPhoneE164: phone,
-    customerName,
-  })
-  await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
+  const sms = pendingCallback
+    ? { sent: false, error: null, tracking_url: "" }
+    : await sendIntakeBookingCustomerSms({
+        ownerUserId: input.ownerUserId,
+        leadId: id,
+        customerPhoneE164: phone,
+        customerName,
+      })
+  if (!pendingCallback) {
+    await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
+  }
 
   await publishOwnerEvent(input.ownerUserId, "job-booked", {
     leadId: id,
     customerName,
-    dispatch_status: UNASSIGNED_POOL_STATUS,
+    dispatch_status: dispatchStatus,
     job_status: "UNASSIGNED",
   }).catch((e) => console.warn("[create-intake-job] job-booked publish failed:", e))
 
@@ -244,7 +287,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   return {
     lead_id: id,
     job_status: "UNASSIGNED",
-    dispatch_status: UNASSIGNED_POOL_STATUS,
+    dispatch_status: dispatchStatus,
     latitude,
     longitude,
     customer_sms_sent: sms.sent,

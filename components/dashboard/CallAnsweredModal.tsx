@@ -212,11 +212,40 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     jobError,
     createJob,
     canDispatch,
+    canSavePendingLead,
     addressReady,
     dispatchBlockers,
     addressSeedQuery,
     answeredClarificationIds,
   } = useActiveCallForm(effectiveCurrent, { linkManualCallLog })
+
+  const autoTotalDollars =
+    liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
+  const [customPrice, setCustomPrice] = useState("")
+
+  useEffect(() => {
+    if (!effectiveCurrent) {
+      setCustomPrice("")
+      return
+    }
+    if (!form.quotedPriceOverridden) {
+      setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+    }
+  }, [effectiveCurrent, autoTotalDollars, form.quotedPriceOverridden])
+
+  const applyCustomPriceToForm = useCallback(() => {
+    const raw = customPrice.trim()
+    if (!raw) {
+      syncQuotedPriceToAuto()
+      return liveQuote.totalCents
+    }
+    const dollars = Number.parseFloat(raw)
+    if (Number.isFinite(dollars) && dollars >= 0) {
+      setQuotedPriceDollars(dollars)
+      return Math.round(dollars * 100)
+    }
+    return form.quotedPriceCents > 0 ? form.quotedPriceCents : liveQuote.totalCents
+  }, [customPrice, form.quotedPriceCents, liveQuote.totalCents, setQuotedPriceDollars, syncQuotedPriceToAuto])
 
   useEffect(() => {
     if (!ownerUserId) return
@@ -418,7 +447,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const confirmAndBook = useCallback(async () => {
     if (!effectiveCurrent || !ownerUserId) return
-    const result = await createJob(activeOrganizationId)
+    const quotedPriceCents = applyCustomPriceToForm()
+    const result = await createJob(activeOrganizationId, { quotedPriceCents })
     if (!result.ok) return
     if (manualCallRow) {
       clearManualCallRow()
@@ -428,6 +458,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
   }, [
     activeOrganizationId,
+    applyCustomPriceToForm,
     clearManualCallRow,
     createJob,
     current,
@@ -439,7 +470,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const sendToDispatch = useCallback(async () => {
     if (!effectiveCurrent || !ownerUserId) return
-    const result = await createJob(activeOrganizationId)
+    const quotedPriceCents = applyCustomPriceToForm()
+    const result = await createJob(activeOrganizationId, { quotedPriceCents })
     if (!result.ok) return
     if (manualCallRow) clearManualCallRow()
     else if (current) {
@@ -449,6 +481,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     router.push(buildSchedulerFocusUrl(result.leadId, { schedule: true }))
   }, [
     activeOrganizationId,
+    applyCustomPriceToForm,
     clearManualCallRow,
     createJob,
     current,
@@ -457,6 +490,32 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     manualCallRow,
     ownerUserId,
     router,
+  ])
+
+  const savePendingLead = useCallback(async () => {
+    if (!effectiveCurrent || !ownerUserId) return
+    const quotedPriceCents = applyCustomPriceToForm()
+    const result = await createJob(activeOrganizationId, {
+      pendingCallback: true,
+      quotedPriceCents,
+    })
+    if (!result.ok) return
+    if (manualCallRow) {
+      clearManualCallRow()
+    } else if (current) {
+      dismissCallIntake(current)
+      setCurrent(null)
+    }
+  }, [
+    activeOrganizationId,
+    applyCustomPriceToForm,
+    clearManualCallRow,
+    createJob,
+    current,
+    dismissCallIntake,
+    effectiveCurrent,
+    manualCallRow,
+    ownerUserId,
   ])
 
   const logLostLead = useCallback(async () => {
@@ -512,20 +571,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [effectiveCurrent?.answered_at, patchManualCallRow]
   )
 
-  const autoTotalDollars =
-    liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
-  const [customPrice, setCustomPrice] = useState("")
-
-  useEffect(() => {
-    if (!effectiveCurrent) {
-      setCustomPrice("")
-      return
-    }
-    if (!form.quotedPriceOverridden) {
-      setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-    }
-  }, [effectiveCurrent, autoTotalDollars, form.quotedPriceOverridden])
-
   if (!enabled && !manualCallRow) return null
 
   const isRinging =
@@ -533,6 +578,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     (effectiveCurrent.manualCallStatus === "ringing" ||
       (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
   const isManual = Boolean(effectiveCurrent?.isManual)
+  const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+  const requiresVehicle =
+    serviceTypeId === "key_gen" ||
+    serviceTypeId === "key_dup" ||
+    serviceTypeId === "ignition"
 
   return (
     <Sheet
@@ -608,13 +658,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               <div className="space-y-4">
               <ServiceQuoteCalculatorPanel
                 quote={liveQuote}
-                serviceTypeId={(form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId}
+                serviceTypeId={serviceTypeId}
                 vehicleYear={form.vehicleYear}
                 vehicleMake={form.vehicleMake}
                 vehicleModel={form.vehicleModel}
                 onServiceTypeChange={setServiceQuoteTypeId}
               />
 
+              {requiresVehicle ? (
               <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                 <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                   Vehicle metadata
@@ -656,6 +707,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   onChange={(sel) => setVehicleKeySelection(sel)}
                 />
               </fieldset>
+              ) : null}
 
               <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
                 <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
@@ -753,17 +805,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     step={1}
                     value={customPrice}
                     onChange={(e) => {
-                      const raw = e.target.value
-                      setCustomPrice(raw)
-                      if (!raw.trim()) {
-                        syncQuotedPriceToAuto()
-                        return
-                      }
+                      setCustomPrice(e.target.value)
+                      const raw = e.target.value.trim()
+                      if (!raw) return
                       const dollars = Number.parseFloat(raw)
-                      if (!Number.isFinite(dollars) || dollars < 0) return
-                      setQuotedPriceDollars(dollars)
+                      if (Number.isFinite(dollars) && dollars >= 0) {
+                        setQuotedPriceDollars(dollars)
+                      }
                     }}
-                    className="w-full bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none"
+                    onBlur={() => {
+                      if (!customPrice.trim()) {
+                        syncQuotedPriceToAuto()
+                        setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                      }
+                    }}
+                    className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
                     aria-describedby="ac-quote-price-hint"
                   />
                 </div>
@@ -817,7 +873,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
               {jobState === "created" ? (
                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-                  Job added to the unassigned pool — pin will appear on your dispatch map.
+                  Job added to the active job pool — open the hopper in the scheduler sidebar to assign when ready.
                 </p>
               ) : null}
               {lostLeadState === "saved" ? (
@@ -845,6 +901,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
                 Confirm &amp; book
               </Button>
+              <button
+                type="button"
+                disabled={jobState === "creating" || !canSavePendingLead}
+                onClick={() => void savePendingLead()}
+                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
+              </button>
               <Button
                 type="button"
                 variant="secondary"
