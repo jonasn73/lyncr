@@ -88,6 +88,13 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             {formatQuoteDollars(quote.totalCents)}
           </span>
         </div>
+        {quote.distanceMiles != null ? (
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Auto total = {formatQuoteDollars(quote.baseCents)} base +{" "}
+            {formatQuoteDollars(quote.distancePremiumCents)} travel (
+            {quote.distanceMiles.toFixed(1)} mi)
+          </p>
+        ) : null}
         <p className="mt-1 text-[10px] text-muted-foreground">
           {quote.dispatchJobTypeLabel}
           {vehicleYear || vehicleMake || vehicleModel

@@ -31,6 +31,12 @@ export type ServiceQuoteResult = {
   jobType: IntakeLocksmithJobType
   keyReplacementMode: string
   dispatchJobTypeLabel: string
+  /** Base service rate in cents (before surcharges). */
+  baseCents: number
+  /** Travel premium in cents — distance × per-mile rate when miles are known. */
+  distancePremiumCents: number
+  /** Base + distance premium (primary auto-quote inputs). */
+  autoTotalCents: number
   totalCents: number
   lines: ServiceQuoteBreakdownLine[]
   rateCardSource: "onboarding_profiles.service_rules" | "default"
@@ -72,18 +78,11 @@ function distanceSurchargeCents(
   if (distanceMiles == null || !Number.isFinite(distanceMiles) || distanceMiles <= 0) {
     return { cents: 0, label: rateCard.distance_label }
   }
-  const included = rateCard.distance_included_miles
-  const billableMiles = Math.max(0, distanceMiles - included)
-  if (billableMiles <= 0) {
-    return {
-      cents: 0,
-      label: `${rateCard.distance_label} (${formatDistanceMiles(distanceMiles)} — within ${included} mi included)`,
-    }
-  }
-  const cents = Math.round(billableMiles * rateCard.distance_per_mile_cents)
+  const perMileDollars = (rateCard.distance_per_mile_cents / 100).toFixed(2)
+  const cents = Math.round(distanceMiles * rateCard.distance_per_mile_cents)
   return {
     cents,
-    label: `${rateCard.distance_label} (${formatDistanceMiles(distanceMiles)}, ${billableMiles.toFixed(1)} mi over ${included} mi included)`,
+    label: `${rateCard.distance_label} (${formatDistanceMiles(distanceMiles)} × $${perMileDollars}/mi)`,
   }
 }
 
@@ -133,13 +132,18 @@ export function calculateServiceQuote(params: {
     lines.push({ kind: "distance_travel", label: distanceTier.label, cents: distanceTier.cents })
   }
 
-  const totalCents = base + ageTier.cents + makeExtra + distanceTier.cents
+  const distancePremiumCents = distanceTier.cents
+  const autoTotalCents = base + distancePremiumCents
+  const totalCents = autoTotalCents + ageTier.cents + makeExtra
 
   return {
     serviceTypeId: spec.id,
     jobType: spec.jobType,
     keyReplacementMode: spec.keyMode,
     dispatchJobTypeLabel: formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode),
+    baseCents: base,
+    distancePremiumCents,
+    autoTotalCents,
     totalCents,
     lines,
     rateCardSource: source,

@@ -23,7 +23,7 @@ describe("calculateServiceQuote", () => {
     expect(quote.totalCents).toBe(22000 + 2500)
   })
 
-  it("adds travel surcharge beyond included miles", () => {
+  it("adds travel premium from service base plus distance times per-mile rate", () => {
     const quote = calculateServiceQuote({
       serviceTypeId: "lockout",
       vehicleYear: "2024",
@@ -31,7 +31,10 @@ describe("calculateServiceQuote", () => {
       vehicleModel: "F-150",
       distanceMiles: 18,
     })
-    expect(quote.totalCents).toBe(8500 + 8 * 200)
+    expect(quote.baseCents).toBe(8500)
+    expect(quote.distancePremiumCents).toBe(18 * 350)
+    expect(quote.autoTotalCents).toBe(8500 + 18 * 350)
+    expect(quote.totalCents).toBe(8500 + 18 * 350)
     expect(quote.lines.some((l) => l.kind === "distance_travel")).toBe(true)
   })
 })

@@ -602,6 +602,10 @@ export function useActiveCallForm(
     setForm((prev) => ({ ...prev, quotedPriceCents: cents, quotedPriceOverridden: true }))
   }, [])
 
+  const syncQuotedPriceToAuto = useCallback(() => {
+    setForm((prev) => ({ ...prev, quotedPriceOverridden: false }))
+  }, [])
+
   const liveQuote = calculateServiceQuote({
     serviceTypeId: (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId,
     vehicleYear: form.vehicleYear,
@@ -617,6 +621,7 @@ export function useActiveCallForm(
     patchForm,
     setServiceQuoteTypeId,
     setQuotedPriceDollars,
+    syncQuotedPriceToAuto,
     liveQuote,
     rateCardSource,
     travelDistanceMiles: travelDistanceMilesValue,

@@ -104,8 +104,8 @@ export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
   premium_make_cents: 2500,
   premium_make_label: "Premium make adjustment",
   vehicle_age_default_label: "Vehicle age adjustment",
-  distance_included_miles: 10,
-  distance_per_mile_cents: 200,
+  distance_included_miles: 0,
+  distance_per_mile_cents: 350,
   distance_label: "Travel distance",
 }
 

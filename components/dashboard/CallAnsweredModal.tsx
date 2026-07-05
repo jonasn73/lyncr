@@ -198,6 +198,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     patchForm,
     setServiceQuoteTypeId,
     setQuotedPriceDollars,
+    syncQuotedPriceToAuto,
     liveQuote,
     travelDistanceMiles,
     dispatcherLocation,
@@ -511,6 +512,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [effectiveCurrent?.answered_at, patchManualCallRow]
   )
 
+  const autoTotalDollars =
+    liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
+  const [customPrice, setCustomPrice] = useState("")
+
+  useEffect(() => {
+    if (!effectiveCurrent) {
+      setCustomPrice("")
+      return
+    }
+    if (!form.quotedPriceOverridden) {
+      setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+    }
+  }, [effectiveCurrent, autoTotalDollars, form.quotedPriceOverridden])
+
   if (!enabled && !manualCallRow) return null
 
   const isRinging =
@@ -528,7 +543,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     >
       <SheetContent
         side="bottom"
-        className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
+        className="gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
         onPointerDownOutside={(e) => {
           const target = e.target as HTMLElement | null
           if (target?.closest("[data-address-suggestions]")) e.preventDefault()
@@ -536,7 +551,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       >
         {effectiveCurrent ? (
           <>
-            <SheetHeader className="border-b border-border/60 px-4 pb-3 pt-2 text-left">
+            <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                 {isManual ? "Manual call intake" : isRinging ? "Incoming call" : "Call answered"}
               </p>
@@ -589,7 +604,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
 
-            <div className="max-h-[min(70vh,560px)] space-y-3 overflow-y-auto overflow-x-hidden px-4 py-3">
+            <div className="min-h-0 flex-1 max-h-[85vh] overflow-y-auto overflow-x-hidden px-1 content-start space-y-4 py-3 sm:px-4">
               <ServiceQuoteCalculatorPanel
                 quote={liveQuote}
                 serviceTypeId={(form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId}
@@ -718,6 +733,50 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </div>
               </fieldset>
 
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+                <Label
+                  htmlFor="ac-quote-price"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
+                >
+                  Quote before dispatch
+                </Label>
+                <div className="relative mt-2">
+                  <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
+                    $
+                  </span>
+                  <input
+                    id="ac-quote-price"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    value={customPrice}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setCustomPrice(raw)
+                      if (!raw.trim()) {
+                        syncQuotedPriceToAuto()
+                        return
+                      }
+                      const dollars = Number.parseFloat(raw)
+                      if (!Number.isFinite(dollars) || dollars < 0) return
+                      setQuotedPriceDollars(dollars)
+                    }}
+                    className="w-full bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none"
+                    aria-describedby="ac-quote-price-hint"
+                  />
+                </div>
+                <p id="ac-quote-price-hint" className="mt-2 text-center text-[10px] text-muted-foreground">
+                  {form.quotedPriceOverridden
+                    ? "Custom quote — edit live before you dispatch."
+                    : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel} base${
+                        liveQuote.distanceMiles != null
+                          ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
+                          : ""
+                      }.`}
+                </p>
+              </div>
+
               {jobState === "created" ? (
                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
                   Job added to the unassigned pool — pin will appear on your dispatch map.
@@ -732,48 +791,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
             </div>
 
-            <SheetFooter className="flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3">
-              <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2">
-                <Label htmlFor="ac-quote-price" className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Quote before dispatch
-                </Label>
-                <div className="relative mt-1.5">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg font-semibold text-emerald-400/90">
-                    $
-                  </span>
-                  <Input
-                    id="ac-quote-price"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={1}
-                    value={
-                      form.quotedPriceCents > 0
-                        ? String(Math.round(form.quotedPriceCents / 100))
-                        : liveQuote.totalCents > 0
-                          ? String(Math.round(liveQuote.totalCents / 100))
-                          : ""
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value.trim()
-                      if (!raw) {
-                        setQuotedPriceDollars(0)
-                        return
-                      }
-                      const dollars = Number.parseFloat(raw)
-                      if (!Number.isFinite(dollars)) return
-                      setQuotedPriceDollars(dollars)
-                    }}
-                    className="h-12 border-emerald-500/30 bg-emerald-500/5 pl-8 text-center text-2xl font-bold tabular-nums text-emerald-300"
-                    aria-describedby="ac-quote-price-hint"
-                  />
-                </div>
-                <p id="ac-quote-price-hint" className="mt-1 text-center text-[10px] text-muted-foreground">
-                  {form.quotedPriceOverridden
-                    ? "Custom quote — tap to adjust before you dispatch."
-                    : `Auto-calculated from service type${liveQuote.distanceMiles != null ? " and travel" : ""}.`}
-                </p>
-              </div>
+            <SheetFooter className="shrink-0 flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3">
               <Button
                 type="button"
                 size="lg"
