@@ -40,6 +40,10 @@ import {
   parseQuoteDollars,
   ROUTE_MATCH_RECOVERY_PRICE_DOLLARS,
   ROUTE_MATCH_RECOVERY_SCRIPT,
+  AFTERMARKET_RECOVERY_PRICE_DOLLARS,
+  AFTERMARKET_RECOVERY_SCRIPT,
+  MANAGEMENT_FLOOR_PRICE_DOLLARS,
+  managementFloorRecoveryScript,
 } from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import type {
@@ -192,6 +196,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [failureReason, setFailureReason] = useState(FAILURE_REASON_NEUTRAL)
   const [recoveredViaRouteDiscount, setRecoveredViaRouteDiscount] = useState(false)
   const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
+  const [negotiationStep, setNegotiationStep] = useState(1)
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -244,7 +249,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setFailureReason(FAILURE_REASON_NEUTRAL)
     setRecoveredViaRouteDiscount(false)
     setHighlightConfirmBook(false)
+    setNegotiationStep(1)
   }, [effectiveCurrent?.id])
+
+  useEffect(() => {
+    setNegotiationStep(1)
+  }, [failureReason])
 
   useEffect(() => {
     if (!highlightConfirmBook) return
@@ -255,6 +265,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   useEffect(() => {
     if (!effectiveCurrent) {
       setCustomPrice("")
+      setNegotiationStep(1)
       return
     }
     if (!form.quotedPriceOverridden) {
@@ -301,17 +312,46 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setQuotedPriceDollars]
   )
 
+  const applyRecoveryOffer = useCallback(
+    (params: {
+      dollars: number
+      discountId: NegotiationDiscountId
+      markRouteRecovery?: boolean
+    }) => {
+      setCustomPrice(String(params.dollars))
+      setQuotedPriceDollars(params.dollars)
+      setNegotiationDiscountApplied(params.discountId)
+      setNegotiationDiscountsTried((prev) =>
+        prev.includes(params.discountId) ? prev : [...prev, params.discountId]
+      )
+      if (params.markRouteRecovery) setRecoveredViaRouteDiscount(true)
+      setFailureReason(FAILURE_REASON_NEUTRAL)
+      setHighlightConfirmBook(true)
+    },
+    [setQuotedPriceDollars]
+  )
+
   const handleApplyRouteMatchDiscount = useCallback(() => {
-    setCustomPrice(String(ROUTE_MATCH_RECOVERY_PRICE_DOLLARS))
-    setQuotedPriceDollars(ROUTE_MATCH_RECOVERY_PRICE_DOLLARS)
-    setNegotiationDiscountApplied("route_optimization")
-    setNegotiationDiscountsTried((prev) =>
-      prev.includes("route_optimization") ? prev : [...prev, "route_optimization"]
-    )
-    setRecoveredViaRouteDiscount(true)
-    setFailureReason(FAILURE_REASON_NEUTRAL)
-    setHighlightConfirmBook(true)
-  }, [setQuotedPriceDollars])
+    applyRecoveryOffer({
+      dollars: ROUTE_MATCH_RECOVERY_PRICE_DOLLARS,
+      discountId: "route_optimization",
+      markRouteRecovery: true,
+    })
+  }, [applyRecoveryOffer])
+
+  const handleApplyAftermarketRecovery = useCallback(() => {
+    applyRecoveryOffer({
+      dollars: AFTERMARKET_RECOVERY_PRICE_DOLLARS,
+      discountId: "aftermarket_key_swap",
+    })
+  }, [applyRecoveryOffer])
+
+  const handleApplyManagementFloor = useCallback(() => {
+    applyRecoveryOffer({
+      dollars: MANAGEMENT_FLOOR_PRICE_DOLLARS,
+      discountId: "first_time_callback",
+    })
+  }, [applyRecoveryOffer])
 
   const jobCreateExtras = useCallback(
     (quotedPriceCents: number) => ({
@@ -919,27 +959,105 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </div>
                   {isPriceTooHigh ? (
                     <div className="mt-3 space-y-3 rounded-lg border border-orange-500/30 bg-slate-950 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
-                        Save the deal — read verbatim
-                      </p>
-                      <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
-                        <span className="mr-1" aria-hidden>
-                          💬
-                        </span>
-                        &ldquo;{ROUTE_MATCH_RECOVERY_SCRIPT}&rdquo;
-                      </p>
-                      <Button
-                        type="button"
-                        size="lg"
-                        className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
-                        onClick={handleApplyRouteMatchDiscount}
-                      >
-                        Apply Router Match Discount (${ROUTE_MATCH_RECOVERY_PRICE_DOLLARS})
-                      </Button>
-                      {recoveredViaRouteDiscount ? (
-                        <p className="text-[11px] text-emerald-300">
-                          Route discount applied — confirm the job below when the customer accepts.
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
+                          Save the deal — read verbatim
                         </p>
+                        <span className="shrink-0 text-[10px] font-medium text-orange-400/80">
+                          Step {negotiationStep} of 3
+                        </span>
+                      </div>
+
+                      {negotiationStep === 1 ? (
+                        <>
+                          <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+                            <span className="mr-1" aria-hidden>
+                              💬
+                            </span>
+                            &ldquo;{ROUTE_MATCH_RECOVERY_SCRIPT}&rdquo;
+                          </p>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                            onClick={handleApplyRouteMatchDiscount}
+                          >
+                            Apply Router Match Discount (${ROUTE_MATCH_RECOVERY_PRICE_DOLLARS})
+                          </Button>
+                          <button
+                            type="button"
+                            className="w-full text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
+                            onClick={() => setNegotiationStep(2)}
+                          >
+                            Customer declined this but is still negotiating →
+                          </button>
+                          {recoveredViaRouteDiscount ? (
+                            <p className="text-[11px] text-emerald-300">
+                              Route discount applied — confirm the job below when the customer accepts.
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
+
+                      {negotiationStep === 2 ? (
+                        <>
+                          <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+                            <span className="mr-1" aria-hidden>
+                              💬
+                            </span>
+                            &ldquo;{AFTERMARKET_RECOVERY_SCRIPT}&rdquo;
+                          </p>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                            onClick={handleApplyAftermarketRecovery}
+                          >
+                            Apply Aftermarket Hardware Swap (${AFTERMARKET_RECOVERY_PRICE_DOLLARS})
+                          </Button>
+                          <div className="flex flex-col gap-1.5">
+                            <button
+                              type="button"
+                              className="text-left text-xs text-slate-400 hover:text-slate-200"
+                              onClick={() => setNegotiationStep(1)}
+                            >
+                              ← Go Back
+                            </button>
+                            <button
+                              type="button"
+                              className="text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
+                              onClick={() => setNegotiationStep(3)}
+                            >
+                              Still too high but wants to book →
+                            </button>
+                          </div>
+                        </>
+                      ) : null}
+
+                      {negotiationStep === 3 ? (
+                        <>
+                          <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+                            <span className="mr-1" aria-hidden>
+                              💬
+                            </span>
+                            &ldquo;{managementFloorRecoveryScript(form.displayName)}&rdquo;
+                          </p>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                            onClick={handleApplyManagementFloor}
+                          >
+                            Apply Final Management Floor (${MANAGEMENT_FLOOR_PRICE_DOLLARS})
+                          </Button>
+                          <button
+                            type="button"
+                            className="text-left text-xs text-slate-400 hover:text-slate-200"
+                            onClick={() => setNegotiationStep(2)}
+                          >
+                            ← Go Back
+                          </button>
+                        </>
                       ) : null}
                     </div>
                   ) : null}
