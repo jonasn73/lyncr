@@ -18,7 +18,7 @@ import {
   useInboundCallPanel,
 } from "@/lib/inbound-call-panel-context"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -257,6 +257,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
     return form.quotedPriceCents > 0 ? form.quotedPriceCents : liveQuote.totalCents
   }, [customPrice, form.quotedPriceCents, liveQuote.totalCents, setQuotedPriceDollars, syncQuotedPriceToAuto])
+
+  const resolveLostLeadQuoteCents = useCallback((): number | null => {
+    const raw = customPrice.trim()
+    if (raw) {
+      const dollars = Number.parseFloat(raw)
+      if (Number.isFinite(dollars) && dollars >= 0) {
+        return Math.round(dollars * 100)
+      }
+    }
+    if (form.quotedPriceCents > 0) return form.quotedPriceCents
+    if (liveQuote.totalCents > 0) return liveQuote.totalCents
+    return null
+  }, [customPrice, form.quotedPriceCents, liveQuote.totalCents])
 
   const handleNegotiationApply = useCallback(
     (dollars: number, discountId: NegotiationDiscountId) => {
@@ -558,7 +571,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setLostLeadState("saving")
     setLostLeadError(null)
     try {
-      const quotedPriceCents = applyCustomPriceToForm()
+      const quotedPriceCents = resolveLostLeadQuoteCents()
       const res = await fetch("/api/leads/lost", {
         method: "POST",
         credentials: "include",
@@ -566,7 +579,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         body: JSON.stringify({
           call_log_id: effectiveCurrent.isManual ? null : effectiveCurrent.id,
           phone_number: form.phoneNumber.trim() || effectiveCurrent.from_number,
-          last_quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
+          last_quoted_price_cents: quotedPriceCents,
           baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
           discount_applied: negotiationDiscountApplied,
           negotiation_discounts_tried: negotiationDiscountsTried,
@@ -590,7 +603,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     activeOrganizationId,
     dismissOnly,
     effectiveCurrent,
-    applyCustomPriceToForm,
+    resolveLostLeadQuoteCents,
     failureReason,
     form.phoneNumber,
     form.vehicleMake,
@@ -635,7 +648,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     >
       <SheetContent
         side="bottom"
-        className="grid h-[min(92dvh,900px)] max-h-[96dvh] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
+        className="flex h-[85vh] max-h-[750px] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
         onPointerDownOutside={(e) => {
           const target = e.target as HTMLElement | null
           if (target?.closest("[data-address-suggestions]")) e.preventDefault()
@@ -661,29 +674,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     ? `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · ringing — start intake while the line connects.`
                     : `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · customer details save automatically.`}
               </p>
-              {isManual ? (
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="manual-call-status" className="text-xs">
-                      Call status
-                    </Label>
-                    <Select
-                      value={effectiveCurrent.manualCallStatus ?? "answered"}
-                      onValueChange={(v) => setManualCallStatus(v as ManualCallStatus)}
-                    >
-                      <SelectTrigger id="manual-call-status" className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ringing">Ringing</SelectItem>
-                        <SelectItem value="answered">Answered</SelectItem>
-                        <SelectItem value="on_hold">On hold</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ) : null}
               {!isManual && effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
                   <span className="font-mono text-xs text-zinc-400">Recording:</span>
@@ -696,309 +686,347 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
 
-            <div className="min-h-0 overflow-y-auto overscroll-y-contain px-1 py-3 sm:px-4">
-              <div className="space-y-4">
-              <ServiceQuoteCalculatorPanel
-                quote={liveQuote}
-                serviceTypeId={serviceTypeId}
-                vehicleYear={form.vehicleYear}
-                vehicleMake={form.vehicleMake}
-                vehicleModel={form.vehicleModel}
-                onServiceTypeChange={setServiceQuoteTypeId}
-              />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4">
+                {isManual ? (
+                  <fieldset className="grid gap-2 rounded-lg border border-border/70 bg-muted/10 p-3">
+                    <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                      Call status
+                    </legend>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="manual-call-status" className="text-xs">
+                        Line state
+                      </Label>
+                      <Select
+                        value={effectiveCurrent.manualCallStatus ?? "answered"}
+                        onValueChange={(v) => setManualCallStatus(v as ManualCallStatus)}
+                      >
+                        <SelectTrigger id="manual-call-status" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ringing">Ringing</SelectItem>
+                          <SelectItem value="answered">Answered</SelectItem>
+                          <SelectItem value="on_hold">On hold</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </fieldset>
+                ) : null}
 
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
-                <Label
-                  htmlFor="ac-quote-price"
-                  className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-                >
-                  Quote before dispatch
-                </Label>
-                <div className="relative mt-2">
-                  <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
-                    $
-                  </span>
-                  <input
-                    id="ac-quote-price"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={1}
-                    value={customPrice}
-                    onChange={(e) => {
-                      setCustomPrice(e.target.value)
-                      const raw = e.target.value.trim()
-                      if (!raw) return
-                      const dollars = Number.parseFloat(raw)
-                      if (Number.isFinite(dollars) && dollars >= 0) {
-                        setQuotedPriceDollars(dollars)
+                <ServiceQuoteCalculatorPanel
+                  quote={liveQuote}
+                  serviceTypeId={serviceTypeId}
+                  vehicleYear={form.vehicleYear}
+                  vehicleMake={form.vehicleMake}
+                  vehicleModel={form.vehicleModel}
+                  onServiceTypeChange={setServiceQuoteTypeId}
+                />
+
+                <PriceNegotiationHelperPanel
+                  baselineCents={liveQuote.totalCents}
+                  currentPriceDollars={customPrice}
+                  onApplyPrice={handleNegotiationApply}
+                  appliedDiscountId={negotiationDiscountApplied}
+                />
+
+                {requiresVehicle ? (
+                  <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                    <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                      Vehicle metadata
+                    </legend>
+                    <p className="text-[11px] text-primary/90">
+                      Get the vehicle before the service address. Tap the customer&apos;s answers below.
+                    </p>
+                    <VehiclePickerCascade
+                      value={{
+                        vehicle_year: form.vehicleYear,
+                        vehicle_make: form.vehicleMake,
+                        vehicle_model: form.vehicleModel,
+                      }}
+                      onChange={setVehicle}
+                    />
+                    <VehicleIntakeClarificationsPanel
+                      year={form.vehicleYear}
+                      make={form.vehicleMake}
+                      model={form.vehicleModel}
+                      answeredIds={new Set(answeredClarificationIds)}
+                      onAnswer={applyVehicleClarification}
+                    />
+                    <VehicleKeyInfoPanel
+                      year={form.vehicleYear}
+                      make={form.vehicleMake}
+                      model={form.vehicleModel}
+                      value={
+                        form.keyFccId
+                          ? {
+                              profileId: form.keyProfileId,
+                              fccId: form.keyFccId,
+                              frequency: form.keyFrequency || null,
+                              chipset: form.keyChipset || null,
+                              keyStyle: form.keyStyle || "Not sure yet",
+                              variantId: form.keyVariantId || null,
+                            }
+                          : null
                       }
-                    }}
-                    onBlur={() => {
-                      if (!customPrice.trim()) {
-                        syncQuotedPriceToAuto()
-                        setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-                      }
-                    }}
-                    className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
-                    aria-describedby="ac-quote-price-hint"
-                  />
-                </div>
-                <p id="ac-quote-price-hint" className="mt-2 text-center text-[10px] text-muted-foreground">
-                  {form.quotedPriceOverridden
-                    ? "Custom quote — edit live before you dispatch."
-                    : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel} base${
-                        liveQuote.distanceMiles != null
-                          ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
-                          : ""
-                      }.`}
-                </p>
+                      onChange={(sel) => setVehicleKeySelection(sel)}
+                    />
+                  </fieldset>
+                ) : null}
+
+                <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
+                    Job details
+                  </legend>
+                  <div className="space-y-1.5 overflow-visible">
+                    <Label className="text-xs">
+                      Service address <span className="text-primary">*</span>
+                    </Label>
+                    <JobAddressAutocomplete
+                      value={form.serviceAddress}
+                      onChange={setServiceAddress}
+                      onQueryCommit={commitAddressQuery}
+                      seedQuery={addressSeedQuery}
+                      placeholder="Start typing street address…"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      {addressReady
+                        ? "Address ready — tap Send to dispatch map."
+                        : "Type street + city, tap a suggestion, or tap out of the field when done."}
+                    </p>
+                    <IntakeTravelPreview
+                      dispatcherLat={dispatcherLocation.lat}
+                      dispatcherLng={dispatcherLocation.lng}
+                      jobLat={form.serviceAddress?.lat ?? null}
+                      jobLng={form.serviceAddress?.lng ?? null}
+                      distanceMiles={travelDistanceMiles}
+                      locationStatus={dispatcherLocation.status}
+                      locationError={dispatcherLocation.error}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ac-notes" className="text-xs">
+                      Job notes
+                    </Label>
+                    <Input
+                      id="ac-notes"
+                      value={form.notes}
+                      onChange={(e) => patchForm({ notes: e.target.value })}
+                      placeholder="Gate code, spare location, details…"
+                      className="h-10"
+                    />
+                  </div>
+                </fieldset>
+
+                <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                    Contact (saved to customer list)
+                  </legend>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ac-display" className="text-xs">
+                      Caller name <span className="text-primary">*</span>
+                    </Label>
+                    <Input
+                      id="ac-display"
+                      value={form.displayName}
+                      onChange={(e) => patchForm({ displayName: e.target.value })}
+                      placeholder="Ask before they hang up"
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ac-phone" className="text-xs">
+                      Phone number
+                    </Label>
+                    <Input
+                      id="ac-phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      value={form.phoneNumber}
+                      onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                      placeholder="(502) 555-1234"
+                      className="h-10 font-mono text-base"
+                    />
+                  </div>
+                </fieldset>
               </div>
 
-              <PriceNegotiationHelperPanel
-                baselineCents={liveQuote.totalCents}
-                currentPriceDollars={customPrice}
-                onApplyPrice={handleNegotiationApply}
-                appliedDiscountId={negotiationDiscountApplied}
-              />
-
-              {requiresVehicle ? (
-              <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
-                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                  Vehicle metadata
-                </legend>
-                <p className="text-[11px] text-primary/90">
-                  Get the vehicle before the service address. Tap the customer&apos;s answers below.
-                </p>
-                <VehiclePickerCascade
-                  value={{
-                    vehicle_year: form.vehicleYear,
-                    vehicle_make: form.vehicleMake,
-                    vehicle_model: form.vehicleModel,
-                  }}
-                  onChange={setVehicle}
-                />
-                <VehicleIntakeClarificationsPanel
-                  year={form.vehicleYear}
-                  make={form.vehicleMake}
-                  model={form.vehicleModel}
-                  answeredIds={new Set(answeredClarificationIds)}
-                  onAnswer={applyVehicleClarification}
-                />
-                <VehicleKeyInfoPanel
-                  year={form.vehicleYear}
-                  make={form.vehicleMake}
-                  model={form.vehicleModel}
-                  value={
-                    form.keyFccId
-                      ? {
-                          profileId: form.keyProfileId,
-                          fccId: form.keyFccId,
-                          frequency: form.keyFrequency || null,
-                          chipset: form.keyChipset || null,
-                          keyStyle: form.keyStyle || "Not sure yet",
-                          variantId: form.keyVariantId || null,
+              <div className="sticky bottom-0 shrink-0 space-y-4 border-t border-slate-800 bg-slate-900 p-6">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+                  <Label
+                    htmlFor="ac-quote-price"
+                    className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
+                  >
+                    Quote before dispatch
+                  </Label>
+                  <div className="relative mt-2">
+                    <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
+                      $
+                    </span>
+                    <input
+                      id="ac-quote-price"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={1}
+                      value={customPrice}
+                      onChange={(e) => {
+                        setCustomPrice(e.target.value)
+                        const raw = e.target.value.trim()
+                        if (!raw) return
+                        const dollars = Number.parseFloat(raw)
+                        if (Number.isFinite(dollars) && dollars >= 0) {
+                          setQuotedPriceDollars(dollars)
                         }
-                      : null
-                  }
-                  onChange={(sel) => setVehicleKeySelection(sel)}
-                />
-              </fieldset>
-              ) : null}
-
-              <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
-                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
-                  Job details
-                </legend>
-                <div className="space-y-1.5 overflow-visible">
-                  <Label className="text-xs">
-                    Service address <span className="text-primary">*</span>
-                  </Label>
-                  <JobAddressAutocomplete
-                    value={form.serviceAddress}
-                    onChange={setServiceAddress}
-                    onQueryCommit={commitAddressQuery}
-                    seedQuery={addressSeedQuery}
-                    placeholder="Start typing street address…"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    {addressReady
-                      ? "Address ready — tap Send to dispatch map."
-                      : "Type street + city, tap a suggestion, or tap out of the field when done."}
+                      }}
+                      onBlur={() => {
+                        if (!customPrice.trim()) {
+                          syncQuotedPriceToAuto()
+                          setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                        }
+                      }}
+                      className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                      aria-describedby="ac-quote-price-hint"
+                    />
+                  </div>
+                  <p id="ac-quote-price-hint" className="mt-2 text-center text-[10px] text-muted-foreground">
+                    {form.quotedPriceOverridden
+                      ? "Custom quote — edit live before you dispatch."
+                      : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel} base${
+                          liveQuote.distanceMiles != null
+                            ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
+                            : ""
+                        }.`}
                   </p>
-                  <IntakeTravelPreview
-                    dispatcherLat={dispatcherLocation.lat}
-                    dispatcherLng={dispatcherLocation.lng}
-                    jobLat={form.serviceAddress?.lat ?? null}
-                    jobLng={form.serviceAddress?.lng ?? null}
-                    distanceMiles={travelDistanceMiles}
-                    locationStatus={dispatcherLocation.status}
-                    locationError={dispatcherLocation.error}
-                  />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ac-notes" className="text-xs">
-                    Job notes
-                  </Label>
-                  <Input
-                    id="ac-notes"
-                    value={form.notes}
-                    onChange={(e) => patchForm({ notes: e.target.value })}
-                    placeholder="Gate code, spare location, details…"
-                    className="h-10"
-                  />
-                </div>
-              </fieldset>
 
-              <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                  Contact (saved to customer list)
-                </legend>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ac-display" className="text-xs">
-                    Caller name <span className="text-primary">*</span>
-                  </Label>
-                  <Input
-                    id="ac-display"
-                    value={form.displayName}
-                    onChange={(e) => patchForm({ displayName: e.target.value })}
-                    placeholder="Ask before they hang up"
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ac-phone" className="text-xs">
-                    Phone number
-                  </Label>
-                  <Input
-                    id="ac-phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    value={form.phoneNumber}
-                    onChange={(e) => patchForm({ phoneNumber: e.target.value })}
-                    placeholder="(502) 555-1234"
-                    className="h-10 font-mono text-base"
-                  />
-                </div>
-              </fieldset>
+                <fieldset className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                  <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                    Price-shopper recovery
+                  </legend>
+                  {negotiationDiscountApplied || form.quotedPriceOverridden ? (
+                    <p className="text-[11px] text-amber-100/90">
+                      Last pitched quote: ${parseQuoteDollars(customPrice, liveQuote.totalCents)}
+                      {negotiationDiscountApplied
+                        ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
+                        : ""}
+                      {liveQuote.totalCents > 0
+                        ? ` · baseline was $${Math.round(liveQuote.totalCents / 100)}`
+                        : ""}
+                    </p>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="failure-reason" className="text-xs">
+                      Failure reason
+                    </Label>
+                    <Select value={failureReason} onValueChange={setFailureReason}>
+                      <SelectTrigger id="failure-reason" className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Price too high">Price too high</SelectItem>
+                        <SelectItem value="Abrupt hang-up">Abrupt hang-up</SelectItem>
+                        <SelectItem value="Shopping competitors">Shopping competitors</SelectItem>
+                        <SelectItem value="Will call back later">Will call back later</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="w-full gap-2 border-amber-500/40 text-amber-100 hover:bg-amber-500/10"
+                    disabled={lostLeadState === "saving"}
+                    onClick={() => void logLostLead()}
+                  >
+                    {lostLeadState === "saving" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <PhoneOff className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
+                    Customer declined price / hang up
+                  </Button>
+                </fieldset>
 
-              <fieldset className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-                  Price-shopper recovery
-                </legend>
-                {negotiationDiscountApplied || form.quotedPriceOverridden ? (
-                  <p className="text-[11px] text-amber-100/90">
-                    Last pitched quote: ${parseQuoteDollars(customPrice, liveQuote.totalCents)}
-                    {negotiationDiscountApplied
-                      ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
-                      : ""}
-                    {liveQuote.totalCents > 0
-                      ? ` · baseline was $${Math.round(liveQuote.totalCents / 100)}`
-                      : ""}
+                {jobState === "created" ? (
+                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                    Job added to the active job pool — open the hopper in the scheduler sidebar to assign when ready.
                   </p>
                 ) : null}
-                <div className="space-y-1.5">
-                  <Label htmlFor="failure-reason" className="text-xs">
-                    Failure reason
-                  </Label>
-                  <Select value={failureReason} onValueChange={setFailureReason}>
-                    <SelectTrigger id="failure-reason" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Price too high">Price too high</SelectItem>
-                      <SelectItem value="Abrupt hang-up">Abrupt hang-up</SelectItem>
-                      <SelectItem value="Shopping competitors">Shopping competitors</SelectItem>
-                      <SelectItem value="Will call back later">Will call back later</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="w-full gap-2 border-amber-500/40 text-amber-100 hover:bg-amber-500/10"
-                  disabled={lostLeadState === "saving"}
-                  onClick={() => void logLostLead()}
-                >
-                  {lostLeadState === "saving" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <PhoneOff className="h-4 w-4 shrink-0" aria-hidden />
-                  )}
-                  Customer declined price / hang up
-                </Button>
-              </fieldset>
+                {lostLeadState === "saved" ? (
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    Lost lead logged — recovery SMS will queue after 20 minutes.
+                  </p>
+                ) : null}
+                {jobError ? <p className="text-xs text-red-300">{jobError}</p> : null}
+                {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
 
-              {jobState === "created" ? (
-                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
-                  Job added to the active job pool — open the hopper in the scheduler sidebar to assign when ready.
-                </p>
-              ) : null}
-              {lostLeadState === "saved" ? (
-                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                  Lost lead logged — recovery SMS will queue after 20 minutes.
-                </p>
-              ) : null}
-              {jobError ? <p className="text-xs text-red-300">{jobError}</p> : null}
-              {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="w-full gap-2"
+                    disabled={jobState === "creating" || !canDispatch}
+                    onClick={() => void confirmAndBook()}
+                  >
+                    {jobState === "creating" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
+                    Confirm &amp; book
+                  </Button>
+                  <button
+                    type="button"
+                    disabled={jobState === "creating" || !canSavePendingLead}
+                    onClick={() => void savePendingLead()}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="lg"
+                    className="w-full gap-2"
+                    disabled={jobState === "creating" || !canDispatch}
+                    onClick={() => void sendToDispatch()}
+                  >
+                    Send to dispatch map &amp; schedule
+                  </Button>
+                  {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
+                    <p className="text-center text-[11px] text-amber-200/90">
+                      Still needed: {dispatchBlockers.join(" · ")}
+                    </p>
+                  ) : null}
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      {saveState === "saving" ? "Saving customer…" : null}
+                      {saveState === "saved" ? "Customer saved." : null}
+                      {saveState === "error" ? "Customer save failed." : null}
+                      {saveState === "idle" ? "Customer saves automatically." : null}{" "}
+                      <Link
+                        href="/dashboard/customers"
+                        className="font-semibold text-primary underline-offset-2 hover:underline"
+                      >
+                        Customers
+                      </Link>
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={jobState === "creating"}
+                      onClick={dismissOnly}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <SheetFooter className="mt-0 shrink-0 flex flex-col gap-2 border-t border-border/70 bg-secondary/15 px-4 py-3">
-              <Button
-                type="button"
-                size="lg"
-                className="w-full gap-2"
-                disabled={jobState === "creating" || !canDispatch}
-                onClick={() => void confirmAndBook()}
-              >
-                {jobState === "creating" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-                )}
-                Confirm &amp; book
-              </Button>
-              <button
-                type="button"
-                disabled={jobState === "creating" || !canSavePendingLead}
-                onClick={() => void savePendingLead()}
-                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
-              </button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                className="w-full gap-2"
-                disabled={jobState === "creating" || !canDispatch}
-                onClick={() => void sendToDispatch()}
-              >
-                Send to dispatch map &amp; schedule
-              </Button>
-              {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                <p className="text-center text-[11px] text-amber-200/90">
-                  Still needed: {dispatchBlockers.join(" · ")}
-                </p>
-              ) : null}
-              <div className="flex w-full items-center justify-between gap-2">
-                <p className="text-[11px] text-muted-foreground">
-                  {saveState === "saving" ? "Saving customer…" : null}
-                  {saveState === "saved" ? "Customer saved." : null}
-                  {saveState === "error" ? "Customer save failed." : null}
-                  {saveState === "idle" ? "Customer saves automatically." : null}{" "}
-                  <Link href="/dashboard/customers" className="font-semibold text-primary underline-offset-2 hover:underline">
-                    Customers
-                  </Link>
-                </p>
-                <Button type="button" variant="ghost" size="sm" disabled={jobState === "creating"} onClick={dismissOnly}>
-                  Dismiss
-                </Button>
-              </div>
-            </SheetFooter>
           </>
         ) : null}
       </SheetContent>
