@@ -8,6 +8,9 @@
 import { neon } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { neighborhoodFromLocation } from "@/lib/job-pool"
+import { dispatchJobTypeFromServiceQuoteTypeId } from "@/lib/job-intake-fields"
+import { calculateServiceQuote } from "@/lib/service-quote-calculator"
+import { buildIntakePricingMetadata, getOwnerServiceRateCard, type ServiceQuoteTypeId } from "@/lib/service-rate-card"
 import { localDayRangeIso } from "@/lib/scheduler-utils"
 import { parseAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
@@ -6869,6 +6872,21 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     }
     return null
   }
+  const pickNum = (keys: string[]): number | null => {
+    for (const k of keys) {
+      const v = collected[k]
+      if (typeof v === "number" && Number.isFinite(v)) return v
+      if (v != null && String(v).trim()) {
+        const n = Number(v)
+        if (Number.isFinite(n)) return n
+      }
+    }
+    return null
+  }
+  const pricingMeta =
+    collected.pricing_metadata != null && typeof collected.pricing_metadata === "object"
+      ? (collected.pricing_metadata as Record<string, unknown>)
+      : null
   const createdAt =
     row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? "")
   const scheduledRaw = row.scheduled_at ?? collected.scheduled_at ?? collected.preferred_time
@@ -6942,6 +6960,20 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
         ? String(row.dispatch_status)
         : pick(["dispatch_status"]),
     completed_at: pick(["completed_at"]),
+    quoted_price_cents:
+      pickNum(["last_quoted_price_cents", "quoted_price_cents"]) ??
+      (pricingMeta?.quoted_price_cents != null && Number.isFinite(Number(pricingMeta.quoted_price_cents))
+        ? Number(pricingMeta.quoted_price_cents)
+        : null),
+    service_quote_type_id:
+      pick(["service_quote_type_id"]) ??
+      (pricingMeta?.service_type_id != null ? String(pricingMeta.service_type_id) : null),
+    key_fcc_id: pick(["key_fcc_id", "fcc_id"]),
+    key_frequency: pick(["key_frequency"]),
+    key_chipset: pick(["key_chipset", "chip_id"]),
+    key_style: pick(["key_style"]),
+    key_variant_id: pick(["key_variant_id"]),
+    key_profile_id: pick(["key_profile_id"]),
   }
 }
 
@@ -7215,6 +7247,15 @@ export async function updateOwnerSchedulerJob(params: {
   vehicleModel?: string | null
   jobAddress?: string | null
   jobNotes?: string | null
+  serviceQuoteTypeId?: string | null
+  quotedPriceCents?: number | null
+  distanceMiles?: number | null
+  keyFccId?: string | null
+  keyFrequency?: string | null
+  keyChipset?: string | null
+  keyStyle?: string | null
+  keyVariantId?: string | null
+  keyProfileId?: string | null
 }): Promise<import("@/lib/types").SchedulerEvent | null> {
   const sql = getSql()
   const existingRows = await sql`
@@ -7233,7 +7274,10 @@ export async function updateOwnerSchedulerJob(params: {
   const newTechId = techIdProvided ? params.assignedTechPortalUserId?.trim() || null : existingTechId
 
   const customerName = params.customerName.trim()
-  const jobType = params.jobType.trim() || "Other"
+  let jobType = params.jobType.trim() || "Other"
+  if (params.serviceQuoteTypeId?.trim()) {
+    jobType = dispatchJobTypeFromServiceQuoteTypeId(params.serviceQuoteTypeId.trim() as ServiceQuoteTypeId)
+  }
   const vehicleYear = params.vehicleYear?.trim() || null
   const vehicleMake = params.vehicleMake?.trim() || null
   const vehicleModel = params.vehicleModel?.trim() || null
@@ -7290,6 +7334,61 @@ export async function updateOwnerSchedulerJob(params: {
   }
   if (params.assignedTechName !== undefined) {
     collectedPatch.assigned_tech_name = params.assignedTechName?.trim() || null
+  }
+  if (params.serviceQuoteTypeId !== undefined) {
+    collectedPatch.service_quote_type_id = params.serviceQuoteTypeId?.trim() || null
+  }
+  if (params.keyFccId !== undefined) {
+    const v = params.keyFccId?.trim() || null
+    collectedPatch.key_fcc_id = v
+    collectedPatch.fcc_id = v
+  }
+  if (params.keyFrequency !== undefined) {
+    collectedPatch.key_frequency = params.keyFrequency?.trim() || null
+  }
+  if (params.keyChipset !== undefined) {
+    const v = params.keyChipset?.trim() || null
+    collectedPatch.key_chipset = v
+    collectedPatch.chip_id = v
+  }
+  if (params.keyStyle !== undefined) {
+    collectedPatch.key_style = params.keyStyle?.trim() || null
+  }
+  if (params.keyVariantId !== undefined) {
+    collectedPatch.key_variant_id = params.keyVariantId?.trim() || null
+  }
+  if (params.keyProfileId !== undefined) {
+    collectedPatch.key_profile_id = params.keyProfileId?.trim() || null
+  }
+  if (params.quotedPriceCents != null && params.quotedPriceCents > 0) {
+    collectedPatch.last_quoted_price_cents = Math.round(params.quotedPriceCents)
+    collectedPatch.quoted_price_cents = Math.round(params.quotedPriceCents)
+  }
+  if (
+    params.serviceQuoteTypeId?.trim() &&
+    params.quotedPriceCents != null &&
+    params.quotedPriceCents > 0
+  ) {
+    const { rateCard, source: rateCardSource } = await getOwnerServiceRateCard(params.ownerUserId)
+    const quote = calculateServiceQuote({
+      serviceTypeId: params.serviceQuoteTypeId.trim() as ServiceQuoteTypeId,
+      vehicleYear: vehicleYear ?? undefined,
+      vehicleMake: vehicleMake ?? undefined,
+      vehicleModel: vehicleModel ?? undefined,
+      rateCard,
+      rateCardSource,
+      distanceMiles: params.distanceMiles ?? null,
+      keyStyle: params.keyStyle ?? undefined,
+      keyChipset: params.keyChipset ?? undefined,
+      keyVariantId: params.keyVariantId ?? undefined,
+    })
+    collectedPatch.pricing_metadata = buildIntakePricingMetadata({
+      quote: { ...quote, totalCents: Math.round(params.quotedPriceCents) },
+      vehicleYear,
+      vehicleMake,
+      vehicleModel,
+      rateCardSource,
+    })
   }
 
   const patchJson = JSON.stringify(collectedPatch)
@@ -7602,6 +7701,14 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     created_at: ev.created_at,
     latitude: ev.latitude,
     longitude: ev.longitude,
+    quoted_price_cents: ev.quoted_price_cents,
+    service_quote_type_id: ev.service_quote_type_id,
+    key_fcc_id: ev.key_fcc_id,
+    key_frequency: ev.key_frequency,
+    key_chipset: ev.key_chipset,
+    key_style: ev.key_style,
+    key_variant_id: ev.key_variant_id,
+    key_profile_id: ev.key_profile_id,
   }
 }
 

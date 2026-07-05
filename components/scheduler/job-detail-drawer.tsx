@@ -2,8 +2,13 @@
 
 // Editable slide-over when you tap a job on the dispatch map or calendar.
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2, Trash2, X } from "lucide-react"
+import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
+import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
+import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
+import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -26,6 +31,16 @@ import {
 import { SCHEDULER_DURATION_OPTIONS, toDatetimeLocalValue } from "@/lib/scheduler-utils"
 import { shouldAutoAdvanceAfterSchedulePick } from "@/lib/scheduler-focus-url"
 import { cn } from "@/lib/utils"
+import {
+  dispatchJobTypeFromServiceQuoteTypeId,
+  serviceQuoteTypeFromJobType,
+  serviceTypeRequiresVehicle,
+} from "@/lib/job-intake-fields"
+import { calculateServiceQuote, type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
+import type { ServiceRateCard } from "@/lib/service-rate-card"
+import { travelDistanceMiles } from "@/lib/geo"
+import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
+import type { VehicleClarificationOption } from "@/lib/vehicle-intake-clarifications"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 type JobDetailDrawerProps = {
@@ -87,10 +102,21 @@ export function JobDetailDrawer({
 
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
-  const [jobType, setJobType] = useState("")
+  const [serviceQuoteTypeId, setServiceQuoteTypeId] = useState<ServiceQuoteTypeId>("lockout")
   const [vehicleYear, setVehicleYear] = useState("")
   const [vehicleMake, setVehicleMake] = useState("")
   const [vehicleModel, setVehicleModel] = useState("")
+  const [keyFccId, setKeyFccId] = useState("")
+  const [keyFrequency, setKeyFrequency] = useState("")
+  const [keyChipset, setKeyChipset] = useState("")
+  const [keyStyle, setKeyStyle] = useState("")
+  const [keyVariantId, setKeyVariantId] = useState("")
+  const [keyProfileId, setKeyProfileId] = useState("")
+  const [answeredClarificationIds, setAnsweredClarificationIds] = useState<string[]>([])
+  const [editablePrice, setEditablePrice] = useState("")
+  const [priceOverridden, setPriceOverridden] = useState(false)
+  const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
+  const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const [location, setLocation] = useState("")
   const [jobNotes, setJobNotes] = useState("")
   const [startLocal, setStartLocal] = useState("")
@@ -105,6 +131,165 @@ export function JobDetailDrawer({
   const startInputRef = useRef<HTMLInputElement>(null)
   const userPickedScheduleRef = useRef(false)
   const lastAutoSavedLocalRef = useRef<string | null>(null)
+  const dispatcherLocation = useDispatcherLocation(open && Boolean(jobId))
+
+  const jobLat = source?.latitude ?? null
+  const jobLng = source?.longitude ?? null
+  const travelDistanceMilesValue = useMemo(() => {
+    if (jobLat == null || jobLng == null) return null
+    if (dispatcherLocation.lat == null || dispatcherLocation.lng == null) return null
+    return travelDistanceMiles(
+      { lat: dispatcherLocation.lat, lng: dispatcherLocation.lng },
+      { lat: jobLat, lng: jobLng }
+    )
+  }, [jobLat, jobLng, dispatcherLocation.lat, dispatcherLocation.lng])
+
+  const liveQuote = useMemo(
+    () =>
+      calculateServiceQuote({
+        serviceTypeId: serviceQuoteTypeId,
+        vehicleYear,
+        vehicleMake,
+        vehicleModel,
+        rateCard,
+        rateCardSource,
+        distanceMiles: travelDistanceMilesValue,
+        keyStyle,
+        keyChipset,
+        keyVariantId,
+      }),
+    [
+      serviceQuoteTypeId,
+      vehicleYear,
+      vehicleMake,
+      vehicleModel,
+      rateCard,
+      rateCardSource,
+      travelDistanceMilesValue,
+      keyStyle,
+      keyChipset,
+      keyVariantId,
+    ]
+  )
+
+  const autoTotalDollars =
+    liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
+
+  const requiresVehicle = serviceTypeRequiresVehicle(serviceQuoteTypeId)
+
+  const resolveQuotedPriceCents = useCallback(() => {
+    const raw = editablePrice.trim()
+    if (!raw) return liveQuote.totalCents
+    const dollars = Number.parseFloat(raw)
+    if (Number.isFinite(dollars) && dollars >= 0) return Math.round(dollars * 100)
+    return liveQuote.totalCents
+  }, [editablePrice, liveQuote.totalCents])
+
+  const buildSaveBody = useCallback((): Record<string, unknown> => {
+    const quotedPriceCents = resolveQuotedPriceCents()
+    return {
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim(),
+      job_type: dispatchJobTypeFromServiceQuoteTypeId(serviceQuoteTypeId),
+      duration_minutes: durationMinutes,
+      vehicle_year: vehicleYear.trim() || null,
+      vehicle_make: vehicleMake.trim() || null,
+      vehicle_model: vehicleModel.trim() || null,
+      job_address: location.trim() || null,
+      job_notes: jobNotes.trim() || null,
+      assigned_tech_id: assignedTechId.trim() || null,
+      service_quote_type_id: serviceQuoteTypeId,
+      quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
+      distance_miles: travelDistanceMilesValue,
+      key_fcc_id: keyFccId.trim() || null,
+      key_frequency: keyFrequency.trim() || null,
+      key_chipset: keyChipset.trim() || null,
+      key_style: keyStyle.trim() || null,
+      key_variant_id: keyVariantId.trim() || null,
+      key_profile_id: keyProfileId.trim() || null,
+    }
+  }, [
+    assignedTechId,
+    customerName,
+    customerPhone,
+    durationMinutes,
+    jobNotes,
+    keyChipset,
+    keyFccId,
+    keyFrequency,
+    keyProfileId,
+    keyStyle,
+    keyVariantId,
+    location,
+    resolveQuotedPriceCents,
+    serviceQuoteTypeId,
+    travelDistanceMilesValue,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+  ])
+
+  const clearKeySelection = useCallback(() => {
+    setKeyFccId("")
+    setKeyFrequency("")
+    setKeyChipset("")
+    setKeyStyle("")
+    setKeyVariantId("")
+    setKeyProfileId("")
+  }, [])
+
+  const setVehicle = useCallback(
+    (vehicle: { vehicle_year: string; vehicle_make: string; vehicle_model: string }) => {
+      setVehicleYear(vehicle.vehicle_year)
+      setVehicleMake(vehicle.vehicle_make)
+      setVehicleModel(vehicle.vehicle_model)
+      clearKeySelection()
+      setAnsweredClarificationIds([])
+    },
+    [clearKeySelection]
+  )
+
+  const applyVehicleClarification = useCallback(
+    (promptId: string, option: VehicleClarificationOption) => {
+      setAnsweredClarificationIds((prev) =>
+        prev.includes(promptId) ? prev : [...prev, promptId]
+      )
+      if (option.make?.trim()) setVehicleMake(option.make.trim())
+      if (option.model?.trim()) setVehicleModel(option.model.trim())
+      const noteLine = option.note?.trim()
+      if (noteLine && !jobNotes.includes(noteLine)) {
+        setJobNotes((prev) => (prev.trim() ? `${prev.trim()} · ${noteLine}` : noteLine))
+      }
+      if (option.model || option.make) clearKeySelection()
+    },
+    [clearKeySelection, jobNotes]
+  )
+
+  const setVehicleKeySelection = useCallback(
+    (
+      sel: {
+        profileId: string
+        fccId: string
+        frequency: string | null
+        chipset: string | null
+        keyStyle: string
+        variantId?: string | null
+      } | null
+    ) => {
+      setKeyProfileId(sel?.profileId ?? "")
+      setKeyFccId(sel?.fccId ?? "")
+      setKeyFrequency(sel?.frequency ?? "")
+      setKeyChipset(sel?.chipset ?? "")
+      setKeyStyle(sel?.keyStyle ?? "")
+      setKeyVariantId(sel?.variantId ?? "")
+    },
+    []
+  )
+
+  const handleServiceTypeChange = useCallback((id: ServiceQuoteTypeId) => {
+    setServiceQuoteTypeId(id)
+    setPriceOverridden(false)
+  }, [])
 
   const assignableTechs = useMemo(
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
@@ -132,10 +317,23 @@ export function JobDetailDrawer({
     setLocalJobStatus(scheduledEvent?.job_status ?? poolWithTech?.job_status ?? null)
     setCustomerName(source.customer_name ?? "")
     setCustomerPhone(source.customer_phone ?? "")
-    setJobType(source.job_type ?? "")
+    setServiceQuoteTypeId(
+      (source.service_quote_type_id as ServiceQuoteTypeId) ||
+        serviceQuoteTypeFromJobType(source.job_type ?? "")
+    )
     setVehicleYear(source.vehicle_year ?? "")
     setVehicleMake(source.vehicle_make ?? "")
     setVehicleModel(source.vehicle_model ?? "")
+    setKeyFccId(source.key_fcc_id ?? "")
+    setKeyFrequency(source.key_frequency ?? "")
+    setKeyChipset(source.key_chipset ?? "")
+    setKeyStyle(source.key_style ?? "")
+    setKeyVariantId(source.key_variant_id ?? "")
+    setKeyProfileId(source.key_profile_id ?? "")
+    setAnsweredClarificationIds([])
+    const savedCents = source.quoted_price_cents ?? 0
+    setEditablePrice(savedCents > 0 ? String(Math.round(savedCents / 100)) : "")
+    setPriceOverridden(savedCents > 0)
     setLocation(source.location ?? "")
     setJobNotes(source.job_notes ?? "")
     setDurationMinutes(source.duration_minutes ?? 60)
@@ -151,6 +349,33 @@ export function JobDetailDrawer({
     userPickedScheduleRef.current = false
     lastAutoSavedLocalRef.current = null
   }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id])
+
+  useEffect(() => {
+    if (!open || !jobId) return
+    let cancel = false
+    void fetch("/api/service-quote/rate-card", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { data: null }))
+      .then((data: { data?: { rate_card?: ServiceRateCard; source?: string } }) => {
+        if (cancel) return
+        if (data.data?.rate_card) {
+          setRateCard(data.data.rate_card)
+          setRateCardSource(
+            data.data.source === "onboarding_profiles.service_rules"
+              ? "onboarding_profiles.service_rules"
+              : "default"
+          )
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancel = true
+    }
+  }, [open, jobId])
+
+  useEffect(() => {
+    if (!source || priceOverridden) return
+    setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+  }, [source, autoTotalDollars, priceOverridden, serviceQuoteTypeId, vehicleYear, vehicleMake, vehicleModel, keyStyle, keyChipset, keyVariantId])
 
   useEffect(() => {
     if (!scheduleIntent || !open) return
@@ -169,19 +394,8 @@ export function JobDetailDrawer({
         setSaving(true)
         setError(null)
         try {
-          const body: Record<string, unknown> = {
-            customer_name: customerName.trim(),
-            customer_phone: customerPhone.trim(),
-            job_type: jobType.trim() || "Other",
-            duration_minutes: durationMinutes,
-            vehicle_year: vehicleYear.trim() || null,
-            vehicle_make: vehicleMake.trim() || null,
-            vehicle_model: vehicleModel.trim() || null,
-            job_address: location.trim() || null,
-            job_notes: jobNotes.trim() || null,
-            assigned_tech_id: assignedTechId.trim() || null,
-            scheduled_at: new Date(startLocal).toISOString(),
-          }
+          const body = buildSaveBody()
+          body.scheduled_at = new Date(startLocal).toISOString()
           const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
             method: "PATCH",
             credentials: "include",
@@ -210,14 +424,7 @@ export function JobDetailDrawer({
     jobId,
     customerName,
     customerPhone,
-    jobType,
-    durationMinutes,
-    vehicleYear,
-    vehicleMake,
-    vehicleModel,
-    location,
-    jobNotes,
-    assignedTechId,
+    buildSaveBody,
     onSaved,
     onScheduleCommitted,
   ])
@@ -276,18 +483,7 @@ export function JobDetailDrawer({
     setSaving(true)
     setError(null)
     try {
-      const body: Record<string, unknown> = {
-        customer_name: customerName.trim(),
-        customer_phone: customerPhone.trim(),
-        job_type: jobType.trim() || "Other",
-        duration_minutes: durationMinutes,
-        vehicle_year: vehicleYear.trim() || null,
-        vehicle_make: vehicleMake.trim() || null,
-        vehicle_model: vehicleModel.trim() || null,
-        job_address: location.trim() || null,
-        job_notes: jobNotes.trim() || null,
-        assigned_tech_id: assignedTechId.trim() || null,
-      }
+      const body = buildSaveBody()
       if (startLocal.trim()) {
         body.scheduled_at = new Date(startLocal).toISOString()
       }
@@ -416,61 +612,104 @@ export function JobDetailDrawer({
           <section className={sectionClass}>
             <h3 className={sectionTitleClass}>Service Profile</h3>
             <div className="space-y-3">
-              <div className={fieldBlockClass}>
-                <label className={labelClass} htmlFor="job-type">
-                  Service type
-                </label>
-                <Input
-                  id="job-type"
-                  className={inputClass}
-                  value={jobType}
-                  onChange={(e) => setJobType(e.target.value)}
-                  placeholder="Key replacement"
-                />
-              </div>
+              <ServiceQuoteCalculatorPanel
+                quote={liveQuote}
+                serviceTypeId={serviceQuoteTypeId}
+                vehicleYear={vehicleYear}
+                vehicleMake={vehicleMake}
+                vehicleModel={vehicleModel}
+                onServiceTypeChange={handleServiceTypeChange}
+                className="border-emerald-500/20 bg-emerald-500/[0.07]"
+              />
 
-              <div className={fieldBlockClass}>
-                <label className={labelClass}>Vehicle specs</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex min-w-0 flex-col">
-                    <label className={labelClass} htmlFor="job-vehicle-year">
-                      Year
-                    </label>
-                    <Input
-                      id="job-vehicle-year"
-                      className={inputClass}
-                      value={vehicleYear}
-                      onChange={(e) => setVehicleYear(e.target.value)}
-                      placeholder="2023"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <label className={labelClass} htmlFor="job-vehicle-make">
-                      Make
-                    </label>
-                    <Input
-                      id="job-vehicle-make"
-                      className={inputClass}
-                      value={vehicleMake}
-                      onChange={(e) => setVehicleMake(e.target.value)}
-                      placeholder="Honda"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <label className={labelClass} htmlFor="job-vehicle-model">
-                      Model
-                    </label>
-                    <Input
-                      id="job-vehicle-model"
-                      className={inputClass}
-                      value={vehicleModel}
-                      onChange={(e) => setVehicleModel(e.target.value)}
-                      placeholder="Civic"
-                    />
-                  </div>
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+                <Label
+                  htmlFor="job-quote-price"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
+                >
+                  Quote before dispatch
+                </Label>
+                <div className="relative mt-2">
+                  <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
+                    $
+                  </span>
+                  <input
+                    id="job-quote-price"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    value={editablePrice}
+                    onChange={(e) => {
+                      setEditablePrice(e.target.value)
+                      setPriceOverridden(true)
+                    }}
+                    onBlur={() => {
+                      if (!editablePrice.trim()) {
+                        setPriceOverridden(false)
+                        setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                      }
+                    }}
+                    className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                  />
                 </div>
+                <p className="mt-2 text-center text-[10px] text-muted-foreground">
+                  {priceOverridden
+                    ? "Custom quote — edit before saving."
+                    : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel}${
+                        liveQuote.distanceMiles != null
+                          ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
+                          : ""
+                      }.`}
+                </p>
               </div>
 
+              {requiresVehicle ? (
+                <fieldset className="grid gap-3 rounded-lg border border-primary/40 bg-primary/10 p-3">
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                    Vehicle metadata
+                  </legend>
+                  <VehiclePickerCascade
+                    value={{
+                      vehicle_year: vehicleYear,
+                      vehicle_make: vehicleMake,
+                      vehicle_model: vehicleModel,
+                    }}
+                    onChange={setVehicle}
+                  />
+                  <VehicleIntakeClarificationsPanel
+                    year={vehicleYear}
+                    make={vehicleMake}
+                    model={vehicleModel}
+                    answeredIds={new Set(answeredClarificationIds)}
+                    onAnswer={applyVehicleClarification}
+                  />
+                  <VehicleKeyInfoPanel
+                    year={vehicleYear}
+                    make={vehicleMake}
+                    model={vehicleModel}
+                    value={
+                      keyFccId
+                        ? {
+                            profileId: keyProfileId,
+                            fccId: keyFccId,
+                            frequency: keyFrequency || null,
+                            chipset: keyChipset || null,
+                            keyStyle: keyStyle || "Not sure yet",
+                            variantId: keyVariantId || null,
+                          }
+                        : null
+                    }
+                    onChange={(sel) => setVehicleKeySelection(sel)}
+                  />
+                </fieldset>
+              ) : null}
+            </div>
+          </section>
+
+          <section className={sectionClass}>
+            <h3 className={sectionTitleClass}>Dispatch &amp; schedule</h3>
+            <div className="space-y-3">
               <div className={fieldBlockClass}>
                 <label className={labelClass}>Status controls</label>
                 <div className="flex flex-wrap gap-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1">

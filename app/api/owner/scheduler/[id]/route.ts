@@ -33,6 +33,15 @@ type PatchSchedulerBody = {
   vehicle_model?: string | null
   job_address?: string | null
   job_notes?: string | null
+  service_quote_type_id?: string | null
+  quoted_price_cents?: number | null
+  distance_miles?: number | null
+  key_fcc_id?: string | null
+  key_frequency?: string | null
+  key_chipset?: string | null
+  key_style?: string | null
+  key_variant_id?: string | null
+  key_profile_id?: string | null
 }
 
 function isFullJobEdit(body: PatchSchedulerBody): boolean {
@@ -46,7 +55,16 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
     body.vehicle_make !== undefined ||
     body.vehicle_model !== undefined ||
     body.job_address !== undefined ||
-    body.job_notes !== undefined
+    body.job_notes !== undefined ||
+    body.service_quote_type_id !== undefined ||
+    body.quoted_price_cents !== undefined ||
+    body.distance_miles !== undefined ||
+    body.key_fcc_id !== undefined ||
+    body.key_frequency !== undefined ||
+    body.key_chipset !== undefined ||
+    body.key_style !== undefined ||
+    body.key_variant_id !== undefined ||
+    body.key_profile_id !== undefined
   )
 }
 
@@ -136,6 +154,21 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       vehicleModel: body.vehicle_model ?? null,
       jobAddress: body.job_address,
       jobNotes: body.job_notes,
+      serviceQuoteTypeId: body.service_quote_type_id ?? null,
+      quotedPriceCents:
+        body.quoted_price_cents != null && Number.isFinite(Number(body.quoted_price_cents))
+          ? Math.round(Number(body.quoted_price_cents))
+          : null,
+      distanceMiles:
+        body.distance_miles != null && Number.isFinite(Number(body.distance_miles))
+          ? Number(body.distance_miles)
+          : null,
+      keyFccId: body.key_fcc_id ?? null,
+      keyFrequency: body.key_frequency ?? null,
+      keyChipset: body.key_chipset ?? null,
+      keyStyle: body.key_style ?? null,
+      keyVariantId: body.key_variant_id ?? null,
+      keyProfileId: body.key_profile_id ?? null,
     })
 
     if (!event) return NextResponse.json({ error: "Job not found" }, { status: 404 })

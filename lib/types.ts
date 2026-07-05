@@ -181,6 +181,16 @@ export interface SchedulerEvent {
   dispatch_status: string | null
   /** ISO timestamp when the job was marked completed (collected.completed_at). */
   completed_at?: string | null
+  /** Last quoted price in cents (from collected.last_quoted_price_cents). */
+  quoted_price_cents?: number | null
+  /** Service quote calculator id (lockout, key_gen, …). */
+  service_quote_type_id?: string | null
+  key_fcc_id?: string | null
+  key_frequency?: string | null
+  key_chipset?: string | null
+  key_style?: string | null
+  key_variant_id?: string | null
+  key_profile_id?: string | null
 }
 
 /** Job waiting in the unassigned pool (no tech yet). */
@@ -202,6 +212,14 @@ export interface UnassignedPoolJob {
   created_at: string
   latitude: number | null
   longitude: number | null
+  quoted_price_cents?: number | null
+  service_quote_type_id?: string | null
+  key_fcc_id?: string | null
+  key_frequency?: string | null
+  key_chipset?: string | null
+  key_style?: string | null
+  key_variant_id?: string | null
+  key_profile_id?: string | null
 }
 
 /** Active dispatch pipeline job (scheduled + hopper) for map split view. */
