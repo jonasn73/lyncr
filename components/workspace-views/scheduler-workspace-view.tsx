@@ -766,7 +766,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 onMobileAssignJob={queueMobilePoolAssign}
               />
             </div>
-            <div className="hidden lg:block">
+            <div className="hidden w-full lg:block">
               <JobPoolPanel
                 jobs={displayPoolJobs}
                 highlightId={highlightId}

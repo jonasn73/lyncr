@@ -46,6 +46,9 @@ export function JobPoolCard({
   const area = job.neighborhood || job.location
   const displayName = job.customer_name?.trim() || job.job_type || "Service call"
   const wrapText = touchInteraction || sidebar
+  const detailTextClass = wrapText
+    ? "w-full text-sm block break-words text-muted-foreground"
+    : "truncate"
 
   return (
     <button
@@ -70,43 +73,48 @@ export function JobPoolCard({
         SCHEDULER_LIST_CARD_SHELL,
         "group shrink-0 touch-manipulation px-3 pt-3 pb-9 md:px-4 md:pt-4 md:pb-10",
         touchInteraction
-          ? "min-w-0 w-full max-w-none cursor-pointer active:scale-[0.98]"
+          ? "min-w-0 w-full max-w-none shrink-0 cursor-pointer active:scale-[0.98]"
           : sidebar
-            ? "min-w-0 w-full max-w-none cursor-grab active:cursor-grabbing"
-            : "min-w-[200px] max-w-[240px] cursor-grab active:cursor-grabbing",
+            ? "w-full max-w-none shrink-0 cursor-grab active:cursor-grabbing"
+            : "min-w-[200px] max-w-[240px] shrink-0 cursor-grab active:cursor-grabbing",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
       )}
     >
-      <div className="flex items-start gap-1.5 pr-16">
+      <div className={cn("flex w-full items-start gap-1.5", sidebar ? "pr-2" : "pr-16")}>
         {!touchInteraction ? (
           <GripVertical
             className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600 opacity-60 group-hover:opacity-100"
             aria-hidden
           />
         ) : null}
-        <div className="min-w-0 flex-1">
-          <p className={cn("text-sm font-medium text-zinc-100", wrapText ? "break-words" : "truncate")}>
+        <div className={cn(wrapText ? "w-full flex-1" : "min-w-0 flex-1")}>
+          <p
+            className={cn(
+              "w-full text-sm font-medium text-zinc-100",
+              wrapText ? "break-words" : "truncate"
+            )}
+          >
             {displayName}
           </p>
-          <div className="mt-1.5 space-y-1">
+          <div className="mt-1.5 w-full space-y-1">
             {job.customer_phone ? (
-              <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                <Phone className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                <span className={cn(wrapText ? "break-words" : "truncate")}>
+              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-400")}>
+                <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-400")}>
                   {formatPhone(job.customer_phone)}
                 </span>
               </p>
             ) : null}
             {vehicle ? (
-              <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                <Car className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                <span className={cn(wrapText ? "break-words" : "truncate")}>{vehicle}</span>
+              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-400")}>
+                <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-400")}>{vehicle}</span>
               </p>
             ) : null}
             {area ? (
-              <p className="flex items-start gap-1.5 text-xs text-zinc-500">
+              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-500")}>
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
-                <span className={cn(wrapText ? "break-words" : "truncate")}>{area}</span>
+                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-500")}>{area}</span>
               </p>
             ) : null}
           </div>

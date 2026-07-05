@@ -32,7 +32,7 @@ export function JobPoolTray({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-card to-card shadow-sm",
+        "w-full rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-card to-card shadow-sm",
         sidebar ? "px-3 py-2" : "px-4 py-3"
       )}
     >
@@ -71,7 +71,7 @@ export function JobPoolTray({
       <div
         className={cn(
           sidebar
-            ? "flex max-h-[min(180px,22vh)] flex-col gap-1.5 overflow-y-auto overscroll-y-contain"
+            ? "flex w-full max-h-[min(180px,22vh)] flex-col gap-3 overflow-y-auto overscroll-y-contain"
             : mobileTimeline
               ? "flex max-h-[min(420px,50vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
               : "flex gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
