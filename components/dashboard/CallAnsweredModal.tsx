@@ -35,7 +35,12 @@ import {
 } from "@/lib/hooks/use-active-call-form"
 import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
-import { negotiationDiscountLabel, parseQuoteDollars } from "@/lib/price-negotiation"
+import {
+  negotiationDiscountLabel,
+  parseQuoteDollars,
+  ROUTE_MATCH_RECOVERY_PRICE_DOLLARS,
+  ROUTE_MATCH_RECOVERY_SCRIPT,
+} from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import type {
   OwnerCallAnsweredPayload,
@@ -60,6 +65,8 @@ const RINGING_FAST_POLL_MS = 250
 const RINGING_FAST_POLL_MAX_MS = 90_000
 /** Safety net when Pusher is slow — only while the dashboard tab is visible. */
 const ANSWERED_VISIBILITY_POLL_MS = 800
+/** Blank failure-reason value — Radix Select cannot use an empty string. */
+const FAILURE_REASON_NEUTRAL = "__neutral__"
 
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
@@ -182,7 +189,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [current, setCurrent] = useState<ActiveCallRow | null>(null)
   const [lostLeadState, setLostLeadState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [lostLeadError, setLostLeadError] = useState<string | null>(null)
-  const [failureReason, setFailureReason] = useState("Price too high")
+  const [failureReason, setFailureReason] = useState(FAILURE_REASON_NEUTRAL)
+  const [recoveredViaRouteDiscount, setRecoveredViaRouteDiscount] = useState(false)
+  const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -232,7 +241,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   useEffect(() => {
     setNegotiationDiscountApplied(null)
     setNegotiationDiscountsTried([])
+    setFailureReason(FAILURE_REASON_NEUTRAL)
+    setRecoveredViaRouteDiscount(false)
+    setHighlightConfirmBook(false)
   }, [effectiveCurrent?.id])
+
+  useEffect(() => {
+    if (!highlightConfirmBook) return
+    const timer = window.setTimeout(() => setHighlightConfirmBook(false), 12_000)
+    return () => window.clearTimeout(timer)
+  }, [highlightConfirmBook])
 
   useEffect(() => {
     if (!effectiveCurrent) {
@@ -283,13 +301,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setQuotedPriceDollars]
   )
 
+  const handleApplyRouteMatchDiscount = useCallback(() => {
+    setCustomPrice(String(ROUTE_MATCH_RECOVERY_PRICE_DOLLARS))
+    setQuotedPriceDollars(ROUTE_MATCH_RECOVERY_PRICE_DOLLARS)
+    setNegotiationDiscountApplied("route_optimization")
+    setNegotiationDiscountsTried((prev) =>
+      prev.includes("route_optimization") ? prev : [...prev, "route_optimization"]
+    )
+    setRecoveredViaRouteDiscount(true)
+    setFailureReason(FAILURE_REASON_NEUTRAL)
+    setHighlightConfirmBook(true)
+  }, [setQuotedPriceDollars])
+
   const jobCreateExtras = useCallback(
     (quotedPriceCents: number) => ({
       quotedPriceCents,
       discountApplied: negotiationDiscountApplied,
       baselineQuotedPriceCents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+      recoveredViaRouteDiscount,
     }),
-    [negotiationDiscountApplied, liveQuote.totalCents]
+    [negotiationDiscountApplied, liveQuote.totalCents, recoveredViaRouteDiscount]
   )
 
   useEffect(() => {
@@ -634,6 +665,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
   const isManual = Boolean(effectiveCurrent?.isManual)
   const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+  const isPriceTooHigh = failureReason === "Price too high"
+  const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle =
     serviceTypeId === "key_gen" ||
     serviceTypeId === "key_dup" ||
@@ -873,9 +906,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     </Label>
                     <Select value={failureReason} onValueChange={setFailureReason}>
                       <SelectTrigger id="failure-reason" className="h-9">
-                        <SelectValue />
+                        <SelectValue placeholder="Select failure reason" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={FAILURE_REASON_NEUTRAL}>— Select reason —</SelectItem>
                         <SelectItem value="Price too high">Price too high</SelectItem>
                         <SelectItem value="Abrupt hang-up">Abrupt hang-up</SelectItem>
                         <SelectItem value="Shopping competitors">Shopping competitors</SelectItem>
@@ -883,12 +917,38 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       </SelectContent>
                     </Select>
                   </div>
+                  {isPriceTooHigh ? (
+                    <div className="mt-3 space-y-3 rounded-lg border border-orange-500/30 bg-slate-950 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
+                        Save the deal — read verbatim
+                      </p>
+                      <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+                        <span className="mr-1" aria-hidden>
+                          💬
+                        </span>
+                        &ldquo;{ROUTE_MATCH_RECOVERY_SCRIPT}&rdquo;
+                      </p>
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                        onClick={handleApplyRouteMatchDiscount}
+                      >
+                        Apply Router Match Discount (${ROUTE_MATCH_RECOVERY_PRICE_DOLLARS})
+                      </Button>
+                      {recoveredViaRouteDiscount ? (
+                        <p className="text-[11px] text-emerald-300">
+                          Route discount applied — confirm the job below when the customer accepts.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"
                     size="lg"
                     className="w-full gap-2 border-amber-500/40 text-amber-100 hover:bg-amber-500/10"
-                    disabled={lostLeadState === "saving"}
+                    disabled={lostLeadState === "saving" || !canLogLostLead}
                     onClick={() => void logLostLead()}
                   >
                     {lostLeadState === "saving" ? (
@@ -940,7 +1000,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <Button
                     type="button"
                     size="lg"
-                    className="min-w-0 flex-1 gap-2"
+                    className={cn(
+                      "min-w-0 flex-1 gap-2",
+                      highlightConfirmBook &&
+                        "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
+                    )}
                     disabled={jobState === "creating" || !canDispatch}
                     onClick={() => void confirmAndBook()}
                   >

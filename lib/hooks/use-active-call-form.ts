@@ -482,6 +482,7 @@ export function useActiveCallForm(
         quotedPriceCents?: number
         discountApplied?: string | null
         baselineQuotedPriceCents?: number | null
+        recoveredViaRouteDiscount?: boolean
       }
     ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
       if (!current) return { ok: false }
@@ -595,6 +596,7 @@ export function useActiveCallForm(
               options?.baselineQuotedPriceCents != null && options.baselineQuotedPriceCents > 0
                 ? Math.round(options.baselineQuotedPriceCents)
                 : null,
+            recovered_via_route_discount: options?.recoveredViaRouteDiscount === true,
           }),
         })
         const json = (await res.json()) as {

@@ -62,3 +62,9 @@ export function applyNegotiationDiscount(params: {
       return current
   }
 }
+
+/** Authorized route-match recovery price pitched when customer says quote is too high. */
+export const ROUTE_MATCH_RECOVERY_PRICE_DOLLARS = 265
+
+export const ROUTE_MATCH_RECOVERY_SCRIPT =
+  'I want to get you taken care of. If we can bypass immediate dispatch and book a flexible 2-hour window on an optimized route, I can authorize a special field reduction down to $265. Does that keep us within your budget?'

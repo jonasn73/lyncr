@@ -36,6 +36,7 @@ type CreateJobBody = {
   key_variant_id?: string | null
   discount_applied?: string | null
   baseline_quote_cents?: number | null
+  recovered_via_route_discount?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
         body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
           ? Math.round(Number(body.baseline_quote_cents))
           : null,
+      recoveredViaRouteDiscount: body.recovered_via_route_discount === true,
     })
 
     return NextResponse.json({ data: result })

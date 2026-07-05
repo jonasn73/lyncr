@@ -61,6 +61,8 @@ export type CreateIntakeJobInput = {
   discountApplied?: string | null
   /** Auto-calculated quote before negotiation discounts. */
   baselineQuotedPriceCents?: number | null
+  /** Customer recovered via price-shopper route-match script. */
+  recoveredViaRouteDiscount?: boolean
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
 }
@@ -220,8 +222,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.discountApplied?.trim()
       ? {
           discount_applied: input.discountApplied.trim(),
-          negotiation_outcome: "booked_with_discount",
+          negotiation_outcome: input.recoveredViaRouteDiscount
+            ? "recovered_via_route_discount"
+            : "booked_with_discount",
         }
+      : {}),
+    ...(input.recoveredViaRouteDiscount
+      ? { recovered_via_route_discount: true }
       : {}),
     ...(latitude != null ? { customer_lat: latitude } : {}),
     ...(longitude != null ? { customer_lng: longitude } : {}),
