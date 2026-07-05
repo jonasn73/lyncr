@@ -191,6 +191,8 @@ export interface SchedulerEvent {
   key_style?: string | null
   key_variant_id?: string | null
   key_profile_id?: string | null
+  discount_applied?: string | null
+  baseline_quoted_price_cents?: number | null
 }
 
 /** Job waiting in the unassigned pool (no tech yet). */
@@ -220,6 +222,8 @@ export interface UnassignedPoolJob {
   key_style?: string | null
   key_variant_id?: string | null
   key_profile_id?: string | null
+  discount_applied?: string | null
+  baseline_quoted_price_cents?: number | null
 }
 
 /** Active dispatch pipeline job (scheduled + hopper) for map split view. */

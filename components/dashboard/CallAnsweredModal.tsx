@@ -11,6 +11,7 @@ import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
@@ -33,6 +34,8 @@ import {
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
 import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
+import type { NegotiationDiscountId } from "@/lib/price-negotiation"
+import { negotiationDiscountLabel, parseQuoteDollars } from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import type {
   OwnerCallAnsweredPayload,
@@ -222,6 +225,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const autoTotalDollars =
     liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
   const [customPrice, setCustomPrice] = useState("")
+  const [negotiationDiscountApplied, setNegotiationDiscountApplied] =
+    useState<NegotiationDiscountId | null>(null)
+  const [negotiationDiscountsTried, setNegotiationDiscountsTried] = useState<NegotiationDiscountId[]>([])
+
+  useEffect(() => {
+    setNegotiationDiscountApplied(null)
+    setNegotiationDiscountsTried([])
+  }, [effectiveCurrent?.id])
 
   useEffect(() => {
     if (!effectiveCurrent) {
@@ -246,6 +257,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
     return form.quotedPriceCents > 0 ? form.quotedPriceCents : liveQuote.totalCents
   }, [customPrice, form.quotedPriceCents, liveQuote.totalCents, setQuotedPriceDollars, syncQuotedPriceToAuto])
+
+  const handleNegotiationApply = useCallback(
+    (dollars: number, discountId: NegotiationDiscountId) => {
+      setCustomPrice(String(dollars))
+      setQuotedPriceDollars(dollars)
+      setNegotiationDiscountApplied(discountId)
+      setNegotiationDiscountsTried((prev) =>
+        prev.includes(discountId) ? prev : [...prev, discountId]
+      )
+    },
+    [setQuotedPriceDollars]
+  )
+
+  const jobCreateExtras = useCallback(
+    (quotedPriceCents: number) => ({
+      quotedPriceCents,
+      discountApplied: negotiationDiscountApplied,
+      baselineQuotedPriceCents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+    }),
+    [negotiationDiscountApplied, liveQuote.totalCents]
+  )
 
   useEffect(() => {
     if (!ownerUserId) return
@@ -448,7 +480,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const confirmAndBook = useCallback(async () => {
     if (!effectiveCurrent || !ownerUserId) return
     const quotedPriceCents = applyCustomPriceToForm()
-    const result = await createJob(activeOrganizationId, { quotedPriceCents })
+    const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
     if (manualCallRow) {
       clearManualCallRow()
@@ -465,13 +497,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dismissCallIntake,
     effectiveCurrent,
     manualCallRow,
+    jobCreateExtras,
     ownerUserId,
   ])
 
   const sendToDispatch = useCallback(async () => {
     if (!effectiveCurrent || !ownerUserId) return
     const quotedPriceCents = applyCustomPriceToForm()
-    const result = await createJob(activeOrganizationId, { quotedPriceCents })
+    const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
     if (manualCallRow) clearManualCallRow()
     else if (current) {
@@ -488,6 +521,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dismissCallIntake,
     effectiveCurrent,
     manualCallRow,
+    jobCreateExtras,
     ownerUserId,
     router,
   ])
@@ -497,7 +531,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, {
       pendingCallback: true,
-      quotedPriceCents,
+      ...jobCreateExtras(quotedPriceCents),
     })
     if (!result.ok) return
     if (manualCallRow) {
@@ -515,6 +549,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dismissCallIntake,
     effectiveCurrent,
     manualCallRow,
+    jobCreateExtras,
     ownerUserId,
   ])
 
@@ -523,6 +558,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setLostLeadState("saving")
     setLostLeadError(null)
     try {
+      const quotedPriceCents = applyCustomPriceToForm()
       const res = await fetch("/api/leads/lost", {
         method: "POST",
         credentials: "include",
@@ -530,7 +566,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         body: JSON.stringify({
           call_log_id: effectiveCurrent.isManual ? null : effectiveCurrent.id,
           phone_number: form.phoneNumber.trim() || effectiveCurrent.from_number,
-          last_quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
+          last_quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
+          baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+          discount_applied: negotiationDiscountApplied,
+          negotiation_discounts_tried: negotiationDiscountsTried,
           failure_reason: failureReason,
           vehicle_year: form.vehicleYear,
           vehicle_make: form.vehicleMake,
@@ -551,13 +590,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     activeOrganizationId,
     dismissOnly,
     effectiveCurrent,
+    applyCustomPriceToForm,
     failureReason,
     form.phoneNumber,
-    form.quotedPriceCents,
     form.vehicleMake,
     form.vehicleModel,
     form.vehicleYear,
     liveQuote.dispatchJobTypeLabel,
+    liveQuote.totalCents,
+    negotiationDiscountApplied,
+    negotiationDiscountsTried,
     ownerUserId,
   ])
 
@@ -663,6 +705,61 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 vehicleMake={form.vehicleMake}
                 vehicleModel={form.vehicleModel}
                 onServiceTypeChange={setServiceQuoteTypeId}
+              />
+
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+                <Label
+                  htmlFor="ac-quote-price"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
+                >
+                  Quote before dispatch
+                </Label>
+                <div className="relative mt-2">
+                  <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
+                    $
+                  </span>
+                  <input
+                    id="ac-quote-price"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    value={customPrice}
+                    onChange={(e) => {
+                      setCustomPrice(e.target.value)
+                      const raw = e.target.value.trim()
+                      if (!raw) return
+                      const dollars = Number.parseFloat(raw)
+                      if (Number.isFinite(dollars) && dollars >= 0) {
+                        setQuotedPriceDollars(dollars)
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!customPrice.trim()) {
+                        syncQuotedPriceToAuto()
+                        setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                      }
+                    }}
+                    className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                    aria-describedby="ac-quote-price-hint"
+                  />
+                </div>
+                <p id="ac-quote-price-hint" className="mt-2 text-center text-[10px] text-muted-foreground">
+                  {form.quotedPriceOverridden
+                    ? "Custom quote — edit live before you dispatch."
+                    : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel} base${
+                        liveQuote.distanceMiles != null
+                          ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
+                          : ""
+                      }.`}
+                </p>
+              </div>
+
+              <PriceNegotiationHelperPanel
+                baselineCents={liveQuote.totalCents}
+                currentPriceDollars={customPrice}
+                onApplyPrice={handleNegotiationApply}
+                appliedDiscountId={negotiationDiscountApplied}
               />
 
               {requiresVehicle ? (
@@ -786,58 +883,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </div>
               </fieldset>
 
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
-                <Label
-                  htmlFor="ac-quote-price"
-                  className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-                >
-                  Quote before dispatch
-                </Label>
-                <div className="relative mt-2">
-                  <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
-                    $
-                  </span>
-                  <input
-                    id="ac-quote-price"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={1}
-                    value={customPrice}
-                    onChange={(e) => {
-                      setCustomPrice(e.target.value)
-                      const raw = e.target.value.trim()
-                      if (!raw) return
-                      const dollars = Number.parseFloat(raw)
-                      if (Number.isFinite(dollars) && dollars >= 0) {
-                        setQuotedPriceDollars(dollars)
-                      }
-                    }}
-                    onBlur={() => {
-                      if (!customPrice.trim()) {
-                        syncQuotedPriceToAuto()
-                        setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-                      }
-                    }}
-                    className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
-                    aria-describedby="ac-quote-price-hint"
-                  />
-                </div>
-                <p id="ac-quote-price-hint" className="mt-2 text-center text-[10px] text-muted-foreground">
-                  {form.quotedPriceOverridden
-                    ? "Custom quote — edit live before you dispatch."
-                    : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel} base${
-                        liveQuote.distanceMiles != null
-                          ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
-                          : ""
-                      }.`}
-                </p>
-              </div>
-
               <fieldset className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                 <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
                   Price-shopper recovery
                 </legend>
+                {negotiationDiscountApplied || form.quotedPriceOverridden ? (
+                  <p className="text-[11px] text-amber-100/90">
+                    Last pitched quote: ${parseQuoteDollars(customPrice, liveQuote.totalCents)}
+                    {negotiationDiscountApplied
+                      ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
+                      : ""}
+                    {liveQuote.totalCents > 0
+                      ? ` · baseline was $${Math.round(liveQuote.totalCents / 100)}`
+                      : ""}
+                  </p>
+                ) : null}
                 <div className="space-y-1.5">
                   <Label htmlFor="failure-reason" className="text-xs">
                     Failure reason

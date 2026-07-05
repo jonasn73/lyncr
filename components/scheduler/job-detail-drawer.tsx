@@ -8,6 +8,7 @@ import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -40,6 +41,7 @@ import { calculateServiceQuote, type ServiceQuoteTypeId } from "@/lib/service-qu
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
+import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import type { VehicleClarificationOption } from "@/lib/vehicle-intake-clarifications"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -115,6 +117,8 @@ export function JobDetailDrawer({
   const [answeredClarificationIds, setAnsweredClarificationIds] = useState<string[]>([])
   const [editablePrice, setEditablePrice] = useState("")
   const [priceOverridden, setPriceOverridden] = useState(false)
+  const [negotiationDiscountApplied, setNegotiationDiscountApplied] =
+    useState<NegotiationDiscountId | null>(null)
   const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const [location, setLocation] = useState("")
@@ -207,6 +211,8 @@ export function JobDetailDrawer({
       key_style: keyStyle.trim() || null,
       key_variant_id: keyVariantId.trim() || null,
       key_profile_id: keyProfileId.trim() || null,
+      discount_applied: negotiationDiscountApplied,
+      baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
     }
   }, [
     assignedTechId,
@@ -221,6 +227,8 @@ export function JobDetailDrawer({
     keyStyle,
     keyVariantId,
     location,
+    negotiationDiscountApplied,
+    liveQuote.totalCents,
     resolveQuotedPriceCents,
     serviceQuoteTypeId,
     travelDistanceMilesValue,
@@ -291,6 +299,12 @@ export function JobDetailDrawer({
     setPriceOverridden(false)
   }, [])
 
+  const handleNegotiationApply = useCallback((dollars: number, discountId: NegotiationDiscountId) => {
+    setEditablePrice(String(dollars))
+    setPriceOverridden(true)
+    setNegotiationDiscountApplied(discountId)
+  }, [])
+
   const assignableTechs = useMemo(
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
     [technicians]
@@ -334,6 +348,9 @@ export function JobDetailDrawer({
     const savedCents = source.quoted_price_cents ?? 0
     setEditablePrice(savedCents > 0 ? String(Math.round(savedCents / 100)) : "")
     setPriceOverridden(savedCents > 0)
+    setNegotiationDiscountApplied(
+      (source.discount_applied as NegotiationDiscountId | null) ?? null
+    )
     setLocation(source.location ?? "")
     setJobNotes(source.job_notes ?? "")
     setDurationMinutes(source.duration_minutes ?? 60)
@@ -663,6 +680,13 @@ export function JobDetailDrawer({
                       }.`}
                 </p>
               </div>
+
+              <PriceNegotiationHelperPanel
+                baselineCents={liveQuote.totalCents}
+                currentPriceDollars={editablePrice}
+                onApplyPrice={handleNegotiationApply}
+                appliedDiscountId={negotiationDiscountApplied}
+              />
 
               {requiresVehicle ? (
                 <fieldset className="@container grid min-w-0 max-w-full gap-3 overflow-hidden rounded-lg border border-primary/40 bg-primary/10 p-3">

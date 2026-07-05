@@ -42,6 +42,8 @@ type PatchSchedulerBody = {
   key_style?: string | null
   key_variant_id?: string | null
   key_profile_id?: string | null
+  discount_applied?: string | null
+  baseline_quote_cents?: number | null
 }
 
 function isFullJobEdit(body: PatchSchedulerBody): boolean {
@@ -64,7 +66,9 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
     body.key_chipset !== undefined ||
     body.key_style !== undefined ||
     body.key_variant_id !== undefined ||
-    body.key_profile_id !== undefined
+    body.key_profile_id !== undefined ||
+    body.discount_applied !== undefined ||
+    body.baseline_quote_cents !== undefined
   )
 }
 
@@ -169,6 +173,11 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       keyStyle: body.key_style ?? null,
       keyVariantId: body.key_variant_id ?? null,
       keyProfileId: body.key_profile_id ?? null,
+      discountApplied: body.discount_applied ?? null,
+      baselineQuotedPriceCents:
+        body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
+          ? Math.round(Number(body.baseline_quote_cents))
+          : null,
     })
 
     if (!event) return NextResponse.json({ error: "Job not found" }, { status: 404 })

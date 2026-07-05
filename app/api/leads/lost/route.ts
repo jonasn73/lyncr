@@ -11,6 +11,9 @@ type LostLeadBody = {
   call_log_id?: string | null
   phone_number?: string | null
   last_quoted_price_cents?: number | null
+  baseline_quote_cents?: number | null
+  discount_applied?: string | null
+  negotiation_discounts_tried?: string[] | null
   failure_reason?: string | null
   vehicle_year?: string | null
   vehicle_make?: string | null
@@ -33,6 +36,10 @@ export async function POST(req: NextRequest) {
     const orgRaw = body.organization_id?.trim() || null
     const organizationId = orgRaw && !orgRaw.startsWith("legacy-") ? orgRaw : null
 
+    const discountsTried = Array.isArray(body.negotiation_discounts_tried)
+      ? body.negotiation_discounts_tried.filter((v) => typeof v === "string" && v.trim()).map((v) => v.trim())
+      : []
+
     const result = await insertLostLead({
       ownerUserId: userId,
       organizationId,
@@ -48,6 +55,17 @@ export async function POST(req: NextRequest) {
       collected: {
         source: "answered_call_intake",
         status: "lost_lead",
+        baseline_quote_cents:
+          body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
+            ? Math.round(Number(body.baseline_quote_cents))
+            : null,
+        target_price_cents:
+          body.last_quoted_price_cents != null && Number.isFinite(Number(body.last_quoted_price_cents))
+            ? Math.round(Number(body.last_quoted_price_cents))
+            : null,
+        discount_applied: body.discount_applied?.trim() || null,
+        negotiation_discounts_tried: discountsTried,
+        negotiation_outcome: "declined_after_pitch",
       },
     })
 

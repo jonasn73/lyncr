@@ -6974,6 +6974,8 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     key_style: pick(["key_style"]),
     key_variant_id: pick(["key_variant_id"]),
     key_profile_id: pick(["key_profile_id"]),
+    discount_applied: pick(["discount_applied"]),
+    baseline_quoted_price_cents: pickNum(["baseline_quoted_price_cents"]),
   }
 }
 
@@ -7256,6 +7258,8 @@ export async function updateOwnerSchedulerJob(params: {
   keyStyle?: string | null
   keyVariantId?: string | null
   keyProfileId?: string | null
+  discountApplied?: string | null
+  baselineQuotedPriceCents?: number | null
 }): Promise<import("@/lib/types").SchedulerEvent | null> {
   const sql = getSql()
   const existingRows = await sql`
@@ -7363,6 +7367,14 @@ export async function updateOwnerSchedulerJob(params: {
   if (params.quotedPriceCents != null && params.quotedPriceCents > 0) {
     collectedPatch.last_quoted_price_cents = Math.round(params.quotedPriceCents)
     collectedPatch.quoted_price_cents = Math.round(params.quotedPriceCents)
+  }
+  if (params.baselineQuotedPriceCents != null && params.baselineQuotedPriceCents > 0) {
+    collectedPatch.baseline_quoted_price_cents = Math.round(params.baselineQuotedPriceCents)
+  }
+  if (params.discountApplied !== undefined) {
+    const discount = params.discountApplied?.trim() || null
+    collectedPatch.discount_applied = discount
+    collectedPatch.negotiation_outcome = discount ? "booked_with_discount" : null
   }
   if (
     params.serviceQuoteTypeId?.trim() &&
@@ -7709,6 +7721,8 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     key_style: ev.key_style,
     key_variant_id: ev.key_variant_id,
     key_profile_id: ev.key_profile_id,
+    discount_applied: ev.discount_applied,
+    baseline_quoted_price_cents: ev.baseline_quoted_price_cents,
   }
 }
 

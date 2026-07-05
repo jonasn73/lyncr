@@ -477,7 +477,12 @@ export function useActiveCallForm(
   const createJob = useCallback(
     async (
       organizationId?: string | null,
-      options?: { pendingCallback?: boolean; quotedPriceCents?: number }
+      options?: {
+        pendingCallback?: boolean
+        quotedPriceCents?: number
+        discountApplied?: string | null
+        baselineQuotedPriceCents?: number | null
+      }
     ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
       if (!current) return { ok: false }
       const phone = form.phoneNumber.trim() || current.from_number
@@ -585,6 +590,11 @@ export function useActiveCallForm(
             customer_lng: form.serviceAddress?.lng ?? null,
             organization_id: organizationId ?? null,
             pending_callback: pendingCallback,
+            discount_applied: options?.discountApplied?.trim() || null,
+            baseline_quote_cents:
+              options?.baselineQuotedPriceCents != null && options.baselineQuotedPriceCents > 0
+                ? Math.round(options.baselineQuotedPriceCents)
+                : null,
           }),
         })
         const json = (await res.json()) as {

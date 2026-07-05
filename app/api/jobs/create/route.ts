@@ -34,6 +34,8 @@ type CreateJobBody = {
   service_quote_type_id?: string | null
   pending_callback?: boolean
   key_variant_id?: string | null
+  discount_applied?: string | null
+  baseline_quote_cents?: number | null
 }
 
 export async function POST(req: NextRequest) {
@@ -76,6 +78,11 @@ export async function POST(req: NextRequest) {
       keyChipset: body.key_chipset?.trim() || null,
       keyVariantId: body.key_variant_id?.trim() || null,
       pendingCallback: body.pending_callback === true,
+      discountApplied: body.discount_applied?.trim() || null,
+      baselineQuotedPriceCents:
+        body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
+          ? Math.round(Number(body.baseline_quote_cents))
+          : null,
     })
 
     return NextResponse.json({ data: result })

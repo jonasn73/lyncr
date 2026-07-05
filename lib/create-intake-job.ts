@@ -57,6 +57,10 @@ export type CreateIntakeJobInput = {
   keyStyle?: string | null
   keyChipset?: string | null
   keyVariantId?: string | null
+  /** Most recent negotiation preset applied before booking. */
+  discountApplied?: string | null
+  /** Auto-calculated quote before negotiation discounts. */
+  baselineQuotedPriceCents?: number | null
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
 }
@@ -208,6 +212,15 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
           last_quoted_price_cents: quotedPriceCents,
           quoted_price_cents: quotedPriceCents,
           pricing_metadata: pricingMetadata,
+        }
+      : {}),
+    ...(input.baselineQuotedPriceCents != null && input.baselineQuotedPriceCents > 0
+      ? { baseline_quoted_price_cents: Math.round(input.baselineQuotedPriceCents) }
+      : {}),
+    ...(input.discountApplied?.trim()
+      ? {
+          discount_applied: input.discountApplied.trim(),
+          negotiation_outcome: "booked_with_discount",
         }
       : {}),
     ...(latitude != null ? { customer_lat: latitude } : {}),
