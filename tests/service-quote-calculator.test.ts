@@ -37,4 +37,32 @@ describe("calculateServiceQuote", () => {
     expect(quote.totalCents).toBe(8500 + 18 * 350)
     expect(quote.lines.some((l) => l.kind === "distance_travel")).toBe(true)
   })
+
+  it("adds smart key blank and programming fees from key selection", () => {
+    const quote = calculateServiceQuote({
+      serviceTypeId: "key_gen",
+      vehicleYear: "2022",
+      vehicleMake: "Toyota",
+      vehicleModel: "Camry",
+      keyStyle: "Push start (smart key)",
+      keyVariantId: "v-abc123",
+    })
+    expect(quote.keyBlankCents).toBe(6000)
+    expect(quote.programmingCents).toBe(4500)
+    expect(quote.autoTotalCents).toBe(17500 + 6000 + 4500)
+    expect(quote.totalCents).toBe(17500 + 6000 + 4500)
+  })
+
+  it("adds high-security blank and programming for remote head keys", () => {
+    const quote = calculateServiceQuote({
+      serviceTypeId: "key_dup",
+      vehicleYear: "2018",
+      vehicleMake: "Ford",
+      vehicleModel: "Fusion",
+      keyStyle: "Remote head key",
+    })
+    expect(quote.keyBlankCents).toBe(2000)
+    expect(quote.programmingCents).toBe(4500)
+    expect(quote.autoTotalCents).toBe(9500 + 2000 + 4500)
+  })
 })

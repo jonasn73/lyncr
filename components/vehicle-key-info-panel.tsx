@@ -135,11 +135,14 @@ function CompatibleVehiclesBlock({
 function VariantGrid({
   variants,
   selectedVariantId,
+  selectedKeyId,
   disabled,
   onPick,
 }: {
   variants: FccVariant[]
   selectedVariantId: string | null | undefined
+  /** When set, only this variant card is shown in the grid. */
+  selectedKeyId: string | null
   disabled?: boolean
   onPick: (variant: FccVariant) => void
 }) {
@@ -151,9 +154,14 @@ function VariantGrid({
     )
   }
 
+  const visibleVariants =
+    selectedKeyId === null ? variants : variants.filter((variant) => variant.id === selectedKeyId)
+
+  if (visibleVariants.length === 0) return null
+
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {variants.map((variant) => {
+      {visibleVariants.map((variant) => {
         const selected = selectedVariantId === variant.id
         const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
         const buttonLabel = variantButtonLabel(
@@ -224,8 +232,17 @@ export function VehicleKeyInfoPanel({
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
   const [error, setError] = useState(false)
+  const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null)
 
   const ready = Boolean(year && make && model)
+
+  useEffect(() => {
+    setSelectedKeyId(null)
+  }, [year, make, model])
+
+  useEffect(() => {
+    setSelectedKeyId(value?.variantId ?? null)
+  }, [value?.variantId])
 
   useEffect(() => {
     if (!ready) {
@@ -321,6 +338,7 @@ export function VehicleKeyInfoPanel({
   const multipleFcc = profileDetails.length > 1
 
   const selectProfile = (p: KeyProfile) => {
+    setSelectedKeyId(null)
     onChange({
       profileId: p.id,
       fccId: p.fcc_id,
@@ -332,6 +350,7 @@ export function VehicleKeyInfoPanel({
   }
 
   const applyVariant = (p: KeyProfile, variant: FccVariant) => {
+    setSelectedKeyId(variant.id)
     onChange({
       profileId: p.id,
       fccId: p.fcc_id,
@@ -347,6 +366,29 @@ export function VehicleKeyInfoPanel({
       variantId: variant.id,
     })
   }
+
+  const resetKeySelection = () => {
+    setSelectedKeyId(null)
+    if (!profile) return
+    onChange({
+      profileId: profile.id,
+      fccId: profile.fcc_id,
+      frequency: profile.frequency,
+      chipset: profile.chipset,
+      keyStyle: value?.keyStyle || KEY_STYLE_OPTIONS[5],
+      variantId: null,
+    })
+  }
+
+  const selectedVariantDetail =
+    selectedKeyId != null
+      ? profileDetails
+          .map((detail) => ({
+            detail,
+            variant: detail.variants.find((variant) => variant.id === selectedKeyId) ?? null,
+          }))
+          .find((row) => row.variant != null) ?? null
+      : null
 
   return (
     <div className="grid gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
@@ -374,7 +416,29 @@ export function VehicleKeyInfoPanel({
       )}
 
       <div className="grid gap-3">
-        {profileDetails.map((detail) => {
+        {selectedKeyId && selectedVariantDetail?.variant ? (
+          <section className="grid gap-2 rounded-lg border border-primary/50 bg-primary/10 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-foreground">Selected key layout</span>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={resetKeySelection}
+                className="text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Reset / change selection
+              </button>
+            </div>
+            <VariantGrid
+              variants={selectedVariantDetail.detail.variants}
+              selectedVariantId={selectedKeyId}
+              selectedKeyId={selectedKeyId}
+              disabled={disabled}
+              onPick={(variant) => applyVariant(selectedVariantDetail.detail.profile, variant)}
+            />
+          </section>
+        ) : (
+          profileDetails.map((detail) => {
           const p = detail.profile
           const selected = value?.profileId === p.id || value?.fccId === p.fcc_id
           const summary = detail.compatible_summary
@@ -433,6 +497,7 @@ export function VehicleKeyInfoPanel({
                 <VariantGrid
                   variants={detail.variants}
                   selectedVariantId={selected ? value?.variantId : null}
+                  selectedKeyId={selectedKeyId}
                   disabled={disabled}
                   onPick={(variant) => applyVariant(p, variant)}
                 />
@@ -448,7 +513,8 @@ export function VehicleKeyInfoPanel({
               </a>
             </section>
           )
-        })}
+        })
+        )}
       </div>
 
       <label className="grid gap-1 text-[11px]">

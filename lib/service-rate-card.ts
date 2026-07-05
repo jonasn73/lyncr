@@ -7,7 +7,7 @@ export type ServiceQuoteTypeId = "lockout" | "key_gen" | "key_dup" | "ignition" 
 
 /** One line item in a stored pricing_metadata breakdown. */
 export type PricingMetadataLine = {
-  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel"
+  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel" | "key_blank" | "key_programming"
   label: string
   cents: number
 }
@@ -69,6 +69,14 @@ export type ServiceRateCard = {
   /** Cents charged per mile beyond distance_included_miles. */
   distance_per_mile_cents: number
   distance_label: string
+  /** Smart / prox fob blank part cost (cents). */
+  key_blank_smart_cents: number
+  /** High-security / remote-head blank part cost (cents). */
+  key_blank_high_security_cents: number
+  /** OBD programming fee when a transponder or smart key is involved (cents). */
+  key_programming_cents: number
+  key_blank_label: string
+  key_programming_label: string
 }
 
 export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
@@ -107,6 +115,11 @@ export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
   distance_included_miles: 0,
   distance_per_mile_cents: 350,
   distance_label: "Travel distance",
+  key_blank_smart_cents: 6000,
+  key_blank_high_security_cents: 2000,
+  key_programming_cents: 4500,
+  key_blank_label: "Key blank / fob part",
+  key_programming_label: "OBD programming",
 }
 
 let cachedSql: ReturnType<typeof neon> | null = null
@@ -188,6 +201,21 @@ export function resolveServiceRateCard(rateCard?: Partial<ServiceRateCard> | nul
         ? Math.round(rateCard.distance_per_mile_cents)
         : DEFAULT_SERVICE_RATE_CARD.distance_per_mile_cents,
     distance_label: rateCard.distance_label?.trim() || DEFAULT_SERVICE_RATE_CARD.distance_label,
+    key_blank_smart_cents:
+      rateCard.key_blank_smart_cents != null && rateCard.key_blank_smart_cents >= 0
+        ? Math.round(rateCard.key_blank_smart_cents)
+        : DEFAULT_SERVICE_RATE_CARD.key_blank_smart_cents,
+    key_blank_high_security_cents:
+      rateCard.key_blank_high_security_cents != null && rateCard.key_blank_high_security_cents >= 0
+        ? Math.round(rateCard.key_blank_high_security_cents)
+        : DEFAULT_SERVICE_RATE_CARD.key_blank_high_security_cents,
+    key_programming_cents:
+      rateCard.key_programming_cents != null && rateCard.key_programming_cents >= 0
+        ? Math.round(rateCard.key_programming_cents)
+        : DEFAULT_SERVICE_RATE_CARD.key_programming_cents,
+    key_blank_label: rateCard.key_blank_label?.trim() || DEFAULT_SERVICE_RATE_CARD.key_blank_label,
+    key_programming_label:
+      rateCard.key_programming_label?.trim() || DEFAULT_SERVICE_RATE_CARD.key_programming_label,
   }
 }
 

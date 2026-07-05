@@ -330,6 +330,9 @@ export function useActiveCallForm(
       rateCard,
       rateCardSource,
       distanceMiles: travelDistanceMilesValue,
+      keyStyle: form.keyStyle,
+      keyChipset: form.keyChipset,
+      keyVariantId: form.keyVariantId,
     })
     setForm((prev) => {
       const nextJobType = quote.jobType
@@ -359,6 +362,9 @@ export function useActiveCallForm(
     form.vehicleYear,
     form.vehicleMake,
     form.vehicleModel,
+    form.keyStyle,
+    form.keyChipset,
+    form.keyVariantId,
     rateCard,
     rateCardSource,
     travelDistanceMilesValue,
@@ -614,6 +620,9 @@ export function useActiveCallForm(
     rateCard,
     rateCardSource,
     distanceMiles: travelDistanceMilesValue,
+    keyStyle: form.keyStyle,
+    keyChipset: form.keyChipset,
+    keyVariantId: form.keyVariantId,
   })
 
   return {

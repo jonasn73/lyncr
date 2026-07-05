@@ -8,6 +8,7 @@ import {
   type ServiceQuoteTypeId,
 } from "@/lib/service-rate-card"
 import { formatDistanceMiles } from "@/lib/geo"
+import { type KeyStyleBucket } from "@/lib/vehicle-key-variant-labels"
 
 /** Service types shown in the quote calculator (maps to intake job types). */
 export const SERVICE_QUOTE_TYPES = [
@@ -23,7 +24,7 @@ export type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 export type ServiceQuoteBreakdownLine = {
   label: string
   cents: number
-  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel"
+  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel" | "key_blank" | "key_programming"
 }
 
 export type ServiceQuoteResult = {
@@ -35,7 +36,11 @@ export type ServiceQuoteResult = {
   baseCents: number
   /** Travel premium in cents — distance × per-mile rate when miles are known. */
   distancePremiumCents: number
-  /** Base + distance premium (primary auto-quote inputs). */
+  /** Key blank / fob part cost from selected style or variant. */
+  keyBlankCents: number
+  /** OBD programming overhead when transponder or smart key applies. */
+  programmingCents: number
+  /** Base + travel + key blank + programming (primary auto-quote inputs). */
   autoTotalCents: number
   totalCents: number
   lines: ServiceQuoteBreakdownLine[]
@@ -86,6 +91,90 @@ function distanceSurchargeCents(
   }
 }
 
+function classifyKeyStyleFromIntake(keyStyle: string): KeyStyleBucket {
+  const style = keyStyle.trim().toLowerCase()
+  if (!style || style.includes("not sure")) return "other"
+  if (style.includes("push start") || style.includes("smart")) return "smart"
+  if (style.includes("remote head")) return "remote_head"
+  if (style.includes("flip")) return "flip"
+  if (style.includes("keyless remote")) return "keyless_fob"
+  if (style.includes("turn key") || style.includes("blade")) return "turn_key"
+  return "other"
+}
+
+function keyStyleHasTransponder(bucket: KeyStyleBucket, chipset: string): boolean {
+  if (chipset.trim()) return true
+  return bucket === "smart" || bucket === "remote_head" || bucket === "flip" || bucket === "keyless_fob"
+}
+
+function isSmartKeySelection(bucket: KeyStyleBucket, keyStyle: string): boolean {
+  if (bucket === "smart") return true
+  return keyStyle.trim().toLowerCase().includes("push start")
+}
+
+function shouldApplyKeyHardwarePricing(
+  serviceTypeId: ServiceQuoteTypeId,
+  keyStyle: string,
+  keyVariantId: string
+): boolean {
+  if (keyVariantId.trim()) return true
+  const style = keyStyle.trim().toLowerCase()
+  if (!style || style.includes("not sure")) return false
+  return serviceTypeId === "key_gen" || serviceTypeId === "key_dup"
+}
+
+function keyHardwareSurcharges(
+  params: {
+    serviceTypeId: ServiceQuoteTypeId
+    keyStyle?: string
+    keyChipset?: string
+    keyVariantId?: string
+  },
+  rateCard: ServiceRateCard
+): {
+  blankCents: number
+  blankLabel: string
+  programmingCents: number
+  programmingLabel: string
+} {
+  const keyStyle = params.keyStyle?.trim() ?? ""
+  const keyVariantId = params.keyVariantId?.trim() ?? ""
+  if (!shouldApplyKeyHardwarePricing(params.serviceTypeId, keyStyle, keyVariantId)) {
+    return {
+      blankCents: 0,
+      blankLabel: rateCard.key_blank_label,
+      programmingCents: 0,
+      programmingLabel: rateCard.key_programming_label,
+    }
+  }
+
+  const bucket = classifyKeyStyleFromIntake(keyStyle)
+  const smartKey = isSmartKeySelection(bucket, keyStyle)
+  const hasTransponder = keyStyleHasTransponder(bucket, params.keyChipset?.trim() ?? "")
+
+  let blankCents = 0
+  let blankLabel = rateCard.key_blank_label
+  if (smartKey || bucket === "keyless_fob") {
+    blankCents = rateCard.key_blank_smart_cents
+    blankLabel = "Smart key / prox fob blank"
+  } else if (bucket === "remote_head" || bucket === "flip") {
+    blankCents = rateCard.key_blank_high_security_cents
+    blankLabel = "High-security / remote head blank"
+  } else if (bucket === "turn_key" && hasTransponder) {
+    blankCents = rateCard.key_blank_high_security_cents
+    blankLabel = "Transponder blade blank"
+  }
+
+  const programmingCents = smartKey || hasTransponder ? rateCard.key_programming_cents : 0
+
+  return {
+    blankCents,
+    blankLabel,
+    programmingCents,
+    programmingLabel: rateCard.key_programming_label,
+  }
+}
+
 /** Resolve a quote type id from intake job type + key mode strings. */
 export function serviceQuoteTypeIdFromIntake(jobType: string, keyMode: string): ServiceQuoteTypeId {
   if (jobType === "Lockout") return "lockout"
@@ -106,6 +195,12 @@ export function calculateServiceQuote(params: {
   rateCardSource?: "onboarding_profiles.service_rules" | "default"
   /** Straight-line miles from dispatcher to job site — adds travel surcharge when set. */
   distanceMiles?: number | null
+  /** Selected key style from the vehicle key panel. */
+  keyStyle?: string
+  /** Transponder chipset from the FCC profile (when known). */
+  keyChipset?: string
+  /** Photo variant id when the operator tapped a specific key layout. */
+  keyVariantId?: string
 }): ServiceQuoteResult {
   const rateCard = resolveServiceRateCard(params.rateCard)
   const source = params.rateCardSource ?? "default"
@@ -118,6 +213,15 @@ export function calculateServiceQuote(params: {
       ? params.distanceMiles
       : null
   const distanceTier = distanceSurchargeCents(distanceMiles, rateCard)
+  const keyHardware = keyHardwareSurcharges(
+    {
+      serviceTypeId: params.serviceTypeId,
+      keyStyle: params.keyStyle,
+      keyChipset: params.keyChipset,
+      keyVariantId: params.keyVariantId,
+    },
+    rateCard
+  )
 
   const lines: ServiceQuoteBreakdownLine[] = [
     { kind: "base_rate", label: `${spec.label} base`, cents: base },
@@ -131,9 +235,21 @@ export function calculateServiceQuote(params: {
   if (distanceTier.cents > 0) {
     lines.push({ kind: "distance_travel", label: distanceTier.label, cents: distanceTier.cents })
   }
+  if (keyHardware.blankCents > 0) {
+    lines.push({ kind: "key_blank", label: keyHardware.blankLabel, cents: keyHardware.blankCents })
+  }
+  if (keyHardware.programmingCents > 0) {
+    lines.push({
+      kind: "key_programming",
+      label: keyHardware.programmingLabel,
+      cents: keyHardware.programmingCents,
+    })
+  }
 
   const distancePremiumCents = distanceTier.cents
-  const autoTotalCents = base + distancePremiumCents
+  const keyBlankCents = keyHardware.blankCents
+  const programmingCents = keyHardware.programmingCents
+  const autoTotalCents = base + distancePremiumCents + keyBlankCents + programmingCents
   const totalCents = autoTotalCents + ageTier.cents + makeExtra
 
   return {
@@ -143,6 +259,8 @@ export function calculateServiceQuote(params: {
     dispatchJobTypeLabel: formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode),
     baseCents: base,
     distancePremiumCents,
+    keyBlankCents,
+    programmingCents,
     autoTotalCents,
     totalCents,
     lines,
