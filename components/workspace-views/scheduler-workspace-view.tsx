@@ -35,7 +35,6 @@ import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
 import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
-import { PhoneLookupBar } from "@/components/scheduler/phone-lookup-bar"
 import {
   TechnicianSwimlaneBoard,
   type MobileSchedulerAssignRequest,
@@ -47,7 +46,6 @@ import type {
   ActivePipelineJob,
   FieldTechnician,
   SchedulerEvent,
-  SchedulerPhoneLookupResult,
   UnassignedPoolJob,
 } from "@/lib/types"
 
@@ -249,10 +247,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   function focusPipelineJob(job: ActivePipelineJob) {
     editPipelineJob(job)
-  }
-
-  function focusScheduledMapJob(ev: SchedulerEvent) {
-    editPipelineJob(ev)
   }
 
   const focusJobById = useCallback(
@@ -522,32 +516,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     void globalMutate(pipelineUrl, nextPipeline, { revalidate: false })
   }
 
-  const handlePhoneLookupResults = useCallback(
-    (result: SchedulerPhoneLookupResult | null) => {
-      if (!result || (result.pool.length === 0 && result.scheduled.length === 0)) {
-        // Empty lookup — do not close an editor the user opened from the job list.
-        return
-      }
-      const poolMatch = result.pool[0]
-      if (poolMatch) {
-        focusPipelineJob(poolMatch)
-        return
-      }
-      const scheduledMatch = result.scheduled[0]
-      if (scheduledMatch) {
-        focusScheduledMapJob(scheduledMatch)
-        const eventDay = dayKeyLocal(new Date(scheduledMatch.scheduled_at))
-        const currentKey = dayKeyLocal(selectedDay)
-        if (eventDay !== currentKey) {
-          const d = new Date(scheduledMatch.scheduled_at)
-          setSelectedDay(d)
-          setVisibleMonth(d)
-        }
-      }
-    },
-    [selectedDay]
-  )
-
   function resolveDropHour(techUserId: string, preferredHour: number, durationMinutes: number): number {
     const duration = durationMinutes || 60
     const preferredStart = dateAtLocalHour(selectedDay, preferredHour)
@@ -724,18 +692,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     poolLoading,
   ])
 
-  const headerAction = (
-    <PhoneLookupBar
-      organizationId={orgId}
-      onResults={handlePhoneLookupResults}
-      className="w-full sm:w-auto"
-    />
-  )
-
   return (
     <>
       <WorkspacePage>
-        <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" action={headerAction} />
+        <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
         <p className="text-sm text-zinc-500 lg:text-xs">
           {intakeProfile === "locksmith"
