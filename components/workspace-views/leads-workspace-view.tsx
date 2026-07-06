@@ -821,7 +821,7 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const router = useRouter()
-  const { activeOrganizationId, activeTab } = useDashboardWorkspace()
+  const { activeOrganizationId, activeTab: dashboardTab } = useDashboardWorkspace()
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const initial = useLeadsWorkspaceInitial()
   const cached = useLeadsWorkspaceCacheSnapshot()
@@ -870,9 +870,9 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   }, [reloadLeads])
 
   useEffect(() => {
-    if (activeTab !== "leads") return
+    if (dashboardTab !== "leads") return
     reloadLeads()
-  }, [activeTab, reloadLeads])
+  }, [dashboardTab, reloadLeads])
 
   useEffect(() => {
     if (!ownerUserId || !isRealtimeClientConfigured()) return
