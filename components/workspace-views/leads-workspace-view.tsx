@@ -36,6 +36,7 @@ import {
   type CachedLeadRow,
   type CachedSalvageLead,
   type LeadsWorkspaceCache,
+  type LeadsWorkspaceDebug,
 } from "@/lib/leads-cache"
 import { writeLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
 import { CRM_LEAD_STATUS, LOST_LEAD_STATUS, UNASSIGNED_CALLBACK_STATUS } from "@/lib/job-pool"
@@ -763,6 +764,9 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   loading,
   error,
   leads,
+  leadsData,
+  debugInfo,
+  activeOrganizationId,
   salvageLeads,
   usingDemo,
   selectedLead,
@@ -777,6 +781,9 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   loading: boolean
   error: string | null
   leads: DisplayLead[]
+  leadsData: LeadRow[]
+  debugInfo?: LeadsWorkspaceDebug
+  activeOrganizationId: string | null
   salvageLeads: SalvageLead[]
   usingDemo: boolean
   selectedLead: DisplayLead | null
@@ -789,10 +796,42 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   convertingId: string | null
 }) {
   const activeTabLabel = LEAD_RECOVERY_TABS.find((tab) => tab.id === activeTab)?.label
+  const firstRaw = leadsData[0]
+  const firstDispatchStatus =
+    (firstRaw?.collected?.dispatch_status as string | undefined) ||
+    debugInfo?.sampleRows?.[0]?.dispatch_status ||
+    debugInfo?.sampleRows?.[0]?.collected_dispatch_status ||
+    "no dispatch_status field"
 
   return (
     <WorkspacePage>
       <WorkspacePageHeader eyebrow="CRM" title="Leads Dashboard" />
+
+      <div className="bg-red-900 text-white p-4 text-xs font-mono space-y-2">
+        <p>
+          Raw array length from server: {JSON.stringify(leadsData?.length)} | First item dispatch_status:{" "}
+          {firstDispatchStatus}
+        </p>
+        <p>
+          UI mapped rows (after tabs): {JSON.stringify(leads.length)} | Salvage pool:{" "}
+          {JSON.stringify(salvageLeads.length)} | Active org: {activeOrganizationId ?? "none"}
+        </p>
+        <p>
+          DB total for auth user: {JSON.stringify(debugInfo?.totalRowsForUser ?? "?")} | Raw API count:{" "}
+          {JSON.stringify(debugInfo?.rawLeadCount ?? "?")} | Filtered count (old query):{" "}
+          {JSON.stringify(debugInfo?.filteredLeadCount ?? "?")} | With org_id:{" "}
+          {JSON.stringify(debugInfo?.rowsWithOrganizationId ?? "?")} | Without org_id:{" "}
+          {JSON.stringify(debugInfo?.rowsWithoutOrganizationId ?? "?")}
+        </p>
+        <p>Auth user_id: {debugInfo?.authUserId ?? "?"}</p>
+        <p>{debugInfo?.orgFilterNote ?? "Org filter note unavailable"}</p>
+        {debugInfo?.apiDegraded ? (
+          <p className="text-yellow-200">API DEGRADED: {debugInfo.apiWarning ?? "unknown error"}</p>
+        ) : null}
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-snug">
+          {JSON.stringify(debugInfo?.sampleRows ?? [], null, 2)}
+        </pre>
+      </div>
 
       <LeadsSegmentNav activeTab={activeTab} onTabChange={onTabChange} counts={tabCounts} />
 
@@ -838,6 +877,15 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
 
   const payload = fresh ?? initial ?? cached ?? null
 
+  useEffect(() => {
+    console.log("RAW DATABASE RESP:", {
+      payloadLeads: payload?.leads,
+      payloadDebug: payload?._debug,
+      activeOrganizationId,
+      ownerUserId,
+    })
+  }, [payload, activeOrganizationId, ownerUserId])
+
   useLayoutEffect(() => {
     if (initial) writeLeadsWorkspaceCache(initial)
   }, [initial])
@@ -854,7 +902,8 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const reloadLeads = useCallback(() => {
     void refreshLeadsWorkspaceCache()
       .then((data) => {
-        setFresh(data)
+        console.log("RAW DATABASE RESP:", data)
+        setFresh({ ...data, _debug: { ...data._debug, activeOrganizationId } })
         setError(null)
       })
       .catch((e) => {
@@ -863,7 +912,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
       .finally(() => {
         setFetchDone(true)
       })
-  }, [])
+  }, [activeOrganizationId])
 
   useEffect(() => {
     reloadLeads()
@@ -1012,6 +1061,12 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
           loading={showSpinner}
           error={error}
           leads={leads}
+          leadsData={payload?.leads ?? []}
+          debugInfo={{
+            ...payload?._debug,
+            activeOrganizationId,
+          }}
+          activeOrganizationId={activeOrganizationId}
           salvageLeads={salvageLeads}
           usingDemo={usingDemo}
           selectedLead={selectedLead}
