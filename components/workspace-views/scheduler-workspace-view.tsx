@@ -31,6 +31,7 @@ import {
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { readAndClearLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
@@ -290,6 +291,21 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     },
     [inboundCallPanel]
   )
+
+  /** Open intake sheet when redirected from CRM "Convert to Active Booking". */
+  useEffect(() => {
+    if (!isActive || !inboundCallPanel) return
+    const handoff = readAndClearLeadsIntakeHandoff()
+    if (!handoff) return
+    inboundCallPanel.openManualCallPanel({
+      leadId: handoff.leadId,
+      phoneNumber: handoff.phoneNumber,
+      customerName: handoff.customerName,
+      vehicleYear: handoff.vehicleYear,
+      vehicleMake: handoff.vehicleMake,
+      vehicleModel: handoff.vehicleModel,
+    })
+  }, [isActive, inboundCallPanel])
 
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current

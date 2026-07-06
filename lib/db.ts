@@ -6461,6 +6461,7 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
       SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
       FROM ai_leads
       WHERE user_id = ${userId}
+        AND coalesce(dispatch_status, '') NOT IN ('unassigned_pool', 'unassigned_callback', 'DISPATCHED')
       ORDER BY created_at DESC
       LIMIT ${lim}
     `
@@ -6481,6 +6482,80 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
       )
       return []
     }
+    throw e
+  }
+}
+
+/** Save or update the operator "Action Required" note on a CRM lead. */
+export async function updateAiLeadActionRequired(
+  userId: string,
+  leadId: string,
+  actionRequired: string
+): Promise<boolean> {
+  const sql = getSql()
+  const note = actionRequired.trim()
+  if (!note) return false
+  const patch = JSON.stringify({
+    action_required: note,
+    action_required_label: note,
+    action_required_updated_at: new Date().toISOString(),
+  })
+  try {
+    const rows = await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+      WHERE id = ${leadId} AND user_id = ${userId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return false
+    throw e
+  }
+}
+
+/** Move a CRM lead into the scheduler hopper as an active unassigned booking. */
+export async function convertAiLeadToUnassignedPool(params: {
+  ownerUserId: string
+  leadId: string
+  organizationId?: string | null
+}): Promise<boolean> {
+  const sql = getSql()
+  const orgId = params.organizationId?.trim() || null
+  const patch = JSON.stringify({
+    dispatch_status: "unassigned_pool",
+    job_status: "UNASSIGNED",
+    disposition: "BOOKED",
+    converted_from_crm_at: new Date().toISOString(),
+    source: "crm_convert",
+  })
+  try {
+    const rows =
+      orgId != null
+        ? await sql`
+            UPDATE ai_leads
+            SET
+              disposition = 'BOOKED',
+              dispatch_status = 'unassigned_pool',
+              job_status = 'UNASSIGNED',
+              organization_id = coalesce(organization_id, ${orgId}::uuid),
+              collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+            WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+            RETURNING id
+          `
+        : await sql`
+            UPDATE ai_leads
+            SET
+              disposition = 'BOOKED',
+              dispatch_status = 'unassigned_pool',
+              job_status = 'UNASSIGNED',
+              collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+            WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+            RETURNING id
+          `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return false
     throw e
   }
 }

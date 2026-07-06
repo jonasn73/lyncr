@@ -63,6 +63,8 @@ export type CreateIntakeJobInput = {
   baselineQuotedPriceCents?: number | null
   /** Customer recovered via price-shopper route-match script. */
   recoveredViaRouteDiscount?: boolean
+  /** Update an existing ai_leads row (CRM convert → intake complete) instead of inserting. */
+  existingLeadId?: string | null
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
 }
@@ -236,11 +238,43 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   }
 
   const sql = getSql()
-  const id = crypto.randomUUID()
+  const existingLeadId = input.existingLeadId?.trim() || null
+  const id = existingLeadId ?? crypto.randomUUID()
   const orgId = input.organizationId?.trim() || null
   const collectedJson = JSON.stringify(collected)
 
-  if (orgId) {
+  if (existingLeadId) {
+    const updated =
+      orgId != null
+        ? await sql`
+            UPDATE ai_leads
+            SET
+              caller_e164 = ${phone},
+              summary = ${summary},
+              disposition = ${disposition},
+              dispatch_status = ${dispatchStatus},
+              job_status = 'UNASSIGNED',
+              organization_id = ${orgId}::uuid,
+              collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
+            WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
+            RETURNING id
+          `
+        : await sql`
+            UPDATE ai_leads
+            SET
+              caller_e164 = ${phone},
+              summary = ${summary},
+              disposition = ${disposition},
+              dispatch_status = ${dispatchStatus},
+              job_status = 'UNASSIGNED',
+              collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
+            WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
+            RETURNING id
+          `
+    if (updated.length === 0) {
+      throw new Error("Lead not found or you do not have access.")
+    }
+  } else if (orgId) {
     await sql`
       INSERT INTO ai_leads (
         id, user_id, organization_id, caller_e164, intent_slug, collected, summary,

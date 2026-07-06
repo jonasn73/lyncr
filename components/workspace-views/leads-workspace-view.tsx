@@ -1,8 +1,13 @@
 "use client"
 
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { LifeBuoy, Loader2, PhoneOutgoing } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -32,6 +37,7 @@ import {
   type CachedSalvageLead,
   type LeadsWorkspaceCache,
 } from "@/lib/leads-cache"
+import { writeLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
 
 type LeadRow = CachedLeadRow
 type SalvageLead = CachedSalvageLead
@@ -40,11 +46,16 @@ type DisplayLead = {
   id: string
   name: string
   contact: string
+  phoneE164: string | null
   dateLabel: string
   intentLabel: string
   intentVariant: LeadIntentVariant
   isUrgent: boolean
+  isOverdue: boolean
   actionLabel: string
+  vehicleYear: string
+  vehicleMake: string
+  vehicleModel: string
   raw?: LeadRow
 }
 
@@ -78,6 +89,42 @@ function leadContact(lead: LeadRow): string {
   return formatCaller(lead.caller_e164)
 }
 
+/** Raw E.164 (or dialable digits) for tel: links and scheduler handoff. */
+function leadPhoneE164(lead: LeadRow): string | null {
+  const fromCollected = readCollected(lead.collected, ["callback_number", "caller_number", "phone", "callback"])
+  const raw = fromCollected || lead.caller_e164?.trim() || ""
+  if (!raw) return null
+  const href = telHref(raw)
+  return href ? href.replace(/^tel:/, "") : null
+}
+
+function leadVehicleFields(lead: LeadRow): { year: string; make: string; model: string } {
+  return {
+    year: readCollected(lead.collected, ["vehicle_year", "year"]),
+    make: readCollected(lead.collected, ["vehicle_make", "make"]),
+    model: readCollected(lead.collected, ["vehicle_model", "model"]),
+  }
+}
+
+/** Parse follow-up deadline from collected blob; returns epoch ms or null. */
+function followUpDeadlineMs(lead: LeadRow): number | null {
+  const raw = readCollected(lead.collected, [
+    "follow_up_deadline",
+    "follow_up_at",
+    "callback_due_at",
+    "follow_up_due_at",
+  ])
+  if (!raw) return null
+  const ms = Date.parse(raw)
+  return Number.isFinite(ms) ? ms : null
+}
+
+/** True when a follow-up deadline exists and is in the past. */
+function isFollowUpOverdue(lead: LeadRow): boolean {
+  const ms = followUpDeadlineMs(lead)
+  return ms != null && ms < Date.now()
+}
+
 const URGENT_INTENTS = new Set(["emergency", "pest_active", "lockout", "urgent"])
 
 /** True/False urgent priority flag derived from the captured intent + status keywords. */
@@ -89,8 +136,10 @@ function isUrgentLead(lead: LeadRow): boolean {
   return flag === true || flag === "true" || flag === "yes"
 }
 
-/** Human "Action Required" label, e.g. "Needs Locksmith Dispatch", "Pricing Inbound Call". */
+/** Human "Action Required" label — custom callback note wins over intent defaults. */
 function actionRequiredLabel(lead: LeadRow): string {
+  const custom = readCollected(lead.collected, ["action_required_label", "action_required"])
+  if (custom) return custom
   const slug = lead.intent_slug
   const service = readCollected(lead.collected, ["service_type", "issue_type", "request_type", "intent_label"])
   switch (slug) {
@@ -147,16 +196,33 @@ function formatCapturedDate(iso: string): string {
   return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`
 }
 
+/** Build a tel: href, defaulting to US (+1) when the stored number is bare 10 digits. */
+function telHref(e164: string | null): string | null {
+  if (!e164) return null
+  const trimmed = e164.trim()
+  if (trimmed.startsWith("+")) return `tel:${trimmed.replace(/[^\d+]/g, "")}`
+  const digits = trimmed.replace(/\D/g, "")
+  if (digits.length === 11 && digits.startsWith("1")) return `tel:+${digits}`
+  if (digits.length === 10) return `tel:+1${digits}`
+  return digits ? `tel:${digits}` : null
+}
+
 function apiLeadToDisplay(lead: LeadRow): DisplayLead {
+  const vehicle = leadVehicleFields(lead)
   return {
     id: lead.id,
     name: leadName(lead),
     contact: leadContact(lead),
+    phoneE164: leadPhoneE164(lead),
     dateLabel: formatCapturedDate(lead.created_at),
     intentLabel: intentLabel(lead.intent_slug),
     intentVariant: intentVariantForSlug(lead.intent_slug),
     isUrgent: isUrgentLead(lead),
+    isOverdue: isFollowUpOverdue(lead),
     actionLabel: actionRequiredLabel(lead),
+    vehicleYear: vehicle.year,
+    vehicleMake: vehicle.make,
+    vehicleModel: vehicle.model,
     raw: lead,
   }
 }
@@ -176,7 +242,7 @@ function LeadDetailSheet({
       <DrawerScrollBody>
         <div className="flex flex-wrap items-center gap-2">
           <LeadIntentPill label={selected.intentLabel} variant={selected.intentVariant} />
-          <UrgentFlag urgent={selected.isUrgent} />
+          <LeadPriorityBadge urgent={selected.isUrgent} overdue={selected.isOverdue} />
         </div>
         <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Action required</p>
@@ -214,19 +280,107 @@ function LeadDetailSheet({
   )
 }
 
-function UrgentFlag({ urgent }: { urgent: boolean }) {
+function LeadPriorityBadge({ urgent, overdue }: { urgent: boolean; overdue: boolean }) {
+  if (overdue) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-200">
+        ⚠️ OVERDUE
+      </span>
+    )
+  }
   if (urgent) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-rose-300">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" aria-hidden />
-        Urgent · True
+        Urgent
       </span>
     )
   }
+  return null
+}
+
+function CallbackNotePopover({
+  lead,
+  disabled,
+  onSave,
+}: {
+  lead: DisplayLead
+  disabled?: boolean
+  onSave: (lead: DisplayLead, note: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(lead.actionLabel)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setDraft(lead.actionLabel)
+      setError(null)
+    }
+  }, [open, lead.actionLabel])
+
+  const handleSave = async () => {
+    const note = draft.trim()
+    if (!note) {
+      setError("Enter a callback note.")
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave(lead, note)
+      setOpen(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save note.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-      Urgent · False
-    </span>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={disabled}
+          className="h-8 flex-1 text-xs"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Log Callback Note
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="top"
+        motion="fade"
+        className="w-72 border-zinc-800 bg-zinc-950 p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Action required</p>
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Callback note…"
+          className="mt-2 h-9 border-zinc-700 bg-zinc-900 text-sm"
+          disabled={saving}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void handleSave()
+          }}
+        />
+        {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+        <div className="mt-3 flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" size="sm" disabled={saving} onClick={() => void handleSave()}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -234,10 +388,16 @@ const LeadsGrid = memo(function LeadsGrid({
   rows,
   selectedLead,
   onSelectLead,
+  onSaveCallbackNote,
+  onConvertToBooking,
+  convertingId,
 }: {
   rows: DisplayLead[]
   selectedLead: DisplayLead | null
   onSelectLead: (lead: DisplayLead) => void
+  onSaveCallbackNote: (lead: DisplayLead, note: string) => Promise<void>
+  onConvertToBooking: (lead: DisplayLead) => Promise<void>
+  convertingId: string | null
 }) {
   const openLead = useWorkspaceRightSheet<DisplayLead>()
 
@@ -257,57 +417,81 @@ const LeadsGrid = memo(function LeadsGrid({
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((row) => {
         const isSelected = selectedLead?.id === row.id
+        const tel = row.phoneE164 ? `tel:${row.phoneE164}` : null
+        const isConverting = convertingId === row.id
         return (
-          <button
+          <div
             key={row.id}
-            type="button"
-            onClick={() => {
-              onSelectLead(row)
-              openLead(row)
-            }}
             className={cn(
-              "flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 text-left transition-colors",
-              "hover:border-zinc-600 hover:bg-zinc-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-              row.isUrgent && "border-rose-500/30",
+              "flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 transition-colors",
+              row.isOverdue && "border-amber-500/50 ring-1 ring-inset ring-amber-500/20",
+              !row.isOverdue && row.isUrgent && "border-rose-500/30",
               isSelected && "border-primary/40 ring-1 ring-inset ring-primary/30"
             )}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-foreground">{row.name}</p>
-                <p className="mt-0.5 truncate text-sm tabular-nums text-zinc-400">{row.contact}</p>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectLead(row)
+                openLead(row)
+              }}
+              className={cn(
+                "flex flex-col gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl -m-1 p-1",
+                "hover:bg-zinc-900/40"
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground">{row.name}</p>
+                  {tel ? (
+                    <a
+                      href={tel}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-0.5 block truncate text-sm tabular-nums text-slate-300 transition-colors hover:text-sky-400"
+                    >
+                      {row.contact}
+                    </a>
+                  ) : (
+                    <p className="mt-0.5 truncate text-sm tabular-nums text-zinc-400">{row.contact}</p>
+                  )}
+                </div>
+                <LeadPriorityBadge urgent={row.isUrgent} overdue={row.isOverdue} />
               </div>
-              <UrgentFlag urgent={row.isUrgent} />
-            </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Action required</p>
-              <p className="mt-0.5 truncate text-sm font-medium text-foreground" title={row.actionLabel}>
-                {row.actionLabel}
-              </p>
-            </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Action required</p>
+                <p className="mt-0.5 truncate text-sm font-medium text-foreground" title={row.actionLabel}>
+                  {row.actionLabel}
+                </p>
+              </div>
 
-            <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-              <LeadIntentPill label={row.intentLabel} variant={row.intentVariant} />
-              <span className="shrink-0 text-[11px] text-zinc-600">{row.dateLabel}</span>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <LeadIntentPill label={row.intentLabel} variant={row.intentVariant} />
+                <span className="shrink-0 text-[11px] text-zinc-600">{row.dateLabel}</span>
+              </div>
+            </button>
+
+            <div className="mt-3 flex gap-2 border-t border-zinc-800/80 pt-3">
+              <CallbackNotePopover lead={row} disabled={isConverting} onSave={onSaveCallbackNote} />
+              <Button
+                type="button"
+                size="sm"
+                disabled={isConverting}
+                className="h-8 flex-1 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void onConvertToBooking(row)
+                }}
+              >
+                {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Convert to Active Booking"}
+              </Button>
             </div>
-          </button>
+          </div>
         )
       })}
     </div>
   )
 })
-
-/** Build a tel: href, defaulting to US (+1) when the stored number is bare 10 digits. */
-function telHref(e164: string | null): string | null {
-  if (!e164) return null
-  const trimmed = e164.trim()
-  if (trimmed.startsWith("+")) return `tel:${trimmed.replace(/[^\d+]/g, "")}`
-  const digits = trimmed.replace(/\D/g, "")
-  if (digits.length === 11 && digits.startsWith("1")) return `tel:+${digits}`
-  if (digits.length === 10) return `tel:+1${digits}`
-  return digits ? `tel:${digits}` : null
-}
 
 function salvageOperator(collected: Record<string, unknown>): string | null {
   const v = collected?.captured_by_name
@@ -440,6 +624,9 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   usingDemo,
   selectedLead,
   onSelectLead,
+  onSaveCallbackNote,
+  onConvertToBooking,
+  convertingId,
 }: {
   loading: boolean
   error: string | null
@@ -448,6 +635,9 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   usingDemo: boolean
   selectedLead: DisplayLead | null
   onSelectLead: (lead: DisplayLead) => void
+  onSaveCallbackNote: (lead: DisplayLead, note: string) => Promise<void>
+  onConvertToBooking: (lead: DisplayLead) => Promise<void>
+  convertingId: string | null
 }) {
   return (
     <WorkspacePage>
@@ -462,19 +652,31 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
       ) : error ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : (
-        <LeadsGrid rows={leads} selectedLead={selectedLead} onSelectLead={onSelectLead} />
+        <LeadsGrid
+          rows={leads}
+          selectedLead={selectedLead}
+          onSelectLead={onSelectLead}
+          onSaveCallbackNote={onSaveCallbackNote}
+          onConvertToBooking={onConvertToBooking}
+          convertingId={convertingId}
+        />
       )}
     </WorkspacePage>
   )
 })
 
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
+  const router = useRouter()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const initial = useLeadsWorkspaceInitial()
   const cached = useLeadsWorkspaceCacheSnapshot()
   const [fresh, setFresh] = useState<LeadsWorkspaceCache | null>(null)
   const [fetchDone, setFetchDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
+  const [localLeadPatches, setLocalLeadPatches] = useState<Record<string, Partial<DisplayLead>>>({})
+  const [removedLeadIds, setRemovedLeadIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [convertingId, setConvertingId] = useState<string | null>(null)
 
   const payload = fresh ?? initial ?? cached ?? null
 
@@ -503,7 +705,80 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
     }
   }, [])
 
-  const leads = useMemo(() => (payload?.leads ?? []).map(apiLeadToDisplay), [payload?.leads])
+  const leads = useMemo(() => {
+    return (payload?.leads ?? [])
+      .map(apiLeadToDisplay)
+      .filter((row) => !removedLeadIds.has(row.id))
+      .map((row) => ({ ...row, ...(localLeadPatches[row.id] ?? {}) }))
+  }, [payload?.leads, removedLeadIds, localLeadPatches])
+
+  const handleSaveCallbackNote = useCallback(async (lead: DisplayLead, note: string) => {
+    const res = await fetch(`/api/ai-leads/${encodeURIComponent(lead.id)}/callback-note`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ action_required: note }),
+    })
+    const json = (await res.json().catch(() => ({}))) as { error?: string }
+    if (!res.ok) throw new Error(json.error || "Could not save callback note.")
+
+    setLocalLeadPatches((prev) => ({
+      ...prev,
+      [lead.id]: { ...prev[lead.id], actionLabel: note },
+    }))
+
+    const cache = readLeadsWorkspaceCache()
+    if (cache) {
+      writeLeadsWorkspaceCache({
+        ...cache,
+        leads: cache.leads.map((row) =>
+          row.id === lead.id
+            ? {
+                ...row,
+                collected: {
+                  ...(row.collected ?? {}),
+                  action_required: note,
+                  action_required_label: note,
+                },
+              }
+            : row
+        ),
+      })
+    }
+  }, [])
+
+  const handleConvertToBooking = useCallback(
+    async (lead: DisplayLead) => {
+      setConvertingId(lead.id)
+      try {
+        const res = await fetch(`/api/ai-leads/${encodeURIComponent(lead.id)}/convert`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ organization_id: activeOrganizationId }),
+        })
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        if (!res.ok) throw new Error(json.error || "Could not convert lead.")
+
+        writeLeadsIntakeHandoff({
+          leadId: lead.id,
+          phoneNumber: lead.phoneE164 || lead.raw?.caller_e164?.trim() || "",
+          customerName: lead.name,
+          vehicleYear: lead.vehicleYear || undefined,
+          vehicleMake: lead.vehicleMake || undefined,
+          vehicleModel: lead.vehicleModel || undefined,
+        })
+
+        setRemovedLeadIds((prev) => new Set(prev).add(lead.id))
+        if (selectedLead?.id === lead.id) setSelectedLead(null)
+        router.push("/dashboard/scheduler")
+      } finally {
+        setConvertingId(null)
+      }
+    },
+    [activeOrganizationId, router, selectedLead?.id]
+  )
+
   const salvageLeads = payload?.salvageLeads ?? []
   const showSpinner = !payload && !fetchDone
 
@@ -530,6 +805,9 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
         usingDemo={usingDemo}
         selectedLead={selectedLead}
         onSelectLead={setSelectedLead}
+        onSaveCallbackNote={handleSaveCallbackNote}
+        onConvertToBooking={handleConvertToBooking}
+        convertingId={convertingId}
       />
     </WorkspaceRightSheetGate>
   )

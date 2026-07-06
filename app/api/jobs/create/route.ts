@@ -37,6 +37,7 @@ type CreateJobBody = {
   discount_applied?: string | null
   baseline_quote_cents?: number | null
   recovered_via_route_discount?: boolean
+  existing_lead_id?: string | null
 }
 
 export async function POST(req: NextRequest) {
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
           ? Math.round(Number(body.baseline_quote_cents))
           : null,
       recoveredViaRouteDiscount: body.recovered_via_route_discount === true,
+      existingLeadId: body.existing_lead_id?.trim() || null,
     })
 
     return NextResponse.json({ data: result })

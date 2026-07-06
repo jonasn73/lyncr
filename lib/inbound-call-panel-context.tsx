@@ -15,11 +15,14 @@ import type { ActiveCallRow, ManualCallStatus } from "@/lib/hooks/use-active-cal
 /** Optional seed values when opening the sheet from dispatch operations. */
 export type OpenManualCallPanelInput = {
   phoneNumber?: string
+  customerName?: string
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
   callStatus?: ManualCallStatus
   toNumber?: string
+  /** Existing ai_leads id when converting from CRM — intake completes that row. */
+  leadId?: string
 }
 
 type InboundCallPanelContextValue = {
@@ -38,11 +41,12 @@ const InboundCallPanelContext = createContext<InboundCallPanelContextValue | nul
 function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
   const status: ManualCallStatus = input?.callStatus ?? "answered"
   const answeredAt = status === "ringing" ? null : new Date().toISOString()
+  const leadId = input?.leadId?.trim()
   return {
-    id: `manual-${crypto.randomUUID()}`,
+    id: leadId || `manual-${crypto.randomUUID()}`,
     from_number: input?.phoneNumber?.trim() || "",
     to_number: input?.toNumber?.trim() || "",
-    caller_name: null,
+    caller_name: input?.customerName?.trim() || null,
     answered_at: answeredAt,
     isManual: true,
     manualCallStatus: status,

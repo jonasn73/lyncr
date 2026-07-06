@@ -484,6 +484,7 @@ export function useActiveCallForm(
         discountApplied?: string | null
         baselineQuotedPriceCents?: number | null
         recoveredViaRouteDiscount?: boolean
+        existingLeadId?: string | null
       }
     ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
       if (!current) return { ok: false }
@@ -516,11 +517,13 @@ export function useActiveCallForm(
       setJobError(null)
       try {
         const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
+        const existingLeadId =
+          options?.existingLeadId?.trim() ||
+          (current.isManual && !current.id.startsWith("manual-") ? current.id : null)
         let callLogIdForJob = current.id
         const addressLine1 = form.addressLine1.trim()
         const city = form.city.trim()
 
-        // Manual walk-in rows start as manual-{uuid}; provision a real call_logs stub first.
         if (current.isManual && current.id.startsWith("manual-")) {
           const manualRes = await fetch("/api/calls/manual", {
             method: "POST",
@@ -598,6 +601,7 @@ export function useActiveCallForm(
                 ? Math.round(options.baselineQuotedPriceCents)
                 : null,
             recovered_via_route_discount: options?.recoveredViaRouteDiscount === true,
+            existing_lead_id: existingLeadId,
           }),
         })
         const json = (await res.json()) as {
