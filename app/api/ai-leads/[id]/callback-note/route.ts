@@ -16,16 +16,22 @@ export async function PATCH(req: NextRequest, context: RouteParams) {
   const leadId = id?.trim()
   if (!leadId) return NextResponse.json({ error: "Lead id is required" }, { status: 400 })
 
-  const body = (await req.json().catch(() => ({}))) as { action_required?: string | null }
+  const body = (await req.json().catch(() => ({}))) as {
+    action_required?: string | null
+    sales_recovery_stage?: string | null
+  }
   const actionRequired = String(body.action_required ?? "").trim()
   if (!actionRequired) {
     return NextResponse.json({ error: "action_required is required" }, { status: 400 })
   }
+  const salesRecoveryStage = body.sales_recovery_stage?.trim() || null
 
   try {
-    const ok = await updateAiLeadActionRequired(userId, leadId, actionRequired)
+    const ok = await updateAiLeadActionRequired(userId, leadId, actionRequired, salesRecoveryStage)
     if (!ok) return NextResponse.json({ error: "Lead not found" }, { status: 404 })
-    return NextResponse.json({ data: { id: leadId, action_required: actionRequired } })
+    return NextResponse.json({
+      data: { id: leadId, action_required: actionRequired, sales_recovery_stage: salesRecoveryStage },
+    })
   } catch (e) {
     console.error("[PATCH /api/ai-leads/[id]/callback-note]", e)
     return NextResponse.json(

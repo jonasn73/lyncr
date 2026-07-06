@@ -19,6 +19,7 @@ export type OpenManualCallPanelInput = {
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
+  quotedPriceCents?: number
   callStatus?: ManualCallStatus
   toNumber?: string
   /** Existing ai_leads id when converting from CRM — intake completes that row. */
@@ -53,6 +54,10 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
     vehicleYear: input?.vehicleYear?.trim() || "",
     vehicleMake: input?.vehicleMake?.trim() || "",
     vehicleModel: input?.vehicleModel?.trim() || "",
+    quotedPriceCents:
+      typeof input?.quotedPriceCents === "number" && input.quotedPriceCents > 0
+        ? Math.round(input.quotedPriceCents)
+        : undefined,
   }
 }
 

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { LifeBuoy, Loader2, PhoneOutgoing } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Textarea } from "@/components/ui/textarea"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   DrawerStepHeader,
@@ -42,6 +42,22 @@ import { writeLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
 type LeadRow = CachedLeadRow
 type SalvageLead = CachedSalvageLead
 
+type LeadRecoveryTab = "all" | "pending_callbacks" | "price_recovery" | "waiting_on_parts"
+type LeadRecoveryStage = Exclude<LeadRecoveryTab, "all">
+
+const LEAD_RECOVERY_TABS: { id: LeadRecoveryTab; label: string }[] = [
+  { id: "all", label: "All Leads" },
+  { id: "pending_callbacks", label: "Pending Callbacks" },
+  { id: "price_recovery", label: "Price Recovery" },
+  { id: "waiting_on_parts", label: "Waiting on Parts" },
+]
+
+const LEAD_RECOVERY_STAGE_OPTIONS: { id: LeadRecoveryStage; label: string }[] = [
+  { id: "pending_callbacks", label: "Pending Callbacks" },
+  { id: "price_recovery", label: "Price Recovery" },
+  { id: "waiting_on_parts", label: "Waiting on Parts" },
+]
+
 type DisplayLead = {
   id: string
   name: string
@@ -53,6 +69,8 @@ type DisplayLead = {
   isUrgent: boolean
   isOverdue: boolean
   actionLabel: string
+  recoveryStage: LeadRecoveryStage
+  quotedPriceCents: number | null
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
@@ -104,6 +122,21 @@ function leadVehicleFields(lead: LeadRow): { year: string; make: string; model: 
     make: readCollected(lead.collected, ["vehicle_make", "make"]),
     model: readCollected(lead.collected, ["vehicle_model", "model"]),
   }
+}
+
+function leadQuotedPriceCents(lead: LeadRow): number | null {
+  const raw = lead.collected?.quoted_price_cents ?? lead.collected?.last_quoted_price_cents
+  if (typeof raw === "number" && raw > 0) return Math.round(raw)
+  if (typeof raw === "string" && Number(raw) > 0) return Math.round(Number(raw))
+  return null
+}
+
+function normalizeRecoveryStage(value: string): LeadRecoveryStage | null {
+  const v = value.trim().toLowerCase().replace(/\s+/g, "_")
+  if (v === "pending_callbacks" || v === "pending_callback" || v === "callback") return "pending_callbacks"
+  if (v === "price_recovery" || v === "price" || v === "quote") return "price_recovery"
+  if (v === "waiting_on_parts" || v === "parts" || v === "waiting_parts") return "waiting_on_parts"
+  return null
 }
 
 /** Parse follow-up deadline from collected blob; returns epoch ms or null. */
@@ -160,6 +193,36 @@ function actionRequiredLabel(lead: LeadRow): string {
   if (service) return `Needs ${service}`
   if (slug) return `${slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Follow-up`
   return "Follow-up Required"
+}
+
+/** Infer sales-recovery bucket when no explicit stage is saved on the lead. */
+function inferLeadRecoveryStage(lead: LeadRow): LeadRecoveryStage {
+  const blob = JSON.stringify(lead.collected ?? {}).toLowerCase()
+  const action = actionRequiredLabel(lead).toLowerCase()
+  const status = readCollected(lead.collected, ["status", "stage", "disposition"]).toLowerCase()
+  const haystack = `${blob} ${action} ${status}`
+
+  if (/waiting on parts|parts on order|backorder|awaiting parts|part order/.test(haystack)) {
+    return "waiting_on_parts"
+  }
+  if (
+    lead.intent_slug === "quote" ||
+    leadQuotedPriceCents(lead) != null ||
+    /price|quote|too high|negotiat|discount|recovery|rejected/.test(haystack)
+  ) {
+    return "price_recovery"
+  }
+  return "pending_callbacks"
+}
+
+function leadRecoveryStage(lead: LeadRow): LeadRecoveryStage {
+  const explicit = readCollected(lead.collected, ["sales_recovery_stage", "lead_stage", "crm_stage"])
+  return normalizeRecoveryStage(explicit) ?? inferLeadRecoveryStage(lead)
+}
+
+function leadMatchesTab(lead: DisplayLead, tab: LeadRecoveryTab): boolean {
+  if (tab === "all") return true
+  return lead.recoveryStage === tab
 }
 
 const INTENT_TAGS: Record<string, string> = {
@@ -220,6 +283,8 @@ function apiLeadToDisplay(lead: LeadRow): DisplayLead {
     isUrgent: isUrgentLead(lead),
     isOverdue: isFollowUpOverdue(lead),
     actionLabel: actionRequiredLabel(lead),
+    recoveryStage: leadRecoveryStage(lead),
+    quotedPriceCents: leadQuotedPriceCents(lead),
     vehicleYear: vehicle.year,
     vehicleMake: vehicle.make,
     vehicleModel: vehicle.model,
@@ -283,8 +348,8 @@ function LeadDetailSheet({
 function LeadPriorityBadge({ urgent, overdue }: { urgent: boolean; overdue: boolean }) {
   if (overdue) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-200">
-        ⚠️ OVERDUE
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-200">
+        ⚠️ Callback Overdue
       </span>
     )
   }
@@ -299,88 +364,143 @@ function LeadPriorityBadge({ urgent, overdue }: { urgent: boolean; overdue: bool
   return null
 }
 
-function CallbackNotePopover({
+function LeadsSegmentNav({
+  activeTab,
+  onTabChange,
+  counts,
+}: {
+  activeTab: LeadRecoveryTab
+  onTabChange: (tab: LeadRecoveryTab) => void
+  counts: Record<LeadRecoveryTab, number>
+}) {
+  return (
+    <nav
+      className="flex flex-wrap gap-2"
+      aria-label="Lead recovery stages"
+    >
+      {LEAD_RECOVERY_TABS.map((tab) => {
+        const active = activeTab === tab.id
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onTabChange(tab.id)}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+              active
+                ? "border-primary/50 bg-primary/15 text-primary"
+                : "border-zinc-700/80 bg-zinc-900/60 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+            )}
+          >
+            {tab.label}
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
+                active ? "bg-primary/20 text-primary" : "bg-zinc-800 text-zinc-500"
+              )}
+            >
+              {counts[tab.id]}
+            </span>
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
+function LeadNotesStageSheet({
   lead,
-  disabled,
+  open,
+  onOpenChange,
   onSave,
 }: {
-  lead: DisplayLead
-  disabled?: boolean
-  onSave: (lead: DisplayLead, note: string) => Promise<void>
+  lead: DisplayLead | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSave: (lead: DisplayLead, note: string, stage: LeadRecoveryStage) => Promise<void>
 }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(lead.actionLabel)
+  const [draft, setDraft] = useState("")
+  const [stage, setStage] = useState<LeadRecoveryStage>("pending_callbacks")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) {
-      setDraft(lead.actionLabel)
-      setError(null)
-    }
-  }, [open, lead.actionLabel])
+    if (!open || !lead) return
+    setDraft(lead.actionLabel)
+    setStage(lead.recoveryStage)
+    setError(null)
+  }, [open, lead])
 
   const handleSave = async () => {
+    if (!lead) return
     const note = draft.trim()
     if (!note) {
-      setError("Enter a callback note.")
+      setError("Add follow-up notes before saving.")
       return
     }
     setSaving(true)
     setError(null)
     try {
-      await onSave(lead, note)
-      setOpen(false)
+      await onSave(lead, note, stage)
+      onOpenChange(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save note.")
+      setError(e instanceof Error ? e.message : "Could not save notes.")
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          className="h-8 flex-1 text-xs"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Log Callback Note
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        side="top"
-        motion="fade"
-        className="w-72 border-zinc-800 bg-zinc-950 p-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Action required</p>
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Callback note…"
-          className="mt-2 h-9 border-zinc-700 bg-zinc-900 text-sm"
-          disabled={saving}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void handleSave()
-          }}
-        />
-        {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
-        <div className="mt-3 flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button type="button" size="sm" disabled={saving} onClick={() => void handleSave()}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" variant="drawer" className="border-zinc-800 bg-zinc-950 p-0 sm:max-w-md">
+        {lead ? (
+          <>
+            <DrawerStepHeader
+              step="Recovery"
+              title="Update Notes / Stage"
+              subtitle={lead.name}
+            />
+            <DrawerScrollBody>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Recovery stage</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {LEAD_RECOVERY_STAGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setStage(option.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                      stage === option.id
+                        ? "border-primary/50 bg-primary/15 text-primary"
+                        : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="mt-5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Follow-up log</p>
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="What happened on the last call? What is the next step?"
+                className="mt-2 min-h-[140px] border-zinc-700 bg-zinc-900 text-sm"
+                disabled={saving}
+              />
+              {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+            </DrawerScrollBody>
+            <DrawerStickyFooter
+              dirty
+              saving={saving}
+              onSave={() => void handleSave()}
+              onCancel={() => onOpenChange(false)}
+              saveLabel="Save notes"
+            />
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -388,26 +508,31 @@ const LeadsGrid = memo(function LeadsGrid({
   rows,
   selectedLead,
   onSelectLead,
-  onSaveCallbackNote,
+  onOpenNotesStage,
   onConvertToBooking,
   convertingId,
+  emptyTabLabel,
 }: {
   rows: DisplayLead[]
   selectedLead: DisplayLead | null
   onSelectLead: (lead: DisplayLead) => void
-  onSaveCallbackNote: (lead: DisplayLead, note: string) => Promise<void>
+  onOpenNotesStage: (lead: DisplayLead) => void
   onConvertToBooking: (lead: DisplayLead) => Promise<void>
   convertingId: string | null
+  emptyTabLabel?: string
 }) {
   const openLead = useWorkspaceRightSheet<DisplayLead>()
 
   if (rows.length === 0) {
     return (
       <WorkspacePanel className="flex min-h-[280px] flex-col items-center justify-center px-6 py-16 text-center">
-        <p className="text-sm font-medium text-zinc-200">No operator leads yet</p>
+        <p className="text-sm font-medium text-zinc-200">
+          {emptyTabLabel ?? "No operator leads yet"}
+        </p>
         <p className="mt-2 max-w-sm text-sm text-zinc-500">
-          When your Lyncr operators capture a caller&apos;s details, each profile appears here with their
-          contact info, urgency, and the action they need from you.
+          {emptyTabLabel
+            ? "Try another recovery stage tab or update a lead's stage from Update Notes / Stage."
+            : "When your Lyncr operators capture a caller's details, each profile appears here with their contact info, urgency, and the action they need from you."}
         </p>
       </WorkspacePanel>
     )
@@ -424,7 +549,8 @@ const LeadsGrid = memo(function LeadsGrid({
             key={row.id}
             className={cn(
               "flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 transition-colors",
-              row.isOverdue && "border-amber-500/50 ring-1 ring-inset ring-amber-500/20",
+              row.isOverdue &&
+                "border-l-4 border-amber-500 bg-amber-500/5 shadow-[0_0_15px_rgba(245,158,11,0.05)]",
               !row.isOverdue && row.isUrgent && "border-rose-500/30",
               isSelected && "border-primary/40 ring-1 ring-inset ring-primary/30"
             )}
@@ -447,7 +573,7 @@ const LeadsGrid = memo(function LeadsGrid({
                     <a
                       href={tel}
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-0.5 block truncate text-sm tabular-nums text-slate-300 transition-colors hover:text-sky-400"
+                      className="mt-0.5 block truncate text-sm font-medium tabular-nums text-sky-400 hover:underline"
                     >
                       {row.contact}
                     </a>
@@ -472,7 +598,19 @@ const LeadsGrid = memo(function LeadsGrid({
             </button>
 
             <div className="mt-3 flex gap-2 border-t border-zinc-800/80 pt-3">
-              <CallbackNotePopover lead={row} disabled={isConverting} onSave={onSaveCallbackNote} />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={isConverting}
+                className="h-8 flex-1 bg-slate-700 text-xs text-slate-100 hover:bg-slate-600"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenNotesStage(row)
+                }}
+              >
+                Update Notes / Stage
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -483,7 +621,7 @@ const LeadsGrid = memo(function LeadsGrid({
                   void onConvertToBooking(row)
                 }}
               >
-                {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Convert to Active Booking"}
+                {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Book & Convert"}
               </Button>
             </div>
           </div>
@@ -623,8 +761,11 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   salvageLeads,
   usingDemo,
   selectedLead,
+  activeTab,
+  tabCounts,
+  onTabChange,
   onSelectLead,
-  onSaveCallbackNote,
+  onOpenNotesStage,
   onConvertToBooking,
   convertingId,
 }: {
@@ -634,14 +775,21 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
   salvageLeads: SalvageLead[]
   usingDemo: boolean
   selectedLead: DisplayLead | null
+  activeTab: LeadRecoveryTab
+  tabCounts: Record<LeadRecoveryTab, number>
+  onTabChange: (tab: LeadRecoveryTab) => void
   onSelectLead: (lead: DisplayLead) => void
-  onSaveCallbackNote: (lead: DisplayLead, note: string) => Promise<void>
+  onOpenNotesStage: (lead: DisplayLead) => void
   onConvertToBooking: (lead: DisplayLead) => Promise<void>
   convertingId: string | null
 }) {
+  const activeTabLabel = LEAD_RECOVERY_TABS.find((tab) => tab.id === activeTab)?.label
+
   return (
     <WorkspacePage>
-      <WorkspacePageHeader eyebrow="CRM" title="Leads" />
+      <WorkspacePageHeader eyebrow="CRM" title="Leads Dashboard" />
+
+      <LeadsSegmentNav activeTab={activeTab} onTabChange={onTabChange} counts={tabCounts} />
 
       <LeadSalvageSection leads={salvageLeads} />
 
@@ -656,9 +804,10 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
           rows={leads}
           selectedLead={selectedLead}
           onSelectLead={onSelectLead}
-          onSaveCallbackNote={onSaveCallbackNote}
+          onOpenNotesStage={onOpenNotesStage}
           onConvertToBooking={onConvertToBooking}
           convertingId={convertingId}
+          emptyTabLabel={activeTab !== "all" ? `No leads in ${activeTabLabel ?? "this stage"}` : undefined}
         />
       )}
     </WorkspacePage>
@@ -674,6 +823,9 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const [fetchDone, setFetchDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedLead, setSelectedLead] = useState<DisplayLead | null>(null)
+  const [activeTab, setActiveTab] = useState<LeadRecoveryTab>("all")
+  const [notesLead, setNotesLead] = useState<DisplayLead | null>(null)
+  const [notesOpen, setNotesOpen] = useState(false)
   const [localLeadPatches, setLocalLeadPatches] = useState<Record<string, Partial<DisplayLead>>>({})
   const [removedLeadIds, setRemovedLeadIds] = useState<ReadonlySet<string>>(() => new Set())
   const [convertingId, setConvertingId] = useState<string | null>(null)
@@ -705,47 +857,71 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
     }
   }, [])
 
-  const leads = useMemo(() => {
+  const allLeads = useMemo(() => {
     return (payload?.leads ?? [])
       .map(apiLeadToDisplay)
       .filter((row) => !removedLeadIds.has(row.id))
       .map((row) => ({ ...row, ...(localLeadPatches[row.id] ?? {}) }))
   }, [payload?.leads, removedLeadIds, localLeadPatches])
 
-  const handleSaveCallbackNote = useCallback(async (lead: DisplayLead, note: string) => {
-    const res = await fetch(`/api/ai-leads/${encodeURIComponent(lead.id)}/callback-note`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ action_required: note }),
-    })
-    const json = (await res.json().catch(() => ({}))) as { error?: string }
-    if (!res.ok) throw new Error(json.error || "Could not save callback note.")
-
-    setLocalLeadPatches((prev) => ({
-      ...prev,
-      [lead.id]: { ...prev[lead.id], actionLabel: note },
-    }))
-
-    const cache = readLeadsWorkspaceCache()
-    if (cache) {
-      writeLeadsWorkspaceCache({
-        ...cache,
-        leads: cache.leads.map((row) =>
-          row.id === lead.id
-            ? {
-                ...row,
-                collected: {
-                  ...(row.collected ?? {}),
-                  action_required: note,
-                  action_required_label: note,
-                },
-              }
-            : row
-        ),
-      })
+  const tabCounts = useMemo(() => {
+    const counts: Record<LeadRecoveryTab, number> = {
+      all: allLeads.length,
+      pending_callbacks: 0,
+      price_recovery: 0,
+      waiting_on_parts: 0,
     }
-  }, [])
+    for (const lead of allLeads) {
+      if (lead.recoveryStage === "pending_callbacks") counts.pending_callbacks += 1
+      if (lead.recoveryStage === "price_recovery") counts.price_recovery += 1
+      if (lead.recoveryStage === "waiting_on_parts") counts.waiting_on_parts += 1
+    }
+    return counts
+  }, [allLeads])
+
+  const leads = useMemo(
+    () => allLeads.filter((row) => leadMatchesTab(row, activeTab)),
+    [allLeads, activeTab]
+  )
+
+  const handleSaveNotesStage = useCallback(
+    async (lead: DisplayLead, note: string, stage: LeadRecoveryStage) => {
+      const res = await fetch(`/api/ai-leads/${encodeURIComponent(lead.id)}/callback-note`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action_required: note, sales_recovery_stage: stage }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(json.error || "Could not save notes.")
+
+      setLocalLeadPatches((prev) => ({
+        ...prev,
+        [lead.id]: { ...prev[lead.id], actionLabel: note, recoveryStage: stage },
+      }))
+
+      const cache = readLeadsWorkspaceCache()
+      if (cache) {
+        writeLeadsWorkspaceCache({
+          ...cache,
+          leads: cache.leads.map((row) =>
+            row.id === lead.id
+              ? {
+                  ...row,
+                  collected: {
+                    ...(row.collected ?? {}),
+                    action_required: note,
+                    action_required_label: note,
+                    sales_recovery_stage: stage,
+                  },
+                }
+              : row
+          ),
+        })
+      }
+    },
+    []
+  )
 
   const handleConvertToBooking = useCallback(
     async (lead: DisplayLead) => {
@@ -767,6 +943,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
           vehicleYear: lead.vehicleYear || undefined,
           vehicleMake: lead.vehicleMake || undefined,
           vehicleModel: lead.vehicleModel || undefined,
+          quotedPriceCents: lead.quotedPriceCents ?? undefined,
         })
 
         setRemovedLeadIds((prev) => new Set(prev).add(lead.id))
@@ -785,30 +962,48 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const usingDemo = false
 
   return (
-    <WorkspaceRightSheetGate<DisplayLead>
-      render={(selected, close) => (
-        <LeadDetailSheet
-          selected={selected}
+    <>
+      <WorkspaceRightSheetGate<DisplayLead>
+        render={(selected, close) => (
+          <LeadDetailSheet
+            selected={selected}
+            usingDemo={usingDemo}
+            onClose={() => {
+              close()
+              setSelectedLead(null)
+            }}
+          />
+        )}
+      >
+        <LeadsWorkspaceBody
+          loading={showSpinner}
+          error={error}
+          leads={leads}
+          salvageLeads={salvageLeads}
           usingDemo={usingDemo}
-          onClose={() => {
-            close()
-            setSelectedLead(null)
+          selectedLead={selectedLead}
+          activeTab={activeTab}
+          tabCounts={tabCounts}
+          onTabChange={setActiveTab}
+          onSelectLead={setSelectedLead}
+          onOpenNotesStage={(lead) => {
+            setNotesLead(lead)
+            setNotesOpen(true)
           }}
+          onConvertToBooking={handleConvertToBooking}
+          convertingId={convertingId}
         />
-      )}
-    >
-      <LeadsWorkspaceBody
-        loading={showSpinner}
-        error={error}
-        leads={leads}
-        salvageLeads={salvageLeads}
-        usingDemo={usingDemo}
-        selectedLead={selectedLead}
-        onSelectLead={setSelectedLead}
-        onSaveCallbackNote={handleSaveCallbackNote}
-        onConvertToBooking={handleConvertToBooking}
-        convertingId={convertingId}
+      </WorkspaceRightSheetGate>
+
+      <LeadNotesStageSheet
+        lead={notesLead}
+        open={notesOpen}
+        onOpenChange={(open) => {
+          setNotesOpen(open)
+          if (!open) setNotesLead(null)
+        }}
+        onSave={handleSaveNotesStage}
       />
-    </WorkspaceRightSheetGate>
+    </>
   )
 })

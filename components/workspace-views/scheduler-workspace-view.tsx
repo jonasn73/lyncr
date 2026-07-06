@@ -304,6 +304,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       vehicleYear: handoff.vehicleYear,
       vehicleMake: handoff.vehicleMake,
       vehicleModel: handoff.vehicleModel,
+      quotedPriceCents: handoff.quotedPriceCents,
     })
   }, [isActive, inboundCallPanel])
 

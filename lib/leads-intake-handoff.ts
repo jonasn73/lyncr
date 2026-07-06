@@ -9,6 +9,7 @@ export type LeadsIntakeHandoff = {
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
+  quotedPriceCents?: number
 }
 
 export function writeLeadsIntakeHandoff(payload: LeadsIntakeHandoff): void {
@@ -35,6 +36,10 @@ export function readAndClearLeadsIntakeHandoff(): LeadsIntakeHandoff | null {
       vehicleYear: parsed.vehicleYear?.trim() || undefined,
       vehicleMake: parsed.vehicleMake?.trim() || undefined,
       vehicleModel: parsed.vehicleModel?.trim() || undefined,
+      quotedPriceCents:
+        typeof parsed.quotedPriceCents === "number" && parsed.quotedPriceCents > 0
+          ? Math.round(parsed.quotedPriceCents)
+          : undefined,
     }
   } catch {
     return null

@@ -6490,15 +6490,18 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
 export async function updateAiLeadActionRequired(
   userId: string,
   leadId: string,
-  actionRequired: string
+  actionRequired: string,
+  salesRecoveryStage?: string | null
 ): Promise<boolean> {
   const sql = getSql()
   const note = actionRequired.trim()
   if (!note) return false
+  const stage = salesRecoveryStage?.trim() || null
   const patch = JSON.stringify({
     action_required: note,
     action_required_label: note,
     action_required_updated_at: new Date().toISOString(),
+    ...(stage ? { sales_recovery_stage: stage } : {}),
   })
   try {
     const rows = await sql`

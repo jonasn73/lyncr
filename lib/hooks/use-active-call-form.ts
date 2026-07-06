@@ -45,6 +45,8 @@ export type ActiveCallRow = {
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
+  /** Pre-filled quote from CRM convert handoff. */
+  quotedPriceCents?: number
 }
 
 export type ActiveCallFormState = {
@@ -276,6 +278,10 @@ export function useActiveCallForm(
     setSaveState("idle")
     setJobState("idle")
     setJobError(null)
+    const seededQuote =
+      typeof current.quotedPriceCents === "number" && current.quotedPriceCents > 0
+        ? Math.round(current.quotedPriceCents)
+        : 0
     setForm({
       ...EMPTY_FORM,
       phoneNumber: current.from_number,
@@ -283,6 +289,9 @@ export function useActiveCallForm(
       vehicleYear: current.vehicleYear?.trim() || "",
       vehicleMake: current.vehicleMake?.trim() || "",
       vehicleModel: current.vehicleModel?.trim() || "",
+      ...(seededQuote > 0
+        ? { quotedPriceCents: seededQuote, quotedPriceOverridden: true }
+        : {}),
     })
   }, [
     callLogId,
@@ -291,6 +300,7 @@ export function useActiveCallForm(
     current?.vehicleYear,
     current?.vehicleMake,
     current?.vehicleModel,
+    current?.quotedPriceCents,
   ])
 
   // Load owner rate profile from onboarding_profiles.service_rules (JSON rate_card block).
