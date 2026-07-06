@@ -53,6 +53,8 @@ import type {
 import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import { revalidateLeadsWorkspaceCache } from "@/lib/leads-cache"
+import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
 import {
   loadAnsweredIntakeDismissed,
   markAnsweredIntakeDismissed,
@@ -675,6 +677,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error ?? "Could not log lost lead")
       setLostLeadState("saved")
+      revalidateLeadsWorkspaceCache()
+      void revalidateSchedulerJobPoolCaches(activeOrganizationId)
       window.setTimeout(() => dismissOnly(), 1200)
     } catch (e) {
       setLostLeadState("error")

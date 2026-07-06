@@ -105,3 +105,8 @@ export async function refreshLeadsWorkspaceCache(): Promise<LeadsWorkspaceCache>
   writeLeadsWorkspaceCache(payload)
   return payload
 }
+
+/** Invalidate Leads tab session cache after intake saves a CRM lead or lost lead. */
+export function revalidateLeadsWorkspaceCache(): void {
+  void refreshLeadsWorkspaceCache().catch(() => {})
+}

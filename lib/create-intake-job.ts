@@ -10,7 +10,7 @@ import {
   updateAiLeadSmsOutcome,
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
-import { UNASSIGNED_POOL_STATUS, UNASSIGNED_CALLBACK_STATUS, PENDING_CALLBACK_ADDRESS } from "@/lib/job-pool"
+import { UNASSIGNED_POOL_STATUS, UNASSIGNED_CALLBACK_STATUS, PENDING_CALLBACK_ADDRESS, CRM_LEAD_STATUS, LOST_LEAD_STATUS } from "@/lib/job-pool"
 import { sendIntakeBookingCustomerSms } from "@/lib/intake-booking-customer-sms"
 import {
   buildIntakePricingMetadata,
@@ -181,7 +181,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     rateCardSource,
   })
 
-  const dispatchStatus = pendingCallback ? UNASSIGNED_CALLBACK_STATUS : UNASSIGNED_POOL_STATUS
+  const dispatchStatus = pendingCallback ? CRM_LEAD_STATUS : UNASSIGNED_POOL_STATUS
   const disposition = pendingCallback ? "PENDING_TIME" : "BOOKED"
 
   const collected: Record<string, unknown> = {
@@ -191,10 +191,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     business_type: "locksmith",
     disposition,
     dispatch_status: dispatchStatus,
-    job_status: "UNASSIGNED",
+    status: pendingCallback ? CRM_LEAD_STATUS : "active_booking",
+    job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
     is_salvageable: false,
     source: pendingCallback ? "answered_call_pending_callback" : "answered_call_intake",
-    ...(pendingCallback ? { pending_callback: true } : {}),
+    ...(pendingCallback
+      ? { pending_callback: true, sales_recovery_stage: "pending_callbacks" }
+      : {}),
     ...(input.callLogId ? { call_log_id: input.callLogId } : {}),
     ...(vehicleYear ? { vehicle_year: vehicleYear, year: vehicleYear } : {}),
     ...(vehicleMake ? { vehicle_make: vehicleMake, make: vehicleMake } : {}),
@@ -253,7 +256,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
               summary = ${summary},
               disposition = ${disposition},
               dispatch_status = ${dispatchStatus},
-              job_status = 'UNASSIGNED',
+              job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
               organization_id = ${orgId}::uuid,
               collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
             WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
@@ -266,7 +269,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
               summary = ${summary},
               disposition = ${disposition},
               dispatch_status = ${dispatchStatus},
-              job_status = 'UNASSIGNED',
+              job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
               collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
             WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
             RETURNING id
@@ -284,7 +287,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         ${id}, ${input.ownerUserId}, ${orgId}::uuid, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
         ${disposition}, ${dispatchStatus}, false,
-        NULL, 'UNASSIGNED', false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
+        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
       )
     `
   } else {
@@ -297,7 +300,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         ${id}, ${input.ownerUserId}, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
         ${disposition}, ${dispatchStatus}, false,
-        NULL, 'UNASSIGNED', false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
+        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
       )
     `
   }
@@ -330,18 +333,22 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
   }
 
-  await publishOwnerEvent(input.ownerUserId, "job-booked", {
-    leadId: id,
-    customerName,
-    dispatch_status: dispatchStatus,
-    job_status: "UNASSIGNED",
-  }).catch((e) => console.warn("[create-intake-job] job-booked publish failed:", e))
+  await publishOwnerEvent(
+    input.ownerUserId,
+    pendingCallback ? "lead-salvageable" : "job-booked",
+    {
+      leadId: id,
+      customerName,
+      dispatch_status: dispatchStatus,
+      job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
+    }
+  ).catch((e) => console.warn("[create-intake-job] intake publish failed:", e))
 
   void getUser(input.ownerUserId)
 
   return {
     lead_id: id,
-    job_status: "UNASSIGNED",
+    job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
     dispatch_status: dispatchStatus,
     latitude,
     longitude,

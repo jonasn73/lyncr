@@ -38,6 +38,8 @@ import {
   type LeadsWorkspaceCache,
 } from "@/lib/leads-cache"
 import { writeLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
+import { CRM_LEAD_STATUS, LOST_LEAD_STATUS, UNASSIGNED_CALLBACK_STATUS } from "@/lib/job-pool"
+import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 
 type LeadRow = CachedLeadRow
 type SalvageLead = CachedSalvageLead
@@ -197,6 +199,9 @@ function actionRequiredLabel(lead: LeadRow): string {
 
 /** Infer sales-recovery bucket when no explicit stage is saved on the lead. */
 function inferLeadRecoveryStage(lead: LeadRow): LeadRecoveryStage {
+  const dispatch = readCollected(lead.collected, ["dispatch_status", "status"]).toLowerCase()
+  if (dispatch === LOST_LEAD_STATUS || dispatch === "price_too_high") return "price_recovery"
+  if (dispatch === CRM_LEAD_STATUS || dispatch === UNASSIGNED_CALLBACK_STATUS) return "pending_callbacks"
   const blob = JSON.stringify(lead.collected ?? {}).toLowerCase()
   const action = actionRequiredLabel(lead).toLowerCase()
   const status = readCollected(lead.collected, ["status", "stage", "disposition"]).toLowerCase()
@@ -817,6 +822,7 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const initial = useLeadsWorkspaceInitial()
   const cached = useLeadsWorkspaceCacheSnapshot()
   const [fresh, setFresh] = useState<LeadsWorkspaceCache | null>(null)
@@ -835,6 +841,15 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   useLayoutEffect(() => {
     if (initial) writeLeadsWorkspaceCache(initial)
   }, [initial])
+
+  useEffect(() => {
+    fetch("/api/auth/session", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        setOwnerUserId((data?.data?.user?.id as string | undefined) ?? null)
+      })
+      .catch(() => setOwnerUserId(null))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -856,6 +871,27 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!ownerUserId || !isRealtimeClientConfigured()) return
+    const pusher = getPusherClient()
+    if (!pusher) return
+    const channel = pusher.subscribe(`owner-${ownerUserId}`)
+    const onLeadChanged = () => {
+      void refreshLeadsWorkspaceCache()
+        .then((data) => {
+          setFresh(data)
+          setError(null)
+        })
+        .catch(() => {})
+    }
+    channel.bind("lead-salvageable", onLeadChanged)
+    channel.bind("disposition-updated", onLeadChanged)
+    return () => {
+      channel.unbind("lead-salvageable", onLeadChanged)
+      channel.unbind("disposition-updated", onLeadChanged)
+    }
+  }, [ownerUserId])
 
   const allLeads = useMemo(() => {
     return (payload?.leads ?? [])

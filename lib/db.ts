@@ -7,7 +7,12 @@
 
 import { neon } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
-import { neighborhoodFromLocation } from "@/lib/job-pool"
+import {
+  neighborhoodFromLocation,
+  CRM_LEAD_STATUS,
+  LOST_LEAD_STATUS,
+  UNASSIGNED_CALLBACK_STATUS,
+} from "@/lib/job-pool"
 import { dispatchJobTypeFromServiceQuoteTypeId } from "@/lib/job-intake-fields"
 import { calculateServiceQuote } from "@/lib/service-quote-calculator"
 import { buildIntakePricingMetadata, getOwnerServiceRateCard, type ServiceQuoteTypeId } from "@/lib/service-rate-card"
@@ -6461,7 +6466,8 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
       SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
       FROM ai_leads
       WHERE user_id = ${userId}
-        AND coalesce(dispatch_status, '') NOT IN ('unassigned_pool', 'unassigned_callback', 'DISPATCHED')
+        AND coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), nullif(trim(collected->>'status'), ''), 'lead')
+          NOT IN ('unassigned_pool', 'DISPATCHED')
       ORDER BY created_at DESC
       LIMIT ${lim}
     `
@@ -6559,6 +6565,73 @@ export async function convertAiLeadToUnassignedPool(params: {
     return rows.length > 0
   } catch (e) {
     if (isUndefinedRelationError(e, "ai_leads")) return false
+    throw e
+  }
+}
+
+/** When intake logs a lost lead, pull any matching hopper/CRM ai_leads row off the scheduler pool. */
+export async function markAiLeadAsCrmLost(params: {
+  ownerUserId: string
+  callLogId?: string | null
+  phoneE164?: string | null
+  failureReason?: string | null
+}): Promise<void> {
+  const sql = getSql()
+  const callLogId = params.callLogId?.trim() || null
+  const phone = params.phoneE164?.trim() ? normalizePhoneNumberE164(params.phoneE164.trim()) : null
+  const failureReason = params.failureReason?.trim() || null
+  const subStatus =
+    failureReason?.toLowerCase().includes("price") && failureReason.toLowerCase().includes("high")
+      ? "price_too_high"
+      : null
+  const patch = JSON.stringify({
+    disposition: "PRICE_REJECTED",
+    dispatch_status: LOST_LEAD_STATUS,
+    status: LOST_LEAD_STATUS,
+    ...(subStatus ? { sub_status: subStatus, sales_recovery_stage: "price_recovery" } : {}),
+    failure_reason: failureReason,
+    is_salvageable: true,
+    source: "answered_call_intake_lost",
+  })
+  try {
+    if (callLogId) {
+      await sql`
+        UPDATE ai_leads
+        SET
+          disposition = 'PRICE_REJECTED',
+          dispatch_status = ${LOST_LEAD_STATUS},
+          job_status = ${LOST_LEAD_STATUS},
+          is_salvageable = true,
+          collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+        WHERE user_id = ${params.ownerUserId}
+          AND (
+            id = ${callLogId}
+            OR collected->>'call_log_id' = ${callLogId}
+          )
+      `
+    }
+    if (phone) {
+      await sql`
+        UPDATE ai_leads
+        SET
+          disposition = 'PRICE_REJECTED',
+          dispatch_status = ${LOST_LEAD_STATUS},
+          job_status = ${LOST_LEAD_STATUS},
+          is_salvageable = true,
+          collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+        WHERE user_id = ${params.ownerUserId}
+          AND caller_e164 = ${phone}
+          AND coalesce(dispatch_status, collected->>'dispatch_status', '') IN (
+            'unassigned_pool',
+            ${UNASSIGNED_CALLBACK_STATUS},
+            ${CRM_LEAD_STATUS},
+            ${LOST_LEAD_STATUS}
+          )
+          AND created_at > now() - interval '7 days'
+      `
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return
     throw e
   }
 }
@@ -7911,14 +7984,12 @@ export async function listOwnerUnassignedPoolJobs(params: {
             AND l.assigned_tech_id IS NULL
             AND (l.job_status IS NULL OR l.job_status <> 'completed')
             AND (
-              l.disposition IN ('BOOKED', 'PENDING_TIME')
-              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              l.disposition = 'BOOKED'
+              OR l.collected->>'disposition' = 'BOOKED'
             )
-            AND (
-              l.dispatch_status IN ('unassigned_pool', 'unassigned_callback')
-              OR l.dispatch_status IS NULL
-              OR l.collected->>'dispatch_status' IN ('unassigned_pool', 'unassigned_callback')
-            )
+            AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), '')) = 'unassigned_pool'
+            AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), ''))
+              NOT IN (${CRM_LEAD_STATUS}, ${LOST_LEAD_STATUS}, ${UNASSIGNED_CALLBACK_STATUS})
             AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
           ORDER BY l.created_at DESC
           LIMIT ${lim}
@@ -7932,14 +8003,12 @@ export async function listOwnerUnassignedPoolJobs(params: {
             AND l.assigned_tech_id IS NULL
             AND (l.job_status IS NULL OR l.job_status <> 'completed')
             AND (
-              l.disposition IN ('BOOKED', 'PENDING_TIME')
-              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              l.disposition = 'BOOKED'
+              OR l.collected->>'disposition' = 'BOOKED'
             )
-            AND (
-              l.dispatch_status IN ('unassigned_pool', 'unassigned_callback')
-              OR l.dispatch_status IS NULL
-              OR l.collected->>'dispatch_status' IN ('unassigned_pool', 'unassigned_callback')
-            )
+            AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), '')) = 'unassigned_pool'
+            AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), ''))
+              NOT IN (${CRM_LEAD_STATUS}, ${LOST_LEAD_STATUS}, ${UNASSIGNED_CALLBACK_STATUS})
           ORDER BY l.created_at DESC
           LIMIT ${lim}
         `
@@ -7980,14 +8049,10 @@ export async function listUnassignedPoolForTech(techUserId: string, limit = 30):
       WHERE l.assigned_tech_id IS NULL
         AND (l.job_status IS NULL OR l.job_status <> 'completed')
         AND (
-          l.disposition IN ('BOOKED', 'PENDING_TIME')
-          OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+          l.disposition = 'BOOKED'
+          OR l.collected->>'disposition' = 'BOOKED'
         )
-        AND (
-          l.dispatch_status IN ('unassigned_pool', 'unassigned_callback')
-          OR l.dispatch_status IS NULL
-          OR l.collected->>'dispatch_status' IN ('unassigned_pool', 'unassigned_callback')
-        )
+        AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), '')) = 'unassigned_pool'
       ORDER BY l.created_at DESC
       LIMIT ${lim}
     `

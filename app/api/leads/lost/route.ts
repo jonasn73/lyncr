@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { insertLostLead } from "@/lib/lost-leads"
+import { markAiLeadAsCrmLost } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 
 export const dynamic = "force-dynamic"
@@ -55,6 +56,9 @@ export async function POST(req: NextRequest) {
       collected: {
         source: "answered_call_intake",
         status: "lost_lead",
+        ...(failureReason.toLowerCase().includes("price") && failureReason.toLowerCase().includes("high")
+          ? { sub_status: "price_too_high" }
+          : {}),
         baseline_quote_cents:
           body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
             ? Math.round(Number(body.baseline_quote_cents))
@@ -68,6 +72,13 @@ export async function POST(req: NextRequest) {
         negotiation_outcome: "declined_after_pitch",
       },
     })
+
+    await markAiLeadAsCrmLost({
+      ownerUserId: userId,
+      callLogId: body.call_log_id?.trim() || null,
+      phoneE164: phone,
+      failureReason,
+    }).catch((e) => console.warn("[POST /api/leads/lost] ai_leads mark lost failed:", e))
 
     await publishOwnerEvent(userId, "lead-salvageable", {
       leadId: result.id,
