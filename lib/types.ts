@@ -212,6 +212,10 @@ export interface UnassignedPoolJob {
   duration_minutes: number
   dispatch_status: string | null
   created_at: string
+  /** State / province from collected.region. */
+  region?: string | null
+  /** ZIP from collected.postal_code. */
+  postal_code?: string | null
   latitude: number | null
   longitude: number | null
   quoted_price_cents?: number | null

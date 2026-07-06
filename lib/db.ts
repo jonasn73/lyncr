@@ -6949,6 +6949,8 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     vehicle_make: pick(["vehicle_make", "make"]),
     vehicle_model: pick(["vehicle_model", "model"]),
     job_notes: pick(["job_notes", "notes", "symptoms"]),
+    region: pick(["region", "state"]),
+    postal_code: pick(["postal_code", "job_address_postal_code", "zip_code", "zipCode"]),
     latitude: latitude != null && Number.isFinite(latitude) ? latitude : null,
     longitude: longitude != null && Number.isFinite(longitude) ? longitude : null,
     job_status:
@@ -7704,6 +7706,8 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     vehicle_make: ev.vehicle_make,
     vehicle_model: ev.vehicle_model,
     job_notes: ev.job_notes,
+    region: ev.region,
+    postal_code: ev.postal_code,
     scheduled_at: ev.scheduled_tentative ? null : ev.scheduled_at,
     duration_minutes: ev.duration_minutes,
     dispatch_status:

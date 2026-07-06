@@ -5,8 +5,16 @@
 import { Car, DollarSign, GripVertical, MapPin, Phone, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timeline"
+import { useLiveClock } from "@/lib/hooks/use-live-clock"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
-import { formatPoolJobPriceLabel, resolvePoolJobServiceLabel } from "@/lib/job-pool-display"
+import {
+  formatPoolJobPriceLabel,
+  POOL_JOB_PRIORITY_BADGE_LABEL,
+  POOL_JOB_PRIORITY_CARD_CLASS,
+  resolvePoolJobBookingPriority,
+  resolvePoolJobPostalCode,
+  resolvePoolJobServiceLabel,
+} from "@/lib/job-pool-display"
 import {
   SCHEDULER_BADGE_STYLE,
   SCHEDULER_LIST_CARD_SHELL,
@@ -42,9 +50,14 @@ export function JobPoolCard({
   variant = "default",
 }: JobPoolCardProps) {
   const touchInteraction = useSchedulerTouchInteraction()
+  const now = useLiveClock()
   const sidebar = variant === "sidebar"
   const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
   const area = job.neighborhood || job.location
+  const region = job.region?.trim() || null
+  const postalCode = resolvePoolJobPostalCode(job)
+  const priority = resolvePoolJobBookingPriority(job, now)
+  const priorityBadge = POOL_JOB_PRIORITY_BADGE_LABEL[priority]
   const displayName = job.customer_name?.trim() || job.job_type || "Service call"
   const serviceLabel = resolvePoolJobServiceLabel(job)
   const priceLabel = formatPoolJobPriceLabel(job)
@@ -74,7 +87,8 @@ export function JobPoolCard({
       }}
       className={cn(
         SCHEDULER_LIST_CARD_SHELL,
-        "group touch-manipulation text-left",
+        POOL_JOB_PRIORITY_CARD_CLASS[priority],
+        "group relative touch-manipulation text-left",
         sidebar
           ? "flex w-full max-w-none shrink-0 cursor-grab flex-col gap-2 px-3 py-3 active:cursor-grabbing"
           : touchInteraction
@@ -100,6 +114,7 @@ export function JobPoolCard({
           >
             {displayName}
           </p>
+          <p className="mt-0.5 text-[10px] font-medium text-slate-400">{priorityBadge}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
               <DollarSign className="h-3 w-3 shrink-0" aria-hidden />
@@ -131,10 +146,15 @@ export function JobPoolCard({
                 <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-400")}>{vehicle}</span>
               </p>
             ) : null}
-            {area ? (
+            {area || region || postalCode ? (
               <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-500")}>
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
-                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-500")}>{area}</span>
+                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-500")}>
+                  {[area, region && area !== region ? region : null].filter(Boolean).join(", ")}
+                  {postalCode ? (
+                    <span className="ml-1 text-xs font-medium text-slate-400">{postalCode}</span>
+                  ) : null}
+                </span>
               </p>
             ) : null}
           </div>

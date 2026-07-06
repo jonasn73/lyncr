@@ -98,3 +98,91 @@ export function resolvePoolJobServiceLabel(job: UnassignedPoolJob): string {
 
   return "Service General"
 }
+
+/** ZIP / postal code for hopper card location row. */
+export function resolvePoolJobPostalCode(job: UnassignedPoolJob): string {
+  const row = job as PoolJobLike
+  return (
+    firstString(row, [
+      "postal_code",
+      "postalCode",
+      "zip_code",
+      "zipCode",
+      "job_address_postal_code",
+    ]) ?? ""
+  )
+}
+
+export type PoolJobBookingPriority = "CRITICAL" | "HIGH" | "LOW"
+
+const POOL_JOB_PRIORITY_RANK: Record<PoolJobBookingPriority, number> = {
+  CRITICAL: 0,
+  HIGH: 1,
+  LOW: 2,
+}
+
+/** Time-based booking priority for unassigned hopper cards. */
+export function resolvePoolJobBookingPriority(
+  job: UnassignedPoolJob,
+  now: Date = new Date()
+): PoolJobBookingPriority {
+  const row = job as PoolJobLike
+  const scheduledRaw =
+    readString(job.scheduled_at) ?? firstString(row, ["scheduledTime", "scheduled_time"])
+
+  if (scheduledRaw) {
+    const targetMs = new Date(scheduledRaw).getTime()
+    if (!Number.isNaN(targetMs)) {
+      const minutesUntil = (targetMs - now.getTime()) / 60_000
+      if (minutesUntil <= 30) return "CRITICAL"
+      if (minutesUntil <= 120) return "HIGH"
+      return "LOW"
+    }
+  }
+
+  const createdRaw = readString(job.created_at)
+  if (createdRaw) {
+    const createdMs = new Date(createdRaw).getTime()
+    if (!Number.isNaN(createdMs)) {
+      const ageMinutes = (now.getTime() - createdMs) / 60_000
+      if (ageMinutes <= 30) return "CRITICAL"
+      if (ageMinutes <= 120) return "HIGH"
+    }
+  }
+
+  return "LOW"
+}
+
+export function comparePoolJobsByBookingPriority(
+  a: UnassignedPoolJob,
+  b: UnassignedPoolJob,
+  now: Date = new Date()
+): number {
+  const rankA = POOL_JOB_PRIORITY_RANK[resolvePoolJobBookingPriority(a, now)]
+  const rankB = POOL_JOB_PRIORITY_RANK[resolvePoolJobBookingPriority(b, now)]
+  if (rankA !== rankB) return rankA - rankB
+
+  const timeA = new Date(a.scheduled_at ?? a.created_at).getTime()
+  const timeB = new Date(b.scheduled_at ?? b.created_at).getTime()
+  if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) return timeA - timeB
+  return a.id.localeCompare(b.id)
+}
+
+export const POOL_JOB_PRIORITY_CARD_CLASS: Record<PoolJobBookingPriority, string> = {
+  CRITICAL: "border-l-4 border-rose-500 bg-rose-950/10",
+  HIGH: "border-l-4 border-amber-500 bg-amber-950/5",
+  LOW: "border-l-4 border-slate-700",
+}
+
+export const POOL_JOB_PRIORITY_BADGE_LABEL: Record<PoolJobBookingPriority, string> = {
+  CRITICAL: "🚨 Urgent ASAP",
+  HIGH: "⏳ Coming Up",
+  LOW: "📅 Flexible Route",
+}
+
+export function sortPoolJobsByBookingPriority(
+  jobs: UnassignedPoolJob[],
+  now: Date = new Date()
+): UnassignedPoolJob[] {
+  return [...jobs].sort((a, b) => comparePoolJobsByBookingPriority(a, b, now))
+}

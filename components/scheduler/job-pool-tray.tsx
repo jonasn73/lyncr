@@ -2,10 +2,13 @@
 
 // Horizontal "Unassigned Job Pool" tray above the scheduler grid.
 
+import { useMemo } from "react"
 import { Inbox, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { JobPoolCard } from "@/components/scheduler/job-pool-card"
 import { useSchedulerMobileTimeline } from "@/hooks/use-scheduler-mobile-timeline"
+import { useLiveClock } from "@/lib/hooks/use-live-clock"
+import { sortPoolJobsByBookingPriority } from "@/lib/job-pool-display"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 type JobPoolTrayProps = {
@@ -28,6 +31,11 @@ export function JobPoolTray({
 }: JobPoolTrayProps) {
   const mobileTimeline = useSchedulerMobileTimeline()
   const sidebar = variant === "sidebar"
+  const now = useLiveClock()
+  const sortedJobs = useMemo(
+    () => sortPoolJobsByBookingPriority(jobs, now),
+    [jobs, now]
+  )
 
   return (
     <section
@@ -80,7 +88,7 @@ export function JobPoolTray({
         {!loading && jobs.length === 0 ? (
           <p className="py-2 text-xs text-zinc-500">No unassigned jobs — new bookings without a tech land here.</p>
         ) : null}
-        {jobs.map((job) => (
+        {sortedJobs.map((job) => (
           <JobPoolCard
             key={job.id}
             job={job}
