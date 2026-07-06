@@ -6448,143 +6448,70 @@ export async function updateNotificationPreferencesDb(params: {
   }
 }
 
-/** TEMP DEBUG: every ai_leads row for this owner — no dispatch/status filters. */
-export type AiLeadRawDebugRow = {
-  id: string
-  user_id: string
-  organization_id: string | null
-  caller_e164: string | null
-  intent_slug: string | null
-  collected: Record<string, unknown>
-  summary: string | null
-  sms_sent: boolean
-  sms_error: string | null
-  dispatch_status: string | null
-  disposition: string | null
-  job_status: string | null
-  collected_dispatch_status: string | null
-  collected_disposition: string | null
-  pending_callback: string | null
-  created_at: string
-}
-
-export async function debugListAllAiLeadsForUser(
-  userId: string,
-  limit = 100
-): Promise<{
-  stats: {
-    totalRowsForUser: number
-    rowsWithOrganizationId: number
-    rowsWithoutOrganizationId: number
-  }
-  rows: AiLeadRawDebugRow[]
-  filteredCount: number
-}> {
+/** Owner-scoped leads for the CRM dashboard (all non-dispatched rows for this user). */
+export async function listAiLeadsForDashboard(userId: string, limit = 50): Promise<
+  {
+    id: string
+    caller_e164: string | null
+    intent_slug: string | null
+    collected: Record<string, unknown>
+    summary: string | null
+    sms_sent: boolean
+    sms_error: string | null
+    created_at: string
+  }[]
+> {
   const sql = getSql()
-  const lim = Math.min(Math.max(limit, 1), 200)
+  const lim = Math.min(Math.max(limit, 1), 100)
 
-  const mapDebugRow = (r: Record<string, unknown>): AiLeadRawDebugRow => ({
-    id: String(r.id),
-    user_id: String(r.user_id),
-    organization_id: r.organization_id != null ? String(r.organization_id) : null,
-    caller_e164: r.caller_e164 != null ? String(r.caller_e164) : null,
-    intent_slug: r.intent_slug != null ? String(r.intent_slug) : null,
-    collected: (r.collected as Record<string, unknown>) || {},
-    summary: r.summary != null ? String(r.summary) : null,
-    sms_sent: Boolean(r.sms_sent),
-    sms_error: r.sms_error != null ? String(r.sms_error) : null,
-    dispatch_status: r.dispatch_status != null ? String(r.dispatch_status) : null,
-    disposition: r.disposition != null ? String(r.disposition) : null,
-    job_status: r.job_status != null ? String(r.job_status) : null,
-    collected_dispatch_status:
-      r.collected_dispatch_status != null ? String(r.collected_dispatch_status) : null,
-    collected_disposition: r.collected_disposition != null ? String(r.collected_disposition) : null,
-    pending_callback: r.pending_callback != null ? String(r.pending_callback) : null,
-    created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
-  })
-
-  const emptyStats = { totalRowsForUser: 0, rowsWithOrganizationId: 0, rowsWithoutOrganizationId: 0 }
+  const mapRows = (rows: Record<string, unknown>[]) =>
+    rows.map((r) => ({
+      id: String(r.id),
+      caller_e164: r.caller_e164 != null ? String(r.caller_e164) : null,
+      intent_slug: r.intent_slug != null ? String(r.intent_slug) : null,
+      collected: (r.collected as Record<string, unknown>) || {},
+      summary: r.summary != null ? String(r.summary) : null,
+      sms_sent: Boolean(r.sms_sent),
+      sms_error: r.sms_error != null ? String(r.sms_error) : null,
+      created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    }))
 
   try {
-    const [statsRows, rawRows, filteredLeads] = await Promise.all([
-      sql`
-        SELECT
-          count(*)::int AS total_rows_for_user,
-          count(*) FILTER (WHERE organization_id IS NOT NULL)::int AS rows_with_organization_id,
-          count(*) FILTER (WHERE organization_id IS NULL)::int AS rows_without_organization_id
-        FROM ai_leads
-        WHERE user_id = ${userId}
-      `,
-      sql`
-        SELECT
-          id, user_id, organization_id, caller_e164, intent_slug, collected, summary,
-          sms_sent, sms_error, created_at,
-          dispatch_status, disposition, job_status,
-          collected->>'dispatch_status' AS collected_dispatch_status,
-          collected->>'disposition' AS collected_disposition,
-          collected->>'pending_callback' AS pending_callback
-        FROM ai_leads
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
-        LIMIT ${lim}
-      `,
-      listAiLeadsForUser(userId, lim),
-    ])
-
-    const statsRow = statsRows[0] as Record<string, unknown> | undefined
-    return {
-      stats: {
-        totalRowsForUser: Number(statsRow?.total_rows_for_user ?? 0),
-        rowsWithOrganizationId: Number(statsRow?.rows_with_organization_id ?? 0),
-        rowsWithoutOrganizationId: Number(statsRow?.rows_without_organization_id ?? 0),
-      },
-      rows: (rawRows as Record<string, unknown>[]).map(mapDebugRow),
-      filteredCount: filteredLeads.length,
-    }
+    const rows = await sql`
+      SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), '')) <> 'dispatched'
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return mapRows(rows as Record<string, unknown>[])
   } catch (e) {
     if (pgErrorCode(e) === "42703") {
       try {
-        const [statsRows, rawRows, filteredLeads] = await Promise.all([
-          sql`
-            SELECT count(*)::int AS total_rows_for_user
-            FROM ai_leads
-            WHERE user_id = ${userId}
-          `,
-          sql`
-            SELECT
-              id, user_id, caller_e164, intent_slug, collected, summary,
-              sms_sent, sms_error, created_at,
-              collected->>'dispatch_status' AS collected_dispatch_status,
-              collected->>'disposition' AS collected_disposition,
-              collected->>'pending_callback' AS pending_callback
-            FROM ai_leads
-            WHERE user_id = ${userId}
-            ORDER BY created_at DESC
-            LIMIT ${lim}
-          `,
-          listAiLeadsForUser(userId, lim),
-        ])
-        const statsRow = statsRows[0] as Record<string, unknown> | undefined
-        return {
-          stats: {
-            totalRowsForUser: Number(statsRow?.total_rows_for_user ?? 0),
-            rowsWithOrganizationId: 0,
-            rowsWithoutOrganizationId: Number(statsRow?.total_rows_for_user ?? 0),
-          },
-          rows: (rawRows as Record<string, unknown>[]).map((r) =>
-            mapDebugRow({ ...r, organization_id: null, dispatch_status: null, disposition: null, job_status: null })
-          ),
-          filteredCount: filteredLeads.length,
-        }
+        const rows = await sql`
+          SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
+          FROM ai_leads
+          WHERE user_id = ${userId}
+          ORDER BY created_at DESC
+          LIMIT ${lim}
+        `
+        return mapRows(rows as Record<string, unknown>[])
       } catch (e2) {
         if (isUndefinedRelationError(e2, "ai_leads")) {
-          return { stats: emptyStats, rows: [], filteredCount: 0 }
+          console.warn(
+            "[db] Table ai_leads is missing. Run scripts/010-ai-leads-intake.sql in the Neon SQL Editor."
+          )
+          return []
         }
         throw e2
       }
     }
     if (isUndefinedRelationError(e, "ai_leads")) {
-      return { stats: emptyStats, rows: [], filteredCount: 0 }
+      console.warn(
+        "[db] Table ai_leads is missing. Run scripts/010-ai-leads-intake.sql in the Neon SQL Editor."
+      )
+      return []
     }
     throw e
   }

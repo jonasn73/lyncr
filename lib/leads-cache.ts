@@ -24,25 +24,9 @@ export type CachedSalvageLead = {
   has_receptionist_log?: boolean
 }
 
-export type LeadsWorkspaceDebug = {
-  authUserId?: string
-  totalRowsForUser?: number
-  rowsWithOrganizationId?: number
-  rowsWithoutOrganizationId?: number
-  rawLeadCount?: number
-  filteredLeadCount?: number
-  orgFilterNote?: string
-  sampleRows?: Array<Record<string, string | null>>
-  activeOrganizationId?: string | null
-  salvageCount?: number
-  apiDegraded?: boolean
-  apiWarning?: string
-}
-
 export type LeadsWorkspaceCache = {
   leads: CachedLeadRow[]
   salvageLeads: CachedSalvageLead[]
-  _debug?: LeadsWorkspaceDebug
 }
 
 const CACHE_KEY = persistedCacheKey("leads-workspace", "default")
@@ -98,20 +82,9 @@ export async function refreshLeadsWorkspaceCache(): Promise<LeadsWorkspaceCache>
   ])
 
   let leads: CachedLeadRow[] = []
-  let _debug: LeadsWorkspaceDebug | undefined
   if (leadsRes.ok) {
-    const json = (await leadsRes.json()) as {
-      leads?: CachedLeadRow[]
-      _debug?: LeadsWorkspaceDebug
-      degraded?: boolean
-      warning?: string
-    }
+    const json = (await leadsRes.json()) as { leads?: CachedLeadRow[] }
     leads = Array.isArray(json.leads) ? json.leads : []
-    _debug = json._debug
-    if (json.degraded) {
-      _debug = { ..._debug, apiDegraded: true, apiWarning: json.warning }
-    }
-    console.log("RAW DATABASE RESP:", { leads, _debug, degraded: json.degraded })
   } else if (!leadsRes.ok) {
     throw new Error("Could not load leads")
   }
@@ -128,7 +101,7 @@ export async function refreshLeadsWorkspaceCache(): Promise<LeadsWorkspaceCache>
         : []
   }
 
-  const payload = { leads, salvageLeads, _debug: { ..._debug, salvageCount: salvageLeads.length } }
+  const payload = { leads, salvageLeads }
   writeLeadsWorkspaceCache(payload)
   return payload
 }
