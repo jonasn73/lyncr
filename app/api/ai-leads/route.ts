@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { listAiLeadsForUser } from "@/lib/db"
+import { listAiLeadsForUser, reconcileMiscategorizedCrmLeads } from "@/lib/db"
 import { saveCallIntake } from "@/lib/intake-engine"
 
 export async function GET(req: NextRequest) {
@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
 
   const lim = Number(req.nextUrl.searchParams.get("limit") || "50")
   try {
+    await reconcileMiscategorizedCrmLeads(userId)
     const leads = await listAiLeadsForUser(userId, Number.isFinite(lim) ? lim : 50)
     return NextResponse.json({ leads })
   } catch (e) {

@@ -12,6 +12,7 @@ import {
   CRM_LEAD_STATUS,
   LOST_LEAD_STATUS,
   UNASSIGNED_CALLBACK_STATUS,
+  UNASSIGNED_POOL_STATUS,
 } from "@/lib/job-pool"
 import { dispatchJobTypeFromServiceQuoteTypeId } from "@/lib/job-intake-fields"
 import { calculateServiceQuote } from "@/lib/service-quote-calculator"
@@ -6461,17 +6462,9 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
 > {
   const sql = getSql()
   const lim = Math.min(Math.max(limit, 1), 100)
-  try {
-    const rows = await sql`
-      SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
-      FROM ai_leads
-      WHERE user_id = ${userId}
-        AND coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), nullif(trim(collected->>'status'), ''), 'lead')
-          NOT IN ('unassigned_pool', 'DISPATCHED')
-      ORDER BY created_at DESC
-      LIMIT ${lim}
-    `
-    return rows.map((r: Record<string, unknown>) => ({
+
+  const mapRows = (rows: Record<string, unknown>[]) =>
+    rows.map((r) => ({
       id: String(r.id),
       caller_e164: r.caller_e164 != null ? String(r.caller_e164) : null,
       intent_slug: r.intent_slug != null ? String(r.intent_slug) : null,
@@ -6481,13 +6474,90 @@ export async function listAiLeadsForUser(userId: string, limit = 50): Promise<
       sms_error: r.sms_error != null ? String(r.sms_error) : null,
       created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     }))
+
+  try {
+    const rows = await sql`
+      SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND NOT (
+          lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), '')) = 'unassigned_pool'
+          AND lower(coalesce(nullif(trim(disposition), ''), nullif(trim(collected->>'disposition'), ''), '')) = 'booked'
+          AND coalesce(collected->>'pending_callback', 'false') NOT IN ('true', 'yes', '1')
+        )
+        AND lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), '')) <> 'dispatched'
+      ORDER BY created_at DESC
+      LIMIT ${lim}
+    `
+    return mapRows(rows as Record<string, unknown>[])
   } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      try {
+        const rows = await sql`
+          SELECT id, caller_e164, intent_slug, collected, summary, sms_sent, sms_error, created_at
+          FROM ai_leads
+          WHERE user_id = ${userId}
+            AND NOT (
+              lower(coalesce(collected->>'dispatch_status', '')) = 'unassigned_pool'
+              AND lower(coalesce(collected->>'disposition', '')) = 'booked'
+              AND coalesce(collected->>'pending_callback', 'false') NOT IN ('true', 'yes', '1')
+            )
+            AND lower(coalesce(collected->>'dispatch_status', '')) <> 'dispatched'
+          ORDER BY created_at DESC
+          LIMIT ${lim}
+        `
+        return mapRows(rows as Record<string, unknown>[])
+      } catch (e2) {
+        if (isUndefinedRelationError(e2, "ai_leads")) {
+          console.warn(
+            "[db] Table ai_leads is missing. Run scripts/010-ai-leads-intake.sql in the Neon SQL Editor."
+          )
+          return []
+        }
+        throw e2
+      }
+    }
     if (isUndefinedRelationError(e, "ai_leads")) {
       console.warn(
         "[db] Table ai_leads is missing. Run scripts/010-ai-leads-intake.sql in the Neon SQL Editor."
       )
       return []
     }
+    throw e
+  }
+}
+
+/** Backfill legacy pending rows that were saved into the hopper pipeline by mistake. */
+export async function reconcileMiscategorizedCrmLeads(userId: string): Promise<void> {
+  const sql = getSql()
+  const patch = JSON.stringify({
+    dispatch_status: CRM_LEAD_STATUS,
+    status: CRM_LEAD_STATUS,
+    sales_recovery_stage: "pending_callbacks",
+  })
+  try {
+    await sql`
+      UPDATE ai_leads
+      SET
+        dispatch_status = ${CRM_LEAD_STATUS},
+        job_status = ${CRM_LEAD_STATUS},
+        disposition = coalesce(nullif(trim(disposition), ''), 'PENDING_TIME'),
+        collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+      WHERE user_id = ${userId}
+        AND (
+          lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), ''))
+            IN ('', ${UNASSIGNED_CALLBACK_STATUS}, ${UNASSIGNED_POOL_STATUS})
+          AND (
+            lower(coalesce(nullif(trim(disposition), ''), nullif(trim(collected->>'disposition'), ''), '')) = 'pending_time'
+            OR coalesce(collected->>'pending_callback', 'false') IN ('true', 'yes', '1')
+            OR coalesce(collected->>'source', '') LIKE '%pending_callback%'
+            OR lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), ''))
+              = ${UNASSIGNED_CALLBACK_STATUS}
+          )
+        )
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" || isUndefinedRelationError(e, "ai_leads")) return
     throw e
   }
 }

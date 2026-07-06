@@ -1,9 +1,10 @@
-import { listAiLeadsForUser } from "@/lib/db"
+import { listAiLeadsForUser, reconcileMiscategorizedCrmLeads } from "@/lib/db"
 import { listUnifiedSalvagePool } from "@/lib/salvage-pool"
 import type { LeadsWorkspaceCache } from "@/lib/leads-cache"
 
 /** Server payload for /dashboard/leads — matches client session cache shape. */
 export async function loadLeadsWorkspaceData(userId: string): Promise<LeadsWorkspaceCache> {
+  await reconcileMiscategorizedCrmLeads(userId)
   const [leads, salvagePool] = await Promise.all([
     listAiLeadsForUser(userId, 50),
     listUnifiedSalvagePool(userId, 50),

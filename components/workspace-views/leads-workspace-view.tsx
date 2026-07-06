@@ -821,7 +821,7 @@ const LeadsWorkspaceBody = memo(function LeadsWorkspaceBody({
 
 export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
   const router = useRouter()
-  const { activeOrganizationId } = useDashboardWorkspace()
+  const { activeOrganizationId, activeTab } = useDashboardWorkspace()
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const initial = useLeadsWorkspaceInitial()
   const cached = useLeadsWorkspaceCacheSnapshot()
@@ -851,26 +851,28 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
       .catch(() => setOwnerUserId(null))
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
+  const reloadLeads = useCallback(() => {
     void refreshLeadsWorkspaceCache()
       .then((data) => {
-        if (cancelled) return
         setFresh(data)
         setError(null)
       })
       .catch((e) => {
-        if (cancelled) return
-        if (readLeadsWorkspaceCache() || initial || cached) return
-        setError(e instanceof Error ? e.message : "Error")
+        setError(e instanceof Error ? e.message : "Could not load leads")
       })
       .finally(() => {
-        if (!cancelled) setFetchDone(true)
+        setFetchDone(true)
       })
-    return () => {
-      cancelled = true
-    }
   }, [])
+
+  useEffect(() => {
+    reloadLeads()
+  }, [reloadLeads])
+
+  useEffect(() => {
+    if (activeTab !== "leads") return
+    reloadLeads()
+  }, [activeTab, reloadLeads])
 
   useEffect(() => {
     if (!ownerUserId || !isRealtimeClientConfigured()) return
@@ -878,12 +880,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
     if (!pusher) return
     const channel = pusher.subscribe(`owner-${ownerUserId}`)
     const onLeadChanged = () => {
-      void refreshLeadsWorkspaceCache()
-        .then((data) => {
-          setFresh(data)
-          setError(null)
-        })
-        .catch(() => {})
+      reloadLeads()
     }
     channel.bind("lead-salvageable", onLeadChanged)
     channel.bind("disposition-updated", onLeadChanged)
@@ -891,7 +888,7 @@ export const LeadsWorkspaceView = memo(function LeadsWorkspaceView() {
       channel.unbind("lead-salvageable", onLeadChanged)
       channel.unbind("disposition-updated", onLeadChanged)
     }
-  }, [ownerUserId])
+  }, [ownerUserId, reloadLeads])
 
   const allLeads = useMemo(() => {
     return (payload?.leads ?? [])
