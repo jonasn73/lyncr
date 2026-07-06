@@ -2,10 +2,11 @@
 
 // Draggable card for one unassigned hopper job.
 
-import { Car, GripVertical, MapPin, Phone } from "lucide-react"
+import { Car, DollarSign, GripVertical, MapPin, Phone, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timeline"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
+import { formatPoolJobPriceLabel, resolvePoolJobServiceLabel } from "@/lib/job-pool-display"
 import {
   SCHEDULER_BADGE_STYLE,
   SCHEDULER_LIST_CARD_SHELL,
@@ -45,6 +46,8 @@ export function JobPoolCard({
   const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
   const area = job.neighborhood || job.location
   const displayName = job.customer_name?.trim() || job.job_type || "Service call"
+  const serviceLabel = resolvePoolJobServiceLabel(job)
+  const priceLabel = formatPoolJobPriceLabel(job)
   const wrapText = touchInteraction || sidebar
   const detailTextClass = wrapText
     ? "w-full text-sm block break-words text-muted-foreground"
@@ -97,6 +100,16 @@ export function JobPoolCard({
           >
             {displayName}
           </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
+              <DollarSign className="h-3 w-3 shrink-0" aria-hidden />
+              {priceLabel}
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-medium text-primary/90">
+              <Wrench className="h-3 w-3 shrink-0" aria-hidden />
+              <span className={wrapText ? "break-words" : "truncate"}>{serviceLabel}</span>
+            </span>
+          </div>
           <div className="mt-1.5 w-full space-y-1">
             {job.customer_phone ? (
               <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-400")}>

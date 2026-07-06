@@ -23,6 +23,7 @@ import {
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
+import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 
@@ -608,6 +609,7 @@ export function useActiveCallForm(
         if (!leadId) throw new Error("Job created but no lead id returned.")
         setJobState("created")
         notifyWorkspaceDataChanged({ reason: "job-created", organizationId: organizationId ?? null })
+        void revalidateSchedulerJobPoolCaches(organizationId ?? null)
         return { ok: true, leadId }
       } catch (e) {
         setJobState("error")

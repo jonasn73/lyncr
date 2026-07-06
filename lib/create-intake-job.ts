@@ -209,6 +209,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
     ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
     ...(input.keyVariantId?.trim() ? { key_variant_id: input.keyVariantId.trim() } : {}),
+    service_quote_type_id: serviceTypeId,
     ...(quotedPriceCents > 0
       ? {
           last_quoted_price_cents: quotedPriceCents,

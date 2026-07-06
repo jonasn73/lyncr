@@ -24,6 +24,20 @@ export function jobPoolActiveUrl(activeOrganizationId: string | null, dayKey: st
   return `/api/owner/jobs/pool${orgQs}${sep}scope=active&day=${encodeURIComponent(dayKey)}`
 }
 
+/** Bust SWR caches for hopper + active pipeline lists (call after intake saves). */
+export async function revalidateSchedulerJobPoolCaches(
+  activeOrganizationId?: string | null
+): Promise<void> {
+  const { mutate: globalMutate } = await import("swr")
+  const hopperUrl = jobPoolHopperUrl(activeOrganizationId ?? null)
+  await globalMutate(hopperUrl, undefined, { revalidate: true })
+  await globalMutate(
+    (key) => typeof key === "string" && key.startsWith("/api/owner/jobs/pool") && key.includes("scope=active"),
+    undefined,
+    { revalidate: true }
+  )
+}
+
 export function useJobPoolQuery(activeOrganizationId: string | null) {
   const url = jobPoolHopperUrl(activeOrganizationId)
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
