@@ -8,7 +8,10 @@ import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timel
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import {
+  formatPoolJobElapsedAge,
   formatPoolJobPriceLabel,
+  formatPoolJobScheduledWindowLabel,
+  isPoolJobAsapBooking,
   POOL_JOB_PRIORITY_BADGE_LABEL,
   POOL_JOB_PRIORITY_CARD_CLASS,
   resolvePoolJobBookingPriority,
@@ -58,6 +61,7 @@ export function JobPoolCard({
   const postalCode = resolvePoolJobPostalCode(job)
   const priority = resolvePoolJobBookingPriority(job, now)
   const priorityBadge = POOL_JOB_PRIORITY_BADGE_LABEL[priority]
+  const isAsap = isPoolJobAsapBooking(job)
   const displayName = job.customer_name?.trim() || job.job_type || "Service call"
   const serviceLabel = resolvePoolJobServiceLabel(job)
   const priceLabel = formatPoolJobPriceLabel(job)
@@ -114,7 +118,18 @@ export function JobPoolCard({
           >
             {displayName}
           </p>
-          <p className="mt-0.5 text-[10px] font-medium text-slate-400">{priorityBadge}</p>
+          <div className="mt-0.5 flex w-full items-center justify-between gap-2">
+            <span className="text-[10px] font-medium text-slate-400">{priorityBadge}</span>
+            {isAsap ? (
+              <span className="shrink-0 rounded bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-rose-400">
+                {formatPoolJobElapsedAge(job.created_at, now)} ago
+              </span>
+            ) : (
+              <span className="shrink-0 text-[11px] font-medium tabular-nums text-slate-400">
+                {formatPoolJobScheduledWindowLabel(job, now)}
+              </span>
+            )}
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
               <DollarSign className="h-3 w-3 shrink-0" aria-hidden />
