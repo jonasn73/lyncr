@@ -145,7 +145,7 @@ function formFromCustomer(c: Customer, prev: ActiveCallFormState): ActiveCallFor
 
 export function useActiveCallForm(
   current: ActiveCallRow | null,
-  options?: {
+  hookOptions?: {
     /** Replace synthetic manual-{uuid} row id with real call_logs.id after POST /api/calls/manual. */
     linkManualCallLog?: (patch: Partial<ActiveCallRow>) => void
   }
@@ -489,7 +489,7 @@ export function useActiveCallForm(
   const createJob = useCallback(
     async (
       organizationId?: string | null,
-      options?: {
+      jobOptions?: {
         pendingCallback?: boolean
         quotedPriceCents?: number
         discountApplied?: string | null
@@ -506,10 +506,10 @@ export function useActiveCallForm(
         setJobError("Enter the caller name before sending to dispatch.")
         return { ok: false }
       }
-      const pendingCallback = Boolean(options?.pendingCallback)
+      const pendingCallback = Boolean(jobOptions?.pendingCallback)
       const quotedPriceCents =
-        options?.quotedPriceCents != null && options.quotedPriceCents > 0
-          ? Math.round(options.quotedPriceCents)
+        jobOptions?.quotedPriceCents != null && jobOptions.quotedPriceCents > 0
+          ? Math.round(jobOptions.quotedPriceCents)
           : form.quotedPriceCents > 0
             ? form.quotedPriceCents
             : 0
@@ -529,7 +529,7 @@ export function useActiveCallForm(
       try {
         const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
         const existingLeadId =
-          options?.existingLeadId?.trim() ||
+          jobOptions?.existingLeadId?.trim() ||
           (current.isManual && !current.id.startsWith("manual-") ? current.id : null)
         let callLogIdForJob = current.id
         const addressLine1 = form.addressLine1.trim()
@@ -572,7 +572,7 @@ export function useActiveCallForm(
           const provisionedId = String(manualJson.data?.call_log_id ?? "").trim()
           if (!provisionedId) throw new Error("Manual call log created but no id returned.")
           callLogIdForJob = provisionedId
-          options?.linkManualCallLog?.({ id: provisionedId, isManual: true })
+          hookOptions?.linkManualCallLog?.({ id: provisionedId, isManual: true })
         }
 
         const res = await fetch("/api/jobs/create", {
@@ -606,12 +606,12 @@ export function useActiveCallForm(
             customer_lng: form.serviceAddress?.lng ?? null,
             organization_id: organizationId ?? null,
             pending_callback: pendingCallback,
-            discount_applied: options?.discountApplied?.trim() || null,
+            discount_applied: jobOptions?.discountApplied?.trim() || null,
             baseline_quote_cents:
-              options?.baselineQuotedPriceCents != null && options.baselineQuotedPriceCents > 0
-                ? Math.round(options.baselineQuotedPriceCents)
+              jobOptions?.baselineQuotedPriceCents != null && jobOptions.baselineQuotedPriceCents > 0
+                ? Math.round(jobOptions.baselineQuotedPriceCents)
                 : null,
-            recovered_via_route_discount: options?.recoveredViaRouteDiscount === true,
+            recovered_via_route_discount: jobOptions?.recoveredViaRouteDiscount === true,
             existing_lead_id: existingLeadId,
           }),
         })
@@ -635,7 +635,7 @@ export function useActiveCallForm(
         return { ok: false }
       }
     },
-    [current, form, options?.linkManualCallLog, travelDistanceMilesValue]
+    [current, form, hookOptions?.linkManualCallLog, travelDistanceMilesValue]
   )
 
   const addressReady = isIntakeAddressReady(form)
@@ -698,6 +698,8 @@ export function useActiveCallForm(
     saveState,
     jobState,
     jobError,
+    setJobError,
+    setJobState,
     createJob,
     canDispatch,
     canSavePendingLead,

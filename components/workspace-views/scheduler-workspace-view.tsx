@@ -214,6 +214,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }
 
   function queueMobilePoolAssign(job: UnassignedPoolJob) {
+    openPoolJobDrawer(job)
     setMobileAssignRequest({
       jobId: job.id,
       jobLabel: job.customer_name?.trim() || job.job_type || "Service call",

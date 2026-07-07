@@ -227,6 +227,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     saveState,
     jobState,
     jobError,
+    setJobError,
+    setJobState,
     createJob,
     canDispatch,
     canSavePendingLead,
@@ -374,6 +376,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }),
     [negotiationDiscountApplied, liveQuote.totalCents, recoveredViaRouteDiscount]
   )
+
+  const resolveOwnerUserId = useCallback(async (): Promise<string | null> => {
+    if (ownerUserId) return ownerUserId
+    try {
+      const res = await fetch("/api/auth/session", { credentials: "include" })
+      if (!res.ok) return null
+      const json = (await res.json()) as { data?: { user?: { id?: string } } }
+      return json.data?.user?.id?.trim() || null
+    } catch {
+      return null
+    }
+  }, [ownerUserId])
+
+  const closeIntakeAfterSave = useCallback(() => {
+    if (manualCallRow) {
+      clearManualCallRow()
+      return
+    }
+    if (current) {
+      dismissCallIntake(current)
+      setCurrent(null)
+    }
+  }, [clearManualCallRow, current, dismissCallIntake, manualCallRow])
 
   useEffect(() => {
     if (!ownerUserId) return
@@ -574,79 +599,78 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   }, [current, dismissCallIntake, manualCallRow, clearManualCallRow])
 
   const confirmAndBook = useCallback(async () => {
-    if (!effectiveCurrent || !ownerUserId) return
+    if (!effectiveCurrent) return
+    const userId = await resolveOwnerUserId()
+    if (!userId) {
+      setJobState("error")
+      setJobError("Could not verify your account. Refresh the page and try again.")
+      return
+    }
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
-    if (manualCallRow) {
-      clearManualCallRow()
-    } else if (current) {
-      dismissCallIntake(current)
-      setCurrent(null)
-    }
+    closeIntakeAfterSave()
+    router.push(buildSchedulerFocusUrl(result.leadId))
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
-    clearManualCallRow,
+    closeIntakeAfterSave,
     createJob,
-    current,
-    dismissCallIntake,
     effectiveCurrent,
-    manualCallRow,
     jobCreateExtras,
-    ownerUserId,
+    resolveOwnerUserId,
+    router,
   ])
 
   const sendToDispatch = useCallback(async () => {
-    if (!effectiveCurrent || !ownerUserId) return
+    if (!effectiveCurrent) return
+    const userId = await resolveOwnerUserId()
+    if (!userId) {
+      setJobState("error")
+      setJobError("Could not verify your account. Refresh the page and try again.")
+      return
+    }
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
-    if (manualCallRow) clearManualCallRow()
-    else if (current) {
-      dismissCallIntake(current)
-      setCurrent(null)
-    }
+    closeIntakeAfterSave()
     router.push(buildSchedulerFocusUrl(result.leadId, { schedule: true }))
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
-    clearManualCallRow,
+    closeIntakeAfterSave,
     createJob,
-    current,
-    dismissCallIntake,
     effectiveCurrent,
-    manualCallRow,
     jobCreateExtras,
-    ownerUserId,
+    resolveOwnerUserId,
     router,
   ])
 
   const savePendingLead = useCallback(async () => {
-    if (!effectiveCurrent || !ownerUserId) return
+    if (!effectiveCurrent) return
+    const userId = await resolveOwnerUserId()
+    if (!userId) {
+      setJobState("error")
+      setJobError("Could not verify your account. Refresh the page and try again.")
+      return
+    }
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, {
       pendingCallback: true,
       ...jobCreateExtras(quotedPriceCents),
     })
     if (!result.ok) return
-    if (manualCallRow) {
-      clearManualCallRow()
-    } else if (current) {
-      dismissCallIntake(current)
-      setCurrent(null)
-    }
+    closeIntakeAfterSave()
+    router.push("/dashboard/leads")
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
-    clearManualCallRow,
+    closeIntakeAfterSave,
     createJob,
-    current,
-    dismissCallIntake,
     effectiveCurrent,
-    manualCallRow,
     jobCreateExtras,
-    ownerUserId,
+    resolveOwnerUserId,
+    router,
   ])
 
   const logLostLead = useCallback(async () => {
