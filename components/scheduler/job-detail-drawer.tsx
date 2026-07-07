@@ -38,6 +38,7 @@ import {
   serviceTypeRequiresVehicle,
 } from "@/lib/job-intake-fields"
 import { calculateServiceQuote, type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
+import { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
@@ -332,8 +333,9 @@ export function JobDetailDrawer({
     setCustomerName(source.customer_name ?? "")
     setCustomerPhone(source.customer_phone ?? "")
     setServiceQuoteTypeId(
-      (source.service_quote_type_id as ServiceQuoteTypeId) ||
-        serviceQuoteTypeFromJobType(source.job_type ?? "")
+      source.service_quote_type_id
+        ? normalizeServiceQuoteTypeId(source.service_quote_type_id)
+        : serviceQuoteTypeFromJobType(source.job_type ?? "")
     )
     setVehicleYear(source.vehicle_year ?? "")
     setVehicleMake(source.vehicle_make ?? "")

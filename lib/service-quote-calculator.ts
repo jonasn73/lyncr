@@ -3,6 +3,7 @@
 import { formatIntakeJobTypeForDispatch, type IntakeLocksmithJobType } from "@/lib/intake-job-types"
 import {
   DEFAULT_SERVICE_RATE_CARD,
+  normalizeServiceQuoteTypeId,
   resolveServiceRateCard,
   type ServiceRateCard,
   type ServiceQuoteTypeId,
@@ -12,14 +13,68 @@ import { type KeyStyleBucket } from "@/lib/vehicle-key-variant-labels"
 
 /** Service types shown in the quote calculator (maps to intake job types). */
 export const SERVICE_QUOTE_TYPES = [
-  { id: "lockout", label: "Lockout", jobType: "Lockout" as IntakeLocksmithJobType, keyMode: "" },
-  { id: "key_gen", label: "Key Generation", jobType: "Key replacement" as IntakeLocksmithJobType, keyMode: "Origination" },
-  { id: "key_dup", label: "Key Duplication", jobType: "Key replacement" as IntakeLocksmithJobType, keyMode: "Duplication" },
-  { id: "ignition", label: "Ignition Repair", jobType: "Ignition" as IntakeLocksmithJobType, keyMode: "" },
-  { id: "other", label: "Other Service", jobType: "Other" as IntakeLocksmithJobType, keyMode: "" },
+  { id: "lockout", label: "Lockout", jobType: "Lockout" as IntakeLocksmithJobType, keyMode: "", dispatchLabel: "Lockout" },
+  {
+    id: "key_generation",
+    label: "Key Generation (AKL)",
+    jobType: "Key replacement" as IntakeLocksmithJobType,
+    keyMode: "Origination",
+    dispatchLabel: "Key replacement — Origination",
+  },
+  {
+    id: "key_duplication",
+    label: "Key Duplication (Spare)",
+    jobType: "Key replacement" as IntakeLocksmithJobType,
+    keyMode: "Duplication",
+    dispatchLabel: "Key replacement — Duplication",
+  },
+  {
+    id: "programming_diagnostics",
+    label: "Programming / Immobilizer Reset",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Programming / Immobilizer Reset",
+  },
+  {
+    id: "ignition_repair",
+    label: "Ignition Repair / Replace",
+    jobType: "Ignition" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Ignition Repair / Replace",
+  },
+  {
+    id: "key_extraction",
+    label: "Broken Key Extraction",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Broken Key Extraction",
+  },
+  {
+    id: "rekey",
+    label: "Lock Re-keying",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Lock Re-keying",
+  },
+  {
+    id: "lock_installation",
+    label: "Lock Installation / Change",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Lock Installation / Change",
+  },
+  {
+    id: "commercial_hardware",
+    label: "Commercial Access Hardware",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Commercial Access Hardware",
+  },
+  { id: "other", label: "Other Service", jobType: "Other" as IntakeLocksmithJobType, keyMode: "", dispatchLabel: "Other Service" },
 ] as const
 
 export type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
+export { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 
 export type ServiceQuoteBreakdownLine = {
   label: string
@@ -120,7 +175,7 @@ function shouldApplyKeyHardwarePricing(
   if (keyVariantId.trim()) return true
   const style = keyStyle.trim().toLowerCase()
   if (!style || style.includes("not sure")) return false
-  return serviceTypeId === "key_gen" || serviceTypeId === "key_dup"
+  return serviceTypeId === "key_generation" || serviceTypeId === "key_duplication"
 }
 
 function keyHardwareSurcharges(
@@ -178,16 +233,31 @@ function keyHardwareSurcharges(
 /** Resolve a quote type id from intake job type + key mode strings. */
 export function serviceQuoteTypeIdFromIntake(jobType: string, keyMode: string): ServiceQuoteTypeId {
   if (jobType === "Lockout") return "lockout"
-  if (jobType === "Ignition") return "ignition"
+  if (jobType === "Ignition") return "ignition_repair"
   if (jobType === "Key replacement") {
-    return keyMode === "Duplication" ? "key_dup" : "key_gen"
+    return keyMode === "Duplication" ? "key_duplication" : "key_generation"
   }
+  const normalizedJob = jobType.trim().toLowerCase()
+  if (normalizedJob.includes("programming") || normalizedJob.includes("immobilizer")) {
+    return "programming_diagnostics"
+  }
+  if (normalizedJob.includes("extraction")) return "key_extraction"
+  if (normalizedJob.includes("re-key") || normalizedJob.includes("rekey")) return "rekey"
+  if (normalizedJob.includes("installation") || normalizedJob.includes("lock change")) {
+    return "lock_installation"
+  }
+  if (normalizedJob.includes("commercial")) return "commercial_hardware"
   return "other"
+}
+
+function findServiceQuoteSpec(serviceTypeId: ServiceQuoteTypeId) {
+  const normalized = normalizeServiceQuoteTypeId(serviceTypeId)
+  return SERVICE_QUOTE_TYPES.find((s) => s.id === normalized) ?? SERVICE_QUOTE_TYPES[0]
 }
 
 /** Compute a live quote from YMM + service selection + optional owner rate profile. */
 export function calculateServiceQuote(params: {
-  serviceTypeId: ServiceQuoteTypeId
+  serviceTypeId: ServiceQuoteTypeId | string
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
@@ -202,9 +272,10 @@ export function calculateServiceQuote(params: {
   /** Photo variant id when the operator tapped a specific key layout. */
   keyVariantId?: string
 }): ServiceQuoteResult {
+  const normalizedServiceTypeId = normalizeServiceQuoteTypeId(String(params.serviceTypeId))
   const rateCard = resolveServiceRateCard(params.rateCard)
   const source = params.rateCardSource ?? "default"
-  const spec = SERVICE_QUOTE_TYPES.find((s) => s.id === params.serviceTypeId) ?? SERVICE_QUOTE_TYPES[0]
+  const spec = findServiceQuoteSpec(normalizedServiceTypeId)
   const base = rateCard.services[spec.id] ?? DEFAULT_SERVICE_RATE_CARD.services[spec.id]
   const ageTier = vehicleAgeSurchargeCents(params.vehicleYear ?? "", rateCard)
   const makeExtra = makeSurchargeCents(params.vehicleMake ?? "", rateCard)
@@ -215,7 +286,7 @@ export function calculateServiceQuote(params: {
   const distanceTier = distanceSurchargeCents(distanceMiles, rateCard)
   const keyHardware = keyHardwareSurcharges(
     {
-      serviceTypeId: params.serviceTypeId,
+      serviceTypeId: normalizedServiceTypeId,
       keyStyle: params.keyStyle,
       keyChipset: params.keyChipset,
       keyVariantId: params.keyVariantId,
@@ -256,7 +327,10 @@ export function calculateServiceQuote(params: {
     serviceTypeId: spec.id,
     jobType: spec.jobType,
     keyReplacementMode: spec.keyMode,
-    dispatchJobTypeLabel: formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode),
+    dispatchJobTypeLabel:
+      "dispatchLabel" in spec && spec.dispatchLabel
+        ? spec.dispatchLabel
+        : formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode),
     baseCents: base,
     distancePremiumCents,
     keyBlankCents,

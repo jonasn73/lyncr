@@ -33,6 +33,7 @@ import {
   type ActiveCallRow,
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
+import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
 import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import {
@@ -745,10 +746,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
   const isPriceTooHigh = failureReason === "Price too high"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
-  const requiresVehicle =
-    serviceTypeId === "key_gen" ||
-    serviceTypeId === "key_dup" ||
-    serviceTypeId === "ignition"
+  const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
 
   return (
     <Sheet

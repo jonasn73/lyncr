@@ -29,10 +29,17 @@ export function serviceQuoteTypeFromJobType(jobType: string): ServiceQuoteTypeId
 /** Value stored on ai_leads.job_type / collected.job_type from a calculator selection. */
 export function dispatchJobTypeFromServiceQuoteTypeId(id: ServiceQuoteTypeId): string {
   const spec = SERVICE_QUOTE_TYPES.find((s) => s.id === id) ?? SERVICE_QUOTE_TYPES[0]
+  if ("dispatchLabel" in spec && spec.dispatchLabel) return spec.dispatchLabel
   return formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode)
 }
 
 /** True when YMM + key variant UI should show (matches CallAnsweredModal). */
 export function serviceTypeRequiresVehicle(serviceTypeId: ServiceQuoteTypeId): boolean {
-  return serviceTypeId === "key_gen" || serviceTypeId === "key_dup" || serviceTypeId === "ignition"
+  return (
+    serviceTypeId === "key_generation" ||
+    serviceTypeId === "key_duplication" ||
+    serviceTypeId === "ignition_repair" ||
+    serviceTypeId === "programming_diagnostics" ||
+    serviceTypeId === "key_extraction"
+  )
 }

@@ -23,9 +23,9 @@ describe("parseServiceRateCardFromRules", () => {
     const { rateCard, source } = parseServiceRateCardFromRules(raw)
     expect(source).toBe("onboarding_profiles.service_rules")
     expect(rateCard.services.lockout).toBe(9900)
-    expect(rateCard.services.ignition).toBe(25000)
+    expect(rateCard.services.ignition_repair).toBe(25000)
     expect(rateCard.premium_make_cents).toBe(3000)
-    expect(rateCard.services.key_gen).toBe(DEFAULT_SERVICE_RATE_CARD.services.key_gen)
+    expect(rateCard.services.key_generation).toBe(DEFAULT_SERVICE_RATE_CARD.services.key_generation)
   })
 })
 

@@ -3,7 +3,47 @@
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { neon } from "@neondatabase/serverless"
 
-export type ServiceQuoteTypeId = "lockout" | "key_gen" | "key_dup" | "ignition" | "other"
+export type ServiceQuoteTypeId =
+  | "lockout"
+  | "key_generation"
+  | "key_duplication"
+  | "programming_diagnostics"
+  | "ignition_repair"
+  | "key_extraction"
+  | "rekey"
+  | "lock_installation"
+  | "commercial_hardware"
+  | "other"
+
+/** Every service id shown in the intake quote calculator dropdown. */
+export const SERVICE_QUOTE_TYPE_IDS: ServiceQuoteTypeId[] = [
+  "lockout",
+  "key_generation",
+  "key_duplication",
+  "programming_diagnostics",
+  "ignition_repair",
+  "key_extraction",
+  "rekey",
+  "lock_installation",
+  "commercial_hardware",
+  "other",
+]
+
+/** Map legacy calculator ids stored on older leads / rate cards. */
+const LEGACY_SERVICE_QUOTE_TYPE_IDS: Record<string, ServiceQuoteTypeId> = {
+  key_gen: "key_generation",
+  key_dup: "key_duplication",
+  ignition: "ignition_repair",
+}
+
+/** Normalize stored service_quote_type_id values to the current enum. */
+export function normalizeServiceQuoteTypeId(raw: string | null | undefined): ServiceQuoteTypeId {
+  const id = raw?.trim() ?? ""
+  if (!id) return "lockout"
+  if (LEGACY_SERVICE_QUOTE_TYPE_IDS[id]) return LEGACY_SERVICE_QUOTE_TYPE_IDS[id]
+  if ((SERVICE_QUOTE_TYPE_IDS as string[]).includes(id)) return id as ServiceQuoteTypeId
+  return "other"
+}
 
 /** One line item in a stored pricing_metadata breakdown. */
 export type PricingMetadataLine = {
@@ -40,7 +80,7 @@ export type ServiceRateVehicleAgeTier = {
  * {
  *   "rate_card": {
  *     "version": 1,
- *     "services": { "lockout": 8500, "key_gen": 17500, "key_dup": 9500, "ignition": 22000, "other": 12000 },
+ *     "services": { "lockout": 8500, "key_generation": 17500, "key_duplication": 9500, "ignition_repair": 22000, "other": 12000 },
  *     "vehicle_age_tiers": [
  *       { "min_age_years": 12, "cents": 1500, "label": "Vehicle age adjustment" },
  *       { "min_age_years": 20, "cents": 3500, "label": "Older vehicle adjustment" }
@@ -83,9 +123,14 @@ export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
   version: 1,
   services: {
     lockout: 8500,
-    key_gen: 17500,
-    key_dup: 9500,
-    ignition: 22000,
+    key_generation: 17500,
+    key_duplication: 9500,
+    programming_diagnostics: 15000,
+    ignition_repair: 22000,
+    key_extraction: 12000,
+    rekey: 14000,
+    lock_installation: 16000,
+    commercial_hardware: 18000,
     other: 12000,
   },
   vehicle_age_tiers: [
@@ -247,10 +292,9 @@ export function parseServiceRateCardFromRules(raw: string | null | undefined): {
   const servicesRaw = (cardRaw.services ?? cardRaw.base_rates) as Record<string, unknown> | undefined
   const services: Partial<Record<ServiceQuoteTypeId, number>> = {}
   if (servicesRaw && typeof servicesRaw === "object") {
-    for (const key of ["lockout", "key_gen", "key_dup", "ignition", "other"] as ServiceQuoteTypeId[]) {
-      if (servicesRaw[key] != null) {
-        services[key] = coerceServiceCents(servicesRaw[key], DEFAULT_SERVICE_RATE_CARD.services[key])
-      }
+    for (const [rawKey, rawCents] of Object.entries(servicesRaw)) {
+      const key = normalizeServiceQuoteTypeId(rawKey)
+      services[key] = coerceServiceCents(rawCents, DEFAULT_SERVICE_RATE_CARD.services[key])
     }
   }
 

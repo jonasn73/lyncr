@@ -53,12 +53,16 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs">Service type</Label>
           <Select value={serviceTypeId} onValueChange={(v) => onServiceTypeChange(v as ServiceQuoteTypeId)}>
-            <SelectTrigger className="h-10 w-full">
+            <SelectTrigger className="h-10 w-full border-slate-700 bg-slate-950 text-slate-100">
               <SelectValue placeholder="Select service" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[130] max-h-72 border-slate-700 bg-slate-950 text-slate-100 shadow-xl">
               {SERVICE_QUOTE_TYPES.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
+                <SelectItem
+                  key={t.id}
+                  value={t.id}
+                  className="text-slate-100 focus:bg-slate-800 focus:text-white data-[highlighted]:bg-slate-800 data-[highlighted]:text-white"
+                >
                   {t.label}
                 </SelectItem>
               ))}

@@ -15,7 +15,7 @@ describe("calculateServiceQuote", () => {
 
   it("includes premium make adjustment", () => {
     const quote = calculateServiceQuote({
-      serviceTypeId: "ignition",
+      serviceTypeId: "ignition_repair",
       vehicleYear: "2022",
       vehicleMake: "BMW",
       vehicleModel: "X5",
@@ -40,7 +40,7 @@ describe("calculateServiceQuote", () => {
 
   it("adds smart key blank and programming fees from key selection", () => {
     const quote = calculateServiceQuote({
-      serviceTypeId: "key_gen",
+      serviceTypeId: "key_generation",
       vehicleYear: "2022",
       vehicleMake: "Toyota",
       vehicleModel: "Camry",
@@ -55,7 +55,7 @@ describe("calculateServiceQuote", () => {
 
   it("adds high-security blank and programming for remote head keys", () => {
     const quote = calculateServiceQuote({
-      serviceTypeId: "key_dup",
+      serviceTypeId: "key_duplication",
       vehicleYear: "2018",
       vehicleMake: "Ford",
       vehicleModel: "Fusion",
@@ -64,5 +64,16 @@ describe("calculateServiceQuote", () => {
     expect(quote.keyBlankCents).toBe(2000)
     expect(quote.programmingCents).toBe(4500)
     expect(quote.autoTotalCents).toBe(9500 + 2000 + 4500)
+  })
+
+  it("supports legacy service ids stored on older leads", () => {
+    const quote = calculateServiceQuote({
+      serviceTypeId: "key_gen",
+      vehicleYear: "2020",
+      vehicleMake: "Honda",
+      vehicleModel: "Civic",
+    })
+    expect(quote.serviceTypeId).toBe("key_generation")
+    expect(quote.baseCents).toBe(17500)
   })
 })
