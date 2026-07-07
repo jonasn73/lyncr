@@ -62,7 +62,73 @@ import {
   subscribeAnsweredIntakeDismissed,
 } from "@/lib/answered-call-intake-dismiss"
 import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
+import { isCompleteStructuredAddress, type StructuredAddress } from "@/lib/structured-address"
 import { cn } from "@/lib/utils"
+
+/** Manual intake micro-step views — branching by service type. */
+type WorkflowStep = "SERVICE_SELECT" | "VEHICLE_INFO" | "KEY_SPECIFICS" | "ADDRESS_CONTACT" | "FINAL_DISPATCH"
+
+const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
+  SERVICE_SELECT: "Service",
+  VEHICLE_INFO: "Vehicle",
+  KEY_SPECIFICS: "Key details",
+  ADDRESS_CONTACT: "Location",
+  FINAL_DISPATCH: "Dispatch",
+}
+
+function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
+  const path: WorkflowStep[] = ["SERVICE_SELECT"]
+  if (serviceTypeRequiresVehicle(serviceTypeId)) {
+    path.push("VEHICLE_INFO", "KEY_SPECIFICS")
+  }
+  path.push("ADDRESS_CONTACT", "FINAL_DISPATCH")
+  return path
+}
+
+function workflowStepAfterService(serviceTypeId: ServiceQuoteTypeId): WorkflowStep {
+  return serviceTypeRequiresVehicle(serviceTypeId) ? "VEHICLE_INFO" : "ADDRESS_CONTACT"
+}
+
+function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): WorkflowStep | null {
+  const idx = path.indexOf(current)
+  if (idx <= 0) return null
+  return path[idx - 1] ?? null
+}
+
+function ManualWorkflowProgress({
+  path,
+  currentStep,
+}: {
+  path: WorkflowStep[]
+  currentStep: WorkflowStep
+}) {
+  const currentIndex = Math.max(0, path.indexOf(currentStep))
+  return (
+    <div className="shrink-0 border-b border-border/40 bg-background/95 px-4 py-2 backdrop-blur-sm">
+      <div className="flex items-center gap-1">
+        {path.map((step, index) => {
+          const active = step === currentStep
+          const done = index < currentIndex
+          return (
+            <div
+              key={step}
+              className={cn(
+                "h-1.5 flex-1 rounded-full transition-all duration-300",
+                active ? "bg-primary" : done ? "bg-primary/55" : "bg-muted"
+              )}
+              title={WORKFLOW_STEP_LABELS[step]}
+            />
+          )
+        })}
+      </div>
+      <p className="mt-1.5 text-[10px] font-medium text-muted-foreground">
+        {WORKFLOW_STEP_LABELS[currentStep]}
+      </p>
+    </div>
+  )
+}
+
+const MANUAL_STEP_MOTION = "animate-in fade-in slide-in-from-right-3 space-y-4 duration-300"
 
 /** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
 const RINGING_LOOKUP_DELAYS_MS = [0, 50, 150, 350]
@@ -199,7 +265,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [recoveredViaRouteDiscount, setRecoveredViaRouteDiscount] = useState(false)
   const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
   const [negotiationStep, setNegotiationStep] = useState(1)
-  const [step, setStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>("SERVICE_SELECT")
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -267,7 +333,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setRecoveredViaRouteDiscount(false)
     setHighlightConfirmBook(false)
     setNegotiationStep(1)
-    setStep(1)
+    setCurrentStep("SERVICE_SELECT")
   }, [effectiveCurrent?.id])
 
   useEffect(() => {
@@ -739,6 +805,45 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [effectiveCurrent?.answered_at, patchManualCallRow]
   )
 
+  const handleManualServiceTypeChange = useCallback(
+    (serviceType: ServiceQuoteTypeId) => {
+      setServiceQuoteTypeId(serviceType)
+      setCurrentStep(workflowStepAfterService(serviceType))
+    },
+    [setServiceQuoteTypeId]
+  )
+
+  const handleManualVehicleChange = useCallback(
+    (vehicle: { vehicle_year: string; vehicle_make: string; vehicle_model: string }) => {
+      setVehicle(vehicle)
+      if (vehicle.vehicle_model.trim()) {
+        setCurrentStep("KEY_SPECIFICS")
+      }
+    },
+    [setVehicle]
+  )
+
+  const handleManualAddressChange = useCallback(
+    (addr: StructuredAddress | null) => {
+      setServiceAddress(addr)
+      if (addr && isCompleteStructuredAddress(addr)) {
+        setCurrentStep("FINAL_DISPATCH")
+      }
+    },
+    [setServiceAddress]
+  )
+
+  const goBackManualWorkflow = useCallback(
+    (path: WorkflowStep[]) => {
+      const prev = previousWorkflowStep(path, currentStep)
+      if (prev) setCurrentStep(prev)
+    },
+    [currentStep]
+  )
+
+  const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+  const manualPath = useMemo(() => manualWorkflowPath(serviceTypeId), [serviceTypeId])
+
   if (!enabled && !manualCallRow) return null
 
   const isRinging =
@@ -746,16 +851,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     (effectiveCurrent.manualCallStatus === "ringing" ||
       (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
   const isManual = Boolean(effectiveCurrent?.isManual)
-  const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
   const isPriceTooHigh = failureReason === "Price too high"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
-  const canAdvanceToQuoteReview = Boolean(
+  const canAdvanceToDispatch = Boolean(
     form.displayName.trim() &&
       (addressReady ||
         isFlatAddressReadyForDispatch({ addressLine1: form.addressLine1, city: form.city }))
   )
-  const manualStepLabels = ["Service", "Customer", "Review & dispatch"] as const
 
   return (
     <Sheet
@@ -774,6 +877,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       >
         {effectiveCurrent ? (
           <>
+            {isManual ? <ManualWorkflowProgress path={manualPath} currentStep={currentStep} /> : null}
             <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                 {isManual ? "Manual call intake" : isRinging ? "Incoming call" : "Call answered"}
@@ -802,46 +906,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   />
                 </div>
               ) : null}
-              {isManual ? (
-                <div className="mt-3 space-y-2" aria-label={`Intake step ${step} of 3`}>
-                  <div className="flex gap-1.5">
-                    {manualStepLabels.map((label, index) => {
-                      const stepNumber = index + 1
-                      const active = step === stepNumber
-                      const done = step > stepNumber
-                      return (
-                        <div key={label} className="flex min-w-0 flex-1 flex-col gap-1">
-                          <div
-                            className={cn(
-                              "h-1 rounded-full transition-colors",
-                              active || done ? "bg-primary" : "bg-muted"
-                            )}
-                          />
-                          <p
-                            className={cn(
-                              "truncate text-[10px] font-medium",
-                              active ? "text-primary" : "text-muted-foreground"
-                            )}
-                          >
-                            {label}
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Step {step} of 3 · {manualStepLabels[step - 1]}
-                  </p>
-                </div>
-              ) : null}
             </SheetHeader>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4">
                 {isManual ? (
                   <>
-                    {step === 1 && (
-                      <div className="animate-in fade-in space-y-4 duration-200">
+                    {currentStep === "SERVICE_SELECT" && (
+                      <div key="SERVICE_SELECT" className={MANUAL_STEP_MOTION}>
                         <fieldset className="grid gap-2 rounded-lg border border-border/70 bg-muted/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Call status
@@ -873,17 +945,86 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           vehicleYear={form.vehicleYear}
                           vehicleMake={form.vehicleMake}
                           vehicleModel={form.vehicleModel}
-                          onServiceTypeChange={setServiceQuoteTypeId}
+                          onServiceTypeChange={handleManualServiceTypeChange}
                           variant="selector-only"
+                        />
+                        <p className="text-center text-[11px] text-muted-foreground">
+                          Pick a service type to continue — vehicle jobs open YMM; lockouts skip to location.
+                        </p>
+                      </div>
+                    )}
+
+                    {currentStep === "VEHICLE_INFO" && (
+                      <div key="VEHICLE_INFO" className={MANUAL_STEP_MOTION}>
+                        <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                            Vehicle year · make · model
+                          </legend>
+                          <p className="text-[11px] text-primary/90">
+                            Select the model to continue to key specifics.
+                          </p>
+                          <VehiclePickerCascade
+                            value={{
+                              vehicle_year: form.vehicleYear,
+                              vehicle_make: form.vehicleMake,
+                              vehicle_model: form.vehicleModel,
+                            }}
+                            onChange={handleManualVehicleChange}
+                          />
+                        </fieldset>
+                      </div>
+                    )}
+
+                    {currentStep === "KEY_SPECIFICS" && (
+                      <div key="KEY_SPECIFICS" className={MANUAL_STEP_MOTION}>
+                        <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                            Key specifics
+                          </legend>
+                          <VehicleIntakeClarificationsPanel
+                            year={form.vehicleYear}
+                            make={form.vehicleMake}
+                            model={form.vehicleModel}
+                            answeredIds={new Set(answeredClarificationIds)}
+                            onAnswer={applyVehicleClarification}
+                          />
+                          <VehicleKeyInfoPanel
+                            year={form.vehicleYear}
+                            make={form.vehicleMake}
+                            model={form.vehicleModel}
+                            value={
+                              form.keyFccId
+                                ? {
+                                    profileId: form.keyProfileId,
+                                    fccId: form.keyFccId,
+                                    frequency: form.keyFrequency || null,
+                                    chipset: form.keyChipset || null,
+                                    keyStyle: form.keyStyle || "Not sure yet",
+                                    variantId: form.keyVariantId || null,
+                                  }
+                                : null
+                            }
+                            onChange={(sel) => setVehicleKeySelection(sel)}
+                          />
+                        </fieldset>
+
+                        <ServiceQuoteCalculatorPanel
+                          quote={liveQuote}
+                          serviceTypeId={serviceTypeId}
+                          vehicleYear={form.vehicleYear}
+                          vehicleMake={form.vehicleMake}
+                          vehicleModel={form.vehicleModel}
+                          onServiceTypeChange={handleManualServiceTypeChange}
+                          variant="breakdown-only"
                         />
                       </div>
                     )}
 
-                    {step === 2 && (
-                      <div className="animate-in fade-in space-y-4 duration-200">
+                    {currentStep === "ADDRESS_CONTACT" && (
+                      <div key="ADDRESS_CONTACT" className={MANUAL_STEP_MOTION}>
                         <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                            Customer details
+                            Customer contact
                           </legend>
                           <div className="space-y-1.5">
                             <Label htmlFor="manual-ac-display" className="text-xs">
@@ -916,19 +1057,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
                         <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
-                            Service address
+                            Service location
                           </legend>
                           <div className="space-y-1.5 overflow-visible">
                             <Label className="text-xs">
-                              Search or type address <span className="text-primary">*</span>
+                              Address search <span className="text-primary">*</span>
                             </Label>
                             <JobAddressAutocomplete
                               value={form.serviceAddress}
-                              onChange={setServiceAddress}
+                              onChange={handleManualAddressChange}
                               onQueryCommit={commitAddressQuery}
                               seedQuery={addressSeedQuery}
                               placeholder="Start typing street address…"
                             />
+                            <p className="text-[10px] text-muted-foreground">
+                              Tap a suggestion to jump to dispatch — or fill street + city below.
+                            </p>
                           </div>
                           <div className="space-y-1.5">
                             <Label htmlFor="manual-ac-street" className="text-xs">
@@ -978,33 +1122,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             locationStatus={dispatcherLocation.status}
                             locationError={dispatcherLocation.error}
                           />
-                          {!canAdvanceToQuoteReview ? (
-                            <p className="text-[11px] text-amber-200/90">
-                              Add caller name plus street and city to review the quote.
-                            </p>
-                          ) : null}
                         </fieldset>
-
-                        {requiresVehicle ? (
-                          <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
-                            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                              Vehicle metadata
-                            </legend>
-                            <VehiclePickerCascade
-                              value={{
-                                vehicle_year: form.vehicleYear,
-                                vehicle_make: form.vehicleMake,
-                                vehicle_model: form.vehicleModel,
-                              }}
-                              onChange={setVehicle}
-                            />
-                          </fieldset>
-                        ) : null}
                       </div>
                     )}
 
-                    {step === 3 && (
-                      <div className="animate-in fade-in space-y-4 duration-200">
+                    {currentStep === "FINAL_DISPATCH" && (
+                      <div key="FINAL_DISPATCH" className={MANUAL_STEP_MOTION}>
                         <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
                           <p className="font-medium text-foreground">
                             {form.displayName.trim() || "Customer"}
@@ -1017,6 +1140,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               form.serviceAddress?.formatted ||
                               "—"}
                           </p>
+                          {form.vehicleYear || form.vehicleMake || form.vehicleModel ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {[form.vehicleYear, form.vehicleMake, form.vehicleModel].filter(Boolean).join(" ")}
+                            </p>
+                          ) : null}
                         </div>
 
                         <ServiceQuoteCalculatorPanel
@@ -1025,7 +1153,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           vehicleYear={form.vehicleYear}
                           vehicleMake={form.vehicleMake}
                           vehicleModel={form.vehicleModel}
-                          onServiceTypeChange={setServiceQuoteTypeId}
+                          onServiceTypeChange={handleManualServiceTypeChange}
                           variant="breakdown-only"
                         />
 
@@ -1342,19 +1470,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-slate-800 bg-slate-900 p-3">
                 {isManual ? (
                   <>
-                    {step === 1 ? (
-                      <Button type="button" size="lg" className="h-11 w-full" onClick={() => setStep(2)}>
-                        Next: Customer Details
-                      </Button>
-                    ) : null}
-                    {step === 2 ? (
+                    {currentStep === "KEY_SPECIFICS" ? (
                       <div className="flex gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="lg"
                           className="h-11 shrink-0"
-                          onClick={() => setStep(1)}
+                          onClick={() => goBackManualWorkflow(manualPath)}
                         >
                           Back
                         </Button>
@@ -1362,23 +1485,44 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           type="button"
                           size="lg"
                           className="h-11 min-w-0 flex-1"
-                          disabled={!canAdvanceToQuoteReview}
-                          onClick={() => setStep(3)}
+                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
                         >
-                          Next: Review Quote
+                          Next: Location
                         </Button>
                       </div>
                     ) : null}
-                    {step === 3 ? (
+                    {currentStep === "ADDRESS_CONTACT" ? (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="h-11 shrink-0"
+                          onClick={() => goBackManualWorkflow(manualPath)}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          size="lg"
+                          className="h-11 min-w-0 flex-1"
+                          disabled={!canAdvanceToDispatch}
+                          onClick={() => setCurrentStep("FINAL_DISPATCH")}
+                        >
+                          Continue to dispatch
+                        </Button>
+                      </div>
+                    ) : null}
+                    {currentStep === "FINAL_DISPATCH" ? (
                       <>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-9 w-full"
-                          onClick={() => setStep(2)}
+                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
                         >
-                          Back to customer details
+                          Back to location
                         </Button>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
@@ -1458,6 +1602,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         ) : null}
                         {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
                       </>
+                    ) : null}
+                    {(currentStep === "VEHICLE_INFO" || currentStep === "SERVICE_SELECT") &&
+                    previousWorkflowStep(manualPath, currentStep) ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-full"
+                        onClick={() => goBackManualWorkflow(manualPath)}
+                      >
+                        Back
+                      </Button>
                     ) : null}
                     <div className="flex items-center justify-between gap-2 pt-0.5">
                       <p className="text-[10px] text-muted-foreground">
