@@ -1,6 +1,11 @@
 // Session-scoped cache for routing telemetry — instant paint on hard refresh.
 
-import { formatTalkTime } from "@/lib/daily-call-telemetry"
+import {
+  formatTalkTime,
+  telemetryLocalDayPeriodKey,
+  telemetryMonthPeriodKey,
+  telemetryWeekPeriodKey,
+} from "@/lib/daily-call-telemetry"
 import { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
@@ -15,11 +20,39 @@ export type RoutingTelemetrySnapshot = {
   weeklyTalkSeconds: number
   monthlyTalkSeconds: number
   ownerUserId: string | null
+  /** When the snapshot was taken — used to drop stale week/month/day counters. */
+  weekPeriodKey?: string
+  monthPeriodKey?: string
+  localDayPeriodKey?: string
 }
 
 /** Build the sessionStorage key for a workspace org. */
 export function routingTelemetryCacheKey(organizationId: string | null): string {
   return persistedCacheKey("routing-telemetry", organizationId ?? "default")
+}
+
+/** Drop period-bound counters when the cached snapshot is from a prior day/week/month. */
+export function normalizeRoutingTelemetrySnapshot(
+  raw: RoutingTelemetrySnapshot,
+  now: Date = new Date()
+): RoutingTelemetrySnapshot {
+  const weekKey = telemetryWeekPeriodKey(now)
+  const monthKey = telemetryMonthPeriodKey(now)
+  const dayKey = telemetryLocalDayPeriodKey(now)
+  const cachedWeekKey = raw.weekPeriodKey ?? weekKey
+  const cachedMonthKey = raw.monthPeriodKey ?? monthKey
+  const cachedDayKey = raw.localDayPeriodKey ?? dayKey
+  return {
+    dailyCalls: raw.dailyCalls,
+    missedCalls: cachedDayKey === dayKey ? raw.missedCalls : 0,
+    dailyTalkSeconds: raw.dailyTalkSeconds,
+    weeklyTalkSeconds: cachedWeekKey === weekKey ? raw.weeklyTalkSeconds : 0,
+    monthlyTalkSeconds: cachedMonthKey === monthKey ? raw.monthlyTalkSeconds : 0,
+    ownerUserId: raw.ownerUserId,
+    weekPeriodKey: weekKey,
+    monthPeriodKey: monthKey,
+    localDayPeriodKey: dayKey,
+  }
 }
 
 /** Read the last successful telemetry fetch for this org (if still fresh). */
@@ -30,7 +63,7 @@ export function readRoutingTelemetryCache(
     routingTelemetryCacheKey(organizationId)
   )
   if (!raw) return undefined
-  return {
+  const parsed: RoutingTelemetrySnapshot = {
     dailyCalls: raw.dailyCalls,
     missedCalls: raw.missedCalls,
     dailyTalkSeconds:
@@ -42,7 +75,11 @@ export function readRoutingTelemetryCache(
     monthlyTalkSeconds:
       typeof raw.monthlyTalkSeconds === "number" ? raw.monthlyTalkSeconds : 0,
     ownerUserId: raw.ownerUserId,
+    weekPeriodKey: raw.weekPeriodKey,
+    monthPeriodKey: raw.monthPeriodKey,
+    localDayPeriodKey: raw.localDayPeriodKey,
   }
+  return normalizeRoutingTelemetrySnapshot(parsed)
 }
 
 /** Persist telemetry after a successful API response. */
@@ -50,7 +87,13 @@ export function writeRoutingTelemetryCache(
   organizationId: string | null,
   snapshot: RoutingTelemetrySnapshot
 ): void {
-  writePersistedCache(routingTelemetryCacheKey(organizationId), snapshot)
+  const stamped: RoutingTelemetrySnapshot = {
+    ...snapshot,
+    weekPeriodKey: snapshot.weekPeriodKey ?? telemetryWeekPeriodKey(),
+    monthPeriodKey: snapshot.monthPeriodKey ?? telemetryMonthPeriodKey(),
+    localDayPeriodKey: snapshot.localDayPeriodKey ?? telemetryLocalDayPeriodKey(),
+  }
+  writePersistedCache(routingTelemetryCacheKey(organizationId), stamped)
 }
 
 /** Safe defaults when no cache exists yet. */

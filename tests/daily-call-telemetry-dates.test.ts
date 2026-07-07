@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { isLocalCalendarToday, isLocalCalendarThisMonth, isLocalCalendarThisWeek, isLocalCalendarThisWeekInMonth, isUtcToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
+import {
+  isLocalCalendarToday,
+  isLocalCalendarThisMonth,
+  isLocalCalendarThisWeek,
+  isLocalCalendarThisWeekInMonth,
+  isUtcToday,
+  isWithinLast24Hours,
+  localWeekStartDate,
+  telemetryLocalDayPeriodKey,
+  telemetryMonthPeriodKey,
+  telemetryWeekPeriodKey,
+} from "@/lib/daily-call-telemetry"
 
 describe("isUtcToday", () => {
   it("matches Neon UTC day boundaries used by HUD telemetry", () => {
@@ -47,5 +58,21 @@ describe("isLocalCalendarThisWeekInMonth", () => {
     expect(isLocalCalendarThisWeek("2026-06-30T10:00:00", now)).toBe(true)
     expect(isLocalCalendarThisWeekInMonth("2026-06-30T10:00:00", now)).toBe(false)
     expect(isLocalCalendarThisWeekInMonth("2026-07-04T10:00:00", now)).toBe(true)
+  })
+})
+
+describe("telemetry period keys", () => {
+  it("uses Monday as the week boundary for weekly talk reset", () => {
+    const tuesday = new Date("2026-07-07T14:00:00")
+    expect(localWeekStartDate(tuesday).toISOString().slice(0, 10)).toBe("2026-07-06")
+    expect(telemetryWeekPeriodKey(tuesday)).toBe("2026-07-06")
+    expect(telemetryWeekPeriodKey(new Date("2026-07-06T00:30:00"))).toBe("2026-07-06")
+    expect(telemetryWeekPeriodKey(new Date("2026-07-05T23:59:00"))).toBe("2026-06-29")
+  })
+
+  it("formats month and local-day keys for cache invalidation", () => {
+    const now = new Date("2026-07-04T17:00:00")
+    expect(telemetryMonthPeriodKey(now)).toBe("2026-07")
+    expect(telemetryLocalDayPeriodKey(now)).toBe("2026-07-04")
   })
 })

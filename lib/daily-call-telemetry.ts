@@ -82,3 +82,37 @@ export function isLocalCalendarThisMonth(iso: string, now: Date = new Date()): b
   if (Number.isNaN(d.getTime())) return false
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
 }
+
+/** Monday 00:00 local — start of the calendar week used by weekly talk HUD. */
+export function localWeekStartDate(now: Date = new Date()): Date {
+  const start = new Date(now)
+  const weekday = start.getDay()
+  const daysFromMonday = weekday === 0 ? 6 : weekday - 1
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - daysFromMonday)
+  return start
+}
+
+function formatLocalDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+/** Stable key for the current local calendar week (Monday date). */
+export function telemetryWeekPeriodKey(now: Date = new Date()): string {
+  return formatLocalDateKey(localWeekStartDate(now))
+}
+
+/** Stable key for the current local calendar month. */
+export function telemetryMonthPeriodKey(now: Date = new Date()): string {
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, "0")
+  return `${y}-${m}`
+}
+
+/** Stable key for the current local calendar day (missed-today pill). */
+export function telemetryLocalDayPeriodKey(now: Date = new Date()): string {
+  return formatLocalDateKey(now)
+}

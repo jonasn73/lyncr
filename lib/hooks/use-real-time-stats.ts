@@ -28,6 +28,11 @@ import {
 } from "@/lib/realtime/owner-call-event-types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
+import {
+  telemetryLocalDayPeriodKey,
+  telemetryMonthPeriodKey,
+  telemetryWeekPeriodKey,
+} from "@/lib/daily-call-telemetry"
 
 /** Tracks one ringing/connected leg until call-completed removes it. */
 export type ActiveCallSession = {
@@ -75,17 +80,29 @@ function applySnapshot(
     setOwnerUserId: (id: string | null) => void
   },
   snap: RoutingTelemetrySnapshot,
-  mergeTalk = false
+  options?: { mergeTalk?: boolean; now?: Date }
 ) {
+  const now = options?.now ?? new Date()
+  const currentWeekKey = telemetryWeekPeriodKey(now)
+  const currentMonthKey = telemetryMonthPeriodKey(now)
+  const currentDayKey = telemetryLocalDayPeriodKey(now)
+  const snapWeekKey = snap.weekPeriodKey ?? currentWeekKey
+  const snapMonthKey = snap.monthPeriodKey ?? currentMonthKey
+  const snapDayKey = snap.localDayPeriodKey ?? currentDayKey
+  const mergeTalk = options?.mergeTalk ?? false
+
   setters.setDailyCalls(snap.dailyCalls)
-  setters.setMissedCalls(snap.missedCalls)
-  if (mergeTalk) {
-    setters.setDailyTalkSeconds((prev) => Math.max(prev, snap.dailyTalkSeconds))
+  setters.setMissedCalls(snapDayKey === currentDayKey ? snap.missedCalls : 0)
+  // Rolling 24h window — always trust the API baseline (values can decrease).
+  setters.setDailyTalkSeconds(snap.dailyTalkSeconds)
+  if (mergeTalk && snapWeekKey === currentWeekKey) {
     setters.setWeeklyTalkSeconds((prev) => Math.max(prev, snap.weeklyTalkSeconds))
+  } else {
+    setters.setWeeklyTalkSeconds(snap.weeklyTalkSeconds)
+  }
+  if (mergeTalk && snapMonthKey === currentMonthKey) {
     setters.setMonthlyTalkSeconds((prev) => Math.max(prev, snap.monthlyTalkSeconds))
   } else {
-    setters.setDailyTalkSeconds(snap.dailyTalkSeconds)
-    setters.setWeeklyTalkSeconds(snap.weeklyTalkSeconds)
     setters.setMonthlyTalkSeconds(snap.monthlyTalkSeconds)
   }
   setters.setOwnerUserId(snap.ownerUserId)
@@ -115,6 +132,11 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   activeSessionsRef.current = activeCallSessions
 
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const periodKeysRef = useRef({
+    week: telemetryWeekPeriodKey(),
+    month: telemetryMonthPeriodKey(),
+    day: telemetryLocalDayPeriodKey(),
+  })
 
   const liveLineCount = useMemo(
     () =>
@@ -176,6 +198,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         weeklyTalkSeconds: parsedWeeklyTalk,
         monthlyTalkSeconds: parsedMonthlyTalk,
         ownerUserId: data.owner_user_id ? String(data.owner_user_id) : null,
+        weekPeriodKey: telemetryWeekPeriodKey(),
+        monthPeriodKey: telemetryMonthPeriodKey(),
+        localDayPeriodKey: telemetryLocalDayPeriodKey(),
       }
       applySnapshot(
         {
@@ -187,7 +212,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           setOwnerUserId,
         },
         snap,
-        true
+        { mergeTalk: true }
       )
       writeRoutingTelemetryCache(activeOrganizationId, snap)
     } catch {
@@ -259,6 +284,20 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     }
     document.addEventListener("visibilitychange", onVisible)
     return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [refreshBaseline])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const weekKey = telemetryWeekPeriodKey()
+      const monthKey = telemetryMonthPeriodKey()
+      const dayKey = telemetryLocalDayPeriodKey()
+      const prev = periodKeysRef.current
+      if (weekKey !== prev.week || monthKey !== prev.month || dayKey !== prev.day) {
+        periodKeysRef.current = { week: weekKey, month: monthKey, day: dayKey }
+        void refreshBaseline()
+      }
+    }, 60_000)
+    return () => window.clearInterval(id)
   }, [refreshBaseline])
 
   useEffect(() => {
