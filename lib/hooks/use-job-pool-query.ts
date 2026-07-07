@@ -38,6 +38,43 @@ export async function revalidateSchedulerJobPoolCaches(
   )
 }
 
+/** Immediately drop a deleted job from hopper + active pipeline caches, then revalidate. */
+export async function optimisticRemovePoolJob(
+  activeOrganizationId: string | null,
+  dayKey: string,
+  jobId: string
+): Promise<void> {
+  const { mutate: globalMutate } = await import("swr")
+  const orgKey = activeOrganizationId ?? "default"
+  const hopperUrl = jobPoolHopperUrl(activeOrganizationId)
+  const pipelineUrl = jobPoolActiveUrl(activeOrganizationId, dayKey)
+  const hopperCache = persistedCacheKey("job-pool-hopper", orgKey)
+  const pipelineCache = persistedCacheKey("job-pool-active", `${orgKey}:${dayKey}`)
+
+  const withoutId = <T extends { id: string }>(list: T[] | undefined): T[] =>
+    Array.isArray(list) ? list.filter((row) => row.id !== jobId) : []
+
+  await globalMutate(
+    hopperUrl,
+    (current) => {
+      const next = withoutId(current as UnassignedPoolJob[] | undefined)
+      writePersistedCache(hopperCache, next)
+      return next
+    },
+    { revalidate: true, populateCache: true }
+  )
+
+  await globalMutate(
+    pipelineUrl,
+    (current) => {
+      const next = withoutId(current as ActivePipelineJob[] | undefined)
+      writePersistedCache(pipelineCache, next)
+      return next
+    },
+    { revalidate: true, populateCache: true }
+  )
+}
+
 export function useJobPoolQuery(activeOrganizationId: string | null) {
   const url = jobPoolHopperUrl(activeOrganizationId)
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
@@ -59,10 +96,10 @@ export function useJobPoolQuery(activeOrganizationId: string | null) {
   )
 
   const hasCachedData = fallbackData !== undefined || data !== undefined
-  const jobs = useMemo(
-    () => data ?? fallbackData ?? EMPTY_POOL_JOBS,
-    [data, fallbackData]
-  )
+  const jobs = useMemo(() => {
+    if (data !== undefined) return data
+    return readPersistedCache<UnassignedPoolJob[]>(cacheKey) ?? fallbackData ?? EMPTY_POOL_JOBS
+  }, [data, cacheKey, fallbackData])
 
   return {
     jobs,
@@ -121,10 +158,10 @@ export function useActivePipelineQuery(
   )
 
   const hasCachedData = fallbackData !== undefined || data !== undefined
-  const jobs = useMemo(
-    () => data ?? fallbackData ?? EMPTY_PIPELINE_JOBS,
-    [data, fallbackData]
-  )
+  const jobs = useMemo(() => {
+    if (data !== undefined) return data
+    return readPersistedCache<ActivePipelineJob[]>(cacheKey) ?? fallbackData ?? EMPTY_PIPELINE_JOBS
+  }, [data, cacheKey, fallbackData])
 
   return {
     jobs,

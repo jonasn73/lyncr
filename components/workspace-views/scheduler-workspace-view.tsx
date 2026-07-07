@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { mutate as globalMutate } from "swr"
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
@@ -24,8 +23,7 @@ import {
 import { isActivePipelineFeedJob } from "@/lib/scheduler-job-status"
 import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
 import {
-  jobPoolActiveUrl,
-  jobPoolHopperUrl,
+  optimisticRemovePoolJob,
   useActivePipelineQuery,
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
@@ -504,35 +502,49 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     [router, mutatePool, mutateActivePipeline]
   )
 
-  function handleJobDeleted(jobId: string) {
-    deletedJobIdsRef.current.add(jobId)
-    setDeletedJobIds((prev) => {
-      const next = new Set(prev)
-      next.add(jobId)
-      return next
-    })
-    loadSeqRef.current += 1
-    closeJobDrawer()
-    setHighlightId(null)
-    setEvents((prev) => prev.filter((ev) => ev.id !== jobId))
+  const handleJobDeleted = useCallback(
+    (jobId: string) => {
+      deletedJobIdsRef.current.add(jobId)
+      setDeletedJobIds((prev) => {
+        const next = new Set(prev)
+        next.add(jobId)
+        return next
+      })
+      loadSeqRef.current += 1
+      closeJobDrawer()
+      setHighlightId(null)
+      setEvents((prev) => prev.filter((ev) => ev.id !== jobId))
 
-    const orgCacheKey = orgId ?? "default"
-    const nextPool = poolJobs.filter((j) => j.id !== jobId)
-    const nextPipeline = activePipelineJobs.filter((j) => j.id !== jobId)
-    const hopperUrl = jobPoolHopperUrl(activeOrganizationId)
-    const pipelineUrl = jobPoolActiveUrl(activeOrganizationId, pipelineDayKey)
+      const orgCacheKey = activeOrganizationId ?? "default"
+      const nextPool = poolJobs.filter((j) => j.id !== jobId)
+      const nextPipeline = activePipelineJobs.filter((j) => j.id !== jobId)
 
-    writePersistedCache(persistedCacheKey("job-pool-hopper", orgCacheKey), nextPool)
-    writePersistedCache(
-      persistedCacheKey("job-pool-active", `${orgCacheKey}:${pipelineDayKey}`),
-      nextPipeline
-    )
+      writePersistedCache(persistedCacheKey("job-pool-hopper", orgCacheKey), nextPool)
+      writePersistedCache(
+        persistedCacheKey("job-pool-active", `${orgCacheKey}:${pipelineDayKey}`),
+        nextPipeline
+      )
 
-    void mutatePool(nextPool, { revalidate: false })
-    void mutateActivePipeline(nextPipeline, { revalidate: false })
-    void globalMutate(hopperUrl, nextPool, { revalidate: false })
-    void globalMutate(pipelineUrl, nextPipeline, { revalidate: false })
-  }
+      void mutatePool(
+        (current) => (Array.isArray(current) ? current : poolJobs).filter((j) => j.id !== jobId),
+        { revalidate: false, populateCache: true }
+      )
+      void mutateActivePipeline(
+        (current) => (Array.isArray(current) ? current : activePipelineJobs).filter((j) => j.id !== jobId),
+        { revalidate: false, populateCache: true }
+      )
+      void optimisticRemovePoolJob(activeOrganizationId, pipelineDayKey, jobId)
+    },
+    [
+      activeOrganizationId,
+      activePipelineJobs,
+      closeJobDrawer,
+      mutateActivePipeline,
+      mutatePool,
+      pipelineDayKey,
+      poolJobs,
+    ]
+  )
 
   function resolveDropHour(techUserId: string, preferredHour: number, durationMinutes: number): number {
     const duration = durationMinutes || 60

@@ -102,6 +102,8 @@ export function JobDetailDrawer({
 }: JobDetailDrawerProps) {
   const source = scheduledEvent ?? poolJob
   const jobId = source?.id ?? ""
+  const onDeletedRef = useRef(onDeleted)
+  onDeletedRef.current = onDeleted
 
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -540,7 +542,7 @@ export function JobDetailDrawer({
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error ?? "Could not delete job")
       setDeleteConfirmOpen(false)
-      onDeleted?.(jobId)
+      onDeletedRef.current?.(jobId)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not delete job")
