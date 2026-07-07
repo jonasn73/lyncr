@@ -389,17 +389,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
   }, [ownerUserId])
 
-  const closeIntakeAfterSave = useCallback(() => {
-    if (manualCallRow) {
-      clearManualCallRow()
-      return
-    }
-    if (current) {
-      dismissCallIntake(current)
-      setCurrent(null)
-    }
-  }, [clearManualCallRow, current, dismissCallIntake, manualCallRow])
-
   useEffect(() => {
     if (!ownerUserId) return
     dismissedRef.current = loadAnsweredIntakeDismissed(ownerUserId)
@@ -574,6 +563,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     },
     [ownerUserId]
   )
+
+  const closeIntakeAfterSave = useCallback(() => {
+    if (manualCallRow) {
+      clearManualCallRow()
+      return
+    }
+    if (current) {
+      dismissCallIntake(current)
+      setCurrent(null)
+    }
+  }, [clearManualCallRow, current, dismissCallIntake, manualCallRow])
 
   const dismissOnly = useCallback(() => {
     if (manualCallRow) {
