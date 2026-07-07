@@ -27,6 +27,8 @@ type ServiceQuoteCalculatorPanelProps = {
   vehicleMake: string
   vehicleModel: string
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+  /** selector-only = step 1; breakdown-only = step 3; full = default */
+  variant?: "full" | "selector-only" | "breakdown-only"
   className?: string
 }
 
@@ -37,8 +39,14 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   vehicleMake,
   vehicleModel,
   onServiceTypeChange,
+  variant = "full",
   className,
 }: ServiceQuoteCalculatorPanelProps) {
+  const showSelector = variant === "full" || variant === "selector-only"
+  const showBreakdown = variant === "full" || variant === "breakdown-only"
+  const selectedLabel =
+    SERVICE_QUOTE_TYPES.find((t) => t.id === serviceTypeId)?.label ?? "Selected service"
+
   return (
     <fieldset
       className={cn(
@@ -49,32 +57,38 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
       <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
         Quick booking · service quote
       </legend>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Service type</Label>
-          <Select value={serviceTypeId} onValueChange={(v) => onServiceTypeChange(v as ServiceQuoteTypeId)}>
-            <SelectTrigger className="h-10 w-full border-slate-700 bg-slate-950 text-slate-100">
-              <SelectValue placeholder="Select service" />
-            </SelectTrigger>
-            <SelectContent className="z-[130] max-h-72 border-slate-700 bg-slate-950 text-slate-100 shadow-xl">
-              {SERVICE_QUOTE_TYPES.map((t) => (
-                <SelectItem
-                  key={t.id}
-                  value={t.id}
-                  className="text-slate-100 focus:bg-slate-800 focus:text-white data-[highlighted]:bg-slate-800 data-[highlighted]:text-white"
-                >
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {showSelector ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label className="text-xs">Service type</Label>
+            <Select value={serviceTypeId} onValueChange={(v) => onServiceTypeChange(v as ServiceQuoteTypeId)}>
+              <SelectTrigger className="h-10 w-full border-slate-700 bg-slate-950 text-slate-100">
+                <SelectValue placeholder="Select service" />
+              </SelectTrigger>
+              <SelectContent className="z-[130] max-h-72 border-slate-700 bg-slate-950 text-slate-100 shadow-xl">
+                {SERVICE_QUOTE_TYPES.map((t) => (
+                  <SelectItem
+                    key={t.id}
+                    value={t.id}
+                    className="text-slate-100 focus:bg-slate-800 focus:text-white data-[highlighted]:bg-slate-800 data-[highlighted]:text-white"
+                  >
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      ) : null}
+      {showBreakdown ? (
       <div
         className="rounded-lg border border-emerald-500/20 bg-background/40 px-3 py-2"
         aria-live="polite"
         aria-atomic="true"
       >
+        {variant === "breakdown-only" ? (
+          <p className="text-[11px] font-medium text-emerald-200/90">{selectedLabel}</p>
+        ) : null}
         <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
           Baseline quote (transparent)
         </p>
@@ -112,6 +126,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             : ""}
         </p>
       </div>
+      ) : null}
     </fieldset>
   )
 })

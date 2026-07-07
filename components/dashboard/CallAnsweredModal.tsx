@@ -61,6 +61,7 @@ import {
   markAnsweredIntakeDismissed,
   subscribeAnsweredIntakeDismissed,
 } from "@/lib/answered-call-intake-dismiss"
+import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
 import { cn } from "@/lib/utils"
 
 /** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
@@ -198,6 +199,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [recoveredViaRouteDiscount, setRecoveredViaRouteDiscount] = useState(false)
   const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
   const [negotiationStep, setNegotiationStep] = useState(1)
+  const [step, setStep] = useState(1)
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -265,6 +267,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setRecoveredViaRouteDiscount(false)
     setHighlightConfirmBook(false)
     setNegotiationStep(1)
+    setStep(1)
   }, [effectiveCurrent?.id])
 
   useEffect(() => {
@@ -747,6 +750,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const isPriceTooHigh = failureReason === "Price too high"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
+  const canAdvanceToQuoteReview = Boolean(
+    form.displayName.trim() &&
+      (addressReady ||
+        isFlatAddressReadyForDispatch({ addressLine1: form.addressLine1, city: form.city }))
+  )
+  const manualStepLabels = ["Service", "Customer", "Review & dispatch"] as const
 
   return (
     <Sheet
@@ -793,37 +802,244 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   />
                 </div>
               ) : null}
+              {isManual ? (
+                <div className="mt-3 space-y-2" aria-label={`Intake step ${step} of 3`}>
+                  <div className="flex gap-1.5">
+                    {manualStepLabels.map((label, index) => {
+                      const stepNumber = index + 1
+                      const active = step === stepNumber
+                      const done = step > stepNumber
+                      return (
+                        <div key={label} className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div
+                            className={cn(
+                              "h-1 rounded-full transition-colors",
+                              active || done ? "bg-primary" : "bg-muted"
+                            )}
+                          />
+                          <p
+                            className={cn(
+                              "truncate text-[10px] font-medium",
+                              active ? "text-primary" : "text-muted-foreground"
+                            )}
+                          >
+                            {label}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Step {step} of 3 · {manualStepLabels[step - 1]}
+                  </p>
+                </div>
+              ) : null}
             </SheetHeader>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4">
                 {isManual ? (
-                  <fieldset className="grid gap-2 rounded-lg border border-border/70 bg-muted/10 p-3">
-                    <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                      Call status
-                    </legend>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="manual-call-status" className="text-xs">
-                        Line state
-                      </Label>
-                      <Select
-                        value={effectiveCurrent.manualCallStatus ?? "answered"}
-                        onValueChange={(v) => setManualCallStatus(v as ManualCallStatus)}
-                      >
-                        <SelectTrigger id="manual-call-status" className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ringing">Ringing</SelectItem>
-                          <SelectItem value="answered">Answered</SelectItem>
-                          <SelectItem value="on_hold">On hold</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </fieldset>
-                ) : null}
+                  <>
+                    {step === 1 && (
+                      <div className="animate-in fade-in space-y-4 duration-200">
+                        <fieldset className="grid gap-2 rounded-lg border border-border/70 bg-muted/10 p-3">
+                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                            Call status
+                          </legend>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="manual-call-status" className="text-xs">
+                              Line state
+                            </Label>
+                            <Select
+                              value={effectiveCurrent.manualCallStatus ?? "answered"}
+                              onValueChange={(v) => setManualCallStatus(v as ManualCallStatus)}
+                            >
+                              <SelectTrigger id="manual-call-status" className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ringing">Ringing</SelectItem>
+                                <SelectItem value="answered">Answered</SelectItem>
+                                <SelectItem value="on_hold">On hold</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </fieldset>
 
+                        <ServiceQuoteCalculatorPanel
+                          quote={liveQuote}
+                          serviceTypeId={serviceTypeId}
+                          vehicleYear={form.vehicleYear}
+                          vehicleMake={form.vehicleMake}
+                          vehicleModel={form.vehicleModel}
+                          onServiceTypeChange={setServiceQuoteTypeId}
+                          variant="selector-only"
+                        />
+                      </div>
+                    )}
+
+                    {step === 2 && (
+                      <div className="animate-in fade-in space-y-4 duration-200">
+                        <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                            Customer details
+                          </legend>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="manual-ac-display" className="text-xs">
+                              Caller name <span className="text-primary">*</span>
+                            </Label>
+                            <Input
+                              id="manual-ac-display"
+                              value={form.displayName}
+                              onChange={(e) => patchForm({ displayName: e.target.value })}
+                              placeholder="Ask before they hang up"
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="manual-ac-phone" className="text-xs">
+                              Phone number
+                            </Label>
+                            <Input
+                              id="manual-ac-phone"
+                              type="tel"
+                              inputMode="tel"
+                              autoComplete="tel"
+                              value={form.phoneNumber}
+                              onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                              placeholder="(502) 555-1234"
+                              className="h-10 font-mono text-base"
+                            />
+                          </div>
+                        </fieldset>
+
+                        <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
+                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
+                            Service address
+                          </legend>
+                          <div className="space-y-1.5 overflow-visible">
+                            <Label className="text-xs">
+                              Search or type address <span className="text-primary">*</span>
+                            </Label>
+                            <JobAddressAutocomplete
+                              value={form.serviceAddress}
+                              onChange={setServiceAddress}
+                              onQueryCommit={commitAddressQuery}
+                              seedQuery={addressSeedQuery}
+                              placeholder="Start typing street address…"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="manual-ac-street" className="text-xs">
+                              Street <span className="text-primary">*</span>
+                            </Label>
+                            <Input
+                              id="manual-ac-street"
+                              value={form.addressLine1}
+                              onChange={(e) => patchForm({ addressLine1: e.target.value })}
+                              placeholder="123 Main St"
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="manual-ac-city" className="text-xs">
+                                City <span className="text-primary">*</span>
+                              </Label>
+                              <Input
+                                id="manual-ac-city"
+                                value={form.city}
+                                onChange={(e) => patchForm({ city: e.target.value })}
+                                placeholder="Louisville"
+                                className="h-10"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="manual-ac-zip" className="text-xs">
+                                ZIP
+                              </Label>
+                              <Input
+                                id="manual-ac-zip"
+                                value={form.postalCode}
+                                onChange={(e) => patchForm({ postalCode: e.target.value })}
+                                placeholder="40202"
+                                className="h-10"
+                                inputMode="numeric"
+                              />
+                            </div>
+                          </div>
+                          <IntakeTravelPreview
+                            dispatcherLat={dispatcherLocation.lat}
+                            dispatcherLng={dispatcherLocation.lng}
+                            jobLat={form.serviceAddress?.lat ?? null}
+                            jobLng={form.serviceAddress?.lng ?? null}
+                            distanceMiles={travelDistanceMiles}
+                            locationStatus={dispatcherLocation.status}
+                            locationError={dispatcherLocation.error}
+                          />
+                          {!canAdvanceToQuoteReview ? (
+                            <p className="text-[11px] text-amber-200/90">
+                              Add caller name plus street and city to review the quote.
+                            </p>
+                          ) : null}
+                        </fieldset>
+
+                        {requiresVehicle ? (
+                          <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                              Vehicle metadata
+                            </legend>
+                            <VehiclePickerCascade
+                              value={{
+                                vehicle_year: form.vehicleYear,
+                                vehicle_make: form.vehicleMake,
+                                vehicle_model: form.vehicleModel,
+                              }}
+                              onChange={setVehicle}
+                            />
+                          </fieldset>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {step === 3 && (
+                      <div className="animate-in fade-in space-y-4 duration-200">
+                        <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
+                          <p className="font-medium text-foreground">
+                            {form.displayName.trim() || "Customer"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
+                          </p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+                              form.serviceAddress?.formatted ||
+                              "—"}
+                          </p>
+                        </div>
+
+                        <ServiceQuoteCalculatorPanel
+                          quote={liveQuote}
+                          serviceTypeId={serviceTypeId}
+                          vehicleYear={form.vehicleYear}
+                          vehicleMake={form.vehicleMake}
+                          vehicleModel={form.vehicleModel}
+                          onServiceTypeChange={setServiceQuoteTypeId}
+                          variant="breakdown-only"
+                        />
+
+                        <PriceNegotiationHelperPanel
+                          baselineCents={liveQuote.totalCents}
+                          currentPriceDollars={customPrice}
+                          onApplyPrice={handleNegotiationApply}
+                          appliedDiscountId={negotiationDiscountApplied}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
                 <ServiceQuoteCalculatorPanel
                   quote={liveQuote}
                   serviceTypeId={serviceTypeId}
@@ -1119,9 +1335,151 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   ) : null}
                   {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
                 </fieldset>
+                  </>
+                )}
               </div>
 
               <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-slate-800 bg-slate-900 p-3">
+                {isManual ? (
+                  <>
+                    {step === 1 ? (
+                      <Button type="button" size="lg" className="h-11 w-full" onClick={() => setStep(2)}>
+                        Next: Customer Details
+                      </Button>
+                    ) : null}
+                    {step === 2 ? (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="h-11 shrink-0"
+                          onClick={() => setStep(1)}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          size="lg"
+                          className="h-11 min-w-0 flex-1"
+                          disabled={!canAdvanceToQuoteReview}
+                          onClick={() => setStep(3)}
+                        >
+                          Next: Review Quote
+                        </Button>
+                      </div>
+                    ) : null}
+                    {step === 3 ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 w-full"
+                          onClick={() => setStep(2)}
+                        >
+                          Back to customer details
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                            <span className="font-bold text-emerald-400">$</span>
+                            <input
+                              id="manual-ac-quote-price"
+                              type="number"
+                              inputMode="decimal"
+                              min={0}
+                              step={1}
+                              value={customPrice}
+                              onChange={(e) => {
+                                setCustomPrice(e.target.value)
+                                const raw = e.target.value.trim()
+                                if (!raw) return
+                                const dollars = Number.parseFloat(raw)
+                                if (Number.isFinite(dollars) && dollars >= 0) {
+                                  setQuotedPriceDollars(dollars)
+                                }
+                              }}
+                              onBlur={() => {
+                                if (!customPrice.trim()) {
+                                  syncQuotedPriceToAuto()
+                                  setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                                }
+                              }}
+                              className="w-16 border-none bg-transparent p-0 text-xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                              aria-label="Quote before dispatch"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className={cn(
+                              "min-w-0 flex-1 gap-2",
+                              highlightConfirmBook &&
+                                "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
+                            )}
+                            disabled={jobState === "creating" || !canDispatch}
+                            onClick={() => void confirmAndBook()}
+                          >
+                            {jobState === "creating" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                            ) : (
+                              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                            )}
+                            Confirm &amp; book
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={jobState === "creating" || !canSavePendingLead}
+                          onClick={() => void savePendingLead()}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
+                        </button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="default"
+                          className="h-10 w-full gap-2"
+                          disabled={jobState === "creating" || !canDispatch}
+                          onClick={() => void sendToDispatch()}
+                        >
+                          Send to dispatch map &amp; schedule
+                        </Button>
+                        {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
+                          <p className="text-center text-[10px] text-amber-200/90">
+                            Still needed: {dispatchBlockers.join(" · ")}
+                          </p>
+                        ) : null}
+                        {jobState === "created" ? (
+                          <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+                            Job added to the hopper — assign when ready.
+                          </p>
+                        ) : null}
+                        {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
+                      </>
+                    ) : null}
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <p className="text-[10px] text-muted-foreground">
+                        {saveState === "saving" ? "Saving…" : null}
+                        {saveState === "saved" ? "Saved." : null}
+                        {saveState === "error" ? "Save failed." : null}
+                        {saveState === "idle" ? "Auto-save on." : null}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        disabled={jobState === "creating"}
+                        onClick={dismissOnly}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
                     <span className="font-bold text-emerald-400">$</span>
@@ -1223,6 +1581,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     Dismiss
                   </Button>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </>

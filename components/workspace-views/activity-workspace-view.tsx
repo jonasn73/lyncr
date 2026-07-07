@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { CalendarDays, ClipboardList, MapPin, Phone, PhoneMissed } from "lucide-react"
+import { CalendarDays, ClipboardList, Clock, MapPin, Phone, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buildTelHref } from "@/lib/phone-e164"
 import { isMissedCallRecord, isMissedCallTodayRecord, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
@@ -160,8 +160,8 @@ function useBookingAlerts() {
   }, [toast, noisyAlerts])
 }
 
-/** e.g. "Today, 4:15 PM" or "May 25, 2:30 PM" */
-function formatCallTimestamp(call: UiCallRecord): string {
+/** Split call time into a scannable day label + clock time. */
+function formatCallTimestampParts(call: UiCallRecord): { day: string; time: string; full: string } | null {
   if (call.createdAt) {
     const d = new Date(call.createdAt)
     if (!Number.isNaN(d.getTime())) {
@@ -170,13 +170,52 @@ function formatCallTimestamp(call: UiCallRecord): string {
       const startThatDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
       const diffDays = Math.floor((startToday - startThatDay) / 86_400_000)
       const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-      if (diffDays === 0) return `Today, ${time}`
-      if (diffDays === 1) return `Yesterday, ${time}`
-      return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`
+      let day: string
+      if (diffDays === 0) day = "Today"
+      else if (diffDays === 1) day = "Yesterday"
+      else day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+      return { day, time, full: `${day}, ${time}` }
     }
   }
-  if (call.date && call.time) return `${call.date}, ${call.time}`
-  return "—"
+  if (call.date && call.time) {
+    return { day: call.date, time: call.time, full: `${call.date}, ${call.time}` }
+  }
+  return null
+}
+
+/** e.g. "Today, 4:15 PM" or "May 25, 2:30 PM" */
+function formatCallTimestamp(call: UiCallRecord): string {
+  return formatCallTimestampParts(call)?.full ?? "—"
+}
+
+function CallTimeDisplay({
+  call,
+  variant = "compact",
+}: {
+  call: UiCallRecord
+  variant?: "compact" | "prominent"
+}) {
+  const parts = formatCallTimestampParts(call)
+  if (!parts) {
+    return <span className="text-xs text-zinc-600">—</span>
+  }
+  if (variant === "prominent") {
+    return (
+      <div className="flex shrink-0 flex-col items-end gap-0.5 text-right" title={parts.full}>
+        <span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-zinc-100">
+          <Clock className="h-3.5 w-3.5 text-zinc-500" aria-hidden />
+          {parts.time}
+        </span>
+        <span className="text-[11px] font-medium text-zinc-500">{parts.day}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-0.5" title={parts.full}>
+      <span className="text-sm font-semibold tabular-nums text-zinc-200">{parts.time}</span>
+      <span className="text-[11px] font-medium text-zinc-500">{parts.day}</span>
+    </div>
+  )
 }
 
 /** Human label for who/what answered the call. */
@@ -226,8 +265,12 @@ function isMissedActivityCallToday(call: UiCallRecord, now: Date = new Date()): 
   )
 }
 
+/** Any inbound call with a dialable customer number — not only missed. */
 function canCallBack(call: UiCallRecord): boolean {
-  return isMissedActivityCall(call) && buildTelHref(call.callerNumber) != null
+  if (call.type === "outgoing") return false
+  const raw = call.callerNumber?.trim()
+  if (!raw || raw === "—") return false
+  return buildTelHref(raw) != null
 }
 
 function CallBackButton({
@@ -484,9 +527,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
               {formatDuration(call.durationSeconds)}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium text-zinc-400">
-              {formatCallTimestamp(call)}
-            </span>
+            <CallTimeDisplay call={call} variant="compact" />
           </div>
 
           <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
@@ -565,11 +606,9 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               }}
               className="flex w-full flex-col gap-2 px-4 py-3.5 text-left transition-colors hover:bg-zinc-900/50 active:bg-zinc-900/70"
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-start justify-between gap-3">
                 <ActivityStatusPill status={st} />
-                <span className="shrink-0 text-xs tabular-nums text-zinc-500">
-                  {formatDuration(call.durationSeconds)}
-                </span>
+                <CallTimeDisplay call={call} variant="prominent" />
               </div>
               <div className="min-w-0">
                 <p className="truncate font-medium text-foreground">{call.callerName}</p>
@@ -591,13 +630,17 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               {call.activity ? (
                 <ActivityIntakeSummary activity={call.activity} compact />
               ) : null}
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
-                <AgentBadge agent={resolveCallAgent(call)} />
-                <span className="truncate" title={targetLabel}>
-                  {targetLabel}
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <AgentBadge agent={resolveCallAgent(call)} />
+                  <span className="truncate" title={targetLabel}>
+                    {targetLabel}
+                  </span>
+                </div>
+                <span className="shrink-0 tabular-nums text-zinc-400">
+                  {formatDuration(call.durationSeconds)}
                 </span>
               </div>
-              <p className="text-[11px] tabular-nums text-zinc-600">{formatCallTimestamp(call)}</p>
             </button>
           </li>
         )
@@ -618,17 +661,19 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
       <div className="hidden md:block">
       <WorkspaceTableWrap className="min-h-[340px]" bleed>
         <colgroup>
-          <col className="w-[11%]" />
-          <col className="w-[18%]" />
-          <col className="w-[24%]" />
+          <col className="w-[10%]" />
+          <col className="w-[12%]" />
+          <col className="w-[17%]" />
+          <col className="w-[22%]" />
           <col className="w-[8%]" />
-          <col className="w-[16%]" />
-          <col className="w-[15%]" />
+          <col className="w-[14%]" />
+          <col className="w-[13%]" />
           <col className="w-[8%]" />
         </colgroup>
         <thead>
           <tr>
             <WorkspaceTh>Status</WorkspaceTh>
+            <WorkspaceTh>Called</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
             <WorkspaceTh>Intake &amp; schedule</WorkspaceTh>
             <WorkspaceTh>Duration</WorkspaceTh>
@@ -640,7 +685,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <WorkspaceTd colSpan={7} className="py-12 text-center text-zinc-600">
+              <WorkspaceTd colSpan={8} className="py-12 text-center text-zinc-600">
                 No calls yet
               </WorkspaceTd>
             </tr>
@@ -654,11 +699,20 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     <ActivityStatusPill status={st} />
                   </WorkspaceTd>
                   <WorkspaceTd>
+                    <CallTimeDisplay call={call} />
+                  </WorkspaceTd>
+                  <WorkspaceTd>
                     <p className="font-medium text-foreground">{call.callerName}</p>
-                    <p className="text-xs text-zinc-500">{call.callerNumber}</p>
-                    <p className="mt-1 text-[11px] tabular-nums text-zinc-600">
-                      {formatCallTimestamp(call)}
-                    </p>
+                    {canCallBack(call) ? (
+                      <a
+                        href={buildTelHref(call.callerNumber) ?? undefined}
+                        className="text-xs font-medium text-cyan-400 underline-offset-2 hover:underline"
+                      >
+                        {call.callerNumber}
+                      </a>
+                    ) : (
+                      <p className="text-xs text-zinc-500">{call.callerNumber}</p>
+                    )}
                   </WorkspaceTd>
                   <WorkspaceTd>
                     {call.activity ? (
@@ -682,16 +736,21 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     </p>
                   </WorkspaceTd>
                   <WorkspaceTd className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedActivityLog(call)
-                        openLog(call)
-                      }}
-                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
-                    >
-                      View log
-                    </button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      {canCallBack(call) ? (
+                        <CallBackButton phone={call.callerNumber} compact />
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedActivityLog(call)
+                          openLog(call)
+                        }}
+                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
+                      >
+                        View log
+                      </button>
+                    </div>
                   </WorkspaceTd>
                 </tr>
               )

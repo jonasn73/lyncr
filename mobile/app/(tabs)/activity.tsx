@@ -29,6 +29,19 @@ type QualitySummary = {
 
 type CallFilter = "missed" | "all"
 
+function formatCallTimeParts(iso: string, now: Date = new Date()): { day: string; time: string } | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startThatDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diffDays = Math.floor((startToday - startThatDay) / 86_400_000)
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+  let day: string
+  if (diffDays === 0) day = "Today"
+  else if (diffDays === 1) day = "Yesterday"
+  else day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+  return { day, time }
+}
 function formatPhoneDisplay(phone: string): string {
   const digits = phone.replace(/\D/g, "")
   const d = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits
@@ -44,6 +57,18 @@ function buildTelHref(raw: string): string | null {
   if (digits.length === 11 && digits.startsWith("1")) return `tel:+${digits}`
   if (digits.length === 10) return `tel:+1${digits}`
   return digits ? `tel:${digits}` : null
+}
+
+function canCallBackFromNumber(phone: string): boolean {
+  const raw = phone?.trim()
+  if (!raw) return false
+  return buildTelHref(raw) != null
+}
+
+function canCallBackCall(call: CallLog): boolean {
+  const type = String(call.call_type ?? "").toLowerCase()
+  if (type === "outgoing") return false
+  return canCallBackFromNumber(call.from_number)
 }
 
 function isMissedCall(call: CallLog): boolean {
@@ -159,15 +184,22 @@ export default function ActivityScreen() {
         <Text style={styles.muted}>{filter === "missed" ? "No missed calls today" : "No calls yet"}</Text>
       ) : (
         visibleCalls.map((c) => {
-          const missed = isMissedCall(c)
+          const calledAt = formatCallTimeParts(c.created_at)
           return (
             <View key={c.id} style={styles.card}>
-              <Text style={styles.fromTo}>{formatPhoneDisplay(c.from_number)}</Text>
+              <View style={styles.cardHeader}>
+                <Text style={styles.fromTo}>{formatPhoneDisplay(c.from_number)}</Text>
+                {calledAt ? (
+                  <View style={styles.calledAtWrap}>
+                    <Text style={styles.calledAtTime}>{calledAt.time}</Text>
+                    <Text style={styles.calledAtDay}>{calledAt.day}</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.meta}>
-                {new Date(c.created_at).toLocaleString()} ·{" "}
-                {c.duration_seconds != null ? `${Math.round(c.duration_seconds / 60)}m` : "—"}
+                {c.duration_seconds != null ? `${Math.round(c.duration_seconds / 60)}m talk` : "No duration"}
               </Text>
-              {missed ? (
+              {canCallBackCall(c) ? (
                 <Pressable onPress={() => void callBack(c.from_number)} style={styles.callBackBtn}>
                   <Text style={styles.callBackText}>Call back</Text>
                 </Pressable>
@@ -205,8 +237,12 @@ const styles = StyleSheet.create({
   kpiLabel: { fontSize: 11, color: "#94a3b8", marginTop: 2 },
   muted: { fontSize: 14, color: "#64748b" },
   card: { backgroundColor: "#1e293b", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#334155" },
-  fromTo: { fontSize: 14, color: "#f8fafc", fontWeight: "600" },
-  meta: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
+  cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  fromTo: { flex: 1, fontSize: 14, color: "#f8fafc", fontWeight: "600" },
+  calledAtWrap: { alignItems: "flex-end" },
+  calledAtTime: { fontSize: 14, fontWeight: "700", color: "#f8fafc" },
+  calledAtDay: { fontSize: 11, fontWeight: "600", color: "#94a3b8", marginTop: 2 },
+  meta: { fontSize: 12, color: "#94a3b8", marginTop: 8 },
   callBackBtn: {
     marginTop: 12,
     borderRadius: 10,
