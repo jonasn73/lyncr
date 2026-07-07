@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarThisWeekInMonth, isLocalCalendarToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -118,12 +118,34 @@ function isLocalToday(iso: string): boolean {
   return isLocalCalendarToday(iso)
 }
 
-function isThisWeek(iso: string): boolean {
-  return isLocalCalendarThisWeekInMonth(iso)
+function isThisWeek(iso: string, weekOffset = 0): boolean {
+  return isInLocalWeekOffset(iso, weekOffset)
 }
 
 function isThisMonth(iso: string): boolean {
   return isLocalCalendarThisMonth(iso)
+}
+
+/** True when a call falls in the local Mon–Sun week (0 = this week, -1 = last week). */
+function isInLocalWeekOffset(iso: string, weekOffset: number, now: Date = new Date()): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  const weekStart = startOfLocalWeek(now)
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 7)
+  return d >= weekStart && d < weekEnd
+}
+
+/** Human label for a week offset, e.g. "Jun 29 – Jul 5". */
+function formatLocalWeekRangeLabel(weekOffset: number, now: Date = new Date()): string {
+  const weekStart = startOfLocalWeek(now)
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6)
+  const startLabel = weekStart.toLocaleDateString([], { month: "short", day: "numeric" })
+  const endLabel = weekEnd.toLocaleDateString([], { month: "short", day: "numeric" })
+  return `${startLabel} – ${endLabel}`
 }
 
 function isMissedRow(row: CallHistoryRow): boolean {
@@ -166,7 +188,8 @@ function matchesWorkspaceLine(row: CallHistoryRow, businessNumbers: DashboardBus
 function filterRows(
   rows: CallHistoryRow[],
   filter: CallHistoryFilter,
-  businessNumbers: DashboardBusinessNumber[]
+  businessNumbers: DashboardBusinessNumber[],
+  weekOffset = 0
 ): CallHistoryRow[] {
   return rows
     .filter((row) => {
@@ -178,7 +201,7 @@ function filterRows(
         if (!isLocalToday(row.created_at)) return false
       }
       if (filter === "weekly_talk") {
-        if (!isThisWeek(row.created_at)) return false
+        if (!isThisWeek(row.created_at, weekOffset)) return false
       }
       if (filter === "monthly_talk") {
         if (!isThisMonth(row.created_at)) return false
@@ -245,13 +268,14 @@ function startOfLocalWeek(now = new Date()): Date {
   return start
 }
 
-/** Build week buckets (today → yesterday → … back to Monday). Future days are omitted. */
-function buildWeeklyDayBreakdown(rows: CallHistoryRow[]): WeeklyDayBucket[] {
+/** Build day buckets for a local week (0 = this week, -1 = last week). */
+function buildWeeklyDayBreakdown(rows: CallHistoryRow[], weekOffset = 0): WeeklyDayBucket[] {
   const now = new Date()
   const todayKey = localDateKey(now)
   const todayStart = new Date(now)
   todayStart.setHours(0, 0, 0, 0)
   const weekStart = startOfLocalWeek(now)
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7)
   const yesterdayStart = new Date(todayStart)
   yesterdayStart.setDate(yesterdayStart.getDate() - 1)
 
@@ -265,10 +289,16 @@ function buildWeeklyDayBreakdown(rows: CallHistoryRow[]): WeeklyDayBucket[] {
   }
 
   const buckets: WeeklyDayBucket[] = []
-  for (let offset = 0; offset < 7; offset += 1) {
-    const date = new Date(todayStart)
-    date.setDate(todayStart.getDate() - offset)
-    if (date < weekStart) break
+  const isCurrentWeek = weekOffset === 0
+  const dayCount = isCurrentWeek
+    ? Math.min(7, Math.floor((todayStart.getTime() - weekStart.getTime()) / 86400000) + 1)
+    : 7
+
+  for (let offset = 0; offset < dayCount; offset += 1) {
+    const date = isCurrentWeek
+      ? new Date(todayStart.getTime() - offset * 86400000)
+      : new Date(weekStart.getTime() + offset * 86400000)
+    if (isCurrentWeek && date < weekStart) break
 
     const key = localDateKey(date)
     const totals = byKey.get(key) ?? { callCount: 0, talkSeconds: 0 }
@@ -470,6 +500,8 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
   const [rows, setRows] = useState<CallHistoryRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [selectedWeekDayKey, setSelectedWeekDayKey] = useState<string | null>(null)
+  /** 0 = this week, -1 = last week — only used for weekly_talk filter. */
+  const [weekOffset, setWeekOffset] = useState(0)
 
   const loadCalls = useCallback(async () => {
     setLoading(true)
@@ -493,21 +525,23 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
     if (open) {
       void loadCalls()
       if (filter === "weekly_talk") {
+        setWeekOffset(0)
         setSelectedWeekDayKey(localDateKey(new Date()))
       }
     } else {
       setSelectedWeekDayKey(null)
+      setWeekOffset(0)
     }
   }, [open, loadCalls, filter])
 
   const filtered = useMemo(
-    () => filterRows(rows, filter, businessNumbers),
-    [rows, filter, businessNumbers]
+    () => filterRows(rows, filter, businessNumbers, weekOffset),
+    [rows, filter, businessNumbers, weekOffset]
   )
 
   const weeklyDayBreakdown = useMemo(
-    () => (filter === "weekly_talk" ? buildWeeklyDayBreakdown(filtered) : []),
-    [filter, filtered]
+    () => (filter === "weekly_talk" ? buildWeeklyDayBreakdown(filtered, weekOffset) : []),
+    [filter, filtered, weekOffset]
   )
 
   const listRows = useMemo(() => {
@@ -522,22 +556,75 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
     [filter, weekSummary, daySummary]
   )
   const meta = FILTER_META[filter]
+  const weekRangeLabel = filter === "weekly_talk" ? formatLocalWeekRangeLabel(weekOffset) : null
   const showTalkSummary =
     filter === "daily_talk" || filter === "weekly_talk" || filter === "monthly_talk"
   const hudTalkDisplay =
-    expectedTalkSeconds != null && expectedTalkSeconds > 0
+    expectedTalkSeconds != null && expectedTalkSeconds > 0 && weekOffset === 0
       ? filter === "daily_talk"
         ? formatTalkTime(expectedTalkSeconds)
         : formatTalkDuration(expectedTalkSeconds)
       : null
 
+  const handleWeekOffsetChange = useCallback((nextOffset: number) => {
+    setWeekOffset(nextOffset)
+    if (nextOffset === 0) {
+      setSelectedWeekDayKey(localDateKey(new Date()))
+      return
+    }
+    const weekStart = startOfLocalWeek(new Date())
+    weekStart.setDate(weekStart.getDate() + nextOffset * 7)
+    setSelectedWeekDayKey(localDateKey(weekStart))
+  }, [])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,820px)] overflow-hidden border-zinc-800 bg-zinc-950 p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-zinc-800 px-5 py-4">
-          <DialogTitle className="text-base text-zinc-50">{meta.title}</DialogTitle>
-          <DialogDescription className="text-zinc-400">{meta.description}</DialogDescription>
+          <DialogTitle className="text-base text-zinc-50">
+            {filter === "weekly_talk" && weekOffset === -1
+              ? `Last week · ${weekRangeLabel}`
+              : filter === "weekly_talk"
+                ? `This week · ${weekRangeLabel}`
+                : meta.title}
+          </DialogTitle>
+          <DialogDescription className="text-zinc-400">
+            {filter === "weekly_talk"
+              ? weekOffset === -1
+                ? "Calls with talk time last week (Mon–Sun). Tap a day to see each call."
+                : "Calls with talk time this week (Mon–Sun). Tap a day to see each call."
+              : meta.description}
+          </DialogDescription>
         </DialogHeader>
+
+        {filter === "weekly_talk" ? (
+          <div className="flex gap-2 border-b border-zinc-800/80 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => handleWeekOffsetChange(0)}
+              className={cn(
+                "min-h-10 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98]",
+                weekOffset === 0
+                  ? "border-teal-500/40 bg-teal-500/15 text-teal-100"
+                  : "border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              )}
+            >
+              This week
+            </button>
+            <button
+              type="button"
+              onClick={() => handleWeekOffsetChange(-1)}
+              className={cn(
+                "min-h-10 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98]",
+                weekOffset === -1
+                  ? "border-teal-500/40 bg-teal-500/15 text-teal-100"
+                  : "border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              )}
+            >
+              Last week
+            </button>
+          </div>
+        ) : null}
 
         {showTalkSummary && !loading && !error ? (
           <div className="grid grid-cols-2 gap-2 border-b border-zinc-800/80 px-4 py-3 sm:grid-cols-4">
@@ -671,7 +758,9 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
           {selectedWeekDayKey && filter === "weekly_talk"
             ? ` on ${weeklyDayBreakdown.find((d) => d.key === selectedWeekDayKey)?.displayLabel ?? "this day"}`
             : filter === "weekly_talk"
-              ? " this week"
+              ? weekOffset === -1
+                ? " last week"
+                : " this week"
               : ""}
           {showTalkSummary && (filter === "weekly_talk" ? daySummary : summary).totalTalkSeconds > 0
             ? ` · ${formatTalkDuration((filter === "weekly_talk" ? daySummary : summary).totalTalkSeconds)} total talk`
