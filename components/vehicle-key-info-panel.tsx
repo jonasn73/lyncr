@@ -2,7 +2,7 @@
 
 // Key / remote reference panel — FCC IDs grouped with photos and compatible vehicles per FCC.
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import { Check, ChevronDown, ExternalLink, Info, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -13,6 +13,13 @@ import {
 } from "@/lib/fcc-id-input"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel } from "@/lib/vehicle-key-variant-labels"
+import {
+  shouldShowAklTrimVerificationBanner,
+  variantDisabledByTrim,
+  type VehicleFactoryOption,
+  type VehicleTrimProfile,
+} from "@/lib/vehicle-trim-features"
+import { getVehicleTrimHelper } from "@/lib/vehicle-trim-helpers"
 
 function relatedFccLabels(
   fccId: string,
@@ -94,6 +101,11 @@ type VehicleKeyInfoPanelProps = {
   onChange: (next: VehicleKeySelection | null) => void
   /** Fired when a key layout variant card is tapped — use to auto-advance intake steps. */
   onVariantSelected?: (selection: VehicleKeySelection) => void
+  /** Trim from VIN decode or dispatcher (e.g. Base, SLT). */
+  vehicleTrim?: string
+  /** Confirmed factory equipment on this vehicle. */
+  factoryOptions?: VehicleFactoryOption[]
+  onVehicleTrimChange?: (trim: string) => void
   disabled?: boolean
 }
 
@@ -164,12 +176,16 @@ function VariantFilmstrip({
   variants,
   selectedVariantId,
   selectedKeyId,
+  trimProfile,
+  isAllKeysLost,
   disabled,
   onPick,
 }: {
   variants: FccVariant[]
   selectedVariantId: string | null | undefined
   selectedKeyId: string | null
+  trimProfile: VehicleTrimProfile
+  isAllKeysLost: boolean
   disabled?: boolean
   onPick: (variant: FccVariant) => void
 }) {
@@ -186,10 +202,18 @@ function VariantFilmstrip({
 
   if (visibleVariants.length === 0) return null
 
+  const selectedVariant = visibleVariants.find((variant) => variant.id === selectedVariantId) ?? null
+  const showAklBanner =
+    selectedVariant != null &&
+    shouldShowAklTrimVerificationBanner(selectedVariant, trimProfile, isAllKeysLost)
+
   return (
+    <div className="grid gap-2">
     <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
       {visibleVariants.map((variant) => {
         const selected = selectedVariantId === variant.id
+        const trimGate = variantDisabledByTrim(variant, trimProfile)
+        const cardDisabled = disabled || trimGate.disabled
         const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
         const buttonLabel = variantButtonLabel(
           variant.title,
@@ -202,16 +226,20 @@ function VariantFilmstrip({
           <div key={variant.id} className="flex w-[5.25rem] shrink-0 flex-col gap-1">
             <motion.button
               type="button"
-              whileTap={{ scale: 0.97 }}
-              disabled={disabled}
+              whileTap={cardDisabled ? undefined : { scale: 0.97 }}
+              disabled={cardDisabled}
               onClick={() => onPick(variant)}
               className={cn(
                 "relative h-[4.75rem] w-full shrink-0 touch-manipulation overflow-hidden rounded-lg border text-left transition-colors",
-                selected
+                cardDisabled && "cursor-not-allowed opacity-40 hover:border-slate-800",
+                !cardDisabled && selected
                   ? "border-2 border-cyan-400 bg-slate-900"
-                  : "border border-slate-800 bg-background hover:border-primary/50"
+                  : !cardDisabled
+                    ? "border border-slate-800 bg-background hover:border-primary/50"
+                    : "border border-slate-800 bg-background"
               )}
               aria-pressed={selected}
+              aria-disabled={cardDisabled}
             >
               {selected ? (
                 <span
@@ -244,6 +272,11 @@ function VariantFilmstrip({
                   Ref
                 </span>
               ) : null}
+              {trimGate.disabled ? (
+                <span className="absolute inset-x-1 bottom-8 z-10 rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
+                  Feature not supported by vehicle trim
+                </span>
+              ) : null}
             </motion.button>
             {variant.reference_image || variant.reference_note ? (
               <p className="text-[9px] leading-tight text-slate-400 line-clamp-2">
@@ -253,6 +286,13 @@ function VariantFilmstrip({
           </div>
         )
       })}
+    </div>
+    {showAklBanner ? (
+      <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-medium leading-snug text-amber-100">
+        🚨 Verification Alert: Ensure the vehicle is equipped with factory remote start before
+        cutting/programming this variant to prevent blank waste.
+      </p>
+    ) : null}
     </div>
   )
 }
@@ -268,6 +308,8 @@ function FccProfileSection({
   selectedFccId,
   selectedVariantId,
   selectedKeyId,
+  trimProfile,
+  isAllKeysLost,
   disabled,
   onSelectProfile,
   onPickVariant,
@@ -278,6 +320,8 @@ function FccProfileSection({
   selectedFccId: string | undefined
   selectedVariantId: string | null | undefined
   selectedKeyId: string | null
+  trimProfile: VehicleTrimProfile
+  isAllKeysLost: boolean
   disabled?: boolean
   onSelectProfile: (profile: KeyProfile) => void
   onPickVariant: (profile: KeyProfile, variant: FccVariant) => void
@@ -328,6 +372,8 @@ function FccProfileSection({
         variants={detail.variants}
         selectedVariantId={selected ? selectedVariantId : null}
         selectedKeyId={selectedKeyId}
+        trimProfile={trimProfile}
+        isAllKeysLost={isAllKeysLost}
         disabled={disabled}
         onPick={(variant) => onPickVariant(p, variant)}
       />
@@ -493,6 +539,9 @@ export function VehicleKeyInfoPanel({
   value,
   onChange,
   onVariantSelected,
+  vehicleTrim = "",
+  factoryOptions = [],
+  onVehicleTrimChange,
   disabled,
 }: VehicleKeyInfoPanelProps) {
   const [loading, setLoading] = useState(false)
@@ -504,6 +553,16 @@ export function VehicleKeyInfoPanel({
   const [lookupSource, setLookupSource] = useState<"fcc" | "ymm" | "ymm_fallback" | null>(null)
   const [manualBypassMode, setManualBypassMode] = useState(false)
   const [expandedSecondaryFcc, setExpandedSecondaryFcc] = useState<Set<string>>(new Set())
+  const [isAllKeysLost, setIsAllKeysLost] = useState(false)
+
+  const trimProfile = useMemo<VehicleTrimProfile>(
+    () => ({
+      trim: vehicleTrim.trim() || null,
+      factoryOptions,
+      excludedOptions: [],
+    }),
+    [vehicleTrim, factoryOptions]
+  )
 
   const ready = Boolean(year && make && model)
 
@@ -688,6 +747,10 @@ export function VehicleKeyInfoPanel({
       }))
 
   const multipleFcc = profileDetails.length > 1
+  const trimHelperMessage = useMemo(
+    () => getVehicleTrimHelper(year, make, info.model, { multipleFcc }),
+    [year, make, info.model, multipleFcc]
+  )
   const primaryDetail = pickPrimaryProfileDetail(profileDetails)
   const secondaryDetails = profileDetails.filter((d) => d.profile.id !== primaryDetail.profile.id)
 
@@ -801,6 +864,33 @@ export function VehicleKeyInfoPanel({
         </p>
       ) : null}
 
+      <div className="grid gap-2 rounded-lg border border-border/50 bg-background/40 p-2">
+        <label className="grid gap-1 text-[11px]">
+          <span className="font-medium text-foreground">Vehicle trim (optional)</span>
+          <input
+            className="h-9 rounded-lg border border-border/70 bg-background px-2 text-sm text-foreground"
+            value={vehicleTrim}
+            disabled={disabled}
+            placeholder="Base, SLT, Denali…"
+            onChange={(e) => onVehicleTrimChange?.(e.target.value)}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-[11px] text-foreground">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-border"
+            checked={isAllKeysLost}
+            disabled={disabled}
+            onChange={(e) => setIsAllKeysLost(e.target.checked)}
+          />
+          All keys lost (AKL) — require factory-feature verification before programming
+        </label>
+      </div>
+
+      {trimHelperMessage ? (
+        <p className="text-[11px] italic leading-snug text-amber-200">{trimHelperMessage}</p>
+      ) : null}
+
       <div className="grid gap-2">
         {selectedKeyId && selectedVariantDetail?.variant ? (
           <section className="grid gap-2 rounded-lg border border-primary/50 bg-primary/10 p-2">
@@ -819,6 +909,8 @@ export function VehicleKeyInfoPanel({
               variants={selectedVariantDetail.detail.variants}
               selectedVariantId={selectedKeyId}
               selectedKeyId={selectedKeyId}
+              trimProfile={trimProfile}
+              isAllKeysLost={isAllKeysLost}
               disabled={disabled}
               onPick={(variant) => applyVariant(selectedVariantDetail.detail.profile, variant)}
             />
@@ -832,6 +924,8 @@ export function VehicleKeyInfoPanel({
               selectedFccId={value?.fccId}
               selectedVariantId={value?.variantId}
               selectedKeyId={selectedKeyId}
+              trimProfile={trimProfile}
+              isAllKeysLost={isAllKeysLost}
               disabled={disabled}
               onSelectProfile={selectProfile}
               onPickVariant={applyVariant}
@@ -854,6 +948,8 @@ export function VehicleKeyInfoPanel({
                       selectedFccId={value?.fccId}
                       selectedVariantId={value?.variantId}
                       selectedKeyId={selectedKeyId}
+                      trimProfile={trimProfile}
+                      isAllKeysLost={isAllKeysLost}
                       disabled={disabled}
                       onSelectProfile={selectProfile}
                       onPickVariant={applyVariant}

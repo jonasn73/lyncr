@@ -26,14 +26,20 @@ type CreateJobBody = {
   key_frequency?: string | null
   key_chipset?: string | null
   key_style?: string | null
-  organization_id?: string | null
+  key_variant_id?: string | null
+  field_verification_required?: boolean
+  vehicle_trim?: string | null
+  factory_options?: string[] | null
+  vehicle_vin?: string | null
+  plate_number?: string | null
+  plate_state?: string | null
   customer_lat?: number | null
   customer_lng?: number | null
   quoted_price_cents?: number | null
   distance_miles?: number | null
   service_quote_type_id?: string | null
   pending_callback?: boolean
-  key_variant_id?: string | null
+  organization_id?: string | null
   discount_applied?: string | null
   baseline_quote_cents?: number | null
   recovered_via_route_discount?: boolean
@@ -71,14 +77,19 @@ export async function POST(req: NextRequest) {
       keyFrequency: body.key_frequency?.trim() || null,
       keyChipset: body.key_chipset?.trim() || null,
       keyStyle: body.key_style?.trim() || null,
+      keyVariantId: body.key_variant_id?.trim() || null,
       latitude: body.customer_lat != null ? Number(body.customer_lat) : null,
       longitude: body.customer_lng != null ? Number(body.customer_lng) : null,
       quotedPriceCents: body.quoted_price_cents != null ? Number(body.quoted_price_cents) : null,
       distanceMiles: body.distance_miles != null ? Number(body.distance_miles) : null,
       serviceQuoteTypeId: body.service_quote_type_id?.trim() || null,
-      keyStyle: body.key_style?.trim() || null,
-      keyChipset: body.key_chipset?.trim() || null,
-      keyVariantId: body.key_variant_id?.trim() || null,
+      vehicleTrim: body.vehicle_trim?.trim() || null,
+      factoryOptions: Array.isArray(body.factory_options)
+        ? body.factory_options.map((entry) => String(entry).trim()).filter(Boolean)
+        : null,
+      vehicleVin: body.vehicle_vin?.trim() || null,
+      plateNumber: body.plate_number?.trim() || null,
+      plateState: body.plate_state?.trim() || null,
       pendingCallback: body.pending_callback === true,
       discountApplied: body.discount_applied?.trim() || null,
       baselineQuotedPriceCents:

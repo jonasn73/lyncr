@@ -28,6 +28,7 @@ import { toDatetimeLocalValue } from "@/lib/scheduler-utils"
 import { shouldAutoAdvanceAfterSchedulePick } from "@/lib/scheduler-focus-url"
 import { negotiationDiscountLabel } from "@/lib/price-negotiation"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
+import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
 import {
   dispatchJobTypeFromServiceQuoteTypeId,
   serviceQuoteTypeFromJobType,
@@ -191,6 +192,7 @@ export function JobDetailDrawer({
       key_profile_id: keyProfileId.trim() || null,
       discount_applied: negotiationDiscountApplied,
       baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+      field_verification_required: keyStyleRequiresFieldVerification(keyStyle),
     }
   }, [
     assignedTechId,

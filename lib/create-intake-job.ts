@@ -21,6 +21,7 @@ import {
   serviceQuoteTypeIdFromIntake,
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
+import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { neon } from "@neondatabase/serverless"
@@ -54,9 +55,12 @@ export type CreateIntakeJobInput = {
   distanceMiles?: number | null
   /** Calculator service id (lockout, key_gen, …) — used with DB rate card server-side. */
   serviceQuoteTypeId?: string | null
-  keyStyle?: string | null
-  keyChipset?: string | null
   keyVariantId?: string | null
+  vehicleTrim?: string | null
+  factoryOptions?: string[] | null
+  vehicleVin?: string | null
+  plateNumber?: string | null
+  plateState?: string | null
   /** Most recent negotiation preset applied before booking. */
   discountApplied?: string | null
   /** Auto-calculated quote before negotiation discounts. */
@@ -214,6 +218,16 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
     ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
     ...(input.keyVariantId?.trim() ? { key_variant_id: input.keyVariantId.trim() } : {}),
+    ...(keyStyleRequiresFieldVerification(input.keyStyle)
+      ? { field_verification_required: true }
+      : {}),
+    ...(input.vehicleTrim?.trim() ? { vehicle_trim: input.vehicleTrim.trim() } : {}),
+    ...(input.factoryOptions && input.factoryOptions.length > 0
+      ? { factory_options: input.factoryOptions }
+      : {}),
+    ...(input.vehicleVin?.trim() ? { vehicle_vin: input.vehicleVin.trim() } : {}),
+    ...(input.plateNumber?.trim() ? { plate_number: input.plateNumber.trim() } : {}),
+    ...(input.plateState?.trim() ? { plate_state: input.plateState.trim() } : {}),
     service_quote_type_id: serviceTypeId,
     ...(quotedPriceCents > 0
       ? {

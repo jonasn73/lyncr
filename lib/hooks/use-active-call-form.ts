@@ -28,6 +28,9 @@ import { revalidateLeadsWorkspaceCache } from "@/lib/leads-cache"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 import { hasCompleteIntakePhone, resolveIntakePhone } from "@/lib/intake-phone"
+import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
+import type { VehicleFactoryOption } from "@/lib/vehicle-trim-features"
+import type { PlateLookupResult } from "@/lib/vehicle-plate-lookup"
 
 /** Manual-only call lifecycle shown in the intake sheet header. */
 export type ManualCallStatus = "ringing" | "answered" | "on_hold" | "completed"
@@ -69,6 +72,15 @@ export type ActiveCallFormState = {
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
+  /** Trim label from VIN decode or dispatcher (e.g. Base, SLT). */
+  vehicleTrim: string
+  /** Confirmed factory options on this vehicle. */
+  factoryOptions: VehicleFactoryOption[]
+  /** License plate used for rapid registration lookup. */
+  plateNumber: string
+  plateState: string
+  /** VIN from plate decode or manual entry (stored on job, not shown to caller). */
+  vehicleVin: string
   keyFccId: string
   keyFrequency: string
   keyChipset: string
@@ -103,6 +115,11 @@ const EMPTY_FORM: ActiveCallFormState = {
   vehicleYear: "",
   vehicleMake: "",
   vehicleModel: "",
+  vehicleTrim: "",
+  factoryOptions: [],
+  plateNumber: "",
+  plateState: "",
+  vehicleVin: "",
   keyFccId: "",
   keyFrequency: "",
   keyChipset: "",
@@ -187,6 +204,31 @@ export function useActiveCallForm(
       vehicleYear: vehicle.vehicle_year,
       vehicleMake: vehicle.vehicle_make,
       vehicleModel: vehicle.vehicle_model,
+      keyFccId: "",
+      keyFrequency: "",
+      keyChipset: "",
+      keyStyle: "",
+      keyVariantId: "",
+      keyProfileId: "",
+      vehicleClarificationAnswers: [],
+    }))
+  }, [])
+
+  /** Apply plate lookup payload — Y/M/M plus hidden VIN, trim, and factory options. */
+  const applyPlateLookupResult = useCallback((result: PlateLookupResult) => {
+    setForm((prev) => ({
+      ...prev,
+      plateNumber: result.plate || prev.plateNumber,
+      plateState: result.state || prev.plateState,
+      vehicleYear: result.vehicle_year?.trim() || prev.vehicleYear,
+      vehicleMake: result.vehicle_make?.trim() || prev.vehicleMake,
+      vehicleModel: result.vehicle_model?.trim() || prev.vehicleModel,
+      vehicleTrim: result.trim?.trim() || prev.vehicleTrim,
+      vehicleVin: result.vin?.trim() || prev.vehicleVin,
+      factoryOptions:
+        result.factory_options && result.factory_options.length > 0
+          ? result.factory_options
+          : prev.factoryOptions,
       keyFccId: "",
       keyFrequency: "",
       keyChipset: "",
@@ -617,6 +659,12 @@ export function useActiveCallForm(
             key_chipset: form.keyChipset || null,
             key_style: form.keyStyle || null,
             key_variant_id: form.keyVariantId || null,
+            field_verification_required: keyStyleRequiresFieldVerification(form.keyStyle),
+            vehicle_trim: form.vehicleTrim.trim() || null,
+            factory_options: form.factoryOptions.length > 0 ? form.factoryOptions : null,
+            vehicle_vin: form.vehicleVin.trim() || null,
+            plate_number: form.plateNumber.trim() || null,
+            plate_state: form.plateState.trim() || null,
             customer_lat: form.serviceAddress?.lat ?? null,
             customer_lng: form.serviceAddress?.lng ?? null,
             organization_id: organizationId ?? null,
@@ -713,6 +761,7 @@ export function useActiveCallForm(
     travelDistanceMiles: travelDistanceMilesValue,
     dispatcherLocation,
     setVehicle,
+    applyPlateLookupResult,
     applyVehicleClarification,
     setVehicleKeySelection,
     setServiceAddress,

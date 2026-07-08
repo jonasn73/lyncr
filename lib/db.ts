@@ -7098,6 +7098,15 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
   }
   const lat = firstNumericField(collected, ["customer_lat", "lat", "latitude", "geo_lat", "location_lat", "service_lat"])
   const lng = firstNumericField(collected, ["customer_lng", "lng", "longitude", "geo_lng", "location_lng", "service_lng", "lon"])
+  const pickBool = (keys: string[]): boolean | null => {
+    for (const k of keys) {
+      const v = collected[k]
+      if (typeof v === "boolean") return v
+      if (v === "true" || v === 1 || v === "t") return true
+      if (v === "false" || v === 0 || v === "f") return false
+    }
+    return null
+  }
   return {
     id: String(row.id),
     customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
@@ -7112,6 +7121,7 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     latitude: lat != null && Math.abs(lat) <= 90 ? lat : null,
     longitude: lng != null && Math.abs(lng) <= 180 ? lng : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    field_verification_required: pickBool(["field_verification_required"]),
   }
 }
 
@@ -7170,6 +7180,15 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
         const n = Number(v)
         if (Number.isFinite(n)) return n
       }
+    }
+    return null
+  }
+  const pickBool = (keys: string[]): boolean | null => {
+    for (const k of keys) {
+      const v = collected[k]
+      if (typeof v === "boolean") return v
+      if (v === "true" || v === 1 || v === "t") return true
+      if (v === "false" || v === 0 || v === "f") return false
     }
     return null
   }
@@ -7268,6 +7287,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     key_profile_id: pick(["key_profile_id"]),
     discount_applied: pick(["discount_applied"]),
     baseline_quoted_price_cents: pickNum(["baseline_quoted_price_cents"]),
+    field_verification_required: pickBool(["field_verification_required"]),
   }
 }
 
@@ -7552,6 +7572,7 @@ export async function updateOwnerSchedulerJob(params: {
   keyProfileId?: string | null
   discountApplied?: string | null
   baselineQuotedPriceCents?: number | null
+  fieldVerificationRequired?: boolean | null
 }): Promise<import("@/lib/types").SchedulerEvent | null> {
   const sql = getSql()
   const existingRows = await sql`
@@ -7649,6 +7670,9 @@ export async function updateOwnerSchedulerJob(params: {
   }
   if (params.keyStyle !== undefined) {
     collectedPatch.key_style = params.keyStyle?.trim() || null
+  }
+  if (params.fieldVerificationRequired !== undefined) {
+    collectedPatch.field_verification_required = params.fieldVerificationRequired === true
   }
   if (params.keyVariantId !== undefined) {
     collectedPatch.key_variant_id = params.keyVariantId?.trim() || null
@@ -8017,6 +8041,7 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     key_profile_id: ev.key_profile_id,
     discount_applied: ev.discount_applied,
     baseline_quoted_price_cents: ev.baseline_quoted_price_cents,
+    field_verification_required: ev.field_verification_required,
   }
 }
 

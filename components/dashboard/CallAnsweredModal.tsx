@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2, MapPin, Phone, PhoneOff } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
+import { VehiclePlateLookupField } from "@/components/vehicle-plate-lookup-field"
 import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
@@ -398,6 +399,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     travelDistanceMiles,
     dispatcherLocation,
     setVehicle,
+    applyPlateLookupResult,
     applyVehicleClarification,
     setVehicleKeySelection,
     setServiceAddress,
@@ -1024,6 +1026,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setVehicle]
   )
 
+  const handlePlateLookupSuccess = useCallback(
+    (result: Parameters<typeof applyPlateLookupResult>[0]) => {
+      applyPlateLookupResult(result)
+      if (result.vehicle_model?.trim()) {
+        setCurrentStep("KEY_SPECIFICS")
+      }
+    },
+    [applyPlateLookupResult]
+  )
+
   const handleManualKeyVariantSelected = useCallback(
     (selection: VehicleKeySelection) => {
       setVehicleKeySelection(selection)
@@ -1171,6 +1183,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           <p className="text-[11px] text-primary/90">
                             Tap year, then make, then model — we advance automatically to key specifics.
                           </p>
+                          <VehiclePlateLookupField
+                            plateNumber={form.plateNumber}
+                            plateState={form.plateState}
+                            onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
+                            onPlateStateChange={(plateState) => patchForm({ plateState })}
+                            onLookupSuccess={handlePlateLookupSuccess}
+                          />
                           <VehiclePickerCascade
                             variant="sequential"
                             value={{
@@ -1204,6 +1223,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             year={form.vehicleYear}
                             make={form.vehicleMake}
                             model={form.vehicleModel}
+                            vehicleTrim={form.vehicleTrim}
+                            factoryOptions={form.factoryOptions}
+                            onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
                             value={
                               form.keyFccId
                                 ? {
@@ -1349,6 +1371,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       }}
                       onChange={setVehicle}
                     />
+                    <VehiclePlateLookupField
+                      plateNumber={form.plateNumber}
+                      plateState={form.plateState}
+                      onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
+                      onPlateStateChange={(plateState) => patchForm({ plateState })}
+                      onLookupSuccess={applyPlateLookupResult}
+                    />
                     <VehicleIntakeClarificationsPanel
                       year={form.vehicleYear}
                       make={form.vehicleMake}
@@ -1360,6 +1389,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       year={form.vehicleYear}
                       make={form.vehicleMake}
                       model={form.vehicleModel}
+                      vehicleTrim={form.vehicleTrim}
+                      factoryOptions={form.factoryOptions}
+                      onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
                       value={
                         form.keyFccId
                           ? {

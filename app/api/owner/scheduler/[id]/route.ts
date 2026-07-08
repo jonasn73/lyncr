@@ -15,6 +15,7 @@ import {
   deleteOwnerSchedulerJob,
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
+import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
 import type { SchedulerEvent } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -178,6 +179,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
           ? Math.round(Number(body.baseline_quote_cents))
           : null,
+      fieldVerificationRequired:
+        body.key_style !== undefined
+          ? keyStyleRequiresFieldVerification(body.key_style)
+          : undefined,
     })
 
     if (!event) return NextResponse.json({ error: "Job not found" }, { status: 404 })

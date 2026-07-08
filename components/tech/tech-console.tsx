@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route, Inbox, Car } from "lucide-react"
+import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route, Inbox, Car, AlertTriangle } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { InvoiceModal } from "@/components/tech/invoice-modal"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
@@ -332,6 +332,12 @@ function HopperPoolSection(props: {
                   {job.customer_name || job.customer_phone || "Customer"}
                 </p>
                 <p className="mt-0.5 text-xs text-zinc-400">{job.job_type || "Service call"}</p>
+                {job.field_verification_required ? (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-300">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Verify key style on vehicle before cutting
+                  </p>
+                ) : null}
                 {vehicle ? (
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-zinc-500">
                     <Car className="h-3 w-3 shrink-0" aria-hidden />
@@ -409,10 +415,25 @@ function JobCard(props: {
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-white">
-            {job.customer_name || "New customer"}
-          </h2>
+          <div className="flex items-start gap-2">
+            <h2 className="truncate text-base font-semibold text-white">
+              {job.customer_name || "New customer"}
+            </h2>
+            {job.field_verification_required ? (
+              <span
+                title="Verify key style on vehicle before cutting a blank"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300"
+              >
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+              </span>
+            ) : null}
+          </div>
           {job.summary && <p className="mt-0.5 line-clamp-2 text-sm text-zinc-400">{job.summary}</p>}
+          {job.field_verification_required ? (
+            <p className="mt-1.5 text-[11px] font-medium text-amber-300">
+              Field verification required — confirm dashboard / door lock config before programming.
+            </p>
+          ) : null}
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_STYLE[status] || STATUS_STYLE.assigned}`}>
           {STATUS_LABEL[status] || "Assigned"}

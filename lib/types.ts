@@ -143,6 +143,8 @@ export interface DispatchJob {
   latitude: number | null
   longitude: number | null
   created_at: string
+  /** Tech must verify key style / door electronics before cutting. */
+  field_verification_required?: boolean | null
 }
 
 /** Owner calendar event derived from ai_leads (BOOKED / PENDING_TIME). */
@@ -193,9 +195,9 @@ export interface SchedulerEvent {
   key_profile_id?: string | null
   discount_applied?: string | null
   baseline_quoted_price_cents?: number | null
+  /** Tech must verify key style / door electronics before cutting. */
+  field_verification_required?: boolean | null
 }
-
-/** Job waiting in the unassigned pool (no tech yet). */
 export interface UnassignedPoolJob {
   id: string
   customer_name: string | null
@@ -228,6 +230,7 @@ export interface UnassignedPoolJob {
   key_profile_id?: string | null
   discount_applied?: string | null
   baseline_quoted_price_cents?: number | null
+  field_verification_required?: boolean | null
 }
 
 /** Active dispatch pipeline job (scheduled + hopper) for map split view. */
