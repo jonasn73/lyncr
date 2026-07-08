@@ -1209,6 +1209,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Key specifics
                           </legend>
+                          {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
+                            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-emerald-400">
+                              Selected Vehicle: {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </div>
+                          ) : null}
                           <p className="text-[11px] text-primary/90">
                             Tap the key layout that matches — we slide forward to location automatically.
                           </p>
@@ -1240,6 +1247,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             }
                             onChange={(sel) => setVehicleKeySelection(sel)}
                             onVariantSelected={handleManualKeyVariantSelected}
+                            onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
                           />
                         </fieldset>
                       </ManualStepScroller>

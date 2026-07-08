@@ -107,6 +107,8 @@ type VehicleKeyInfoPanelProps = {
   factoryOptions?: VehicleFactoryOption[]
   onVehicleTrimChange?: (trim: string) => void
   disabled?: boolean
+  /** Step back to YMM vehicle picker when manual key lookup has no database match. */
+  onBackToVehicleLookup?: () => void
 }
 
 function inferBladeType(variants: FccVariant[]): string | null {
@@ -543,6 +545,7 @@ export function VehicleKeyInfoPanel({
   factoryOptions = [],
   onVehicleTrimChange,
   disabled,
+  onBackToVehicleLookup,
 }: VehicleKeyInfoPanelProps) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
@@ -674,6 +677,20 @@ export function VehicleKeyInfoPanel({
     setActiveFccQuery(sanitizeFccIdInput(fccSearchInput))
   }
 
+  const handleReturnToLookup = () => {
+    const stuckWithoutDatabaseMatch =
+      manualBypassMode && (error || !info || info.profiles.length === 0)
+    if (stuckWithoutDatabaseMatch && onBackToVehicleLookup) {
+      onBackToVehicleLookup()
+      return
+    }
+    setManualBypassMode(false)
+    if (!info || info.profiles.length === 0) {
+      setActiveFccQuery("")
+      setFccSearchInput("")
+    }
+  }
+
   if (!ready) return null
 
   if (loading && !manualBypassMode) {
@@ -691,7 +708,7 @@ export function VehicleKeyInfoPanel({
         <PanelToolbar
           manualBypassMode={manualBypassMode}
           onManualBypass={() => setManualBypassMode(true)}
-          onReturnToLookup={() => setManualBypassMode(false)}
+          onReturnToLookup={handleReturnToLookup}
         />
         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
           Could not load key reference — choose a manual key type below to keep the call moving.
@@ -711,11 +728,7 @@ export function VehicleKeyInfoPanel({
         <PanelToolbar
           manualBypassMode
           onManualBypass={() => setManualBypassMode(true)}
-          onReturnToLookup={() => {
-            setManualBypassMode(false)
-            setActiveFccQuery("")
-            setFccSearchInput("")
-          }}
+          onReturnToLookup={handleReturnToLookup}
         />
         <FccSearchField
           value={fccSearchInput}
@@ -823,7 +836,7 @@ export function VehicleKeyInfoPanel({
       <PanelToolbar
         manualBypassMode={manualBypassMode}
         onManualBypass={() => setManualBypassMode(true)}
-        onReturnToLookup={() => setManualBypassMode(false)}
+        onReturnToLookup={handleReturnToLookup}
       />
       <FccSearchField
         value={fccSearchInput}
