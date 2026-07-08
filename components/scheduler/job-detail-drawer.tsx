@@ -658,7 +658,6 @@ export function JobDetailDrawer({
               onStatusChange={(status) => void handleStatusChange(status)}
               onSave={() => void handleSave()}
               onDeleteRequest={() => setDeleteConfirmOpen(true)}
-              onClose={requestClose}
             />
           )
         ) : null}

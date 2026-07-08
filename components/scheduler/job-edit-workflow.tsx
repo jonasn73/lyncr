@@ -112,7 +112,6 @@ export type JobEditWorkflowProps = {
   onStatusChange: (status: (typeof STATUS_SEGMENTS)[number]["jobStatus"]) => void
   onSave: () => void
   onDeleteRequest: () => void
-  onClose: () => void
 }
 
 export function JobEditWorkflow({
@@ -167,11 +166,12 @@ export function JobEditWorkflow({
   onStatusChange,
   onSave,
   onDeleteRequest,
-  onClose,
 }: JobEditWorkflowProps) {
   const [step, setStep] = useState<JobEditWorkflowStep>(initialStep)
   const requiresVehicle = serviceTypeRequiresVehicle(serviceQuoteTypeId)
   const stepIndex = STEPS.findIndex((entry) => entry.id === step)
+  const isFirstStep = stepIndex <= 0
+  const isLastStep = stepIndex >= STEPS.length - 1
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -471,46 +471,48 @@ export function JobEditWorkflow({
         {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2 border-t border-border/60 bg-card px-5 py-4">
-        <div className="flex gap-2">
+      <footer className="mt-auto shrink-0 border-t border-border/60 bg-card px-5 py-4">
+        <div className="mb-4 grid grid-cols-2 gap-3">
           <Button
             type="button"
             variant="outline"
-            className="flex-1"
-            disabled={stepIndex <= 0}
+            disabled={isFirstStep || saving || deleting}
             onClick={() => setStep(STEPS[Math.max(0, stepIndex - 1)]!.id)}
           >
             Back
           </Button>
-          <Button
+          {isLastStep ? (
+            <Button
+              type="button"
+              className="shadow-[0_0_14px_rgba(59,130,246,0.4)] ring-1 ring-primary/45"
+              onClick={onSave}
+              disabled={!canSave || saving || deleting}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving || deleting}
+              onClick={() => setStep(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)]!.id)}
+            >
+              Next
+            </Button>
+          )}
+        </div>
+        <div className="border-t border-border/40 pt-3">
+          <button
             type="button"
-            variant="outline"
-            className="flex-1"
-            disabled={stepIndex >= STEPS.length - 1}
-            onClick={() => setStep(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)]!.id)}
+            className="flex w-full items-center justify-center gap-2 py-2 text-xs font-semibold text-red-950/55 transition-colors hover:text-red-900/80 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onDeleteRequest}
+            disabled={saving || deleting}
           >
-            Next
-          </Button>
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            Delete job
+          </button>
         </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving || deleting}>
-            Cancel
-          </Button>
-          <Button type="button" className="flex-1" onClick={onSave} disabled={!canSave || saving || deleting}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
-          </Button>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={onDeleteRequest}
-          disabled={saving || deleting}
-        >
-          <Trash2 className="mr-2 h-4 w-4" aria-hidden />
-          Delete job
-        </Button>
-      </div>
+      </footer>
     </div>
   )
 }
