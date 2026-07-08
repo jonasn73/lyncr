@@ -199,52 +199,58 @@ function VariantFilmstrip({
         )
         const cardLabel = buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel
         return (
-          <motion.button
-            key={variant.id}
-            type="button"
-            whileTap={{ scale: 0.97 }}
-            disabled={disabled}
-            onClick={() => onPick(variant)}
-            className={cn(
-              "relative h-[4.75rem] w-[5.25rem] shrink-0 touch-manipulation overflow-hidden rounded-lg border text-left transition-colors",
-              selected
-                ? "border-2 border-cyan-400 bg-slate-900"
-                : "border border-slate-800 bg-background hover:border-primary/50"
-            )}
-            aria-pressed={selected}
-          >
-            {selected ? (
-              <span
-                className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
-                aria-hidden
-              >
-                <Check className="h-2.5 w-2.5" strokeWidth={3} />
-              </span>
-            ) : null}
-            <div className="flex h-full items-center justify-center bg-muted/20 p-1">
-              {variant.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- external fccid.io thumbnails
-                <img
-                  src={variant.image_url}
-                  alt={cardLabel}
-                  loading="lazy"
-                  className="max-h-full max-w-full object-contain"
-                />
-              ) : (
-                <KeyRound className="h-6 w-6 text-muted-foreground/50" aria-hidden />
+          <div key={variant.id} className="flex w-[5.25rem] shrink-0 flex-col gap-1">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              disabled={disabled}
+              onClick={() => onPick(variant)}
+              className={cn(
+                "relative h-[4.75rem] w-full shrink-0 touch-manipulation overflow-hidden rounded-lg border text-left transition-colors",
+                selected
+                  ? "border-2 border-cyan-400 bg-slate-900"
+                  : "border border-slate-800 bg-background hover:border-primary/50"
               )}
-            </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-1 pb-1 pt-5">
-              <span className="block text-[9px] font-semibold leading-tight text-white line-clamp-2">
-                {cardLabel}
-              </span>
-            </div>
-            {variant.reference_image ? (
-              <span className="absolute left-1 top-1 rounded bg-amber-500/90 px-1 text-[8px] font-semibold text-black">
-                Ref
-              </span>
+              aria-pressed={selected}
+            >
+              {selected ? (
+                <span
+                  className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+                  aria-hidden
+                >
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                </span>
+              ) : null}
+              <div className="flex h-full items-center justify-center bg-muted/20 p-1">
+                {variant.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- external fccid.io thumbnails
+                  <img
+                    src={variant.image_url}
+                    alt={cardLabel}
+                    loading="lazy"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <KeyRound className="h-6 w-6 text-muted-foreground/50" aria-hidden />
+                )}
+              </div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-1 pb-1 pt-5">
+                <span className="block text-[9px] font-semibold leading-tight text-white line-clamp-2">
+                  {cardLabel}
+                </span>
+              </div>
+              {variant.reference_image ? (
+                <span className="absolute left-1 top-1 rounded bg-amber-500/90 px-1 text-[8px] font-semibold text-black">
+                  Ref
+                </span>
+              ) : null}
+            </motion.button>
+            {variant.reference_image || variant.reference_note ? (
+              <p className="text-[9px] leading-tight text-slate-400 line-clamp-2">
+                {variant.reference_note ?? "Reference photo (same FCC)"}
+              </p>
             ) : null}
-          </motion.button>
+          </div>
         )
       })}
     </div>

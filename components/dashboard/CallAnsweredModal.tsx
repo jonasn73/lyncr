@@ -14,6 +14,7 @@ import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehi
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
+import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   useInboundCallPanel,
@@ -387,6 +388,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const {
     form,
+    resolvedPhoneNumber,
     patchForm,
     resetForm,
     setServiceQuoteTypeId,
@@ -460,6 +462,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!draft) return
 
     patchForm(draft.form)
+    if (!draft.form.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
+      patchForm({ phoneNumber: effectiveCurrent.from_number.trim() })
+    }
     setCurrentStep(draft.currentStep)
     setCustomPrice(draft.customPrice)
     setFailureReason(draft.failureReason || FAILURE_REASON_NEUTRAL)
@@ -1245,7 +1250,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               type="tel"
                               inputMode="tel"
                               autoComplete="tel"
-                              value={form.phoneNumber}
+                              value={resolvedPhoneNumber}
                               onChange={(e) => patchForm({ phoneNumber: e.target.value })}
                               placeholder="(502) 555-1234"
                               className="h-10 font-mono text-base"
@@ -1261,6 +1266,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               onQueryCommit={commitAddressQuery}
                               seedQuery={addressSeedQuery}
                               placeholder="Start typing street address…"
+                            />
+                            <NearestTechDispatchBadge
+                              jobLat={form.serviceAddress?.lat ?? null}
+                              jobLng={form.serviceAddress?.lng ?? null}
                             />
                             <p className="text-[10px] text-muted-foreground">
                               Pick a suggestion or finish typing — advances when name + address are ready.
@@ -1383,6 +1392,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       seedQuery={addressSeedQuery}
                       placeholder="Start typing street address…"
                     />
+                    <NearestTechDispatchBadge
+                      jobLat={form.serviceAddress?.lat ?? null}
+                      jobLng={form.serviceAddress?.lng ?? null}
+                    />
                     <p className="text-[10px] text-muted-foreground">
                       {addressReady
                         ? "Address ready — tap Send to dispatch map."
@@ -1437,7 +1450,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       type="tel"
                       inputMode="tel"
                       autoComplete="tel"
-                      value={form.phoneNumber}
+                      value={resolvedPhoneNumber}
                       onChange={(e) => patchForm({ phoneNumber: e.target.value })}
                       placeholder="(502) 555-1234"
                       className="h-10 font-mono text-base"

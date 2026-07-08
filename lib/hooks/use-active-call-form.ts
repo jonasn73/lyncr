@@ -27,6 +27,7 @@ import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query
 import { revalidateLeadsWorkspaceCache } from "@/lib/leads-cache"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
+import { hasCompleteIntakePhone, resolveIntakePhone } from "@/lib/intake-phone"
 
 /** Manual-only call lifecycle shown in the intake sheet header. */
 export type ManualCallStatus = "ringing" | "answered" | "on_hold" | "completed"
@@ -129,17 +130,18 @@ function flatAddressFromStructured(addr: StructuredAddress): Pick<
 }
 
 function formFromCustomer(c: Customer, prev: ActiveCallFormState): ActiveCallFormState {
+  const keepTypedName = Boolean(prev.displayName.trim())
   return {
     ...prev,
-    displayName: c.display_name || prev.displayName,
-    addressLine1: c.address_line1 || "",
-    addressLine2: c.address_line2 || "",
-    city: c.city || "",
-    region: c.region || "",
-    postalCode: c.postal_code || "",
-    country: c.country || "US",
-    notes: c.notes || "",
-    serviceAddress: null,
+    displayName: keepTypedName ? prev.displayName : c.display_name?.trim() || prev.displayName,
+    addressLine1: prev.addressLine1.trim() ? prev.addressLine1 : c.address_line1 || "",
+    addressLine2: prev.addressLine2.trim() ? prev.addressLine2 : c.address_line2 || "",
+    city: prev.city.trim() ? prev.city : c.city || "",
+    region: prev.region.trim() ? prev.region : c.region || "",
+    postalCode: prev.postalCode.trim() ? prev.postalCode : c.postal_code || "",
+    country: prev.country.trim() ? prev.country : c.country || "US",
+    notes: prev.notes.trim() ? prev.notes : c.notes || "",
+    serviceAddress: prev.serviceAddress,
   }
 }
 
@@ -158,6 +160,11 @@ export function useActiveCallForm(
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const callLogId = current?.id ?? null
   const dispatcherLocation = useDispatcherLocation(Boolean(callLogId))
+
+  const resolvedPhoneNumber = useMemo(
+    () => resolveIntakePhone(form.phoneNumber, current?.from_number),
+    [form.phoneNumber, current?.from_number]
+  )
 
   const travelDistanceMilesValue = useMemo(() => {
     const jobLat = form.serviceAddress?.lat
@@ -304,7 +311,17 @@ export function useActiveCallForm(
     current?.quotedPriceCents,
   ])
 
-  // Load owner rate profile from onboarding_profiles.service_rules (JSON rate_card block).
+  // Keep phone state synced with the active Telnyx caller ID when the field is still empty.
+  useEffect(() => {
+    if (!callLogId || !current) return
+    const inbound = current.from_number?.trim()
+    if (!inbound) return
+    setForm((prev) => {
+      if (prev.phoneNumber.trim()) return prev
+      return { ...prev, phoneNumber: inbound }
+    })
+  }, [callLogId, current?.from_number])
+
   useEffect(() => {
     if (!callLogId) {
       setRateCard(null)
@@ -384,12 +401,11 @@ export function useActiveCallForm(
 
   useEffect(() => {
     if (!callLogId) return
-    const phone = form.phoneNumber.trim()
-    if (phone.replace(/\D/g, "").length < 10) return
+    if (!hasCompleteIntakePhone(resolvedPhoneNumber)) return
 
     let cancel = false
     const t = window.setTimeout(() => {
-      const q = encodeURIComponent(phone)
+      const q = encodeURIComponent(resolvedPhoneNumber)
       void fetch(`/api/customers?phone=${q}`, { credentials: "include" })
         .then((r) => (r.ok ? r.json() : { customers: [] }))
         .then((data: { customers?: Customer[] }) => {
@@ -405,7 +421,7 @@ export function useActiveCallForm(
       cancel = true
       window.clearTimeout(t)
     }
-  }, [callLogId, form.phoneNumber])
+  }, [callLogId, resolvedPhoneNumber])
 
   // When a repeat customer has a saved street/city/ZIP, verify it for the map pin automatically.
   useEffect(() => {
@@ -452,8 +468,7 @@ export function useActiveCallForm(
 
   useEffect(() => {
     if (!callLogId || !current) return
-    const phone = form.phoneNumber.trim()
-    if (phone.replace(/\D/g, "").length < 10) return
+    if (!hasCompleteIntakePhone(resolvedPhoneNumber)) return
 
     setSaveState("idle")
     const t = window.setTimeout(() => {
@@ -463,7 +478,7 @@ export function useActiveCallForm(
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          phone_e164: phone,
+          phone_e164: resolvedPhoneNumber,
           display_name: form.displayName,
           company_name: "",
           address_line1: form.addressLine1,
@@ -484,7 +499,7 @@ export function useActiveCallForm(
         .catch(() => setSaveState("error"))
     }, 1000)
     return () => window.clearTimeout(t)
-  }, [callLogId, current, form])
+  }, [callLogId, current, form, resolvedPhoneNumber])
 
   const createJob = useCallback(
     async (
@@ -499,7 +514,7 @@ export function useActiveCallForm(
       }
     ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
       if (!current) return { ok: false }
-      const phone = form.phoneNumber.trim() || current.from_number
+      const phone = resolvedPhoneNumber || current.from_number
       const name = form.displayName.trim()
       if (!name) {
         setJobState("error")
@@ -635,14 +650,13 @@ export function useActiveCallForm(
         return { ok: false }
       }
     },
-    [current, form, hookOptions?.linkManualCallLog, travelDistanceMilesValue]
+    [current, form, hookOptions?.linkManualCallLog, travelDistanceMilesValue, resolvedPhoneNumber]
   )
 
   const addressReady = isIntakeAddressReady(form)
   const canDispatch = Boolean(form.displayName.trim() && addressReady)
   const canSavePendingLead = Boolean(
-    form.displayName.trim() &&
-      (form.phoneNumber.trim() || current?.from_number || "").replace(/\D/g, "").length >= 10
+    form.displayName.trim() && hasCompleteIntakePhone(resolvedPhoneNumber || current?.from_number || "")
   )
   const dispatchBlockers = listIntakeDispatchBlockers(form)
   const addressSeedQuery =
@@ -688,6 +702,7 @@ export function useActiveCallForm(
 
   return {
     form,
+    resolvedPhoneNumber,
     patchForm,
     resetForm,
     setServiceQuoteTypeId,
