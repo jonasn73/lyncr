@@ -10,7 +10,7 @@ import { Loader2, MapPin, Phone, PhoneOff } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
-import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
+import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
@@ -149,8 +149,9 @@ function ManualWorkflowProgress({
   )
 }
 
-/** One step visible at a time — centered, no scroll on mobile manual intake. */
-const MANUAL_STEP_FRAME = "flex min-h-0 flex-1 flex-col justify-center gap-4"
+/** One step visible at a time — scrollable when content exceeds the sheet height. */
+const MANUAL_STEP_FRAME =
+  "flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-y-auto overscroll-y-contain pb-3 [-webkit-overflow-scrolling:touch]"
 
 /** Premium slide track for manual intake step transitions. */
 const MANUAL_STEP_MOTION = {
@@ -987,9 +988,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setVehicle]
   )
 
-  const handleManualKeyVariantSelected = useCallback(() => {
-    setCurrentStep("ADDRESS_CONTACT")
-  }, [])
+  const handleManualKeyVariantSelected = useCallback(
+    (selection: VehicleKeySelection) => {
+      setVehicleKeySelection(selection)
+      requestAnimationFrame(() => setCurrentStep("ADDRESS_CONTACT"))
+    },
+    [setVehicleKeySelection]
+  )
 
   const handleManualAddressChange = useCallback(
     (addr: StructuredAddress | null) => {
@@ -1116,7 +1121,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
               >
                 {isManual ? (
-                  <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                     <AnimatePresence mode="wait">
                     {currentStep === "SERVICE_SELECT" ? (
                       <motion.div
@@ -1197,16 +1202,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             onVariantSelected={handleManualKeyVariantSelected}
                           />
                         </fieldset>
-
-                        <ServiceQuoteCalculatorPanel
-                          quote={liveQuote}
-                          serviceTypeId={serviceTypeId}
-                          vehicleYear={form.vehicleYear}
-                          vehicleMake={form.vehicleMake}
-                          vehicleModel={form.vehicleModel}
-                          onServiceTypeChange={handleManualServiceTypeChange}
-                          variant="breakdown-only"
-                        />
                       </motion.div>
                     ) : null}
 
@@ -1266,7 +1261,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       <motion.div
                         key="FINAL_DISPATCH"
                         {...MANUAL_STEP_MOTION}
-                        className={cn(MANUAL_STEP_FRAME, "justify-start overflow-y-auto")}
+                        className={cn(MANUAL_STEP_FRAME, "pb-4")}
                       >
                         <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
                           <p className="font-medium text-foreground">

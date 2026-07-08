@@ -163,7 +163,7 @@ function VariantGrid({
   if (visibleVariants.length === 0) return null
 
   return (
-    <div className="grid min-w-0 grid-cols-2 gap-2 @min-[26rem]:grid-cols-3">
+    <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto overscroll-y-contain pr-0.5 @min-[26rem]:grid-cols-3">
       {visibleVariants.map((variant) => {
         const selected = selectedVariantId === variant.id
         const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
@@ -276,13 +276,19 @@ export function VehicleKeyInfoPanel({
           return
         }
         const first = payload.profiles[0]!
+        const keepVariant =
+          value?.variantId &&
+          payload.profiles.some(
+            (profile) =>
+              (profile.id === value.profileId || profile.fcc_id === value.fccId) && value.variantId
+          )
         onChange({
-          profileId: first.id,
-          fccId: first.fcc_id,
-          frequency: first.frequency,
-          chipset: first.chipset,
+          profileId: value?.profileId && keepVariant ? value.profileId : first.id,
+          fccId: value?.fccId && keepVariant ? value.fccId : first.fcc_id,
+          frequency: keepVariant ? value?.frequency ?? first.frequency : first.frequency,
+          chipset: keepVariant ? value?.chipset ?? first.chipset : first.chipset,
           keyStyle: value?.keyStyle || KEY_STYLE_OPTIONS[5],
-          variantId: null,
+          variantId: keepVariant ? value?.variantId ?? null : null,
         })
       })
       .catch(() => {
