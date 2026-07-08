@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { classifyKeyStyleBucket, variantButtonLabel, variantDisplayLabel } from "@/lib/vehicle-key-variant-labels"
+import { classifyKeyStyleBucket, inferProgrammingMethod, variantButtonLabel, variantDisplayLabel } from "@/lib/vehicle-key-variant-labels"
 
 describe("vehicle-key-variant-labels", () => {
   it("labels key combo as remote head key, not generic remote", () => {
@@ -50,5 +50,18 @@ describe("vehicle-key-variant-labels", () => {
         null
       )
     ).toBe("3-button")
+  })
+
+  it("infers OBD2 programming for smart and transponder keys", () => {
+    expect(inferProgrammingMethod("2018 Toyota RAV4 Smart Remote Key Fob", "Remote")).toBe(
+      "OBD2 Programming Required"
+    )
+    expect(inferProgrammingMethod("Nissan Altima Keyless Entry Remote / key combo", null)).toBe(
+      "OBD2 Programming Required"
+    )
+  })
+
+  it("infers on-board sequence for mechanical blades", () => {
+    expect(inferProgrammingMethod("High-Security laser cut blade", "Mechanical")).toBe("On-Board Sequence")
   })
 })

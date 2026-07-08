@@ -7,12 +7,12 @@ import { motion } from "framer-motion"
 import { Check, ChevronDown, ExternalLink, Info, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  MANUAL_KEY_FREQUENCY_OPTIONS,
-  sanitizeFccIdInput,
-  type ManualKeyFrequencyOption,
-} from "@/lib/fcc-id-input"
+  lookupMykeysProProfile,
+  mykeysProKeyOptions,
+} from "@/lib/mykeys-pro-database"
+import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
-import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel } from "@/lib/vehicle-key-variant-labels"
+import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel, inferProgrammingMethod } from "@/lib/vehicle-key-variant-labels"
 import {
   shouldShowAklTrimVerificationBanner,
   variantDisabledByTrim,
@@ -66,8 +66,20 @@ type FccVariant = {
   battery: string | null
   fits_text: string | null
   suggested_key_style: string | null
+  programming_method?: string | null
   reference_image?: boolean
   reference_note?: string
+}
+
+/** Normalized card fields for database + manual key pickers. */
+type KeySelectionCardModel = {
+  id: string
+  label: string
+  description: string | null
+  imageUrl: string | null
+  programmingMethod: string
+  referenceImage?: boolean
+  referenceNote?: string | null
 }
 
 type ProfileDetail = {
@@ -109,6 +121,112 @@ type VehicleKeyInfoPanelProps = {
   disabled?: boolean
   /** Step back to YMM vehicle picker when manual key lookup has no database match. */
   onBackToVehicleLookup?: () => void
+}
+
+function variantCardModel(variant: FccVariant, chipset?: string | null): KeySelectionCardModel {
+  const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
+  const buttonLabel = variantButtonLabel(
+    variant.title,
+    variant.buttons,
+    variant.fits_text,
+    variant.key_type
+  )
+  return {
+    id: variant.id,
+    label: buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel,
+    description: variant.title,
+    imageUrl: variant.image_url,
+    programmingMethod:
+      variant.programming_method ??
+      inferProgrammingMethod(variant.title, variant.key_type, chipset ?? null),
+    referenceImage: variant.reference_image,
+    referenceNote: variant.reference_note ?? null,
+  }
+}
+
+function manualOptionCardModel(option: ManualKeyFrequencyOption): KeySelectionCardModel {
+  return {
+    id: option.id,
+    label: option.label,
+    description: option.description,
+    imageUrl: option.imageUrl,
+    programmingMethod: option.programmingMethod,
+  }
+}
+
+function KeySelectionCard({
+  card,
+  selected,
+  disabled,
+  disabledReason,
+  onClick,
+}: {
+  card: KeySelectionCardModel
+  selected: boolean
+  disabled?: boolean
+  disabledReason?: string | null
+  onClick: () => void
+}) {
+  return (
+    <div className="grid gap-1">
+      <motion.button
+        type="button"
+        whileTap={disabled ? undefined : { scale: 0.98 }}
+        disabled={disabled}
+        onClick={onClick}
+        className={cn(
+          "relative flex w-full touch-manipulation flex-row items-center gap-4 rounded-lg border px-3 py-2.5 text-left transition-colors",
+          disabled && "cursor-not-allowed opacity-40",
+          !disabled && selected
+            ? "border-2 border-cyan-400 bg-slate-900"
+            : !disabled
+              ? "border border-slate-800 bg-background hover:border-primary/50"
+              : "border border-slate-800 bg-background"
+        )}
+        aria-pressed={selected}
+        aria-disabled={disabled}
+      >
+        {selected ? (
+          <span
+            className="absolute top-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+            aria-hidden
+          >
+            <Check className="h-3 w-3" strokeWidth={3} />
+          </span>
+        ) : null}
+        {card.referenceImage ? (
+          <span className="absolute left-2 top-2 z-10 rounded bg-amber-500/90 px-1 text-[8px] font-semibold text-black">
+            Ref
+          </span>
+        ) : null}
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+          {card.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
+            <img src={card.imageUrl} alt={card.label} loading="lazy" className="h-full w-full object-contain" />
+          ) : (
+            <span className="text-xs text-slate-500">No Pic</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-foreground">{card.label}</span>
+          {card.description ? (
+            <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{card.description}</p>
+          ) : null}
+          <span className="mt-1 inline-block rounded border border-emerald-800/50 bg-emerald-950/80 px-2 py-0.5 text-[10px] uppercase tracking-wider text-emerald-400">
+            {card.programmingMethod || "OBD2 Bypass Required"}
+          </span>
+        </div>
+        {disabledReason ? (
+          <span className="absolute inset-x-3 bottom-2 rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
+            {disabledReason}
+          </span>
+        ) : null}
+      </motion.button>
+      {card.referenceNote ? (
+        <p className="text-[9px] leading-tight text-slate-400 line-clamp-2">{card.referenceNote}</p>
+      ) : null}
+    </div>
+  )
 }
 
 function inferBladeType(variants: FccVariant[]): string | null {
@@ -176,6 +294,7 @@ function CompatibleVehiclesHint({
 
 function VariantFilmstrip({
   variants,
+  chipset,
   selectedVariantId,
   selectedKeyId,
   trimProfile,
@@ -184,6 +303,7 @@ function VariantFilmstrip({
   onPick,
 }: {
   variants: FccVariant[]
+  chipset?: string | null
   selectedVariantId: string | null | undefined
   selectedKeyId: string | null
   trimProfile: VehicleTrimProfile
@@ -211,84 +331,23 @@ function VariantFilmstrip({
 
   return (
     <div className="grid gap-2">
-    <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
-      {visibleVariants.map((variant) => {
-        const selected = selectedVariantId === variant.id
-        const trimGate = variantDisabledByTrim(variant, trimProfile)
-        const cardDisabled = disabled || trimGate.disabled
-        const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
-        const buttonLabel = variantButtonLabel(
-          variant.title,
-          variant.buttons,
-          variant.fits_text,
-          variant.key_type
-        )
-        const cardLabel = buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel
-        return (
-          <div key={variant.id} className="flex w-[5.25rem] shrink-0 flex-col gap-1">
-            <motion.button
-              type="button"
-              whileTap={cardDisabled ? undefined : { scale: 0.97 }}
+      <div className="grid gap-2">
+        {visibleVariants.map((variant) => {
+          const selected = selectedVariantId === variant.id
+          const trimGate = variantDisabledByTrim(variant, trimProfile)
+          const cardDisabled = disabled || trimGate.disabled
+          return (
+            <KeySelectionCard
+              key={variant.id}
+              card={variantCardModel(variant, chipset)}
+              selected={selected}
               disabled={cardDisabled}
+              disabledReason={trimGate.disabled ? "Feature not supported by vehicle trim" : null}
               onClick={() => onPick(variant)}
-              className={cn(
-                "relative h-[4.75rem] w-full shrink-0 touch-manipulation overflow-hidden rounded-lg border text-left transition-colors",
-                cardDisabled && "cursor-not-allowed opacity-40 hover:border-slate-800",
-                !cardDisabled && selected
-                  ? "border-2 border-cyan-400 bg-slate-900"
-                  : !cardDisabled
-                    ? "border border-slate-800 bg-background hover:border-primary/50"
-                    : "border border-slate-800 bg-background"
-              )}
-              aria-pressed={selected}
-              aria-disabled={cardDisabled}
-            >
-              {selected ? (
-                <span
-                  className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
-                  aria-hidden
-                >
-                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                </span>
-              ) : null}
-              <div className="flex h-full items-center justify-center bg-muted/20 p-1">
-                {variant.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- external fccid.io thumbnails
-                  <img
-                    src={variant.image_url}
-                    alt={cardLabel}
-                    loading="lazy"
-                    className="max-h-full max-w-full object-contain"
-                  />
-                ) : (
-                  <KeyRound className="h-6 w-6 text-muted-foreground/50" aria-hidden />
-                )}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-1 pb-1 pt-5">
-                <span className="block text-[9px] font-semibold leading-tight text-white line-clamp-2">
-                  {cardLabel}
-                </span>
-              </div>
-              {variant.reference_image ? (
-                <span className="absolute left-1 top-1 rounded bg-amber-500/90 px-1 text-[8px] font-semibold text-black">
-                  Ref
-                </span>
-              ) : null}
-              {trimGate.disabled ? (
-                <span className="absolute inset-x-1 bottom-8 z-10 rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
-                  Feature not supported by vehicle trim
-                </span>
-              ) : null}
-            </motion.button>
-            {variant.reference_image || variant.reference_note ? (
-              <p className="text-[9px] leading-tight text-slate-400 line-clamp-2">
-                {variant.reference_note ?? "Reference photo (same FCC)"}
-              </p>
-            ) : null}
-          </div>
-        )
-      })}
-    </div>
+            />
+          )
+        })}
+      </div>
     {showAklBanner ? (
       <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-medium leading-snug text-amber-100">
         🚨 Verification Alert: Ensure the vehicle is equipped with factory remote start before
@@ -372,6 +431,7 @@ function FccProfileSection({
 
       <VariantFilmstrip
         variants={detail.variants}
+        chipset={p.chipset}
         selectedVariantId={selected ? selectedVariantId : null}
         selectedKeyId={selectedKeyId}
         trimProfile={trimProfile}
@@ -490,44 +550,39 @@ function FccSearchField({
 }
 
 function ManualFrequencyGrid({
+  make,
+  model,
   selectedVariantId,
   disabled,
   onPick,
 }: {
+  make: string
+  model: string
   selectedVariantId: string | null | undefined
   disabled?: boolean
   onPick: (option: ManualKeyFrequencyOption) => void
 }) {
+  const options = useMemo(() => mykeysProKeyOptions(make, model), [make, model])
+  const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
+
   return (
     <div className="grid gap-2">
-      {MANUAL_KEY_FREQUENCY_OPTIONS.map((option) => {
+      {mkpProfile ? (
+        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+          MYKEYS Pro matched this vehicle — FCC{" "}
+          <span className="font-mono font-semibold">{mkpProfile.fccId}</span>
+        </p>
+      ) : null}
+      {options.map((option) => {
         const selected = selectedVariantId === option.id
         return (
-          <motion.button
+          <KeySelectionCard
             key={option.id}
-            type="button"
-            whileTap={{ scale: 0.98 }}
+            card={manualOptionCardModel(option)}
+            selected={selected}
             disabled={disabled}
             onClick={() => onPick(option)}
-            className={cn(
-              "relative flex touch-manipulation flex-col rounded-lg border px-3 py-2.5 text-left transition-colors",
-              selected
-                ? "border-2 border-cyan-400 bg-slate-900"
-                : "border border-slate-800 bg-background hover:border-primary/50"
-            )}
-            aria-pressed={selected}
-          >
-            {selected ? (
-              <span
-                className="absolute top-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
-                aria-hidden
-              >
-                <Check className="h-3 w-3" strokeWidth={3} />
-              </span>
-            ) : null}
-            <span className="text-sm font-semibold text-foreground">{option.label}</span>
-            <span className="mt-0.5 text-[11px] text-muted-foreground">{option.description}</span>
-          </motion.button>
+          />
         )
       })}
     </div>
@@ -662,7 +717,7 @@ export function VehicleKeyInfoPanel({
     setSelectedKeyId(option.id)
     const selection: VehicleKeySelection = {
       profileId: "manual",
-      fccId: "",
+      fccId: option.fccId?.trim() ?? "",
       frequency: option.frequency,
       chipset: null,
       keyStyle: option.keyStyle,
@@ -714,6 +769,8 @@ export function VehicleKeyInfoPanel({
           Could not load key reference — choose a manual key type below to keep the call moving.
         </p>
         <ManualFrequencyGrid
+          make={make}
+          model={model}
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
@@ -737,11 +794,15 @@ export function VehicleKeyInfoPanel({
           onSearch={runFccSearch}
         />
         <p className="text-[11px] text-muted-foreground">
-          {activeFccQuery && lookupSource === "ymm_fallback"
-            ? `No exact match for FCC ${sanitizeFccIdInput(activeFccQuery)} — pick a regional key type or search again.`
-            : "No database match for this vehicle — pick the closest key type to keep advancing."}
+          {lookupMykeysProProfile(make, model)
+            ? "MYKEYS Pro profile loaded — pick the key that matches the customer fob."
+            : activeFccQuery && lookupSource === "ymm_fallback"
+              ? `No exact match for FCC ${sanitizeFccIdInput(activeFccQuery)} — pick a regional key type or search again.`
+              : "No database match for this vehicle — pick the closest key type to keep advancing."}
         </p>
         <ManualFrequencyGrid
+          make={make}
+          model={model}
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
@@ -920,6 +981,7 @@ export function VehicleKeyInfoPanel({
             </div>
             <VariantFilmstrip
               variants={selectedVariantDetail.detail.variants}
+              chipset={selectedVariantDetail.detail.profile.chipset}
               selectedVariantId={selectedKeyId}
               selectedKeyId={selectedKeyId}
               trimProfile={trimProfile}

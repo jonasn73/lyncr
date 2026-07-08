@@ -98,6 +98,22 @@ export function variantButtonSignature(
   return `${countToken}|${features.sort().join(",")}`
 }
 
+/** Map listing metadata to a dispatcher-facing programming method badge. */
+export function inferProgrammingMethod(
+  title: string,
+  keyType: string | null,
+  chipset?: string | null
+): string {
+  const blob = `${title} ${keyType ?? ""} ${chipset ?? ""}`.toLowerCase()
+  if (/on.?board|manual sequence|dealer tool|pin code/.test(blob)) return "On-Board Sequence"
+  if (/blade|turn key|mechanical|high.?security|edge cut|laser/.test(blob)) return "On-Board Sequence"
+  if (/smart|proximity|push\s*start|keyless go|transponder|immobilizer|remote head|combo/.test(blob)) {
+    return "OBD2 Programming Required"
+  }
+  if (/remote|fob|keyless/.test(blob)) return "OBD2 Programming Required"
+  return "OBD2 Bypass Required"
+}
+
 /** Map a variant bucket to the intake form key-style dropdown value. */
 export function bucketToKeyStyleOption(bucket: KeyStyleBucket): string | null {
   switch (bucket) {

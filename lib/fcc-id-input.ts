@@ -11,6 +11,12 @@ export type ManualKeyFrequencyOption = {
   keyStyle: string
   frequency: string | null
   description: string
+  /** How this key is programmed on the vehicle (shown on intake cards). */
+  programmingMethod: string
+  /** Optional fob thumbnail — null shows the No Pic placeholder. */
+  imageUrl: string | null
+  /** FCC id from a MYKEYS Pro vehicle profile (manual MKP picks only). */
+  fccId?: string | null
 }
 
 /** Dispatcher fallback when FCC / YMM lookup cannot resolve a specific remote. */
@@ -21,6 +27,8 @@ export const MANUAL_KEY_FREQUENCY_OPTIONS: readonly ManualKeyFrequencyOption[] =
     keyStyle: "Remote head key",
     frequency: "315",
     description: "Common US remote-head / transponder key",
+    programmingMethod: "OBD2 Programming Required",
+    imageUrl: null,
   },
   {
     id: "manual-proximity-smart",
@@ -28,6 +36,8 @@ export const MANUAL_KEY_FREQUENCY_OPTIONS: readonly ManualKeyFrequencyOption[] =
     keyStyle: "Push start (smart key)",
     frequency: "315",
     description: "Push-to-start proximity fob",
+    programmingMethod: "OBD2 Programming Required",
+    imageUrl: null,
   },
   {
     id: "manual-high-security-edge",
@@ -35,5 +45,7 @@ export const MANUAL_KEY_FREQUENCY_OPTIONS: readonly ManualKeyFrequencyOption[] =
     keyStyle: "Turn key (blade)",
     frequency: null,
     description: "Laser-cut / high-security mechanical blade",
+    programmingMethod: "On-Board Sequence",
+    imageUrl: null,
   },
 ] as const

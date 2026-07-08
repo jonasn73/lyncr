@@ -5,7 +5,7 @@ import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { attachLocalBundledPhotos } from "@/lib/local-key-images"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { classifyKeyStyleBucket, extractButtonCount, variantButtonSignature, type KeyStyleBucket } from "@/lib/vehicle-key-variant-labels"
+import { classifyKeyStyleBucket, extractButtonCount, inferProgrammingMethod, variantButtonSignature, type KeyStyleBucket } from "@/lib/vehicle-key-variant-labels"
 
 export type FccRemoteVariant = {
   /** Stable id for UI selection (hash of title + image). */
@@ -20,6 +20,8 @@ export type FccRemoteVariant = {
   source_url: string | null
   /** Human hint for the intake sheet key-style dropdown. */
   suggested_key_style: string | null
+  /** Programming workflow badge for Smart Pro–style intake cards. */
+  programming_method: string | null
   /** Photo borrowed from another listing with the same FCC ID. */
   reference_image?: boolean
   /** Shown when the borrowed photo may be a different trim but same button count. */
@@ -441,6 +443,7 @@ export function parseFccidReplacementHtml(html: string): FccRemoteVariant[] {
       fits_text: cellValue(row, "Fits") || null,
       source_url: sourceMatch?.[1] ?? null,
       suggested_key_style: suggestKeyStyle(keyType, cleanTitle),
+      programming_method: inferProgrammingMethod(cleanTitle, keyType, null),
     })
   }
 
