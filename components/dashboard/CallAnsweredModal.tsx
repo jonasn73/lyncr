@@ -164,27 +164,11 @@ function ManualIntakeToolbar({
   )
 }
 
-/** Animated shell — scroll lives on an inner plain div so transforms never trap touch scrolling. */
-const MANUAL_STEP_SHELL = "flex min-h-0 flex-1 flex-col overflow-hidden"
+/** Animated shell — one step fills the sheet; absolute so steps never stack in the flex column. */
+const MANUAL_STEP_SHELL = "absolute inset-0 flex min-h-0 flex-col overflow-hidden"
 
 const MANUAL_STEP_SCROLL =
   "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-auto touch-pan-y pb-4 [-webkit-overflow-scrolling:touch]"
-
-function ManualStepScroller({
-  stepKey,
-  children,
-  scrollClassName,
-}: {
-  stepKey: string
-  children: React.ReactNode
-  scrollClassName?: string
-}) {
-  return (
-    <motion.div key={stepKey} {...MANUAL_STEP_MOTION} className={MANUAL_STEP_SHELL}>
-      <div className={cn(MANUAL_STEP_SCROLL, "relative z-10", scrollClassName)}>{children}</div>
-    </motion.div>
-  )
-}
 
 /** Step transitions — opacity only so transforms never swallow mobile taps. */
 const MANUAL_STEP_MOTION = {
@@ -374,6 +358,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -1081,6 +1066,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return () => window.clearTimeout(timer)
   }, [isManualIntake, currentStep, canAdvanceToDispatch])
 
+  /** Jump to top of the step panel whenever the workflow advances (mobile was stacking steps below). */
+  useEffect(() => {
+    manualStepScrollRef.current?.scrollTo({ top: 0, behavior: "instant" })
+  }, [currentStep])
+
   if (!enabled && !manualCallRow) return null
 
   const isRinging =
@@ -1157,192 +1147,197 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
               >
                 {isManual ? (
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                    <AnimatePresence mode="wait">
-                    {currentStep === "SERVICE_SELECT" ? (
-                      <ManualStepScroller stepKey="SERVICE_SELECT">
-                        <ServiceQuoteCalculatorPanel
-                          quote={liveQuote}
-                          serviceTypeId={serviceTypeId}
-                          vehicleYear={form.vehicleYear}
-                          vehicleMake={form.vehicleMake}
-                          vehicleModel={form.vehicleModel}
-                          onServiceTypeChange={handleManualServiceTypeChange}
-                          variant="selector-only"
-                          compact
-                        />
-                      </ManualStepScroller>
-                    ) : null}
+                  <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={currentStep}
+                        {...MANUAL_STEP_MOTION}
+                        className={MANUAL_STEP_SHELL}
+                      >
+                        <div
+                          ref={manualStepScrollRef}
+                          className={cn(
+                            MANUAL_STEP_SCROLL,
+                            "relative z-10",
+                            currentStep === "KEY_SPECIFICS" && "pb-32"
+                          )}
+                        >
+                          {currentStep === "SERVICE_SELECT" ? (
+                            <ServiceQuoteCalculatorPanel
+                              quote={liveQuote}
+                              serviceTypeId={serviceTypeId}
+                              vehicleYear={form.vehicleYear}
+                              vehicleMake={form.vehicleMake}
+                              vehicleModel={form.vehicleModel}
+                              onServiceTypeChange={handleManualServiceTypeChange}
+                              variant="selector-only"
+                              compact
+                            />
+                          ) : null}
 
-                    {currentStep === "VEHICLE_INFO" ? (
-                      <ManualStepScroller stepKey="VEHICLE_INFO">
-                        <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
-                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                            Vehicle year · make · model
-                          </legend>
-                          <p className="text-[11px] text-primary/90">
-                            Tap year, then make, then model — we advance automatically to key specifics.
-                          </p>
-                          <VehiclePlateLookupField
-                            plateNumber={form.plateNumber}
-                            plateState={form.plateState}
-                            onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
-                            onPlateStateChange={(plateState) => patchForm({ plateState })}
-                            onLookupSuccess={handlePlateLookupSuccess}
-                          />
-                          <VehiclePickerCascade
-                            variant="sequential"
-                            value={{
-                              vehicle_year: form.vehicleYear,
-                              vehicle_make: form.vehicleMake,
-                              vehicle_model: form.vehicleModel,
-                            }}
-                            onChange={handleManualVehicleChange}
-                          />
-                        </fieldset>
-                      </ManualStepScroller>
-                    ) : null}
+                          {currentStep === "VEHICLE_INFO" ? (
+                            <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                                Vehicle year · make · model
+                              </legend>
+                              <p className="text-[11px] text-primary/90">
+                                Tap year, then make, then model — we advance automatically to key specifics.
+                              </p>
+                              <VehiclePlateLookupField
+                                plateNumber={form.plateNumber}
+                                plateState={form.plateState}
+                                onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
+                                onPlateStateChange={(plateState) => patchForm({ plateState })}
+                                onLookupSuccess={handlePlateLookupSuccess}
+                              />
+                              <VehiclePickerCascade
+                                variant="sequential"
+                                value={{
+                                  vehicle_year: form.vehicleYear,
+                                  vehicle_make: form.vehicleMake,
+                                  vehicle_model: form.vehicleModel,
+                                }}
+                                onChange={handleManualVehicleChange}
+                              />
+                            </fieldset>
+                          ) : null}
 
-                    {currentStep === "KEY_SPECIFICS" ? (
-                      <ManualStepScroller stepKey="KEY_SPECIFICS" scrollClassName="pb-32">
-                        <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
-                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                            Key specifics
-                          </legend>
-                          {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
-                            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-emerald-400">
-                              Selected Vehicle: {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
-                                .filter(Boolean)
-                                .join(" ")}
+                          {currentStep === "KEY_SPECIFICS" ? (
+                            <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                                Key specifics
+                              </legend>
+                              {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
+                                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-emerald-400">
+                                  Selected Vehicle: {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                </div>
+                              ) : null}
+                              <p className="text-[11px] text-primary/90">
+                                Tap the key layout that matches — we slide forward to location automatically.
+                              </p>
+                              <VehicleIntakeClarificationsPanel
+                                year={form.vehicleYear}
+                                make={form.vehicleMake}
+                                model={form.vehicleModel}
+                                answeredIds={new Set(answeredClarificationIds)}
+                                onAnswer={applyVehicleClarification}
+                              />
+                              <VehicleKeyInfoPanel
+                                year={form.vehicleYear}
+                                make={form.vehicleMake}
+                                model={form.vehicleModel}
+                                vehicleTrim={form.vehicleTrim}
+                                factoryOptions={form.factoryOptions}
+                                onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
+                                value={
+                                  form.keyFccId
+                                    ? {
+                                        profileId: form.keyProfileId,
+                                        fccId: form.keyFccId,
+                                        frequency: form.keyFrequency || null,
+                                        chipset: form.keyChipset || null,
+                                        keyStyle: form.keyStyle || "Not sure yet",
+                                        variantId: form.keyVariantId || null,
+                                      }
+                                    : null
+                                }
+                                onChange={(sel) => setVehicleKeySelection(sel)}
+                                onVariantSelected={handleManualKeyVariantSelected}
+                                onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
+                              />
+                            </fieldset>
+                          ) : null}
+
+                          {currentStep === "ADDRESS_CONTACT" ? (
+                            <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                                Customer &amp; location
+                              </legend>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="manual-ac-display" className="text-xs">
+                                  Caller name <span className="text-primary">*</span>
+                                </Label>
+                                <Input
+                                  id="manual-ac-display"
+                                  value={form.displayName}
+                                  onChange={(e) => patchForm({ displayName: e.target.value })}
+                                  placeholder="Ask before they hang up"
+                                  className="h-10"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="manual-ac-phone" className="text-xs">
+                                  Phone number
+                                </Label>
+                                <Input
+                                  id="manual-ac-phone"
+                                  type="tel"
+                                  inputMode="tel"
+                                  autoComplete="tel"
+                                  value={resolvedPhoneNumber}
+                                  onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                                  placeholder="(502) 555-1234"
+                                  className="h-10 font-mono text-base"
+                                />
+                              </div>
+                              <div className="space-y-1.5 overflow-visible">
+                                <Label className="text-xs">
+                                  Service address <span className="text-primary">*</span>
+                                </Label>
+                                <JobAddressAutocomplete
+                                  value={form.serviceAddress}
+                                  onChange={handleManualAddressChange}
+                                  onQueryCommit={commitAddressQuery}
+                                  seedQuery={addressSeedQuery}
+                                  placeholder="Start typing street address…"
+                                />
+                                <NearestTechDispatchBadge
+                                  jobLat={form.serviceAddress?.lat ?? null}
+                                  jobLng={form.serviceAddress?.lng ?? null}
+                                />
+                                <p className="text-[10px] text-muted-foreground">
+                                  Pick a suggestion or finish typing — advances when name + address are ready.
+                                </p>
+                              </div>
+                            </fieldset>
+                          ) : null}
+
+                          {currentStep === "FINAL_DISPATCH" ? (
+                            <div className="flex flex-col justify-start gap-4">
+                              <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
+                                <p className="font-medium text-foreground">
+                                  {form.displayName.trim() || "Customer"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
+                                </p>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+                                    form.serviceAddress?.formatted ||
+                                    "—"}
+                                </p>
+                                {form.vehicleYear || form.vehicleMake || form.vehicleModel ? (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    {[form.vehicleYear, form.vehicleMake, form.vehicleModel].filter(Boolean).join(" ")}
+                                  </p>
+                                ) : null}
+                              </div>
+
+                              <ServiceQuoteCalculatorPanel
+                                quote={liveQuote}
+                                serviceTypeId={serviceTypeId}
+                                vehicleYear={form.vehicleYear}
+                                vehicleMake={form.vehicleMake}
+                                vehicleModel={form.vehicleModel}
+                                onServiceTypeChange={handleManualServiceTypeChange}
+                                variant="breakdown-only"
+                              />
                             </div>
                           ) : null}
-                          <p className="text-[11px] text-primary/90">
-                            Tap the key layout that matches — we slide forward to location automatically.
-                          </p>
-                          <VehicleIntakeClarificationsPanel
-                            year={form.vehicleYear}
-                            make={form.vehicleMake}
-                            model={form.vehicleModel}
-                            answeredIds={new Set(answeredClarificationIds)}
-                            onAnswer={applyVehicleClarification}
-                          />
-                          <VehicleKeyInfoPanel
-                            year={form.vehicleYear}
-                            make={form.vehicleMake}
-                            model={form.vehicleModel}
-                            vehicleTrim={form.vehicleTrim}
-                            factoryOptions={form.factoryOptions}
-                            onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
-                            value={
-                              form.keyFccId
-                                ? {
-                                    profileId: form.keyProfileId,
-                                    fccId: form.keyFccId,
-                                    frequency: form.keyFrequency || null,
-                                    chipset: form.keyChipset || null,
-                                    keyStyle: form.keyStyle || "Not sure yet",
-                                    variantId: form.keyVariantId || null,
-                                  }
-                                : null
-                            }
-                            onChange={(sel) => setVehicleKeySelection(sel)}
-                            onVariantSelected={handleManualKeyVariantSelected}
-                            onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
-                          />
-                        </fieldset>
-                      </ManualStepScroller>
-                    ) : null}
-
-                    {currentStep === "ADDRESS_CONTACT" ? (
-                      <ManualStepScroller stepKey="ADDRESS_CONTACT">
-                        <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                            Customer &amp; location
-                          </legend>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="manual-ac-display" className="text-xs">
-                              Caller name <span className="text-primary">*</span>
-                            </Label>
-                            <Input
-                              id="manual-ac-display"
-                              value={form.displayName}
-                              onChange={(e) => patchForm({ displayName: e.target.value })}
-                              placeholder="Ask before they hang up"
-                              className="h-10"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="manual-ac-phone" className="text-xs">
-                              Phone number
-                            </Label>
-                            <Input
-                              id="manual-ac-phone"
-                              type="tel"
-                              inputMode="tel"
-                              autoComplete="tel"
-                              value={resolvedPhoneNumber}
-                              onChange={(e) => patchForm({ phoneNumber: e.target.value })}
-                              placeholder="(502) 555-1234"
-                              className="h-10 font-mono text-base"
-                            />
-                          </div>
-                          <div className="space-y-1.5 overflow-visible">
-                            <Label className="text-xs">
-                              Service address <span className="text-primary">*</span>
-                            </Label>
-                            <JobAddressAutocomplete
-                              value={form.serviceAddress}
-                              onChange={handleManualAddressChange}
-                              onQueryCommit={commitAddressQuery}
-                              seedQuery={addressSeedQuery}
-                              placeholder="Start typing street address…"
-                            />
-                            <NearestTechDispatchBadge
-                              jobLat={form.serviceAddress?.lat ?? null}
-                              jobLng={form.serviceAddress?.lng ?? null}
-                            />
-                            <p className="text-[10px] text-muted-foreground">
-                              Pick a suggestion or finish typing — advances when name + address are ready.
-                            </p>
-                          </div>
-                        </fieldset>
-                      </ManualStepScroller>
-                    ) : null}
-
-                    {currentStep === "FINAL_DISPATCH" ? (
-                      <ManualStepScroller stepKey="FINAL_DISPATCH">
-                        <div className="flex flex-col justify-start gap-4">
-                        <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
-                          <p className="font-medium text-foreground">
-                            {form.displayName.trim() || "Customer"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
-                          </p>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
-                              form.serviceAddress?.formatted ||
-                              "—"}
-                          </p>
-                          {form.vehicleYear || form.vehicleMake || form.vehicleModel ? (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              {[form.vehicleYear, form.vehicleMake, form.vehicleModel].filter(Boolean).join(" ")}
-                            </p>
-                          ) : null}
                         </div>
-
-                        <ServiceQuoteCalculatorPanel
-                          quote={liveQuote}
-                          serviceTypeId={serviceTypeId}
-                          vehicleYear={form.vehicleYear}
-                          vehicleMake={form.vehicleMake}
-                          vehicleModel={form.vehicleModel}
-                          onServiceTypeChange={handleManualServiceTypeChange}
-                          variant="breakdown-only"
-                        />
-                        </div>
-                      </ManualStepScroller>
-                    ) : null}
+                      </motion.div>
                     </AnimatePresence>
                   </div>
                 ) : (
