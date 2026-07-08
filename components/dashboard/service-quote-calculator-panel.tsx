@@ -78,9 +78,10 @@ function servicesForSector(sector: ServiceSector): (typeof SERVICE_QUOTE_TYPES)[
 type ServiceSectorSelectorProps = {
   serviceTypeId: ServiceQuoteTypeId
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+  compact?: boolean
 }
 
-function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSectorSelectorProps) {
+function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: ServiceSectorSelectorProps) {
   const [activeSector, setActiveSector] = useState<ServiceSector>(() => serviceSectorForType(serviceTypeId))
   const [sectorDirection, setSectorDirection] = useState(1)
 
@@ -99,10 +100,17 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSe
   }
 
   return (
-    <div className="my-4">
-      <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
+    <div className={compact ? "my-0" : "my-4"}>
+      {compact ? null : (
+        <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
+      )}
 
-      <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5">
+      <div
+        className={cn(
+          "grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5",
+          compact ? "mb-2" : "mb-4"
+        )}
+      >
         {SERVICE_SECTOR_ORDER.map((sector) => {
           const active = activeSector === sector
           return (
@@ -111,7 +119,8 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSe
               type="button"
               onClick={() => handleSectorChange(sector)}
               className={cn(
-                "relative min-h-10 touch-manipulation rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition-colors",
+                "relative touch-manipulation rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition-colors",
+                compact ? "min-h-9" : "min-h-10",
                 active ? "text-emerald-100" : "text-slate-400 hover:text-slate-200"
               )}
               aria-pressed={active}
@@ -142,7 +151,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSe
           animate="center"
           exit="exit"
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
-          className="grid grid-cols-2 gap-3"
+          className={cn("grid grid-cols-2 gap-3", compact && "gap-2")}
         >
           {visibleServices.map((service) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
@@ -157,7 +166,8 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSe
                 whileHover={{ scale: 1.02 }}
                 onClick={() => onServiceTypeChange(service.id)}
                 className={cn(
-                  "flex min-h-[5.5rem] touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors",
+                  "flex touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors",
+                  compact ? "min-h-[4.25rem]" : "min-h-[5.5rem]",
                   active
                     ? "border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40"
                     : "border-slate-700/80 hover:border-emerald-500/40 hover:bg-slate-800/90"
@@ -209,6 +219,8 @@ type ServiceQuoteCalculatorPanelProps = {
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
   /** selector-only = step 1; breakdown-only = step 3; full = default */
   variant?: "full" | "selector-only" | "breakdown-only"
+  /** Tighter layout for manual intake sheets */
+  compact?: boolean
   className?: string
 }
 
@@ -220,27 +232,34 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   vehicleModel,
   onServiceTypeChange,
   variant = "full",
+  compact = false,
   className,
 }: ServiceQuoteCalculatorPanelProps) {
   const showSelector = variant === "full" || variant === "selector-only"
   const showBreakdown = variant === "full" || variant === "breakdown-only"
+  const selectorOnlyCompact = compact && variant === "selector-only"
   const selectedLabel =
     SERVICE_QUOTE_TYPES.find((t) => t.id === serviceTypeId)?.label ?? "Selected service"
 
   return (
     <fieldset
       className={cn(
-        "grid gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3",
+        selectorOnlyCompact
+          ? "grid gap-2 border-0 bg-transparent p-0"
+          : "grid gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3",
         className
       )}
     >
-      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
-        Quick booking · service quote
-      </legend>
+      {selectorOnlyCompact ? null : (
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
+          Quick booking · service quote
+        </legend>
+      )}
       {showSelector ? (
         <ServiceSectorSelector
           serviceTypeId={serviceTypeId}
           onServiceTypeChange={onServiceTypeChange}
+          compact={compact}
         />
       ) : null}
       {showBreakdown ? (

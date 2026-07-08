@@ -100,51 +100,64 @@ function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): Work
   return path[idx - 1] ?? null
 }
 
-function ManualWorkflowProgress({
+function ManualIntakeToolbar({
   path,
   currentStep,
+  phoneDisplay,
+  lineState,
+  onLineStateChange,
 }: {
   path: WorkflowStep[]
   currentStep: WorkflowStep
+  phoneDisplay: string
+  lineState: ManualCallStatus
+  onLineStateChange: (status: ManualCallStatus) => void
 }) {
   const currentIndex = Math.max(0, path.indexOf(currentStep))
   return (
-    <div className="shrink-0 border-b border-border/40 bg-background/95 px-4 py-2 backdrop-blur-sm">
-      <div className="flex items-center justify-center gap-1.5 pb-2">
-        {path.map((step, index) => {
-          const active = step === currentStep
-          const done = index < currentIndex
-          return (
-            <div
-              key={`dot-${step}`}
-              className={cn(
-                "h-2 w-2 rounded-full transition-all duration-300",
-                active ? "scale-125 bg-primary" : done ? "bg-primary/60" : "bg-muted"
-              )}
-              title={WORKFLOW_STEP_LABELS[step]}
-            />
-          )
-        })}
+    <div className="shrink-0 border-b border-border/60 px-3 py-2 pr-12">
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          {path.map((step, index) => {
+            const active = step === currentStep
+            const done = index < currentIndex
+            return (
+              <div
+                key={step}
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                  active ? "bg-primary" : done ? "bg-primary/50" : "bg-muted"
+                )}
+                title={WORKFLOW_STEP_LABELS[step]}
+              />
+            )
+          })}
+          <span className="truncate text-xs font-semibold text-foreground">
+            {WORKFLOW_STEP_LABELS[currentStep]}
+          </span>
+        </div>
+        <Select value={lineState} onValueChange={(v) => onLineStateChange(v as ManualCallStatus)}>
+          <SelectTrigger
+            id="manual-call-status"
+            aria-label="Line state"
+            className="h-7 w-[6.75rem] shrink-0 border-border/60 px-2 text-[10px]"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ringing">Ringing</SelectItem>
+            <SelectItem value="answered">Answered</SelectItem>
+            <SelectItem value="on_hold">On hold</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <div className="flex items-center gap-1">
-        {path.map((step, index) => {
-          const active = step === currentStep
-          const done = index < currentIndex
-          return (
-            <div
-              key={step}
-              className={cn(
-                "h-1 flex-1 rounded-full transition-all duration-300",
-                active ? "bg-primary" : done ? "bg-primary/55" : "bg-muted"
-              )}
-              title={WORKFLOW_STEP_LABELS[step]}
-            />
-          )
-        })}
-      </div>
-      <p className="mt-1.5 text-[10px] font-medium text-muted-foreground">
-        {WORKFLOW_STEP_LABELS[currentStep]}
-      </p>
+      {phoneDisplay ? (
+        <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+          <Phone className="h-3 w-3 shrink-0 text-primary/80" aria-hidden />
+          {phoneDisplay}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -1079,10 +1092,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       >
         {effectiveCurrent ? (
           <>
-            {isManual ? <ManualWorkflowProgress path={manualPath} currentStep={currentStep} /> : null}
+            {isManual ? (
+              <ManualIntakeToolbar
+                path={manualPath}
+                currentStep={currentStep}
+                phoneDisplay={formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
+                lineState={effectiveCurrent.manualCallStatus ?? "answered"}
+                onLineStateChange={setManualCallStatus}
+              />
+            ) : (
             <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
-                {isManual ? "Manual call intake" : isRinging ? "Incoming call" : "Call answered"}
+                {isRinging ? "Incoming call" : "Call answered"}
               </p>
               <SheetTitle className="flex items-center gap-2 text-left text-lg">
                 <Phone
@@ -1092,34 +1113,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
               </SheetTitle>
               <p className="text-left text-xs text-muted-foreground">
-                {isManual
-                  ? "Tap through service → vehicle → location — one screen at a time."
-                  : isRinging
-                    ? `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · ringing — start intake while the line connects.`
-                    : `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · customer details save automatically.`}
+                {isRinging
+                  ? `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · ringing — start intake while the line connects.`
+                  : `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · customer details save automatically.`}
               </p>
-              {isManual ? (
-                <div className="mt-2 flex items-center gap-2">
-                  <Label htmlFor="manual-call-status" className="shrink-0 text-[10px] text-muted-foreground">
-                    Line state
-                  </Label>
-                  <Select
-                    value={effectiveCurrent.manualCallStatus ?? "answered"}
-                    onValueChange={(v) => setManualCallStatus(v as ManualCallStatus)}
-                  >
-                    <SelectTrigger id="manual-call-status" className="h-8 flex-1 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ringing">Ringing</SelectItem>
-                      <SelectItem value="answered">Answered</SelectItem>
-                      <SelectItem value="on_hold">On hold</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-              {!isManual && effectiveCurrent.recording_url ? (
+              {effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
                   <span className="font-mono text-xs text-zinc-400">Recording:</span>
                   <audio
@@ -1130,12 +1128,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </div>
               ) : null}
             </SheetHeader>
+            )}
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div
                 className={cn(
-                  "flex min-h-0 flex-1 flex-col px-6 py-4",
-                  isManual ? "overflow-hidden" : "space-y-4 overflow-y-auto overscroll-y-contain"
+                  "flex min-h-0 flex-1 flex-col",
+                  isManual
+                    ? "overflow-hidden px-4 py-2"
+                    : "space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4"
                 )}
               >
                 {isManual ? (
@@ -1143,7 +1144,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <AnimatePresence mode="wait">
                     {currentStep === "SERVICE_SELECT" ? (
                       <ManualStepScroller stepKey="SERVICE_SELECT">
-                        <div className="flex flex-col justify-start gap-4">
                         <ServiceQuoteCalculatorPanel
                           quote={liveQuote}
                           serviceTypeId={serviceTypeId}
@@ -1152,11 +1152,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           vehicleModel={form.vehicleModel}
                           onServiceTypeChange={handleManualServiceTypeChange}
                           variant="selector-only"
+                          compact
                         />
-                        <p className="text-center text-[11px] text-muted-foreground">
-                          Pick a service — key jobs open vehicle info; lockouts jump to contact.
-                        </p>
-                        </div>
                       </ManualStepScroller>
                     ) : null}
 
@@ -1610,7 +1607,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
               </div>
 
-              <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-slate-800 bg-slate-900 p-3">
+              <div className="sticky bottom-0 shrink-0 space-y-1.5 border-t border-slate-800 bg-slate-900 p-2">
                 {isManual ? (
                   <>
                     {currentStep === "KEY_SPECIFICS" ? (
