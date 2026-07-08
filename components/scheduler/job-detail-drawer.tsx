@@ -24,7 +24,11 @@ import {
   SCHEDULER_STATUS_LABEL,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
-import { toDatetimeLocalValue } from "@/lib/scheduler-utils"
+import {
+  combineScheduledDateTimeLocal,
+  scheduledDateInputFromIso,
+  scheduledTimeInputFromIso,
+} from "@/lib/scheduler-utils"
 import { shouldAutoAdvanceAfterSchedulePick } from "@/lib/scheduler-focus-url"
 import { negotiationDiscountLabel } from "@/lib/price-negotiation"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
@@ -61,11 +65,9 @@ type JobDetailDrawerProps = {
   onScheduleCommitted?: (event: SchedulerEvent) => void
 }
 
-function startLocalFromIso(iso: string | null | undefined): string {
-  if (!iso) return ""
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ""
-  return toDatetimeLocalValue(d)
+function scheduledLocalCombined(date: string, time: string): string {
+  if (!date.trim() || !time.trim()) return ""
+  return `${date.trim()}T${time.trim()}`
 }
 
 export function JobDetailDrawer({
@@ -106,7 +108,8 @@ export function JobDetailDrawer({
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const [location, setLocation] = useState("")
   const [jobNotes, setJobNotes] = useState("")
-  const [startLocal, setStartLocal] = useState("")
+  const [scheduledDate, setScheduledDate] = useState("")
+  const [scheduledTime, setScheduledTime] = useState("")
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [assignedTechId, setAssignedTechId] = useState("")
   const [pipelineStatus, setPipelineStatus] = useState<JobPipelineStatusId>("unassigned_pool")
@@ -174,6 +177,7 @@ export function JobDetailDrawer({
   const buildSaveBody = useCallback((): Record<string, unknown> => {
     const quotedPriceCents = resolveQuotedPriceCents()
     const pipelinePatch = pipelineStatusPatch(pipelineStatus)
+    const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
     return {
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
@@ -200,6 +204,7 @@ export function JobDetailDrawer({
       discount_applied: negotiationDiscountApplied,
       baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
       field_verification_required: keyStyleRequiresFieldVerification(keyStyle),
+      ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
     }
   }, [
     assignedTechId,
@@ -218,6 +223,8 @@ export function JobDetailDrawer({
     liveQuote.totalCents,
     pipelineStatus,
     resolveQuotedPriceCents,
+    scheduledDate,
+    scheduledTime,
     serviceQuoteTypeId,
     travelDistanceMilesValue,
     vehicleMake,
@@ -272,13 +279,12 @@ export function JobDetailDrawer({
     setLocation(source.location ?? "")
     setJobNotes(source.job_notes ?? "")
     setDurationMinutes(source.duration_minutes ?? 60)
-    setStartLocal(
-      startLocalFromIso(
-        scheduledEvent?.scheduled_at ??
-          poolJob?.scheduled_at ??
-          (scheduledEvent && !scheduledEvent.scheduled_tentative ? scheduledEvent.scheduled_at : null)
-      )
-    )
+    const scheduledIso =
+      scheduledEvent?.scheduled_at ??
+      poolJob?.scheduled_at ??
+      (scheduledEvent && !scheduledEvent.scheduled_tentative ? scheduledEvent.scheduled_at : null)
+    setScheduledDate(scheduledDateInputFromIso(scheduledIso))
+    setScheduledTime(scheduledTimeInputFromIso(scheduledIso))
     setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
     setPipelineStatus(
       pipelineStatusFromJob({
@@ -329,8 +335,9 @@ export function JobDetailDrawer({
 
   useEffect(() => {
     if (!scheduleIntent || !open || !userPickedScheduleRef.current) return
-    if (!shouldAutoAdvanceAfterSchedulePick(startLocal)) return
-    if (lastAutoSavedLocalRef.current === startLocal.trim()) return
+    const localCombined = scheduledLocalCombined(scheduledDate, scheduledTime)
+    if (!shouldAutoAdvanceAfterSchedulePick(localCombined)) return
+    if (lastAutoSavedLocalRef.current === localCombined) return
     if (!jobId || customerName.trim().length === 0 || customerPhone.trim().length === 0) return
 
     const timer = window.setTimeout(() => {
@@ -339,7 +346,8 @@ export function JobDetailDrawer({
         setError(null)
         try {
           const body = buildSaveBody()
-          body.scheduled_at = new Date(startLocal).toISOString()
+          const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
+          if (scheduledAtIso) body.scheduled_at = scheduledAtIso
           const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
             method: "PATCH",
             credentials: "include",
@@ -350,7 +358,7 @@ export function JobDetailDrawer({
           if (!res.ok) throw new Error(json.error ?? "Could not save job")
           const event = json.data?.event
           if (!event) throw new Error("No updated job returned")
-          lastAutoSavedLocalRef.current = startLocal.trim()
+          lastAutoSavedLocalRef.current = localCombined
           onSaved?.(event)
           onScheduleCommitted?.(event)
         } catch (e) {
@@ -362,7 +370,8 @@ export function JobDetailDrawer({
     }, 450)
     return () => window.clearTimeout(timer)
   }, [
-    startLocal,
+    scheduledDate,
+    scheduledTime,
     scheduleIntent,
     open,
     jobId,
@@ -409,7 +418,8 @@ export function JobDetailDrawer({
     setLocation(event.location ?? "")
     setJobNotes(event.job_notes ?? "")
     setDurationMinutes(event.duration_minutes ?? 60)
-    setStartLocal(startLocalFromIso(event.scheduled_at))
+    setScheduledDate(scheduledDateInputFromIso(event.scheduled_at))
+    setScheduledTime(scheduledTimeInputFromIso(event.scheduled_at))
     setAssignedTechId(event.assigned_tech_id ?? "")
     setPipelineStatus(
       pipelineStatusFromJob({
@@ -432,8 +442,9 @@ export function JobDetailDrawer({
     setError(null)
     try {
       const body = buildSaveBody()
-      if (startLocal.trim()) {
-        body.scheduled_at = new Date(startLocal).toISOString()
+      const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
+      if (scheduledAtIso) {
+        body.scheduled_at = scheduledAtIso
       }
       const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
         method: "PATCH",
@@ -449,7 +460,7 @@ export function JobDetailDrawer({
       onSaved?.(event)
       setViewMode("overview")
       if (options?.fromScheduleIntent) {
-        lastAutoSavedLocalRef.current = startLocal.trim()
+        lastAutoSavedLocalRef.current = scheduledLocalCombined(scheduledDate, scheduledTime)
         onScheduleCommitted?.(event)
       }
       return true
@@ -585,6 +596,8 @@ export function JobDetailDrawer({
               location={location}
               jobNotes={jobNotes}
               serviceQuoteTypeId={serviceQuoteTypeId}
+              scheduledDate={scheduledDate}
+              scheduledTime={scheduledTime}
               vehicleYear={vehicleYear}
               vehicleMake={vehicleMake}
               vehicleModel={vehicleModel}
@@ -600,6 +613,14 @@ export function JobDetailDrawer({
               onLocationChange={setLocation}
               onJobNotesChange={setJobNotes}
               onServiceTypeChange={handleServiceTypeChange}
+              onScheduledDateChange={(value) => {
+                userPickedScheduleRef.current = true
+                setScheduledDate(value)
+              }}
+              onScheduledTimeChange={(value) => {
+                userPickedScheduleRef.current = true
+                setScheduledTime(value)
+              }}
               onVehicleYearChange={setVehicleYear}
               onVehicleMakeChange={setVehicleMake}
               onVehicleModelChange={setVehicleModel}

@@ -4,12 +4,18 @@ import { Loader2, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
+import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interaction"
+import { ScheduleInteractionBadge } from "@/components/scheduler/schedule-interaction-badge"
 import {
   JOB_PIPELINE_STATUS_OPTIONS,
   PIPELINE_STATUS_BADGE_STYLE,
   pipelineStatusLabel,
   type JobPipelineStatusId,
 } from "@/lib/job-pipeline-status"
+import {
+  formatScheduledDateDisplay,
+  formatScheduledTimeDisplay,
+} from "@/lib/scheduler-utils"
 import { cn } from "@/lib/utils"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -42,6 +48,7 @@ function telHref(phone: string): string | null {
 
 export function JobDetailOverview({
   source,
+  scheduledEvent,
   technicians,
   quotedPriceDollars,
   baselineQuotedDollars,
@@ -64,6 +71,12 @@ export function JobDetailOverview({
   const assignableTechs = technicians.filter((tech) => tech.is_active && tech.portal_user_id)
   const pipelineBadgeStyle = PIPELINE_STATUS_BADGE_STYLE[pipelineStatus]
   const pipelineLabel = pipelineStatusLabel(pipelineStatus)
+  const scheduledAtIso = resolveJobScheduledAtIso(
+    scheduledEvent ?? { scheduled_at: source.scheduled_at ?? null }
+  )
+  const jobStatus = scheduledEvent?.job_status ?? null
+  const scheduledDateLabel = formatScheduledDateDisplay(scheduledAtIso)
+  const scheduledTimeLabel = formatScheduledTimeDisplay(scheduledAtIso)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -153,6 +166,16 @@ export function JobDetailOverview({
               {discountLabel ? ` · ${discountLabel}` : ""}
             </p>
           ) : null}
+        </div>
+
+        <div className="mb-4 mt-3 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/80 p-3">
+          <div>
+            <span className="mb-1 block text-xs uppercase tracking-wider text-slate-500">Appointment</span>
+            <span className="text-sm font-medium text-slate-200">
+              {scheduledAtIso ? `${scheduledDateLabel} at ${scheduledTimeLabel}` : "Not scheduled yet"}
+            </span>
+          </div>
+          <ScheduleInteractionBadge scheduled_at={scheduledAtIso} job_status={jobStatus} />
         </div>
 
         <div className="mt-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">

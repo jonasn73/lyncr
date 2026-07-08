@@ -87,6 +87,58 @@ export function toDatetimeLocalValue(d: Date): string {
   return `${y}-${mo}-${da}T${h}:${mi}`
 }
 
+/** Value for `<input type="date">` from an ISO timestamp. */
+export function scheduledDateInputFromIso(iso: string | null | undefined): string {
+  if (!iso?.trim()) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, "0")
+  const da = String(d.getDate()).padStart(2, "0")
+  return `${y}-${mo}-${da}`
+}
+
+/** Value for `<input type="time">` from an ISO timestamp. */
+export function scheduledTimeInputFromIso(iso: string | null | undefined): string {
+  if (!iso?.trim()) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const h = String(d.getHours()).padStart(2, "0")
+  const mi = String(d.getMinutes()).padStart(2, "0")
+  return `${h}:${mi}`
+}
+
+/** Merge separate date + time inputs into an ISO string (local wall clock). */
+export function combineScheduledDateTimeLocal(date: string, time: string): string | null {
+  const d = date.trim()
+  const t = time.trim()
+  if (!d || !t) return null
+  const parsed = new Date(`${d}T${t}`)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toISOString()
+}
+
+/** Human-readable appointment date for overview cards. */
+export function formatScheduledDateDisplay(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "Not scheduled"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "Not scheduled"
+  return d.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+/** Human-readable appointment time for overview cards. */
+export function formatScheduledTimeDisplay(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+}
+
 /** Placement of an event block on the hourly grid (pixels from top of day column). */
 export function schedulerEventPlacement(
   scheduledAtIso: string,

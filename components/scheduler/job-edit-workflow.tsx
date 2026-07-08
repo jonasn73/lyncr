@@ -31,6 +31,8 @@ export type JobEditWorkflowProps = {
   location: string
   jobNotes: string
   serviceQuoteTypeId: ServiceQuoteTypeId
+  scheduledDate: string
+  scheduledTime: string
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
@@ -46,6 +48,8 @@ export type JobEditWorkflowProps = {
   onLocationChange: (value: string) => void
   onJobNotesChange: (value: string) => void
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+  onScheduledDateChange: (value: string) => void
+  onScheduledTimeChange: (value: string) => void
   onVehicleYearChange: (value: string) => void
   onVehicleMakeChange: (value: string) => void
   onVehicleModelChange: (value: string) => void
@@ -66,6 +70,8 @@ export function JobEditWorkflow({
   location,
   jobNotes,
   serviceQuoteTypeId,
+  scheduledDate,
+  scheduledTime,
   vehicleYear,
   vehicleMake,
   vehicleModel,
@@ -81,6 +87,8 @@ export function JobEditWorkflow({
   onLocationChange,
   onJobNotesChange,
   onServiceTypeChange,
+  onScheduledDateChange,
+  onScheduledTimeChange,
   onVehicleYearChange,
   onVehicleMakeChange,
   onVehicleModelChange,
@@ -181,6 +189,33 @@ export function JobEditWorkflow({
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Job settings</h3>
           <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-scheduled-date">
+                  Scheduled date
+                </label>
+                <Input
+                  id="job-edit-scheduled-date"
+                  type="date"
+                  className={inputClass}
+                  value={scheduledDate}
+                  onChange={(e) => onScheduledDateChange(e.target.value)}
+                />
+              </div>
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-scheduled-time">
+                  Scheduled time window
+                </label>
+                <Input
+                  id="job-edit-scheduled-time"
+                  type="time"
+                  className={inputClass}
+                  value={scheduledTime}
+                  onChange={(e) => onScheduledTimeChange(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className={fieldBlockClass}>
               <label className={labelClass} htmlFor="job-edit-service-type">
                 Service type

@@ -6,6 +6,8 @@ import { Car, DollarSign, GripVertical, MapPin, Phone, Wrench } from "lucide-rea
 import { cn } from "@/lib/utils"
 import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timeline"
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
+import { resolvePoolJobScheduledTarget } from "@/lib/job-pool-display"
+import { ScheduleInteractionBadge } from "@/components/scheduler/schedule-interaction-badge"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import {
   formatPoolJobElapsedAge,
@@ -61,6 +63,7 @@ export function JobPoolCard({
   const postalCode = resolvePoolJobPostalCode(job)
   const priority = resolvePoolJobBookingPriority(job, now)
   const priorityBadge = POOL_JOB_PRIORITY_BADGE_LABEL[priority]
+  const scheduledAtIso = resolvePoolJobScheduledTarget(job)
   const isAsap = isPoolJobAsapBooking(job)
   const displayName = job.customer_name?.trim() || job.job_type || "Service call"
   const serviceLabel = resolvePoolJobServiceLabel(job)
@@ -118,9 +121,11 @@ export function JobPoolCard({
           >
             {displayName}
           </p>
-          <div className="mt-0.5 flex w-full items-center justify-between gap-2">
+          <div className="mt-0.5 flex w-full flex-wrap items-center justify-between gap-2">
             <span className="text-[10px] font-medium text-slate-400">{priorityBadge}</span>
-            {isAsap ? (
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <ScheduleInteractionBadge scheduled_at={scheduledAtIso} />
+              {isAsap ? (
               <span className="shrink-0 rounded bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-rose-400">
                 {formatPoolJobElapsedAge(job.created_at, now)} ago
               </span>
@@ -129,6 +134,7 @@ export function JobPoolCard({
                 {formatPoolJobScheduledWindowLabel(job, now)}
               </span>
             )}
+            </div>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
