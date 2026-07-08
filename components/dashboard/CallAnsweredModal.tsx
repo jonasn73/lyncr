@@ -1142,9 +1142,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             Vehicle year · make · model
                           </legend>
                           <p className="text-[11px] text-primary/90">
-                            Select the model to continue to key specifics.
+                            Tap year, then make, then model — we advance automatically to key specifics.
                           </p>
                           <VehiclePickerCascade
+                            variant="sequential"
                             value={{
                               vehicle_year: form.vehicleYear,
                               vehicle_make: form.vehicleMake,
@@ -1727,6 +1728,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         onClick={() => goBackManualWorkflow(manualPath)}
                       >
                         Back
+                      </Button>
+                    ) : null}
+                    {currentStep === "VEHICLE_INFO" &&
+                    form.vehicleYear.trim() &&
+                    form.vehicleMake.trim() &&
+                    form.vehicleModel.trim() ? (
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-11 w-full"
+                        onClick={() => setCurrentStep("KEY_SPECIFICS")}
+                      >
+                        Next: Key details
                       </Button>
                     ) : null}
                     <div className="flex items-center justify-between gap-2 pt-0.5">
