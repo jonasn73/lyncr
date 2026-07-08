@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { ExternalLink, KeyRound, Loader2 } from "lucide-react"
+import { Check, ExternalLink, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel } from "@/lib/vehicle-key-variant-labels"
@@ -182,13 +182,21 @@ function VariantGrid({
             disabled={disabled}
             onClick={() => onPick(variant)}
             className={cn(
-              "flex touch-manipulation flex-col overflow-hidden rounded-lg border text-left transition-colors",
+              "relative flex touch-manipulation flex-col overflow-hidden rounded-lg border text-left transition-colors",
               selected
-                ? "border-primary bg-primary/15 ring-2 ring-primary/50"
-                : "border-border/70 bg-background hover:border-primary/50"
+                ? "border-2 border-cyan-400 bg-slate-900"
+                : "border border-slate-800 bg-background hover:border-primary/50"
             )}
             aria-pressed={selected}
           >
+            {selected ? (
+              <span
+                className="absolute top-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+                aria-hidden
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </span>
+            ) : null}
             <div className="flex h-20 items-center justify-center bg-muted/30 p-1">
               {variant.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element -- external fccid.io thumbnails

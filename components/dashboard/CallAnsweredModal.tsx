@@ -1180,7 +1180,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     ) : null}
 
                     {currentStep === "KEY_SPECIFICS" ? (
-                      <ManualStepScroller stepKey="KEY_SPECIFICS">
+                      <ManualStepScroller stepKey="KEY_SPECIFICS" scrollClassName="pb-32">
                         <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Key specifics
