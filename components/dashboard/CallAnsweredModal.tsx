@@ -181,17 +181,17 @@ function ManualStepScroller({
 }) {
   return (
     <motion.div key={stepKey} {...MANUAL_STEP_MOTION} className={MANUAL_STEP_SHELL}>
-      <div className={cn(MANUAL_STEP_SCROLL, scrollClassName)}>{children}</div>
+      <div className={cn(MANUAL_STEP_SCROLL, "relative z-10", scrollClassName)}>{children}</div>
     </motion.div>
   )
 }
 
-/** Premium slide track for manual intake step transitions. */
+/** Step transitions — opacity only so transforms never swallow mobile taps. */
 const MANUAL_STEP_MOTION = {
-  initial: { opacity: 0, x: 60 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -60 },
-  transition: { type: "spring" as const, stiffness: 320, damping: 30 },
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0, pointerEvents: "none" as const },
+  transition: { duration: 0.18 },
 }
 
 function IntakeAutoSaveStatus({

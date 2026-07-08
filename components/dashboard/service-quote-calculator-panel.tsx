@@ -100,14 +100,14 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
   }
 
   return (
-    <div className={compact ? "my-0" : "my-4"}>
+    <div className={cn("relative z-10", compact ? "my-0" : "my-4")}>
       {compact ? null : (
         <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
       )}
 
       <div
         className={cn(
-          "grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5",
+          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5",
           compact ? "mb-2" : "mb-4"
         )}
       >
@@ -119,54 +119,46 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
               type="button"
               onClick={() => handleSectorChange(sector)}
               className={cn(
-                "relative touch-manipulation rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition-colors",
+                "relative touch-manipulation rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition-colors active:scale-[0.98]",
                 compact ? "min-h-9" : "min-h-10",
-                active ? "text-emerald-100" : "text-slate-400 hover:text-slate-200"
+                active
+                  ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                  : "border border-transparent text-slate-400 hover:text-slate-200"
               )}
               aria-pressed={active}
             >
-              {active ? (
-                <motion.span
-                  layoutId="activeSectorPill"
-                  className="absolute inset-0 rounded-lg border border-emerald-500/40 bg-emerald-500/15 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              ) : null}
-              <span className="relative z-10">{SERVICE_SECTOR_LABELS[sector]}</span>
+              {SERVICE_SECTOR_LABELS[sector]}
             </button>
           )
         })}
       </div>
 
-      <AnimatePresence mode="popLayout" initial={false} custom={sectorDirection}>
+      <AnimatePresence mode="wait" initial={false} custom={sectorDirection}>
         <motion.div
           key={activeSector}
           custom={sectorDirection}
           variants={{
-            enter: (direction: number) => ({ opacity: 0, x: direction * 36, scale: 0.98 }),
-            center: { opacity: 1, x: 0, scale: 1 },
-            exit: (direction: number) => ({ opacity: 0, x: direction * -36, scale: 0.98 }),
+            enter: (direction: number) => ({ opacity: 0, x: direction * 20 }),
+            center: { opacity: 1, x: 0 },
+            exit: (direction: number) => ({ opacity: 0, x: direction * -20, pointerEvents: "none" }),
           }}
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ type: "spring", stiffness: 320, damping: 30 }}
-          className={cn("grid grid-cols-2 gap-3", compact && "gap-2")}
+          transition={{ duration: 0.16 }}
+          className={cn("relative z-10 grid grid-cols-2 gap-3", compact && "gap-2")}
         >
           {visibleServices.map((service) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
             const tag = SERVICE_CARD_TAGS[service.id] ?? "Service"
             const active = serviceTypeId === service.id
             return (
-              <motion.button
+              <button
                 key={service.id}
                 type="button"
-                layout
-                whileTap={{ scale: 0.97 }}
-                whileHover={{ scale: 1.02 }}
                 onClick={() => onServiceTypeChange(service.id)}
                 className={cn(
-                  "flex touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors",
+                  "flex touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors active:scale-[0.98]",
                   compact ? "min-h-[4.25rem]" : "min-h-[5.5rem]",
                   active
                     ? "border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40"
@@ -201,7 +193,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
                 >
                   {service.label}
                 </span>
-              </motion.button>
+              </button>
             )
           })}
         </motion.div>
