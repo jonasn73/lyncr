@@ -1,0 +1,41 @@
+// Sector grouping + manual intake step routing for the service card grid.
+
+import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
+import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
+
+export type ServiceSector = "automotive" | "residential" | "commercial"
+
+export const SERVICE_SECTOR_ORDER: ServiceSector[] = ["automotive", "residential", "commercial"]
+
+export const SERVICE_SECTOR_LABELS: Record<ServiceSector, string> = {
+  automotive: "Automotive",
+  residential: "Residential",
+  commercial: "Commercial",
+}
+
+export const SERVICE_IDS_BY_SECTOR: Record<ServiceSector, readonly ServiceQuoteTypeId[]> = {
+  automotive: [
+    "lockout",
+    "key_generation",
+    "key_duplication",
+    "programming_diagnostics",
+    "ignition_repair",
+    "key_extraction",
+  ],
+  residential: ["rekey", "lock_installation", "safe_lockout", "keypad_smart_lock"],
+  commercial: ["commercial_hardware", "master_key_system", "door_closer_repair"],
+}
+
+/** Resolve which sector pill should be active for a saved or selected service type. */
+export function serviceSectorForType(serviceTypeId: ServiceQuoteTypeId): ServiceSector {
+  if (SERVICE_IDS_BY_SECTOR.commercial.includes(serviceTypeId)) return "commercial"
+  if (SERVICE_IDS_BY_SECTOR.residential.includes(serviceTypeId)) return "residential"
+  return "automotive"
+}
+
+/** Next manual intake canvas after a service card is tapped. */
+export function manualIntakeStepAfterService(
+  serviceTypeId: ServiceQuoteTypeId
+): "VEHICLE_INFO" | "ADDRESS_CONTACT" {
+  return serviceTypeRequiresVehicle(serviceTypeId) ? "VEHICLE_INFO" : "ADDRESS_CONTACT"
+}

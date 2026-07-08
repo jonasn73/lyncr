@@ -2,7 +2,7 @@
 
 // Live service quote breakdown for the answered-call quick booking sheet.
 
-import { memo, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   Building2,
@@ -28,29 +28,13 @@ import {
 } from "@/lib/service-quote-calculator"
 import { estimateTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
-
-type ServiceSector = "automotive" | "residential" | "commercial"
-
-const SECTOR_ORDER: ServiceSector[] = ["automotive", "residential", "commercial"]
-
-const SECTOR_LABELS: Record<ServiceSector, string> = {
-  automotive: "Automotive",
-  residential: "Residential",
-  commercial: "Commercial",
-}
-
-const SECTOR_SERVICE_IDS: Record<ServiceSector, ServiceQuoteTypeId[]> = {
-  automotive: [
-    "lockout",
-    "key_generation",
-    "key_duplication",
-    "programming_diagnostics",
-    "ignition_repair",
-    "key_extraction",
-  ],
-  residential: ["rekey", "lock_installation", "safe_lockout", "keypad_smart_lock"],
-  commercial: ["commercial_hardware", "master_key_system", "door_closer_repair"],
-}
+import {
+  SERVICE_IDS_BY_SECTOR,
+  SERVICE_SECTOR_LABELS,
+  SERVICE_SECTOR_ORDER,
+  serviceSectorForType,
+  type ServiceSector,
+} from "@/lib/service-sector-routing"
 
 const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
   lockout: KeyRound,
@@ -87,7 +71,7 @@ const SERVICE_CARD_TAGS: Partial<Record<ServiceQuoteTypeId, string>> = {
 }
 
 function servicesForSector(sector: ServiceSector): (typeof SERVICE_QUOTE_TYPES)[number][] {
-  const ids = new Set<ServiceQuoteTypeId>([...SECTOR_SERVICE_IDS[sector], "other"])
+  const ids = new Set<ServiceQuoteTypeId>([...SERVICE_IDS_BY_SECTOR[sector], "other"])
   return SERVICE_QUOTE_TYPES.filter((service) => ids.has(service.id))
 }
 
@@ -97,14 +81,19 @@ type ServiceSectorSelectorProps = {
 }
 
 function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSectorSelectorProps) {
-  const [activeSector, setActiveSector] = useState<ServiceSector>("automotive")
+  const [activeSector, setActiveSector] = useState<ServiceSector>(() => serviceSectorForType(serviceTypeId))
   const [sectorDirection, setSectorDirection] = useState(1)
 
   const visibleServices = useMemo(() => servicesForSector(activeSector), [activeSector])
 
+  /** Keep the sector pill aligned when a phone-keyed draft restores a saved service type. */
+  useEffect(() => {
+    setActiveSector(serviceSectorForType(serviceTypeId))
+  }, [serviceTypeId])
+
   const handleSectorChange = (next: ServiceSector) => {
-    const prevIndex = SECTOR_ORDER.indexOf(activeSector)
-    const nextIndex = SECTOR_ORDER.indexOf(next)
+    const prevIndex = SERVICE_SECTOR_ORDER.indexOf(activeSector)
+    const nextIndex = SERVICE_SECTOR_ORDER.indexOf(next)
     setSectorDirection(nextIndex >= prevIndex ? 1 : -1)
     setActiveSector(next)
   }
@@ -114,7 +103,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSe
       <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
 
       <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5">
-        {SECTOR_ORDER.map((sector) => {
+        {SERVICE_SECTOR_ORDER.map((sector) => {
           const active = activeSector === sector
           return (
             <button
@@ -134,7 +123,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSe
                   transition={{ type: "spring", stiffness: 380, damping: 30 }}
                 />
               ) : null}
-              <span className="relative z-10">{SECTOR_LABELS[sector]}</span>
+              <span className="relative z-10">{SERVICE_SECTOR_LABELS[sector]}</span>
             </button>
           )
         })}

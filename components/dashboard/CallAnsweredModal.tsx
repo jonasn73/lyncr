@@ -34,6 +34,7 @@ import {
   type ActiveCallRow,
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
+import { manualIntakeStepAfterService } from "@/lib/service-sector-routing"
 import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
 import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
@@ -91,10 +92,6 @@ function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
   }
   path.push("ADDRESS_CONTACT", "FINAL_DISPATCH")
   return path
-}
-
-function workflowStepAfterService(serviceTypeId: ServiceQuoteTypeId): WorkflowStep {
-  return serviceTypeRequiresVehicle(serviceTypeId) ? "VEHICLE_INFO" : "ADDRESS_CONTACT"
 }
 
 function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): WorkflowStep | null {
@@ -157,10 +154,10 @@ const MANUAL_STEP_FRAME = "flex min-h-0 flex-1 flex-col justify-center gap-4"
 
 /** Premium slide track for manual intake step transitions. */
 const MANUAL_STEP_MOTION = {
-  initial: { opacity: 0, x: 50, scale: 0.98 },
-  animate: { opacity: 1, x: 0, scale: 1 },
-  exit: { opacity: 0, x: -50, scale: 0.98 },
-  transition: { type: "spring" as const, stiffness: 300, damping: 28 },
+  initial: { opacity: 0, x: 60 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -60 },
+  transition: { type: "spring" as const, stiffness: 320, damping: 30 },
 }
 
 function IntakeAutoSaveStatus({
@@ -975,7 +972,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const handleManualServiceTypeChange = useCallback(
     (serviceType: ServiceQuoteTypeId) => {
       setServiceQuoteTypeId(serviceType)
-      setCurrentStep(workflowStepAfterService(serviceType))
+      setCurrentStep(manualIntakeStepAfterService(serviceType))
     },
     [setServiceQuoteTypeId]
   )
