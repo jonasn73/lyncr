@@ -343,12 +343,16 @@ export function JobDetailDrawer({
       )
     )
     setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
-    setViewMode(scheduleIntent ? "edit" : "overview")
     setAssigningTechId(null)
     setError(null)
     userPickedScheduleRef.current = false
     lastAutoSavedLocalRef.current = null
-  }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id, scheduleIntent])
+  }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id])
+
+  useEffect(() => {
+    if (!open || !jobId) return
+    setViewMode(scheduleIntent ? "edit" : "overview")
+  }, [open, jobId, scheduleIntent])
 
   useEffect(() => {
     if (!open) setViewMode("overview")
@@ -443,6 +447,35 @@ export function JobDetailDrawer({
 
   const canSave = customerName.trim().length > 0 && customerPhone.trim().length > 0
 
+  const applySavedEvent = useCallback((event: SchedulerEvent) => {
+    setLocalJobStatus(event.job_status ?? null)
+    setCustomerName(event.customer_name ?? "")
+    setCustomerPhone(event.customer_phone ?? "")
+    setServiceQuoteTypeId(
+      event.service_quote_type_id
+        ? normalizeServiceQuoteTypeId(event.service_quote_type_id)
+        : serviceQuoteTypeFromJobType(event.job_type ?? "")
+    )
+    setVehicleYear(event.vehicle_year ?? "")
+    setVehicleMake(event.vehicle_make ?? "")
+    setVehicleModel(event.vehicle_model ?? "")
+    setKeyFccId(event.key_fcc_id ?? "")
+    setKeyFrequency(event.key_frequency ?? "")
+    setKeyChipset(event.key_chipset ?? "")
+    setKeyStyle(event.key_style ?? "")
+    setKeyVariantId(event.key_variant_id ?? "")
+    setKeyProfileId(event.key_profile_id ?? "")
+    const savedCents = event.quoted_price_cents ?? 0
+    setEditablePrice(savedCents > 0 ? String(Math.round(savedCents / 100)) : "")
+    setPriceOverridden(savedCents > 0)
+    setNegotiationDiscountApplied((event.discount_applied as NegotiationDiscountId | null) ?? null)
+    setLocation(event.location ?? "")
+    setJobNotes(event.job_notes ?? "")
+    setDurationMinutes(event.duration_minutes ?? 60)
+    setStartLocal(startLocalFromIso(event.scheduled_at))
+    setAssignedTechId(event.assigned_tech_id ?? "")
+  }, [])
+
   async function handleStatusChange(
     nextStatus: "assigned" | "en_route" | "arrived" | "completed"
   ) {
@@ -476,8 +509,15 @@ export function JobDetailDrawer({
     }
   }
 
-  async function handleSave(options?: { fromScheduleIntent?: boolean }) {
-    if (!jobId || !canSave) return
+  async function handleSave(options?: { fromScheduleIntent?: boolean }): Promise<boolean> {
+    if (!jobId) {
+      setError("This job could not be found.")
+      return false
+    }
+    if (!canSave) {
+      setError("Customer name and phone are required before saving.")
+      return false
+    }
     setSaving(true)
     setError(null)
     try {
@@ -495,14 +535,17 @@ export function JobDetailDrawer({
       if (!res.ok) throw new Error(json.error ?? "Could not save job")
       const event = json.data?.event
       if (!event) throw new Error("No updated job returned")
+      applySavedEvent(event)
       onSaved?.(event)
       setViewMode("overview")
       if (options?.fromScheduleIntent) {
         lastAutoSavedLocalRef.current = startLocal.trim()
         onScheduleCommitted?.(event)
       }
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save job")
+      return false
     } finally {
       setSaving(false)
     }
@@ -656,7 +699,8 @@ export function JobDetailDrawer({
               onDurationChange={setDurationMinutes}
               onAssignedTechChange={setAssignedTechId}
               onStatusChange={(status) => void handleStatusChange(status)}
-              onSave={() => void handleSave()}
+              onSave={() => handleSave()}
+              onSaveSuccess={() => setViewMode("overview")}
               onDeleteRequest={() => setDeleteConfirmOpen(true)}
             />
           )

@@ -110,8 +110,11 @@ export type JobEditWorkflowProps = {
   onDurationChange: (minutes: number) => void
   onAssignedTechChange: (techId: string) => void
   onStatusChange: (status: (typeof STATUS_SEGMENTS)[number]["jobStatus"]) => void
-  onSave: () => void
+  /** Persist edits — resolves true when the API save succeeded. */
+  onSave: () => void | Promise<boolean>
   onDeleteRequest: () => void
+  /** Called after a successful save so the drawer can return to overview. */
+  onSaveSuccess?: () => void
 }
 
 export function JobEditWorkflow({
@@ -166,12 +169,26 @@ export function JobEditWorkflow({
   onStatusChange,
   onSave,
   onDeleteRequest,
+  onSaveSuccess,
 }: JobEditWorkflowProps) {
   const [step, setStep] = useState<JobEditWorkflowStep>(initialStep)
+  const [submitting, setSubmitting] = useState(false)
   const requiresVehicle = serviceTypeRequiresVehicle(serviceQuoteTypeId)
   const stepIndex = STEPS.findIndex((entry) => entry.id === step)
-  const isFirstStep = stepIndex <= 0
-  const isLastStep = stepIndex >= STEPS.length - 1
+  const currentStep = stepIndex + 1
+  const isFirstStep = currentStep <= 1
+  const isFinalStep = currentStep === STEPS.length
+
+  const handleSaveClick = async () => {
+    if (submitting || saving || deleting) return
+    setSubmitting(true)
+    try {
+      const ok = await onSave()
+      if (ok) onSaveSuccess?.()
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -481,14 +498,18 @@ export function JobEditWorkflow({
           >
             Back
           </Button>
-          {isLastStep ? (
+          {isFinalStep ? (
             <Button
               type="button"
               className="shadow-[0_0_14px_rgba(59,130,246,0.4)] ring-1 ring-primary/45"
-              onClick={onSave}
-              disabled={!canSave || saving || deleting}
+              onClick={() => void handleSaveClick()}
+              disabled={!canSave || saving || deleting || submitting}
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
+              {saving || submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           ) : (
             <Button
