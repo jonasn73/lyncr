@@ -528,15 +528,19 @@ function FccSearchField({
   disabled,
   onChange,
   onSearch,
+  hint,
 }: {
   value: string
   disabled?: boolean
   onChange: (next: string) => void
   onSearch: () => void
+  /** Helper shown under the label (e.g. expected MYKEYS FCC). */
+  hint?: string
 }) {
   return (
     <label className="grid gap-1 text-[11px]">
-      <span className="font-medium text-foreground">FCC ID on key (optional)</span>
+      <span className="font-medium text-foreground">FCC ID stamped on customer&apos;s key</span>
+      {hint ? <span className="text-[10px] text-muted-foreground">{hint}</span> : null}
       <div className="flex gap-2">
         <input
           className="h-9 min-w-0 flex-1 rounded-lg border border-border/70 bg-background px-2 font-mono text-sm uppercase text-foreground"
@@ -557,7 +561,7 @@ function FccSearchField({
           onClick={onSearch}
           className="shrink-0 rounded-lg border border-primary/40 bg-primary/10 px-3 text-[11px] font-semibold text-primary hover:bg-primary/15 disabled:opacity-40"
         >
-          Search
+          Look up
         </button>
       </div>
     </label>
@@ -625,6 +629,8 @@ export function VehicleKeyInfoPanel({
   const [activeFccQuery, setActiveFccQuery] = useState("")
   const [lookupSource, setLookupSource] = useState<"fcc" | "ymm" | "ymm_fallback" | null>(null)
   const [manualBypassMode, setManualBypassMode] = useState(false)
+  const [fccSearchExpanded, setFccSearchExpanded] = useState(false)
+  const [fccSearchFeedback, setFccSearchFeedback] = useState<string | null>(null)
   const [expandedSecondaryFcc, setExpandedSecondaryFcc] = useState<Set<string>>(new Set())
   const [isAllKeysLost, setIsAllKeysLost] = useState(false)
 
@@ -639,11 +645,27 @@ export function VehicleKeyInfoPanel({
 
   const ready = Boolean(year && make && model)
 
+  const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
+
+  const trimHelperMessage = useMemo(() => {
+    if (!info) return null
+    const details = info.profile_details?.length
+      ? info.profile_details
+      : info.profiles.map((p) => ({
+          profile: p,
+          variants: [] as FccVariant[],
+          compatible_summary: { lines: [], overflow: 0 },
+        }))
+    return getVehicleTrimHelper(year, make, info.model, { multipleFcc: details.length > 1 })
+  }, [info, year, make])
+
   useEffect(() => {
     setSelectedKeyId(null)
     setFccSearchInput("")
     setActiveFccQuery("")
     setManualBypassMode(false)
+    setFccSearchExpanded(false)
+    setFccSearchFeedback(null)
     setLookupSource(null)
     setExpandedSecondaryFcc(new Set())
   }, [year, make, model])
@@ -687,9 +709,18 @@ export function VehicleKeyInfoPanel({
         setInfo(payload)
         if (!payload || payload.profiles.length === 0) {
           setManualBypassMode(true)
+          if (sanitizedFcc) {
+            setFccSearchFeedback(
+              mkpProfile
+                ? `No FCC database match for ${sanitizedFcc}. MYKEYS Pro cards below use FCC ${mkpProfile.fccId}.`
+                : `No FCC database match for ${sanitizedFcc}. Pick the closest key type below.`
+            )
+            setFccSearchExpanded(true)
+          }
           onChange(null)
           return
         }
+        setFccSearchFeedback(null)
         const first = payload.profiles[0]!
         const keepVariant =
           value?.variantId &&
@@ -743,8 +774,11 @@ export function VehicleKeyInfoPanel({
   }
 
   const runFccSearch = () => {
+    const sanitized = sanitizeFccIdInput(fccSearchInput)
+    if (!sanitized) return
+    setFccSearchFeedback(null)
     setManualBypassMode(false)
-    setActiveFccQuery(sanitizeFccIdInput(fccSearchInput))
+    setActiveFccQuery(sanitized)
   }
 
   const handleReturnToLookup = () => {
@@ -802,19 +836,63 @@ export function VehicleKeyInfoPanel({
           onManualBypass={() => setManualBypassMode(true)}
           onReturnToLookup={handleReturnToLookup}
         />
-        <FccSearchField
-          value={fccSearchInput}
-          disabled={disabled}
-          onChange={setFccSearchInput}
-          onSearch={runFccSearch}
-        />
-        <p className="text-[11px] text-muted-foreground">
-          {lookupMykeysProProfile(make, model)
-            ? "MYKEYS Pro profile loaded — pick the key that matches the customer fob."
-            : activeFccQuery && lookupSource === "ymm_fallback"
-              ? `No exact match for FCC ${sanitizeFccIdInput(activeFccQuery)} — pick a regional key type or search again.`
-              : "No database match for this vehicle — pick the closest key type to keep advancing."}
-        </p>
+        {mkpProfile ? (
+          <>
+            <p className="text-[11px] text-muted-foreground">
+              MYKEYS Pro profile loaded — pick the key that matches the customer fob.
+            </p>
+            {!fccSearchExpanded ? (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => setFccSearchExpanded(true)}
+                className="text-left text-[11px] font-semibold text-primary underline-offset-2 hover:underline disabled:opacity-40"
+              >
+                Customer has a different FCC ID? Look it up
+              </button>
+            ) : (
+              <div className="grid gap-2 rounded-lg border border-border/50 bg-background/40 p-2">
+                <FccSearchField
+                  value={fccSearchInput}
+                  disabled={disabled}
+                  onChange={setFccSearchInput}
+                  onSearch={runFccSearch}
+                  hint={`MYKEYS expects FCC ${mkpProfile.fccId} for this ${make} ${model}.`}
+                />
+                {fccSearchFeedback ? (
+                  <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+                    {fccSearchFeedback}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground">
+                    A match loads real FCC photos from our database. If nothing matches, keep using the MYKEYS cards
+                    below.
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <FccSearchField
+              value={fccSearchInput}
+              disabled={disabled}
+              onChange={setFccSearchInput}
+              onSearch={runFccSearch}
+              hint="Optional — narrows key photos when our FCC database has this ID."
+            />
+            {fccSearchFeedback ? (
+              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+                {fccSearchFeedback}
+              </p>
+            ) : null}
+            <p className="text-[11px] text-muted-foreground">
+              {activeFccQuery && lookupSource === "ymm_fallback"
+                ? `No exact match for FCC ${sanitizeFccIdInput(activeFccQuery)} — pick a regional key type or search again.`
+                : "No database match for this vehicle — pick the closest key type to keep advancing."}
+            </p>
+          </>
+        )}
         <ManualFrequencyGrid
           make={make}
           model={model}
@@ -836,10 +914,6 @@ export function VehicleKeyInfoPanel({
       }))
 
   const multipleFcc = profileDetails.length > 1
-  const trimHelperMessage = useMemo(
-    () => getVehicleTrimHelper(year, make, info.model, { multipleFcc }),
-    [year, make, info.model, multipleFcc]
-  )
   const primaryDetail = pickPrimaryProfileDetail(profileDetails)
   const secondaryDetails = profileDetails.filter((d) => d.profile.id !== primaryDetail.profile.id)
 
@@ -919,7 +993,13 @@ export function VehicleKeyInfoPanel({
         disabled={disabled}
         onChange={setFccSearchInput}
         onSearch={runFccSearch}
+        hint="Overrides vehicle lookup — use the FCC ID printed on the customer's fob."
       />
+      {fccSearchFeedback ? (
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+          {fccSearchFeedback}
+        </p>
+      ) : null}
 
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
         <KeyRound className="h-3.5 w-3.5" aria-hidden />
