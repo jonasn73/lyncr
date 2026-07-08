@@ -1,5 +1,6 @@
 // Helpers for answered-call intake — flat CRM address → map-ready structured address.
 
+import { DEFAULT_502_SERVICE_BIAS } from "@/lib/geocode-service-bias"
 import {
   isCompleteStructuredAddress,
   type StructuredAddress,
@@ -59,10 +60,14 @@ export async function resolveStructuredAddressFromQuery(query: string): Promise<
   const trimmed = query.trim()
   if (trimmed.length < 5) return null
 
-  const res = await fetch(`/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}`, {
+  const res = await fetch(
+    `/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}` +
+      `&lat=${DEFAULT_502_SERVICE_BIAS.lat}&lon=${DEFAULT_502_SERVICE_BIAS.lon}`,
+    {
     credentials: "include",
     cache: "no-store",
-  })
+  }
+  )
   if (!res.ok) return null
 
   const json = (await res.json()) as { data?: { suggestions?: AddressSuggestion[] } }

@@ -3,14 +3,20 @@
 // Live service quote breakdown for the answered-call quick booking sheet.
 
 import { memo } from "react"
-import { Label } from "@/components/ui/label"
+import { motion } from "framer-motion"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Building2,
+  Copy,
+  Cpu,
+  Key,
+  KeyRound,
+  Lock,
+  LockKeyhole,
+  Sparkles,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react"
+import { Label } from "@/components/ui/label"
 import {
   formatQuoteDollars,
   SERVICE_QUOTE_TYPES,
@@ -19,6 +25,32 @@ import {
 } from "@/lib/service-quote-calculator"
 import { estimateTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
+
+const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
+  lockout: KeyRound,
+  key_generation: Sparkles,
+  key_duplication: Copy,
+  programming_diagnostics: Cpu,
+  ignition_repair: Wrench,
+  key_extraction: Key,
+  rekey: LockKeyhole,
+  lock_installation: Lock,
+  commercial_hardware: Building2,
+  other: Wrench,
+}
+
+const SERVICE_CARD_TAGS: Partial<Record<ServiceQuoteTypeId, string>> = {
+  lockout: "Fast",
+  key_generation: "AKL",
+  key_duplication: "Spare",
+  programming_diagnostics: "Immobilizer",
+  ignition_repair: "Ignition",
+  key_extraction: "Extract",
+  rekey: "Re-key",
+  lock_installation: "Install",
+  commercial_hardware: "Commercial",
+  other: "Custom",
+}
 
 type ServiceQuoteCalculatorPanelProps = {
   quote: ServiceQuoteResult
@@ -58,26 +90,58 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
         Quick booking · service quote
       </legend>
       {showSelector ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Service type</Label>
-            <Select value={serviceTypeId} onValueChange={(v) => onServiceTypeChange(v as ServiceQuoteTypeId)}>
-              <SelectTrigger className="h-10 w-full border-slate-700 bg-slate-950 text-slate-100">
-                <SelectValue placeholder="Select service" />
-              </SelectTrigger>
-              <SelectContent className="z-[130] max-h-72 border-slate-700 bg-slate-950 text-slate-100 shadow-xl">
-                {SERVICE_QUOTE_TYPES.map((t) => (
-                  <SelectItem
-                    key={t.id}
-                    value={t.id}
-                    className="text-slate-100 focus:bg-slate-800 focus:text-white data-[highlighted]:bg-slate-800 data-[highlighted]:text-white"
+        <div className="my-4 grid grid-cols-2 gap-3">
+          <Label className="col-span-2 text-xs text-slate-300">Tap a service to continue</Label>
+          {SERVICE_QUOTE_TYPES.map((service) => {
+            const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
+            const tag = SERVICE_CARD_TAGS[service.id] ?? "Service"
+            const active = serviceTypeId === service.id
+            return (
+              <motion.button
+                key={service.id}
+                type="button"
+                layout
+                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                onClick={() => onServiceTypeChange(service.id)}
+                className={cn(
+                  "flex min-h-[5.5rem] touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors",
+                  active
+                    ? "border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40"
+                    : "border-slate-700/80 hover:border-emerald-500/40 hover:bg-slate-800/90"
+                )}
+                aria-pressed={active}
+              >
+                <div className="flex w-full items-start justify-between gap-2">
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      active ? "text-emerald-300" : "text-slate-400"
+                    )}
+                    aria-hidden
+                  />
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                      active
+                        ? "bg-emerald-500/20 text-emerald-200"
+                        : "bg-slate-800 text-slate-400"
+                    )}
                   >
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                    {tag}
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    "mt-2 text-xs font-semibold leading-snug",
+                    active ? "text-emerald-50" : "text-slate-100"
+                  )}
+                >
+                  {service.label}
+                </span>
+              </motion.button>
+            )
+          })}
         </div>
       ) : null}
       {showBreakdown ? (

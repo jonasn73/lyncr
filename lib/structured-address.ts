@@ -100,14 +100,16 @@ export function structuredAddressFromPhoton(feature: {
     state?: string
     postcode?: string
     county?: string
+    district?: string
     country?: string
+    countrycode?: string
     name?: string
   }
 }): AddressSuggestion {
   const p = feature.properties ?? {}
   const streetNumber = String(p.housenumber ?? "").trim()
   const route = String(p.street ?? p.name ?? "").trim()
-  const locality = String(p.city ?? "").trim()
+  const locality = String(p.city ?? p.district ?? p.county ?? "").trim()
   const postal = String(p.postcode ?? "").trim()
   const admin = String(p.state ?? "").trim()
   const coords = feature.geometry?.coordinates
@@ -122,6 +124,58 @@ export function structuredAddressFromPhoton(feature: {
     lat: coords && Number.isFinite(coords[1]) ? coords[1] : null,
     lng: coords && Number.isFinite(coords[0]) ? coords[0] : null,
     place_id: null,
+  }
+}
+
+/** Leading street number typed before the street name, e.g. "755" in "755 Eddie Miles Rd". */
+export function extractLeadingStreetNumber(query: string): string | null {
+  const match = query.trim().match(/^(\d+[A-Za-z-]?)\s+/)
+  return match?.[1] ?? null
+}
+
+/** Meaningful tokens from a partial address query (skip lone digits and 1-char crumbs). */
+export function addressQueryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[\s,.]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2 && !/^\d+$/.test(token))
+}
+
+/**
+ * When the geocoder only knows the street (no house number), merge the number the user typed
+ * so "755 Eddie Miles R" can resolve to "755 Eddie Miles Road, Culvertown, KY 40051".
+ */
+export function synthesizeAddressFromQuery(
+  query: string,
+  partial: Partial<AddressSuggestion>
+): AddressSuggestion | null {
+  const route = String(partial.route ?? "").trim()
+  if (!route) return null
+  const streetNumber = extractLeadingStreetNumber(query) ?? String(partial.street_number ?? "").trim()
+  if (!streetNumber) return null
+  const locality = String(partial.locality ?? "").trim()
+  const postal = String(partial.postal_code ?? "").trim()
+  const admin = String(partial.admin_area ?? "").trim()
+  if (!locality || !postal) return null
+
+  const blob = `${route} ${partial.formatted ?? ""}`.toLowerCase()
+  const tokens = addressQueryTokens(query)
+  const matchedTokens = tokens.filter((token) => blob.includes(token))
+  if (matchedTokens.length === 0) return null
+
+  const formatted = [streetNumber, route, locality, admin, postal].filter(Boolean).join(", ")
+  return {
+    formatted,
+    street_number: streetNumber,
+    route,
+    locality,
+    postal_code: postal,
+    admin_area: admin,
+    lat: partial.lat ?? null,
+    lng: partial.lng ?? null,
+    place_id: partial.place_id ?? null,
+    label: formatted,
   }
 }
 

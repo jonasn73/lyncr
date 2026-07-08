@@ -12,6 +12,7 @@ import {
   structuredAddressValidationError,
   type StructuredAddress,
 } from "@/lib/structured-address"
+import { DEFAULT_502_SERVICE_BIAS } from "@/lib/geocode-service-bias"
 import { resolveStructuredAddressFromQuery } from "@/lib/intake-address-helpers"
 
 type AddressSuggestion = StructuredAddress & { place_id?: string | null; label?: string }
@@ -137,10 +138,14 @@ export function JobAddressAutocomplete({
     }
     setLoading(true)
     debounceRef.current = setTimeout(() => {
-      void fetch(`/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}`, {
+      void fetch(
+        `/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}` +
+          `&lat=${DEFAULT_502_SERVICE_BIAS.lat}&lon=${DEFAULT_502_SERVICE_BIAS.lon}`,
+        {
         credentials: "include",
         cache: "no-store",
-      })
+      }
+      )
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error("suggest"))))
         .then((j: { data?: { suggestions?: AddressSuggestion[] } }) => {
           const list = Array.isArray(j.data?.suggestions) ? j.data!.suggestions! : []

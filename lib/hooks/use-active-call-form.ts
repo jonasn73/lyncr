@@ -667,6 +667,12 @@ export function useActiveCallForm(
     setForm((prev) => ({ ...prev, quotedPriceOverridden: false }))
   }, [])
 
+  /** Reset every intake field — used when clearing a local draft on dismiss. */
+  const resetForm = useCallback(() => {
+    setForm(EMPTY_FORM)
+    setSaveState("idle")
+  }, [])
+
   const liveQuote = calculateServiceQuote({
     serviceTypeId: (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId,
     vehicleYear: form.vehicleYear,
@@ -683,6 +689,7 @@ export function useActiveCallForm(
   return {
     form,
     patchForm,
+    resetForm,
     setServiceQuoteTypeId,
     setQuotedPriceDollars,
     syncQuotedPriceToAuto,

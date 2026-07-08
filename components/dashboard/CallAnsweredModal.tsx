@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AnimatePresence, motion } from "framer-motion"
 import { Loader2, MapPin, Phone, PhoneOff } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
@@ -62,6 +63,13 @@ import {
   subscribeAnsweredIntakeDismissed,
 } from "@/lib/answered-call-intake-dismiss"
 import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
+import {
+  clearIntakeDraft,
+  isValidIntakeDraftPhone,
+  loadIntakeDraft,
+  normalizeIntakeDraftPhone,
+  saveIntakeDraft,
+} from "@/lib/intake-draft-storage"
 import type { StructuredAddress } from "@/lib/structured-address"
 import { cn } from "@/lib/utils"
 
@@ -145,8 +153,56 @@ function ManualWorkflowProgress({
 }
 
 /** One step visible at a time — centered, no scroll on mobile manual intake. */
-const MANUAL_STEP_FRAME =
-  "animate-in fade-in slide-in-from-right-3 flex min-h-0 flex-1 flex-col justify-center gap-4 duration-300"
+const MANUAL_STEP_FRAME = "flex min-h-0 flex-1 flex-col justify-center gap-4"
+
+/** Premium slide track for manual intake step transitions. */
+const MANUAL_STEP_MOTION = {
+  initial: { opacity: 0, x: 50, scale: 0.98 },
+  animate: { opacity: 1, x: 0, scale: 1 },
+  exit: { opacity: 0, x: -50, scale: 0.98 },
+  transition: { type: "spring" as const, stiffness: 300, damping: 28 },
+}
+
+function IntakeAutoSaveStatus({
+  saveState,
+  draftPulse,
+}: {
+  saveState: "idle" | "saving" | "saved" | "error"
+  draftPulse: boolean
+}) {
+  return (
+    <motion.span
+      layout
+      className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground"
+      animate={
+        draftPulse
+          ? { scale: [1, 1.08, 1], color: "rgb(52 211 153 / 0.95)" }
+          : { scale: 1, color: "rgb(161 161 170 / 0.9)" }
+      }
+      transition={{ type: "spring", stiffness: 420, damping: 24 }}
+    >
+      {saveState === "saving" ? "Saving…" : null}
+      {saveState === "saved" ? "Saved." : null}
+      {saveState === "error" ? "Save failed." : null}
+      {saveState === "idle" ? (
+        <>
+          <motion.span
+            layout
+            className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"
+            animate={
+              draftPulse
+                ? { scale: [1, 1.5, 1], opacity: [0.45, 1, 0.65], boxShadow: "0 0 8px rgba(52,211,153,0.9)" }
+                : { scale: 1, opacity: 0.45, boxShadow: "0 0 0px rgba(52,211,153,0)" }
+            }
+            transition={{ type: "spring", stiffness: 500, damping: 20 }}
+            aria-hidden
+          />
+          Auto-save on.
+        </>
+      ) : null}
+    </motion.span>
+  )
+}
 
 /** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
 const RINGING_LOOKUP_DELAYS_MS = [0, 50, 150, 350]
@@ -284,6 +340,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
   const [negotiationStep, setNegotiationStep] = useState(1)
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("SERVICE_SELECT")
+  const [draftPulse, setDraftPulse] = useState(false)
+  const lastLoadedDraftPhoneRef = useRef<string | null>(null)
+  const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -300,6 +359,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const {
     form,
     patchForm,
+    resetForm,
     setServiceQuoteTypeId,
     setQuotedPriceDollars,
     syncQuotedPriceToAuto,
@@ -352,7 +412,68 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setHighlightConfirmBook(false)
     setNegotiationStep(1)
     setCurrentStep("SERVICE_SELECT")
+    lastLoadedDraftPhoneRef.current = null
   }, [effectiveCurrent?.id])
+
+  const activeDraftPhone = useMemo(() => {
+    const raw = (form.phoneNumber.trim() || effectiveCurrent?.from_number || "").trim()
+    return isValidIntakeDraftPhone(raw) ? raw : null
+  }, [form.phoneNumber, effectiveCurrent?.from_number])
+
+  /** Resume partial intake when the same customer calls back on this number. */
+  useEffect(() => {
+    if (!effectiveCurrent || !activeDraftPhone) return
+    const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
+    if (!normalized || lastLoadedDraftPhoneRef.current === normalized) return
+
+    const draft = loadIntakeDraft(activeDraftPhone)
+    lastLoadedDraftPhoneRef.current = normalized
+    if (!draft) return
+
+    patchForm(draft.form)
+    setCurrentStep(draft.currentStep)
+    setCustomPrice(draft.customPrice)
+    setFailureReason(draft.failureReason || FAILURE_REASON_NEUTRAL)
+    setRecoveredViaRouteDiscount(draft.recoveredViaRouteDiscount)
+    setNegotiationStep(draft.negotiationStep)
+  }, [effectiveCurrent, activeDraftPhone, patchForm])
+
+  /** Persist partial intake locally whenever fields change. */
+  useEffect(() => {
+    if (!effectiveCurrent || !activeDraftPhone) return
+
+    const timer = window.setTimeout(() => {
+      saveIntakeDraft(activeDraftPhone, {
+        form,
+        currentStep,
+        customPrice,
+        failureReason,
+        recoveredViaRouteDiscount,
+        negotiationStep,
+      })
+      setDraftPulse(true)
+      if (draftPulseTimerRef.current) window.clearTimeout(draftPulseTimerRef.current)
+      draftPulseTimerRef.current = window.setTimeout(() => setDraftPulse(false), 1600)
+    }, 350)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    effectiveCurrent,
+    activeDraftPhone,
+    form,
+    currentStep,
+    customPrice,
+    failureReason,
+    recoveredViaRouteDiscount,
+    negotiationStep,
+  ])
+
+  useEffect(
+    () => () => {
+      if (draftPulseTimerRef.current) window.clearTimeout(draftPulseTimerRef.current)
+    },
+    []
+  )
 
   useEffect(() => {
     setNegotiationStep(1)
@@ -652,17 +773,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [ownerUserId]
   )
 
-  const closeIntakeAfterSave = useCallback(() => {
-    if (manualCallRow) {
-      clearManualCallRow()
-      return
-    }
-    if (current) {
-      dismissCallIntake(current)
-      setCurrent(null)
-    }
-  }, [clearManualCallRow, current, dismissCallIntake, manualCallRow])
-
   const dismissOnly = useCallback(() => {
     if (manualCallRow) {
       clearManualCallRow()
@@ -685,6 +795,45 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       })
     })
   }, [current, dismissCallIntake, manualCallRow, clearManualCallRow])
+
+  const clearDraftForCurrentCaller = useCallback(() => {
+    const phone = (form.phoneNumber.trim() || effectiveCurrent?.from_number || "").trim()
+    if (isValidIntakeDraftPhone(phone)) clearIntakeDraft(phone)
+    lastLoadedDraftPhoneRef.current = null
+  }, [form.phoneNumber, effectiveCurrent?.from_number])
+
+  const resetIntakeUiState = useCallback(() => {
+    resetForm()
+    setCurrentStep("SERVICE_SELECT")
+    setCustomPrice("")
+    setNegotiationDiscountApplied(null)
+    setNegotiationDiscountsTried([])
+    setFailureReason(FAILURE_REASON_NEUTRAL)
+    setRecoveredViaRouteDiscount(false)
+    setNegotiationStep(1)
+    setLostLeadState("idle")
+    setLostLeadError(null)
+    setDraftPulse(false)
+    lastLoadedDraftPhoneRef.current = null
+  }, [resetForm])
+
+  const dismissWithDraftClear = useCallback(() => {
+    clearDraftForCurrentCaller()
+    resetIntakeUiState()
+    dismissOnly()
+  }, [clearDraftForCurrentCaller, dismissOnly, resetIntakeUiState])
+
+  const closeIntakeAfterSave = useCallback(() => {
+    clearDraftForCurrentCaller()
+    if (manualCallRow) {
+      clearManualCallRow()
+      return
+    }
+    if (current) {
+      dismissCallIntake(current)
+      setCurrent(null)
+    }
+  }, [clearDraftForCurrentCaller, clearManualCallRow, current, dismissCallIntake, manualCallRow])
 
   const confirmAndBook = useCallback(async () => {
     if (!effectiveCurrent) return
@@ -966,9 +1115,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
               >
                 {isManual ? (
-                  <>
-                    {currentStep === "SERVICE_SELECT" && (
-                      <div key="SERVICE_SELECT" className={MANUAL_STEP_FRAME}>
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <AnimatePresence mode="wait">
+                    {currentStep === "SERVICE_SELECT" ? (
+                      <motion.div
+                        key="SERVICE_SELECT"
+                        {...MANUAL_STEP_MOTION}
+                        className={MANUAL_STEP_FRAME}
+                      >
                         <ServiceQuoteCalculatorPanel
                           quote={liveQuote}
                           serviceTypeId={serviceTypeId}
@@ -981,11 +1135,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         <p className="text-center text-[11px] text-muted-foreground">
                           Pick a service — key jobs open vehicle info; lockouts jump to contact.
                         </p>
-                      </div>
-                    )}
+                      </motion.div>
+                    ) : null}
 
-                    {currentStep === "VEHICLE_INFO" && (
-                      <div key="VEHICLE_INFO" className={MANUAL_STEP_FRAME}>
+                    {currentStep === "VEHICLE_INFO" ? (
+                      <motion.div key="VEHICLE_INFO" {...MANUAL_STEP_MOTION} className={MANUAL_STEP_FRAME}>
                         <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Vehicle year · make · model
@@ -1002,11 +1156,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             onChange={handleManualVehicleChange}
                           />
                         </fieldset>
-                      </div>
-                    )}
+                      </motion.div>
+                    ) : null}
 
-                    {currentStep === "KEY_SPECIFICS" && (
-                      <div key="KEY_SPECIFICS" className={MANUAL_STEP_FRAME}>
+                    {currentStep === "KEY_SPECIFICS" ? (
+                      <motion.div key="KEY_SPECIFICS" {...MANUAL_STEP_MOTION} className={MANUAL_STEP_FRAME}>
                         <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Key specifics
@@ -1047,11 +1201,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           onServiceTypeChange={handleManualServiceTypeChange}
                           variant="breakdown-only"
                         />
-                      </div>
-                    )}
+                      </motion.div>
+                    ) : null}
 
-                    {currentStep === "ADDRESS_CONTACT" && (
-                      <div key="ADDRESS_CONTACT" className={MANUAL_STEP_FRAME}>
+                    {currentStep === "ADDRESS_CONTACT" ? (
+                      <motion.div key="ADDRESS_CONTACT" {...MANUAL_STEP_MOTION} className={MANUAL_STEP_FRAME}>
                         <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Customer &amp; location
@@ -1099,11 +1253,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             </p>
                           </div>
                         </fieldset>
-                      </div>
-                    )}
+                      </motion.div>
+                    ) : null}
 
-                    {currentStep === "FINAL_DISPATCH" && (
-                      <div key="FINAL_DISPATCH" className={cn(MANUAL_STEP_FRAME, "justify-start overflow-y-auto")}>
+                    {currentStep === "FINAL_DISPATCH" ? (
+                      <motion.div
+                        key="FINAL_DISPATCH"
+                        {...MANUAL_STEP_MOTION}
+                        className={cn(MANUAL_STEP_FRAME, "justify-start overflow-y-auto")}
+                      >
                         <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
                           <p className="font-medium text-foreground">
                             {form.displayName.trim() || "Customer"}
@@ -1132,9 +1290,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           onServiceTypeChange={handleManualServiceTypeChange}
                           variant="breakdown-only"
                         />
-                      </div>
-                    )}
-                  </>
+                      </motion.div>
+                    ) : null}
+                    </AnimatePresence>
+                  </div>
                 ) : (
                   <>
                 <ServiceQuoteCalculatorPanel
@@ -1574,19 +1733,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       </Button>
                     ) : null}
                     <div className="flex items-center justify-between gap-2 pt-0.5">
-                      <p className="text-[10px] text-muted-foreground">
-                        {saveState === "saving" ? "Saving…" : null}
-                        {saveState === "saved" ? "Saved." : null}
-                        {saveState === "error" ? "Save failed." : null}
-                        {saveState === "idle" ? "Auto-save on." : null}
-                      </p>
+                      <IntakeAutoSaveStatus saveState={saveState} draftPulse={draftPulse} />
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         className="h-8 px-2 text-xs"
                         disabled={jobState === "creating"}
-                        onClick={dismissOnly}
+                        onClick={dismissWithDraftClear}
                       >
                         Dismiss
                       </Button>
@@ -1672,25 +1826,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 ) : null}
                 {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
                 <div className="flex items-center justify-between gap-2 pt-0.5">
-                  <p className="text-[10px] text-muted-foreground">
-                    {saveState === "saving" ? "Saving…" : null}
-                    {saveState === "saved" ? "Saved." : null}
-                    {saveState === "error" ? "Save failed." : null}
-                    {saveState === "idle" ? "Auto-save on." : null}{" "}
+                  <span className="inline-flex items-center gap-2">
+                    <IntakeAutoSaveStatus saveState={saveState} draftPulse={draftPulse} />
                     <Link
                       href="/dashboard/customers"
-                      className="font-semibold text-primary underline-offset-2 hover:underline"
+                      className="text-[10px] font-semibold text-primary underline-offset-2 hover:underline"
                     >
                       Customers
                     </Link>
-                  </p>
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="h-8 px-2 text-xs"
                     disabled={jobState === "creating"}
-                    onClick={dismissOnly}
+                    onClick={dismissWithDraftClear}
                   >
                     Dismiss
                   </Button>
