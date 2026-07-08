@@ -24,6 +24,7 @@ import {
   SCHEDULER_STATUS_LABEL,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
+import { schedulerDispatchCardStyle } from "@/lib/job-pipeline-status"
 import {
   SCHEDULER_GRID_END_HOUR,
   SCHEDULER_GRID_START_HOUR,
@@ -214,6 +215,8 @@ function formatVehicle(ev: SchedulerEvent): string | null {
 }
 
 function eventCardStyle(ev: SchedulerEvent): string {
+  const dispatchStyle = schedulerDispatchCardStyle(ev.dispatch_status)
+  if (dispatchStyle) return dispatchStyle
   const phase = schedulerLifecyclePhase({
     job_status: ev.job_status,
     dispatch_status: ev.dispatch_status,

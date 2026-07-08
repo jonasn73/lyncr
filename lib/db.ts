@@ -7573,6 +7573,8 @@ export async function updateOwnerSchedulerJob(params: {
   discountApplied?: string | null
   baselineQuotedPriceCents?: number | null
   fieldVerificationRequired?: boolean | null
+  dispatchStatus?: string | null
+  isSalvageable?: boolean | null
 }): Promise<import("@/lib/types").SchedulerEvent | null> {
   const sql = getSql()
   const existingRows = await sql`
@@ -7692,6 +7694,12 @@ export async function updateOwnerSchedulerJob(params: {
     collectedPatch.discount_applied = discount
     collectedPatch.negotiation_outcome = discount ? "booked_with_discount" : null
   }
+  if (params.dispatchStatus !== undefined) {
+    collectedPatch.dispatch_status = params.dispatchStatus?.trim() || "unassigned_pool"
+  }
+  if (params.isSalvageable !== undefined) {
+    collectedPatch.is_salvageable = params.isSalvageable === true
+  }
   if (
     params.serviceQuoteTypeId?.trim() &&
     params.quotedPriceCents != null &&
@@ -7746,8 +7754,88 @@ export async function updateOwnerSchedulerJob(params: {
     throw e
   }
 
+  if (params.dispatchStatus !== undefined) {
+    await setLeadDispatchStatus(params.leadId, params.dispatchStatus.trim() || "unassigned_pool")
+  }
+  if (params.isSalvageable !== undefined) {
+    try {
+      await sql`
+        UPDATE ai_leads
+        SET is_salvageable = ${params.isSalvageable === true}
+        WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      `
+    } catch (e) {
+      if (!isMissingSchedulerColumnError(e)) throw e
+    }
+  }
+
+  const explicitDispatch = params.dispatchStatus?.trim().toLowerCase()
+  const shouldClearTechForPipeline =
+    explicitDispatch != null &&
+    explicitDispatch !== "dispatched" &&
+    existingTechId != null &&
+    !techIdProvided
+
   if (techIdProvided && newTechId !== existingTechId) {
-    await assignJobToTech(params.ownerUserId, params.leadId, newTechId)
+    if (params.dispatchStatus !== undefined) {
+      try {
+        await sql`
+          UPDATE ai_leads
+          SET assigned_tech_id = ${newTechId},
+              job_status = ${newTechId ? "assigned" : null}
+          WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+        `
+      } catch (e) {
+        if (isMissingSchedulerColumnError(e)) return null
+        throw e
+      }
+      const techPatch = newTechId
+        ? {
+            assigned_tech_id: newTechId,
+            assigned_tech_name: params.assignedTechName?.trim() || null,
+            dispatch_status: params.dispatchStatus.trim(),
+          }
+        : {
+            assigned_tech_id: null,
+            assigned_tech_name: null,
+            dispatch_status: params.dispatchStatus.trim(),
+          }
+      try {
+        await sql`
+          UPDATE ai_leads
+          SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify(techPatch)}::jsonb
+          WHERE id = ${params.leadId}
+        `
+      } catch {
+        /* collected mirror optional */
+      }
+    } else {
+      await assignJobToTech(params.ownerUserId, params.leadId, newTechId)
+    }
+  } else if (shouldClearTechForPipeline) {
+    try {
+      await sql`
+        UPDATE ai_leads
+        SET assigned_tech_id = null,
+            job_status = null
+        WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      `
+    } catch (e) {
+      if (isMissingSchedulerColumnError(e)) return null
+      throw e
+    }
+    try {
+      await sql`
+        UPDATE ai_leads
+        SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify({
+          assigned_tech_id: null,
+          assigned_tech_name: null,
+        })}::jsonb
+        WHERE id = ${params.leadId}
+      `
+    } catch {
+      /* collected mirror optional */
+    }
   }
 
   return getOwnerSchedulerEventById(params.ownerUserId, params.leadId)

@@ -20,7 +20,8 @@ import {
   dayKeyLocal,
   dateAtLocalHour,
 } from "@/lib/scheduler-utils"
-import { isActivePipelineFeedJob } from "@/lib/scheduler-job-status"
+import { isActivePipelineFeedJob, isHopperPoolJob } from "@/lib/scheduler-job-status"
+import { schedulerEventToPoolJob } from "@/lib/job-pipeline-status"
 import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
 import {
   optimisticRemovePoolJob,
@@ -426,17 +427,46 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
 
   function applyJobEventUpdate(event: SchedulerEvent) {
-    setDrawerScheduledEvent(event)
-    setDrawerPoolJob(null)
+    const inHopper = isHopperPoolJob(event)
     setHighlightId(event.id)
-    setEvents((prev) => {
-      const idx = prev.findIndex((ev) => ev.id === event.id)
-      if (idx === -1) return prev
-      const next = [...prev]
-      next[idx] = event
-      return next
-    })
-    void mutateActivePipeline()
+
+    if (inHopper) {
+      setDrawerPoolJob(schedulerEventToPoolJob(event))
+      setDrawerScheduledEvent(null)
+      setEvents((prev) => prev.filter((ev) => ev.id !== event.id))
+      void mutatePool(
+        (current) => {
+          const list = current ?? []
+          const poolJob = schedulerEventToPoolJob(event)
+          const idx = list.findIndex((j) => j.id === event.id)
+          if (idx === -1) return [...list, poolJob]
+          const next = [...list]
+          next[idx] = poolJob
+          return next
+        },
+        { revalidate: true }
+      )
+    } else {
+      setDrawerScheduledEvent(event)
+      setDrawerPoolJob(null)
+      setEvents((prev) => {
+        const idx = prev.findIndex((ev) => ev.id === event.id)
+        if (idx === -1) {
+          const next = [...prev, event]
+          next.sort(sortEventsByTime)
+          return next
+        }
+        const next = [...prev]
+        next[idx] = event
+        return next
+      })
+      void mutatePool(
+        (current) => (current ?? []).filter((j) => j.id !== event.id),
+        { revalidate: true }
+      )
+    }
+
+    void mutateActivePipeline(undefined, { revalidate: true })
     refreshSchedulerData()
   }
 

@@ -30,6 +30,11 @@ import { negotiationDiscountLabel } from "@/lib/price-negotiation"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
 import {
+  pipelineStatusFromJob,
+  pipelineStatusPatch,
+  type JobPipelineStatusId,
+} from "@/lib/job-pipeline-status"
+import {
   dispatchJobTypeFromServiceQuoteTypeId,
   serviceQuoteTypeFromJobType,
 } from "@/lib/job-intake-fields"
@@ -103,6 +108,7 @@ export function JobDetailDrawer({
   const [startLocal, setStartLocal] = useState("")
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [assignedTechId, setAssignedTechId] = useState("")
+  const [pipelineStatus, setPipelineStatus] = useState<JobPipelineStatusId>("unassigned_pool")
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -110,7 +116,6 @@ export function JobDetailDrawer({
   const [error, setError] = useState<string | null>(null)
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<JobDetailViewMode>("overview")
-  const [assigningTechId, setAssigningTechId] = useState<string | null>(null)
   const userPickedScheduleRef = useRef(false)
   const lastAutoSavedLocalRef = useRef<string | null>(null)
   const dispatcherLocation = useDispatcherLocation(open && Boolean(jobId))
@@ -167,6 +172,7 @@ export function JobDetailDrawer({
 
   const buildSaveBody = useCallback((): Record<string, unknown> => {
     const quotedPriceCents = resolveQuotedPriceCents()
+    const pipelinePatch = pipelineStatusPatch(pipelineStatus)
     return {
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
@@ -178,6 +184,8 @@ export function JobDetailDrawer({
       job_address: location.trim() || null,
       job_notes: jobNotes.trim() || null,
       assigned_tech_id: assignedTechId.trim() || null,
+      dispatch_status: pipelinePatch.dispatch_status,
+      is_salvageable: pipelinePatch.is_salvageable,
       service_quote_type_id: serviceQuoteTypeId,
       quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
       distance_miles: travelDistanceMilesValue,
@@ -206,6 +214,7 @@ export function JobDetailDrawer({
     location,
     negotiationDiscountApplied,
     liveQuote.totalCents,
+    pipelineStatus,
     resolveQuotedPriceCents,
     serviceQuoteTypeId,
     travelDistanceMilesValue,
@@ -267,7 +276,12 @@ export function JobDetailDrawer({
       )
     )
     setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
-    setAssigningTechId(null)
+    setPipelineStatus(
+      pipelineStatusFromJob({
+        dispatch_status: scheduledEvent?.dispatch_status ?? poolJob?.dispatch_status ?? null,
+        assigned_tech_id: scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? null,
+      })
+    )
     setError(null)
     userPickedScheduleRef.current = false
     lastAutoSavedLocalRef.current = null
@@ -392,6 +406,12 @@ export function JobDetailDrawer({
     setDurationMinutes(event.duration_minutes ?? 60)
     setStartLocal(startLocalFromIso(event.scheduled_at))
     setAssignedTechId(event.assigned_tech_id ?? "")
+    setPipelineStatus(
+      pipelineStatusFromJob({
+        dispatch_status: event.dispatch_status,
+        assigned_tech_id: event.assigned_tech_id,
+      })
+    )
   }, [])
 
   async function handleSave(options?: { fromScheduleIntent?: boolean }): Promise<boolean> {
@@ -457,15 +477,37 @@ export function JobDetailDrawer({
     }
   }
 
-  async function handleQuickAssignTech(techUserId: string) {
+  async function handlePipelineControlChange(updates: {
+    pipelineStatus?: JobPipelineStatusId
+    assignedTechId?: string
+  }) {
     if (!jobId || !canSave) return
-    const nextTechId = techUserId.trim()
-    setAssigningTechId(nextTechId || "__unassigned__")
+
+    const nextStatus = updates.pipelineStatus ?? pipelineStatus
+    let nextTechId = updates.assignedTechId !== undefined ? updates.assignedTechId : assignedTechId
+
+    if (nextStatus !== "DISPATCHED") {
+      nextTechId = ""
+    } else if (!nextTechId.trim()) {
+      setError("Select a technician to mark this job as scheduled.")
+      return
+    }
+
+    const previousStatus = pipelineStatus
+    const previousTechId = assignedTechId
+    setPipelineStatus(nextStatus)
     setAssignedTechId(nextTechId)
+    setStatusUpdating(true)
     setError(null)
+
     try {
+      const pipelinePatch = pipelineStatusPatch(nextStatus)
       const body = buildSaveBody()
-      body.assigned_tech_id = nextTechId || null
+      body.dispatch_status = pipelinePatch.dispatch_status
+      body.is_salvageable = pipelinePatch.is_salvageable
+      body.assigned_tech_id = nextTechId.trim() || null
+      body.job_notes = jobNotes.trim() || null
+
       const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
         method: "PATCH",
         credentials: "include",
@@ -473,14 +515,18 @@ export function JobDetailDrawer({
         body: JSON.stringify(body),
       })
       const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
-      if (!res.ok) throw new Error(json.error ?? "Could not assign technician")
+      if (!res.ok) throw new Error(json.error ?? "Could not update job pipeline")
       const event = json.data?.event
-      if (event) onSaved?.(event)
+      if (!event) throw new Error("No updated job returned")
+      applySavedEvent(event)
+      onSaved?.(event)
+      onStatusChanged?.(event)
     } catch (e) {
-      setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
-      setError(e instanceof Error ? e.message : "Could not assign technician")
+      setPipelineStatus(previousStatus)
+      setAssignedTechId(previousTechId)
+      setError(e instanceof Error ? e.message : "Could not update job pipeline")
     } finally {
-      setAssigningTechId(null)
+      setStatusUpdating(false)
     }
   }
 
@@ -513,11 +559,15 @@ export function JobDetailDrawer({
               quotedPriceDollars={quotedPriceDollars}
               baselineQuotedDollars={baselineQuotedDollars}
               discountLabel={discountLabel}
+              jobNotes={jobNotes}
+              pipelineStatus={pipelineStatus}
               assignedTechId={assignedTechId}
               statusUpdating={statusUpdating}
-              assigningTechId={assigningTechId}
               onEdit={() => setViewMode("edit")}
-              onAssignTech={(techId) => void handleQuickAssignTech(techId)}
+              onPipelineStatusChange={(status) => void handlePipelineControlChange({ pipelineStatus: status })}
+              onAssignedTechChange={(techId) =>
+                void handlePipelineControlChange({ assignedTechId: techId, pipelineStatus: "DISPATCHED" })
+              }
               onClose={requestClose}
             />
           ) : (

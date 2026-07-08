@@ -4,12 +4,14 @@ import { Loader2, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
+import {
+  JOB_PIPELINE_STATUS_OPTIONS,
+  PIPELINE_STATUS_BADGE_STYLE,
+  pipelineStatusLabel,
+  type JobPipelineStatusId,
+} from "@/lib/job-pipeline-status"
 import { cn } from "@/lib/utils"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
-import {
-  SCHEDULER_STATUS_LABEL,
-  schedulerLifecyclePhase,
-} from "@/lib/scheduler-job-status"
 
 type JobDetailOverviewProps = {
   source: UnassignedPoolJob | SchedulerEvent
@@ -19,11 +21,13 @@ type JobDetailOverviewProps = {
   quotedPriceDollars: number
   baselineQuotedDollars: number | null
   discountLabel: string | null
+  jobNotes: string
+  pipelineStatus: JobPipelineStatusId
   assignedTechId: string
   statusUpdating: boolean
-  assigningTechId: string | null
   onEdit: () => void
-  onAssignTech: (techUserId: string) => void
+  onPipelineStatusChange: (status: JobPipelineStatusId) => void
+  onAssignedTechChange: (techUserId: string) => void
   onClose: () => void
 }
 
@@ -38,37 +42,28 @@ function telHref(phone: string): string | null {
 
 export function JobDetailOverview({
   source,
-  scheduledEvent,
-  poolJob,
   technicians,
   quotedPriceDollars,
   baselineQuotedDollars,
   discountLabel,
+  jobNotes,
+  pipelineStatus,
   assignedTechId,
   statusUpdating,
-  assigningTechId,
   onEdit,
-  onAssignTech,
+  onPipelineStatusChange,
+  onAssignedTechChange,
   onClose,
 }: JobDetailOverviewProps) {
-  const poolWithTech = poolJob as (UnassignedPoolJob & {
-    job_status?: string | null
-    assigned_tech_id?: string | null
-  }) | null
-
-  const lifecyclePhase = schedulerLifecyclePhase({
-    job_status: scheduledEvent?.job_status ?? poolWithTech?.job_status ?? null,
-    dispatch_status: scheduledEvent?.dispatch_status ?? poolJob?.dispatch_status ?? null,
-    assigned_tech_id:
-      scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? (assignedTechId || null),
-  })
-  const statusLabel = SCHEDULER_STATUS_LABEL[lifecyclePhase]
-
   const customerName = (source.customer_name ?? "").trim() || "Customer"
   const customerPhone = (source.customer_phone ?? "").trim()
   const phoneHref = telHref(customerPhone)
   const specBlocks = buildJobTechnicalSpecBlocks(source)
+  const addressBlock = specBlocks.find((block) => block.label === "Address")
+  const otherSpecBlocks = specBlocks.filter((block) => block.label !== "Address")
   const assignableTechs = technicians.filter((tech) => tech.is_active && tech.portal_user_id)
+  const pipelineBadgeStyle = PIPELINE_STATUS_BADGE_STYLE[pipelineStatus]
+  const pipelineLabel = pipelineStatusLabel(pipelineStatus)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -79,14 +74,10 @@ export function JobDetailOverview({
             <span
               className={cn(
                 "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                lifecyclePhase === "unassigned" && "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/30",
-                lifecyclePhase === "scheduled" && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/30",
-                lifecyclePhase === "en_route" && "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/30",
-                lifecyclePhase === "on_site" && "bg-yellow-500/20 text-yellow-100 ring-1 ring-yellow-500/30",
-                lifecyclePhase === "completed" && "bg-zinc-600/30 text-zinc-400 ring-1 ring-zinc-600/40"
+                pipelineBadgeStyle
               )}
             >
-              {statusLabel}
+              {pipelineLabel}
             </span>
           </div>
           <button
@@ -118,8 +109,8 @@ export function JobDetailOverview({
         </div>
 
         <div className="mt-4 grid gap-2">
-          {specBlocks.length > 0 ? (
-            specBlocks.map((block) => (
+          {otherSpecBlocks.length > 0 ? (
+            otherSpecBlocks.map((block) => (
               <div
                 key={`${block.label}-${block.value}`}
                 className="rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2.5"
@@ -128,11 +119,25 @@ export function JobDetailOverview({
                 <p className="mt-1 text-sm font-medium leading-snug text-foreground">{block.value}</p>
               </div>
             ))
-          ) : (
+          ) : !addressBlock ? (
             <p className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
               No vehicle or key specs saved yet — tap Edit Job Details to add them.
             </p>
-          )}
+          ) : null}
+
+          {addressBlock ? (
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{addressBlock.label}</p>
+              <p className="mt-1 text-sm font-medium leading-snug text-foreground">{addressBlock.value}</p>
+            </div>
+          ) : null}
+
+          <div className="mt-4">
+            <span className="mb-1 block text-xs uppercase tracking-wider text-slate-500">Notes</span>
+            <p className="min-h-[50px] whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 text-sm text-slate-200">
+              {jobNotes.trim() || "No notes added"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -150,44 +155,64 @@ export function JobDetailOverview({
           ) : null}
         </div>
 
-        <div className="mt-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Route to technician</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={statusUpdating || assigningTechId != null}
-              onClick={() => onAssignTech("")}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors",
-                !assignedTechId
-                  ? "border-primary/50 bg-primary/15 text-primary"
-                  : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-foreground"
-              )}
-            >
-              Unassigned
-            </button>
-            {assignableTechs.map((tech) => {
-              const techId = tech.portal_user_id!
-              const selected = assignedTechId === techId
-              const saving = assigningTechId === techId
-              return (
-                <button
-                  key={techId}
-                  type="button"
-                  disabled={statusUpdating || (assigningTechId != null && !saving)}
-                  onClick={() => onAssignTech(techId)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors",
-                    selected
-                      ? "border-sky-500/50 bg-sky-500/15 text-sky-100"
-                      : "border-zinc-700 text-zinc-300 hover:border-sky-500/40 hover:bg-sky-500/10"
-                  )}
-                >
-                  {saving ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : null}
-                  {tech.name}
-                </button>
-              )
-            })}
+        <div className="mt-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Job pipeline control</p>
+            {statusUpdating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
+            ) : null}
+          </div>
+
+          <div className="grid gap-3">
+            <div>
+              <label
+                htmlFor="job-pipeline-status"
+                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500"
+              >
+                Job status
+              </label>
+              <select
+                id="job-pipeline-status"
+                disabled={statusUpdating}
+                value={pipelineStatus}
+                onChange={(e) => onPipelineStatusChange(e.target.value as JobPipelineStatusId)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
+              >
+                {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="job-pipeline-tech"
+                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500"
+              >
+                Tech assignment
+              </label>
+              <select
+                id="job-pipeline-tech"
+                disabled={statusUpdating || pipelineStatus !== "DISPATCHED"}
+                value={assignedTechId}
+                onChange={(e) => onAssignedTechChange(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
+              >
+                <option value="">Unassigned — select when scheduled</option>
+                {assignableTechs.map((tech) => (
+                  <option key={tech.portal_user_id} value={tech.portal_user_id!}>
+                    {tech.name}
+                  </option>
+                ))}
+              </select>
+              {pipelineStatus !== "DISPATCHED" ? (
+                <p className="mt-1.5 text-[10px] text-muted-foreground">
+                  Set status to Scheduled to assign a technician on the board.
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
 

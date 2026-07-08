@@ -45,6 +45,8 @@ type PatchSchedulerBody = {
   key_profile_id?: string | null
   discount_applied?: string | null
   baseline_quote_cents?: number | null
+  dispatch_status?: string | null
+  is_salvageable?: boolean | null
 }
 
 function isFullJobEdit(body: PatchSchedulerBody): boolean {
@@ -69,7 +71,9 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
     body.key_variant_id !== undefined ||
     body.key_profile_id !== undefined ||
     body.discount_applied !== undefined ||
-    body.baseline_quote_cents !== undefined
+    body.baseline_quote_cents !== undefined ||
+    body.dispatch_status !== undefined ||
+    body.is_salvageable !== undefined
   )
 }
 
@@ -183,6 +187,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         body.key_style !== undefined
           ? keyStyleRequiresFieldVerification(body.key_style)
           : undefined,
+      dispatchStatus: body.dispatch_status,
+      isSalvageable: body.is_salvageable,
     })
 
     if (!event) return NextResponse.json({ error: "Job not found" }, { status: 404 })
