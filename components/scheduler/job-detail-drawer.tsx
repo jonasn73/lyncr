@@ -1,19 +1,9 @@
 "use client"
 
-// Editable slide-over when you tap a job on the dispatch map or calendar.
+// Right slide-over for reviewing and editing scheduler jobs (overview vs stepped edit workflow).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Loader2, Trash2, X } from "lucide-react"
-import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
-import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
-import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
-import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
-import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { Loader2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,27 +14,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { JobDetailOverview } from "@/components/scheduler/job-detail-overview"
+import { JobEditWorkflow, type JobEditWorkflowStep } from "@/components/scheduler/job-edit-workflow"
+import {
+  SchedulerJobSlideSheet,
+  SchedulerJobSheetCloseButton,
+} from "@/components/scheduler/scheduler-job-slide-sheet"
 import {
   SCHEDULER_STATUS_LABEL,
   schedulerLifecyclePhase,
-  type SchedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
-import { SCHEDULER_DURATION_OPTIONS, toDatetimeLocalValue } from "@/lib/scheduler-utils"
+import { toDatetimeLocalValue } from "@/lib/scheduler-utils"
 import { shouldAutoAdvanceAfterSchedulePick } from "@/lib/scheduler-focus-url"
-import { cn } from "@/lib/utils"
+import { negotiationDiscountLabel } from "@/lib/price-negotiation"
+import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import {
   dispatchJobTypeFromServiceQuoteTypeId,
   serviceQuoteTypeFromJobType,
-  serviceTypeRequiresVehicle,
 } from "@/lib/job-intake-fields"
 import { calculateServiceQuote, type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
-import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import type { VehicleClarificationOption } from "@/lib/vehicle-intake-clarifications"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
+
+type JobDetailViewMode = "overview" | "edit"
 
 type JobDetailDrawerProps = {
   open: boolean
@@ -59,27 +55,6 @@ type JobDetailDrawerProps = {
   scheduleIntent?: boolean
   onScheduleCommitted?: (event: SchedulerEvent) => void
 }
-
-const STATUS_SEGMENTS: {
-  phase: SchedulerLifecyclePhase
-  jobStatus: "assigned" | "en_route" | "arrived" | "completed"
-  label: string
-}[] = [
-  { phase: "scheduled", jobStatus: "assigned", label: "Assigned" },
-  { phase: "en_route", jobStatus: "en_route", label: "En route" },
-  { phase: "on_site", jobStatus: "arrived", label: "On site" },
-  { phase: "completed", jobStatus: "completed", label: "Completed" },
-]
-
-const fieldBlockClass = "flex w-full min-w-0 flex-col"
-const labelClass = "mb-1.5 text-xs font-medium text-zinc-400"
-const sectionClass = "mb-4 min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-4"
-const sectionTitleClass = "mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500"
-const inputClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
-const addressTextareaClass =
-  "box-border block min-h-[72px] w-full max-w-full resize-none break-words whitespace-normal rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
-const notesTextareaClass = addressTextareaClass
 
 function startLocalFromIso(iso: string | null | undefined): string {
   if (!iso) return ""
@@ -135,6 +110,8 @@ export function JobDetailDrawer({
   const [statusUpdating, setStatusUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<JobDetailViewMode>("overview")
+  const [assigningTechId, setAssigningTechId] = useState<string | null>(null)
   const startInputRef = useRef<HTMLInputElement>(null)
   const userPickedScheduleRef = useRef(false)
   const lastAutoSavedLocalRef = useRef<string | null>(null)
@@ -181,8 +158,6 @@ export function JobDetailDrawer({
 
   const autoTotalDollars =
     liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
-
-  const requiresVehicle = serviceTypeRequiresVehicle(serviceQuoteTypeId)
 
   const resolveQuotedPriceCents = useCallback(() => {
     const raw = editablePrice.trim()
@@ -366,10 +341,16 @@ export function JobDetailDrawer({
       )
     )
     setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
+    setViewMode(scheduleIntent ? "edit" : "overview")
+    setAssigningTechId(null)
     setError(null)
     userPickedScheduleRef.current = false
     lastAutoSavedLocalRef.current = null
-  }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id])
+  }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id, scheduleIntent])
+
+  useEffect(() => {
+    if (!open) setViewMode("overview")
+  }, [open])
 
   useEffect(() => {
     if (!open || !jobId) return
@@ -456,19 +437,13 @@ export function JobDetailDrawer({
     if (open && source) openedAtRef.current = Date.now()
   }, [open, source])
 
-  // Close on Escape.
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [open, onClose])
+  // Escape is handled by SchedulerJobSlideSheet.
 
   const canSave = customerName.trim().length > 0 && customerPhone.trim().length > 0
 
-  async function handleStatusChange(nextStatus: (typeof STATUS_SEGMENTS)[number]["jobStatus"]) {
+  async function handleStatusChange(
+    nextStatus: "assigned" | "en_route" | "arrived" | "completed"
+  ) {
     if (!jobId || statusUpdating) return
     if (nextStatus !== "completed" && !hasAssignedTech) {
       setError("Assign a technician before updating field status.")
@@ -519,6 +494,7 @@ export function JobDetailDrawer({
       const event = json.data?.event
       if (!event) throw new Error("No updated job returned")
       onSaved?.(event)
+      setViewMode("overview")
       if (options?.fromScheduleIntent) {
         lastAutoSavedLocalRef.current = startLocal.trim()
         onScheduleCommitted?.(event)
@@ -551,347 +527,140 @@ export function JobDetailDrawer({
     }
   }
 
+  async function handleQuickAssignTech(techUserId: string) {
+    if (!jobId || !canSave) return
+    const nextTechId = techUserId.trim()
+    setAssigningTechId(nextTechId || "__unassigned__")
+    setAssignedTechId(nextTechId)
+    setError(null)
+    try {
+      const body = buildSaveBody()
+      body.assigned_tech_id = nextTechId || null
+      const res = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+      if (!res.ok) throw new Error(json.error ?? "Could not assign technician")
+      const event = json.data?.event
+      if (event) onSaved?.(event)
+    } catch (e) {
+      setAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
+      setError(e instanceof Error ? e.message : "Could not assign technician")
+    } finally {
+      setAssigningTechId(null)
+    }
+  }
+
+  const quotedPriceDollars =
+    resolveQuotedPriceCents() > 0 ? Math.round(resolveQuotedPriceCents() / 100) : 0
+  const baselineQuotedDollars =
+    source?.baseline_quoted_price_cents != null && source.baseline_quoted_price_cents > 0
+      ? Math.round(source.baseline_quoted_price_cents / 100)
+      : liveQuote.totalCents > 0
+        ? Math.round(liveQuote.totalCents / 100)
+        : null
+  const discountLabel = negotiationDiscountLabel(negotiationDiscountApplied)
+  const editInitialStep: JobEditWorkflowStep = scheduleIntent ? "DISPATCH" : "CUSTOMER"
+
+  const requestClose = useCallback(() => {
+    if (Date.now() - openedAtRef.current < 400) return
+    onClose()
+  }, [onClose])
+
   return (
     <>
-      <Dialog
-        open={open && Boolean(source)}
-        onOpenChange={(next) => {
-          if (next) return
-          if (Date.now() - openedAtRef.current < 400) return
-          onClose()
-        }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          overlayClassName="bg-zinc-950/75"
-          className="!flex h-[min(92dvh,880px)] w-full max-w-lg flex-col gap-0 overflow-hidden border-border bg-card p-0 sm:max-w-lg"
-          onPointerDownOutside={(event) => {
-            if (Date.now() - openedAtRef.current < 400) event.preventDefault()
-          }}
-          onInteractOutside={(event) => {
-            if (Date.now() - openedAtRef.current < 400) event.preventDefault()
-          }}
-        >
-          <DialogTitle className="sr-only">Edit job</DialogTitle>
-          <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-14">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Job details</p>
-          <span
-            className={cn(
-              "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              lifecyclePhase === "unassigned" && "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/30",
-              lifecyclePhase === "scheduled" && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/30",
-              lifecyclePhase === "en_route" && "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/30",
-              lifecyclePhase === "on_site" && "bg-yellow-500/20 text-yellow-100 ring-1 ring-yellow-500/30",
-              lifecyclePhase === "completed" && "bg-zinc-600/30 text-zinc-400 ring-1 ring-zinc-600/40"
-            )}
-          >
-            {statusLabel}
-          </span>
-
-          <button
-            type="button"
-            aria-label="Close"
-            className="absolute right-3 top-3 rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </header>
-
-        <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 py-4">
-          <section className={sectionClass}>
-            <h3 className={sectionTitleClass}>Customer Information</h3>
-            <div className="space-y-3">
-              <div className={fieldBlockClass}>
-                <label className={labelClass} htmlFor="job-customer-name">
-                  Customer name
-                </label>
-                <Input
-                  id="job-customer-name"
-                  className={inputClass}
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer name"
-                />
-              </div>
-              <div className={fieldBlockClass}>
-                <label className={labelClass} htmlFor="job-customer-phone">
-                  Phone
-                </label>
-                <Input
-                  id="job-customer-phone"
-                  type="tel"
-                  className={inputClass}
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="(502) 555-0100"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className={sectionClass}>
-            <h3 className={sectionTitleClass}>Service Profile</h3>
-            <div className="space-y-3">
-              <ServiceQuoteCalculatorPanel
-                quote={liveQuote}
-                serviceTypeId={serviceQuoteTypeId}
-                vehicleYear={vehicleYear}
-                vehicleMake={vehicleMake}
-                vehicleModel={vehicleModel}
-                onServiceTypeChange={handleServiceTypeChange}
-                className="border-emerald-500/20 bg-emerald-500/[0.07]"
-              />
-
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
-                <Label
-                  htmlFor="job-quote-price"
-                  className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-                >
-                  Quote before dispatch
-                </Label>
-                <div className="relative mt-2">
-                  <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-400/80">
-                    $
-                  </span>
-                  <input
-                    id="job-quote-price"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={1}
-                    value={editablePrice}
-                    onChange={(e) => {
-                      setEditablePrice(e.target.value)
-                      setPriceOverridden(true)
-                    }}
-                    onBlur={() => {
-                      if (!editablePrice.trim()) {
-                        setPriceOverridden(false)
-                        setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-                      }
-                    }}
-                    className="w-full border-none bg-transparent pl-7 text-center text-4xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
-                  />
-                </div>
-                <p className="mt-2 text-center text-[10px] text-muted-foreground">
-                  {priceOverridden
-                    ? "Custom quote — edit before saving."
-                    : `Auto-calculated: ${liveQuote.dispatchJobTypeLabel}${
-                        liveQuote.distanceMiles != null
-                          ? ` + ${liveQuote.distanceMiles.toFixed(1)} mi travel`
-                          : ""
-                      }.`}
-                </p>
-              </div>
-
-              <PriceNegotiationHelperPanel
-                baselineCents={liveQuote.totalCents}
-                currentPriceDollars={editablePrice}
-                onApplyPrice={handleNegotiationApply}
-                appliedDiscountId={negotiationDiscountApplied}
-              />
-
-              {requiresVehicle ? (
-                <fieldset className="@container grid min-w-0 max-w-full gap-3 overflow-hidden rounded-lg border border-primary/40 bg-primary/10 p-3">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                    Vehicle metadata
-                  </legend>
-                  <VehiclePickerCascade
-                    value={{
-                      vehicle_year: vehicleYear,
-                      vehicle_make: vehicleMake,
-                      vehicle_model: vehicleModel,
-                    }}
-                    onChange={setVehicle}
-                  />
-                  <VehicleIntakeClarificationsPanel
-                    year={vehicleYear}
-                    make={vehicleMake}
-                    model={vehicleModel}
-                    answeredIds={new Set(answeredClarificationIds)}
-                    onAnswer={applyVehicleClarification}
-                  />
-                  <VehicleKeyInfoPanel
-                    year={vehicleYear}
-                    make={vehicleMake}
-                    model={vehicleModel}
-                    value={
-                      keyFccId
-                        ? {
-                            profileId: keyProfileId,
-                            fccId: keyFccId,
-                            frequency: keyFrequency || null,
-                            chipset: keyChipset || null,
-                            keyStyle: keyStyle || "Not sure yet",
-                            variantId: keyVariantId || null,
-                          }
-                        : null
-                    }
-                    onChange={(sel) => setVehicleKeySelection(sel)}
-                  />
-                </fieldset>
-              ) : null}
-            </div>
-          </section>
-
-          <section className={sectionClass}>
-            <h3 className={sectionTitleClass}>Dispatch &amp; schedule</h3>
-            <div className="space-y-3">
-              <div className={fieldBlockClass}>
-                <label className={labelClass}>Status controls</label>
-                <div className="flex flex-wrap gap-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1">
-                  {STATUS_SEGMENTS.map((segment) => {
-                    const active = lifecyclePhase === segment.phase
-                    const disabled =
-                      statusUpdating ||
-                      (segment.jobStatus !== "completed" && !hasAssignedTech && segment.phase !== "scheduled")
-                    return (
-                      <button
-                        key={segment.jobStatus}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => void handleStatusChange(segment.jobStatus)}
-                        className={cn(
-                          "flex-1 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
-                          active
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "text-zinc-400 hover:bg-zinc-800/80 hover:text-foreground",
-                          disabled && !active && "cursor-not-allowed opacity-40"
-                        )}
-                      >
-                        {segment.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                {statusUpdating ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-[10px] text-zinc-500">
-                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                    Updating status…
-                  </p>
-                ) : null}
-              </div>
-
-              <div className={fieldBlockClass}>
-                <label className={labelClass} htmlFor="job-start">
-                  Start time
-                </label>
-                <Input
-                  id="job-start"
-                  ref={startInputRef}
-                  type="datetime-local"
-                  className={inputClass}
-                  value={startLocal}
-                  onChange={(e) => {
-                    userPickedScheduleRef.current = true
-                    setStartLocal(e.target.value)
-                  }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className={fieldBlockClass}>
-                  <label className={labelClass} htmlFor="job-duration">
-                    Duration
-                  </label>
-                  <select
-                    id="job-duration"
-                    className={inputClass}
-                    value={durationMinutes}
-                    onChange={(e) => setDurationMinutes(Number(e.target.value) || 60)}
-                  >
-                    {SCHEDULER_DURATION_OPTIONS.map((opt) => (
-                      <option key={opt.minutes} value={opt.minutes}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className={fieldBlockClass}>
-                  <label className={labelClass} htmlFor="job-tech">
-                    Assigned tech
-                  </label>
-                  <select
-                    id="job-tech"
-                    className={inputClass}
-                    value={assignedTechId}
-                    onChange={(e) => setAssignedTechId(e.target.value)}
-                  >
-                    <option value="">Unassigned</option>
-                    {assignableTechs.map((t) => (
-                      <option key={t.portal_user_id!} value={t.portal_user_id!}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className={cn(sectionClass, "mb-0")}>
-            <h3 className={sectionTitleClass}>Logistics</h3>
-            <div className="space-y-3">
-              <div className={fieldBlockClass}>
-                <label className={labelClass} htmlFor="job-location">
-                  Address
-                </label>
-                <textarea
-                  id="job-location"
-                  className={addressTextareaClass}
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Street address"
-                  rows={3}
-                />
-              </div>
-              <div className={fieldBlockClass}>
-                <label className={labelClass} htmlFor="job-notes">
-                  Notes
-                </label>
-                <Textarea
-                  id="job-notes"
-                  className={notesTextareaClass}
-                  value={jobNotes}
-                  onChange={(e) => setJobNotes(e.target.value)}
-                  placeholder="Gate code, symptoms, etc."
-                  rows={2}
-                />
-              </div>
-            </div>
-          </section>
-
-          {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
-        </div>
-
-        <div className="flex shrink-0 flex-col gap-2 border-t border-border/60 bg-card px-5 py-4">
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving || deleting}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="flex-1"
-              onClick={() => void handleSave()}
-              disabled={!canSave || saving || deleting}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
-            </Button>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => setDeleteConfirmOpen(true)}
-            disabled={saving || deleting}
-          >
-            <Trash2 className="mr-2 h-4 w-4" aria-hidden />
-            Delete job
-          </Button>
-        </div>
-        </DialogContent>
-      </Dialog>
+      <SchedulerJobSlideSheet open={open && Boolean(source)} onClose={requestClose}>
+        <SchedulerJobSheetCloseButton onClose={requestClose} />
+        {source ? (
+          viewMode === "overview" ? (
+            <JobDetailOverview
+              source={source}
+              scheduledEvent={scheduledEvent}
+              poolJob={poolJob}
+              technicians={technicians}
+              quotedPriceDollars={quotedPriceDollars}
+              baselineQuotedDollars={baselineQuotedDollars}
+              discountLabel={discountLabel}
+              assignedTechId={assignedTechId}
+              statusUpdating={statusUpdating}
+              assigningTechId={assigningTechId}
+              onEdit={() => setViewMode("edit")}
+              onAssignTech={(techId) => void handleQuickAssignTech(techId)}
+              onClose={requestClose}
+            />
+          ) : (
+            <JobEditWorkflow
+              key={`${jobId}-edit`}
+              statusLabel={statusLabel}
+              lifecyclePhase={lifecyclePhase}
+              initialStep={editInitialStep}
+              customerName={customerName}
+              customerPhone={customerPhone}
+              location={location}
+              jobNotes={jobNotes}
+              serviceQuoteTypeId={serviceQuoteTypeId}
+              vehicleYear={vehicleYear}
+              vehicleMake={vehicleMake}
+              vehicleModel={vehicleModel}
+              keyFccId={keyFccId}
+              keyFrequency={keyFrequency}
+              keyChipset={keyChipset}
+              keyStyle={keyStyle}
+              keyVariantId={keyVariantId}
+              keyProfileId={keyProfileId}
+              answeredClarificationIds={answeredClarificationIds}
+              editablePrice={editablePrice}
+              priceOverridden={priceOverridden}
+              negotiationDiscountApplied={negotiationDiscountApplied}
+              liveQuote={liveQuote}
+              startLocal={startLocal}
+              durationMinutes={durationMinutes}
+              assignedTechId={assignedTechId}
+              assignableTechs={assignableTechs}
+              hasAssignedTech={hasAssignedTech}
+              statusUpdating={statusUpdating}
+              saving={saving}
+              deleting={deleting}
+              canSave={canSave}
+              error={error}
+              startInputRef={startInputRef}
+              onBackToOverview={() => setViewMode("overview")}
+              onCustomerNameChange={setCustomerName}
+              onCustomerPhoneChange={setCustomerPhone}
+              onLocationChange={setLocation}
+              onJobNotesChange={setJobNotes}
+              onServiceTypeChange={handleServiceTypeChange}
+              onEditablePriceChange={(value) => {
+                setEditablePrice(value)
+                setPriceOverridden(true)
+              }}
+              onEditablePriceBlur={() => {
+                if (!editablePrice.trim()) {
+                  setPriceOverridden(false)
+                  setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+                }
+              }}
+              onNegotiationApply={handleNegotiationApply}
+              onVehicleChange={setVehicle}
+              onVehicleClarification={applyVehicleClarification}
+              onVehicleKeySelection={setVehicleKeySelection}
+              onStartLocalChange={(value) => {
+                userPickedScheduleRef.current = true
+                setStartLocal(value)
+              }}
+              onDurationChange={setDurationMinutes}
+              onAssignedTechChange={setAssignedTechId}
+              onStatusChange={(status) => void handleStatusChange(status)}
+              onSave={() => void handleSave()}
+              onDeleteRequest={() => setDeleteConfirmOpen(true)}
+              onClose={requestClose}
+            />
+          )
+        ) : null}
+      </SchedulerJobSlideSheet>
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
