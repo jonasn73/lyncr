@@ -171,6 +171,8 @@ export interface SchedulerEvent {
   vehicle_year: string | null
   vehicle_make: string | null
   vehicle_model: string | null
+  /** 17-character VIN when captured at intake or edit. */
+  vehicle_vin?: string | null
   /** Free-text job site notes from intake or manual booking. */
   job_notes: string | null
   /** Geocoded job site latitude (from collected.customer_lat). */
@@ -209,6 +211,8 @@ export interface UnassignedPoolJob {
   vehicle_year: string | null
   vehicle_make: string | null
   vehicle_model: string | null
+  /** 17-character VIN when captured at intake or edit. */
+  vehicle_vin?: string | null
   job_notes: string | null
   scheduled_at: string | null
   duration_minutes: number

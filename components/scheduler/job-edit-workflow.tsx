@@ -4,12 +4,13 @@
 
 import { useState } from "react"
 import { Loader2, Trash2 } from "lucide-react"
-import { SERVICE_QUOTE_TYPES } from "@/lib/service-quote-calculator"
+import { SERVICE_QUOTE_TYPES, isAutomotiveServiceQuoteType } from "@/lib/service-quote-calculator"
 import { type SchedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { VinLookupField } from "@/components/vin-lookup-field"
 import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 
 const fieldBlockClass = "flex w-full min-w-0 flex-col"
@@ -30,6 +31,10 @@ export type JobEditWorkflowProps = {
   location: string
   jobNotes: string
   serviceQuoteTypeId: ServiceQuoteTypeId
+  vehicleYear: string
+  vehicleMake: string
+  vehicleModel: string
+  vehicleVin: string
   editablePrice: string
   saving: boolean
   deleting: boolean
@@ -41,6 +46,10 @@ export type JobEditWorkflowProps = {
   onLocationChange: (value: string) => void
   onJobNotesChange: (value: string) => void
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+  onVehicleYearChange: (value: string) => void
+  onVehicleMakeChange: (value: string) => void
+  onVehicleModelChange: (value: string) => void
+  onVehicleVinChange: (value: string) => void
   onEditablePriceChange: (value: string) => void
   /** Persist edits — resolves true when the API save succeeded. */
   onSave: () => void | Promise<boolean>
@@ -57,6 +66,10 @@ export function JobEditWorkflow({
   location,
   jobNotes,
   serviceQuoteTypeId,
+  vehicleYear,
+  vehicleMake,
+  vehicleModel,
+  vehicleVin,
   editablePrice,
   saving,
   deleting,
@@ -68,12 +81,17 @@ export function JobEditWorkflow({
   onLocationChange,
   onJobNotesChange,
   onServiceTypeChange,
+  onVehicleYearChange,
+  onVehicleMakeChange,
+  onVehicleModelChange,
+  onVehicleVinChange,
   onEditablePriceChange,
   onSave,
   onDeleteRequest,
   onSaveSuccess,
 }: JobEditWorkflowProps) {
   const [submitting, setSubmitting] = useState(false)
+  const isAutomotiveService = isAutomotiveServiceQuoteType(serviceQuoteTypeId)
 
   const handleSaveClick = async () => {
     if (submitting || saving || deleting) return
@@ -180,6 +198,73 @@ export function JobEditWorkflow({
                 ))}
               </select>
             </div>
+
+            {isAutomotiveService ? (
+              <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/40 p-3">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Vehicle info
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className={fieldBlockClass}>
+                    <label className={labelClass} htmlFor="job-edit-vehicle-year">
+                      Year
+                    </label>
+                    <Input
+                      id="job-edit-vehicle-year"
+                      type="text"
+                      inputMode="numeric"
+                      className={inputClass}
+                      value={vehicleYear}
+                      onChange={(e) => onVehicleYearChange(e.target.value)}
+                      placeholder="2020"
+                    />
+                  </div>
+                  <div className={fieldBlockClass}>
+                    <label className={labelClass} htmlFor="job-edit-vehicle-make">
+                      Make
+                    </label>
+                    <Input
+                      id="job-edit-vehicle-make"
+                      type="text"
+                      className={inputClass}
+                      value={vehicleMake}
+                      onChange={(e) => onVehicleMakeChange(e.target.value)}
+                      placeholder="Honda"
+                    />
+                  </div>
+                  <div className={fieldBlockClass}>
+                    <label className={labelClass} htmlFor="job-edit-vehicle-model">
+                      Model
+                    </label>
+                    <Input
+                      id="job-edit-vehicle-model"
+                      type="text"
+                      className={inputClass}
+                      value={vehicleModel}
+                      onChange={(e) => onVehicleModelChange(e.target.value)}
+                      placeholder="Civic"
+                    />
+                  </div>
+                </div>
+                <div className={cn(fieldBlockClass, "mt-3")}>
+                  <label className={labelClass} htmlFor="job-edit-vehicle-vin">
+                    VIN (optional)
+                  </label>
+                  <VinLookupField
+                    value={vehicleVin}
+                    onVinChange={onVehicleVinChange}
+                    onVehicleResolved={(vehicle) => {
+                      onVehicleYearChange(vehicle.vehicle_year)
+                      onVehicleMakeChange(vehicle.vehicle_make)
+                      onVehicleModelChange(vehicle.vehicle_model)
+                    }}
+                    placeholder="17-character VIN"
+                    disabled={saving || deleting || submitting}
+                  />
+                </div>
+              </div>
+            ) : null}
+
             <div className={fieldBlockClass}>
               <label className={labelClass} htmlFor="job-edit-price">
                 Billing balance / price

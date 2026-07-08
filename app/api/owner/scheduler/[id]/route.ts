@@ -32,6 +32,7 @@ type PatchSchedulerBody = {
   vehicle_year?: string | null
   vehicle_make?: string | null
   vehicle_model?: string | null
+  vehicle_vin?: string | null
   job_address?: string | null
   job_notes?: string | null
   service_quote_type_id?: string | null
@@ -59,6 +60,7 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
     body.vehicle_year !== undefined ||
     body.vehicle_make !== undefined ||
     body.vehicle_model !== undefined ||
+    body.vehicle_vin !== undefined ||
     body.job_address !== undefined ||
     body.job_notes !== undefined ||
     body.service_quote_type_id !== undefined ||
@@ -161,6 +163,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       vehicleYear: body.vehicle_year ?? null,
       vehicleMake: body.vehicle_make ?? null,
       vehicleModel: body.vehicle_model ?? null,
+      vehicleVin: body.vehicle_vin ?? null,
       jobAddress: body.job_address,
       jobNotes: body.job_notes,
       serviceQuoteTypeId: body.service_quote_type_id ?? null,

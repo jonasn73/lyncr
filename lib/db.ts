@@ -7257,6 +7257,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     vehicle_year: pick(["vehicle_year", "year"]),
     vehicle_make: pick(["vehicle_make", "make"]),
     vehicle_model: pick(["vehicle_model", "model"]),
+    vehicle_vin: pick(["vehicle_vin", "vin"]),
     job_notes: pick(["job_notes", "notes", "symptoms"]),
     region: pick(["region", "state"]),
     postal_code: pick(["postal_code", "job_address_postal_code", "zip_code", "zipCode"]),
@@ -7559,6 +7560,7 @@ export async function updateOwnerSchedulerJob(params: {
   vehicleYear?: string | null
   vehicleMake?: string | null
   vehicleModel?: string | null
+  vehicleVin?: string | null
   jobAddress?: string | null
   jobNotes?: string | null
   serviceQuoteTypeId?: string | null
@@ -7636,6 +7638,11 @@ export async function updateOwnerSchedulerJob(params: {
   } else {
     collectedPatch.vehicle_model = null
     collectedPatch.model = null
+  }
+  if (params.vehicleVin !== undefined) {
+    const vin = params.vehicleVin?.trim() || null
+    collectedPatch.vehicle_vin = vin
+    collectedPatch.vin = vin
   }
   if (jobAddress !== undefined) {
     collectedPatch.job_address = jobAddress

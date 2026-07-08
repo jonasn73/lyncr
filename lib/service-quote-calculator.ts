@@ -101,6 +101,22 @@ export const SERVICE_QUOTE_TYPES = [
   { id: "other", label: "Other Service", jobType: "Other" as IntakeLocksmithJobType, keyMode: "", dispatchLabel: "Other Service" },
 ] as const
 
+/** Service types that require year / make / model (and optional VIN) on the edit form. */
+export const AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS = [
+  "key_generation",
+  "key_duplication",
+  "programming_diagnostics",
+  "ignition_repair",
+] as const satisfies readonly ServiceQuoteTypeId[]
+
+/** True when the selected service needs vehicle identity fields in the scheduler edit form. */
+export function isAutomotiveServiceQuoteType(
+  serviceTypeId: ServiceQuoteTypeId | string | null | undefined
+): boolean {
+  const normalized = normalizeServiceQuoteTypeId(serviceTypeId ?? "")
+  return (AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS as readonly string[]).includes(normalized)
+}
+
 export type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 export { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 

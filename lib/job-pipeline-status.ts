@@ -92,6 +92,7 @@ export function schedulerEventToPoolJob(event: SchedulerEvent): UnassignedPoolJo
     vehicle_year: event.vehicle_year,
     vehicle_make: event.vehicle_make,
     vehicle_model: event.vehicle_model,
+    vehicle_vin: event.vehicle_vin,
     job_notes: event.job_notes,
     scheduled_at: event.scheduled_tentative ? null : event.scheduled_at,
     duration_minutes: event.duration_minutes,

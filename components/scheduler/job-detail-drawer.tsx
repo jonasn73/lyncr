@@ -91,6 +91,7 @@ export function JobDetailDrawer({
   const [vehicleYear, setVehicleYear] = useState("")
   const [vehicleMake, setVehicleMake] = useState("")
   const [vehicleModel, setVehicleModel] = useState("")
+  const [vehicleVin, setVehicleVin] = useState("")
   const [keyFccId, setKeyFccId] = useState("")
   const [keyFrequency, setKeyFrequency] = useState("")
   const [keyChipset, setKeyChipset] = useState("")
@@ -181,6 +182,7 @@ export function JobDetailDrawer({
       vehicle_year: vehicleYear.trim() || null,
       vehicle_make: vehicleMake.trim() || null,
       vehicle_model: vehicleModel.trim() || null,
+      vehicle_vin: vehicleVin.trim() || null,
       job_address: location.trim() || null,
       job_notes: jobNotes.trim() || null,
       assigned_tech_id: assignedTechId.trim() || null,
@@ -220,6 +222,7 @@ export function JobDetailDrawer({
     travelDistanceMilesValue,
     vehicleMake,
     vehicleModel,
+    vehicleVin,
     vehicleYear,
   ])
 
@@ -253,6 +256,7 @@ export function JobDetailDrawer({
     setVehicleYear(source.vehicle_year ?? "")
     setVehicleMake(source.vehicle_make ?? "")
     setVehicleModel(source.vehicle_model ?? "")
+    setVehicleVin(source.vehicle_vin ?? "")
     setKeyFccId(source.key_fcc_id ?? "")
     setKeyFrequency(source.key_frequency ?? "")
     setKeyChipset(source.key_chipset ?? "")
@@ -391,6 +395,7 @@ export function JobDetailDrawer({
     setVehicleYear(event.vehicle_year ?? "")
     setVehicleMake(event.vehicle_make ?? "")
     setVehicleModel(event.vehicle_model ?? "")
+    setVehicleVin(event.vehicle_vin ?? "")
     setKeyFccId(event.key_fcc_id ?? "")
     setKeyFrequency(event.key_frequency ?? "")
     setKeyChipset(event.key_chipset ?? "")
@@ -580,6 +585,10 @@ export function JobDetailDrawer({
               location={location}
               jobNotes={jobNotes}
               serviceQuoteTypeId={serviceQuoteTypeId}
+              vehicleYear={vehicleYear}
+              vehicleMake={vehicleMake}
+              vehicleModel={vehicleModel}
+              vehicleVin={vehicleVin}
               editablePrice={editablePrice}
               saving={saving}
               deleting={deleting}
@@ -591,6 +600,10 @@ export function JobDetailDrawer({
               onLocationChange={setLocation}
               onJobNotesChange={setJobNotes}
               onServiceTypeChange={handleServiceTypeChange}
+              onVehicleYearChange={setVehicleYear}
+              onVehicleMakeChange={setVehicleMake}
+              onVehicleModelChange={setVehicleModel}
+              onVehicleVinChange={setVehicleVin}
               onEditablePriceChange={(value) => {
                 setEditablePrice(value)
                 setPriceOverridden(true)
