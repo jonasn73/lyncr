@@ -119,7 +119,7 @@ function CompatibleVehiclesBlock({
         </span>
         <span className="hidden text-muted-foreground group-open:inline">Hide</span>
       </summary>
-      <ul className="grid max-h-24 gap-0.5 overflow-y-auto border-t border-border/40 px-2 py-1.5 text-[10px] text-foreground">
+      <ul className="grid gap-0.5 border-t border-border/40 px-2 py-1.5 text-[10px] text-foreground">
         {summary.lines.map((line) => (
           <li key={line} className="truncate">
             {line}
@@ -163,7 +163,7 @@ function VariantGrid({
   if (visibleVariants.length === 0) return null
 
   return (
-    <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto overscroll-y-contain pr-0.5 @min-[26rem]:grid-cols-3">
+    <div className="grid min-w-0 grid-cols-2 gap-2 @min-[26rem]:grid-cols-3">
       {visibleVariants.map((variant) => {
         const selected = selectedVariantId === variant.id
         const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
@@ -178,9 +178,7 @@ function VariantGrid({
           <motion.button
             key={variant.id}
             type="button"
-            layout
             whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
             disabled={disabled}
             onClick={() => onPick(variant)}
             className={cn(

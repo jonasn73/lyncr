@@ -149,9 +149,27 @@ function ManualWorkflowProgress({
   )
 }
 
-/** One step visible at a time — scrollable when content exceeds the sheet height. */
-const MANUAL_STEP_FRAME =
-  "flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-y-auto overscroll-y-contain pb-3 [-webkit-overflow-scrolling:touch]"
+/** Animated shell — scroll lives on an inner plain div so transforms never trap touch scrolling. */
+const MANUAL_STEP_SHELL = "flex min-h-0 flex-1 flex-col overflow-hidden"
+
+const MANUAL_STEP_SCROLL =
+  "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-auto touch-pan-y pb-4 [-webkit-overflow-scrolling:touch]"
+
+function ManualStepScroller({
+  stepKey,
+  children,
+  scrollClassName,
+}: {
+  stepKey: string
+  children: React.ReactNode
+  scrollClassName?: string
+}) {
+  return (
+    <motion.div key={stepKey} {...MANUAL_STEP_MOTION} className={MANUAL_STEP_SHELL}>
+      <div className={cn(MANUAL_STEP_SCROLL, scrollClassName)}>{children}</div>
+    </motion.div>
+  )
+}
 
 /** Premium slide track for manual intake step transitions. */
 const MANUAL_STEP_MOTION = {
@@ -1124,11 +1142,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                     <AnimatePresence mode="wait">
                     {currentStep === "SERVICE_SELECT" ? (
-                      <motion.div
-                        key="SERVICE_SELECT"
-                        {...MANUAL_STEP_MOTION}
-                        className={MANUAL_STEP_FRAME}
-                      >
+                      <ManualStepScroller stepKey="SERVICE_SELECT">
+                        <div className="flex flex-col justify-start gap-4">
                         <ServiceQuoteCalculatorPanel
                           quote={liveQuote}
                           serviceTypeId={serviceTypeId}
@@ -1141,11 +1156,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         <p className="text-center text-[11px] text-muted-foreground">
                           Pick a service — key jobs open vehicle info; lockouts jump to contact.
                         </p>
-                      </motion.div>
+                        </div>
+                      </ManualStepScroller>
                     ) : null}
 
                     {currentStep === "VEHICLE_INFO" ? (
-                      <motion.div key="VEHICLE_INFO" {...MANUAL_STEP_MOTION} className={MANUAL_STEP_FRAME}>
+                      <ManualStepScroller stepKey="VEHICLE_INFO">
                         <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Vehicle year · make · model
@@ -1163,11 +1179,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             onChange={handleManualVehicleChange}
                           />
                         </fieldset>
-                      </motion.div>
+                      </ManualStepScroller>
                     ) : null}
 
                     {currentStep === "KEY_SPECIFICS" ? (
-                      <motion.div key="KEY_SPECIFICS" {...MANUAL_STEP_MOTION} className={MANUAL_STEP_FRAME}>
+                      <ManualStepScroller stepKey="KEY_SPECIFICS">
                         <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Key specifics
@@ -1202,11 +1218,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             onVariantSelected={handleManualKeyVariantSelected}
                           />
                         </fieldset>
-                      </motion.div>
+                      </ManualStepScroller>
                     ) : null}
 
                     {currentStep === "ADDRESS_CONTACT" ? (
-                      <motion.div key="ADDRESS_CONTACT" {...MANUAL_STEP_MOTION} className={MANUAL_STEP_FRAME}>
+                      <ManualStepScroller stepKey="ADDRESS_CONTACT">
                         <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Customer &amp; location
@@ -1254,15 +1270,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             </p>
                           </div>
                         </fieldset>
-                      </motion.div>
+                      </ManualStepScroller>
                     ) : null}
 
                     {currentStep === "FINAL_DISPATCH" ? (
-                      <motion.div
-                        key="FINAL_DISPATCH"
-                        {...MANUAL_STEP_MOTION}
-                        className={cn(MANUAL_STEP_FRAME, "pb-4")}
-                      >
+                      <ManualStepScroller stepKey="FINAL_DISPATCH">
+                        <div className="flex flex-col justify-start gap-4">
                         <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
                           <p className="font-medium text-foreground">
                             {form.displayName.trim() || "Customer"}
@@ -1291,7 +1304,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           onServiceTypeChange={handleManualServiceTypeChange}
                           variant="breakdown-only"
                         />
-                      </motion.div>
+                        </div>
+                      </ManualStepScroller>
                     ) : null}
                     </AnimatePresence>
                   </div>
