@@ -987,6 +987,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setVehicle]
   )
 
+  const handleManualKeyVariantSelected = useCallback(() => {
+    setCurrentStep("ADDRESS_CONTACT")
+  }, [])
+
   const handleManualAddressChange = useCallback(
     (addr: StructuredAddress | null) => {
       setServiceAddress(addr)
@@ -1163,6 +1167,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                             Key specifics
                           </legend>
+                          <p className="text-[11px] text-primary/90">
+                            Tap the key layout that matches — we slide forward to location automatically.
+                          </p>
                           <VehicleIntakeClarificationsPanel
                             year={form.vehicleYear}
                             make={form.vehicleMake}
@@ -1187,6 +1194,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 : null
                             }
                             onChange={(sel) => setVehicleKeySelection(sel)}
+                            onVariantSelected={handleManualKeyVariantSelected}
                           />
                         </fieldset>
 
@@ -1609,11 +1617,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         </Button>
                         <Button
                           type="button"
+                          variant={form.keyVariantId.trim() ? "outline" : "default"}
                           size="lg"
                           className="h-11 min-w-0 flex-1"
                           onClick={() => setCurrentStep("ADDRESS_CONTACT")}
                         >
-                          Next: Location &amp; Contact
+                          {form.keyVariantId.trim()
+                            ? "Continue to location"
+                            : "Next: Location & Contact"}
                         </Button>
                       </div>
                     ) : null}

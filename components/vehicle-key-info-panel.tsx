@@ -3,6 +3,7 @@
 // Key / remote reference panel — FCC IDs grouped with photos and compatible vehicles per FCC.
 
 import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
 import { ExternalLink, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
@@ -87,6 +88,8 @@ type VehicleKeyInfoPanelProps = {
   model: string
   value: VehicleKeySelection | null
   onChange: (next: VehicleKeySelection | null) => void
+  /** Fired when a key layout variant card is tapped — use to auto-advance intake steps. */
+  onVariantSelected?: (selection: VehicleKeySelection) => void
   disabled?: boolean
 }
 
@@ -172,17 +175,21 @@ function VariantGrid({
         )
         const cardLabel = buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel
         return (
-          <button
+          <motion.button
             key={variant.id}
             type="button"
+            layout
+            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
             disabled={disabled}
             onClick={() => onPick(variant)}
             className={cn(
-              "flex flex-col overflow-hidden rounded-lg border text-left transition-colors",
+              "flex touch-manipulation flex-col overflow-hidden rounded-lg border text-left transition-colors",
               selected
-                ? "border-primary bg-primary/15 ring-1 ring-primary/40"
+                ? "border-primary bg-primary/15 ring-2 ring-primary/50"
                 : "border-border/70 bg-background hover:border-primary/50"
             )}
+            aria-pressed={selected}
           >
             <div className="flex h-20 items-center justify-center bg-muted/30 p-1">
               {variant.image_url ? (
@@ -214,7 +221,7 @@ function VariantGrid({
                       </span>
                     ) : null}
             </div>
-          </button>
+          </motion.button>
         )
       })}
     </div>
@@ -227,6 +234,7 @@ export function VehicleKeyInfoPanel({
   model,
   value,
   onChange,
+  onVariantSelected,
   disabled,
 }: VehicleKeyInfoPanelProps) {
   const [loading, setLoading] = useState(false)
@@ -351,7 +359,7 @@ export function VehicleKeyInfoPanel({
 
   const applyVariant = (p: KeyProfile, variant: FccVariant) => {
     setSelectedKeyId(variant.id)
-    onChange({
+    const selection: VehicleKeySelection = {
       profileId: p.id,
       fccId: p.fcc_id,
       frequency: p.frequency,
@@ -364,7 +372,9 @@ export function VehicleKeyInfoPanel({
         KEY_STYLE_OPTIONS
       ),
       variantId: variant.id,
-    })
+    }
+    onChange(selection)
+    onVariantSelected?.(selection)
   }
 
   const resetKeySelection = () => {
