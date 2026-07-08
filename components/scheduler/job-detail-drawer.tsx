@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { JobDetailOverview } from "@/components/scheduler/job-detail-overview"
-import { JobEditWorkflow, type JobEditWorkflowStep } from "@/components/scheduler/job-edit-workflow"
+import { JobEditWorkflow } from "@/components/scheduler/job-edit-workflow"
 import {
   SchedulerJobSlideSheet,
   SchedulerJobSheetCloseButton,
@@ -38,7 +38,6 @@ import { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
-import type { VehicleClarificationOption } from "@/lib/vehicle-intake-clarifications"
 import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 type JobDetailViewMode = "overview" | "edit"
@@ -93,7 +92,6 @@ export function JobDetailDrawer({
   const [keyStyle, setKeyStyle] = useState("")
   const [keyVariantId, setKeyVariantId] = useState("")
   const [keyProfileId, setKeyProfileId] = useState("")
-  const [answeredClarificationIds, setAnsweredClarificationIds] = useState<string[]>([])
   const [editablePrice, setEditablePrice] = useState("")
   const [priceOverridden, setPriceOverridden] = useState(false)
   const [negotiationDiscountApplied, setNegotiationDiscountApplied] =
@@ -113,7 +111,6 @@ export function JobDetailDrawer({
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<JobDetailViewMode>("overview")
   const [assigningTechId, setAssigningTechId] = useState<string | null>(null)
-  const startInputRef = useRef<HTMLInputElement>(null)
   const userPickedScheduleRef = useRef(false)
   const lastAutoSavedLocalRef = useRef<string | null>(null)
   const dispatcherLocation = useDispatcherLocation(open && Boolean(jobId))
@@ -217,78 +214,10 @@ export function JobDetailDrawer({
     vehicleYear,
   ])
 
-  const clearKeySelection = useCallback(() => {
-    setKeyFccId("")
-    setKeyFrequency("")
-    setKeyChipset("")
-    setKeyStyle("")
-    setKeyVariantId("")
-    setKeyProfileId("")
-  }, [])
-
-  const setVehicle = useCallback(
-    (vehicle: { vehicle_year: string; vehicle_make: string; vehicle_model: string }) => {
-      setVehicleYear(vehicle.vehicle_year)
-      setVehicleMake(vehicle.vehicle_make)
-      setVehicleModel(vehicle.vehicle_model)
-      clearKeySelection()
-      setAnsweredClarificationIds([])
-    },
-    [clearKeySelection]
-  )
-
-  const applyVehicleClarification = useCallback(
-    (promptId: string, option: VehicleClarificationOption) => {
-      setAnsweredClarificationIds((prev) =>
-        prev.includes(promptId) ? prev : [...prev, promptId]
-      )
-      if (option.make?.trim()) setVehicleMake(option.make.trim())
-      if (option.model?.trim()) setVehicleModel(option.model.trim())
-      const noteLine = option.note?.trim()
-      if (noteLine && !jobNotes.includes(noteLine)) {
-        setJobNotes((prev) => (prev.trim() ? `${prev.trim()} · ${noteLine}` : noteLine))
-      }
-      if (option.model || option.make) clearKeySelection()
-    },
-    [clearKeySelection, jobNotes]
-  )
-
-  const setVehicleKeySelection = useCallback(
-    (
-      sel: {
-        profileId: string
-        fccId: string
-        frequency: string | null
-        chipset: string | null
-        keyStyle: string
-        variantId?: string | null
-      } | null
-    ) => {
-      setKeyProfileId(sel?.profileId ?? "")
-      setKeyFccId(sel?.fccId ?? "")
-      setKeyFrequency(sel?.frequency ?? "")
-      setKeyChipset(sel?.chipset ?? "")
-      setKeyStyle(sel?.keyStyle ?? "")
-      setKeyVariantId(sel?.variantId ?? "")
-    },
-    []
-  )
-
   const handleServiceTypeChange = useCallback((id: ServiceQuoteTypeId) => {
     setServiceQuoteTypeId(id)
     setPriceOverridden(false)
   }, [])
-
-  const handleNegotiationApply = useCallback((dollars: number, discountId: NegotiationDiscountId) => {
-    setEditablePrice(String(dollars))
-    setPriceOverridden(true)
-    setNegotiationDiscountApplied(discountId)
-  }, [])
-
-  const assignableTechs = useMemo(
-    () => technicians.filter((t) => t.is_active && t.portal_user_id),
-    [technicians]
-  )
 
   const poolWithTech = poolJob as (UnassignedPoolJob & {
     job_status?: string | null
@@ -301,10 +230,6 @@ export function JobDetailDrawer({
     assigned_tech_id: scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? null,
   })
   const statusLabel = SCHEDULER_STATUS_LABEL[lifecyclePhase]
-
-  const hasAssignedTech = Boolean(
-    scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? assignedTechId.trim()
-  )
 
   useEffect(() => {
     if (!source) return
@@ -325,7 +250,6 @@ export function JobDetailDrawer({
     setKeyStyle(source.key_style ?? "")
     setKeyVariantId(source.key_variant_id ?? "")
     setKeyProfileId(source.key_profile_id ?? "")
-    setAnsweredClarificationIds([])
     const savedCents = source.quoted_price_cents ?? 0
     setEditablePrice(savedCents > 0 ? String(Math.round(savedCents / 100)) : "")
     setPriceOverridden(savedCents > 0)
@@ -384,12 +308,6 @@ export function JobDetailDrawer({
     if (!source || priceOverridden) return
     setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
   }, [source, autoTotalDollars, priceOverridden, serviceQuoteTypeId, vehicleYear, vehicleMake, vehicleModel, keyStyle, keyChipset, keyVariantId])
-
-  useEffect(() => {
-    if (!scheduleIntent || !open) return
-    const timer = window.setTimeout(() => startInputRef.current?.focus(), 80)
-    return () => window.clearTimeout(timer)
-  }, [scheduleIntent, open, jobId])
 
   useEffect(() => {
     if (!scheduleIntent || !open || !userPickedScheduleRef.current) return
@@ -475,39 +393,6 @@ export function JobDetailDrawer({
     setStartLocal(startLocalFromIso(event.scheduled_at))
     setAssignedTechId(event.assigned_tech_id ?? "")
   }, [])
-
-  async function handleStatusChange(
-    nextStatus: "assigned" | "en_route" | "arrived" | "completed"
-  ) {
-    if (!jobId || statusUpdating) return
-    if (nextStatus !== "completed" && !hasAssignedTech) {
-      setError("Assign a technician before updating field status.")
-      return
-    }
-    setStatusUpdating(true)
-    setError(null)
-    setLocalJobStatus(nextStatus)
-    try {
-      const res = await fetch(`/api/owner/jobs/${encodeURIComponent(jobId)}/status`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      })
-      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
-      if (!res.ok) throw new Error(json.error ?? "Could not update status")
-      const event = json.data?.event
-      if (event) {
-        setLocalJobStatus(event.job_status ?? nextStatus)
-        onStatusChanged?.(event)
-      }
-    } catch (e) {
-      setLocalJobStatus(scheduledEvent?.job_status ?? poolWithTech?.job_status ?? null)
-      setError(e instanceof Error ? e.message : "Could not update status")
-    } finally {
-      setStatusUpdating(false)
-    }
-  }
 
   async function handleSave(options?: { fromScheduleIntent?: boolean }): Promise<boolean> {
     if (!jobId) {
@@ -608,7 +493,6 @@ export function JobDetailDrawer({
         ? Math.round(liveQuote.totalCents / 100)
         : null
   const discountLabel = negotiationDiscountLabel(negotiationDiscountApplied)
-  const editInitialStep: JobEditWorkflowStep = scheduleIntent ? "DISPATCH" : "CUSTOMER"
 
   const requestClose = useCallback(() => {
     if (Date.now() - openedAtRef.current < 400) return
@@ -641,37 +525,16 @@ export function JobDetailDrawer({
               key={`${jobId}-edit`}
               statusLabel={statusLabel}
               lifecyclePhase={lifecyclePhase}
-              initialStep={editInitialStep}
               customerName={customerName}
               customerPhone={customerPhone}
               location={location}
               jobNotes={jobNotes}
               serviceQuoteTypeId={serviceQuoteTypeId}
-              vehicleYear={vehicleYear}
-              vehicleMake={vehicleMake}
-              vehicleModel={vehicleModel}
-              keyFccId={keyFccId}
-              keyFrequency={keyFrequency}
-              keyChipset={keyChipset}
-              keyStyle={keyStyle}
-              keyVariantId={keyVariantId}
-              keyProfileId={keyProfileId}
-              answeredClarificationIds={answeredClarificationIds}
               editablePrice={editablePrice}
-              priceOverridden={priceOverridden}
-              negotiationDiscountApplied={negotiationDiscountApplied}
-              liveQuote={liveQuote}
-              startLocal={startLocal}
-              durationMinutes={durationMinutes}
-              assignedTechId={assignedTechId}
-              assignableTechs={assignableTechs}
-              hasAssignedTech={hasAssignedTech}
-              statusUpdating={statusUpdating}
               saving={saving}
               deleting={deleting}
               canSave={canSave}
               error={error}
-              startInputRef={startInputRef}
               onBackToOverview={() => setViewMode("overview")}
               onCustomerNameChange={setCustomerName}
               onCustomerPhoneChange={setCustomerPhone}
@@ -682,23 +545,6 @@ export function JobDetailDrawer({
                 setEditablePrice(value)
                 setPriceOverridden(true)
               }}
-              onEditablePriceBlur={() => {
-                if (!editablePrice.trim()) {
-                  setPriceOverridden(false)
-                  setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-                }
-              }}
-              onNegotiationApply={handleNegotiationApply}
-              onVehicleChange={setVehicle}
-              onVehicleClarification={applyVehicleClarification}
-              onVehicleKeySelection={setVehicleKeySelection}
-              onStartLocalChange={(value) => {
-                userPickedScheduleRef.current = true
-                setStartLocal(value)
-              }}
-              onDurationChange={setDurationMinutes}
-              onAssignedTechChange={setAssignedTechId}
-              onStatusChange={(status) => void handleStatusChange(status)}
               onSave={() => handleSave()}
               onSaveSuccess={() => setViewMode("overview")}
               onDeleteRequest={() => setDeleteConfirmOpen(true)}
