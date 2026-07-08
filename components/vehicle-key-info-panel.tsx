@@ -154,6 +154,28 @@ function manualOptionCardModel(option: ManualKeyFrequencyOption): KeySelectionCa
   }
 }
 
+function KeyThumbnail({ imageUrl, label }: { imageUrl: string | null; label: string }) {
+  const [failed, setFailed] = useState(false)
+  const showImage = Boolean(imageUrl) && !failed
+
+  return (
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
+        <img
+          src={imageUrl!}
+          alt={label}
+          loading="lazy"
+          className="h-full w-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="text-xs text-slate-500">No Pic</span>
+      )}
+    </div>
+  )
+}
+
 function KeySelectionCard({
   card,
   selected,
@@ -199,14 +221,7 @@ function KeySelectionCard({
             Ref
           </span>
         ) : null}
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
-          {card.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
-            <img src={card.imageUrl} alt={card.label} loading="lazy" className="h-full w-full object-contain" />
-          ) : (
-            <span className="text-xs text-slate-500">No Pic</span>
-          )}
-        </div>
+        <KeyThumbnail imageUrl={card.imageUrl} label={card.label} />
         <div className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-foreground">{card.label}</span>
           {card.description ? (

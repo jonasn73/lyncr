@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" rx="12" fill="#0f172a"/>
+  <rect x="44" y="14" width="32" height="34" rx="10" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+  <path d="M60 48 L60 98 L52 106 L68 106 Z" fill="#475569" stroke="#94a3b8" stroke-width="1.5"/>
+  <path d="M56 58 L64 58 M56 68 L64 68 M56 78 L64 78" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+  <text x="60" y="112" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="system-ui,sans-serif">Laser Blade</text>
+</svg>

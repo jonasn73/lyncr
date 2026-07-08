@@ -15,7 +15,7 @@ describe("mykeys-pro-database", () => {
     expect(profile?.fccId).toBe("WAX12DH45")
     expect(profile?.keys).toHaveLength(2)
     expect(profile?.keys[0]?.method).toBe("OBD2 Bypass (3-Min Delay)")
-    expect(profile?.keys[0]?.img).toContain("mazda-cx90.png")
+    expect(profile?.keys[0]?.img).toBe("/key-images/mykeys/mazda-cx90-prox.svg")
   })
 
   it("maps vehicle-specific MKP rows into intake cards", () => {
@@ -23,7 +23,7 @@ describe("mykeys-pro-database", () => {
     expect(options).toHaveLength(1)
     expect(options[0]?.label).toBe("Proximity Smart Key")
     expect(options[0]?.programmingMethod).toBe("Active Dashboard Turn Sequence")
-    expect(options[0]?.imageUrl).toContain("subaru-prox.png")
+    expect(options[0]?.imageUrl).toBe("/key-images/mykeys/subaru-prox.svg")
     expect(options[0]?.fccId).toBe("HYQ14AHK")
   })
 

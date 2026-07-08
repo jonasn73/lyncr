@@ -26,12 +26,12 @@ export const MYKEYS_PRO_DATABASE: Record<string, MykeysProVehicleProfile> = {
       {
         type: "Proximity Smart Key",
         method: "OBD2 Bypass (3-Min Delay)",
-        img: "https://images.tlbx.app/fobs/mazda-cx90.png",
+        img: "/key-images/mykeys/mazda-cx90-prox.svg",
       },
       {
         type: "High-Security Edge Cut",
         method: "Mechanical Cut (Laser)",
-        img: "https://images.tlbx.app/fobs/mazda-blade.png",
+        img: "/key-images/mykeys/mazda-blade.svg",
       },
     ],
   },
@@ -41,7 +41,7 @@ export const MYKEYS_PRO_DATABASE: Record<string, MykeysProVehicleProfile> = {
       {
         type: "Proximity Smart Key",
         method: "Active Dashboard Turn Sequence",
-        img: "https://images.tlbx.app/fobs/subaru-prox.png",
+        img: "/key-images/mykeys/subaru-prox.svg",
       },
     ],
   },
