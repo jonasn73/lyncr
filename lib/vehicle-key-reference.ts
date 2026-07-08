@@ -3,6 +3,7 @@
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 
 export type VehicleKeyProfile = {
   /** Row index in the reference file (stable id for UI selection). */
@@ -322,7 +323,52 @@ export function fccGovSearchUrl(fccId: string): string {
 
 /** Normalize FCC IDs so `N5F-A08TAA` and `N5FA08TAA` match the same reference rows. */
 export function normalizeFccIdForMatch(raw: string): string {
-  return raw.trim().replace(/[\s-]+/g, "").toUpperCase()
+  return sanitizeFccIdInput(raw)
+}
+
+export type VehicleKeyLookupSource = "fcc" | "ymm" | "ymm_fallback"
+
+/** All reference rows sharing a sanitized FCC ID (any vehicle). */
+export function lookupProfilesByFccId(fccIdRaw: string): VehicleKeyProfile[] {
+  const key = sanitizeFccIdInput(fccIdRaw)
+  if (!key) return []
+  return dedupeProfiles(loadProfiles().filter((row) => sanitizeFccIdInput(row.fcc_id) === key))
+}
+
+/**
+ * Try FCC ID first when provided; otherwise (or on miss) return all remotes for year/make/model.
+ */
+export function lookupVehicleKeyInfo(
+  yearRaw: string | number,
+  makeRaw: string,
+  modelRaw: string,
+  fccIdRaw?: string | null
+): (VehicleKeyLookupResult & { lookup_source: VehicleKeyLookupSource }) | null {
+  const year = typeof yearRaw === "number" ? yearRaw : Number(String(yearRaw).trim())
+  const make = makeRaw.trim()
+  const model = modelRaw.trim()
+  if (!Number.isFinite(year) || year < 1980 || !make || !model) return null
+
+  const sanitizedFcc = fccIdRaw ? sanitizeFccIdInput(fccIdRaw) : ""
+  if (sanitizedFcc) {
+    const fccProfiles = lookupProfilesByFccId(sanitizedFcc)
+    if (fccProfiles.length > 0) {
+      const ymm = lookupVehicleKeyProfiles(yearRaw, makeRaw, modelRaw)
+      const matchedModel = ymm?.matched_model ?? model
+      const matchType = ymm?.match_type ?? "exact"
+      return {
+        ...buildLookupResult(year, make, model, matchedModel, matchType, fccProfiles),
+        lookup_source: "fcc",
+      }
+    }
+  }
+
+  const ymm = lookupVehicleKeyProfiles(yearRaw, makeRaw, modelRaw)
+  if (!ymm || ymm.profiles.length === 0) return null
+  return {
+    ...ymm,
+    lookup_source: sanitizedFcc ? "ymm_fallback" : "ymm",
+  }
 }
 
 export type CompatibleVehicle = {

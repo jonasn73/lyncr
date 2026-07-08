@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { lookupFccRemoteVariants } from "@/lib/fccid-remote-variants"
 
 export const maxDuration = 30
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
-  const fccId = req.nextUrl.searchParams.get("fcc_id")?.trim() ?? ""
+  const fccId = sanitizeFccIdInput(req.nextUrl.searchParams.get("fcc_id") ?? "")
   const yearRaw = req.nextUrl.searchParams.get("year")?.trim() ?? ""
   const make = req.nextUrl.searchParams.get("make")?.trim() ?? ""
   const model = req.nextUrl.searchParams.get("model")?.trim() ?? ""

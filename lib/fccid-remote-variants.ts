@@ -1,7 +1,7 @@
 // Fetch and parse replacement-key listings from fccid.io for a given FCC ID + vehicle.
 // Server-only — used by /api/vehicle/fcc-detail (not bundled to the client).
 
-import { isKeyReferenceCacheOnly } from "@/lib/key-reference-config"
+import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { attachLocalBundledPhotos } from "@/lib/local-key-images"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -44,7 +44,7 @@ function loadStaticParsedByFcc(): Record<string, FccRemoteVariant[]> {
 }
 
 function normalizeFccId(raw: string): string {
-  return raw.trim().replace(/\s+/g, "").toUpperCase()
+  return sanitizeFccIdInput(raw)
 }
 
 function normalizeToken(value: string): string {

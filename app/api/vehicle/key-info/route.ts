@@ -1,13 +1,15 @@
-// GET /api/vehicle/key-info?year=2017&make=Toyota&model=RAV4
+// GET /api/vehicle/key-info?year=2017&make=Toyota&model=RAV4&fcc_id=HYQ12BBT
 // Returns FCC profiles grouped with key photos and compatible vehicles per FCC ID.
+// When fcc_id misses, automatically falls back to year/make/model remotes.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { lookupFccRemoteVariants } from "@/lib/fccid-remote-variants"
 import {
   formatCompatibleVehicleSummary,
   lookupCompatibleVehiclesForFcc,
-  lookupVehicleKeyProfiles,
+  lookupVehicleKeyInfo,
 } from "@/lib/vehicle-key-reference"
 
 export const maxDuration = 30
@@ -19,6 +21,8 @@ export async function GET(req: NextRequest) {
   const yearRaw = req.nextUrl.searchParams.get("year")?.trim() ?? ""
   const make = req.nextUrl.searchParams.get("make")?.trim() ?? ""
   const model = req.nextUrl.searchParams.get("model")?.trim() ?? ""
+  const fccIdRaw = req.nextUrl.searchParams.get("fcc_id")?.trim() ?? ""
+  const sanitizedFcc = fccIdRaw ? sanitizeFccIdInput(fccIdRaw) : ""
   const year = Number(yearRaw)
 
   if (!yearRaw || !make || !model || !Number.isFinite(year)) {
@@ -26,9 +30,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = lookupVehicleKeyProfiles(yearRaw, make, model)
+    const result = lookupVehicleKeyInfo(yearRaw, make, model, sanitizedFcc || null)
     if (!result || result.profiles.length === 0) {
-      return NextResponse.json({ data: { key_info: result } })
+      return NextResponse.json({
+        data: {
+          key_info: null,
+          lookup_source: sanitizedFcc ? "ymm_fallback" : "ymm",
+          fcc_query: sanitizedFcc || null,
+          fcc_matched: false,
+        },
+      })
     }
 
     const profile_details = await Promise.all(
@@ -78,6 +89,9 @@ export async function GET(req: NextRequest) {
             ? "Some photos are reference images from the same FCC ID — always confirm the key on the vehicle."
             : "Photos and titles come from public FCC ID replacement listings. Always confirm the physical key on the vehicle before ordering.",
         },
+        lookup_source: result.lookup_source,
+        fcc_query: sanitizedFcc || null,
+        fcc_matched: result.lookup_source === "fcc",
       },
     })
   } catch (e) {
