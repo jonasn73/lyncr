@@ -12,7 +12,11 @@ export type ServiceQuoteTypeId =
   | "key_extraction"
   | "rekey"
   | "lock_installation"
+  | "safe_lockout"
+  | "keypad_smart_lock"
   | "commercial_hardware"
+  | "master_key_system"
+  | "door_closer_repair"
   | "other"
 
 /** Every service id shown in the intake quote calculator dropdown. */
@@ -25,7 +29,11 @@ export const SERVICE_QUOTE_TYPE_IDS: ServiceQuoteTypeId[] = [
   "key_extraction",
   "rekey",
   "lock_installation",
+  "safe_lockout",
+  "keypad_smart_lock",
   "commercial_hardware",
+  "master_key_system",
+  "door_closer_repair",
   "other",
 ]
 
@@ -130,7 +138,11 @@ export const DEFAULT_SERVICE_RATE_CARD: ServiceRateCard = {
     key_extraction: 12000,
     rekey: 14000,
     lock_installation: 16000,
+    safe_lockout: 17500,
+    keypad_smart_lock: 19500,
     commercial_hardware: 18000,
+    master_key_system: 24000,
+    door_closer_repair: 15000,
     other: 12000,
   },
   vehicle_age_tiers: [

@@ -64,11 +64,39 @@ export const SERVICE_QUOTE_TYPES = [
     dispatchLabel: "Lock Installation / Change",
   },
   {
+    id: "safe_lockout",
+    label: "Safe Lockout",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Safe Lockout",
+  },
+  {
+    id: "keypad_smart_lock",
+    label: "Keypad Smart Lock Install",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Keypad Smart Lock Install",
+  },
+  {
     id: "commercial_hardware",
     label: "Commercial Access Hardware",
     jobType: "Other" as IntakeLocksmithJobType,
     keyMode: "",
     dispatchLabel: "Commercial Access Hardware",
+  },
+  {
+    id: "master_key_system",
+    label: "Master Key System Setup",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Master Key System Setup",
+  },
+  {
+    id: "door_closer_repair",
+    label: "Door Closer Repair",
+    jobType: "Other" as IntakeLocksmithJobType,
+    keyMode: "",
+    dispatchLabel: "Door Closer Repair",
   },
   { id: "other", label: "Other Service", jobType: "Other" as IntakeLocksmithJobType, keyMode: "", dispatchLabel: "Other Service" },
 ] as const
@@ -246,6 +274,10 @@ export function serviceQuoteTypeIdFromIntake(jobType: string, keyMode: string): 
   if (normalizedJob.includes("installation") || normalizedJob.includes("lock change")) {
     return "lock_installation"
   }
+  if (normalizedJob.includes("safe")) return "safe_lockout"
+  if (normalizedJob.includes("keypad") || normalizedJob.includes("smart lock")) return "keypad_smart_lock"
+  if (normalizedJob.includes("master key")) return "master_key_system"
+  if (normalizedJob.includes("door closer")) return "door_closer_repair"
   if (normalizedJob.includes("commercial")) return "commercial_hardware"
   return "other"
 }

@@ -2,17 +2,20 @@
 
 // Live service quote breakdown for the answered-call quick booking sheet.
 
-import { memo } from "react"
-import { motion } from "framer-motion"
+import { memo, useMemo, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import {
   Building2,
   Copy,
   Cpu,
+  DoorClosed,
   Key,
   KeyRound,
   Lock,
   LockKeyhole,
+  Smartphone,
   Sparkles,
+  Vault,
   Wrench,
   type LucideIcon,
 } from "lucide-react"
@@ -26,6 +29,29 @@ import {
 import { estimateTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
+type ServiceSector = "automotive" | "residential" | "commercial"
+
+const SECTOR_ORDER: ServiceSector[] = ["automotive", "residential", "commercial"]
+
+const SECTOR_LABELS: Record<ServiceSector, string> = {
+  automotive: "Automotive",
+  residential: "Residential",
+  commercial: "Commercial",
+}
+
+const SECTOR_SERVICE_IDS: Record<ServiceSector, ServiceQuoteTypeId[]> = {
+  automotive: [
+    "lockout",
+    "key_generation",
+    "key_duplication",
+    "programming_diagnostics",
+    "ignition_repair",
+    "key_extraction",
+  ],
+  residential: ["rekey", "lock_installation", "safe_lockout", "keypad_smart_lock"],
+  commercial: ["commercial_hardware", "master_key_system", "door_closer_repair"],
+}
+
 const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
   lockout: KeyRound,
   key_generation: Sparkles,
@@ -35,7 +61,11 @@ const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
   key_extraction: Key,
   rekey: LockKeyhole,
   lock_installation: Lock,
+  safe_lockout: Vault,
+  keypad_smart_lock: Smartphone,
   commercial_hardware: Building2,
+  master_key_system: KeyRound,
+  door_closer_repair: DoorClosed,
   other: Wrench,
 }
 
@@ -48,51 +78,84 @@ const SERVICE_CARD_TAGS: Partial<Record<ServiceQuoteTypeId, string>> = {
   key_extraction: "Extract",
   rekey: "Re-key",
   lock_installation: "Install",
-  commercial_hardware: "Commercial",
+  safe_lockout: "Safe",
+  keypad_smart_lock: "Smart",
+  commercial_hardware: "Access",
+  master_key_system: "Master",
+  door_closer_repair: "Closer",
   other: "Custom",
 }
 
-type ServiceQuoteCalculatorPanelProps = {
-  quote: ServiceQuoteResult
-  serviceTypeId: ServiceQuoteTypeId
-  vehicleYear: string
-  vehicleMake: string
-  vehicleModel: string
-  onServiceTypeChange: (id: ServiceQuoteTypeId) => void
-  /** selector-only = step 1; breakdown-only = step 3; full = default */
-  variant?: "full" | "selector-only" | "breakdown-only"
-  className?: string
+function servicesForSector(sector: ServiceSector): (typeof SERVICE_QUOTE_TYPES)[number][] {
+  const ids = new Set<ServiceQuoteTypeId>([...SECTOR_SERVICE_IDS[sector], "other"])
+  return SERVICE_QUOTE_TYPES.filter((service) => ids.has(service.id))
 }
 
-export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
-  quote,
-  serviceTypeId,
-  vehicleYear,
-  vehicleMake,
-  vehicleModel,
-  onServiceTypeChange,
-  variant = "full",
-  className,
-}: ServiceQuoteCalculatorPanelProps) {
-  const showSelector = variant === "full" || variant === "selector-only"
-  const showBreakdown = variant === "full" || variant === "breakdown-only"
-  const selectedLabel =
-    SERVICE_QUOTE_TYPES.find((t) => t.id === serviceTypeId)?.label ?? "Selected service"
+type ServiceSectorSelectorProps = {
+  serviceTypeId: ServiceQuoteTypeId
+  onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+}
+
+function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange }: ServiceSectorSelectorProps) {
+  const [activeSector, setActiveSector] = useState<ServiceSector>("automotive")
+  const [sectorDirection, setSectorDirection] = useState(1)
+
+  const visibleServices = useMemo(() => servicesForSector(activeSector), [activeSector])
+
+  const handleSectorChange = (next: ServiceSector) => {
+    const prevIndex = SECTOR_ORDER.indexOf(activeSector)
+    const nextIndex = SECTOR_ORDER.indexOf(next)
+    setSectorDirection(nextIndex >= prevIndex ? 1 : -1)
+    setActiveSector(next)
+  }
 
   return (
-    <fieldset
-      className={cn(
-        "grid gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3",
-        className
-      )}
-    >
-      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
-        Quick booking · service quote
-      </legend>
-      {showSelector ? (
-        <div className="my-4 grid grid-cols-2 gap-3">
-          <Label className="col-span-2 text-xs text-slate-300">Tap a service to continue</Label>
-          {SERVICE_QUOTE_TYPES.map((service) => {
+    <div className="my-4">
+      <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
+
+      <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5">
+        {SECTOR_ORDER.map((sector) => {
+          const active = activeSector === sector
+          return (
+            <button
+              key={sector}
+              type="button"
+              onClick={() => handleSectorChange(sector)}
+              className={cn(
+                "relative min-h-10 touch-manipulation rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition-colors",
+                active ? "text-emerald-100" : "text-slate-400 hover:text-slate-200"
+              )}
+              aria-pressed={active}
+            >
+              {active ? (
+                <motion.span
+                  layoutId="activeSectorPill"
+                  className="absolute inset-0 rounded-lg border border-emerald-500/40 bg-emerald-500/15 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              ) : null}
+              <span className="relative z-10">{SECTOR_LABELS[sector]}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <AnimatePresence mode="popLayout" initial={false} custom={sectorDirection}>
+        <motion.div
+          key={activeSector}
+          custom={sectorDirection}
+          variants={{
+            enter: (direction: number) => ({ opacity: 0, x: direction * 36, scale: 0.98 }),
+            center: { opacity: 1, x: 0, scale: 1 },
+            exit: (direction: number) => ({ opacity: 0, x: direction * -36, scale: 0.98 }),
+          }}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ type: "spring", stiffness: 320, damping: 30 }}
+          className="grid grid-cols-2 gap-3"
+        >
+          {visibleServices.map((service) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
             const tag = SERVICE_CARD_TAGS[service.id] ?? "Service"
             const active = serviceTypeId === service.id
@@ -142,7 +205,54 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               </motion.button>
             )
           })}
-        </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
+type ServiceQuoteCalculatorPanelProps = {
+  quote: ServiceQuoteResult
+  serviceTypeId: ServiceQuoteTypeId
+  vehicleYear: string
+  vehicleMake: string
+  vehicleModel: string
+  onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+  /** selector-only = step 1; breakdown-only = step 3; full = default */
+  variant?: "full" | "selector-only" | "breakdown-only"
+  className?: string
+}
+
+export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
+  quote,
+  serviceTypeId,
+  vehicleYear,
+  vehicleMake,
+  vehicleModel,
+  onServiceTypeChange,
+  variant = "full",
+  className,
+}: ServiceQuoteCalculatorPanelProps) {
+  const showSelector = variant === "full" || variant === "selector-only"
+  const showBreakdown = variant === "full" || variant === "breakdown-only"
+  const selectedLabel =
+    SERVICE_QUOTE_TYPES.find((t) => t.id === serviceTypeId)?.label ?? "Selected service"
+
+  return (
+    <fieldset
+      className={cn(
+        "grid gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3",
+        className
+      )}
+    >
+      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
+        Quick booking · service quote
+      </legend>
+      {showSelector ? (
+        <ServiceSectorSelector
+          serviceTypeId={serviceTypeId}
+          onServiceTypeChange={onServiceTypeChange}
+        />
       ) : null}
       {showBreakdown ? (
       <div
