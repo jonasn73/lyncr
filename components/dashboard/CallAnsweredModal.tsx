@@ -36,6 +36,7 @@ import {
   type ActiveCallRow,
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { manualIntakeStepAfterService } from "@/lib/service-sector-routing"
 import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
 import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
@@ -100,6 +101,31 @@ function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): Work
   const idx = path.indexOf(current)
   if (idx <= 0) return null
   return path[idx - 1] ?? null
+}
+
+function IntakeStepProgress({ path, currentStep }: { path: WorkflowStep[]; currentStep: WorkflowStep }) {
+  const currentIndex = Math.max(0, path.indexOf(currentStep))
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 border-b border-border/60 px-4 py-1.5">
+      {path.map((step, index) => {
+        const active = step === currentStep
+        const done = index < currentIndex
+        return (
+          <div
+            key={step}
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+              active ? "bg-primary" : done ? "bg-primary/50" : "bg-muted"
+            )}
+            title={WORKFLOW_STEP_LABELS[step]}
+          />
+        )
+      })}
+      <span className="truncate text-xs font-semibold text-foreground">
+        {WORKFLOW_STEP_LABELS[currentStep]}
+      </span>
+    </div>
+  )
 }
 
 function ManualIntakeToolbar({
@@ -1046,7 +1072,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
   const manualPath = useMemo(() => manualWorkflowPath(serviceTypeId), [serviceTypeId])
-  const isManualIntake = Boolean(manualCallRow?.isManual)
+  const isManual = Boolean(effectiveCurrent?.isManual)
+  const isMobile = useIsMobile()
+  /** Step-by-step intake on manual walk-ins and on mobile for real answered calls. */
+  const stepIntake = isManual || isMobile
   const canAdvanceToDispatch = useMemo(
     () =>
       Boolean(
@@ -1059,12 +1088,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   /** Auto-advance when name + address are ready on the contact step. */
   useEffect(() => {
-    if (!isManualIntake) return
+    if (!stepIntake) return
     if (currentStep !== "ADDRESS_CONTACT") return
     if (!canAdvanceToDispatch) return
     const timer = window.setTimeout(() => setCurrentStep("FINAL_DISPATCH"), 450)
     return () => window.clearTimeout(timer)
-  }, [isManualIntake, currentStep, canAdvanceToDispatch])
+  }, [stepIntake, currentStep, canAdvanceToDispatch])
 
   /** Jump to top of the step panel whenever the workflow advances (mobile was stacking steps below). */
   useEffect(() => {
@@ -1077,7 +1106,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     effectiveCurrent != null &&
     (effectiveCurrent.manualCallStatus === "ringing" ||
       (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
-  const isManual = Boolean(effectiveCurrent?.isManual)
   const isPriceTooHigh = failureReason === "Price too high"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
@@ -1136,17 +1164,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
             )}
+            {stepIntake && !isManual ? (
+              <IntakeStepProgress path={manualPath} currentStep={currentStep} />
+            ) : null}
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div
                 className={cn(
                   "flex min-h-0 flex-1 flex-col",
-                  isManual
+                  stepIntake
                     ? "overflow-hidden px-4 py-2"
                     : "space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4"
                 )}
               >
-                {isManual ? (
+                {stepIntake ? (
                   <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.div
@@ -1656,7 +1687,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               </div>
 
               <div className="sticky bottom-0 shrink-0 space-y-1.5 border-t border-slate-800 bg-slate-900 p-2">
-                {isManual ? (
+                {stepIntake ? (
                   <>
                     {currentStep === "KEY_SPECIFICS" ? (
                       <div className="flex gap-2">
