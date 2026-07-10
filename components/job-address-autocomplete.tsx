@@ -2,7 +2,7 @@
 
 // Validated structured job-site address — must pick a complete suggestion.
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react"
 import { createPortal } from "react-dom"
 import { Loader2, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -29,19 +29,29 @@ type JobAddressAutocompleteProps = {
   disabled?: boolean
 }
 
+export type JobAddressAutocompleteHandle = {
+  focus: () => void
+}
+
 function suggestionLabel(s: AddressSuggestion): string {
   return s.label?.trim() || s.formatted?.trim() || ""
 }
 
-export function JobAddressAutocomplete({
-  value,
-  onChange,
-  seedQuery = "",
-  onQueryCommit,
-  placeholder = "123 Main St, city, state ZIP",
-  className,
-  disabled,
-}: JobAddressAutocompleteProps) {
+export const JobAddressAutocomplete = forwardRef<
+  JobAddressAutocompleteHandle,
+  JobAddressAutocompleteProps
+>(function JobAddressAutocomplete(
+  {
+    value,
+    onChange,
+    seedQuery = "",
+    onQueryCommit,
+    placeholder = "123 Main St, city, state ZIP",
+    className,
+    disabled,
+  },
+  ref
+) {
   const [query, setQuery] = useState(value?.formatted ?? "")
   const [validated, setValidated] = useState(Boolean(value && isCompleteStructuredAddress(value)))
   const [open, setOpen] = useState(false)
@@ -59,6 +69,10 @@ export function JobAddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLUListElement>(null)
   const portalRef = useRef<HTMLElement | null>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+  }))
 
   const resolvePortalTarget = useCallback((): HTMLElement => {
     if (typeof document === "undefined") return document.body
@@ -261,6 +275,7 @@ export function JobAddressAutocomplete({
         <input
           ref={inputRef}
           type="text"
+          data-intake-primary-search=""
           className={cn(
             "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-9 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
             validated && "border-emerald-500/50",
@@ -302,7 +317,7 @@ export function JobAddressAutocomplete({
       ) : null}
     </div>
   )
-}
+})
 
 export function structuredAddressFromFormValue(raw: unknown): StructuredAddress | null {
   if (!raw || typeof raw !== "object") return null

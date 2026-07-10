@@ -255,9 +255,9 @@ export function comparePoolJobsByBookingPriority(
 }
 
 export const POOL_JOB_PRIORITY_CARD_CLASS: Record<PoolJobBookingPriority, string> = {
-  CRITICAL: "border-l-4 border-rose-500 bg-rose-950/10",
-  HIGH: "border-l-4 border-amber-500 bg-amber-950/5",
-  LOW: "border-l-4 border-slate-700",
+  CRITICAL: "border-l-4 border-l-rose-500",
+  HIGH: "border-l-4 border-l-amber-500",
+  LOW: "border-l-4 border-l-transparent",
 }
 
 export const POOL_JOB_PRIORITY_BADGE_LABEL: Record<PoolJobBookingPriority, string> = {

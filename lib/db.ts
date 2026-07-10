@@ -7258,6 +7258,8 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     vehicle_make: pick(["vehicle_make", "make"]),
     vehicle_model: pick(["vehicle_model", "model"]),
     vehicle_vin: pick(["vehicle_vin", "vin"]),
+    vin: pick(["vehicle_vin", "vin"]),
+    programming_method: pick(["programming_method"]),
     job_notes: pick(["job_notes", "notes", "symptoms"]),
     region: pick(["region", "state"]),
     postal_code: pick(["postal_code", "job_address_postal_code", "zip_code", "zipCode"]),
@@ -7281,6 +7283,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
       pick(["service_quote_type_id"]) ??
       (pricingMeta?.service_type_id != null ? String(pricingMeta.service_type_id) : null),
     key_fcc_id: pick(["key_fcc_id", "fcc_id"]),
+    fcc_id: pick(["key_fcc_id", "fcc_id"]),
     key_frequency: pick(["key_frequency"]),
     key_chipset: pick(["key_chipset", "chip_id"]),
     key_style: pick(["key_style"]),
@@ -7572,6 +7575,7 @@ export async function updateOwnerSchedulerJob(params: {
   keyStyle?: string | null
   keyVariantId?: string | null
   keyProfileId?: string | null
+  programmingMethod?: string | null
   discountApplied?: string | null
   baselineQuotedPriceCents?: number | null
   fieldVerificationRequired?: boolean | null
@@ -7689,6 +7693,9 @@ export async function updateOwnerSchedulerJob(params: {
   if (params.keyProfileId !== undefined) {
     collectedPatch.key_profile_id = params.keyProfileId?.trim() || null
   }
+  if (params.programmingMethod !== undefined) {
+    collectedPatch.programming_method = params.programmingMethod?.trim() || null
+  }
   if (params.quotedPriceCents != null && params.quotedPriceCents > 0) {
     collectedPatch.last_quoted_price_cents = Math.round(params.quotedPriceCents)
     collectedPatch.quoted_price_cents = Math.round(params.quotedPriceCents)
@@ -7734,8 +7741,12 @@ export async function updateOwnerSchedulerJob(params: {
     })
   }
 
-  const patchJson = JSON.stringify(collectedPatch)
   const scheduledAtIso = params.scheduledAtIso?.trim() || null
+  if (scheduledAtIso) {
+    collectedPatch.scheduled_at = scheduledAtIso
+  }
+
+  const patchJson = JSON.stringify(collectedPatch)
 
   try {
     if (scheduledAtIso) {
@@ -8114,6 +8125,9 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     vehicle_year: ev.vehicle_year,
     vehicle_make: ev.vehicle_make,
     vehicle_model: ev.vehicle_model,
+    vehicle_vin: ev.vehicle_vin,
+    vin: ev.vin,
+    programming_method: ev.programming_method,
     job_notes: ev.job_notes,
     region: ev.region,
     postal_code: ev.postal_code,
@@ -8129,6 +8143,7 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     quoted_price_cents: ev.quoted_price_cents,
     service_quote_type_id: ev.service_quote_type_id,
     key_fcc_id: ev.key_fcc_id,
+    fcc_id: ev.fcc_id,
     key_frequency: ev.key_frequency,
     key_chipset: ev.key_chipset,
     key_style: ev.key_style,

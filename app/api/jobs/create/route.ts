@@ -33,6 +33,8 @@ type CreateJobBody = {
   vehicle_vin?: string | null
   plate_number?: string | null
   plate_state?: string | null
+  programming_method?: string | null
+  scheduled_at?: string | null
   customer_lat?: number | null
   customer_lng?: number | null
   quoted_price_cents?: number | null
@@ -90,6 +92,8 @@ export async function POST(req: NextRequest) {
       vehicleVin: body.vehicle_vin?.trim() || null,
       plateNumber: body.plate_number?.trim() || null,
       plateState: body.plate_state?.trim() || null,
+      programmingMethod: body.programming_method?.trim() || null,
+      scheduledAtIso: body.scheduled_at?.trim() || null,
       pendingCallback: body.pending_callback === true,
       discountApplied: body.discount_applied?.trim() || null,
       baselineQuotedPriceCents:

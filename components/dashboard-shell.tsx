@@ -33,6 +33,7 @@ import {
   type DashboardSessionSnapshot,
   useDashboardSessionOptional,
 } from "@/components/dashboard-session-context"
+import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
 
 const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "scheduler", "help"]
 
@@ -206,6 +207,7 @@ export function DashboardShell({
                     <DashboardSettingsModalsLazyHost sessionSeed={settingsSessionSeed} />
                   </Suspense>
                   <LeadsWorkspaceInitialProvider initial={initialLeadsCache}>
+                    <DispatchCommandBridgeProvider>
                     <AppShell
                       pathname={pathname}
                       accountHeader={accountHeader}
@@ -216,6 +218,7 @@ export function DashboardShell({
                       </DashboardMainStreamGate>
                       <DashboardAnsweredCallPopup enabled={popupEnabled} />
                     </AppShell>
+                    </DispatchCommandBridgeProvider>
                   </LeadsWorkspaceInitialProvider>
                 </DashboardNumbersModalProvider>
               </DashboardBootstrapShellGate>

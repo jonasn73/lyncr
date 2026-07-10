@@ -1,5 +1,13 @@
 // Shared job lifecycle styling for scheduler cards, lists, and map markers.
 
+import {
+  SCHEDULER_GLASS_CARD,
+  SCHEDULER_INTERACTIVE_HOVER,
+  SCHEDULER_LIST_CARD_SHELL,
+} from "@/lib/scheduler-ui-tokens"
+
+export { SCHEDULER_LIST_CARD_SHELL }
+
 /** Louisville, KY — default map center for Key Squad / local field ops. */
 export const LOUISVILLE_MAP_CENTER = { lat: 38.2527, lng: -85.7585 } as const
 export const LOUISVILLE_DEFAULT_ZOOM = 11
@@ -54,18 +62,17 @@ export const SCHEDULER_BADGE_STYLE: Record<SchedulerLifecyclePhase, string> = {
   completed: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
 }
 
-/** Subtle list-card shell — phase color only on the status badge, not the whole row. */
-export const SCHEDULER_LIST_CARD_SHELL =
-  "relative w-full rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 pb-9 pt-3 text-left transition-colors hover:bg-zinc-900/50"
-
-/** Tailwind classes for hourly grid blocks + day summary chips. */
+/** Tailwind classes for hourly grid blocks + day summary chips (glass + phase accent). */
 export const SCHEDULER_CARD_STYLE: Record<SchedulerLifecyclePhase, string> = {
-  unassigned: "border-amber-500/50 bg-amber-500/15 text-amber-100",
-  scheduled: "border-teal-500/50 bg-teal-500/15 text-teal-50",
-  en_route: "border-sky-500/50 bg-sky-500/15 text-sky-100",
-  on_site: "border-yellow-500/50 bg-yellow-500/15 text-yellow-100",
-  completed: "border-zinc-600/50 bg-zinc-700/30 text-zinc-400 opacity-70",
+  unassigned: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-amber-500 text-amber-100`,
+  scheduled: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-teal-500 text-teal-50`,
+  en_route: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-sky-500 text-sky-100`,
+  on_site: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-yellow-500 text-yellow-100`,
+  completed: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-zinc-600 text-zinc-400 opacity-70`,
 }
+
+/** Hover for tappable swimlane / timeline appointment blocks. */
+export const SCHEDULER_TIMELINE_CARD_HOVER = SCHEDULER_INTERACTIVE_HOVER
 
 export const SCHEDULER_STATUS_LABEL: Record<SchedulerLifecyclePhase, string> = {
   unassigned: "Unassigned",

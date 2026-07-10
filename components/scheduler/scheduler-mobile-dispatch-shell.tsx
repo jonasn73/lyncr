@@ -7,6 +7,7 @@ import { Drawer as DrawerPrimitive } from "vaul"
 import { ChevronDown, ChevronUp, Clock3, LayoutGrid, Map as MapIcon, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
+import { SCHEDULER_GLASS_CARD, SCHEDULER_MOBILE_SHEET, SCHEDULER_MOBILE_TOOLBAR } from "@/lib/scheduler-ui-tokens"
 import { Button } from "@/components/ui/button"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
 import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
@@ -136,7 +137,7 @@ export function SchedulerMobileDispatchShell({
 
       {/* Collapsible floating toolbar — collapsed by default for maximum map area. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 px-2 pt-2">
-        <div className="pointer-events-auto rounded-2xl border border-zinc-800/70 bg-zinc-950/88 shadow-lg backdrop-blur-md">
+        <div className={cn("pointer-events-auto", SCHEDULER_MOBILE_TOOLBAR)}>
           <div className="flex items-center gap-2 p-2">
             <button
               type="button"
@@ -169,7 +170,7 @@ export function SchedulerMobileDispatchShell({
               />
             </button>
             <div className="flex shrink-0 items-center gap-1">
-              <div className="flex rounded-lg border border-border/70 bg-zinc-900/80 p-0.5">
+              <div className={cn("flex rounded-lg p-0.5", SCHEDULER_GLASS_CARD)}>
                 <Button
                   type="button"
                   size="icon"
@@ -245,14 +246,13 @@ export function SchedulerMobileDispatchShell({
         <DrawerPrimitive.Portal>
           <DrawerPrimitive.Content
             className={cn(
-              "fixed inset-x-0 bottom-[var(--shell-dock-h)] z-[46] flex max-h-[calc(100dvh-var(--shell-dock-h))] flex-col outline-none",
-              "border-t border-zinc-700/80 bg-zinc-950/98 shadow-[0_-12px_40px_rgba(0,0,0,0.55)] backdrop-blur-md",
-              "rounded-t-2xl"
+              "fixed inset-x-0 bottom-[var(--shell-dock-h)] z-[46] flex max-h-[calc(100dvh-var(--shell-dock-h))] flex-col outline-none rounded-t-2xl",
+              SCHEDULER_MOBILE_SHEET
             )}
           >
             <DrawerPrimitive.Handle className="flex w-full shrink-0 flex-col items-center gap-1 px-4 pb-1 pt-2.5">
               <div className="h-1 w-10 rounded-full bg-zinc-500" aria-hidden />
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 <ChevronUp
                   className={cn("h-3.5 w-3.5 text-primary transition-transform duration-200", isExpanded && "rotate-180")}
                   aria-hidden

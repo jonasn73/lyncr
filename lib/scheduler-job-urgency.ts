@@ -1,6 +1,14 @@
 // Time-based urgency for dispatch job cards and upcoming strips.
 
 import type { SchedulerLifecyclePhase } from "@/lib/scheduler-job-status"
+import { SCHEDULER_GLASS_CARD, SCHEDULER_INTERACTIVE_HOVER } from "@/lib/scheduler-ui-tokens"
+
+/** Glass chip base shared by upcoming-job strips and urgency accents. */
+const URGENCY_CHIP_GLASS = [
+  SCHEDULER_GLASS_CARD,
+  SCHEDULER_INTERACTIVE_HOVER,
+  "rounded-lg",
+].join(" ")
 
 export type SchedulerJobUrgency =
   | "active_now"
@@ -71,12 +79,12 @@ export const SCHEDULER_URGENCY_LABEL: Record<SchedulerJobUrgency, string> = {
 
 /** Chip / card shell accents for each urgency level. */
 export const SCHEDULER_URGENCY_CHIP_CLASS: Record<SchedulerJobUrgency, string> = {
-  active_now: "border-yellow-500/55 bg-yellow-500/12 ring-1 ring-yellow-500/25",
-  overdue: "border-red-500/55 bg-red-500/12 ring-1 ring-red-500/30",
-  imminent: "border-orange-500/55 bg-orange-500/12 ring-1 ring-orange-500/30 animate-pulse",
-  soon: "border-amber-500/45 bg-amber-500/10 ring-1 ring-amber-500/20",
-  later: "border-zinc-800/80 bg-zinc-950/60",
-  unscheduled: "border-zinc-700/70 bg-zinc-950/50",
+  active_now: `${URGENCY_CHIP_GLASS} border-yellow-500/55 ring-1 ring-yellow-500/25`,
+  overdue: `${URGENCY_CHIP_GLASS} border-red-500/55 ring-1 ring-red-500/30`,
+  imminent: `${URGENCY_CHIP_GLASS} border-orange-500/55 ring-1 ring-orange-500/30 animate-pulse`,
+  soon: `${URGENCY_CHIP_GLASS} border-amber-500/45 ring-1 ring-amber-500/20`,
+  later: URGENCY_CHIP_GLASS,
+  unscheduled: URGENCY_CHIP_GLASS,
 }
 
 export const SCHEDULER_URGENCY_TIME_CLASS: Record<SchedulerJobUrgency, string> = {

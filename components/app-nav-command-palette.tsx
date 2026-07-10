@@ -18,7 +18,11 @@ import {
   Hash,
   ExternalLink,
   CalendarDays,
+  Radio,
+  Pencil,
+  UserCog,
 } from "lucide-react"
+import { useDispatchCommandBridge } from "@/lib/dispatch-command-bridge"
 import {
   requestOpenBuyNumberModal,
   requestOpenManageNumbersModal,
@@ -56,6 +60,7 @@ type AppNavCommandPaletteProps = {
 
 export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavCommandPaletteProps) {
   const router = useRouter()
+  const { commands: dispatchCommands } = useDispatchCommandBridge()
 
   if (!enabled) return null
 
@@ -69,13 +74,32 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
     <CommandDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Jump to"
-      description="Open any section of the app"
+      title="Command center"
+      description="Search commands or actions"
       showCloseButton
+      className="max-w-xl border border-slate-800/80 bg-slate-950/95 shadow-2xl backdrop-blur-xl"
     >
-      <CommandInput placeholder="Search pages and actions…" />
+      <CommandInput placeholder="Search commands or actions…" />
       <CommandList>
         <CommandEmpty>No matches.</CommandEmpty>
+        {dispatchCommands.length > 0 ? (
+          <CommandGroup heading="Dispatch shortcuts">
+            {dispatchCommands.map((command) => (
+              <CommandItem
+                key={command.id}
+                value={`${command.slash} ${command.label} ${command.keywords ?? ""}`}
+                onSelect={() => {
+                  command.run()
+                  onOpenChange(false)
+                }}
+              >
+                <Radio className="size-4 shrink-0 text-emerald-400" aria-hidden />
+                <span className="font-mono text-emerald-300">{command.slash}</span>
+                <span>{command.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ) : null}
         <CommandGroup heading="Pages">
           {JUMP_PAGES.map(({ id, label, href, icon: Icon }) => (
             <CommandItem key={id} value={`${label} ${id}`} onSelect={() => go(href)}>
@@ -85,6 +109,36 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
           ))}
         </CommandGroup>
         <CommandGroup heading="Quick actions">
+          <CommandItem
+            value="/tech team technicians contacts roster"
+            onSelect={() => {
+              go("/dashboard/contacts")
+            }}
+          >
+            <UserCog className="size-4 shrink-0" aria-hidden />
+            <span className="font-mono text-emerald-300">/tech</span>
+            <span>Open team roster</span>
+          </CommandItem>
+          <CommandItem
+            value="/status dispatch live status scheduler"
+            onSelect={() => {
+              go("/dashboard/scheduler")
+            }}
+          >
+            <Radio className="size-4 shrink-0" aria-hidden />
+            <span className="font-mono text-emerald-300">/status</span>
+            <span>View dispatch status board</span>
+          </CommandItem>
+          <CommandItem
+            value="/edit job details scheduler drawer"
+            onSelect={() => {
+              go("/dashboard/scheduler")
+            }}
+          >
+            <Pencil className="size-4 shrink-0" aria-hidden />
+            <span className="font-mono text-emerald-300">/edit</span>
+            <span>Edit job on scheduler</span>
+          </CommandItem>
           <CommandItem
             value="buy number add business phone"
             onSelect={() => {

@@ -47,6 +47,8 @@ export type VehicleKeySelection = {
   keyStyle: string
   /** Selected visual variant from fccid.io (optional). */
   variantId?: string | null
+  /** How this key is programmed (OBD2, on-board sequence, etc.). */
+  programmingMethod?: string | null
 }
 
 type KeyProfile = {
@@ -768,6 +770,7 @@ export function VehicleKeyInfoPanel({
       chipset: null,
       keyStyle: option.keyStyle,
       variantId: option.id,
+      programmingMethod: option.programmingMethod,
     }
     onChange(selection)
     onVariantSelected?.(selection)
@@ -940,6 +943,7 @@ export function VehicleKeyInfoPanel({
 
   const applyVariant = (p: KeyProfile, variant: FccVariant) => {
     setSelectedKeyId(variant.id)
+    const card = variantCardModel(variant, p.chipset)
     const selection: VehicleKeySelection = {
       profileId: p.id,
       fccId: p.fcc_id,
@@ -953,6 +957,7 @@ export function VehicleKeyInfoPanel({
         KEY_STYLE_OPTIONS
       ),
       variantId: variant.id,
+      programmingMethod: card.programmingMethod,
     }
     onChange(selection)
     onVariantSelected?.(selection)

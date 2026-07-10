@@ -173,6 +173,10 @@ export interface SchedulerEvent {
   vehicle_model: string | null
   /** 17-character VIN when captured at intake or edit. */
   vehicle_vin?: string | null
+  /** Alias for vehicle_vin (automotive intake / API payloads). */
+  vin?: string | null
+  /** Key programming method (OBD2, on-board sequence, etc.). */
+  programming_method?: string | null
   /** Free-text job site notes from intake or manual booking. */
   job_notes: string | null
   /** Geocoded job site latitude (from collected.customer_lat). */
@@ -190,6 +194,8 @@ export interface SchedulerEvent {
   /** Service quote calculator id (lockout, key_gen, …). */
   service_quote_type_id?: string | null
   key_fcc_id?: string | null
+  /** Alias for key_fcc_id (automotive intake / API payloads). */
+  fcc_id?: string | null
   key_frequency?: string | null
   key_chipset?: string | null
   key_style?: string | null
@@ -213,6 +219,10 @@ export interface UnassignedPoolJob {
   vehicle_model: string | null
   /** 17-character VIN when captured at intake or edit. */
   vehicle_vin?: string | null
+  /** Alias for vehicle_vin (automotive intake / API payloads). */
+  vin?: string | null
+  /** Key programming method (OBD2, on-board sequence, etc.). */
+  programming_method?: string | null
   job_notes: string | null
   scheduled_at: string | null
   duration_minutes: number
@@ -227,6 +237,8 @@ export interface UnassignedPoolJob {
   quoted_price_cents?: number | null
   service_quote_type_id?: string | null
   key_fcc_id?: string | null
+  /** Alias for key_fcc_id (automotive intake / API payloads). */
+  fcc_id?: string | null
   key_frequency?: string | null
   key_chipset?: string | null
   key_style?: string | null

@@ -2,7 +2,9 @@
 
 // Optional React hover card — dispatch map uses native Leaflet tooltips for performance.
 
+import { cn } from "@/lib/utils"
 import { formatMapPhone, type MapMarkerTooltipModel } from "@/lib/scheduler-map-markers"
+import { SCHEDULER_FIELD_STACK, SCHEDULER_MAP_TOOLTIP, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
 
 type MapMarkerHoverCardProps = {
   model: MapMarkerTooltipModel
@@ -16,11 +18,13 @@ export function MapMarkerHoverCard({ model, x, y }: MapMarkerHoverCardProps) {
       className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[calc(100%+10px)] transition-opacity duration-150"
       style={{ left: x, top: y }}
     >
-      <div className="rounded-md border border-zinc-800 bg-zinc-950/95 px-2.5 py-1.5 text-xs text-zinc-200 shadow-xl">
-        <p className="font-semibold text-zinc-100">{model.customerName?.trim() || "Customer"}</p>
-        <p>{formatMapPhone(model.customerPhone)}</p>
-        <p>{model.vehicleLine?.trim() || "—"}</p>
-        <p>{model.jobType?.trim() || "—"}</p>
+      <div className={SCHEDULER_MAP_TOOLTIP}>
+        <p className="font-semibold text-slate-100">{model.customerName?.trim() || "Customer"}</p>
+        <div className={cn(SCHEDULER_FIELD_STACK, "mt-1 text-slate-300")}>
+          <p>{formatMapPhone(model.customerPhone)}</p>
+          <p className={SCHEDULER_METADATA_LABEL}>{model.vehicleLine?.trim() || "—"}</p>
+          <p className={SCHEDULER_METADATA_LABEL}>{model.jobType?.trim() || "—"}</p>
+        </div>
       </div>
     </div>
   )

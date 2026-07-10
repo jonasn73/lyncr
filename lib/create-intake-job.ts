@@ -61,6 +61,10 @@ export type CreateIntakeJobInput = {
   vehicleVin?: string | null
   plateNumber?: string | null
   plateState?: string | null
+  /** Key programming method from intake key panel (OBD2, on-board sequence, etc.). */
+  programmingMethod?: string | null
+  /** ISO appointment time — sets ai_leads.scheduled_at so hopper jobs are not tentative. */
+  scheduledAtIso?: string | null
   /** Most recent negotiation preset applied before booking. */
   discountApplied?: string | null
   /** Auto-calculated quote before negotiation discounts. */
@@ -188,6 +192,14 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   const dispatchStatus = pendingCallback ? CRM_LEAD_STATUS : UNASSIGNED_POOL_STATUS
   const disposition = pendingCallback ? "PENDING_TIME" : "BOOKED"
 
+  const scheduledAtIso =
+    !pendingCallback && input.scheduledAtIso?.trim()
+      ? (() => {
+          const parsed = Date.parse(input.scheduledAtIso.trim())
+          return Number.isNaN(parsed) ? null : new Date(parsed).toISOString()
+        })()
+      : null
+
   const collected: Record<string, unknown> = {
     customer_name: customerName,
     company_name: input.companyName?.trim() || null,
@@ -218,6 +230,9 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),
     ...(input.keyStyle?.trim() ? { key_style: input.keyStyle.trim() } : {}),
     ...(input.keyVariantId?.trim() ? { key_variant_id: input.keyVariantId.trim() } : {}),
+    ...(input.programmingMethod?.trim()
+      ? { programming_method: input.programmingMethod.trim() }
+      : {}),
     ...(keyStyleRequiresFieldVerification(input.keyStyle)
       ? { field_verification_required: true }
       : {}),
@@ -252,6 +267,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       : {}),
     ...(latitude != null ? { customer_lat: latitude } : {}),
     ...(longitude != null ? { customer_lng: longitude } : {}),
+    ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
   }
 
   const sql = getSql()
@@ -263,31 +279,60 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   if (existingLeadId) {
     const updated =
       orgId != null
-        ? await sql`
-            UPDATE ai_leads
-            SET
-              caller_e164 = ${phone},
-              summary = ${summary},
-              disposition = ${disposition},
-              dispatch_status = ${dispatchStatus},
-              job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
-              organization_id = ${orgId}::uuid,
-              collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
-            WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
-            RETURNING id
-          `
-        : await sql`
-            UPDATE ai_leads
-            SET
-              caller_e164 = ${phone},
-              summary = ${summary},
-              disposition = ${disposition},
-              dispatch_status = ${dispatchStatus},
-              job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
-              collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
-            WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
-            RETURNING id
-          `
+        ? scheduledAtIso
+          ? await sql`
+              UPDATE ai_leads
+              SET
+                caller_e164 = ${phone},
+                summary = ${summary},
+                disposition = ${disposition},
+                dispatch_status = ${dispatchStatus},
+                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                scheduled_at = ${scheduledAtIso}::timestamptz,
+                organization_id = ${orgId}::uuid,
+                collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
+              WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
+              RETURNING id
+            `
+          : await sql`
+              UPDATE ai_leads
+              SET
+                caller_e164 = ${phone},
+                summary = ${summary},
+                disposition = ${disposition},
+                dispatch_status = ${dispatchStatus},
+                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                organization_id = ${orgId}::uuid,
+                collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
+              WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
+              RETURNING id
+            `
+        : scheduledAtIso
+          ? await sql`
+              UPDATE ai_leads
+              SET
+                caller_e164 = ${phone},
+                summary = ${summary},
+                disposition = ${disposition},
+                dispatch_status = ${dispatchStatus},
+                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                scheduled_at = ${scheduledAtIso}::timestamptz,
+                collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
+              WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
+              RETURNING id
+            `
+          : await sql`
+              UPDATE ai_leads
+              SET
+                caller_e164 = ${phone},
+                summary = ${summary},
+                disposition = ${disposition},
+                dispatch_status = ${dispatchStatus},
+                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
+              WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
+              RETURNING id
+            `
     if (updated.length === 0) {
       throw new Error("Lead not found or you do not have access.")
     }
@@ -296,12 +341,14 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       INSERT INTO ai_leads (
         id, user_id, organization_id, caller_e164, intent_slug, collected, summary,
         disposition, dispatch_status, is_salvageable,
-        assigned_tech_id, job_status, sms_sent, sms_error, vapi_call_id, created_at
+        assigned_tech_id, job_status, sms_sent, sms_error, vapi_call_id, created_at,
+        scheduled_at
       ) VALUES (
         ${id}, ${input.ownerUserId}, ${orgId}::uuid, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
         ${disposition}, ${dispatchStatus}, false,
-        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
+        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now(),
+        ${scheduledAtIso}
       )
     `
   } else {
@@ -309,12 +356,14 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       INSERT INTO ai_leads (
         id, user_id, caller_e164, intent_slug, collected, summary,
         disposition, dispatch_status, is_salvageable,
-        assigned_tech_id, job_status, sms_sent, sms_error, vapi_call_id, created_at
+        assigned_tech_id, job_status, sms_sent, sms_error, vapi_call_id, created_at,
+        scheduled_at
       ) VALUES (
         ${id}, ${input.ownerUserId}, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
         ${disposition}, ${dispatchStatus}, false,
-        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now()
+        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now(),
+        ${scheduledAtIso}
       )
     `
   }

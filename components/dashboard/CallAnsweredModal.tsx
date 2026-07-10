@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Loader2, MapPin, Phone, PhoneOff } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { VehiclePlateLookupField } from "@/components/vehicle-plate-lookup-field"
-import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
+import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
@@ -385,6 +385,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
+  const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
   const { activeOrganizationId } = useDashboardWorkspace()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -1100,6 +1101,33 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     manualStepScrollRef.current?.scrollTo({ top: 0, behavior: "instant" })
   }, [currentStep])
 
+  const focusIntakePrimaryField = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (stepIntake) {
+        if (currentStep === "ADDRESS_CONTACT") {
+          addressSearchRef.current?.focus()
+          return
+        }
+        if (currentStep === "SERVICE_SELECT") {
+          document.querySelector<HTMLElement>("[data-intake-primary-option]")?.focus()
+          return
+        }
+      }
+      const searchInput = document.querySelector<HTMLElement>("[data-intake-primary-search]")
+      if (searchInput) {
+        searchInput.focus()
+        return
+      }
+      document.querySelector<HTMLElement>("[data-intake-primary-option]")?.focus()
+    })
+  }, [stepIntake, currentStep])
+
+  /** Focus the primary search / first option whenever intake opens or advances. */
+  useEffect(() => {
+    if (!effectiveCurrent) return
+    focusIntakePrimaryField()
+  }, [effectiveCurrent?.id, currentStep, stepIntake, focusIntakePrimaryField])
+
   if (!enabled && !manualCallRow) return null
 
   const isRinging =
@@ -1271,6 +1299,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                         chipset: form.keyChipset || null,
                                         keyStyle: form.keyStyle || "Not sure yet",
                                         variantId: form.keyVariantId || null,
+                                        programmingMethod: form.programmingMethod || null,
                                       }
                                     : null
                                 }
@@ -1318,6 +1347,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   Service address <span className="text-primary">*</span>
                                 </Label>
                                 <JobAddressAutocomplete
+                                  ref={addressSearchRef}
                                   value={form.serviceAddress}
                                   onChange={handleManualAddressChange}
                                   onQueryCommit={commitAddressQuery}
@@ -1365,6 +1395,33 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onServiceTypeChange={handleManualServiceTypeChange}
                                 variant="breakdown-only"
                               />
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="intake-scheduled-date" className="text-xs">
+                                    Appointment date
+                                  </Label>
+                                  <Input
+                                    id="intake-scheduled-date"
+                                    type="date"
+                                    value={form.scheduledDate}
+                                    onChange={(e) => patchForm({ scheduledDate: e.target.value })}
+                                    className="h-10"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="intake-scheduled-time" className="text-xs">
+                                    Appointment time
+                                  </Label>
+                                  <Input
+                                    id="intake-scheduled-time"
+                                    type="time"
+                                    value={form.scheduledTime}
+                                    onChange={(e) => patchForm({ scheduledTime: e.target.value })}
+                                    className="h-10"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           ) : null}
                         </div>
@@ -1435,6 +1492,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               chipset: form.keyChipset || null,
                               keyStyle: form.keyStyle || "Not sure yet",
                               variantId: form.keyVariantId || null,
+                              programmingMethod: form.programmingMethod || null,
                             }
                           : null
                       }
@@ -1452,6 +1510,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       Service address <span className="text-primary">*</span>
                     </Label>
                     <JobAddressAutocomplete
+                      ref={addressSearchRef}
                       value={form.serviceAddress}
                       onChange={setServiceAddress}
                       onQueryCommit={commitAddressQuery}
@@ -1488,6 +1547,32 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       placeholder="Gate code, spare location, details…"
                       className="h-10"
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ac-scheduled-date" className="text-xs">
+                        Appointment date
+                      </Label>
+                      <Input
+                        id="ac-scheduled-date"
+                        type="date"
+                        value={form.scheduledDate}
+                        onChange={(e) => patchForm({ scheduledDate: e.target.value })}
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ac-scheduled-time" className="text-xs">
+                        Appointment time
+                      </Label>
+                      <Input
+                        id="ac-scheduled-time"
+                        type="time"
+                        value={form.scheduledTime}
+                        onChange={(e) => patchForm({ scheduledTime: e.target.value })}
+                        className="h-10"
+                      />
+                    </div>
                   </div>
                 </fieldset>
 

@@ -3,7 +3,6 @@
 import {
   type ReactNode,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -36,6 +35,7 @@ import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { CommandDock } from "@/components/layout/command-dock"
 import { NotificationCenter } from "@/components/layout/notification-center"
+import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 
@@ -252,17 +252,15 @@ function AppShellInner({
     if (el) el.scrollTop = 0
   }, [pathname])
 
-  useEffect(() => {
-    if (!useLinks) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isK = e.key === "k" || e.key === "K"
-      if (!isK || !(e.metaKey || e.ctrlKey)) return
-      e.preventDefault()
+  useGlobalKeyPress({
+    enabled: useLinks,
+    metaOrCtrl: true,
+    key: "k",
+    onPress: (event) => {
+      event.preventDefault()
       setCommandOpen((prev) => !prev)
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [useLinks])
+    },
+  })
 
   return (
     <div

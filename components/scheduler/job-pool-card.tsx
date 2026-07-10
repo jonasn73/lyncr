@@ -2,6 +2,7 @@
 
 // Draggable card for one unassigned hopper job.
 
+import { useState } from "react"
 import { Car, DollarSign, GripVertical, MapPin, Phone, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timeline"
@@ -25,6 +26,9 @@ import {
   SCHEDULER_LIST_CARD_SHELL,
   SCHEDULER_STATUS_LABEL,
 } from "@/lib/scheduler-job-status"
+import { SCHEDULER_FIELD_STACK, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
+import { isPriceDeniedRescueJob } from "@/lib/rescue-queue"
+import { RescueOfferInline } from "@/components/scheduler/rescue-offer-inline"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 export const HOPPER_DRAG_MIME = "application/x-lyncr-job-id"
@@ -54,6 +58,7 @@ export function JobPoolCard({
   onMobileAssign,
   variant = "default",
 }: JobPoolCardProps) {
+  const [rescueOfferOpen, setRescueOfferOpen] = useState(false)
   const touchInteraction = useSchedulerTouchInteraction()
   const now = useLiveClock()
   const sidebar = variant === "sidebar"
@@ -68,6 +73,8 @@ export function JobPoolCard({
   const displayName = job.customer_name?.trim() || job.job_type || "Service call"
   const serviceLabel = resolvePoolJobServiceLabel(job)
   const priceLabel = formatPoolJobPriceLabel(job)
+  const programmingMethod = job.programming_method?.trim() || null
+  const isRescueJob = isPriceDeniedRescueJob(job)
   const wrapText = touchInteraction || sidebar
   const detailTextClass = wrapText
     ? "w-full text-sm block break-words text-muted-foreground"
@@ -95,6 +102,7 @@ export function JobPoolCard({
       className={cn(
         SCHEDULER_LIST_CARD_SHELL,
         POOL_JOB_PRIORITY_CARD_CLASS[priority],
+        isRescueJob && "ring-1 ring-rose-500/40",
         "group relative touch-manipulation text-left",
         sidebar
           ? "flex w-full max-w-none shrink-0 cursor-grab flex-col gap-2 px-3 py-3 active:cursor-grabbing"
@@ -108,69 +116,107 @@ export function JobPoolCard({
       <div className={cn("flex w-full items-start gap-1.5", sidebar ? "pr-2" : "pr-16")}>
         {!touchInteraction ? (
           <GripVertical
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600 opacity-60 group-hover:opacity-100"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600 opacity-60 group-hover:opacity-100"
             aria-hidden
           />
         ) : null}
-        <div className={cn(wrapText ? "w-full flex-1" : "min-w-0 flex-1")}>
+        <div className={cn(SCHEDULER_FIELD_STACK, wrapText ? "w-full flex-1" : "min-w-0 flex-1")}>
           <p
             className={cn(
-              "w-full text-sm font-medium text-zinc-100",
+              "w-full text-sm font-medium text-slate-100",
               wrapText ? "break-words" : "truncate"
             )}
           >
             {displayName}
           </p>
-          <div className="mt-0.5 flex w-full flex-wrap items-center justify-between gap-2">
-            <span className="text-[10px] font-medium text-slate-400">{priorityBadge}</span>
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={SCHEDULER_METADATA_LABEL}>{priorityBadge}</span>
+              {isRescueJob ? (
+                <span className="rounded-full border border-rose-500/60 bg-rose-500/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+                  Price Denied
+                </span>
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               <ScheduleInteractionBadge scheduled_at={scheduledAtIso} />
               {isAsap ? (
-              <span className="shrink-0 rounded bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-rose-400">
-                {formatPoolJobElapsedAge(job.created_at, now)} ago
-              </span>
-            ) : (
-              <span className="shrink-0 text-[11px] font-medium tabular-nums text-slate-400">
-                {formatPoolJobScheduledWindowLabel(job, now)}
-              </span>
-            )}
+                <span
+                  className={cn(
+                    SCHEDULER_METADATA_LABEL,
+                    "shrink-0 tabular-nums text-rose-400"
+                  )}
+                >
+                  {formatPoolJobElapsedAge(job.created_at, now)} ago
+                </span>
+              ) : (
+                <span className={cn(SCHEDULER_METADATA_LABEL, "shrink-0 tabular-nums")}>
+                  {formatPoolJobScheduledWindowLabel(job, now)}
+                </span>
+              )}
             </div>
           </div>
+          {isRescueJob ? (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setRescueOfferOpen((open) => !open)
+                }}
+                className="text-xs font-bold uppercase tracking-wide text-amber-300 underline decoration-amber-500/60 underline-offset-2 transition-colors hover:text-amber-100"
+              >
+                Offer Lower Price
+              </button>
+              {rescueOfferOpen ? (
+                <RescueOfferInline job={job} onClose={() => setRescueOfferOpen(false)} />
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
+            <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
               <DollarSign className="h-3 w-3 shrink-0" aria-hidden />
               {priceLabel}
             </span>
-            <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-medium text-primary/90">
+            <span className={cn(SCHEDULER_METADATA_LABEL, "inline-flex min-w-0 items-center gap-1")}>
               <Wrench className="h-3 w-3 shrink-0" aria-hidden />
               <span className={wrapText ? "break-words" : "truncate"}>{serviceLabel}</span>
             </span>
           </div>
           <div className="mt-1.5 w-full space-y-1">
+            {vehicle ? (
+              <p className="flex w-full items-start gap-1.5">
+                <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                <span className={cn(SCHEDULER_METADATA_LABEL, wrapText ? "break-words" : "truncate")}>
+                  {vehicle}
+                </span>
+              </p>
+            ) : null}
+            {programmingMethod ? (
+              <p className="flex w-full items-start gap-1.5">
+                <span className={cn(SCHEDULER_METADATA_LABEL, wrapText ? "break-words" : "truncate")}>
+                  {programmingMethod}
+                </span>
+              </p>
+            ) : null}
             {job.customer_phone ? (
-              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-400")}>
-                <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-slate-400")}>
+                <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                 <span
                   className={cn(
                     sidebar
-                      ? "min-w-0 text-[11px] tabular-nums leading-snug text-zinc-400"
-                      : cn(detailTextClass, !wrapText && "text-xs text-zinc-400")
+                      ? "min-w-0 text-[11px] tabular-nums leading-snug text-slate-400"
+                      : cn(detailTextClass, !wrapText && "text-xs text-slate-400")
                   )}
                 >
                   {formatPhone(job.customer_phone)}
                 </span>
               </p>
             ) : null}
-            {vehicle ? (
-              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-400")}>
-                <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-400")}>{vehicle}</span>
-              </p>
-            ) : null}
             {area || region || postalCode ? (
-              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-zinc-500")}>
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
-                <span className={cn(detailTextClass, !wrapText && "text-xs text-zinc-500")}>
+              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-slate-500")}>
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
+                <span className={cn(detailTextClass, !wrapText && "text-xs text-slate-500")}>
                   {[area, region && area !== region ? region : null].filter(Boolean).join(", ")}
                   {postalCode ? (
                     <span className="ml-1 text-xs font-medium text-slate-400">{postalCode}</span>

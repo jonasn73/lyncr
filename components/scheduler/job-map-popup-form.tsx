@@ -11,6 +11,15 @@ import {
   type SchedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
+import {
+  SCHEDULER_FIELD_STACK,
+  SCHEDULER_GLASS_CARD,
+  SCHEDULER_INPUT,
+  SCHEDULER_INTERACTIVE_HOVER,
+  SCHEDULER_INTERACTIVE_TEXT_LINK,
+  SCHEDULER_MAP_POPUP_SHELL,
+  SCHEDULER_METADATA_LABEL,
+} from "@/lib/scheduler-ui-tokens"
 import type { FieldTechnician, SchedulerEvent } from "@/lib/types"
 
 /** Job fields needed to render and PATCH from the map popup. */
@@ -146,20 +155,17 @@ export function JobMapPopupForm({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 text-zinc-100",
-        isSheet ? "w-full gap-4 p-1" : "w-[300px] rounded-xl bg-zinc-950 p-4"
+        "flex flex-col gap-3 text-slate-100",
+        isSheet ? "w-full gap-4 p-1" : SCHEDULER_MAP_POPUP_SHELL
       )}
     >
-      <div className={cn("space-y-2 border-b border-zinc-800 pb-2", !isSheet && "pr-6")}>
-        <p className={cn("truncate font-bold text-zinc-100", isSheet ? "text-lg" : "text-sm")}>
+      <div className={cn("space-y-2 border-b border-slate-800/80 pb-2", !isSheet && "pr-6")}>
+        <p className={cn("truncate font-bold text-slate-100", isSheet ? "text-lg" : "text-sm")}>
           {job.customer_name?.trim() || "Customer"}
         </p>
-        <div className="flex flex-col gap-1 text-sm text-zinc-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5">
+        <div className={cn(SCHEDULER_FIELD_STACK, "text-sm text-slate-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5")}>
           {phoneHref ? (
-            <a
-              href={phoneHref}
-              className="inline-flex min-h-11 items-center font-medium text-sky-400 hover:text-sky-300 hover:underline"
-            >
+            <a href={phoneHref} className={cn(SCHEDULER_INTERACTIVE_TEXT_LINK, "inline-flex min-h-11 items-center")}>
               {formatPhoneDisplay(job.customer_phone)}
             </a>
           ) : (
@@ -167,15 +173,15 @@ export function JobMapPopupForm({
           )}
           {!isSheet ? (
             <>
-              <span className="hidden text-zinc-600 sm:inline" aria-hidden>
+              <span className="hidden text-slate-600 sm:inline" aria-hidden>
                 ·
               </span>
-              <span className="truncate text-xs">{profileLine}</span>
+              <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{profileLine}</span>
             </>
           ) : (
             <>
-              {vehicleLine ? <p className="text-zinc-300">{vehicleLine}</p> : null}
-              {job.job_type ? <p className="text-zinc-400">{job.job_type}</p> : null}
+              {vehicleLine ? <p className={SCHEDULER_METADATA_LABEL}>{vehicleLine}</p> : null}
+              {job.job_type ? <p className={SCHEDULER_METADATA_LABEL}>{job.job_type}</p> : null}
             </>
           )}
         </div>
@@ -185,7 +191,7 @@ export function JobMapPopupForm({
         <div
           className={cn(
             "grid gap-2",
-            isSheet ? "grid-cols-2" : "flex flex-wrap gap-1 rounded-md border border-zinc-800 bg-zinc-900/60 p-0.5"
+            isSheet ? "grid-cols-2" : cn("flex flex-wrap gap-1 p-0.5", SCHEDULER_GLASS_CARD)
           )}
         >
           {STATUS_SEGMENTS.map((segment) => {
@@ -205,7 +211,11 @@ export function JobMapPopupForm({
                     : "flex-1 rounded px-1.5 py-1 text-[9px]",
                   active
                     ? "bg-primary text-primary-foreground"
-                    : "border border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
+                    : cn(
+                        "border border-slate-800/80 bg-slate-900/60 text-slate-400",
+                        SCHEDULER_INTERACTIVE_HOVER,
+                        "hover:text-slate-200"
+                      ),
                   disabled && !active && "cursor-not-allowed opacity-40"
                 )}
               >
@@ -215,23 +225,13 @@ export function JobMapPopupForm({
           })}
         </div>
 
-        <label className="block">
-          <span
-            className={cn(
-              "mb-1 block font-medium uppercase tracking-wide text-zinc-500",
-              isSheet ? "text-xs" : "text-[10px]"
-            )}
-          >
-            Technician
-          </span>
+        <label className={SCHEDULER_FIELD_STACK}>
+          <span className={cn(SCHEDULER_METADATA_LABEL, isSheet && "text-xs")}>Technician</span>
           <select
             value={assignedTechId}
             disabled={saving}
             onChange={(e) => setAssignedTechId(e.target.value)}
-            className={cn(
-              "w-full rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40",
-              isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-1.5 text-xs"
-            )}
+            className={cn(SCHEDULER_INPUT, isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-1.5 text-xs")}
           >
             <option value="">Unassigned</option>
             {assignableTechs.map((t) => (
@@ -251,7 +251,8 @@ export function JobMapPopupForm({
           disabled={saving}
           onClick={onCancel}
           className={cn(
-            "flex-1 rounded-md border border-zinc-700 font-medium text-zinc-300 hover:bg-zinc-900",
+            "flex-1 rounded-md border border-slate-800/80 font-medium text-slate-300",
+            SCHEDULER_INTERACTIVE_HOVER,
             isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
           )}
         >

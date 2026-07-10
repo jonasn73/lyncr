@@ -24,6 +24,12 @@ import {
   schedulerLifecyclePhase,
   type SchedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
+import {
+  SCHEDULER_ACTION_BUTTON,
+  SCHEDULER_GLASS_CARD,
+  SCHEDULER_INTERACTIVE_TEXT_LINK,
+  SCHEDULER_METADATA_LABEL,
+} from "@/lib/scheduler-ui-tokens"
 import type { ActivePipelineJob } from "@/lib/types"
 
 function formatPhone(num: string | null): string {
@@ -109,12 +115,13 @@ export function ActivePipelinePanel({
         <section key={group.phase} aria-label={group.title} className="shrink-0">
           <h3
             className={cn(
-              "mb-2 font-bold uppercase tracking-wider text-zinc-500",
+              SCHEDULER_METADATA_LABEL,
+              "mb-2 font-bold",
               isMobileSheet ? "text-xs" : "text-[10px]"
             )}
           >
             {group.title}
-            <span className="ml-2 font-normal text-zinc-600">({group.jobs.length})</span>
+            <span className="ml-2 font-normal text-slate-600">({group.jobs.length})</span>
           </h3>
           <ul className={cn("flex flex-col", isMobileSheet ? "gap-3" : "gap-2")}>
             {group.jobs.map((job) => {
@@ -126,6 +133,7 @@ export function ActivePipelinePanel({
               })
               const countdown = formatSchedulerJobCountdown(now, job.scheduled_at)
               const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
+              const programmingMethod = job.programming_method?.trim() || null
               const highlighted = highlightId === job.id
               const displayName = job.customer_name?.trim() || "Unknown customer"
               const phone = formatPhone(job.customer_phone)
@@ -157,8 +165,8 @@ export function ActivePipelinePanel({
                           aria-label={`Edit job for ${displayName}`}
                           onClick={() => onEditJob(job)}
                           className={cn(
-                            "inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-900/95 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-300",
-                            highlighted && "border-primary/50 bg-primary/15 text-primary"
+                            SCHEDULER_ACTION_BUTTON,
+                            highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                           )}
                         >
                           <Pencil className="h-3.5 w-3.5" aria-hidden />
@@ -166,13 +174,13 @@ export function ActivePipelinePanel({
                         </button>
                       </div>
 
-                      <div className="mt-3 space-y-2.5 text-sm text-zinc-300">
+                      <div className="mt-3 space-y-2.5 text-sm text-slate-300">
                         <p className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                          <Phone className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
                           {telHref ? (
                             <a
                               href={telHref}
-                              className="font-medium text-zinc-100 underline decoration-zinc-600 underline-offset-2"
+                              className={SCHEDULER_INTERACTIVE_TEXT_LINK}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {phone}
@@ -182,17 +190,20 @@ export function ActivePipelinePanel({
                           )}
                         </p>
                         <p className="flex items-start gap-2">
-                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
-                          <span className={cn("font-medium", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                          <span className={cn(SCHEDULER_METADATA_LABEL, SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
                             {countdown ? ` · ${countdown}` : ""}
                           </span>
                         </p>
                         {vehicle ? (
                           <p className="flex items-center gap-2">
-                            <Car className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
-                            <span>{vehicle}</span>
+                            <Car className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                            <span className={SCHEDULER_METADATA_LABEL}>{vehicle}</span>
                           </p>
+                        ) : null}
+                        {programmingMethod ? (
+                          <p className={SCHEDULER_METADATA_LABEL}>{programmingMethod}</p>
                         ) : null}
                         {job.assigned_tech_name ? (
                           <p className="flex items-center gap-2">
@@ -209,7 +220,7 @@ export function ActivePipelinePanel({
                           )}
                         </p>
                         {notesLine ? (
-                          <p className="rounded-lg border border-zinc-800/80 bg-zinc-900/50 px-3 py-2 text-xs leading-relaxed text-zinc-400">
+                          <p className={cn(SCHEDULER_GLASS_CARD, "px-3 py-2 text-xs leading-relaxed text-slate-400")}>
                             {notesLine}
                           </p>
                         ) : null}
@@ -227,7 +238,7 @@ export function ActivePipelinePanel({
                         <button
                           type="button"
                           onClick={() => onFocusJob(job)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-300"
+                          className={SCHEDULER_ACTION_BUTTON}
                         >
                           <MapPinned className="h-3.5 w-3.5" aria-hidden />
                           Map
@@ -270,8 +281,10 @@ export function ActivePipelinePanel({
                       aria-label={`Edit job for ${displayName}`}
                       onClick={() => onEditJob(job)}
                       className={cn(
-                        "absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-md border border-zinc-700/80 bg-zinc-900/95 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 shadow-sm transition-colors hover:border-primary/50 hover:bg-primary/15 hover:text-primary",
-                        highlighted && "border-primary/50 bg-primary/15 text-primary"
+                        "absolute right-3 top-3 z-20",
+                        SCHEDULER_ACTION_BUTTON,
+                        "px-2 py-0.5 text-[10px] shadow-sm",
+                        highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                       )}
                     >
                       <Pencil className="h-3 w-3" aria-hidden />
@@ -295,38 +308,41 @@ export function ActivePipelinePanel({
                       </div>
 
                       <div className="mt-2 space-y-1.5">
-                        <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                        <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                           <span className="truncate">{phone}</span>
                         </p>
-                        <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                          <Clock className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                          <span className={cn("truncate font-medium", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
+                        <p className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                          <span className={cn(SCHEDULER_METADATA_LABEL, "truncate", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
                             {countdown ? ` · ${countdown}` : ""}
                             {job.job_type ? ` · ${job.job_type}` : ""}
                           </span>
                         </p>
                         {urgency !== "later" && urgency !== "unscheduled" ? (
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                          <p className={SCHEDULER_METADATA_LABEL}>
                             {SCHEDULER_URGENCY_LABEL[urgency]}
                           </p>
                         ) : null}
                         {vehicle ? (
-                          <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                            <Car className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                            <span className="truncate">{vehicle}</span>
+                          <p className="flex items-center gap-1.5">
+                            <Car className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                            <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{vehicle}</span>
                           </p>
                         ) : null}
+                        {programmingMethod ? (
+                          <p className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{programmingMethod}</p>
+                        ) : null}
                         {job.assigned_tech_name ? (
-                          <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                            <User className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <User className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                             <span className="truncate">{job.assigned_tech_name}</span>
                           </p>
                         ) : null}
                         {job.location ? (
-                          <p className="flex items-start gap-1.5 text-xs text-zinc-500">
-                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
+                          <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
                             <span className={isMobileSheet ? "break-words" : "line-clamp-2"}>{job.location}</span>
                           </p>
                         ) : null}

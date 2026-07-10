@@ -6,6 +6,7 @@ import { X } from "lucide-react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
+import { SCHEDULER_DRAWER_SCRIM } from "@/lib/scheduler-ui-tokens"
 
 type SchedulerJobSlideSheetProps = {
   open: boolean
@@ -39,7 +40,7 @@ export function SchedulerJobSlideSheet({
           <motion.button
             type="button"
             aria-label="Close job panel"
-            className="scheduler-job-detail-sheet fixed inset-0 z-[1400] bg-zinc-950/70"
+            className={cn("scheduler-job-detail-sheet fixed inset-0 z-[1400]", SCHEDULER_DRAWER_SCRIM)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

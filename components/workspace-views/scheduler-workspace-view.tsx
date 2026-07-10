@@ -41,7 +41,9 @@ import {
 } from "@/components/scheduler/technician-swimlane-board"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { IntakeScheduleDialog } from "@/components/scheduler/intake-schedule-dialog"
+import { useRegisterDispatchCommands } from "@/lib/dispatch-command-bridge"
 import { useMarkJobComplete } from "@/lib/hooks/use-mark-job-complete"
+import { useEscapeDismiss } from "@/lib/hooks/use-workspace-keyboard"
 import type {
   ActivePipelineJob,
   FieldTechnician,
@@ -425,6 +427,45 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [ownerUserId, refreshSchedulerData, load, mutatePool, mutateActivePipeline, registerJobCompletedToday])
 
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
+  const [drawerEditIntentTick, setDrawerEditIntentTick] = useState(0)
+  const liveStatusRef = useRef<HTMLDivElement>(null)
+
+  useRegisterDispatchCommands(
+    [
+      {
+        id: "dispatch-status",
+        slash: "/status",
+        label: "Focus dispatch live status",
+        keywords: "live metrics upcoming",
+        run: () => {
+          liveStatusRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        },
+      },
+      {
+        id: "dispatch-tech",
+        slash: "/tech",
+        label: "Open team roster",
+        keywords: "technicians assign",
+        run: () => {
+          router.push("/dashboard/contacts")
+        },
+      },
+      {
+        id: "dispatch-edit",
+        slash: "/edit",
+        label: "Edit selected job",
+        keywords: "drawer details",
+        run: () => {
+          if (drawerOpen) {
+            setDrawerEditIntentTick((tick) => tick + 1)
+            return
+          }
+          router.push("/dashboard/scheduler")
+        },
+      },
+    ],
+    [drawerOpen, router]
+  )
 
   function applyJobEventUpdate(event: SchedulerEvent) {
     const inHopper = isHopperPoolJob(event)
@@ -692,6 +733,31 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       !events.some((e) => e.id === focusLeadId)
   )
 
+  const dismissSchedulerOverlay = useCallback(() => {
+    if (mobileAssignRequest) {
+      setMobileAssignRequest(null)
+      return
+    }
+    if (intakeScheduleDialogOpen) {
+      handleIntakeScheduleSkip()
+      return
+    }
+    if (drawerPoolJob || drawerScheduledEvent) {
+      closeJobDrawer()
+    }
+  }, [
+    mobileAssignRequest,
+    intakeScheduleDialogOpen,
+    handleIntakeScheduleSkip,
+    drawerPoolJob,
+    drawerScheduledEvent,
+  ])
+
+  useEscapeDismiss(
+    isActive && Boolean(mobileAssignRequest || intakeScheduleDialogOpen || drawerPoolJob || drawerScheduledEvent),
+    dismissSchedulerOverlay
+  )
+
   useEffect(() => {
     if (!isActive || !focusLeadId) return
     if (scheduleFromIntake) {
@@ -796,6 +862,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               />
             </div>
 
+            <div ref={liveStatusRef}>
             <div className="lg:hidden">
               <SchedulerDispatchLiveStatus
                 hidePrimaryAction
@@ -826,6 +893,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 onMarkComplete={handleMarkJobComplete}
                 completingJobId={completingId}
               />
+            </div>
             </div>
           </div>
 
@@ -962,6 +1030,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         poolJob={drawerPoolJob}
         scheduledEvent={drawerScheduledEvent}
         technicians={technicians}
+        activePipelineJobs={displayPipelineJobs}
+        editIntentTick={drawerEditIntentTick}
         onClose={closeJobDrawer}
         onSaved={applyJobEventUpdate}
         onStatusChanged={applyJobEventUpdate}

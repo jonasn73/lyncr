@@ -22,9 +22,11 @@ import { Button } from "@/components/ui/button"
 import {
   SCHEDULER_CARD_STYLE,
   SCHEDULER_STATUS_LABEL,
+  SCHEDULER_TIMELINE_CARD_HOVER,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
 import { schedulerDispatchCardStyle } from "@/lib/job-pipeline-status"
+import { SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
 import {
   SCHEDULER_GRID_END_HOUR,
   SCHEDULER_GRID_START_HOUR,
@@ -214,6 +216,10 @@ function formatVehicle(ev: SchedulerEvent): string | null {
   return parts.length ? parts.join(" ") : null
 }
 
+function formatProgrammingMethod(ev: SchedulerEvent): string | null {
+  return ev.programming_method?.trim() || null
+}
+
 function eventCardStyle(ev: SchedulerEvent): string {
   const dispatchStyle = schedulerDispatchCardStyle(ev.dispatch_status)
   if (dispatchStyle) return dispatchStyle
@@ -235,6 +241,7 @@ function SwimlaneAppointmentBlock({
   onSelect?: () => void
 }) {
   const vehicle = formatVehicle(ev)
+  const programmingMethod = formatProgrammingMethod(ev)
   const { topPx, heightPx } = schedulerEventPlacement(
     ev.scheduled_at,
     ev.duration_minutes,
@@ -263,7 +270,7 @@ function SwimlaneAppointmentBlock({
       }
       className={cn(
         "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-lg border px-2 py-1 shadow-md",
-        onSelect ? "pointer-events-auto cursor-pointer" : "pointer-events-none",
+        onSelect ? cn("pointer-events-auto cursor-pointer", SCHEDULER_TIMELINE_CARD_HOVER) : "pointer-events-none",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         eventCardStyle(ev)
       )}
@@ -271,14 +278,20 @@ function SwimlaneAppointmentBlock({
     >
       <p className="truncate text-[11px] font-semibold">
         {ev.customer_name || "Customer"}
-        <span className="ml-1 text-[9px] font-medium uppercase opacity-75">
+        <span className={cn("ml-1", SCHEDULER_METADATA_LABEL, "normal-case")}>
           · {SCHEDULER_STATUS_LABEL[phase]}
         </span>
       </p>
-      <p className="truncate text-[10px] opacity-90">{vehicle || ev.job_type || "Appointment"}</p>
-      <p className="text-[10px] opacity-75">
+      <p className={cn("truncate", SCHEDULER_METADATA_LABEL)}>
+        {vehicle || ev.job_type || "Appointment"}
+      </p>
+      {programmingMethod ? (
+        <p className={cn("truncate", SCHEDULER_METADATA_LABEL)}>{programmingMethod}</p>
+      ) : null}
+      <p className={SCHEDULER_METADATA_LABEL}>
         {formatBlockTime(ev.scheduled_at)}
         {ev.duration_minutes ? ` · ${ev.duration_minutes}m` : ""}
+        {ev.scheduled_tentative ? " · Tentative" : ""}
       </p>
     </div>
   )
@@ -310,13 +323,14 @@ function TimelineAppointmentBlock({
       onClick={onSelect}
       className={cn(
         "absolute top-1 z-10 min-h-[44px] overflow-hidden rounded-md border px-1.5 py-1 text-left shadow-md",
+        SCHEDULER_TIMELINE_CARD_HOVER,
         highlighted && "ring-2 ring-primary",
         eventCardStyle(ev)
       )}
       style={{ left: leftPx, width: widthPx, minWidth: 56 }}
     >
-      <p className="truncate text-[10px] font-semibold">{ev.customer_name || "Job"}</p>
-      <p className="truncate text-[9px] opacity-80">{SCHEDULER_STATUS_LABEL[phase]}</p>
+      <p className="truncate text-[10px] font-semibold text-slate-100">{ev.customer_name || "Job"}</p>
+      <p className={cn("truncate", SCHEDULER_METADATA_LABEL)}>{SCHEDULER_STATUS_LABEL[phase]}</p>
     </button>
   )
 }
@@ -356,7 +370,7 @@ function MobileTimelineBoard({
               className="sticky left-0 z-20 shrink-0 border-r border-border/40 bg-card px-2 py-2"
               style={{ width: techColWidth }}
             >
-              <span className="text-[10px] font-semibold uppercase text-zinc-500">Tech</span>
+              <span className={SCHEDULER_METADATA_LABEL}>Tech</span>
             </div>
             <div className="relative shrink-0" style={{ width: timelineWidthPx }}>
               <div className="flex">

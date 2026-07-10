@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Loader2 } from "lucide-react"
 import { vehicleYearOptions } from "@/lib/nhtsa-vpic"
 import { cn } from "@/lib/utils"
+import { onOptionRowKeyDown } from "@/lib/hooks/use-workspace-keyboard"
 
 const selectClass =
   "min-w-0 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -178,6 +179,7 @@ function OptionChip({
       whileTap={{ scale: 0.97 }}
       disabled={disabled}
       onClick={onSelect}
+      onKeyDown={(event) => onOptionRowKeyDown(event, onSelect)}
       className={cn(
         "min-h-10 touch-manipulation rounded-xl border px-3 py-2 text-left text-sm font-medium transition-colors",
         selected

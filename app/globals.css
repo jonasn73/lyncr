@@ -158,6 +158,27 @@
     @apply transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 motion-reduce:hover:translate-y-0;
   }
 
+  /* Scheduler dispatch — glass cards, emerald focus, metadata hierarchy */
+  .scheduler-glass-card {
+    @apply rounded-xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md;
+  }
+
+  .scheduler-interactive-card {
+    @apply scheduler-glass-card transition-all duration-200 hover:border-emerald-500/40 hover:bg-slate-900/90 hover:shadow-[0_0_15px_rgba(16,185,129,0.05)];
+  }
+
+  .scheduler-metadata-label {
+    @apply text-[10px] font-semibold uppercase tracking-wider text-slate-500;
+  }
+
+  .scheduler-field-stack {
+    @apply flex flex-col gap-1;
+  }
+
+  .scheduler-input-focus {
+    @apply focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500;
+  }
+
   .sigo-section-header {
     @apply mb-5 flex items-center justify-between gap-3 sm:mb-6;
   }

@@ -35,6 +35,7 @@ import {
   serviceSectorForType,
   type ServiceSector,
 } from "@/lib/service-sector-routing"
+import { onOptionRowKeyDown } from "@/lib/hooks/use-workspace-keyboard"
 
 const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
   lockout: KeyRound,
@@ -148,7 +149,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
           transition={{ duration: 0.16 }}
           className={cn("relative z-10 grid grid-cols-2 gap-3", compact && "gap-2")}
         >
-          {visibleServices.map((service) => {
+          {visibleServices.map((service, index) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
             const tag = SERVICE_CARD_TAGS[service.id] ?? "Service"
             const active = serviceTypeId === service.id
@@ -156,7 +157,11 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
               <button
                 key={service.id}
                 type="button"
+                data-intake-primary-option={index === 0 ? "" : undefined}
                 onClick={() => onServiceTypeChange(service.id)}
+                onKeyDown={(event) =>
+                  onOptionRowKeyDown(event, () => onServiceTypeChange(service.id))
+                }
                 className={cn(
                   "flex touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors active:scale-[0.98]",
                   compact ? "min-h-[4.25rem]" : "min-h-[5.5rem]",

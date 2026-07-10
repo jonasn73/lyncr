@@ -2,14 +2,18 @@
 
 // Horizontal "Unassigned Job Pool" tray above the scheduler grid.
 
-import { useMemo } from "react"
-import { Inbox, Loader2 } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Inbox, LifeBuoy, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { JobPoolCard } from "@/components/scheduler/job-pool-card"
 import { useSchedulerMobileTimeline } from "@/hooks/use-scheduler-mobile-timeline"
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
 import { sortPoolJobsByBookingPriority } from "@/lib/job-pool-display"
+import { isPriceDeniedRescueJob } from "@/lib/rescue-queue"
+import { SCHEDULER_GLASS_CARD, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
 import type { UnassignedPoolJob } from "@/lib/types"
+
+type PoolViewFilter = "all" | "rescue"
 
 type JobPoolTrayProps = {
   jobs: UnassignedPoolJob[]
@@ -29,18 +33,26 @@ export function JobPoolTray({
   onMobileAssignJob,
   variant = "default",
 }: JobPoolTrayProps) {
+  const [viewFilter, setViewFilter] = useState<PoolViewFilter>("all")
   const mobileTimeline = useSchedulerMobileTimeline()
   const sidebar = variant === "sidebar"
   const now = useLiveClock()
+  const rescueJobs = useMemo(() => jobs.filter((job) => isPriceDeniedRescueJob(job)), [jobs])
   const sortedJobs = useMemo(
     () => sortPoolJobsByBookingPriority(jobs, now),
     [jobs, now]
   )
+  const sortedRescueJobs = useMemo(
+    () => sortPoolJobsByBookingPriority(rescueJobs, now),
+    [rescueJobs, now]
+  )
+  const visibleJobs = viewFilter === "rescue" ? sortedRescueJobs : sortedJobs
 
   return (
     <section
       className={cn(
-        "w-full rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-card to-card shadow-sm",
+        "w-full",
+        SCHEDULER_GLASS_CARD,
         sidebar ? "px-3 py-2" : "px-4 py-3"
       )}
     >
@@ -57,13 +69,13 @@ export function JobPoolTray({
           <div>
             <h2 className="text-sm font-semibold text-foreground">Active job pool</h2>
             {!sidebar ? (
-              <p className="text-[11px] text-zinc-500">
+              <p className={SCHEDULER_METADATA_LABEL}>
                 {mobileTimeline
                   ? "Tap a job, then double-tap a technician on the timeline to dispatch"
                   : "Drag onto a technician column to assign & schedule"}
               </p>
             ) : (
-              <p className="text-[10px] text-zinc-500">Drag jobs onto a tech lane to dispatch</p>
+              <p className={SCHEDULER_METADATA_LABEL}>Drag jobs onto a tech lane to dispatch</p>
             )}
           </div>
         </div>
@@ -76,6 +88,34 @@ export function JobPoolTray({
         )}
       </div>
 
+      <div className="mb-2 flex gap-1 rounded-lg border border-slate-800/80 bg-slate-900/40 p-0.5">
+        <button
+          type="button"
+          onClick={() => setViewFilter("all")}
+          className={cn(
+            "flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            viewFilter === "all"
+              ? "bg-slate-800 text-slate-100"
+              : "text-slate-500 hover:text-slate-300"
+          )}
+        >
+          All pool ({jobs.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewFilter("rescue")}
+          className={cn(
+            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            viewFilter === "rescue"
+              ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
+              : "text-rose-300/80 hover:text-rose-100"
+          )}
+        >
+          <LifeBuoy className="h-3 w-3" aria-hidden />
+          Rescue ({rescueJobs.length})
+        </button>
+      </div>
+
       <div
         className={cn(
           sidebar
@@ -85,10 +125,14 @@ export function JobPoolTray({
               : "flex gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         )}
       >
-        {!loading && jobs.length === 0 ? (
-          <p className="py-2 text-xs text-zinc-500">No unassigned jobs — new bookings without a tech land here.</p>
+        {!loading && visibleJobs.length === 0 ? (
+          <p className="py-2 text-xs text-slate-500">
+            {viewFilter === "rescue"
+              ? "No Price Denied jobs in the rescue queue — rejected quotes land here for outreach."
+              : "No unassigned jobs — new bookings without a tech land here."}
+          </p>
         ) : null}
-        {sortedJobs.map((job) => (
+        {visibleJobs.map((job) => (
           <JobPoolCard
             key={job.id}
             job={job}

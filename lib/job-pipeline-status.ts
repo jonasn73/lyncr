@@ -70,10 +70,10 @@ export const PIPELINE_STATUS_BADGE_STYLE: Record<JobPipelineStatusId, string> = 
 export function schedulerDispatchCardStyle(dispatch_status?: string | null): string | null {
   const dispatch = (dispatch_status ?? "").trim().toLowerCase()
   if (dispatch === "awaiting_time") {
-    return "border-violet-500/50 bg-violet-500/15 text-violet-100"
+    return "border-l-4 border-l-violet-500 text-violet-100"
   }
   if (dispatch === "salvage_pending") {
-    return "border-rose-500/50 bg-rose-500/15 text-rose-100"
+    return "border-l-4 border-l-rose-500 text-rose-100"
   }
   return null
 }
@@ -93,6 +93,7 @@ export function schedulerEventToPoolJob(event: SchedulerEvent): UnassignedPoolJo
     vehicle_make: event.vehicle_make,
     vehicle_model: event.vehicle_model,
     vehicle_vin: event.vehicle_vin,
+    programming_method: event.programming_method,
     job_notes: event.job_notes,
     scheduled_at: event.scheduled_tentative ? null : event.scheduled_at,
     duration_minutes: event.duration_minutes,

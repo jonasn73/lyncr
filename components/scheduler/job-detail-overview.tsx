@@ -17,23 +17,35 @@ import {
   formatScheduledTimeDisplay,
 } from "@/lib/scheduler-utils"
 import { cn } from "@/lib/utils"
-import type { FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
+import {
+  SCHEDULER_FIELD_STACK,
+  SCHEDULER_FIELD_VALUE,
+  SCHEDULER_GLASS_CARD,
+  SCHEDULER_INPUT,
+  SCHEDULER_METADATA_LABEL,
+  SCHEDULER_SPEC_TILE,
+} from "@/lib/scheduler-ui-tokens"
+import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
+import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 type JobDetailOverviewProps = {
   source: UnassignedPoolJob | SchedulerEvent
   scheduledEvent: SchedulerEvent | null
   poolJob: UnassignedPoolJob | null
   technicians: FieldTechnician[]
+  activePipelineJobs?: ActivePipelineJob[]
   quotedPriceDollars: number
   baselineQuotedDollars: number | null
   discountLabel: string | null
   jobNotes: string
   pipelineStatus: JobPipelineStatusId
   assignedTechId: string
-  statusUpdating: boolean
+  pipelineDirty: boolean
+  saving: boolean
   onEdit: () => void
   onPipelineStatusChange: (status: JobPipelineStatusId) => void
   onAssignedTechChange: (techUserId: string) => void
+  onSavePipeline: () => void
   onClose: () => void
 }
 
@@ -50,16 +62,19 @@ export function JobDetailOverview({
   source,
   scheduledEvent,
   technicians,
+  activePipelineJobs = [],
   quotedPriceDollars,
   baselineQuotedDollars,
   discountLabel,
   jobNotes,
   pipelineStatus,
   assignedTechId,
-  statusUpdating,
+  pipelineDirty,
+  saving,
   onEdit,
   onPipelineStatusChange,
   onAssignedTechChange,
+  onSavePipeline,
   onClose,
 }: JobDetailOverviewProps) {
   const customerName = (source.customer_name ?? "").trim() || "Customer"
@@ -68,7 +83,6 @@ export function JobDetailOverview({
   const specBlocks = buildJobTechnicalSpecBlocks(source)
   const addressBlock = specBlocks.find((block) => block.label === "Address")
   const otherSpecBlocks = specBlocks.filter((block) => block.label !== "Address")
-  const assignableTechs = technicians.filter((tech) => tech.is_active && tech.portal_user_id)
   const pipelineBadgeStyle = PIPELINE_STATUS_BADGE_STYLE[pipelineStatus]
   const pipelineLabel = pipelineStatusLabel(pipelineStatus)
   const scheduledAtIso = resolveJobScheduledAtIso(
@@ -83,7 +97,7 @@ export function JobDetailOverview({
       <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-14">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Active job</p>
+            <p className={SCHEDULER_METADATA_LABEL}>Active job</p>
             <span
               className={cn(
                 "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -96,7 +110,7 @@ export function JobDetailOverview({
           <button
             type="button"
             onClick={onEdit}
-            className="shrink-0 text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
+            className="shrink-0 text-[11px] font-semibold text-primary underline-offset-2 transition-all duration-200 hover:text-emerald-300 hover:underline"
           >
             Edit Job Details
           </button>
@@ -104,10 +118,10 @@ export function JobDetailOverview({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
-          <div className="min-w-0">
+        <div className={cn(SCHEDULER_GLASS_CARD, "flex flex-wrap items-center justify-between gap-3 p-3")}>
+          <div className={cn(SCHEDULER_FIELD_STACK, "min-w-0")}>
             <p className="truncate text-lg font-semibold text-foreground">{customerName}</p>
-            <p className="mt-0.5 font-mono text-sm text-muted-foreground">
+            <p className="font-mono text-sm text-muted-foreground">
               {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
             </p>
           </div>
@@ -124,12 +138,9 @@ export function JobDetailOverview({
         <div className="mt-4 grid gap-2">
           {otherSpecBlocks.length > 0 ? (
             otherSpecBlocks.map((block) => (
-              <div
-                key={`${block.label}-${block.value}`}
-                className="rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2.5"
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{block.label}</p>
-                <p className="mt-1 text-sm font-medium leading-snug text-foreground">{block.value}</p>
+              <div key={`${block.label}-${block.value}`} className={SCHEDULER_SPEC_TILE}>
+                <p className={SCHEDULER_METADATA_LABEL}>{block.label}</p>
+                <p className={SCHEDULER_FIELD_VALUE}>{block.value}</p>
               </div>
             ))
           ) : !addressBlock ? (
@@ -139,15 +150,15 @@ export function JobDetailOverview({
           ) : null}
 
           {addressBlock ? (
-            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{addressBlock.label}</p>
-              <p className="mt-1 text-sm font-medium leading-snug text-foreground">{addressBlock.value}</p>
+            <div className={SCHEDULER_SPEC_TILE}>
+              <p className={SCHEDULER_METADATA_LABEL}>{addressBlock.label}</p>
+              <p className={SCHEDULER_FIELD_VALUE}>{addressBlock.value}</p>
             </div>
           ) : null}
 
-          <div className="mt-4">
-            <span className="mb-1 block text-xs uppercase tracking-wider text-slate-500">Notes</span>
-            <p className="min-h-[50px] whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 text-sm text-slate-200">
+          <div className={SCHEDULER_FIELD_STACK}>
+            <span className={SCHEDULER_METADATA_LABEL}>Notes</span>
+            <p className={cn(SCHEDULER_SPEC_TILE, "min-h-[50px] whitespace-pre-wrap text-sm text-slate-200")}>
               {jobNotes.trim() || "No notes added"}
             </p>
           </div>
@@ -168,9 +179,9 @@ export function JobDetailOverview({
           ) : null}
         </div>
 
-        <div className="mb-4 mt-3 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-          <div>
-            <span className="mb-1 block text-xs uppercase tracking-wider text-slate-500">Appointment</span>
+        <div className={cn(SCHEDULER_GLASS_CARD, "mb-4 mt-3 flex items-center justify-between p-3")}>
+          <div className={SCHEDULER_FIELD_STACK}>
+            <span className={SCHEDULER_METADATA_LABEL}>Appointment</span>
             <span className="text-sm font-medium text-slate-200">
               {scheduledAtIso ? `${scheduledDateLabel} at ${scheduledTimeLabel}` : "Not scheduled yet"}
             </span>
@@ -178,28 +189,25 @@ export function JobDetailOverview({
           <ScheduleInteractionBadge scheduled_at={scheduledAtIso} job_status={jobStatus} />
         </div>
 
-        <div className="mt-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+        <div className={cn(SCHEDULER_GLASS_CARD, "mt-3 px-3 py-3")}>
           <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Job pipeline control</p>
-            {statusUpdating ? (
+            <p className={SCHEDULER_METADATA_LABEL}>Job pipeline control</p>
+            {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
             ) : null}
           </div>
 
           <div className="grid gap-3">
-            <div>
-              <label
-                htmlFor="job-pipeline-status"
-                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500"
-              >
+            <div className={SCHEDULER_FIELD_STACK}>
+              <label htmlFor="job-pipeline-status" className={SCHEDULER_METADATA_LABEL}>
                 Job status
               </label>
               <select
                 id="job-pipeline-status"
-                disabled={statusUpdating}
+                disabled={saving}
                 value={pipelineStatus}
                 onChange={(e) => onPipelineStatusChange(e.target.value as JobPipelineStatusId)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
+                className={cn(SCHEDULER_INPUT, "disabled:opacity-60")}
               >
                 {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -209,27 +217,18 @@ export function JobDetailOverview({
               </select>
             </div>
 
-            <div>
-              <label
-                htmlFor="job-pipeline-tech"
-                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500"
-              >
+            <div className={SCHEDULER_FIELD_STACK}>
+              <label htmlFor="job-pipeline-tech" className={SCHEDULER_METADATA_LABEL}>
                 Tech assignment
               </label>
-              <select
-                id="job-pipeline-tech"
-                disabled={statusUpdating || pipelineStatus !== "DISPATCHED"}
+              <TechAssignmentSelect
+                technicians={technicians}
                 value={assignedTechId}
-                onChange={(e) => onAssignedTechChange(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
-              >
-                <option value="">Unassigned — select when scheduled</option>
-                {assignableTechs.map((tech) => (
-                  <option key={tech.portal_user_id} value={tech.portal_user_id!}>
-                    {tech.name}
-                  </option>
-                ))}
-              </select>
+                disabled={saving || pipelineStatus !== "DISPATCHED"}
+                job={source}
+                activePipelineJobs={activePipelineJobs}
+                onChange={onAssignedTechChange}
+              />
               {pipelineStatus !== "DISPATCHED" ? (
                 <p className="mt-1.5 text-[10px] text-muted-foreground">
                   Set status to Scheduled to assign a technician on the board.
@@ -238,6 +237,24 @@ export function JobDetailOverview({
             </div>
           </div>
         </div>
+
+        {pipelineDirty ? (
+          <Button
+            type="button"
+            className="mt-3 w-full"
+            disabled={saving}
+            onClick={onSavePipeline}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                Saving…
+              </>
+            ) : (
+              "Save pipeline changes"
+            )}
+          </Button>
+        ) : null}
 
         <Button type="button" variant="outline" className="mt-4 w-full" onClick={onClose}>
           Close

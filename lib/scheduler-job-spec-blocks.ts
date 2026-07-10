@@ -15,6 +15,7 @@ type JobSpecSource = {
   key_style?: string | null
   key_chipset?: string | null
   key_fcc_id?: string | null
+  programming_method?: string | null
   service_quote_type_id?: string | null
   job_type?: string | null
   location?: string | null
@@ -50,6 +51,9 @@ export function buildJobTechnicalSpecBlocks(source: JobSpecSource): JobSpecBlock
 
   const fcc = (source.key_fcc_id ?? "").trim()
   if (fcc) blocks.push({ label: "FCC ID", value: fcc })
+
+  const programming = (source.programming_method ?? "").trim()
+  if (programming) blocks.push({ label: "Programming", value: programming })
 
   const address = (source.location ?? "").trim()
   if (address) blocks.push({ label: "Address", value: address })

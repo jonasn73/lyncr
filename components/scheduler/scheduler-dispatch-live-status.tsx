@@ -19,6 +19,7 @@ import {
   SCHEDULER_URGENCY_LABEL,
   SCHEDULER_URGENCY_TIME_CLASS,
 } from "@/lib/scheduler-job-urgency"
+import { SCHEDULER_LIVE_STATUS_SHELL, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
 import { SCHEDULER_STATUS_LABEL } from "@/lib/scheduler-job-status"
 import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -49,21 +50,21 @@ function UpcomingJobChip({
   return (
     <div
       className={cn(
-        "flex min-w-[12rem] shrink-0 snap-start flex-col gap-1 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
+        "flex min-w-[12rem] shrink-0 snap-start flex-col gap-1 px-2.5 py-1.5 text-left",
         SCHEDULER_URGENCY_CHIP_CLASS[urgency]
       )}
     >
       <button type="button" onClick={() => onSelectJob?.(job.id)} className="text-left">
-        <span className={cn("text-[10px] font-semibold tabular-nums", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
+        <span className={cn(SCHEDULER_METADATA_LABEL, "tabular-nums", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
           {timeLabel}
           {countdown ? ` · ${countdown}` : ""}
         </span>
-        <span className="mt-0.5 block truncate text-xs font-medium text-zinc-100">{name}</span>
-        <span className="block truncate text-[10px] text-zinc-500">
+        <span className="mt-0.5 block truncate text-xs font-medium text-slate-100">{name}</span>
+        <span className={cn("block truncate", SCHEDULER_METADATA_LABEL)}>
           {[job.job_type, status, job.assigned_tech_name].filter(Boolean).join(" · ")}
         </span>
         {urgency !== "later" && urgency !== "unscheduled" ? (
-          <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
+          <span className={cn("mt-0.5 block", SCHEDULER_METADATA_LABEL)}>
             {SCHEDULER_URGENCY_LABEL[urgency]}
           </span>
         ) : null}
@@ -165,8 +166,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   return (
     <div
       className={cn(
-        "min-w-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/90 backdrop-blur",
-        compact && "border-0 bg-transparent",
+        SCHEDULER_LIVE_STATUS_SHELL,
+        compact && "border-0 bg-transparent backdrop-blur-none",
         embedded && !compact && "rounded-t-xl",
         className
       )}
@@ -185,7 +186,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
             <Clock3 className={cn("shrink-0 text-primary", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
             <div className="flex min-w-0 flex-col">
               {!compact ? (
-                <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Now</span>
+                <span className={SCHEDULER_METADATA_LABEL}>Now</span>
               ) : null}
               <time
                 dateTime={now.toISOString()}
@@ -216,7 +217,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
 
         {!compact && !sidebar ? (
           <div className="border-t border-zinc-800/80 px-3 py-2 md:px-4">
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1.5")}>
               Coming up next
             </p>
             {upcoming.length === 0 ? (

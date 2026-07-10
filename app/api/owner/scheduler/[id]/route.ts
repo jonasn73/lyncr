@@ -44,6 +44,7 @@ type PatchSchedulerBody = {
   key_style?: string | null
   key_variant_id?: string | null
   key_profile_id?: string | null
+  programming_method?: string | null
   discount_applied?: string | null
   baseline_quote_cents?: number | null
   dispatch_status?: string | null
@@ -181,6 +182,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       keyStyle: body.key_style ?? null,
       keyVariantId: body.key_variant_id ?? null,
       keyProfileId: body.key_profile_id ?? null,
+      programmingMethod: body.programming_method ?? null,
       discountApplied: body.discount_applied ?? null,
       baselineQuotedPriceCents:
         body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))

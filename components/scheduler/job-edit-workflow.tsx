@@ -7,21 +7,26 @@ import { Loader2, Trash2 } from "lucide-react"
 import { SERVICE_QUOTE_TYPES, isAutomotiveServiceQuoteType } from "@/lib/service-quote-calculator"
 import { type SchedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
+import {
+  SCHEDULER_FIELD_STACK,
+  SCHEDULER_GLASS_CARD,
+  SCHEDULER_INPUT,
+  SCHEDULER_METADATA_LABEL,
+  SCHEDULER_SECTION,
+  SCHEDULER_TEXTAREA,
+} from "@/lib/scheduler-ui-tokens"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { VinLookupField } from "@/components/vin-lookup-field"
 import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 
-const fieldBlockClass = "flex w-full min-w-0 flex-col"
-const labelClass = "mb-1.5 text-xs font-medium text-zinc-400"
-const sectionClass =
-  "mb-4 min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-4"
-const sectionTitleClass = "mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500"
-const inputClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
-const addressTextareaClass =
-  "box-border block min-h-[72px] w-full max-w-full resize-none break-words whitespace-normal rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+const fieldBlockClass = cn(SCHEDULER_FIELD_STACK, "w-full min-w-0")
+const labelClass = SCHEDULER_METADATA_LABEL
+const sectionClass = SCHEDULER_SECTION
+const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-3 block")
+const inputClass = SCHEDULER_INPUT
+const addressTextareaClass = SCHEDULER_TEXTAREA
 
 export type JobEditWorkflowProps = {
   statusLabel: string
@@ -117,7 +122,7 @@ export function JobEditWorkflow({
       <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-14">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Edit job</p>
+            <p className={SCHEDULER_METADATA_LABEL}>Edit job</p>
             <span
               className={cn(
                 "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -134,7 +139,7 @@ export function JobEditWorkflow({
           <button
             type="button"
             onClick={onBackToOverview}
-            className="shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            className="shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 transition-all duration-200 hover:text-emerald-300 hover:underline"
           >
             Back to overview
           </button>
@@ -235,10 +240,8 @@ export function JobEditWorkflow({
             </div>
 
             {isAutomotiveService ? (
-              <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/40 p-3">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Vehicle info
-                </p>
+              <div className={cn(SCHEDULER_GLASS_CARD, "p-3")}>
+                <p className={cn(SCHEDULER_METADATA_LABEL, "mb-3 block")}>Vehicle info</p>
                 <div className="grid grid-cols-3 gap-2">
                   <div className={fieldBlockClass}>
                     <label className={labelClass} htmlFor="job-edit-vehicle-year">

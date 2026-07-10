@@ -31,6 +31,11 @@ import { hasCompleteIntakePhone, resolveIntakePhone } from "@/lib/intake-phone"
 import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
 import type { VehicleFactoryOption } from "@/lib/vehicle-trim-features"
 import type { PlateLookupResult } from "@/lib/vehicle-plate-lookup"
+import {
+  defaultIntakeScheduleDate,
+  defaultIntakeScheduleTime,
+} from "@/lib/intake-schedule-helpers"
+import { combineScheduledDateTimeLocal } from "@/lib/scheduler-utils"
 
 /** Manual-only call lifecycle shown in the intake sheet header. */
 export type ManualCallStatus = "ringing" | "answered" | "on_hold" | "completed"
@@ -89,6 +94,12 @@ export type ActiveCallFormState = {
   keyVariantId: string
   /** Row id from the FCC reference CSV for the selected profile. */
   keyProfileId: string
+  /** How the selected key is programmed (from key panel variant card). */
+  programmingMethod: string
+  /** Appointment date (YYYY-MM-DD) used when booking from intake. */
+  scheduledDate: string
+  /** Appointment time (HH:mm) used when booking from intake. */
+  scheduledTime: string
   /** Intake clarification prompts already answered for this vehicle. */
   vehicleClarificationAnswers: string[]
   /** Service quote calculator selection id (see lib/service-quote-calculator). */
@@ -126,6 +137,9 @@ const EMPTY_FORM: ActiveCallFormState = {
   keyStyle: "",
   keyVariantId: "",
   keyProfileId: "",
+  programmingMethod: "",
+  scheduledDate: "",
+  scheduledTime: "",
   vehicleClarificationAnswers: [],
   serviceQuoteTypeId: "lockout",
   quotedPriceCents: 0,
@@ -210,6 +224,7 @@ export function useActiveCallForm(
       keyStyle: "",
       keyVariantId: "",
       keyProfileId: "",
+      programmingMethod: "",
       vehicleClarificationAnswers: [],
     }))
   }, [])
@@ -235,6 +250,7 @@ export function useActiveCallForm(
       keyStyle: "",
       keyVariantId: "",
       keyProfileId: "",
+      programmingMethod: "",
       vehicleClarificationAnswers: [],
     }))
   }, [])
@@ -265,6 +281,7 @@ export function useActiveCallForm(
               keyStyle: "",
               keyVariantId: "",
               keyProfileId: "",
+              programmingMethod: "",
             }
           : {}),
       }
@@ -280,6 +297,7 @@ export function useActiveCallForm(
         chipset: string | null
         keyStyle: string
         variantId?: string | null
+        programmingMethod?: string | null
       } | null
     ) => {
       setForm((prev) => ({
@@ -290,6 +308,7 @@ export function useActiveCallForm(
         keyChipset: sel?.chipset ?? "",
         keyStyle: sel?.keyStyle ?? "",
         keyVariantId: sel?.variantId ?? "",
+        programmingMethod: sel?.programmingMethod?.trim() ?? "",
       }))
     },
     []
@@ -334,6 +353,8 @@ export function useActiveCallForm(
         : 0
     setForm({
       ...EMPTY_FORM,
+      scheduledDate: defaultIntakeScheduleDate(),
+      scheduledTime: defaultIntakeScheduleTime(),
       phoneNumber: current.from_number,
       displayName: current.caller_name?.trim() || "",
       vehicleYear: current.vehicleYear?.trim() || "",
@@ -508,41 +529,6 @@ export function useActiveCallForm(
     form.serviceAddress,
   ])
 
-  useEffect(() => {
-    if (!callLogId || !current) return
-    if (!hasCompleteIntakePhone(resolvedPhoneNumber)) return
-
-    setSaveState("idle")
-    const t = window.setTimeout(() => {
-      setSaveState("saving")
-      fetch("/api/customers", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          phone_e164: resolvedPhoneNumber,
-          display_name: form.displayName,
-          company_name: "",
-          address_line1: form.addressLine1,
-          address_line2: form.addressLine2,
-          city: form.city,
-          region: form.region,
-          postal_code: form.postalCode,
-          country: form.country,
-          notes: form.notes,
-          source_last_call_log_id:
-            current.isManual && current.id.startsWith("manual-") ? null : current.id,
-        }),
-      })
-        .then(async (res) => {
-          if (!res.ok) throw new Error("save")
-        })
-        .then(() => setSaveState("saved"))
-        .catch(() => setSaveState("error"))
-    }, 1000)
-    return () => window.clearTimeout(t)
-  }, [callLogId, current, form, resolvedPhoneNumber])
-
   const createJob = useCallback(
     async (
       organizationId?: string | null,
@@ -592,6 +578,31 @@ export function useActiveCallForm(
         const addressLine1 = form.addressLine1.trim()
         const city = form.city.trim()
 
+        if (hasCompleteIntakePhone(phone)) {
+          setSaveState("saving")
+          const customerRes = await fetch("/api/customers", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              phone_e164: phone,
+              display_name: name,
+              company_name: "",
+              address_line1: form.addressLine1,
+              address_line2: form.addressLine2,
+              city: form.city,
+              region: form.region,
+              postal_code: form.postalCode,
+              country: form.country,
+              notes: form.notes,
+              source_last_call_log_id:
+                current.isManual && current.id.startsWith("manual-") ? null : callLogIdForJob,
+            }),
+          })
+          if (!customerRes.ok) throw new Error("Could not save customer record.")
+          setSaveState("saved")
+        }
+
         if (current.isManual && current.id.startsWith("manual-")) {
           const manualRes = await fetch("/api/calls/manual", {
             method: "POST",
@@ -632,6 +643,10 @@ export function useActiveCallForm(
           hookOptions?.linkManualCallLog?.({ id: provisionedId, isManual: true })
         }
 
+        const scheduledAtIso = pendingCallback
+          ? null
+          : combineScheduledDateTimeLocal(form.scheduledDate, form.scheduledTime)
+
         const res = await fetch("/api/jobs/create", {
           method: "POST",
           credentials: "include",
@@ -659,6 +674,7 @@ export function useActiveCallForm(
             key_chipset: form.keyChipset || null,
             key_style: form.keyStyle || null,
             key_variant_id: form.keyVariantId || null,
+            programming_method: form.programmingMethod.trim() || null,
             field_verification_required: keyStyleRequiresFieldVerification(form.keyStyle),
             vehicle_trim: form.vehicleTrim.trim() || null,
             factory_options: form.factoryOptions.length > 0 ? form.factoryOptions : null,
@@ -669,6 +685,7 @@ export function useActiveCallForm(
             customer_lng: form.serviceAddress?.lng ?? null,
             organization_id: organizationId ?? null,
             pending_callback: pendingCallback,
+            scheduled_at: scheduledAtIso,
             discount_applied: jobOptions?.discountApplied?.trim() || null,
             baseline_quote_cents:
               jobOptions?.baselineQuotedPriceCents != null && jobOptions.baselineQuotedPriceCents > 0
