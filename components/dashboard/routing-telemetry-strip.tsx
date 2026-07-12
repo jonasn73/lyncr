@@ -4,7 +4,6 @@ import { memo, useCallback, useState } from "react"
 import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
   RoutingCallHistoryDialog,
@@ -40,7 +39,7 @@ function TelemetryPill({
   onClick,
 }: TelemetryPillProps) {
   const sharedClasses = cn(
-    "inline-flex min-w-[10.5rem] shrink-0 snap-start items-center gap-2 rounded-full border px-3 py-1.5 md:min-w-0",
+    "inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-full border px-2.5 py-1.5",
     "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
     tone === "amber" && "border-amber-500/25 text-amber-100/90",
     tone === "teal" && "border-teal-500/25 text-teal-100/90",
@@ -85,7 +84,7 @@ function TelemetryPill({
   return <div className={sharedClasses}>{inner}</div>
 }
 
-/** Mobile ticker cell — bold value over tiny uppercase label, no card chrome. */
+/** Metric cell — bold value over tiny uppercase label; fills its grid track. */
 function TelemetryTickerItem({
   label,
   value,
@@ -104,7 +103,7 @@ function TelemetryTickerItem({
       <span className={cn("text-base font-bold tabular-nums text-slate-100", valueClassName)}>{value}</span>
       <span
         className={cn(
-          "text-[10px] font-semibold uppercase tracking-wider text-slate-500",
+          "max-w-full truncate text-center text-[9px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[10px]",
           labelClassName
         )}
       >
@@ -112,16 +111,14 @@ function TelemetryTickerItem({
       </span>
     </>
   )
-  const shared = "inline-flex min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5"
+  const shared =
+    "flex min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5"
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={cn(
-          shared,
-          "cursor-pointer touch-manipulation transition-all active:scale-95"
-        )}
+        className={cn(shared, "cursor-pointer touch-manipulation transition-all active:scale-95")}
         aria-label={`${label}: ${value}`}
       >
         {body}
@@ -186,7 +183,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       {isMobile ? (
         <section
           className={cn(
-            "flex flex-row items-center justify-between gap-4 overflow-x-auto border-b border-slate-900 bg-slate-950/40 px-2 py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "grid grid-cols-3 gap-2 w-full border-b border-slate-900 bg-slate-950/40 px-4 py-3",
             className
           )}
           aria-label="Dispatch performance"
@@ -219,8 +216,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       ) : (
         <section
           className={cn(
-            "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:px-4 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden",
-            WORKSPACE_MOBILE_BLEED,
+            "grid grid-cols-3 gap-2 w-full rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md",
             className
           )}
           aria-label="Workspace telemetry"
