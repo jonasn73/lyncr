@@ -48,6 +48,7 @@ export function middleware(request: NextRequest) {
   const needsSession =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/admin") ||
+    pathname.startsWith("/dev") ||
     (pathname.startsWith("/onboarding") && !hasInviteToken) ||
     pathname.startsWith("/receptionist") ||
     techNeedsSession
@@ -75,6 +76,8 @@ export const config = {
     "/dashboard/:path*",
     "/admin",
     "/admin/:path*",
+    "/dev",
+    "/dev/:path*",
     "/onboarding",
     "/onboarding/:path*",
     "/receptionist",

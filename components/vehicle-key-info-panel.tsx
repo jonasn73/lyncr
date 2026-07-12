@@ -82,7 +82,7 @@ type FccVariant = {
 }
 
 /** Normalized card fields for database + manual key pickers. */
-type KeySelectionCardModel = {
+export type KeySelectionCardModel = {
   id: string
   label: string
   description: string | null
@@ -186,7 +186,7 @@ function KeyThumbnail({ imageUrl, label }: { imageUrl: string | null; label: str
   )
 }
 
-function KeySelectionCard({
+export function KeySelectionCard({
   card,
   selected,
   disabled,

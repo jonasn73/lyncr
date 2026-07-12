@@ -64,6 +64,8 @@ type ActivePipelinePanelProps = {
   onMarkComplete?: (jobId: string) => void
   completingJobId?: string | null
   layout?: "default" | "mobileSheet"
+  /** Dev gallery — include completed / unassigned phases normally hidden from the live board. */
+  includeAllPhases?: boolean
 }
 
 export function ActivePipelinePanel({
@@ -75,25 +77,31 @@ export function ActivePipelinePanel({
   onMarkComplete,
   completingJobId,
   layout = "default",
+  includeAllPhases = false,
 }: ActivePipelinePanelProps) {
   const isMobileSheet = layout === "mobileSheet"
   const now = useLiveClock()
   const grouped = useMemo(() => {
     const buckets = new Map<SchedulerLifecyclePhase, ActivePipelineJob[]>()
-    for (const phase of PIPELINE_PANEL_GROUP_ORDER) {
+    const phaseOrder: SchedulerLifecyclePhase[] = includeAllPhases
+      ? [...PIPELINE_PANEL_GROUP_ORDER, "completed"]
+      : PIPELINE_PANEL_GROUP_ORDER
+    for (const phase of phaseOrder) {
       buckets.set(phase, [])
     }
     for (const job of jobs) {
       const phase = jobPhase(job)
-      if (phase === "completed" || phase === "unassigned") continue
+      if (!includeAllPhases && (phase === "completed" || phase === "unassigned")) continue
       buckets.get(phase)?.push(job)
     }
-    return PIPELINE_PANEL_GROUP_ORDER.map((phase) => ({
-      phase,
-      title: PIPELINE_PANEL_GROUP_TITLE[phase],
-      jobs: buckets.get(phase) ?? [],
-    })).filter((g) => g.jobs.length > 0)
-  }, [jobs])
+    return phaseOrder
+      .map((phase) => ({
+        phase,
+        title: PIPELINE_PANEL_GROUP_TITLE[phase],
+        jobs: buckets.get(phase) ?? [],
+      }))
+      .filter((g) => g.jobs.length > 0)
+  }, [jobs, includeAllPhases])
 
   if (loading) {
     return (
