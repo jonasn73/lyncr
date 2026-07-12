@@ -966,6 +966,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         answered_at: detail.phase === "connected" ? detail.answeredAt ?? new Date().toISOString() : null,
       }
       showCallRow(setCurrent, row, dismissedRef.current)
+      isMinimizedRef.current = false
       setIsMinimized(false)
     }
     window.addEventListener(LYNCR_FOCUS_INTAKE_EVENT, onFocus)
