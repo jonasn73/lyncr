@@ -26,10 +26,9 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import {
   WorkspacePage,
   WorkspacePageHeader,
-  WorkspaceDisclosureRow,
   workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
-import { SettingsMenuRow } from "@/components/dashboard/settings-menu-row"
+import { SettingsMenuRow, SettingsGroupedList } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -154,10 +153,10 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
     .slice(0, 2)
 
   return (
-    <WorkspacePage className="gap-8 pb-8">
+    <WorkspacePage className="gap-6 pb-10">
       <WorkspacePageHeader eyebrow="Account" title="Settings" />
 
-      <div className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-4 sm:px-5">
+      <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
         {profileLoading ? (
           <>
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
@@ -183,52 +182,59 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         )}
       </div>
 
-      {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-2xl" /> : null}
+      {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-xl" /> : null}
 
+      {/* WORKSPACE — single grouped list */}
       <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Workspace</p>
-        <div className="flex flex-col gap-2">
+        <SettingsGroupedList>
           <SettingsMenuRow
+            grouped
             icon={<Building2 className="h-5 w-5 text-primary" aria-hidden />}
             title="Business profile"
-            subtitle="Business name, lead-alert SMS number, and operator dispatch notifications."
+            subtitle="Name, lead-alert SMS number, operator notifications."
             onClick={modals.openBusinessProfile}
           />
           <SettingsMenuRow
+            grouped
             icon={<CreditCard className="h-5 w-5 text-primary" aria-hidden />}
             title="Billing & subscription"
             subtitle={
               profile.subscriptionActive
-                ? "View your plan, renewal date, and carrier credit on the Pay tab."
-                : "Activate your line and manage plans from the Pay tab."
+                ? "Plan, renewal, and carrier credit on Pay."
+                : "Activate your line and manage plans on Pay."
             }
             onClick={modals.openBilling}
           />
           <SettingsMenuRow
+            grouped
             icon={<Zap className="h-5 w-5 text-violet-300" aria-hidden />}
             title="SMS automation engine"
-            subtitle="Booking confirmations, en-route texts, and post-job review templates with merge tags."
+            subtitle="Confirmations, en-route texts, review templates."
             onClick={modals.openSmsAutomation}
           />
           <SettingsMenuRow
+            grouped
             icon={<ShieldCheck className="h-5 w-5 text-violet-300" aria-hidden />}
             title="Carrier 10DLC registration"
-            subtitle="One-time US carrier compliance so lead-alert and customer SMS can deliver."
+            subtitle="US carrier compliance for lead-alert SMS."
             badge={carrierRegistrationPending ? "Pending" : undefined}
             onClick={modals.openCarrierRegistration}
           />
           <SettingsMenuRow
+            grouped
             icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}
             title="Call routing strategy"
-            subtitle="Private team, Lyncr operator pool, or hybrid fallback per business line."
+            subtitle="Private team, Lyncr pool, or hybrid fallback."
             onClick={modals.openRoutingStrategy}
           />
-        </div>
+        </SettingsGroupedList>
       </section>
 
-      <section className="space-y-3">
+      {/* SYSTEM — Push / SMS / Whisper in one list */}
+      <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <SettingsGroupedList>
           <ToggleRow label="Push" icon={Bell} checked={pushEnabled} onChange={setPushEnabled} />
           <ToggleRow label="SMS" icon={MessageSquare} checked={smsEnabled} onChange={setSmsEnabled} />
           <ToggleRow
@@ -238,33 +244,47 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             disabled={whisperSaving}
             onChange={(v) => onSaveWhisper(v)}
           />
-        </div>
+        </SettingsGroupedList>
       </section>
 
+      {/* OPERATIONS — hours + privacy only; Sign out sits alone below */}
       <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
-        <div className="flex flex-col gap-2">
-          <WorkspaceDisclosureRow
-            icon={<Clock className="h-5 w-5" />}
-            label="Business hours"
+        <SettingsGroupedList>
+          <SettingsMenuRow
+            grouped
+            icon={<Clock className="h-5 w-5" aria-hidden />}
+            title="Business hours"
             onClick={() => openHours(HOURS_SHEET_KEY)}
           />
-          <WorkspaceDisclosureRow
-            icon={<Shield className="h-5 w-5" />}
-            label="Privacy"
+          <SettingsMenuRow
+            grouped
+            icon={<Shield className="h-5 w-5" aria-hidden />}
+            title="Privacy"
             onClick={() => {
               const url = process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL || "/privacy"
               window.open(url, process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL ? "_blank" : "_self")
             }}
           />
-          <WorkspaceDisclosureRow
-            icon={<LogOut className="h-5 w-5" />}
-            label={signingOut ? "Signing out…" : "Sign out"}
-            destructive
-            onClick={onSignOut}
-          />
-        </div>
+        </SettingsGroupedList>
       </section>
+
+      {/* Sign out — unbordered rose action, clear separation from lists */}
+      <div className="pt-2">
+        <button
+          type="button"
+          disabled={signingOut}
+          onClick={onSignOut}
+          className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-rose-400 transition-colors hover:text-rose-300 disabled:opacity-50"
+        >
+          {signingOut ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <LogOut className="h-4 w-4" aria-hidden />
+          )}
+          {signingOut ? "Signing out…" : "Sign out"}
+        </button>
+      </div>
     </WorkspacePage>
   )
 })
@@ -410,10 +430,11 @@ function ToggleRow({
   onChange: (v: boolean) => void
   disabled?: boolean
 }) {
+  // Inset toggle row for SettingsGroupedList — icon + label left, switch right.
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-4">
-      <span className="flex items-center gap-2.5 text-sm font-medium text-foreground">
-        <Icon className="h-4 w-4 text-primary" aria-hidden />
+    <div className="flex items-center justify-between gap-3 border-b border-slate-900/60 px-4 py-3 last:border-0">
+      <span className="flex min-w-0 items-center gap-3 text-sm font-medium text-foreground">
+        <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
         {label}
       </span>
       <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} aria-label={label} />
