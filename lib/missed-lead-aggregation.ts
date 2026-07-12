@@ -22,6 +22,63 @@ export type MissedLeadHotProspect = {
   latestAt: string
 }
 
+/** Banner layout mode derived from the last-30m unreturned prospect set. */
+export type MissedLeadRecoveryMode =
+  | { kind: "multi"; uniqueLeadsCount: number; totalMissedEvents: number; maxRepetitionCount: number }
+  | {
+      kind: "high_urgency"
+      uniqueLeadsCount: 1
+      totalMissedEvents: number
+      maxRepetitionCount: number
+      prospect: MissedLeadHotProspect
+    }
+  | {
+      kind: "single"
+      uniqueLeadsCount: 1
+      totalMissedEvents: number
+      maxRepetitionCount: 1
+      prospect: MissedLeadHotProspect
+    }
+
+/**
+ * Evaluate unreturned missed leads for scenario-specific recovery UI.
+ * - multi: uniqueLeadsCount > 1
+ * - high_urgency: one phone with maxRepetitionCount >= 2
+ * - single: one phone with a single miss
+ */
+export function classifyMissedLeadRecoveryMode(
+  prospects: readonly MissedLeadHotProspect[]
+): MissedLeadRecoveryMode | null {
+  if (prospects.length === 0) return null
+
+  const uniqueLeadsCount = prospects.length
+  const totalMissedEvents = prospects.reduce((sum, p) => sum + p.missCount, 0)
+  const maxRepetitionCount = Math.max(...prospects.map((p) => p.missCount))
+
+  if (uniqueLeadsCount > 1) {
+    return { kind: "multi", uniqueLeadsCount, totalMissedEvents, maxRepetitionCount }
+  }
+
+  const prospect = prospects[0]!
+  if (maxRepetitionCount >= 2) {
+    return {
+      kind: "high_urgency",
+      uniqueLeadsCount: 1,
+      totalMissedEvents,
+      maxRepetitionCount,
+      prospect,
+    }
+  }
+
+  return {
+    kind: "single",
+    uniqueLeadsCount: 1,
+    totalMissedEvents,
+    maxRepetitionCount: 1,
+    prospect,
+  }
+}
+
 export type MissedLeadInsights = {
   /** Total missed rings today (log rows). */
   totalMissedToday: number
