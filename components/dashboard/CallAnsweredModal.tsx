@@ -143,7 +143,7 @@ function ManualIntakeToolbar({
 }) {
   const currentIndex = Math.max(0, path.indexOf(currentStep))
   return (
-    <div className="shrink-0 border-b border-border/60 px-3 py-2 pr-12">
+    <div className="shrink-0 border-b border-border/60 px-3 pb-3.5 pt-2 pr-12">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           {path.map((step, index) => {
@@ -181,7 +181,7 @@ function ManualIntakeToolbar({
         </Select>
       </div>
       {phoneDisplay ? (
-        <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+        <p className="mt-1.5 mb-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
           <Phone className="h-3 w-3 shrink-0 text-primary/80" aria-hidden />
           {phoneDisplay}
         </p>
@@ -1164,7 +1164,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 onLineStateChange={setManualCallStatus}
               />
             ) : (
-            <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
+            <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-4 pr-12 pt-2 text-left">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                 {isRinging ? "Incoming call" : "Call answered"}
               </p>
@@ -1175,7 +1175,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 />
                 {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
               </SheetTitle>
-              <p className="text-left text-xs text-muted-foreground">
+              <p className="mb-1 text-left text-xs text-muted-foreground">
                 {isRinging
                   ? `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · ringing — start intake while the line connects.`
                   : `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · customer details save automatically.`}

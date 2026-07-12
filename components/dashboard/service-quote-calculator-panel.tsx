@@ -54,21 +54,9 @@ const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
   other: Wrench,
 }
 
+/** Only keep critical action tags — card titles already name the service. */
 const SERVICE_CARD_TAGS: Partial<Record<ServiceQuoteTypeId, string>> = {
   lockout: "Fast",
-  key_generation: "AKL",
-  key_duplication: "Spare",
-  programming_diagnostics: "Immobilizer",
-  ignition_repair: "Ignition",
-  key_extraction: "Extract",
-  rekey: "Re-key",
-  lock_installation: "Install",
-  safe_lockout: "Safe",
-  keypad_smart_lock: "Smart",
-  commercial_hardware: "Access",
-  master_key_system: "Master",
-  door_closer_repair: "Closer",
-  other: "Custom",
 }
 
 function servicesForSector(sector: ServiceSector): (typeof SERVICE_QUOTE_TYPES)[number][] {
@@ -109,7 +97,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
       <div
         className={cn(
           "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5",
-          compact ? "mb-2" : "mb-4"
+          compact ? "mb-3" : "mb-4"
         )}
       >
         {SERVICE_SECTOR_ORDER.map((sector) => {
@@ -147,11 +135,11 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
           animate="center"
           exit="exit"
           transition={{ duration: 0.16 }}
-          className={cn("relative z-10 grid grid-cols-2 gap-3", compact && "gap-2")}
+          className="relative z-10 grid grid-cols-2 gap-3"
         >
           {visibleServices.map((service, index) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
-            const tag = SERVICE_CARD_TAGS[service.id] ?? "Service"
+            const tag = SERVICE_CARD_TAGS[service.id]
             const active = serviceTypeId === service.id
             return (
               <button
@@ -163,41 +151,38 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
                   onOptionRowKeyDown(event, () => onServiceTypeChange(service.id))
                 }
                 className={cn(
-                  "flex touch-manipulation flex-col items-start justify-between rounded-xl border bg-slate-900/90 p-3 text-left shadow-sm transition-colors active:scale-[0.98]",
-                  compact ? "min-h-[4.25rem]" : "min-h-[5.5rem]",
+                  "flex touch-manipulation flex-row items-center gap-3 rounded-xl border bg-slate-900/40 p-3 text-left transition-all active:scale-[0.98]",
                   active
-                    ? "border-emerald-400/70 bg-emerald-500/10 ring-1 ring-emerald-400/40"
-                    : "border-slate-700/80 hover:border-emerald-500/40 hover:bg-slate-800/90"
+                    ? "border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/30"
+                    : "border-slate-800 hover:border-emerald-500/30 hover:bg-slate-900/60"
                 )}
                 aria-pressed={active}
               >
-                <div className="flex w-full items-start justify-between gap-2">
-                  <Icon
-                    className={cn(
-                      "h-5 w-5 shrink-0",
-                      active ? "text-emerald-300" : "text-slate-400"
-                    )}
-                    aria-hidden
-                  />
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
-                      active
-                        ? "bg-emerald-500/20 text-emerald-200"
-                        : "bg-slate-800 text-slate-400"
-                    )}
-                  >
-                    {tag}
-                  </span>
-                </div>
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-colors",
+                    active ? "text-emerald-400" : "text-slate-500"
+                  )}
+                  aria-hidden
+                />
                 <span
                   className={cn(
-                    "mt-2 text-xs font-semibold leading-snug",
-                    active ? "text-emerald-50" : "text-slate-100"
+                    "min-w-0 flex-1 text-xs font-medium leading-snug",
+                    active ? "text-emerald-100" : "text-slate-300"
                   )}
                 >
                   {service.label}
                 </span>
+                {tag ? (
+                  <span
+                    className={cn(
+                      "shrink-0 text-[9px] font-medium uppercase tracking-wider",
+                      active ? "text-emerald-400/70" : "text-slate-600"
+                    )}
+                  >
+                    {tag}
+                  </span>
+                ) : null}
               </button>
             )
           })}
