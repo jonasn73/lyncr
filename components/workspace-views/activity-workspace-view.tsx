@@ -42,6 +42,11 @@ import { useDashboardSessionOptional } from "@/components/dashboard-session-cont
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import {
+  formatGroupedCallSummary,
+  groupConsecutiveCallsByPhone,
+  type GroupedActivityCall,
+} from "@/lib/activity-call-groups"
+import {
   buildBusinessLineLabelMap,
   resolveBusinessLineLabel,
   type LineLabelEntry,
@@ -574,8 +579,20 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
 }
 
 type ActivityTableProps = {
-  rows: UiCallRecord[]
+  rows: GroupedActivityCall[]
   lineLabelMap: Map<string, string>
+}
+
+/** Caller name with optional collapsed-count suffix: Unknown Caller (2). */
+function CallerNameWithCount({ call }: { call: GroupedActivityCall }) {
+  return (
+    <p className="truncate font-medium text-foreground">
+      <span>{call.callerName}</span>
+      {call.count > 1 ? (
+        <span className="text-slate-400 font-normal ml-1.5">({call.count})</span>
+      ) : null}
+    </p>
+  )
 }
 
 const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
@@ -611,7 +628,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                 <CallTimeDisplay call={call} variant="prominent" />
               </div>
               <div className="min-w-0">
-                <p className="truncate font-medium text-foreground">{call.callerName}</p>
+                <CallerNameWithCount call={call} />
                 {canCallBack(call) ? (
                   <a
                     href={buildTelHref(call.callerNumber) ?? undefined}
@@ -632,7 +649,13 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               ) : null}
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <AgentBadge agent={resolveCallAgent(call)} />
+                  {call.count > 1 ? (
+                    <span className="truncate text-[11px] text-slate-500">
+                      {formatGroupedCallSummary(call)}
+                    </span>
+                  ) : (
+                    <AgentBadge agent={resolveCallAgent(call)} />
+                  )}
                   <span className="truncate" title={targetLabel}>
                     {targetLabel}
                   </span>
@@ -702,7 +725,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     <CallTimeDisplay call={call} />
                   </WorkspaceTd>
                   <WorkspaceTd>
-                    <p className="font-medium text-foreground">{call.callerName}</p>
+                    <CallerNameWithCount call={call} />
                     {canCallBack(call) ? (
                       <a
                         href={buildTelHref(call.callerNumber) ?? undefined}
@@ -725,7 +748,13 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     {formatDuration(call.durationSeconds)}
                   </WorkspaceTd>
                   <WorkspaceTd>
-                    <AgentBadge agent={resolveCallAgent(call)} />
+                    {call.count > 1 ? (
+                      <span className="text-[11px] leading-snug text-slate-500">
+                        {formatGroupedCallSummary(call)}
+                      </span>
+                    ) : (
+                      <AgentBadge agent={resolveCallAgent(call)} />
+                    )}
                   </WorkspaceTd>
                   <WorkspaceTd>
                     <p className="truncate font-medium text-zinc-200" title={targetLabel}>
@@ -800,11 +829,13 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     if (filter === "missed") {
       list = list.filter((c) => isMissedActivityCallToday(c))
     }
-    return [...list].sort((a, b) => {
+    const sorted = [...list].sort((a, b) => {
       const aTs = a.createdAt || `${a.date} ${a.time}`
       const bTs = b.createdAt || `${b.date} ${b.time}`
       return bTs.localeCompare(aTs)
     })
+    // Fold back-to-back repeats from the same number into one feed row.
+    return groupConsecutiveCallsByPhone(sorted)
   }, [scopedCalls, filter])
 
   const showMapFirst = !isMobile || filter !== "missed"
