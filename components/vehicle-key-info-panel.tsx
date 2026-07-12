@@ -13,6 +13,7 @@ import {
 import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel, inferProgrammingMethod } from "@/lib/vehicle-key-variant-labels"
+import { buildTransponderIslandSku } from "@/lib/transponder-island-sku"
 import {
   shouldShowAklTrimVerificationBanner,
   variantDisabledByTrim,
@@ -90,6 +91,12 @@ export type KeySelectionCardModel = {
   programmingMethod: string
   referenceImage?: boolean
   referenceNote?: string | null
+  /** Transponder Island catalog SKU badge (e.g. TI-SKU: PROX-HON-04). */
+  tiSku?: string | null
+  /** Operational specs under the SKU badge. */
+  specs?: Array<{ label: string; value: string }>
+  /** Demoted FCC ID footnote. */
+  fccFootnote?: string | null
 }
 
 type ProfileDetail = {
@@ -133,7 +140,11 @@ type VehicleKeyInfoPanelProps = {
   onBackToVehicleLookup?: () => void
 }
 
-function variantCardModel(variant: FccVariant, chipset?: string | null): KeySelectionCardModel {
+function variantCardModel(
+  variant: FccVariant,
+  profile: KeyProfile,
+  make?: string | null
+): KeySelectionCardModel {
   const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
   const buttonLabel = variantButtonLabel(
     variant.title,
@@ -141,6 +152,15 @@ function variantCardModel(variant: FccVariant, chipset?: string | null): KeySele
     variant.fits_text,
     variant.key_type
   )
+  const blade = inferBladeType([variant])
+  const specs: Array<{ label: string; value: string }> = []
+  if (profile.chipset) specs.push({ label: "Chip Type", value: profile.chipset })
+  if (blade) specs.push({ label: "Blade", value: blade.startsWith("High") ? blade : `High Security ${blade}` })
+  if (profile.frequency) {
+    const modulation =
+      profile.modulation && profile.modulation !== "XXX" ? ` ${profile.modulation}` : ""
+    specs.push({ label: "Frequency", value: `${profile.frequency} MHz${modulation}` })
+  }
   return {
     id: variant.id,
     label: buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel,
@@ -148,9 +168,17 @@ function variantCardModel(variant: FccVariant, chipset?: string | null): KeySele
     imageUrl: variant.image_url,
     programmingMethod:
       variant.programming_method ??
-      inferProgrammingMethod(variant.title, variant.key_type, chipset ?? null),
+      inferProgrammingMethod(variant.title, variant.key_type, profile.chipset ?? null),
     referenceImage: variant.reference_image,
     referenceNote: variant.reference_note ?? null,
+    tiSku: buildTransponderIslandSku({
+      make,
+      title: variant.title,
+      keyType: variant.key_type,
+      variantId: variant.id,
+    }),
+    specs,
+    fccFootnote: profile.fcc_id ? `FCC ${profile.fcc_id}` : null,
   }
 }
 
@@ -161,6 +189,16 @@ function manualOptionCardModel(option: ManualKeyFrequencyOption): KeySelectionCa
     description: option.description,
     imageUrl: option.imageUrl,
     programmingMethod: option.programmingMethod,
+    tiSku: buildTransponderIslandSku({
+      make: null,
+      title: option.label,
+      keyType: option.label,
+      variantId: option.id,
+    }),
+    specs: option.description
+      ? [{ label: "Spec", value: option.description }]
+      : undefined,
+    fccFootnote: null,
   }
 }
 
@@ -169,18 +207,21 @@ function KeyThumbnail({ imageUrl, label }: { imageUrl: string | null; label: str
   const showImage = Boolean(imageUrl) && !failed
 
   return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+    <div className="w-full h-32 bg-slate-850 rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
         <img
           src={imageUrl!}
           alt={label}
           loading="lazy"
-          className="h-full w-full object-contain"
+          className="h-full w-full object-contain p-2"
           onError={() => setFailed(true)}
         />
       ) : (
-        <span className="text-xs text-slate-500">No Pic</span>
+        <div className="flex flex-col items-center gap-1 text-slate-500">
+          <KeyRound className="h-8 w-8 opacity-50" aria-hidden />
+          <span className="text-[10px] font-medium uppercase tracking-wide">Key blank preview</span>
+        </div>
       )}
     </div>
   )
@@ -207,38 +248,58 @@ export function KeySelectionCard({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          WS_ROW,
-          "relative w-full touch-manipulation",
+          "relative w-full touch-manipulation rounded-xl border p-2.5 text-left transition-colors",
           disabled && "cursor-not-allowed opacity-40",
-          !disabled && selected ? WS_OPTION_ROW_ACTIVE : !disabled ? WS_OPTION_ROW : WS_OPTION_ROW
+          !disabled && selected
+            ? "border-emerald-500/50 bg-emerald-950/30"
+            : !disabled
+              ? "border-slate-800 bg-slate-950/50 hover:border-slate-700"
+              : "border-slate-800 bg-slate-950/40"
         )}
         aria-pressed={selected}
         aria-disabled={disabled}
       >
         {selected ? (
           <span
-            className="absolute top-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
             aria-hidden
           >
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         ) : null}
         <KeyThumbnail imageUrl={card.imageUrl} label={card.label} />
-        <div className="min-w-0 flex-1">
-          <span className={cn("block leading-snug", selected ? WS_TEXT_ACTIVE : WS_TEXT)}>
-            {card.label}
-          </span>
-          {card.description ? (
-            <p className={cn("mt-0.5 line-clamp-2", WS_METADATA, "normal-case tracking-normal")}>
-              {card.description}
-            </p>
+        <div className="mt-2.5 min-w-0 space-y-2">
+          {card.tiSku ? (
+            <span className="inline-flex max-w-full truncate text-emerald-400 font-mono text-sm tracking-wider bg-emerald-950/40 border border-emerald-900/50 px-2 py-1 rounded-md">
+              {card.tiSku}
+            </span>
+          ) : (
+            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-emerald-100" : "text-slate-100")}>
+              {card.label}
+            </span>
+          )}
+          {card.specs && card.specs.length > 0 ? (
+            <ul className="space-y-0.5 text-[11px] leading-snug text-slate-300">
+              {card.specs.map((spec) => (
+                <li key={spec.label}>
+                  <span className="text-slate-500">{spec.label}:</span> {spec.value}
+                </li>
+              ))}
+            </ul>
+          ) : card.description ? (
+            <p className="line-clamp-2 text-[11px] text-slate-400">{card.description}</p>
           ) : null}
           {card.programmingMethod ? (
-            <p className={cn("mt-1", WS_METADATA)}>{card.programmingMethod}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+              {card.programmingMethod}
+            </p>
+          ) : null}
+          {card.fccFootnote ? (
+            <p className="font-mono text-[9px] tracking-wide text-slate-600">{card.fccFootnote}</p>
           ) : null}
         </div>
         {disabledReason ? (
-          <span className="absolute inset-x-3 bottom-2 rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
+          <span className="mt-2 block rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
             {disabledReason}
           </span>
         ) : null}
@@ -311,7 +372,8 @@ function CompatibleVehiclesHint({
 
 function VariantFilmstrip({
   variants,
-  chipset,
+  profile,
+  make,
   selectedVariantId,
   selectedKeyId,
   trimProfile,
@@ -320,7 +382,8 @@ function VariantFilmstrip({
   onPick,
 }: {
   variants: FccVariant[]
-  chipset?: string | null
+  profile: KeyProfile
+  make?: string | null
   selectedVariantId: string | null | undefined
   selectedKeyId: string | null
   trimProfile: VehicleTrimProfile
@@ -356,7 +419,7 @@ function VariantFilmstrip({
           return (
             <KeySelectionCard
               key={variant.id}
-              card={variantCardModel(variant, chipset)}
+              card={variantCardModel(variant, profile, make)}
               selected={selected}
               disabled={cardDisabled}
               disabledReason={trimGate.disabled ? "Feature not supported by vehicle trim" : null}
@@ -382,6 +445,7 @@ function pickPrimaryProfileDetail(details: ProfileDetail[]): ProfileDetail {
 function FccProfileSection({
   detail,
   allProfiles,
+  make,
   selectedProfileId,
   selectedFccId,
   selectedVariantId,
@@ -394,6 +458,7 @@ function FccProfileSection({
 }: {
   detail: ProfileDetail
   allProfiles: KeyProfile[]
+  make?: string | null
   selectedProfileId: string | undefined
   selectedFccId: string | undefined
   selectedVariantId: string | null | undefined
@@ -412,17 +477,17 @@ function FccProfileSection({
     <section
       className={cn(
         "grid gap-2 rounded-lg border p-2 transition-colors",
-        selected ? "border-primary/50 bg-primary/10" : "border-border/60 bg-background/40"
+        selected ? "border-emerald-500/40 bg-emerald-950/20" : "border-border/60 bg-background/40"
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           disabled={disabled}
-          className="font-mono text-xs font-bold text-foreground"
+          className="text-left text-xs font-semibold text-slate-200"
           onClick={() => onSelectProfile(p)}
         >
-          {p.fcc_id}
+          Key blank options
         </button>
         <div className="flex items-center gap-1.5">
           <CompatibleVehiclesHint summary={detail.compatible_summary} />
@@ -438,7 +503,7 @@ function FccProfileSection({
         </div>
       </div>
 
-      <TechSpecsRow profile={p} variants={detail.variants} />
+      <p className="font-mono text-[9px] tracking-wide text-slate-600">FCC {p.fcc_id}</p>
 
       {relatedFcc.length > 0 ? (
         <p className="text-[10px] text-amber-100/80">
@@ -448,7 +513,8 @@ function FccProfileSection({
 
       <VariantFilmstrip
         variants={detail.variants}
-        chipset={p.chipset}
+        profile={p}
+        make={make}
         selectedVariantId={selected ? selectedVariantId : null}
         selectedKeyId={selectedKeyId}
         trimProfile={trimProfile}
@@ -480,10 +546,14 @@ function CollapsedFccSummary({
       onClick={onToggle}
       className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-2.5 py-2 text-left hover:border-primary/40"
     >
-      <span className="min-w-0 truncate font-mono text-xs font-semibold text-foreground">{p.fcc_id}</span>
-      <span className="shrink-0 text-[10px] text-muted-foreground">
-        {p.frequency ? `${p.frequency} MHz` : "—"}
-        {layoutCount > 0 ? ` · ${layoutCount} layout${layoutCount === 1 ? "" : "s"}` : ""}
+      <span className="min-w-0 truncate text-xs font-semibold text-slate-200">
+        {layoutCount > 0
+          ? `${layoutCount} key blank${layoutCount === 1 ? "" : "s"}`
+          : "Key options"}
+      </span>
+      <span className="shrink-0 font-mono text-[9px] text-slate-600">
+        FCC {p.fcc_id}
+        {p.frequency ? ` · ${p.frequency} MHz` : ""}
       </span>
       <ChevronDown
         className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")}
@@ -943,7 +1013,7 @@ export function VehicleKeyInfoPanel({
 
   const applyVariant = (p: KeyProfile, variant: FccVariant) => {
     setSelectedKeyId(variant.id)
-    const card = variantCardModel(variant, p.chipset)
+    const card = variantCardModel(variant, p, make)
     const selection: VehicleKeySelection = {
       profileId: p.id,
       fccId: p.fcc_id,
@@ -1081,7 +1151,8 @@ export function VehicleKeyInfoPanel({
             </div>
             <VariantFilmstrip
               variants={selectedVariantDetail.detail.variants}
-              chipset={selectedVariantDetail.detail.profile.chipset}
+              profile={selectedVariantDetail.detail.profile}
+              make={make}
               selectedVariantId={selectedKeyId}
               selectedKeyId={selectedKeyId}
               trimProfile={trimProfile}
@@ -1095,6 +1166,7 @@ export function VehicleKeyInfoPanel({
             <FccProfileSection
               detail={primaryDetail}
               allProfiles={info.profiles}
+              make={make}
               selectedProfileId={value?.profileId}
               selectedFccId={value?.fccId}
               selectedVariantId={value?.variantId}
@@ -1119,6 +1191,7 @@ export function VehicleKeyInfoPanel({
                     <FccProfileSection
                       detail={detail}
                       allProfiles={info.profiles}
+                      make={make}
                       selectedProfileId={value?.profileId}
                       selectedFccId={value?.fccId}
                       selectedVariantId={value?.variantId}

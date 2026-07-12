@@ -12,6 +12,12 @@ import type { Map as LeafletMap, Marker } from "leaflet"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { DispatchJob, FieldTechnician, TechLiveLocation } from "@/lib/types"
+import {
+  LYNCR_FOCUS_DISPATCH_MAP_EVENT,
+  consumePendingFocusDispatchMap,
+  type FocusDispatchMapDetail,
+} from "@/lib/dispatch-map-focus"
+import { cn } from "@/lib/utils"
 
 // Status → dot color for tech live markers.
 const TECH_COLOR: Record<string, string> = {
@@ -46,12 +52,30 @@ function techIcon(L: LeafletModule, status: string | null) {
   })
 }
 
-export function DispatchLiveMap() {
+/** High-contrast intake destination pin (customer address from PiP → Map). */
+function destinationIcon(L: LeafletModule) {
+  return L.divIcon({
+    className: "",
+    html: `<span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#f43f5e;border:3px solid #fff;box-shadow:0 0 0 4px rgba(244,63,94,0.45),0 4px 14px rgba(0,0,0,0.55)"><span style="width:8px;height:8px;border-radius:50%;background:#fff"></span></span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  })
+}
+
+export function DispatchLiveMap({
+  fullViewport = false,
+  className,
+}: {
+  /** Map tab: tall full-bleed canvas that always mounts (even with no pins yet). */
+  fullViewport?: boolean
+  className?: string
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const leafletRef = useRef<LeafletModule | null>(null)
   const jobMarkers = useRef<Map<string, Marker>>(new Map())
   const techMarkers = useRef<Map<string, Marker>>(new Map())
+  const destinationMarkerRef = useRef<Marker | null>(null)
   const didFit = useRef(false)
 
   const [ready, setReady] = useState(false)
@@ -61,6 +85,7 @@ export function DispatchLiveMap() {
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [destination, setDestination] = useState<FocusDispatchMapDetail | null>(null)
 
   const load = useCallback(() => {
     fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
@@ -124,6 +149,29 @@ export function DispatchLiveMap() {
     return () => clearInterval(t)
   }, [load])
 
+  // Intake "View on Map Layout" — drop / refresh the high-contrast destination pin.
+  useEffect(() => {
+    const pending = consumePendingFocusDispatchMap()
+    if (pending && Number.isFinite(pending.lat) && Number.isFinite(pending.lng)) {
+      setDestination(pending)
+      didFit.current = false
+    }
+    const onFocus = (event: Event) => {
+      const detail = (event as CustomEvent<FocusDispatchMapDetail>).detail
+      if (
+        !detail ||
+        !Number.isFinite(detail.lat) ||
+        !Number.isFinite(detail.lng)
+      ) {
+        return
+      }
+      setDestination(detail)
+      didFit.current = false
+    }
+    window.addEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, onFocus)
+    return () => window.removeEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, onFocus)
+  }, [])
+
   // Create the Leaflet map once, client-side only.
   useEffect(() => {
     let cancelled = false
@@ -146,6 +194,10 @@ export function DispatchLiveMap() {
       mapRef.current = null
       jobMarkers.current.clear()
       techMarkers.current.clear()
+      if (destinationMarkerRef.current) {
+        destinationMarkerRef.current.remove()
+        destinationMarkerRef.current = null
+      }
     }
   }, [])
 
@@ -243,37 +295,179 @@ export function DispatchLiveMap() {
       }
     }
 
+    // Destination pin from intake address.
+    if (destination) {
+      const pos: [number, number] = [destination.lat, destination.lng]
+      const popup = [
+        `<strong>${destination.label?.trim() || "Intake destination"}</strong>`,
+        destination.address ? `<div style="opacity:.8;margin-top:2px">${destination.address}</div>` : "",
+      ].join("")
+      if (destinationMarkerRef.current) {
+        destinationMarkerRef.current.setLatLng(pos)
+        destinationMarkerRef.current.setPopupContent(popup)
+      } else {
+        destinationMarkerRef.current = L.marker(pos, {
+          icon: destinationIcon(L),
+          zIndexOffset: 800,
+        })
+          .addTo(map)
+          .bindPopup(popup)
+      }
+    } else if (destinationMarkerRef.current) {
+      destinationMarkerRef.current.remove()
+      destinationMarkerRef.current = null
+    }
+
     // Frame everything once, the first time we have points (don't fight the user's panning after).
     if (!didFit.current) {
       const pts: [number, number][] = [
         ...plottableJobs.map((j) => [j.latitude as number, j.longitude as number] as [number, number]),
         ...techs.map((t) => [t.latitude, t.longitude] as [number, number]),
       ]
+      if (destination) pts.push([destination.lat, destination.lng])
       if (pts.length === 1) {
-        map.setView(pts[0], 13)
+        map.setView(pts[0], 14)
         didFit.current = true
       } else if (pts.length > 1) {
-        map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 14 })
+        map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 15 })
         didFit.current = true
       }
     }
-  }, [ready, jobs, techs])
+  }, [ready, jobs, techs, destination])
 
-  const plottableCount = jobs.filter((j) => j.latitude != null && j.longitude != null).length + techs.length
+  const plottableCount =
+    jobs.filter((j) => j.latitude != null && j.longitude != null).length +
+    techs.length +
+    (destination ? 1 : 0)
   const selectedJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) ?? null : null
 
-  // Nothing geocoded or live yet → don't show an empty map.
-  if (plottableCount === 0) return null
+  // Embedded on Team/routing — hide when empty. Map tab always shows the canvas.
+  if (!fullViewport && plottableCount === 0) return null
+
+  const mapCanvas = (
+    <div className="relative">
+      <div
+        ref={containerRef}
+        className={cn(
+          "w-full overflow-hidden border border-zinc-800 bg-zinc-900",
+          fullViewport ? "h-[min(70vh,34rem)] rounded-2xl" : "h-72 rounded-xl"
+        )}
+      />
+
+      {destination ? (
+        <div className="absolute left-3 top-3 z-[1200] max-w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
+            Intake target
+          </p>
+          <p className="truncate text-xs font-semibold text-slate-100">
+            {destination.label?.trim() || "Customer location"}
+          </p>
+          {destination.address ? (
+            <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{destination.address}</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setDestination(null)
+              didFit.current = false
+            }}
+            className="mt-1.5 text-[10px] font-semibold text-rose-300/90 underline-offset-2 hover:underline"
+          >
+            Clear pin
+          </button>
+        </div>
+      ) : null}
+
+      {selectedJob && (
+        <div className="absolute right-3 top-3 z-[1200] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {selectedJob.customer_name || selectedJob.customer_phone || "Booked job"}
+              </p>
+              {selectedJob.location && (
+                <p className="mt-0.5 truncate text-xs text-zinc-500">{selectedJob.location}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedJobId(null)}
+              className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {selectedJob.customer_phone && (
+            <a
+              href={`tel:${selectedJob.customer_phone}`}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300"
+            >
+              <Phone className="h-3 w-3" /> {selectedJob.customer_phone}
+            </a>
+          )}
+
+          <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+            Assign technician
+          </label>
+          <div className="mt-1 flex items-center gap-2">
+            <select
+              value={selectedJob.assigned_tech_id || ""}
+              onChange={(e) => void assign(selectedJob.id, e.target.value)}
+              disabled={technicians.length === 0 || savingId === selectedJob.id}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
+            >
+              <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
+              {technicians.map((t) => (
+                <option key={t.id} value={t.portal_user_id || ""}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" />}
+          </div>
+          {selectedJob.assigned_tech_name && (
+            <p className="mt-2 text-xs text-emerald-400">Dispatched to {selectedJob.assigned_tech_name}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  if (fullViewport) {
+    return (
+      <section className={cn("w-full", className)} aria-label="Operational dispatch map">
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/80" /> Intake target
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Job
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Tech
+          </span>
+        </div>
+        {mapCanvas}
+        {plottableCount === 0 ? (
+          <p className="mt-2 text-center text-xs text-slate-500">
+            Waiting for live tech GPS or booked job pins — intake destinations still drop here.
+          </p>
+        ) : null}
+      </section>
+    )
+  }
 
   return (
-    <WorkspacePanel className="mb-4 p-5">
+    <WorkspacePanel className={cn("mb-4 p-5", className)}>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
           <MapPinned className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Live dispatch map</h2>
-          <p className="text-xs text-zinc-500">Booked jobs and your techs' real-time positions.</p>
+          <p className="text-xs text-zinc-500">Booked jobs and your techs&apos; real-time positions.</p>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400 sm:ml-auto">
           <span className="flex items-center gap-1.5">
@@ -287,67 +481,7 @@ export function DispatchLiveMap() {
           </span>
         </div>
       </div>
-      <div className="relative">
-        <div
-          ref={containerRef}
-          className="h-72 w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
-        />
-
-        {selectedJob && (
-          <div className="absolute right-3 top-3 z-[1200] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {selectedJob.customer_name || selectedJob.customer_phone || "Booked job"}
-                </p>
-                {selectedJob.location && (
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">{selectedJob.location}</p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedJobId(null)}
-                className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {selectedJob.customer_phone && (
-              <a
-                href={`tel:${selectedJob.customer_phone}`}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300"
-              >
-                <Phone className="h-3 w-3" /> {selectedJob.customer_phone}
-              </a>
-            )}
-
-            <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-              Assign technician
-            </label>
-            <div className="mt-1 flex items-center gap-2">
-              <select
-                value={selectedJob.assigned_tech_id || ""}
-                onChange={(e) => void assign(selectedJob.id, e.target.value)}
-                disabled={technicians.length === 0 || savingId === selectedJob.id}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
-              >
-                <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
-                {technicians.map((t) => (
-                  <option key={t.id} value={t.portal_user_id || ""}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" />}
-            </div>
-            {selectedJob.assigned_tech_name && (
-              <p className="mt-2 text-xs text-emerald-400">Dispatched to {selectedJob.assigned_tech_name}</p>
-            )}
-          </div>
-        )}
-      </div>
+      {mapCanvas}
     </WorkspacePanel>
   )
 }

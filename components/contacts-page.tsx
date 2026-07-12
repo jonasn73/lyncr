@@ -1,7 +1,6 @@
-"use client"
+import { MapWorkspaceView } from "@/components/workspace-views/map-workspace-view"
 
-import { TeamWorkspaceView } from "@/components/workspace-views/team-workspace-view"
-
-export function ContactsPage() {
-  return <TeamWorkspaceView />
+/** /dashboard/contacts — Map tab (operational dispatch map). Team roster lives under the map. */
+export default function ContactsPage() {
+  return <MapWorkspaceView />
 }

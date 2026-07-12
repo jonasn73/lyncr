@@ -4,9 +4,8 @@ import {
   CalendarDays,
   ClipboardList,
   Inbox,
+  Map,
   Settings,
-  Users,
-  UsersRound,
   Zap,
   type LucideIcon,
 } from "lucide-react"
@@ -35,7 +34,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "activity", label: "Activity", icon: ClipboardList },
   { id: "leads", label: "Leads", icon: Inbox },
-  { id: "contacts", label: "Team", icon: Users },
+  { id: "contacts", label: "Map", icon: Map },
   { id: "pay", label: "Pay", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ]
@@ -45,7 +44,7 @@ export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "activity", label: "Activities", icon: Activity },
-  { id: "contacts", label: "Team", icon: UsersRound },
+  { id: "contacts", label: "Map", icon: Map },
 ]
 
 /** Href for each tab — App Router Link targets for instant client navigation. */

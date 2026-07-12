@@ -7,7 +7,7 @@ import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import { ActivityWorkspaceView } from "@/components/workspace-views/activity-workspace-view"
 import { LeadsWorkspaceView } from "@/components/workspace-views/leads-workspace-view"
-import { TeamWorkspaceView } from "@/components/workspace-views/team-workspace-view"
+import { MapWorkspaceView } from "@/components/workspace-views/map-workspace-view"
 import { PayWorkspaceView } from "@/components/workspace-views/pay-workspace-view"
 import { SettingsWorkspaceView } from "@/components/workspace-views/settings-workspace-view"
 
@@ -97,8 +97,8 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       <PresencePane active={activePage === "leads"} label="Leads">
         <LeadsWorkspaceView />
       </PresencePane>
-      <PresencePane active={activePage === "contacts"} label="Team" deferUntilVisit>
-        <TeamWorkspaceView />
+      <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
+        <MapWorkspaceView />
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
         <Suspense fallback={<div className="min-h-[40vh] w-full" aria-hidden />}>

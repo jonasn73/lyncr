@@ -73,6 +73,8 @@ import {
   normalizeCallEventPhoneDigits,
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
+import { emitFocusDispatchMap } from "@/lib/dispatch-map-focus"
+import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
@@ -434,7 +436,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
-  const { activeOrganizationId } = useDashboardWorkspace()
+  const { activeOrganizationId, setActiveTab } = useDashboardWorkspace()
   const lyncEngine = useLyncEngineOptional()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -1324,6 +1326,41 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setIsMinimized(false)
   }, [])
 
+  const { toast } = useToast()
+
+  const viewOnMapLayout = useCallback(() => {
+    const lat = form.serviceAddress?.lat
+    const lng = form.serviceAddress?.lng
+    if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      toast({
+        title: "Pick a mapped address first",
+        description: "Choose a suggestion so we can drop a destination pin on the Map tab.",
+        variant: "destructive",
+      })
+      return
+    }
+    minimizeIntake()
+    emitFocusDispatchMap({
+      lat,
+      lng,
+      label: form.displayName.trim() || "Customer",
+      address:
+        form.serviceAddress?.formatted ||
+        [form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+        undefined,
+    })
+    setActiveTab("contacts")
+  }, [
+    form.serviceAddress,
+    form.displayName,
+    form.addressLine1,
+    form.city,
+    form.postalCode,
+    minimizeIntake,
+    setActiveTab,
+    toast,
+  ])
+
   return (
     <>
       {secondaryIncoming && isCallActive ? (
@@ -1584,6 +1621,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   seedQuery={addressSeedQuery}
                                   placeholder="Start typing street address…"
                                 />
+                                <button
+                                  type="button"
+                                  onClick={viewOnMapLayout}
+                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
+                                >
+                                  <MapPin className="h-3.5 w-3.5" aria-hidden />
+                                  View on Map Layout
+                                </button>
                                 <NearestTechDispatchBadge
                                   jobLat={form.serviceAddress?.lat ?? null}
                                   jobLng={form.serviceAddress?.lng ?? null}
@@ -1747,6 +1792,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       seedQuery={addressSeedQuery}
                       placeholder="Start typing street address…"
                     />
+                    <button
+                      type="button"
+                      onClick={viewOnMapLayout}
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
+                    >
+                      <MapPin className="h-3.5 w-3.5" aria-hidden />
+                      View on Map Layout
+                    </button>
                     <NearestTechDispatchBadge
                       jobLat={form.serviceAddress?.lat ?? null}
                       jobLng={form.serviceAddress?.lng ?? null}
