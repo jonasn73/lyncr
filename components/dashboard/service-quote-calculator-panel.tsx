@@ -145,7 +145,7 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
           animate="center"
           exit="exit"
           transition={{ duration: 0.16 }}
-          className="relative z-10 grid grid-cols-2 gap-3"
+          className="relative z-10 grid grid-cols-2 gap-2"
         >
           {visibleServices.map((service, index) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
@@ -163,15 +163,23 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
                 className={cn(
                   WS_ROW,
                   "touch-manipulation active:scale-[0.98]",
+                  // Compact intake: denser padding + smaller type so context/actions stay on-screen.
+                  compact ? "gap-2 p-3 text-xs" : "",
                   active ? WS_OPTION_ROW_ACTIVE : WS_OPTION_ROW
                 )}
                 aria-pressed={active}
               >
                 <Icon
-                  className={active ? WS_ICON_ACTIVE : WS_ICON_INACTIVE}
+                  className={cn(active ? WS_ICON_ACTIVE : WS_ICON_INACTIVE, compact && "h-3.5 w-3.5")}
                   aria-hidden
                 />
-                <span className={cn("min-w-0 flex-1 leading-snug", active ? WS_TEXT_ACTIVE : WS_TEXT)}>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 leading-snug",
+                    compact ? "text-xs font-medium" : "",
+                    active ? WS_TEXT_ACTIVE : WS_TEXT
+                  )}
+                >
                   {service.label}
                 </span>
                 {tag ? (

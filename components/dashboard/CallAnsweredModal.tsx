@@ -13,6 +13,7 @@ import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/com
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import { IncomingCallOpsToolbar } from "@/components/dashboard/incoming-call-ops-toolbar"
 import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
@@ -1165,7 +1166,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 onLineStateChange={setManualCallStatus}
               />
             ) : (
-            <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-4 pr-12 pt-2 text-left">
+            <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                 {isRinging ? "Incoming call" : "Call answered"}
               </p>
@@ -1176,11 +1177,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 />
                 {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
               </SheetTitle>
-              <p className="mb-1 text-left text-xs text-muted-foreground">
-                {isRinging
-                  ? `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · ringing — start intake while the line connects.`
-                  : `Line ${formatPhoneDisplay(effectiveCurrent.to_number)} · customer details save automatically.`}
-              </p>
+              <IncomingCallOpsToolbar
+                className="mt-2"
+                phoneE164={form.phoneNumber || effectiveCurrent.from_number}
+                businessLineE164={effectiveCurrent.to_number}
+                callLogId={effectiveCurrent.id}
+                organizationId={activeOrganizationId}
+                isRinging={isRinging}
+                onDeclined={dismissOnly}
+              />
               {effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
                   <span className="font-mono text-xs text-zinc-400">Recording:</span>
