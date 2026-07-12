@@ -29,6 +29,11 @@ import {
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
 import {
+  isLyncEngineOwningRealtime,
+  subscribeLyncEngineBus,
+  type LyncEngineBusEvent,
+} from "@/lib/lync-engine-bus"
+import {
   telemetryLocalDayPeriodKey,
   telemetryMonthPeriodKey,
   telemetryWeekPeriodKey,
@@ -332,15 +337,99 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     return () => window.clearInterval(id)
   }, [refreshBaseline])
 
+  const [engineOwnsRealtime, setEngineOwnsRealtime] = useState(isLyncEngineOwningRealtime)
+
   useEffect(() => {
+    return subscribeLyncEngineBus((event) => {
+      if (event.type === "engine-mounted") setEngineOwnsRealtime(true)
+      if (event.type === "engine-unmounted") setEngineOwnsRealtime(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    // Shared apply path for bus (engine) and direct Pusher (fallback).
+    const applyBusEvent = (event: LyncEngineBusEvent) => {
+      if (event.type === "engine-mounted" || event.type === "engine-unmounted") return
+      if (event.type === "call-initiated") {
+        const raw = event.payload
+        const callSid = String(raw.call_sid ?? "").trim()
+        if (!callSid) return
+        setDailyCalls((prev) => prev + 1)
+        setActiveCallSessions((prev) => {
+          if (prev.some((s) => s.callSid === callSid)) return prev
+          return [
+            ...prev,
+            {
+              callSid,
+              toNumberDigits: normalizeCallEventPhoneDigits(raw.to_number),
+              answeredAt: null,
+            },
+          ]
+        })
+        return
+      }
+      if (event.type === "call-answered") {
+        const raw = event.payload
+        const callSid = String(raw.call_sid ?? "").trim()
+        if (!callSid) return
+        const answeredAt = raw.answered_at ?? new Date().toISOString()
+        setActiveCallSessions((prev) => {
+          const idx = prev.findIndex((s) => s.callSid === callSid)
+          if (idx >= 0) {
+            const next = [...prev]
+            next[idx] = { ...next[idx], answeredAt }
+            return next
+          }
+          return [
+            ...prev,
+            {
+              callSid,
+              toNumberDigits: normalizeCallEventPhoneDigits(raw.to_number),
+              answeredAt,
+            },
+          ]
+        })
+        return
+      }
+      if (event.type === "call-completed") {
+        const raw = event.payload
+        const callSid = String(raw.call_sid ?? "").trim()
+        setActiveCallSessions((prev) => prev.filter((s) => s.callSid !== callSid))
+        if (isMissedCallTelemetry(raw)) {
+          setMissedCalls((prev) => prev + 1)
+        }
+        const talkSec = talkSecondsFromCompletedPayload(raw)
+        if (talkSec > 0) {
+          setDailyTalkSeconds((prev) => prev + talkSec)
+          setWeeklyTalkSeconds((prev) => prev + talkSec)
+          setMonthlyTalkSeconds((prev) => prev + talkSec)
+        }
+        scheduleRefreshBaseline()
+      }
+    }
+
+    const unsubBus = subscribeLyncEngineBus(applyBusEvent)
+
+    // LyncEngine owns the channel — metrics come only from the bus.
+    if (engineOwnsRealtime) {
+      setRealtimeConnected(true)
+      return () => {
+        unsubBus()
+      }
+    }
+
     if (!ownerUserId) {
       setRealtimeConnected(false)
-      return
+      return () => {
+        unsubBus()
+      }
     }
     const pusher = getPusherClient()
     if (!pusher) {
       setRealtimeConnected(false)
-      return
+      return () => {
+        unsubBus()
+      }
     }
 
     const channelName = `owner-${ownerUserId}`
@@ -361,72 +450,31 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
 
     const onCallInitiated = (raw: OwnerCallInitiatedPayload) => {
       if (!eventMatchesWorkspace(raw)) return
-      const callSid = String(raw.call_sid ?? "").trim()
-      if (!callSid) return
-      setDailyCalls((prev) => prev + 1)
-      setActiveCallSessions((prev) => {
-        if (prev.some((s) => s.callSid === callSid)) return prev
-        return [
-          ...prev,
-          {
-            callSid,
-            toNumberDigits: normalizeCallEventPhoneDigits(raw.to_number),
-            answeredAt: null,
-          },
-        ]
-      })
+      applyBusEvent({ type: "call-initiated", payload: raw })
     }
 
     const onCallAnswered = (raw: OwnerCallAnsweredPayload) => {
       if (!eventMatchesWorkspace(raw)) return
-      const callSid = String(raw.call_sid ?? "").trim()
-      if (!callSid) return
-      const answeredAt = raw.answered_at ?? new Date().toISOString()
-      setActiveCallSessions((prev) => {
-        const idx = prev.findIndex((s) => s.callSid === callSid)
-        if (idx >= 0) {
-          const next = [...prev]
-          next[idx] = { ...next[idx], answeredAt }
-          return next
-        }
-        return [
-          ...prev,
-          {
-            callSid,
-            toNumberDigits: normalizeCallEventPhoneDigits(raw.to_number),
-            answeredAt,
-          },
-        ]
-      })
+      applyBusEvent({ type: "call-answered", payload: raw })
     }
 
     const onCallCompleted = (raw: OwnerCallCompletedPayload) => {
       if (!eventMatchesWorkspace(raw)) return
-      const callSid = String(raw.call_sid ?? "").trim()
-      setActiveCallSessions((prev) => prev.filter((s) => s.callSid !== callSid))
-      if (isMissedCallTelemetry(raw)) {
-        setMissedCalls((prev) => prev + 1)
-      }
-      const talkSec = talkSecondsFromCompletedPayload(raw)
-      if (talkSec > 0) {
-        setDailyTalkSeconds((prev) => prev + talkSec)
-        setWeeklyTalkSeconds((prev) => prev + talkSec)
-        setMonthlyTalkSeconds((prev) => prev + talkSec)
-      }
-      scheduleRefreshBaseline()
+      applyBusEvent({ type: "call-completed", payload: raw })
     }
 
     channel.bind("call-initiated", onCallInitiated)
     channel.bind("call-answered", onCallAnswered)
     channel.bind("call-completed", onCallCompleted)
     return () => {
+      unsubBus()
       channel.unbind("call-initiated", onCallInitiated)
       channel.unbind("call-answered", onCallAnswered)
       channel.unbind("call-completed", onCallCompleted)
       pusher.unsubscribe(channelName)
       setRealtimeConnected(false)
     }
-  }, [ownerUserId, activeOrganizationId, workspaceLineSet, scheduleRefreshBaseline])
+  }, [ownerUserId, activeOrganizationId, workspaceLineSet, scheduleRefreshBaseline, engineOwnsRealtime])
 
   useEffect(
     () => () => {

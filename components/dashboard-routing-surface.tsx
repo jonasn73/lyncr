@@ -8,7 +8,6 @@ import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
-import { RealTimeStatsProvider } from "@/components/dashboard/real-time-stats-provider"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
@@ -82,7 +81,6 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   const activeLineDisplay = activeLineRaw ? formatPhoneDisplay(activeLineRaw) : null
 
   return (
-    <RealTimeStatsProvider businessNumbers={businessNumbers} activeLineE164={activeLineRaw || null}>
     <DashboardRoutingSurfaceInner
       quickSetupDecided={quickSetupDecided}
       callFlowUiReady={callFlowUiReady}
@@ -113,11 +111,10 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
       openBuyModal={openBuyModal}
       openManageModal={openManageModal}
     />
-    </RealTimeStatsProvider>
   )
 })
 
-/** Inner tree sits under RealTimeStatsProvider so the line sub-header can read live call counts. */
+/** Inner tree — live metrics come from shell-level RealTimeStatsProvider / LyncEngine. */
 const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner({
   quickSetupDecided,
   callFlowUiReady,

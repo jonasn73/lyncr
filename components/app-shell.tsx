@@ -34,6 +34,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { CommandDock } from "@/components/layout/command-dock"
+import { GlobalLineCommunicationBar } from "@/components/layout/global-line-communication-bar"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
@@ -278,6 +279,9 @@ function AppShellInner({
           onCommandOpenChange={handleCommandOpenChange}
           headerCenter={headerCenter}
         />
+
+        {/* Cross-tab Dynamic Island — driven by useLyncEngine primary call state. */}
+        <GlobalLineCommunicationBar />
 
         <main
           ref={mainRef}

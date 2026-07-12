@@ -12,6 +12,7 @@ import {
   type PageId,
 } from "@/lib/dashboard-nav"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
+import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import { COMMAND_DOCK_ACCENT, SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 
 type DockOrientation = "vertical" | "horizontal"
@@ -68,6 +69,7 @@ const DockNavItems = memo(function DockNavItems({
   navRef,
   itemRefs,
   hrefOverrides,
+  badgeCounts,
 }: {
   items: DashboardNavItem[]
   activePage: PageId
@@ -78,6 +80,8 @@ const DockNavItems = memo(function DockNavItems({
   itemRefs: MutableRefObject<(HTMLAnchorElement | HTMLButtonElement | null)[]>
   /** When set (mobile dock), overrides default tab hrefs. */
   hrefOverrides?: Partial<Record<PageId, string>>
+  /** Optional unread / alert dots per tab (e.g. Activities missed). */
+  badgeCounts?: Partial<Record<PageId, number>>
 }) {
   const isVertical = orientation === "vertical"
   const indicator = useDockIndicator(navRef, itemRefs, activePage, orientation, items)
@@ -102,6 +106,7 @@ const DockNavItems = memo(function DockNavItems({
       {items.map((item, index) => {
         const Icon = item.icon
         const isActive = activePage === item.id
+        const badge = badgeCounts?.[item.id] ?? 0
         const className = cn(
           "group relative flex shrink-0 items-center justify-center rounded-xl",
           "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
@@ -115,14 +120,28 @@ const DockNavItems = memo(function DockNavItems({
         )
         const inner = (
           <>
-            <Icon
-              className={cn(
-                "shrink-0 transition-transform duration-200",
-                isVertical ? "h-[1.35rem] w-[1.35rem]" : "h-5 w-5",
-                isActive && "scale-105"
-              )}
-              aria-hidden
-            />
+            <span className="relative inline-flex">
+              <Icon
+                className={cn(
+                  "shrink-0 transition-transform duration-200",
+                  isVertical ? "h-[1.35rem] w-[1.35rem]" : "h-5 w-5",
+                  isActive && "scale-105"
+                )}
+                aria-hidden
+              />
+              {badge > 0 ? (
+                <span
+                  className={cn(
+                    "absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full",
+                    "bg-amber-400 px-1 text-[9px] font-bold leading-none text-amber-950",
+                    "shadow-[0_0_8px_rgba(251,191,36,0.7)]"
+                  )}
+                  aria-label={`${badge} new missed calls`}
+                >
+                  {badge > 9 ? "9+" : badge}
+                </span>
+              ) : null}
+            </span>
             {isVertical ? (
               <span className="sr-only">{item.label}</span>
             ) : (
@@ -204,6 +223,11 @@ const CommandDockInner = memo(function CommandDockInner({
   const mobileNavRef = useRef<HTMLElement>(null)
   const desktopItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
   const mobileItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
+  const engine = useLyncEngineOptional()
+  const badgeCounts: Partial<Record<PageId, number>> | undefined =
+    engine && engine.activityBadgeCount > 0
+      ? { activity: engine.activityBadgeCount }
+      : undefined
 
   return (
     <>
@@ -228,6 +252,7 @@ const CommandDockInner = memo(function CommandDockInner({
             orientation="vertical"
             navRef={desktopNavRef}
             itemRefs={desktopItemRefs}
+            badgeCounts={badgeCounts}
           />
         </nav>
       </aside>
@@ -251,6 +276,7 @@ const CommandDockInner = memo(function CommandDockInner({
             navRef={mobileNavRef}
             itemRefs={mobileItemRefs}
             hrefOverrides={DASHBOARD_MOBILE_PAGE_HREF}
+            badgeCounts={badgeCounts}
           />
         </div>
       </nav>

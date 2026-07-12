@@ -334,9 +334,17 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       }, refetchIntervalMs)
     }
 
+    // LyncEngine missed-call signal — drop cache and refetch Activities immediately.
+    const onActivityRefresh = () => {
+      clearOperationsDataCache()
+      void loadData(true)
+    }
+    window.addEventListener("lyncr-activity-refresh", onActivityRefresh)
+
     return () => {
       mounted = false
       if (intervalId) clearInterval(intervalId)
+      window.removeEventListener("lyncr-activity-refresh", onActivityRefresh)
     }
   }, [refetchIntervalMs])
 

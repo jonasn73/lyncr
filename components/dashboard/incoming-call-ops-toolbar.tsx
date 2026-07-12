@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Loader2, MessageSquare, PhoneOff } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
+import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import type { SchedulerPhoneLookupResult } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -39,13 +40,32 @@ export function IncomingCallOpsToolbar({
   className,
 }: IncomingCallOpsToolbarProps) {
   const { toast } = useToast()
+  const engine = useLyncEngineOptional()
   const [lookup, setLookup] = useState<SchedulerPhoneLookupResult | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [declining, setDeclining] = useState(false)
   const [smsOpen, setSmsOpen] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
 
+  // Prefer engine-prefetched CRM context when the phone matches the live primary call.
+  const engineContext: CallerContextMatch | null =
+    engine?.primaryCall &&
+    engine.primaryCall.fromNumber.replace(/\D/g, "").slice(-10) ===
+      phoneE164.replace(/\D/g, "").slice(-10)
+      ? engine.primaryCall.callerContext
+      : null
+  const engineLookupLoading =
+    Boolean(engineContext === null && engine?.primaryCall?.lookupLoading) &&
+    engine?.primaryCall?.fromNumber.replace(/\D/g, "").slice(-10) ===
+      phoneE164.replace(/\D/g, "").slice(-10)
+
   useEffect(() => {
+    // Skip duplicate fetch when the global engine already resolved this caller.
+    if (engineContext || engineLookupLoading) {
+      setLookup(null)
+      setLookupLoading(false)
+      return
+    }
     const digits = phoneE164.replace(/\D/g, "")
     if (digits.length < 7) {
       setLookup(null)
@@ -74,12 +94,14 @@ export function IncomingCallOpsToolbar({
     return () => {
       cancelled = true
     }
-  }, [phoneE164, organizationId])
+  }, [phoneE164, organizationId, engineContext, engineLookupLoading])
 
-  const context: CallerContextMatch = useMemo(
-    () => resolveCallerContext(phoneE164, lookup),
-    [phoneE164, lookup]
-  )
+  const context: CallerContextMatch = useMemo(() => {
+    if (engineContext) return engineContext
+    return resolveCallerContext(phoneE164, lookup)
+  }, [phoneE164, lookup, engineContext])
+
+  const showLookupSpinner = lookupLoading || engineLookupLoading
 
   const handleDecline = useCallback(async () => {
     setDeclining(true)
@@ -147,7 +169,7 @@ export function IncomingCallOpsToolbar({
     <div className={cn("flex flex-col gap-2", className)}>
       {/* Context Engine — active job badge or CNAM token */}
       <div className="min-h-[1.25rem]">
-        {lookupLoading ? (
+        {showLookupSpinner ? (
           <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             Looking up caller…

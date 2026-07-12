@@ -52,6 +52,10 @@ import {
   managementFloorRecoveryScript,
 } from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
+import {
+  LYNCR_FOCUS_INTAKE_EVENT,
+  type LyncFocusIntakeDetail,
+} from "@/lib/lync-engine-bus"
 import type {
   OwnerCallAnsweredPayload,
   OwnerCallCompletedPayload,
@@ -807,6 +811,30 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       channel.unbind("call-recording-ready", onRecordingReady)
     }
   }, [enabled, ownerUserId, patchManualCallRow])
+
+  // Global Dynamic Island tap — re-open intake for the engine's primary call.
+  useEffect(() => {
+    const onFocus = (event: Event) => {
+      const detail = (event as CustomEvent<LyncFocusIntakeDetail>).detail
+      if (!detail?.fromNumber) return
+      const callLogId = detail.callLogId?.trim() || ""
+      const id = callLogId || (detail.callSid ? `ring-${detail.callSid}` : "")
+      if (!id) return
+      dismissedRef.current.delete(id)
+      if (callLogId) dismissedRef.current.delete(callLogId)
+      if (detail.callSid) dismissedRef.current.delete(`ring-${detail.callSid}`)
+      const row: ActiveCallRow = {
+        id: callLogId || id,
+        from_number: detail.fromNumber,
+        to_number: detail.toNumber || "",
+        caller_name: null,
+        answered_at: detail.phase === "connected" ? detail.answeredAt ?? new Date().toISOString() : null,
+      }
+      showCallRow(setCurrent, row, dismissedRef.current)
+    }
+    window.addEventListener(LYNCR_FOCUS_INTAKE_EVENT, onFocus)
+    return () => window.removeEventListener(LYNCR_FOCUS_INTAKE_EVENT, onFocus)
+  }, [])
 
   useEffect(() => {
     if (!enabled) setCurrent(null)
