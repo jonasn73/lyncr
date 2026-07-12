@@ -1,25 +1,28 @@
 "use client"
 
 import { memo, useCallback, useState } from "react"
-import { CalendarDays, CalendarRange, Clock, Phone, PhoneIncoming, PhoneMissed } from "lucide-react"
+import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { WORKSPACE_MOBILE_BLEED } from "@/components/dashboard-workspace-ui"
-import { formatTalkTime } from "@/lib/daily-call-telemetry"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
   RoutingCallHistoryDialog,
   type CallHistoryFilter,
 } from "@/components/dashboard/routing-call-history-dialog"
 import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
+import {
+  formatAvgDispatchSpeedMinutes,
+  formatBookingRatePercent,
+  formatRescueRevenueDollars,
+} from "@/lib/dispatch-performance-formatters"
 
 type TelemetryPillProps = {
   label: string
   value: string | number
   icon: typeof Phone
-  tone?: "default" | "amber" | "teal"
+  tone?: "default" | "amber" | "teal" | "emerald"
   valueClassName?: string
-  /** When set, the pill becomes a clickable button that opens call history. */
   onClick?: () => void
 }
 
@@ -36,6 +39,7 @@ function TelemetryPill({
     "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
     tone === "amber" && "border-amber-500/25 text-amber-100/90",
     tone === "teal" && "border-teal-500/25 text-teal-100/90",
+    tone === "emerald" && "border-emerald-500/25 text-emerald-100/90",
     tone === "default" && "border-white/8 text-foreground/90",
     onClick && "cursor-pointer hover:bg-zinc-900/50"
   )
@@ -71,40 +75,32 @@ function TelemetryPill({
   return <div className={sharedClasses}>{inner}</div>
 }
 
-function TelemetryCompactBadge({
+/** Mobile ticker cell — bold value over tiny uppercase label, no card chrome. */
+function TelemetryTickerItem({
   label,
   value,
-  tone = "default",
   valueClassName,
   onClick,
-}: Omit<TelemetryPillProps, "icon">) {
-  // Ultra-compact mobile metric: bold number + tiny label, no heavy card chrome
-  const shared = cn(
-    "inline-flex min-w-[4.25rem] shrink-0 snap-start flex-col items-center justify-center gap-0.5 px-2.5 py-1.5",
-    "touch-manipulation active:scale-[0.98]",
-    onClick && "cursor-pointer"
-  )
-  const valueTone =
-    tone === "amber"
-      ? "text-amber-300"
-      : tone === "teal"
-        ? "text-teal-300"
-        : "text-foreground"
+}: {
+  label: string
+  value: string | number
+  valueClassName?: string
+  onClick?: () => void
+}) {
   const body = (
     <>
-      <span className={cn("text-sm font-bold tabular-nums leading-none", valueTone, valueClassName)}>
-        {value}
-      </span>
-      <span className="text-[9px] font-medium uppercase tracking-wide text-slate-500">{label}</span>
+      <span className={cn("text-base font-bold tabular-nums text-slate-100", valueClassName)}>{value}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
     </>
   )
+  const shared = "inline-flex min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5"
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={shared}
-        aria-label={`${label}: ${value}. Open call history.`}
+        className={cn(shared, "touch-manipulation active:scale-[0.98]")}
+        aria-label={`${label}: ${value}`}
       >
         {body}
       </button>
@@ -124,18 +120,19 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const {
     dailyCalls,
     missedCalls,
-    liveDailyTalkSeconds,
-    liveWeeklyTalkSeconds,
-    liveMonthlyTalkSeconds,
     liveLineCount,
+    bookingRatePercent,
+    avgDispatchSpeedMinutes,
+    rescueRevenueCents,
   } = useRealTimeStatsContext()
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<CallHistoryFilter>("daily")
 
-  const dailyTalkDisplay = formatTalkTime(liveDailyTalkSeconds)
-  const weeklyTalkDisplay = formatTalkTime(liveWeeklyTalkSeconds)
-  const monthlyTalkDisplay = formatTalkTime(liveMonthlyTalkSeconds)
+  const bookingDisplay = formatBookingRatePercent(bookingRatePercent)
+  const speedDisplay = formatAvgDispatchSpeedMinutes(avgDispatchSpeedMinutes)
+  const rescueDisplay = formatRescueRevenueDollars(rescueRevenueCents)
+  const rescueHot = rescueRevenueCents > 0
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -144,106 +141,75 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
 
   return (
     <>
-      <section
-        className={cn(
-          isMobile
-            ? "flex flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            : "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:px-4 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden",
-          !isMobile && WORKSPACE_MOBILE_BLEED,
-          className
-        )}
-        aria-label="Workspace telemetry"
-      >
-        {isMobile ? (
-          <>
-            <TelemetryCompactBadge label="Live" value={liveLineCount} tone="teal" />
-            <TelemetryCompactBadge
-              label="Calls"
-              value={dailyCalls}
-              onClick={() => openCallHistory("daily")}
-            />
-            <TelemetryCompactBadge
-              label="Missed"
-              value={missedCalls}
-              tone={missedCalls > 0 ? "amber" : "default"}
-              valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
-              onClick={() => openCallHistory("missed")}
-            />
-            <TelemetryCompactBadge
-              label="Talk"
-              value={dailyTalkDisplay}
-              tone="teal"
-              onClick={() => openCallHistory("daily_talk")}
-            />
-            <TelemetryCompactBadge
-              label="Week"
-              value={weeklyTalkDisplay}
-              tone="teal"
-              onClick={() => openCallHistory("weekly_talk")}
-            />
-            <TelemetryCompactBadge
-              label="Month"
-              value={monthlyTalkDisplay}
-              tone="teal"
-              onClick={() => openCallHistory("monthly_talk")}
-            />
-          </>
-        ) : (
-          <>
-            <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
-            <TelemetryPill
-              label="Daily calls"
-              value={dailyCalls}
-              icon={PhoneIncoming}
-              onClick={() => openCallHistory("daily")}
-            />
-            <TelemetryPill
-              label="Missed calls"
-              value={missedCalls}
-              icon={PhoneMissed}
-              tone={missedCalls > 0 ? "amber" : "default"}
-              valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
-              onClick={() => openCallHistory("missed")}
-            />
-            <TelemetryPill
-              label="Daily talk"
-              value={dailyTalkDisplay}
-              icon={Clock}
-              tone="teal"
-              onClick={() => openCallHistory("daily_talk")}
-            />
-            <TelemetryPill
-              label="Weekly talk"
-              value={weeklyTalkDisplay}
-              icon={CalendarRange}
-              tone="teal"
-              onClick={() => openCallHistory("weekly_talk")}
-            />
-            <TelemetryPill
-              label="Monthly talk"
-              value={monthlyTalkDisplay}
-              icon={CalendarDays}
-              tone="teal"
-              onClick={() => openCallHistory("monthly_talk")}
-            />
-          </>
-        )}
-      </section>
+      {isMobile ? (
+        <section
+          className={cn(
+            "flex flex-row items-center justify-between gap-4 overflow-x-auto border-b border-slate-900 bg-slate-950/40 px-2 py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            className
+          )}
+          aria-label="Dispatch performance"
+        >
+          <TelemetryTickerItem label="Live" value={liveLineCount} />
+          <TelemetryTickerItem
+            label="Calls"
+            value={dailyCalls}
+            onClick={() => openCallHistory("daily")}
+          />
+          <TelemetryTickerItem
+            label="Missed"
+            value={missedCalls}
+            valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
+            onClick={() => openCallHistory("missed")}
+          />
+          <TelemetryTickerItem label="Booking" value={bookingDisplay} />
+          <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
+          <TelemetryTickerItem
+            label="Rescue"
+            value={rescueDisplay}
+            valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+          />
+        </section>
+      ) : (
+        <section
+          className={cn(
+            "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:px-4 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden",
+            WORKSPACE_MOBILE_BLEED,
+            className
+          )}
+          aria-label="Workspace telemetry"
+        >
+          <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
+          <TelemetryPill
+            label="Daily calls"
+            value={dailyCalls}
+            icon={PhoneIncoming}
+            onClick={() => openCallHistory("daily")}
+          />
+          <TelemetryPill
+            label="Missed calls"
+            value={missedCalls}
+            icon={PhoneMissed}
+            tone={missedCalls > 0 ? "amber" : "default"}
+            valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
+            onClick={() => openCallHistory("missed")}
+          />
+          <TelemetryPill label="Booking rate" value={bookingDisplay} icon={Percent} tone="teal" />
+          <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
+          <TelemetryPill
+            label="Rescue revenue"
+            value={rescueDisplay}
+            icon={DollarSign}
+            tone={rescueHot ? "amber" : "emerald"}
+            valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+          />
+        </section>
+      )}
 
       <RoutingCallHistoryDialog
         open={historyOpen}
         onOpenChange={setHistoryOpen}
         filter={historyFilter}
         businessNumbers={_businessNumbers}
-        expectedTalkSeconds={
-          historyFilter === "daily_talk"
-            ? liveDailyTalkSeconds
-            : historyFilter === "weekly_talk"
-              ? liveWeeklyTalkSeconds
-              : historyFilter === "monthly_talk"
-                ? liveMonthlyTalkSeconds
-                : undefined
-        }
       />
     </>
   )

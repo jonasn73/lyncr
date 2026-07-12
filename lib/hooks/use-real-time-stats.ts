@@ -58,6 +58,12 @@ export type UseRealTimeStatsResult = {
   liveDailyTalkSeconds: number
   liveWeeklyTalkSeconds: number
   liveMonthlyTalkSeconds: number
+  /** Jobs booked ÷ unique callers today (0–100). */
+  bookingRatePercent: number
+  /** Average minutes from call end → dispatched job. */
+  avgDispatchSpeedMinutes: number | null
+  /** Open Price Denied queue total in cents. */
+  rescueRevenueCents: number
   /** Count of provisioned active phone lines (static until numbers list changes). */
   liveLineCount: number
   /** In-progress calls on the selected line (drives Step 1 badge). */
@@ -77,6 +83,9 @@ function applySnapshot(
     setDailyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setWeeklyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setMonthlyTalkSeconds: (n: number | ((prev: number) => number)) => void
+    setBookingRatePercent: (n: number) => void
+    setAvgDispatchSpeedMinutes: (n: number | null) => void
+    setRescueRevenueCents: (n: number) => void
     setOwnerUserId: (id: string | null) => void
   },
   snap: RoutingTelemetrySnapshot,
@@ -105,6 +114,9 @@ function applySnapshot(
   } else {
     setters.setMonthlyTalkSeconds(snap.monthlyTalkSeconds)
   }
+  setters.setBookingRatePercent(snapDayKey === currentDayKey ? snap.bookingRatePercent : 0)
+  setters.setAvgDispatchSpeedMinutes(snap.avgDispatchSpeedMinutes)
+  setters.setRescueRevenueCents(snap.rescueRevenueCents)
   setters.setOwnerUserId(snap.ownerUserId)
 }
 
@@ -122,6 +134,11 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const [dailyTalkSeconds, setDailyTalkSeconds] = useState(cachedMetrics.dailyTalkSeconds)
   const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(cachedMetrics.weeklyTalkSeconds)
   const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(cachedMetrics.monthlyTalkSeconds)
+  const [bookingRatePercent, setBookingRatePercent] = useState(cachedMetrics.bookingRatePercent)
+  const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState(
+    cachedMetrics.avgDispatchSpeedMinutes
+  )
+  const [rescueRevenueCents, setRescueRevenueCents] = useState(cachedMetrics.rescueRevenueCents)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(cachedMetrics.ownerUserId)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
@@ -174,6 +191,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           daily_talk_time_display?: string
           weekly_talk_time_display?: string
           monthly_talk_time_display?: string
+          booking_rate_percent?: number
+          avg_dispatch_speed_minutes?: number | null
+          rescue_revenue_cents?: number
           owner_user_id?: string
         }
       }
@@ -197,6 +217,12 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         dailyTalkSeconds: parsedDailyTalk,
         weeklyTalkSeconds: parsedWeeklyTalk,
         monthlyTalkSeconds: parsedMonthlyTalk,
+        bookingRatePercent: Number(data.booking_rate_percent ?? 0),
+        avgDispatchSpeedMinutes:
+          data.avg_dispatch_speed_minutes == null || !Number.isFinite(Number(data.avg_dispatch_speed_minutes))
+            ? null
+            : Number(data.avg_dispatch_speed_minutes),
+        rescueRevenueCents: Number(data.rescue_revenue_cents ?? 0),
         ownerUserId: data.owner_user_id ? String(data.owner_user_id) : null,
         weekPeriodKey: telemetryWeekPeriodKey(),
         monthPeriodKey: telemetryMonthPeriodKey(),
@@ -209,6 +235,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           setDailyTalkSeconds,
           setWeeklyTalkSeconds,
           setMonthlyTalkSeconds,
+          setBookingRatePercent,
+          setAvgDispatchSpeedMinutes,
+          setRescueRevenueCents,
           setOwnerUserId,
         },
         snap,
@@ -259,6 +288,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         setDailyTalkSeconds,
         setWeeklyTalkSeconds,
         setMonthlyTalkSeconds,
+        setBookingRatePercent,
+        setAvgDispatchSpeedMinutes,
+        setRescueRevenueCents,
         setOwnerUserId,
       },
       snap
@@ -419,6 +451,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     liveDailyTalkSeconds,
     liveWeeklyTalkSeconds,
     liveMonthlyTalkSeconds,
+    bookingRatePercent,
+    avgDispatchSpeedMinutes,
+    rescueRevenueCents,
     liveLineCount,
     activeCallsOnSelectedLine,
     activeCallSessions,

@@ -3852,6 +3852,157 @@ export async function getDailyCallTelemetryForOwner(
   }
 }
 
+/** High-value dispatch KPIs for the Lines analytics strip (booking rate, speed, rescue $). */
+export async function getDispatchPerformanceTelemetry(
+  sessionUserId: string,
+  organizationId?: string | null,
+  timezone?: string | null
+): Promise<{
+  booking_rate_percent: number
+  avg_dispatch_speed_minutes: number | null
+  rescue_revenue_cents: number
+}> {
+  const sql = getSql()
+  const orgUuid =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId.trim() : null
+
+  let telemetryOwnerUserId = sessionUserId
+  if (orgUuid) {
+    const org = await getOrganizationById(orgUuid)
+    if (org?.owner_user_id) telemetryOwnerUserId = org.owner_user_id
+  }
+
+  const tz = sanitizeIanaTimezone(timezone)
+  const empty = {
+    booking_rate_percent: 0,
+    avg_dispatch_speed_minutes: null as number | null,
+    rescue_revenue_cents: 0,
+  }
+
+  try {
+    // Booking rate = jobs created today / unique callers today (local calendar day).
+    const bookingRows = await sql`
+      WITH callers AS (
+        SELECT COUNT(DISTINCT NULLIF(regexp_replace(COALESCE(from_number, ''), '\\D', '', 'g'), ''))::int AS unique_callers
+        FROM call_logs
+        WHERE user_id = ${telemetryOwnerUserId}
+          AND date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
+          AND COALESCE(from_number, '') <> ''
+      ),
+      jobs AS (
+        SELECT COUNT(*)::int AS jobs_created
+        FROM ai_leads
+        WHERE user_id = ${telemetryOwnerUserId}
+          AND date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
+          AND (
+            disposition IN ('BOOKED', 'PENDING_TIME')
+            OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+          )
+          AND (
+            ${orgUuid}::uuid IS NULL
+            OR organization_id IS NULL
+            OR organization_id = ${orgUuid}::uuid
+          )
+      )
+      SELECT callers.unique_callers, jobs.jobs_created
+      FROM callers, jobs
+    `
+    const uniqueCallers = Number(bookingRows[0]?.unique_callers ?? 0)
+    const jobsCreated = Number(bookingRows[0]?.jobs_created ?? 0)
+    const booking_rate_percent =
+      uniqueCallers > 0 ? Math.min(100, Math.round((jobsCreated / uniqueCallers) * 100)) : 0
+
+    // Avg minutes from call end → job created with a tech (proxy for dispatch speed).
+    let avg_dispatch_speed_minutes: number | null = null
+    try {
+      const speedRows = await sql`
+        SELECT AVG(mins)::float8 AS avg_mins
+        FROM (
+          SELECT
+            EXTRACT(EPOCH FROM (l.created_at - COALESCE(cl.ended_at, cl.created_at))) / 60.0 AS mins
+          FROM ai_leads l
+          INNER JOIN call_logs cl
+            ON cl.user_id = ${telemetryOwnerUserId}
+           AND (
+             cl.id::text = NULLIF(trim(l.collected->>'call_log_id'), '')
+             OR (
+               NULLIF(trim(l.vapi_call_id), '') IS NOT NULL
+               AND cl.provider_call_sid = l.vapi_call_id
+             )
+           )
+          WHERE l.user_id = ${telemetryOwnerUserId}
+            AND l.assigned_tech_id IS NOT NULL
+            AND TRIM(l.assigned_tech_id) <> ''
+            AND l.created_at >= now() - interval '7 days'
+            AND l.created_at >= COALESCE(cl.ended_at, cl.created_at)
+            AND EXTRACT(EPOCH FROM (l.created_at - COALESCE(cl.ended_at, cl.created_at))) / 60.0 BETWEEN 0 AND 120
+            AND (
+              ${orgUuid}::uuid IS NULL
+              OR l.organization_id IS NULL
+              OR l.organization_id = ${orgUuid}::uuid
+            )
+        ) speeds
+      `
+      const avg = Number(speedRows[0]?.avg_mins ?? NaN)
+      avg_dispatch_speed_minutes = Number.isFinite(avg) ? Math.round(avg * 10) / 10 : null
+    } catch (e) {
+      // Pre-migration columns / missing join paths — leave null.
+      if (pgErrorCode(e) !== "42703" && !isUndefinedRelationError(e, "ai_leads")) {
+        console.warn("[getDispatchPerformanceTelemetry] dispatch speed skipped:", e)
+      }
+    }
+
+    // Open Price Denied queue — sum of quoted cents still salvageable.
+    let rescue_revenue_cents = 0
+    try {
+      const rescueRows = await sql`
+        SELECT COALESCE(
+          SUM(
+            GREATEST(
+              0,
+              COALESCE(
+                NULLIF(trim(collected->>'quoted_price_cents'), '')::int,
+                NULLIF(trim(collected->>'last_quoted_price_cents'), '')::int,
+                NULLIF(trim(collected->>'baseline_quoted_price_cents'), '')::int,
+                0
+              )
+            )
+          ),
+          0
+        )::int AS rescue_cents
+        FROM ai_leads
+        WHERE user_id = ${telemetryOwnerUserId}
+          AND (
+            lower(trim(COALESCE(dispatch_status, ''))) = 'salvage_pending'
+            OR lower(trim(COALESCE(collected->>'dispatch_status', ''))) = 'salvage_pending'
+          )
+          AND (
+            ${orgUuid}::uuid IS NULL
+            OR organization_id IS NULL
+            OR organization_id = ${orgUuid}::uuid
+          )
+      `
+      rescue_revenue_cents = Number(rescueRows[0]?.rescue_cents ?? 0)
+    } catch (e) {
+      if (pgErrorCode(e) !== "42703" && !isUndefinedRelationError(e, "ai_leads")) {
+        console.warn("[getDispatchPerformanceTelemetry] rescue revenue skipped:", e)
+      }
+    }
+
+    return {
+      booking_rate_percent,
+      avg_dispatch_speed_minutes,
+      rescue_revenue_cents,
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || isUndefinedRelationError(e, "call_logs")) {
+      return empty
+    }
+    console.warn("[getDispatchPerformanceTelemetry] failed:", e)
+    return empty
+  }
+}
+
 export async function getVoiceOperationsInsights(userId: string, days = 7): Promise<{
   daily_quality: {
     day: string

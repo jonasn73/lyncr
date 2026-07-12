@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getDailyCallTelemetryForOwner } from "@/lib/db"
+import { getDailyCallTelemetryForOwner, getDispatchPerformanceTelemetry } from "@/lib/db"
 import { formatAvgTalkTime, formatTalkTime } from "@/lib/daily-call-telemetry"
 import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
@@ -18,10 +18,14 @@ export async function GET(req: NextRequest) {
   const timezone = sanitizeIanaTimezone(req.nextUrl.searchParams.get("timezone"))
 
   try {
-    const metrics = await getDailyCallTelemetryForOwner(userId, organizationId, timezone)
+    const [metrics, performance] = await Promise.all([
+      getDailyCallTelemetryForOwner(userId, organizationId, timezone),
+      getDispatchPerformanceTelemetry(userId, organizationId, timezone),
+    ])
     return NextResponse.json({
       data: {
         ...metrics,
+        ...performance,
         avg_talk_time_display: formatAvgTalkTime(metrics.avg_talk_seconds),
         daily_talk_time_display: formatTalkTime(metrics.daily_talk_seconds),
         weekly_talk_time_display: formatTalkTime(metrics.weekly_talk_seconds),
