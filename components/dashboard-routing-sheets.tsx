@@ -7,11 +7,11 @@ import {
 } from "@/components/ui/sheet"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { StorySheetHeader } from "@/components/story-sheet-header"
-import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { VOICE_AI_DRAWER_SHEET_CLASS } from "@/components/dashboard-call-flow"
 import { DashboardVoiceAiDrawer } from "@/components/dashboard-voice-ai-drawer"
 import { DashboardWhoAnswersDrawer } from "@/components/dashboard-who-answers-drawer"
 import { DashboardRingBackupDrawer } from "@/components/dashboard-ring-backup-drawer"
+import { CallerIdUtilitiesCard } from "@/components/dashboard/caller-id-utilities-card"
 import type { Contact, DashboardBusinessNumber, FallbackOption } from "@/lib/dashboard-routing-utils"
 import type { RoutingStrategy } from "@/lib/types"
 
@@ -50,6 +50,8 @@ export type DashboardRoutingSheetsProps = {
   // Current hybrid-network strategy + setter so the Who answers drawer can offer the operator pool.
   routingStrategy: RoutingStrategy
   setRoutingStrategy: (s: RoutingStrategy) => void
+  /** Workspace id — scopes Caller ID utility prefs in localStorage. */
+  organizationId?: string | null
 }
 
 export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
@@ -85,6 +87,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   onChangeRoutingStrategy,
   routingStrategy,
   setRoutingStrategy,
+  organizationId = null,
 }: DashboardRoutingSheetsProps) {
   const whoAnswersDiscardRef = useRef<() => void>(() => {})
   const ringBackupDiscardRef = useRef<() => void>(() => {})
@@ -116,17 +119,10 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
 
   return (
     <>
-      <section
-        id="routing-tips"
-        className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/15 px-6 py-5 sm:px-7"
-      >
-        <h2 className="text-sm font-semibold text-foreground sm:text-base">Caller ID</h2>
-        <SheetInfoTrigger
-          onPress={() => setDashboardStoryKey("dashboard-caller-id-tips")}
-          label="Caller ID"
-          className="h-8 w-8 shrink-0"
-        />
-      </section>
+      <CallerIdUtilitiesCard
+        organizationId={organizationId}
+        onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}
+      />
 
       {whoAnswersOpen ? (
       <Sheet open={whoAnswersOpen} onOpenChange={handleWhoAnswersOpenChange} modal>

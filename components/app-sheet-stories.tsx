@@ -764,12 +764,20 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "dashboard-caller-id-tips": {
     eyebrow: "Trust",
-    storyline: "Forwarded Caller ID and CNAM are carrier politics — labels help humans, reputation is earned with traffic.",
-    title: "Caller ID & spam labels",
+    storyline: "Spam shield and CNAM lookup help you block junk and name businesses before you answer.",
+    title: "Caller ID utilities",
     description: (
       <>
-        <p>We send your business number on forwarded legs and may pass a display name when the carrier allows it.</p>
-        <p className="mt-2">Spam flags come from the receiving network — fix with accurate labels, registry listings, and consistent legitimate volume.</p>
+        <p>
+          <strong>Spam &amp; Robocall Shield</strong> auto-rejects verified high-risk spam before it rings your team.
+        </p>
+        <p className="mt-2">
+          <strong>Enhanced CNAM Lookup</strong> tries to show a business name on incoming rings when carriers provide it.
+        </p>
+        <p className="mt-2">
+          We still send your business number on forwarded legs. Spam flags from the receiving network also depend on
+          accurate labels and consistent legitimate volume.
+        </p>
       </>
     ),
   },

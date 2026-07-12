@@ -523,6 +523,7 @@ export function DashboardPage() {
         setAiRingOwnerFirst={setAiRingOwnerFirst}
         hasTelnyxAiAssistant={hasTelnyxAiAssistant}
         setHasTelnyxAiAssistant={setHasTelnyxAiAssistant}
+        organizationId={activeOrganizationId}
       />
     </div>
   )
