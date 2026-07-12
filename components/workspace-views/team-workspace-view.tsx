@@ -13,6 +13,7 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { openTeamInviteModal } from "@/lib/team-invite-events"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
+import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 
 const AVATAR_COLORS = ["bg-primary", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"]
 
@@ -253,7 +254,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
 
   return (
     <WorkspacePage>
-      <WorkspacePageHeader eyebrow="Routing" title="Team" />
+      <WorkspacePageHeader eyebrow="Dispatch" title="Team" />
+
+      {/* Live tech availability — dense roster for the mobile Team tab. */}
+      <TeamLiveRoster />
 
       {/* Upper ops row: instruction script (wide) + operator network (narrow). */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

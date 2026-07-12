@@ -6,6 +6,7 @@ import {
   Inbox,
   Settings,
   Users,
+  UsersRound,
   Zap,
   type LucideIcon,
 } from "lucide-react"
@@ -44,7 +45,7 @@ export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "activity", label: "Activities", icon: Activity },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "contacts", label: "Team", icon: UsersRound },
 ]
 
 /** Href for each tab — App Router Link targets for instant client navigation. */

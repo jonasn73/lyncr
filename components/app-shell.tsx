@@ -9,35 +9,18 @@ import {
   memo,
 } from "react"
 import Link from "next/link"
-import {
-  LifeBuoy,
-  LogOut,
-  Loader2,
-  ChevronDown,
-  Search,
-  CalendarDays,
-  Settings,
-} from "lucide-react"
+import { Loader2, ChevronDown, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
-import { signOutAndGoToLogin } from "@/lib/client-auth"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { CommandDock } from "@/components/layout/command-dock"
 import { GlobalLineCommunicationBar } from "@/components/layout/global-line-communication-bar"
+import { HeaderAccountMenu } from "@/components/layout/header-settings-sheet"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
-import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
+import { type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 
 export type { PageId }
@@ -46,13 +29,6 @@ export type { PageId }
 export type AccountHeaderState =
   | { kind: "loading" }
   | { kind: "ready"; name: string; email: string; answeredCallCustomerPopupEnabled: boolean }
-
-function initialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return "?"
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 const AppShellHeader = memo(function AppShellHeader({
   useLinks,
@@ -134,74 +110,6 @@ const AppShellHeader = memo(function AppShellHeader({
         )}
       </div>
     </header>
-  )
-})
-
-const HeaderAccountMenu = memo(function HeaderAccountMenu({ name, email }: { name: string; email: string }) {
-  const [busy, setBusy] = useState(false)
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-11 w-[2.75rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem]"
-          aria-label="Open account menu"
-        >
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
-              {initialsFromName(name)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="hidden min-w-0 flex-1 flex-col items-start text-left sm:flex">
-            <span className="w-full truncate text-xs font-medium text-foreground">{name}</span>
-            <span className="w-full truncate text-[10px] text-muted-foreground">{email}</span>
-          </span>
-          <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">{name}</span>
-            <span className="truncate text-xs text-muted-foreground">{email}</span>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={DASHBOARD_PAGE_HREF.settings} className="cursor-pointer">
-            <Settings className="size-4" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={DASHBOARD_PAGE_HREF.scheduler} className="cursor-pointer">
-            <CalendarDays className="size-4" />
-            Scheduler
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={DASHBOARD_PAGE_HREF.help} className="cursor-pointer">
-            <LifeBuoy className="size-4" />
-            Help & feedback
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={busy}
-          onSelect={(e) => {
-            e.preventDefault()
-            setBusy(true)
-            void signOutAndGoToLogin()
-          }}
-        >
-          <LogOut className="size-4" />
-          {busy ? "Signing out…" : "Sign out"}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 })
 

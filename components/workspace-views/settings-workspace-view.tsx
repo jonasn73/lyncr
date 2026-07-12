@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
+import { cn } from "@/lib/utils"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -128,6 +129,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   onSignOut,
   carrierRegistrationPending,
   isPlatformAdmin,
+  /** Hide page chrome when rendered inside the header Settings sheet. */
+  embedded = false,
 }: {
   profileLoading: boolean
   profile: SettingsProfileSummary
@@ -142,6 +145,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   onSignOut: () => void
   carrierRegistrationPending: boolean
   isPlatformAdmin: boolean
+  embedded?: boolean
 }) {
   const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
   const modals = useSettingsModalActions()
@@ -153,8 +157,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
     .slice(0, 2)
 
   return (
-    <WorkspacePage className="gap-6 pb-10">
-      <WorkspacePageHeader eyebrow="Account" title="Settings" />
+    <WorkspacePage className={cn("gap-6 pb-10", embedded && "gap-4 px-0 pb-4")}>
+      {embedded ? null : <WorkspacePageHeader eyebrow="Account" title="Settings" />}
 
       <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
         {profileLoading ? (
@@ -269,27 +273,34 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         </SettingsGroupedList>
       </section>
 
-      {/* Sign out — unbordered rose action, clear separation from lists */}
-      <div className="pt-2">
-        <button
-          type="button"
-          disabled={signingOut}
-          onClick={onSignOut}
-          className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-rose-400 transition-colors hover:text-rose-300 disabled:opacity-50"
-        >
-          {signingOut ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          ) : (
-            <LogOut className="h-4 w-4" aria-hidden />
-          )}
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </div>
+      {/* Sign out — unbordered rose action (full page only; sheet has its own footer). */}
+      {embedded ? null : (
+        <div className="pt-2">
+          <button
+            type="button"
+            disabled={signingOut}
+            onClick={onSignOut}
+            className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-rose-400 transition-colors hover:text-rose-300 disabled:opacity-50"
+          >
+            {signingOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <LogOut className="h-4 w-4" aria-hidden />
+            )}
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      )}
     </WorkspacePage>
   )
 })
 
-export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
+export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
+  embedded = false,
+}: {
+  /** Compact mode for the header avatar Settings sheet. */
+  embedded?: boolean
+}) {
   const { toast } = useToast()
   const sessionSeed = useDashboardSessionOptional()
   const { activeOrganizationId } = useDashboardWorkspace()
@@ -396,6 +407,7 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView() {
       render={() => <SettingsHoursSheet />}
     >
       <SettingsWorkspaceBody
+        embedded={embedded}
         profileLoading={profileLoading}
         profile={profile}
         pushEnabled={pushEnabled}
