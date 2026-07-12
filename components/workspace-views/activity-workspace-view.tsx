@@ -1,11 +1,12 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CalendarDays, ClipboardList, Clock, MapPin, Phone, PhoneMissed } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { buildTelHref } from "@/lib/phone-e164"
+import { buildTelHref, toE164 } from "@/lib/phone-e164"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { isMissedCallRecord, isMissedCallTodayRecord, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
@@ -278,21 +279,58 @@ function canCallBack(call: UiCallRecord): boolean {
   return buildTelHref(raw) != null
 }
 
+/** Missed or empty intake — Call back should dial + open the intake draft sheet. */
+function needsRevenueRescue(call: UiCallRecord): boolean {
+  if (call.type === "outgoing") return false
+  if (isMissedActivityCall(call)) return true
+  const action = call.activity?.intakeAction
+  return !action || action === "No intake recorded"
+}
+
+/** Open global intake sheet with this caller prefilled (no dial). */
+function openIntakeDraftForPhone(
+  inbound: ReturnType<typeof useInboundCallPanelOptional>,
+  phone: string
+) {
+  if (!inbound) return
+  const trimmed = phone.trim()
+  if (!trimmed || trimmed === "—") return
+  inbound.openManualCallPanel({
+    phoneNumber: toE164(trimmed),
+    callStatus: "answered",
+  })
+}
+
 function CallBackButton({
   phone,
   className,
   compact = false,
+  /** When true: dial native tel: and open intake draft in parallel (missed / no intake). */
+  openIntakeDraft = false,
 }: {
   phone: string
   className?: string
   compact?: boolean
+  openIntakeDraft?: boolean
 }) {
+  const inbound = useInboundCallPanelOptional()
   const href = buildTelHref(phone)
   if (!href) return null
+
+  const handleClick = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Parallel: open intake draft sheet + fire native dialer.
+    if (openIntakeDraft) {
+      openIntakeDraftForPhone(inbound, phone)
+    }
+    window.location.href = href
+  }
+
   return (
     <a
       href={href}
-      onClick={(e) => e.stopPropagation()}
+      onClick={handleClick}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]",
         compact ? "min-h-10 px-3 py-2 text-xs" : "min-h-11 w-full px-4 py-2.5 text-sm",
@@ -452,24 +490,49 @@ function intakeActionTone(action: string): string {
 function ActivityIntakeSummary({
   activity,
   compact = false,
+  /** When set, "No intake recorded" becomes a tap target that opens intake draft (no dial). */
+  callerPhone,
 }: {
   activity: CallActivityContext
   compact?: boolean
+  callerPhone?: string
 }) {
+  const inbound = useInboundCallPanelOptional()
   const schedulerHref = activity.leadId
     ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
     : null
+  const isNoIntake = activity.intakeAction === "No intake recorded"
+  const canOpenIntakeDraft = Boolean(isNoIntake && callerPhone && inbound)
 
   return (
     <div className={cn("space-y-1", compact && "space-y-0.5")}>
-      <span
-        className={cn(
-          "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-          intakeActionTone(activity.intakeAction)
-        )}
-      >
-        {activity.intakeAction}
-      </span>
+      {canOpenIntakeDraft ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            openIntakeDraftForPhone(inbound, callerPhone!)
+          }}
+          className={cn(
+            "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            intakeActionTone(activity.intakeAction),
+            "cursor-pointer hover:bg-slate-800 transition-all"
+          )}
+          aria-label="Open intake draft for this caller"
+        >
+          {activity.intakeAction}
+        </button>
+      ) : (
+        <span
+          className={cn(
+            "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            intakeActionTone(activity.intakeAction)
+          )}
+        >
+          {activity.intakeAction}
+        </span>
+      )}
       {activity.intakeDetail ? (
         <p className={cn("text-zinc-400", compact ? "text-[11px] leading-snug" : "text-xs leading-relaxed")}>
           {activity.intakeDetail}
@@ -526,7 +589,12 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
       />
       <DrawerScrollBody>
         <div className="space-y-4">
-          {showCallBack ? <CallBackButton phone={call.callerNumber} /> : null}
+          {showCallBack ? (
+            <CallBackButton
+              phone={call.callerNumber}
+              openIntakeDraft={needsRevenueRescue(call)}
+            />
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <AgentBadge agent={agent} />
             <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
@@ -541,7 +609,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               Answered panel &amp; scheduling
             </p>
             <div className="mt-3">
-              <ActivityIntakeSummary activity={activity} />
+              <ActivityIntakeSummary activity={activity} callerPhone={call.callerNumber} />
             </div>
             {schedulerHref ? (
               <Link
@@ -642,10 +710,19 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                 )}
               </div>
               {canCallBack(call) ? (
-                <CallBackButton phone={call.callerNumber} compact className="w-full" />
+                <CallBackButton
+                  phone={call.callerNumber}
+                  compact
+                  className="w-full"
+                  openIntakeDraft={needsRevenueRescue(call)}
+                />
               ) : null}
               {call.activity ? (
-                <ActivityIntakeSummary activity={call.activity} compact />
+                <ActivityIntakeSummary
+                  activity={call.activity}
+                  compact
+                  callerPhone={call.callerNumber}
+                />
               ) : null}
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -739,7 +816,11 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                   </WorkspaceTd>
                   <WorkspaceTd>
                     {call.activity ? (
-                      <ActivityIntakeSummary activity={call.activity} compact />
+                      <ActivityIntakeSummary
+                        activity={call.activity}
+                        compact
+                        callerPhone={call.callerNumber}
+                      />
                     ) : (
                       <span className="text-xs text-zinc-600">—</span>
                     )}
@@ -767,7 +848,11 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                   <WorkspaceTd className="text-right">
                     <div className="flex flex-col items-end gap-1.5">
                       {canCallBack(call) ? (
-                        <CallBackButton phone={call.callerNumber} compact />
+                        <CallBackButton
+                          phone={call.callerNumber}
+                          compact
+                          openIntakeDraft={needsRevenueRescue(call)}
+                        />
                       ) : null}
                       <button
                         type="button"
@@ -886,12 +971,6 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
               <CalendarDays className="h-3.5 w-3.5" aria-hidden />
               Job scheduler
             </Link>
-            {activeLine ? (
-              <p className="text-xs text-zinc-500">
-                Filtered to active line ·{" "}
-                <span className="font-medium text-zinc-300">{resolveBusinessLineLabel(activeLine, lineLabelMap)}</span>
-              </p>
-            ) : null}
           </div>
         }
       />
