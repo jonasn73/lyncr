@@ -59,6 +59,8 @@
 @theme inline {
   --font-sans: 'Inter', 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  /* Between slate-800 and slate-900 — premium card borders */
+  --color-slate-850: oklch(0.24 0.018 265);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -158,17 +160,17 @@
     @apply transition-[transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 motion-reduce:hover:translate-y-0;
   }
 
-  /* Scheduler dispatch — glass cards, emerald focus, metadata hierarchy */
+  /* Scheduler / workspace — glass cards aligned to WS_* tokens */
   .scheduler-glass-card {
-    @apply rounded-xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md;
+    @apply rounded-xl border border-slate-850 bg-slate-900/40 p-3 text-left backdrop-blur-md transition-all duration-150;
   }
 
   .scheduler-interactive-card {
-    @apply rounded-xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md transition-all duration-200 hover:border-emerald-500/40 hover:bg-slate-900/90 hover:shadow-[0_0_15px_rgba(16,185,129,0.05)];
+    @apply rounded-xl border border-slate-850 bg-slate-900/40 p-3 text-left backdrop-blur-md transition-all duration-150 hover:border-emerald-500/30 hover:bg-slate-900/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.05)];
   }
 
   .scheduler-metadata-label {
-    @apply text-[10px] font-semibold uppercase tracking-wider text-slate-500;
+    @apply text-[11px] font-semibold uppercase tracking-wider text-slate-500;
   }
 
   .scheduler-field-stack {

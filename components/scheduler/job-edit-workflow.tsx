@@ -13,6 +13,7 @@ import {
   SCHEDULER_INPUT,
   SCHEDULER_METADATA_LABEL,
   SCHEDULER_SECTION,
+  SCHEDULER_STACK,
   SCHEDULER_TEXTAREA,
 } from "@/lib/scheduler-ui-tokens"
 import { Button } from "@/components/ui/button"
@@ -69,7 +70,7 @@ export type JobEditWorkflowProps = {
 
 export function JobEditWorkflow({
   statusLabel,
-  lifecyclePhase,
+  lifecyclePhase: _lifecyclePhase,
   customerName,
   customerPhone,
   location,
@@ -123,33 +124,22 @@ export function JobEditWorkflow({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className={SCHEDULER_METADATA_LABEL}>Edit job</p>
-            <span
-              className={cn(
-                "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                lifecyclePhase === "unassigned" && "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/30",
-                lifecyclePhase === "scheduled" && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/30",
-                lifecyclePhase === "en_route" && "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/30",
-                lifecyclePhase === "on_site" && "bg-yellow-500/20 text-yellow-100 ring-1 ring-yellow-500/30",
-                lifecyclePhase === "completed" && "bg-zinc-600/30 text-zinc-400 ring-1 ring-zinc-600/40"
-              )}
-            >
-              {statusLabel}
-            </span>
+            <p className={cn(SCHEDULER_METADATA_LABEL, "mt-1 text-slate-400")}>{statusLabel}</p>
           </div>
           <button
             type="button"
             onClick={onBackToOverview}
-            className="shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 transition-all duration-200 hover:text-emerald-300 hover:underline"
+            className="shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
           >
             Back to overview
           </button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 py-4">
+      <div className={cn("min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 py-4", SCHEDULER_STACK)}>
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Customer details</h3>
-          <div className="space-y-3">
+          <div className={SCHEDULER_STACK}>
             <div className={fieldBlockClass}>
               <label className={labelClass} htmlFor="job-edit-customer-name">
                 Name
@@ -193,8 +183,8 @@ export function JobEditWorkflow({
 
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Job settings</h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+          <div className={SCHEDULER_STACK}>
+            <div className="grid grid-cols-2 gap-3">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-scheduled-date">
                   Scheduled date

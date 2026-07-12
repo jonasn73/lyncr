@@ -20,6 +20,14 @@ import {
   type VehicleTrimProfile,
 } from "@/lib/vehicle-trim-features"
 import { getVehicleTrimHelper } from "@/lib/vehicle-trim-helpers"
+import {
+  WS_METADATA,
+  WS_OPTION_ROW,
+  WS_OPTION_ROW_ACTIVE,
+  WS_ROW,
+  WS_TEXT,
+  WS_TEXT_ACTIVE,
+} from "@/lib/workspace-ui-tokens"
 
 function relatedFccLabels(
   fccId: string,
@@ -199,13 +207,10 @@ function KeySelectionCard({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "relative flex w-full touch-manipulation flex-row items-center gap-4 rounded-lg border px-3 py-2.5 text-left transition-colors",
+          WS_ROW,
+          "relative w-full touch-manipulation",
           disabled && "cursor-not-allowed opacity-40",
-          !disabled && selected
-            ? "border-2 border-cyan-400 bg-slate-900"
-            : !disabled
-              ? "border border-slate-800 bg-background hover:border-primary/50"
-              : "border border-slate-800 bg-background"
+          !disabled && selected ? WS_OPTION_ROW_ACTIVE : !disabled ? WS_OPTION_ROW : WS_OPTION_ROW
         )}
         aria-pressed={selected}
         aria-disabled={disabled}
@@ -218,20 +223,19 @@ function KeySelectionCard({
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         ) : null}
-        {card.referenceImage ? (
-          <span className="absolute left-2 top-2 z-10 rounded bg-amber-500/90 px-1 text-[8px] font-semibold text-black">
-            Ref
-          </span>
-        ) : null}
         <KeyThumbnail imageUrl={card.imageUrl} label={card.label} />
         <div className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-foreground">{card.label}</span>
-          {card.description ? (
-            <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{card.description}</p>
-          ) : null}
-          <span className="mt-1 inline-block rounded border border-emerald-800/50 bg-emerald-950/80 px-2 py-0.5 text-[10px] uppercase tracking-wider text-emerald-400">
-            {card.programmingMethod || "OBD2 Bypass Required"}
+          <span className={cn("block leading-snug", selected ? WS_TEXT_ACTIVE : WS_TEXT)}>
+            {card.label}
           </span>
+          {card.description ? (
+            <p className={cn("mt-0.5 line-clamp-2", WS_METADATA, "normal-case tracking-normal")}>
+              {card.description}
+            </p>
+          ) : null}
+          {card.programmingMethod ? (
+            <p className={cn("mt-1", WS_METADATA)}>{card.programmingMethod}</p>
+          ) : null}
         </div>
         {disabledReason ? (
           <span className="absolute inset-x-3 bottom-2 rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
@@ -240,7 +244,7 @@ function KeySelectionCard({
         ) : null}
       </motion.button>
       {card.referenceNote ? (
-        <p className="text-[9px] leading-tight text-slate-400 line-clamp-2">{card.referenceNote}</p>
+        <p className={cn(WS_METADATA, "normal-case tracking-normal line-clamp-2")}>{card.referenceNote}</p>
       ) : null}
     </div>
   )
@@ -270,17 +274,13 @@ function TechSpecsRow({ profile, variants }: { profile: KeyProfile; variants: Fc
   const pills = techSpecPills(profile, variants)
   if (pills.length === 0) return null
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <p className={cn(WS_METADATA, "flex flex-wrap gap-x-3 gap-y-1")}>
       {pills.map((pill) => (
-        <span
-          key={pill.label}
-          className="inline-flex items-center gap-1 rounded-md bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-emerald-400"
-        >
-          <span className="text-slate-500">{pill.label}</span>
-          {pill.value}
+        <span key={pill.label}>
+          {pill.label} · {pill.value}
         </span>
       ))}
-    </div>
+    </p>
   )
 }
 

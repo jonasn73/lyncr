@@ -17,6 +17,7 @@ import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-help
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { WS_SECTION } from "@/lib/workspace-ui-tokens"
 import {
   useInboundCallPanel,
 } from "@/lib/inbound-call-panel-context"
@@ -1235,7 +1236,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "VEHICLE_INFO" ? (
-                            <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Vehicle year · make · model
                               </legend>
@@ -1262,7 +1263,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "KEY_SPECIFICS" ? (
-                            <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Key specifics
                               </legend>
@@ -1311,7 +1312,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "ADDRESS_CONTACT" ? (
-                            <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Customer &amp; location
                               </legend>
@@ -1367,7 +1368,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
                           {currentStep === "FINAL_DISPATCH" ? (
                             <div className="flex flex-col justify-start gap-4">
-                              <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-sm">
+                              <div className={cn(WS_SECTION, "text-sm")}>
                                 <p className="font-medium text-foreground">
                                   {form.displayName.trim() || "Customer"}
                                 </p>
@@ -1447,7 +1448,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 />
 
                 {requiresVehicle ? (
-                  <fieldset className="grid gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                  <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                     <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                       Vehicle metadata
                     </legend>
@@ -1501,7 +1502,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </fieldset>
                 ) : null}
 
-                <fieldset className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3">
+                <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                   <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
                     Job details
                   </legend>
@@ -1576,7 +1577,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </div>
                 </fieldset>
 
-                <fieldset className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                   <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                     Contact (saved to customer list)
                   </legend>

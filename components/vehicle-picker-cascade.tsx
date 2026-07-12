@@ -8,6 +8,14 @@ import { Loader2 } from "lucide-react"
 import { vehicleYearOptions } from "@/lib/nhtsa-vpic"
 import { cn } from "@/lib/utils"
 import { onOptionRowKeyDown } from "@/lib/hooks/use-workspace-keyboard"
+import {
+  WS_METADATA,
+  WS_OPTION_ROW,
+  WS_OPTION_ROW_ACTIVE,
+  WS_STACK,
+  WS_TEXT,
+  WS_TEXT_ACTIVE,
+} from "@/lib/workspace-ui-tokens"
 
 const selectClass =
   "min-w-0 w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -146,12 +154,13 @@ function SelectionChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "min-h-9 touch-manipulation rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+        "min-h-9 touch-manipulation rounded-xl border px-3 py-1.5 transition-all duration-150",
+        active || selected ? WS_TEXT_ACTIVE : WS_TEXT,
         active
-          ? "border-primary/60 bg-primary/15 text-primary"
+          ? WS_OPTION_ROW_ACTIVE
           : selected
-            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
-            : "border-border/70 bg-background/60 text-muted-foreground",
+            ? "border-emerald-500/40 bg-slate-900/80"
+            : "border-slate-850 bg-slate-900/40 hover:border-emerald-500/30",
         disabled && "cursor-not-allowed opacity-40"
       )}
       aria-pressed={active}
@@ -181,10 +190,9 @@ function OptionChip({
       onClick={onSelect}
       onKeyDown={(event) => onOptionRowKeyDown(event, onSelect)}
       className={cn(
-        "min-h-10 touch-manipulation rounded-xl border px-3 py-2 text-left text-sm font-medium transition-colors",
-        selected
-          ? "border-emerald-400/70 bg-emerald-500/10 text-emerald-50 ring-1 ring-emerald-400/40"
-          : "border-border/70 bg-background/80 text-foreground hover:border-primary/40 hover:bg-muted/40"
+        "min-h-10 touch-manipulation leading-snug",
+        selected ? WS_OPTION_ROW_ACTIVE : WS_OPTION_ROW,
+        selected ? WS_TEXT_ACTIVE : WS_TEXT
       )}
       aria-pressed={selected}
     >
@@ -253,8 +261,8 @@ function VehiclePickerSequential({
         : value.vehicle_model
 
   return (
-    <div className="w-full min-w-0 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className={cn(WS_STACK, "w-full min-w-0")}>
+      <div className="flex flex-wrap items-center gap-3">
         <SelectionChip
           label={value.vehicle_year ? value.vehicle_year : "Year"}
           selected={Boolean(value.vehicle_year)}
@@ -285,15 +293,15 @@ function VehiclePickerSequential({
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={activePicker} {...PICKER_STEP_MOTION} className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary/90">{pickerTitle}</p>
+        <motion.div key={activePicker} {...PICKER_STEP_MOTION} className={WS_STACK}>
+          <p className={WS_METADATA}>{pickerTitle}</p>
           {pickerLoading ? (
-            <div className="flex min-h-[8rem] items-center justify-center rounded-xl border border-border/60 bg-background/40">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+            <div className="flex min-h-[8rem] items-center justify-center rounded-xl border border-slate-850 bg-slate-900/40">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
               <span className="sr-only">Loading options</span>
             </div>
           ) : pickerOptions.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-border/60 px-3 py-6 text-center text-xs text-muted-foreground">
+            <p className="rounded-xl border border-dashed border-slate-850 px-3 py-6 text-center text-xs text-slate-500">
               {activePicker === "make"
                 ? "Pick a year first."
                 : activePicker === "model"
@@ -301,7 +309,7 @@ function VehiclePickerSequential({
                   : "No years available."}
             </p>
           ) : (
-            <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto overscroll-y-contain pr-0.5 sm:grid-cols-3">
+            <div className="grid max-h-56 grid-cols-2 gap-3 overflow-y-auto overscroll-y-contain pr-0.5 sm:grid-cols-3">
               {pickerOptions.map((option) => {
                 const selected = selectedValue === option
                 return (

@@ -36,6 +36,16 @@ import {
   type ServiceSector,
 } from "@/lib/service-sector-routing"
 import { onOptionRowKeyDown } from "@/lib/hooks/use-workspace-keyboard"
+import {
+  WS_ICON_ACTIVE,
+  WS_ICON_INACTIVE,
+  WS_METADATA,
+  WS_OPTION_ROW,
+  WS_OPTION_ROW_ACTIVE,
+  WS_ROW,
+  WS_TEXT,
+  WS_TEXT_ACTIVE,
+} from "@/lib/workspace-ui-tokens"
 
 const SERVICE_CARD_ICONS: Record<ServiceQuoteTypeId, LucideIcon> = {
   lockout: KeyRound,
@@ -151,35 +161,21 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
                   onOptionRowKeyDown(event, () => onServiceTypeChange(service.id))
                 }
                 className={cn(
-                  "flex touch-manipulation flex-row items-center gap-3 rounded-xl border bg-slate-900/40 p-3 text-left transition-all active:scale-[0.98]",
-                  active
-                    ? "border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/30"
-                    : "border-slate-800 hover:border-emerald-500/30 hover:bg-slate-900/60"
+                  WS_ROW,
+                  "touch-manipulation active:scale-[0.98]",
+                  active ? WS_OPTION_ROW_ACTIVE : WS_OPTION_ROW
                 )}
                 aria-pressed={active}
               >
                 <Icon
-                  className={cn(
-                    "h-4 w-4 shrink-0 transition-colors",
-                    active ? "text-emerald-400" : "text-slate-500"
-                  )}
+                  className={active ? WS_ICON_ACTIVE : WS_ICON_INACTIVE}
                   aria-hidden
                 />
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 text-xs font-medium leading-snug",
-                    active ? "text-emerald-100" : "text-slate-300"
-                  )}
-                >
+                <span className={cn("min-w-0 flex-1 leading-snug", active ? WS_TEXT_ACTIVE : WS_TEXT)}>
                   {service.label}
                 </span>
                 {tag ? (
-                  <span
-                    className={cn(
-                      "shrink-0 text-[9px] font-medium uppercase tracking-wider",
-                      active ? "text-emerald-400/70" : "text-slate-600"
-                    )}
-                  >
+                  <span className={cn(WS_METADATA, "shrink-0 normal-case", active ? "text-emerald-400/70" : "")}>
                     {tag}
                   </span>
                 ) : null}

@@ -91,14 +91,8 @@ export function TechAssignmentSelect({
                 <span className="flex w-full items-center justify-between gap-2">
                   <span>{tech.name}</span>
                   {isBestMatch ? (
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full border border-emerald-400/50 bg-emerald-500/15",
-                        "px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-200",
-                        "shadow-[0_0_12px_rgba(16,185,129,0.35)]"
-                      )}
-                    >
-                      🌟 Best Match (Closest Tech)
+                    <span className="shrink-0 text-[11px] font-semibold tracking-wider text-emerald-400">
+                      ★ Closest
                     </span>
                   ) : null}
                 </span>

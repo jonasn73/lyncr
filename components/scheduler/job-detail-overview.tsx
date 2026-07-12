@@ -8,8 +8,6 @@ import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interactio
 import { ScheduleInteractionBadge } from "@/components/scheduler/schedule-interaction-badge"
 import {
   JOB_PIPELINE_STATUS_OPTIONS,
-  PIPELINE_STATUS_BADGE_STYLE,
-  pipelineStatusLabel,
   type JobPipelineStatusId,
 } from "@/lib/job-pipeline-status"
 import {
@@ -24,6 +22,7 @@ import {
   SCHEDULER_INPUT,
   SCHEDULER_METADATA_LABEL,
   SCHEDULER_SPEC_TILE,
+  SCHEDULER_STACK,
 } from "@/lib/scheduler-ui-tokens"
 import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
 import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
@@ -83,8 +82,6 @@ export function JobDetailOverview({
   const specBlocks = buildJobTechnicalSpecBlocks(source)
   const addressBlock = specBlocks.find((block) => block.label === "Address")
   const otherSpecBlocks = specBlocks.filter((block) => block.label !== "Address")
-  const pipelineBadgeStyle = PIPELINE_STATUS_BADGE_STYLE[pipelineStatus]
-  const pipelineLabel = pipelineStatusLabel(pipelineStatus)
   const scheduledAtIso = resolveJobScheduledAtIso(
     scheduledEvent ?? { scheduled_at: source.scheduled_at ?? null }
   )
@@ -98,29 +95,21 @@ export function JobDetailOverview({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className={SCHEDULER_METADATA_LABEL}>Active job</p>
-            <span
-              className={cn(
-                "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                pipelineBadgeStyle
-              )}
-            >
-              {pipelineLabel}
-            </span>
+            <p className="mt-1 truncate text-lg font-semibold text-foreground">{customerName}</p>
           </div>
           <button
             type="button"
             onClick={onEdit}
-            className="shrink-0 text-[11px] font-semibold text-primary underline-offset-2 transition-all duration-200 hover:text-emerald-300 hover:underline"
+            className="shrink-0 text-[11px] font-semibold text-primary underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
           >
             Edit Job Details
           </button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
-        <div className={cn(SCHEDULER_GLASS_CARD, "flex flex-wrap items-center justify-between gap-3 p-3")}>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4", SCHEDULER_STACK)}>
+        <div className={cn(SCHEDULER_GLASS_CARD, "flex flex-wrap items-center justify-between gap-3")}>
           <div className={cn(SCHEDULER_FIELD_STACK, "min-w-0")}>
-            <p className="truncate text-lg font-semibold text-foreground">{customerName}</p>
             <p className="font-mono text-sm text-muted-foreground">
               {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
             </p>
@@ -135,16 +124,16 @@ export function JobDetailOverview({
           ) : null}
         </div>
 
-        <div className="mt-4 grid gap-2">
+        <div className={SCHEDULER_STACK}>
           {otherSpecBlocks.length > 0 ? (
             otherSpecBlocks.map((block) => (
               <div key={`${block.label}-${block.value}`} className={SCHEDULER_SPEC_TILE}>
                 <p className={SCHEDULER_METADATA_LABEL}>{block.label}</p>
-                <p className={SCHEDULER_FIELD_VALUE}>{block.value}</p>
+                <p className={cn(SCHEDULER_FIELD_VALUE, "min-w-0 truncate text-right")}>{block.value}</p>
               </div>
             ))
           ) : !addressBlock ? (
-            <p className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
+            <p className="rounded-xl border border-dashed border-slate-850 px-3 py-4 text-center text-xs text-slate-500">
               No vehicle or key specs saved yet — tap Edit Job Details to add them.
             </p>
           ) : null}
@@ -152,22 +141,22 @@ export function JobDetailOverview({
           {addressBlock ? (
             <div className={SCHEDULER_SPEC_TILE}>
               <p className={SCHEDULER_METADATA_LABEL}>{addressBlock.label}</p>
-              <p className={SCHEDULER_FIELD_VALUE}>{addressBlock.value}</p>
+              <p className={cn(SCHEDULER_FIELD_VALUE, "min-w-0 text-right")}>{addressBlock.value}</p>
             </div>
           ) : null}
 
           <div className={SCHEDULER_FIELD_STACK}>
             <span className={SCHEDULER_METADATA_LABEL}>Notes</span>
-            <p className={cn(SCHEDULER_SPEC_TILE, "min-h-[50px] whitespace-pre-wrap text-sm text-slate-200")}>
+            <p className={cn(SCHEDULER_GLASS_CARD, "min-h-[50px] whitespace-pre-wrap text-sm text-slate-200")}>
               {jobNotes.trim() || "No notes added"}
             </p>
           </div>
         </div>
       </div>
 
-      <footer className="shrink-0 border-t border-border/60 bg-card px-5 py-4">
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">Billing balance</p>
+      <footer className={cn("shrink-0 border-t border-border/60 bg-card px-5 py-4", SCHEDULER_STACK)}>
+        <div className={cn(SCHEDULER_GLASS_CARD, "border-emerald-500/30 bg-emerald-500/5")}>
+          <p className={cn(SCHEDULER_METADATA_LABEL, "text-emerald-400/90")}>Billing balance</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
             ${quotedPriceDollars > 0 ? quotedPriceDollars : "—"}
           </p>
@@ -179,7 +168,7 @@ export function JobDetailOverview({
           ) : null}
         </div>
 
-        <div className={cn(SCHEDULER_GLASS_CARD, "mb-4 mt-3 flex items-center justify-between p-3")}>
+        <div className={cn(SCHEDULER_GLASS_CARD, "flex items-center justify-between gap-3")}>
           <div className={SCHEDULER_FIELD_STACK}>
             <span className={SCHEDULER_METADATA_LABEL}>Appointment</span>
             <span className="text-sm font-medium text-slate-200">
@@ -189,7 +178,7 @@ export function JobDetailOverview({
           <ScheduleInteractionBadge scheduled_at={scheduledAtIso} job_status={jobStatus} />
         </div>
 
-        <div className={cn(SCHEDULER_GLASS_CARD, "mt-3 px-3 py-3")}>
+        <div className={SCHEDULER_GLASS_CARD}>
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className={SCHEDULER_METADATA_LABEL}>Job pipeline control</p>
             {saving ? (
@@ -197,7 +186,7 @@ export function JobDetailOverview({
             ) : null}
           </div>
 
-          <div className="grid gap-3">
+          <div className={SCHEDULER_STACK}>
             <div className={SCHEDULER_FIELD_STACK}>
               <label htmlFor="job-pipeline-status" className={SCHEDULER_METADATA_LABEL}>
                 Job status
