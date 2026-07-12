@@ -13,8 +13,6 @@ import {
 } from "@/components/dashboard/routing-call-history-dialog"
 import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
 
-const MOBILE_DURATION_VALUE = "text-[15px] font-bold tabular-nums leading-none sm:text-base"
-
 type TelemetryPillProps = {
   label: string
   value: string | number
@@ -73,36 +71,41 @@ function TelemetryPill({
   return <div className={sharedClasses}>{inner}</div>
 }
 
-function TelemetryTile({
+function TelemetryCompactBadge({
   label,
   value,
-  icon: Icon,
   tone = "default",
   valueClassName,
   onClick,
-  className,
-}: TelemetryPillProps & { className?: string }) {
+}: Omit<TelemetryPillProps, "icon">) {
+  // Ultra-compact mobile metric: bold number + tiny label, no heavy card chrome
   const shared = cn(
-    "flex flex-col gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors",
-    "min-h-[4.25rem] touch-manipulation active:scale-[0.98]",
-    tone === "amber" && "border-amber-500/20 bg-amber-500/5",
-    tone === "teal" && "border-teal-500/20 bg-teal-500/5",
-    tone === "default" && "border-border/40 bg-zinc-950/50",
-    onClick && "cursor-pointer hover:bg-zinc-900/60",
-    className
+    "inline-flex min-w-[4.25rem] shrink-0 snap-start flex-col items-center justify-center gap-0.5 px-2.5 py-1.5",
+    "touch-manipulation active:scale-[0.98]",
+    onClick && "cursor-pointer"
   )
+  const valueTone =
+    tone === "amber"
+      ? "text-amber-300"
+      : tone === "teal"
+        ? "text-teal-300"
+        : "text-foreground"
   const body = (
     <>
-      <div className="flex items-center gap-1.5">
-        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      </div>
-      <span className={cn("text-lg font-bold tabular-nums leading-none text-foreground", valueClassName)}>{value}</span>
+      <span className={cn("text-sm font-bold tabular-nums leading-none", valueTone, valueClassName)}>
+        {value}
+      </span>
+      <span className="text-[9px] font-medium uppercase tracking-wide text-slate-500">{label}</span>
     </>
   )
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={shared} aria-label={`${label}: ${value}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={shared}
+        aria-label={`${label}: ${value}. Open call history.`}
+      >
         {body}
       </button>
     )
@@ -144,7 +147,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       <section
         className={cn(
           isMobile
-            ? "grid grid-cols-2 gap-2 sm:grid-cols-3"
+            ? "flex flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             : "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-3 py-2 backdrop-blur-md [-ms-overflow-style:none] [scrollbar-width:none] sm:px-4 md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden",
           !isMobile && WORKSPACE_MOBILE_BLEED,
           className
@@ -153,42 +156,35 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       >
         {isMobile ? (
           <>
-            <TelemetryTile label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
-            <TelemetryTile
-              label="Calls today"
+            <TelemetryCompactBadge label="Live" value={liveLineCount} tone="teal" />
+            <TelemetryCompactBadge
+              label="Calls"
               value={dailyCalls}
-              icon={PhoneIncoming}
               onClick={() => openCallHistory("daily")}
             />
-            <TelemetryTile
-              label="Missed today"
+            <TelemetryCompactBadge
+              label="Missed"
               value={missedCalls}
-              icon={PhoneMissed}
               tone={missedCalls > 0 ? "amber" : "default"}
               valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
               onClick={() => openCallHistory("missed")}
             />
-            <TelemetryTile
-              label="Talk today"
+            <TelemetryCompactBadge
+              label="Talk"
               value={dailyTalkDisplay}
-              icon={Clock}
               tone="teal"
               onClick={() => openCallHistory("daily_talk")}
             />
-            <TelemetryTile
-              label="Talk week"
+            <TelemetryCompactBadge
+              label="Week"
               value={weeklyTalkDisplay}
-              icon={CalendarRange}
               tone="teal"
-              valueClassName={MOBILE_DURATION_VALUE}
               onClick={() => openCallHistory("weekly_talk")}
             />
-            <TelemetryTile
-              label="Talk month"
+            <TelemetryCompactBadge
+              label="Month"
               value={monthlyTalkDisplay}
-              icon={CalendarDays}
               tone="teal"
-              valueClassName={MOBILE_DURATION_VALUE}
               onClick={() => openCallHistory("monthly_talk")}
             />
           </>

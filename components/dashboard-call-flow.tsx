@@ -82,18 +82,19 @@ function FlowStepMobileRow({
       onClick={onOpen}
       disabled={loading}
       className={cn(
-        "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-white/5",
+        // Compact routing row — matches workspace glass tokens without tall tap stacks
+        "flex w-full items-center gap-3 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5 text-left transition-colors active:bg-slate-900/50",
         MOBILE_TAP_TARGET,
         loading && "pointer-events-none opacity-50"
       )}
     >
       <div
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
           isNetwork ? "bg-violet-500/15 text-violet-300" : "bg-primary/12 text-primary"
         )}
       >
-        <Icon className="h-4 w-4" aria-hidden />
+        <Icon className="h-3.5 w-3.5" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
@@ -368,7 +369,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       className={cn(
         "scroll-mt-28 min-h-0 overflow-x-clip md:min-h-[22rem] md:scroll-mt-24",
         isMobile
-          ? "rounded-2xl border border-border/35 bg-card/40"
+          ? "rounded-2xl border border-border/35 bg-card/40 p-3"
           : "rounded-3xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40"
       )}
     >
@@ -376,11 +377,11 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         className={cn(
           "border-b border-border/40",
           isMobile
-            ? "px-4 py-3"
+            ? "px-0 pb-3 pt-0"
             : "border-border/50 bg-gradient-to-b from-muted/20 to-transparent px-5 py-5 sm:px-8 sm:py-6"
         )}
       >
-        <div className={cn("flex flex-col", isMobile ? "gap-3" : "items-center gap-4")}>
+        <div className={cn("flex flex-col", isMobile ? "gap-2" : "items-center gap-4")}>
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               {!isMobile ? (
@@ -441,7 +442,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         </div>
       </header>
 
-      <div className={cn(isMobile ? "px-0 py-0" : "px-4 py-6 sm:px-8 sm:py-8", !isMobile && CALL_FLOW_STEPS_MIN_H)}>
+      <div className={cn(isMobile ? "px-0 pt-3" : "px-4 py-6 sm:px-8 sm:py-8", !isMobile && CALL_FLOW_STEPS_MIN_H)}>
         {!callFlowUiReady ? (
           <CallFlowStepsSkeleton />
         ) : businessNumbers.length === 0 ? (
@@ -465,10 +466,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             />
             {isMobile ? (
               <div
-                className={cn(
-                  "divide-y divide-border/40 overflow-hidden rounded-xl border border-border/35 bg-zinc-950/25",
-                  routingLineDetailLoading && "opacity-60"
-                )}
+                className={cn("flex flex-col gap-2", routingLineDetailLoading && "opacity-60")}
                 aria-label="Call handling steps"
               >
                 {flowNodes.map((node) => (
@@ -540,15 +538,35 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   const display = formatPhoneDisplay(activeLine)
   const label = activeRow?.label?.trim() || "Business Line"
   const multi = businessNumbers.length > 1
+
+  // Compact mobile: phone left, status pill right — no tall stacked box
+  if (compact && !multi) {
+    return (
+      <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
+          <p className="truncate text-sm font-semibold text-foreground">{display}</p>
+        </div>
+        <LineRoutingStatus
+          routingStrategy={routingStrategy}
+          subscriptionActive={subscriptionActive}
+          lineCarrierLive={lineCarrierLive}
+          activeCallCount={activeCallCount}
+          className="shrink-0"
+        />
+      </div>
+    )
+  }
+
   const activeLineFieldClass = compact
-    ? "w-full rounded-xl border border-border/40 bg-zinc-950/40 px-3 py-2.5 text-left"
+    ? "w-full rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5 text-left"
     : "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-primary/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
   if (!multi) {
     return (
-      <div className={cn(compact ? "flex w-full flex-col gap-1" : "flex w-full max-w-md flex-col items-center justify-center gap-1 px-4 py-3", activeLineFieldClass)}>
-        <span className={cn("font-medium text-zinc-400", compact ? "text-[11px]" : "text-xs")}>{label}</span>
-        <span className={cn("text-foreground", compact ? "text-sm font-semibold" : "text-base")}>{display}</span>
+      <div className={cn("flex w-full max-w-md flex-col items-center justify-center gap-1 px-4 py-3", activeLineFieldClass)}>
+        <span className="text-xs font-medium text-zinc-400">{label}</span>
+        <span className="text-base text-foreground">{display}</span>
         <LineRoutingStatus
           routingStrategy={routingStrategy}
           subscriptionActive={subscriptionActive}
@@ -562,16 +580,32 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   return (
     <label className={cn("relative block w-full max-w-md", activeLineFieldClass)}>
         <span className="sr-only">Active business line</span>
-        <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
-          <span className="text-xs font-medium text-zinc-400">{label}</span>
-          <span className="text-base font-semibold text-foreground">{display}</span>
-          <LineRoutingStatus
-            routingStrategy={routingStrategy}
-            subscriptionActive={subscriptionActive}
-            lineCarrierLive={lineCarrierLive}
-            activeCallCount={activeCallCount}
-          />
-        </div>
+        {compact ? (
+          <div className="pointer-events-none flex items-center justify-between gap-3 pr-8">
+            <div className="min-w-0">
+              <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
+              <p className="truncate text-sm font-semibold text-foreground">{display}</p>
+            </div>
+            <LineRoutingStatus
+              routingStrategy={routingStrategy}
+              subscriptionActive={subscriptionActive}
+              lineCarrierLive={lineCarrierLive}
+              activeCallCount={activeCallCount}
+              className="shrink-0"
+            />
+          </div>
+        ) : (
+          <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
+            <span className="text-xs font-medium text-zinc-400">{label}</span>
+            <span className="text-base font-semibold text-foreground">{display}</span>
+            <LineRoutingStatus
+              routingStrategy={routingStrategy}
+              subscriptionActive={subscriptionActive}
+              lineCarrierLive={lineCarrierLive}
+              activeCallCount={activeCallCount}
+            />
+          </div>
+        )}
         <select
           value={activeLine}
           onChange={(e) => onSelect(e.target.value)}
