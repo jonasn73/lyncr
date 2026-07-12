@@ -348,8 +348,10 @@ export function JobDetailDrawer({
   }, [source, autoTotalDollars, priceOverridden, serviceQuoteTypeId, vehicleYear, vehicleMake, vehicleModel, keyStyle, keyChipset, keyVariantId])
 
   useEffect(() => {
-    if (open && source) openedAtRef.current = Date.now()
-  }, [open, source])
+    // Stamp open time once per job open — do not depend on `source` object identity
+    // (parent re-renders were resetting this and blocking the X close button).
+    if (open && jobId) openedAtRef.current = Date.now()
+  }, [open, jobId])
 
   const pipelineDirty =
     pipelineStatus !== committedPipelineStatus || assignedTechId !== committedAssignedTechId
@@ -545,13 +547,18 @@ export function JobDetailDrawer({
   const discountLabel = negotiationDiscountLabel(negotiationDiscountApplied)
 
   const requestClose = useCallback(() => {
+    onClose()
+  }, [onClose])
+
+  /** Backdrop only — ignore the accidental tap that opens the sheet. */
+  const requestCloseFromScrim = useCallback(() => {
     if (Date.now() - openedAtRef.current < 400) return
     onClose()
   }, [onClose])
 
   return (
     <>
-      <SchedulerJobSlideSheet open={open && Boolean(source)} onClose={requestClose}>
+      <SchedulerJobSlideSheet open={open && Boolean(source)} onClose={requestCloseFromScrim}>
         <SchedulerJobSheetCloseButton onClose={requestClose} />
         {source ? (
           viewMode === "overview" ? (

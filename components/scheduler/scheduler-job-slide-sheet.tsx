@@ -74,10 +74,15 @@ export function SchedulerJobSheetCloseButton({ onClose }: { onClose: () => void 
     <button
       type="button"
       aria-label="Close"
-      className="absolute right-4 top-4 rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground"
-      onClick={onClose}
+      // Large thumb target + high z so Edit Job Details never steals the tap.
+      className="absolute right-3 top-3 z-30 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground"
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+      }}
     >
-      <X className="h-5 w-5" />
+      <X className="h-5 w-5" aria-hidden />
     </button>
   )
 }

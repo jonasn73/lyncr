@@ -71,7 +71,7 @@ export function JobPoolTray({
             {!sidebar ? (
               <p className="text-[11px] font-normal text-slate-400 leading-relaxed tracking-normal lowercase first-letter:uppercase">
                 {mobileTimeline
-                  ? "Tap a job, then double-tap a technician on the timeline to dispatch"
+                  ? "Select an unassigned job below to schedule or assign."
                   : "Drag onto a technician column to assign & schedule"}
               </p>
             ) : (
