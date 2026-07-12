@@ -10,7 +10,7 @@ import { useSchedulerMobileTimeline } from "@/hooks/use-scheduler-mobile-timelin
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
 import { sortPoolJobsByBookingPriority } from "@/lib/job-pool-display"
 import { isPriceDeniedRescueJob } from "@/lib/rescue-queue"
-import { SCHEDULER_GLASS_CARD, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
+import { SCHEDULER_GLASS_CARD } from "@/lib/scheduler-ui-tokens"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 type PoolViewFilter = "all" | "rescue"
@@ -69,13 +69,15 @@ export function JobPoolTray({
           <div>
             <h2 className="text-sm font-semibold text-foreground">Active job pool</h2>
             {!sidebar ? (
-              <p className={SCHEDULER_METADATA_LABEL}>
+              <p className="text-[11px] font-normal text-slate-400 leading-relaxed tracking-normal lowercase first-letter:uppercase">
                 {mobileTimeline
                   ? "Tap a job, then double-tap a technician on the timeline to dispatch"
                   : "Drag onto a technician column to assign & schedule"}
               </p>
             ) : (
-              <p className={SCHEDULER_METADATA_LABEL}>Drag jobs onto a tech lane to dispatch</p>
+              <p className="text-[11px] font-normal text-slate-400 leading-relaxed tracking-normal lowercase first-letter:uppercase">
+                Drag jobs onto a tech lane to dispatch
+              </p>
             )}
           </div>
         </div>

@@ -68,9 +68,9 @@ export const SCHEDULE_INTERACTION_BADGE_CLASS: Record<
   string
 > = {
   upcoming:
-    "animate-pulse rounded-full border border-orange-500/50 bg-orange-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-200 shadow-[0_0_10px_rgba(249,115,22,0.35)]",
+    "animate-pulse rounded-full border border-orange-500/50 bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-200 shadow-[0_0_10px_rgba(249,115,22,0.35)]",
   active:
-    "animate-pulse rounded-full border border-emerald-400/60 bg-emerald-400/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.55)]",
+    "animate-pulse rounded-full border border-emerald-400/60 bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.55)]",
   overdue:
-    "rounded-full border border-red-500/70 bg-red-500/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-red-100 shadow-[0_0_10px_rgba(239,68,68,0.45)]",
+    "rounded-full border border-red-500/70 bg-red-500/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-100 shadow-[0_0_10px_rgba(239,68,68,0.45)]",
 }

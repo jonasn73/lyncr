@@ -284,7 +284,8 @@ function AppShellInner({
           className={cn(
             "min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y",
             "bg-gradient-to-b from-background to-muted/15",
-            "pb-[var(--shell-dock-h)] md:pb-0"
+            // Clear the fixed mobile dock + Safari home-indicator so last content stays tappable
+            "pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0"
           )}
         >
           {children}
