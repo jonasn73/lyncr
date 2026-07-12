@@ -493,6 +493,24 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setNegotiationStep(draft.negotiationStep)
   }, [effectiveCurrent, activeDraftPhone, patchForm])
 
+  // useLyncEngine onCallDisconnect may inject an AI transcript stub into the draft —
+  // merge into the open form so autosave does not clobber it.
+  useEffect(() => {
+    const onInjected = (event: Event) => {
+      const detail = (event as CustomEvent<{ phone?: string; notes?: string }>).detail
+      const phone = String(detail?.phone ?? "").trim()
+      const notes = String(detail?.notes ?? "")
+      if (!phone || !notes || !activeDraftPhone) return
+      const a = normalizeIntakeDraftPhone(phone)
+      const b = normalizeIntakeDraftPhone(activeDraftPhone)
+      if (!a || !b || a !== b) return
+      if (form.notes.includes("[AI Transcript Draft Summary]")) return
+      patchForm({ notes })
+    }
+    window.addEventListener("lyncr-ai-transcript-injected", onInjected)
+    return () => window.removeEventListener("lyncr-ai-transcript-injected", onInjected)
+  }, [activeDraftPhone, form.notes, patchForm])
+
   /** Persist partial intake locally whenever fields change. */
   useEffect(() => {
     if (!effectiveCurrent || !activeDraftPhone) return
