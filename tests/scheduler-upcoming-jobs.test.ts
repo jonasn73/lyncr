@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { listUpcomingSchedulerJobs } from "@/lib/scheduler-upcoming-jobs"
+import {
+  listUpcomingSchedulerJobs,
+  upcomingJobNeedsDispatch,
+} from "@/lib/scheduler-upcoming-jobs"
 import type { ActivePipelineJob } from "@/lib/types"
 
 function job(partial: Partial<ActivePipelineJob> & { id: string }): ActivePipelineJob {
@@ -86,5 +89,17 @@ describe("listUpcomingSchedulerJobs", () => {
       poolJobs: [],
     })
     expect(upcoming).toEqual([])
+  })
+})
+
+describe("upcomingJobNeedsDispatch", () => {
+  it("flags unassigned and unscheduled jobs", () => {
+    expect(
+      upcomingJobNeedsDispatch({ phase: "unassigned", scheduled_at: "2026-07-01T13:00:00Z" })
+    ).toBe(true)
+    expect(upcomingJobNeedsDispatch({ phase: "scheduled", scheduled_at: null })).toBe(true)
+    expect(
+      upcomingJobNeedsDispatch({ phase: "scheduled", scheduled_at: "2026-07-01T13:00:00Z" })
+    ).toBe(false)
   })
 })

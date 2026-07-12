@@ -132,3 +132,15 @@ export function formatUpcomingJobTime(iso: string | null): string {
   if (Number.isNaN(d.getTime())) return "—"
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
 }
+
+/** True when Mark Done is invalid — job is still unassigned or has no start time. */
+export function upcomingJobNeedsDispatch(job: {
+  phase: SchedulerLifecyclePhase
+  scheduled_at: string | null
+}): boolean {
+  // Unassigned pool / no tech yet.
+  if (job.phase === "unassigned") return true
+  // Scheduled_at missing means the job is still "Unscheduled".
+  if (!job.scheduled_at?.trim()) return true
+  return false
+}

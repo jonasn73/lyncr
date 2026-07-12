@@ -917,122 +917,126 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               </p>
             ) : null}
 
-            <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-              <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
-                <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-                <p className="text-xs text-zinc-500">
-                  {displayPipelineJobs.length} active job{displayPipelineJobs.length === 1 ? "" : "s"} today
+            {/* Empty board: one flat placeholder instead of nested empty panels. */}
+            {displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
+              <div className="rounded-xl border border-slate-850 bg-slate-900/20 p-4 text-center">
+                <p className="text-sm text-slate-400">
+                  No active jobs today • Add active technicians in Team view to get started.
                 </p>
               </div>
-              <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
-                <ActivePipelinePanelStream
-                  jobs={displayPipelineJobs}
-                  dayKey={pipelineDayKey}
-                  useStreamedInitialDay={useStreamedPipeline}
-                  highlightId={highlightId}
-                  onFocusJob={highlightPipelineJob}
-                  onEditJob={editPipelineJob}
-                  onMarkComplete={handleMarkJobComplete}
-                  completingJobId={completingId}
-                />
-              </div>
-            </WorkspacePanel>
-
-            <WorkspacePanel className="flex w-full min-w-0 flex-col overflow-hidden">
-              <details className="group border-b border-border/60 lg:hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
-                  <span>
-                    {selectedDay.toLocaleDateString([], {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                  <ChevronDown
-                    className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
-                    aria-hidden
-                  />
-                </summary>
-                <div className="px-2 pb-2">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDay}
-                    onSelect={(d) => d && setSelectedDay(d)}
-                    month={visibleMonth}
-                    onMonthChange={setVisibleMonth}
-                    modifiers={{ hasJob: [...daysWithEvents] }}
-                    modifiersClassNames={{
-                      hasJob:
-                        "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
-                    }}
-                    className="mx-auto"
-                  />
-                  {loading ? (
-                    <SchedulerCalendarStatsSkeleton />
-                  ) : (
-                    <p className="mt-1 text-center text-xs text-zinc-500">
-                      {displayEvents.length} scheduled this month
-                      {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
+            ) : (
+              <>
+                <WorkspacePanel className="flex w-full flex-col overflow-hidden">
+                  <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
+                    <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
+                    <p className="text-xs text-zinc-500">
+                      {displayPipelineJobs.length} active job
+                      {displayPipelineJobs.length === 1 ? "" : "s"} today
                     </p>
-                  )}
-                </div>
-              </details>
+                  </div>
+                  <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
+                    <ActivePipelinePanelStream
+                      jobs={displayPipelineJobs}
+                      dayKey={pipelineDayKey}
+                      useStreamedInitialDay={useStreamedPipeline}
+                      highlightId={highlightId}
+                      onFocusJob={highlightPipelineJob}
+                      onEditJob={editPipelineJob}
+                      onMarkComplete={handleMarkJobComplete}
+                      completingJobId={completingId}
+                    />
+                  </div>
+                </WorkspacePanel>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
-                <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    {selectedDay.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
-                  </h2>
-                  <p className="text-xs text-zinc-500">
-                    Tech swimlanes · {assignableTechs.length} technician
-                    {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
-                    {dayEvents.length === 1 ? "" : "s"} scheduled
-                  </p>
-                </div>
-                <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDay((day) => shiftCalendarDay(day, -1))}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
-                    aria-label="Previous day"
-                  >
-                    <ChevronLeft className="h-4 w-4" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDay(() => new Date())}
-                    className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-muted/50 hover:text-foreground"
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDay((day) => shiftCalendarDay(day, 1))}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
-                    aria-label="Next day"
-                  >
-                    <ChevronRight className="h-4 w-4" aria-hidden />
-                  </button>
-                </div>
-              </div>
-              {gridScheduleError ? (
-                <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:px-4">
-                  {gridScheduleError}
-                </div>
-              ) : null}
-              <TechnicianSwimlaneBoard
-                technicians={technicians}
-                dayEvents={dayEvents}
-                loading={loading || gridScheduleSaving}
-                highlightId={highlightId}
-                onSelectEvent={openScheduledJobDrawer}
-                onDropPoolJob={schedulePoolOnTechLane}
-                onBookEmptySlot={openManualCallFromScheduler}
-                mobileAssignRequest={mobileAssignRequest}
-                onMobileAssignRequestClear={() => setMobileAssignRequest(null)}
-              />
-            </WorkspacePanel>
+                <WorkspacePanel className="flex w-full min-w-0 flex-col overflow-hidden">
+                  <details className="group border-b border-border/60 lg:hidden">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                      {/* Label only — live date/time already sits in the status card above. */}
+                      <span>Calendar</span>
+                      <ChevronDown
+                        className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                        aria-hidden
+                      />
+                    </summary>
+                    <div className="px-2 pb-2">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDay}
+                        onSelect={(d) => d && setSelectedDay(d)}
+                        month={visibleMonth}
+                        onMonthChange={setVisibleMonth}
+                        modifiers={{ hasJob: [...daysWithEvents] }}
+                        modifiersClassNames={{
+                          hasJob:
+                            "relative after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
+                        }}
+                        className="mx-auto"
+                      />
+                      {loading ? (
+                        <SchedulerCalendarStatsSkeleton />
+                      ) : (
+                        <p className="mt-1 text-center text-xs text-zinc-500">
+                          {displayEvents.length} scheduled this month
+                          {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
+                        </p>
+                      )}
+                    </div>
+                  </details>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
+                      <p className="text-xs text-zinc-500">
+                        {assignableTechs.length} technician
+                        {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
+                        {dayEvents.length === 1 ? "" : "s"} scheduled
+                      </p>
+                    </div>
+                    <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay((day) => shiftCalendarDay(day, -1))}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        aria-label="Previous day"
+                      >
+                        <ChevronLeft className="h-4 w-4" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay(() => new Date())}
+                        className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay((day) => shiftCalendarDay(day, 1))}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        aria-label="Next day"
+                      >
+                        <ChevronRight className="h-4 w-4" aria-hidden />
+                      </button>
+                    </div>
+                  </div>
+                  {gridScheduleError ? (
+                    <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:px-4">
+                      {gridScheduleError}
+                    </div>
+                  ) : null}
+                  <TechnicianSwimlaneBoard
+                    technicians={technicians}
+                    dayEvents={dayEvents}
+                    loading={loading || gridScheduleSaving}
+                    highlightId={highlightId}
+                    onSelectEvent={openScheduledJobDrawer}
+                    onDropPoolJob={schedulePoolOnTechLane}
+                    onBookEmptySlot={openManualCallFromScheduler}
+                    mobileAssignRequest={mobileAssignRequest}
+                    onMobileAssignRequestClear={() => setMobileAssignRequest(null)}
+                  />
+                </WorkspacePanel>
+              </>
+            )}
           </div>
         </div>
       </WorkspacePage>

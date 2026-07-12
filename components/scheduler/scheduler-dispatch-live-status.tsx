@@ -5,11 +5,13 @@
 import { memo, useMemo } from "react"
 import { Check, Clock3, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { DispatchOperationsMetricStrip } from "@/components/scheduler/dispatch-operations-metric-strip"
 import { formatSchedulerLiveClock, useLiveClock } from "@/lib/hooks/use-live-clock"
 import {
   formatUpcomingJobTime,
   listUpcomingSchedulerJobs,
+  upcomingJobNeedsDispatch,
   type UpcomingSchedulerJob,
 } from "@/lib/scheduler-upcoming-jobs"
 import {
@@ -26,12 +28,15 @@ import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib
 function UpcomingJobChip({
   job,
   now,
+  stackLayout,
   onSelectJob,
   onMarkComplete,
   completingJobId,
 }: {
   job: UpcomingSchedulerJob
   now: Date
+  /** Mobile vertical list — full-width rows, no horizontal clip. */
+  stackLayout?: boolean
   onSelectJob?: (jobId: string) => void
   onMarkComplete?: (jobId: string) => void
   completingJobId?: string | null
@@ -46,21 +51,32 @@ function UpcomingJobChip({
   })
   const countdown = job.isActiveNow ? null : formatSchedulerJobCountdown(now, job.scheduled_at)
   const isCompleting = completingJobId === job.id
+  // Unscheduled / unassigned jobs cannot be closed out — show Needs Dispatch instead.
+  const needsDispatch = upcomingJobNeedsDispatch(job)
 
   return (
     <div
       className={cn(
-        "flex min-w-[12rem] shrink-0 snap-start flex-col gap-1 px-2.5 py-1.5 text-left",
+        "flex flex-col gap-1 px-2.5 py-1.5 text-left",
+        stackLayout ? "w-full min-w-0" : "min-w-[12rem] shrink-0 snap-start",
         SCHEDULER_URGENCY_CHIP_CLASS[urgency]
       )}
     >
-      <button type="button" onClick={() => onSelectJob?.(job.id)} className="text-left">
+      <button type="button" onClick={() => onSelectJob?.(job.id)} className="min-w-0 text-left">
         <span className={cn(SCHEDULER_METADATA_LABEL, "tabular-nums", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
           {timeLabel}
           {countdown ? ` · ${countdown}` : ""}
         </span>
-        <span className="mt-0.5 block truncate text-xs font-medium text-slate-100">{name}</span>
-        <span className={cn("block truncate", SCHEDULER_METADATA_LABEL)}>
+        {/* Stack layout drops truncate so names like "Allen" are not sliced off. */}
+        <span
+          className={cn(
+            "mt-0.5 block text-xs font-medium text-slate-100",
+            stackLayout ? "break-words" : "truncate"
+          )}
+        >
+          {name}
+        </span>
+        <span className={cn("block", stackLayout ? "break-words" : "truncate", SCHEDULER_METADATA_LABEL)}>
           {[job.job_type, status, job.assigned_tech_name].filter(Boolean).join(" · ")}
         </span>
         {urgency !== "later" && urgency !== "unscheduled" ? (
@@ -69,7 +85,12 @@ function UpcomingJobChip({
           </span>
         ) : null}
       </button>
-      {onMarkComplete ? (
+      {needsDispatch ? (
+        // Low-profile tag — replaces Mark Done when the job still needs dispatch.
+        <span className="inline-flex w-fit items-center rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+          Needs Dispatch
+        </span>
+      ) : onMarkComplete ? (
         <button
           type="button"
           disabled={isCompleting}
@@ -80,6 +101,49 @@ function UpcomingJobChip({
           Mark done
         </button>
       ) : null}
+    </div>
+  )
+}
+
+function UpcomingJobsList({
+  upcoming,
+  now,
+  stackLayout,
+  onSelectJob,
+  onMarkComplete,
+  completingJobId,
+}: {
+  upcoming: UpcomingSchedulerJob[]
+  now: Date
+  stackLayout: boolean
+  onSelectJob?: (jobId: string) => void
+  onMarkComplete?: (jobId: string) => void
+  completingJobId?: string | null
+}) {
+  if (upcoming.length === 0) {
+    return <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
+  }
+
+  return (
+    <div
+      className={cn(
+        // Mobile: vertical stack so chips never clip sideways.
+        stackLayout
+          ? "flex flex-col gap-2"
+          : "flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      )}
+    >
+      {upcoming.map((job) => (
+        <UpcomingJobChip
+          key={job.id}
+          job={job}
+          now={now}
+          stackLayout={stackLayout}
+          onSelectJob={onSelectJob}
+          onMarkComplete={onMarkComplete}
+          completingJobId={completingJobId}
+        />
+      ))}
     </div>
   )
 }
@@ -124,7 +188,10 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   upcomingOnly?: boolean
 }) {
   const now = useLiveClock()
+  const isMobile = useIsMobile()
   const clockLabel = formatSchedulerLiveClock(now)
+  // Force vertical stack on phone viewports (and upcoming-only sheet).
+  const stackLayout = isMobile || upcomingOnly
 
   const upcoming = useMemo(
     () =>
@@ -143,22 +210,14 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
     return (
       <div className={cn(className)} aria-label="Upcoming jobs">
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Coming up next</p>
-        {upcoming.length === 0 ? (
-          <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
-        ) : (
-          <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {upcoming.map((job) => (
-              <UpcomingJobChip
-                key={job.id}
-                job={job}
-                now={now}
-                onSelectJob={onSelectJob}
-                onMarkComplete={onMarkComplete}
-                completingJobId={completingJobId}
-              />
-            ))}
-          </div>
-        )}
+        <UpcomingJobsList
+          upcoming={upcoming}
+          now={now}
+          stackLayout={stackLayout}
+          onSelectJob={onSelectJob}
+          onMarkComplete={onMarkComplete}
+          completingJobId={completingJobId}
+        />
       </div>
     )
   }
@@ -188,6 +247,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               {!compact ? (
                 <span className={SCHEDULER_METADATA_LABEL}>Now</span>
               ) : null}
+              {/* Absolute top live date/time token — keep this; remove nested date headers elsewhere. */}
               <time
                 dateTime={now.toISOString()}
                 className={cn(
@@ -220,22 +280,14 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
             <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1.5")}>
               Coming up next
             </p>
-            {upcoming.length === 0 ? (
-              <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
-            ) : (
-              <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {upcoming.map((job) => (
-                  <UpcomingJobChip
-                    key={job.id}
-                    job={job}
-                    now={now}
-                    onSelectJob={onSelectJob}
-                    onMarkComplete={onMarkComplete}
-                    completingJobId={completingJobId}
-                  />
-                ))}
-              </div>
-            )}
+            <UpcomingJobsList
+              upcoming={upcoming}
+              now={now}
+              stackLayout={stackLayout}
+              onSelectJob={onSelectJob}
+              onMarkComplete={onMarkComplete}
+              completingJobId={completingJobId}
+            />
           </div>
         ) : null}
       </div>

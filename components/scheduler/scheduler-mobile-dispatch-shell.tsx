@@ -263,10 +263,8 @@ export function SchedulerMobileDispatchShell({
 
             <div className="h-[calc(100vh-220px)] max-h-[calc(100vh-220px)] overflow-y-auto overscroll-y-contain pb-24">
               <div className="shrink-0 border-b border-zinc-800 px-4 pb-3">
-                <h2 className="text-base font-semibold text-foreground">
-                  {selectedDay.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
-                </h2>
-                <p className="mt-0.5 text-xs text-zinc-500">
+                {/* Date lives in the live clock toolbar above — avoid repeating it here. */}
+                <p className="text-xs text-zinc-500">
                   {jobCount} job{jobCount === 1 ? "" : "s"}
                   {poolCount > 0 ? ` · ${poolCount} unassigned` : ""}
                 </p>
