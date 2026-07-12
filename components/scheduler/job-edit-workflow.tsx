@@ -120,7 +120,7 @@ export function JobEditWorkflow({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-14">
+      <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-16">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className={SCHEDULER_METADATA_LABEL}>Edit job</p>
@@ -129,7 +129,7 @@ export function JobEditWorkflow({
           <button
             type="button"
             onClick={onBackToOverview}
-            className="shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
+            className="mr-8 shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
           >
             Back to overview
           </button>
