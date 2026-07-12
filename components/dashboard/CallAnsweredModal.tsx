@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
-import { Loader2, MapPin, Phone, PhoneOff } from "lucide-react"
+import { Loader2, ChevronDown, MapPin, Phone, PhoneOff } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { VehiclePlateLookupField } from "@/components/vehicle-plate-lookup-field"
 import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
@@ -14,6 +14,11 @@ import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-cl
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
+import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
+import {
+  SecondaryCallInterceptBanner,
+  type SecondaryIncomingLeg,
+} from "@/components/dashboard/secondary-call-intercept-banner"
 import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
@@ -56,13 +61,18 @@ import {
   LYNCR_FOCUS_INTAKE_EVENT,
   type LyncFocusIntakeDetail,
 } from "@/lib/lync-engine-bus"
+import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import type {
   OwnerCallAnsweredPayload,
   OwnerCallCompletedPayload,
   OwnerCallInitiatedPayload,
   OwnerCallRecordingReadyPayload,
 } from "@/lib/realtime/owner-call-event-types"
-import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
+import {
+  isMissedCallTelemetry,
+  normalizeCallEventPhoneDigits,
+  talkSecondsFromCompletedPayload,
+} from "@/lib/realtime/owner-call-event-types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
@@ -141,17 +151,30 @@ function ManualIntakeToolbar({
   phoneDisplay,
   lineState,
   onLineStateChange,
+  onMinimize,
 }: {
   path: WorkflowStep[]
   currentStep: WorkflowStep
   phoneDisplay: string
   lineState: ManualCallStatus
   onLineStateChange: (status: ManualCallStatus) => void
+  onMinimize?: () => void
 }) {
   const currentIndex = Math.max(0, path.indexOf(currentStep))
   return (
     <div className="shrink-0 border-b border-border/60 px-3 pb-3.5 pt-2 pr-12">
       <div className="flex items-center gap-2">
+        {onMinimize ? (
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            aria-label="Minimize intake"
+            title="Minimize"
+          >
+            <ChevronDown className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           {path.map((step, index) => {
             const active = step === currentStep
@@ -261,6 +284,20 @@ const RINGING_FAST_POLL_MAX_MS = 90_000
 const ANSWERED_VISIBILITY_POLL_MS = 800
 /** Blank failure-reason value — Radix Select cannot use an empty string. */
 const FAILURE_REASON_NEUTRAL = "__neutral__"
+
+/** True when intake is mid-call (answered / on hold) — secondary rings should not steal the sheet. */
+function isIntakeCallActive(row: ActiveCallRow | null): boolean {
+  if (!row) return false
+  if (row.manualCallStatus === "answered" || row.manualCallStatus === "on_hold") return true
+  if (row.manualCallStatus === "ringing" || row.manualCallStatus === "completed") return false
+  return Boolean(row.answered_at)
+}
+
+function phoneDigitsKey(raw: string | null | undefined): string {
+  const digits = normalizeCallEventPhoneDigits(raw)
+  if (digits.length >= 10) return digits.slice(-10)
+  return digits
+}
 
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
@@ -381,6 +418,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const dismissedRef = useRef<Set<string>>(new Set())
   const ringAliasRef = useRef<string | null>(null)
   const [current, setCurrent] = useState<ActiveCallRow | null>(null)
+  const [isMinimized, setIsMinimized] = useState(false)
+  const isMinimizedRef = useRef(false)
+  isMinimizedRef.current = isMinimized
+  const [secondaryIncoming, setSecondaryIncoming] = useState<SecondaryIncomingLeg | null>(null)
   const [lostLeadState, setLostLeadState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [lostLeadError, setLostLeadError] = useState<string | null>(null)
   const [failureReason, setFailureReason] = useState(FAILURE_REASON_NEUTRAL)
@@ -394,10 +435,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
   const { activeOrganizationId } = useDashboardWorkspace()
+  const lyncEngine = useLyncEngineOptional()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
   manualCallRowRef.current = manualCallRow
   const effectiveCurrent = manualCallRow ?? current
+  const isCallActive = isIntakeCallActive(effectiveCurrent)
+  const isCallActiveRef = useRef(isCallActive)
+  isCallActiveRef.current = isCallActive
+  const effectiveCurrentRef = useRef(effectiveCurrent)
+  effectiveCurrentRef.current = effectiveCurrent
+
+  // Clear PiP when intake closes; keep form memory while minimized (sheet only hides).
+  useEffect(() => {
+    if (!effectiveCurrent) setIsMinimized(false)
+  }, [effectiveCurrent])
 
   const linkManualCallLog = useCallback(
     (patch: Partial<ActiveCallRow>) => {
@@ -436,6 +488,39 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     addressSeedQuery,
     answeredClarificationIds,
   } = useActiveCallForm(effectiveCurrent, { linkManualCallLog })
+
+  // Park secondary rings in the overhead banner instead of replacing live intake.
+  useEffect(() => {
+    if (!lyncEngine || !isCallActive || !effectiveCurrent) {
+      return
+    }
+    const primaryDigits = phoneDigitsKey(form.phoneNumber || effectiveCurrent.from_number)
+    const secondary = lyncEngine.activeCalls.find((call) => {
+      if (call.phase !== "ringing") return false
+      const digits = phoneDigitsKey(call.fromNumber)
+      if (!digits || !primaryDigits) return true
+      return digits !== primaryDigits
+    })
+    if (!secondary) return
+    setSecondaryIncoming((prev) => {
+      if (prev?.callSid === secondary.callSid) return prev
+      return {
+        callSid: secondary.callSid,
+        callLogId: secondary.callLogId,
+        fromNumber: secondary.fromNumber,
+        toNumber: secondary.toNumber,
+      }
+    })
+  }, [lyncEngine, lyncEngine?.activeCalls, isCallActive, effectiveCurrent, form.phoneNumber])
+
+  // Drop secondary banner when that leg leaves the engine.
+  useEffect(() => {
+    if (!secondaryIncoming || !lyncEngine) return
+    const stillRinging = lyncEngine.activeCalls.some(
+      (c) => c.callSid === secondaryIncoming.callSid && c.phase === "ringing"
+    )
+    if (!stillRinging) setSecondaryIncoming(null)
+  }, [lyncEngine, lyncEngine?.activeCalls, secondaryIncoming])
 
   const autoTotalDollars =
     liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
@@ -773,7 +858,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onInitiated = (payload: OwnerCallInitiatedPayload) => {
       const row = rowFromInitiatedPayload(payload)
-      if (row) showCallRow(setCurrent, row, dismissedRef.current)
+      if (!row) {
+        scheduleRingingLookups()
+        return
+      }
+      // Active intake owns the sheet — park the second ring in the overhead banner.
+      if (isCallActiveRef.current) {
+        const primary = effectiveCurrentRef.current
+        const primaryDigits = phoneDigitsKey(primary?.from_number)
+        const incomingDigits = phoneDigitsKey(row.from_number)
+        if (!primaryDigits || !incomingDigits || primaryDigits !== incomingDigits) {
+          const callSid = String(payload.call_sid ?? "").trim()
+          const callLogId = String(payload.call_log_id ?? "").trim()
+          setSecondaryIncoming({
+            callSid: callSid || (row.id.startsWith("ring-") ? row.id.slice(5) : row.id),
+            callLogId: callLogId || (row.id.startsWith("ring-") ? null : row.id),
+            fromNumber: row.from_number,
+            toNumber: row.to_number,
+          })
+          scheduleRingingLookups()
+          return
+        }
+      }
+      showCallRow(setCurrent, row, dismissedRef.current)
       scheduleRingingLookups()
     }
 
@@ -781,6 +888,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const row = rowFromAnsweredPayload(payload)
       if (!row) return
       stopRingingFastPoll()
+      // Don't steal an open intake for a different answered leg (secondary answer is rare).
+      if (isCallActiveRef.current) {
+        const primary = effectiveCurrentRef.current
+        const primaryDigits = phoneDigitsKey(primary?.from_number)
+        const answeredDigits = phoneDigitsKey(row.from_number)
+        if (primaryDigits && answeredDigits && primaryDigits !== answeredDigits) {
+          return
+        }
+      }
       setCurrent((prev) => {
         if (dismissedRef.current.has(row.id)) return null
         if (prev?.id.startsWith("ring-") && prev.from_number === row.from_number) {
@@ -850,6 +966,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         answered_at: detail.phase === "connected" ? detail.answeredAt ?? new Date().toISOString() : null,
       }
       showCallRow(setCurrent, row, dismissedRef.current)
+      setIsMinimized(false)
     }
     window.addEventListener(LYNCR_FOCUS_INTAKE_EVENT, onFocus)
     return () => window.removeEventListener(LYNCR_FOCUS_INTAKE_EVENT, onFocus)
@@ -871,6 +988,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   )
 
   const dismissOnly = useCallback(() => {
+    setIsMinimized(false)
+    setSecondaryIncoming(null)
     if (manualCallRow) {
       clearManualCallRow()
       setLostLeadState("idle")
@@ -1189,12 +1308,46 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const isPriceTooHigh = failureReason === "Price too high"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
+  const intakePhoneDisplay = formatPhoneDisplay(
+    form.phoneNumber || effectiveCurrent?.from_number || ""
+  )
+  const sheetOpen = effectiveCurrent != null && !isMinimized
+
+  const minimizeIntake = useCallback(() => {
+    isMinimizedRef.current = true
+    setIsMinimized(true)
+  }, [])
+
+  const expandIntake = useCallback(() => {
+    isMinimizedRef.current = false
+    setIsMinimized(false)
+  }, [])
 
   return (
+    <>
+      {secondaryIncoming && isCallActive ? (
+        <SecondaryCallInterceptBanner
+          leg={secondaryIncoming}
+          organizationId={activeOrganizationId}
+          onDismiss={() => setSecondaryIncoming(null)}
+        />
+      ) : null}
+
+      {effectiveCurrent && isMinimized ? (
+        <IntakePipTray
+          phoneDisplay={intakePhoneDisplay || "Active call"}
+          onExpand={expandIntake}
+        />
+      ) : null}
+
     <Sheet
-      open={effectiveCurrent != null}
+      open={sheetOpen}
       onOpenChange={(o) => {
-        if (!o) dismissOnly()
+        // Minimizing flips `open` to false — do not dismiss or wipe form state.
+        if (!o) {
+          if (isMinimizedRef.current) return
+          dismissOnly()
+        }
       }}
     >
       <SheetContent
@@ -1214,9 +1367,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 phoneDisplay={formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
                 lineState={effectiveCurrent.manualCallStatus ?? "answered"}
                 onLineStateChange={setManualCallStatus}
+                onMinimize={minimizeIntake}
               />
             ) : (
             <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  onClick={minimizeIntake}
+                  className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  aria-label="Minimize intake"
+                  title="Minimize"
+                >
+                  <ChevronDown className="h-4 w-4" aria-hidden />
+                </button>
+                <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                 {isRinging ? "Incoming call" : "Call answered"}
               </p>
@@ -1232,6 +1397,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <RepeatCallerUrgencyBadge attemptCount={repeatUrgency.attemptCount} />
                 ) : null}
               </SheetTitle>
+                </div>
+              </div>
               <IncomingCallOpsToolbar
                 className="mt-2"
                 phoneE164={form.phoneNumber || effectiveCurrent.from_number}
@@ -2108,5 +2275,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         ) : null}
       </SheetContent>
     </Sheet>
+    </>
   )
 }

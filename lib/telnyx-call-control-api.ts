@@ -114,3 +114,8 @@ export async function telnyxCallControlRecordStart(
 export async function telnyxCallControlHangup(callControlId: string): Promise<TelnyxCallControlActionResult> {
   return postCallAction(callControlId, "hangup", {})
 }
+
+/** Park an inbound leg on hold (Call Control) — used for secondary-ring intercept. */
+export async function telnyxCallControlHold(callControlId: string): Promise<TelnyxCallControlActionResult> {
+  return postCallAction(callControlId, "hold", {})
+}
