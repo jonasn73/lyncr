@@ -67,19 +67,29 @@ export const SCHEDULE_INTERACTION_LABEL: Record<
   Exclude<ScheduleInteractionPhase, "none" | "completed">,
   string
 > = {
-  upcoming: "⚠️ UPCOMING (Next 30m)",
-  active: "⚡ ACTIVE NOW",
-  overdue: "🚨 OVERDUE / DELAYED",
+  upcoming: "Soon",
+  active: "Live",
+  overdue: "Delayed",
 }
 
+/** Lightweight text + micro-dot flags — not chunky pill buttons. */
 export const SCHEDULE_INTERACTION_BADGE_CLASS: Record<
   Exclude<ScheduleInteractionPhase, "none" | "completed">,
   string
 > = {
   upcoming:
-    "animate-pulse rounded-full border border-orange-500/50 bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-200 shadow-[0_0_10px_rgba(249,115,22,0.35)]",
+    "inline-flex items-center gap-1 text-[10px] font-medium tracking-wide text-orange-300/90",
   active:
-    "animate-pulse rounded-full border border-emerald-400/60 bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.55)]",
+    "inline-flex items-center gap-1 text-[10px] font-medium tracking-wide text-emerald-300/90",
   overdue:
-    "rounded-full border border-red-500/70 bg-red-500/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-100 shadow-[0_0_10px_rgba(239,68,68,0.45)]",
+    "inline-flex items-center gap-1 text-[10px] font-medium tracking-wide text-rose-400",
+}
+
+export const SCHEDULE_INTERACTION_DOT_CLASS: Record<
+  Exclude<ScheduleInteractionPhase, "none" | "completed">,
+  string
+> = {
+  upcoming: "h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400",
+  active: "h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-400",
+  overdue: "h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400",
 }

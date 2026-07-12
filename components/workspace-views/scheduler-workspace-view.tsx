@@ -835,7 +835,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
-        <p className="text-sm text-zinc-500 lg:text-xs">
+        <p className="hidden text-sm text-zinc-500 md:block lg:text-xs">
           {intakeProfile === "locksmith"
             ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
             : intakeProfile === "detailing"

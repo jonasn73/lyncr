@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
 import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interaction"
-import { ScheduleInteractionBadge } from "@/components/scheduler/schedule-interaction-badge"
+import { useScheduleInteractionPhase } from "@/components/scheduler/schedule-interaction-badge"
 import {
   JOB_PIPELINE_STATUS_OPTIONS,
   type JobPipelineStatusId,
@@ -64,6 +64,10 @@ function telHref(phone: string): string | null {
   return `tel:+1${digits.slice(-10)}`
 }
 
+/** Soft micro labels for dense mobile footers — quieter than WS_METADATA. */
+const DRAWER_SECTION_LABEL =
+  "text-[10px] uppercase font-bold tracking-widest text-slate-600"
+
 /** Low-profile micro-button used in the Quick Actions row. */
 const QUICK_ACTION_BASE =
   "text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
@@ -103,6 +107,11 @@ export function JobDetailOverview({
   const jobStatus = scheduledEvent?.job_status ?? null
   const scheduledDateLabel = formatScheduledDateDisplay(scheduledAtIso)
   const scheduledTimeLabel = formatScheduledTimeDisplay(scheduledAtIso)
+  const appointmentPhase = useScheduleInteractionPhase({
+    scheduled_at: scheduledAtIso,
+    job_status: jobStatus,
+  })
+  const appointmentDelayed = appointmentPhase === "overdue"
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -171,7 +180,7 @@ export function JobDetailOverview({
         )}
       >
         <div className={cn(SCHEDULER_GLASS_CARD, "border-emerald-500/30 bg-emerald-500/5")}>
-          <p className={cn(SCHEDULER_METADATA_LABEL, "text-emerald-400/90")}>Billing balance</p>
+          <p className={cn(DRAWER_SECTION_LABEL, "text-emerald-500/80")}>Billing balance</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
             ${quotedPriceDollars > 0 ? quotedPriceDollars : "—"}
           </p>
@@ -183,19 +192,23 @@ export function JobDetailOverview({
           ) : null}
         </div>
 
-        <div className={cn(SCHEDULER_GLASS_CARD, "flex items-center justify-between gap-3")}>
+        <div className={SCHEDULER_GLASS_CARD}>
           <div className={SCHEDULER_FIELD_STACK}>
-            <span className={SCHEDULER_METADATA_LABEL}>Appointment</span>
-            <span className="text-sm font-medium text-slate-200">
+            <span className={DRAWER_SECTION_LABEL}>Appointment</span>
+            <span
+              className={cn(
+                "text-sm font-medium",
+                appointmentDelayed ? "text-rose-400" : "text-slate-200"
+              )}
+            >
               {scheduledAtIso ? `${scheduledDateLabel} at ${scheduledTimeLabel}` : "Not scheduled yet"}
             </span>
           </div>
-          <ScheduleInteractionBadge scheduled_at={scheduledAtIso} job_status={jobStatus} />
         </div>
 
         <div className={SCHEDULER_GLASS_CARD}>
           <div className="mb-3 flex items-center justify-between gap-2">
-            <p className={SCHEDULER_METADATA_LABEL}>Job pipeline control</p>
+            <p className={DRAWER_SECTION_LABEL}>Job pipeline control</p>
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
             ) : null}
@@ -203,7 +216,7 @@ export function JobDetailOverview({
 
           <div className={SCHEDULER_STACK}>
             <div className={SCHEDULER_FIELD_STACK}>
-              <label htmlFor="job-pipeline-status" className={SCHEDULER_METADATA_LABEL}>
+              <label htmlFor="job-pipeline-status" className={DRAWER_SECTION_LABEL}>
                 Job status
               </label>
               <select
@@ -222,7 +235,7 @@ export function JobDetailOverview({
             </div>
 
             <div className={SCHEDULER_FIELD_STACK}>
-              <label htmlFor="job-pipeline-tech" className={SCHEDULER_METADATA_LABEL}>
+              <label htmlFor="job-pipeline-tech" className={DRAWER_SECTION_LABEL}>
                 Tech assignment
               </label>
               <TechAssignmentSelect
@@ -242,7 +255,7 @@ export function JobDetailOverview({
 
             {/* Instant close-out / transfer controls for stalled jobs */}
             <div className={SCHEDULER_FIELD_STACK}>
-              <p className={SCHEDULER_METADATA_LABEL}>Quick Actions</p>
+              <p className={DRAWER_SECTION_LABEL}>Quick Actions</p>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -282,18 +295,18 @@ export function JobDetailOverview({
 
             {/* Dispatcher activity log — persists to job_notes on the lead */}
             <div className={SCHEDULER_FIELD_STACK}>
-              <label htmlFor="internal-dispatch-notes" className={SCHEDULER_METADATA_LABEL}>
+              <label htmlFor="internal-dispatch-notes" className={DRAWER_SECTION_LABEL}>
                 Internal Dispatch Notes
               </label>
               <textarea
                 id="internal-dispatch-notes"
-                rows={4}
+                rows={2}
                 disabled={saving}
                 value={jobNotes}
                 placeholder="e.g. Autel failed due to poor cell signal, customer towing home, referred to partner with Smart Pro"
                 onChange={(e) => onJobNotesChange(e.target.value)}
                 onBlur={() => onSaveJobNotes()}
-                className="min-h-[88px] w-full resize-y bg-slate-950/50 border border-slate-850 rounded-xl p-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 disabled:opacity-60"
+                className="h-16 w-full resize-y bg-slate-950/50 border border-slate-850 rounded-xl p-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 disabled:opacity-60"
               />
             </div>
           </div>

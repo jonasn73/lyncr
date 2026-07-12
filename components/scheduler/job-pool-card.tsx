@@ -3,7 +3,7 @@
 // Draggable card for one unassigned hopper job.
 
 import { useState } from "react"
-import { Car, DollarSign, GripVertical, MapPin, Phone, Wrench } from "lucide-react"
+import { GripVertical, MapPin, Phone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timeline"
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
@@ -80,6 +80,9 @@ export function JobPoolCard({
     ? "w-full text-sm block break-words text-muted-foreground"
     : "truncate"
 
+  // One quiet meta line: vehicle • service • $price (no icon stacking / no $$)
+  const metaLine = [vehicle, serviceLabel, priceLabel].filter(Boolean).join(" • ")
+
   return (
     <button
       type="button"
@@ -133,13 +136,13 @@ export function JobPoolCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={SCHEDULER_METADATA_LABEL}>{priorityBadge}</span>
               {isRescueJob ? (
-                <span className="rounded-full border border-rose-500/60 bg-rose-500/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+                <span className="text-[10px] font-medium tracking-wide text-rose-300">
                   Price Denied
                 </span>
               ) : null}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
-              <ScheduleInteractionBadge scheduled_at={scheduledAtIso} />
+              <ScheduleInteractionBadge scheduled_at={scheduledAtIso} compact />
               {isAsap ? (
                 <span
                   className={cn(
@@ -173,32 +176,22 @@ export function JobPoolCard({
               ) : null}
             </div>
           ) : null}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-semibold tabular-nums text-emerald-400">
-              <DollarSign className="h-3 w-3 shrink-0" aria-hidden />
-              {priceLabel}
-            </span>
-            <span className={cn(SCHEDULER_METADATA_LABEL, "inline-flex min-w-0 items-center gap-1")}>
-              <Wrench className="h-3 w-3 shrink-0" aria-hidden />
-              <span className={wrapText ? "break-words" : "truncate"}>{serviceLabel}</span>
-            </span>
-          </div>
-          <div className="mt-1.5 w-full space-y-1">
-            {vehicle ? (
-              <p className="flex w-full items-start gap-1.5">
-                <Car className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
-                <span className={cn(SCHEDULER_METADATA_LABEL, wrapText ? "break-words" : "truncate")}>
-                  {vehicle}
-                </span>
-              </p>
-            ) : null}
-            {programmingMethod ? (
-              <p className="flex w-full items-start gap-1.5">
-                <span className={cn(SCHEDULER_METADATA_LABEL, wrapText ? "break-words" : "truncate")}>
-                  {programmingMethod}
-                </span>
-              </p>
-            ) : null}
+          {metaLine ? (
+            <p
+              className={cn(
+                "mt-1 text-xs text-slate-400",
+                wrapText ? "break-words" : "truncate"
+              )}
+            >
+              {metaLine}
+            </p>
+          ) : null}
+          {programmingMethod ? (
+            <p className={cn("text-[11px] text-slate-500", wrapText ? "break-words" : "truncate")}>
+              {programmingMethod}
+            </p>
+          ) : null}
+          <div className="mt-1 flex w-full flex-col gap-0.5">
             {job.customer_phone ? (
               <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-slate-400")}>
                 <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
