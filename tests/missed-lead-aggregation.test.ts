@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  classifyMissedLeadRecoveryMode,
   formatMissedTickerLabel,
   summarizeMissedLeadInsights,
 } from "@/lib/missed-lead-aggregation"
@@ -83,5 +84,42 @@ describe("formatMissedTickerLabel", () => {
     expect(formatMissedTickerLabel(8, 3)).toBe("8 MISSED (3 LEADS)")
     expect(formatMissedTickerLabel(3, 3)).toBe("MISSED")
     expect(formatMissedTickerLabel(0, 0)).toBe("MISSED")
+  })
+})
+
+describe("classifyMissedLeadRecoveryMode", () => {
+  it("uses multi mode when more than one unique lead", () => {
+    const mode = classifyMissedLeadRecoveryMode([
+      { phoneKey: "5025550101", from_number: "+15025550101", missCount: 1, latestAt: minsAgo(2) },
+      { phoneKey: "5025550909", from_number: "+15025550909", missCount: 3, latestAt: minsAgo(1) },
+    ])
+    expect(mode?.kind).toBe("multi")
+    if (mode?.kind === "multi") {
+      expect(mode.uniqueLeadsCount).toBe(2)
+      expect(mode.maxRepetitionCount).toBe(3)
+      expect(mode.totalMissedEvents).toBe(4)
+    }
+  })
+
+  it("flags high urgency for a single repeat caller", () => {
+    const mode = classifyMissedLeadRecoveryMode([
+      { phoneKey: "5025550101", from_number: "+15025550101", missCount: 4, latestAt: minsAgo(1) },
+    ])
+    expect(mode?.kind).toBe("high_urgency")
+    if (mode?.kind === "high_urgency") {
+      expect(mode.maxRepetitionCount).toBe(4)
+      expect(mode.prospect.from_number).toBe("+15025550101")
+    }
+  })
+
+  it("uses single mode for one isolated miss", () => {
+    const mode = classifyMissedLeadRecoveryMode([
+      { phoneKey: "5025550101", from_number: "+15025550101", missCount: 1, latestAt: minsAgo(1) },
+    ])
+    expect(mode?.kind).toBe("single")
+  })
+
+  it("returns null when there are no prospects", () => {
+    expect(classifyMissedLeadRecoveryMode([])).toBeNull()
   })
 })
