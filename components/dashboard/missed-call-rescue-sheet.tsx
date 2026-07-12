@@ -80,8 +80,12 @@ export function MissedCallRescueSheet({
     try {
       const res = await fetch("/api/calls?limit=100", { credentials: "include", cache: "no-store" })
       if (!res.ok) throw new Error("Could not load missed calls")
-      const json = (await res.json()) as { data?: MissedCallRow[] }
-      const all = Array.isArray(json.data) ? json.data : []
+      const json = (await res.json()) as { calls?: MissedCallRow[]; data?: MissedCallRow[] }
+      const all = Array.isArray(json.calls)
+        ? json.calls
+        : Array.isArray(json.data)
+          ? json.data
+          : []
       const missed = all
         .filter((row) => {
           if (businessNumbers.length > 0) {

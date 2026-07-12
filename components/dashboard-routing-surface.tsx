@@ -8,9 +8,11 @@ import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
+import { MissedLeadRecoveryBanner } from "@/components/dashboard/missed-lead-recovery-banner"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
+import { useMissedLeadInsights } from "@/lib/hooks/use-missed-lead-insights"
 import {
   businessNumbersMatch,
   formatPhoneDisplay,
@@ -153,6 +155,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   openManageModal: () => void
 }) {
   const realtimeStats = useRealTimeStatsContextOptional()
+  const missedLeadInsights = useMissedLeadInsights(businessNumbers)
 
   // Sticky tracking line sits under the global team-selector header; canvas body scrolls beneath it.
   const trackingLine = callFlowUiReady ? (
@@ -184,6 +187,11 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
       {/* pt-4 keeps metric cards clear of the sticky tracking line on mount / scroll. */}
       <div className="mx-auto w-full max-w-7xl pt-4">
+        <MissedLeadRecoveryBanner
+          prospects={missedLeadInsights.recentUnreturned}
+          onIntercepted={missedLeadInsights.markIntercepted}
+          className="mb-3 sm:mb-4"
+        />
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
           <DashboardRoutingSidebar
             activeLineDisplay={activeLineDisplay}
@@ -286,7 +294,10 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
               </section>
             ) : null}
 
-            <RoutingTelemetryStrip businessNumbers={businessNumbers} />
+            <RoutingTelemetryStrip
+              businessNumbers={businessNumbers}
+              uniqueMissedLeads={missedLeadInsights.uniqueLeadsToday}
+            />
 
             <DashboardCallFlow
               businessNumbers={businessNumbers}

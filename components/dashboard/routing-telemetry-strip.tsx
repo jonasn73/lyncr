@@ -18,6 +18,7 @@ import {
   formatRescueRevenueDollars,
   isBookingRateEmpty,
 } from "@/lib/dispatch-performance-formatters"
+import { formatMissedTickerLabel } from "@/lib/missed-lead-aggregation"
 
 type TelemetryPillProps = {
   label: string
@@ -25,6 +26,7 @@ type TelemetryPillProps = {
   icon: typeof Phone
   tone?: "default" | "amber" | "teal" | "emerald"
   valueClassName?: string
+  labelClassName?: string
   onClick?: () => void
 }
 
@@ -34,6 +36,7 @@ function TelemetryPill({
   icon: Icon,
   tone = "default",
   valueClassName,
+  labelClassName,
   onClick,
 }: TelemetryPillProps) {
   const sharedClasses = cn(
@@ -49,7 +52,12 @@ function TelemetryPill({
   const inner = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
-      <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <span
+        className={cn(
+          "truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+          labelClassName
+        )}
+      >
         {label}
       </span>
       <span className={cn("text-sm font-bold tabular-nums text-foreground", valueClassName)}>{value}</span>
@@ -82,17 +90,26 @@ function TelemetryTickerItem({
   label,
   value,
   valueClassName,
+  labelClassName,
   onClick,
 }: {
   label: string
   value: string | number
   valueClassName?: string
+  labelClassName?: string
   onClick?: () => void
 }) {
   const body = (
     <>
       <span className={cn("text-base font-bold tabular-nums text-slate-100", valueClassName)}>{value}</span>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <span
+        className={cn(
+          "text-[10px] font-semibold uppercase tracking-wider text-slate-500",
+          labelClassName
+        )}
+      >
+        {label}
+      </span>
     </>
   )
   const shared = "inline-flex min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5"
@@ -117,9 +134,12 @@ function TelemetryTickerItem({
 export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   businessNumbers,
   className,
+  uniqueMissedLeads,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   className?: string
+  /** Unique phones among today's misses — when lower than missedCalls, ticker shows LEADS. */
+  uniqueMissedLeads?: number
 }) {
   const isMobile = useIsMobile()
   const {
@@ -140,6 +160,17 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const speedDisplay = formatAvgDispatchSpeedMinutes(avgDispatchSpeedMinutes)
   const rescueDisplay = formatRescueRevenueDollars(rescueRevenueCents)
   const rescueHot = rescueRevenueCents > 0
+
+  // Prefer live ticker total; fall back to unique only when stats have not caught up.
+  const uniqueLeads =
+    typeof uniqueMissedLeads === "number" && uniqueMissedLeads >= 0
+      ? uniqueMissedLeads
+      : missedCalls
+  const missedLeadCollapse = uniqueLeads > 0 && uniqueLeads < missedCalls
+  const missedTickerLabel = formatMissedTickerLabel(missedCalls, uniqueLeads)
+  const missedDesktopLabel = missedLeadCollapse
+    ? `${missedCalls} missed (${uniqueLeads} leads)`
+    : "Missed calls"
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -167,9 +198,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             onClick={() => openCallHistory("daily")}
           />
           <TelemetryTickerItem
-            label="Missed"
+            label={missedTickerLabel}
             value={missedCalls}
             valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
+            labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
             onClick={openMissedRescue}
           />
           <TelemetryTickerItem
@@ -201,11 +233,12 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             onClick={() => openCallHistory("daily")}
           />
           <TelemetryPill
-            label="Missed calls"
+            label={missedDesktopLabel}
             value={missedCalls}
             icon={PhoneMissed}
             tone={missedCalls > 0 ? "amber" : "default"}
             valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
+            labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
             onClick={openMissedRescue}
           />
           <TelemetryPill
