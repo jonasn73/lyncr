@@ -26,7 +26,16 @@ export function schedulerLifecyclePhase(params: {
   assigned_tech_id?: string | null
 }): SchedulerLifecyclePhase {
   const status = (params.job_status ?? "").trim().toLowerCase()
-  if (status === "completed") return "completed"
+  // Terminal close-outs leave the active board (completed styling).
+  if (
+    status === "completed" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "unresolved" ||
+    status === "referred"
+  ) {
+    return "completed"
+  }
   if (status === "arrived") return "on_site"
   if (status === "en_route") return "en_route"
   if (status === "unassigned") return "unassigned"
@@ -80,6 +89,21 @@ export const SCHEDULER_STATUS_LABEL: Record<SchedulerLifecyclePhase, string> = {
   en_route: "En route",
   on_site: "In progress",
   completed: "Completed",
+}
+
+/** Human label for the raw job_status column (covers close-out statuses). */
+export function schedulerJobStatusDisplayLabel(jobStatus?: string | null): string | null {
+  const status = (jobStatus ?? "").trim().toLowerCase()
+  if (!status) return null
+  if (status === "cancelled" || status === "canceled") return "Cancelled"
+  if (status === "unresolved") return "Unresolved"
+  if (status === "referred") return "Referred"
+  if (status === "completed") return "Completed"
+  if (status === "arrived") return "In progress"
+  if (status === "en_route") return "En route"
+  if (status === "assigned") return "Assigned"
+  if (status === "unassigned") return "Unassigned"
+  return null
 }
 
 /** Left-panel group order for the dispatch split view (most urgent first). */

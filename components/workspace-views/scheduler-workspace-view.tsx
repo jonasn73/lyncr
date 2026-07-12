@@ -379,7 +379,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
     const onJobStatus = (payload: { leadId?: string; status?: string }) => {
       if (!payload?.leadId || !payload?.status) return
-      if (payload.status === "completed") {
+      const status = payload.status
+      if (status === "completed") {
         registerJobCompletedToday(payload.leadId)
       }
       setEvents((prev) =>
@@ -387,20 +388,31 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           ev.id === payload.leadId
             ? {
                 ...ev,
-                job_status: payload.status ?? ev.job_status,
+                job_status: status ?? ev.job_status,
                 completed_at:
-                  payload.status === "completed"
+                  status === "completed"
                     ? ev.completed_at ?? new Date().toISOString()
                     : ev.completed_at,
                 dispatch_status:
-                  payload.status === "assigned" || payload.status === "en_route"
+                  status === "assigned" || status === "en_route"
                     ? "DISPATCHED"
                     : ev.dispatch_status,
               }
             : ev
         )
       )
-      void mutateActivePipeline()
+      // Terminal close-outs leave the active pipeline feed.
+      if (
+        status === "completed" ||
+        status === "cancelled" ||
+        status === "unresolved" ||
+        status === "referred"
+      ) {
+        void mutateActivePipeline()
+        void mutatePool()
+      } else {
+        void mutateActivePipeline()
+      }
     }
 
     const onJobAssigned = (payload: { leadId?: string; techUserId?: string }) => {

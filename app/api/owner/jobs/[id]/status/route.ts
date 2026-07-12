@@ -16,7 +16,16 @@ import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 
 export const dynamic = "force-dynamic"
 
-const ALLOWED = new Set(["assigned", "en_route", "arrived", "completed"])
+/** Field progress + terminal close-out statuses from the Active Job drawer. */
+const ALLOWED = new Set([
+  "assigned",
+  "en_route",
+  "arrived",
+  "completed",
+  "cancelled",
+  "unresolved",
+  "referred",
+])
 
 type RouteContext = { params: Promise<{ id: string }> }
 

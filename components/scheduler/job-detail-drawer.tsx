@@ -14,7 +14,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { JobDetailOverview } from "@/components/scheduler/job-detail-overview"
+import {
+  JobDetailOverview,
+  type JobLifecycleQuickStatus,
+} from "@/components/scheduler/job-detail-overview"
 import { JobEditWorkflow } from "@/components/scheduler/job-edit-workflow"
 import {
   SchedulerJobSlideSheet,
@@ -22,6 +25,7 @@ import {
 } from "@/components/scheduler/scheduler-job-slide-sheet"
 import {
   SCHEDULER_STATUS_LABEL,
+  schedulerJobStatusDisplayLabel,
   schedulerLifecyclePhase,
 } from "@/lib/scheduler-job-status"
 import {
@@ -251,7 +255,9 @@ export function JobDetailDrawer({
     dispatch_status: scheduledEvent?.dispatch_status ?? poolJob?.dispatch_status ?? null,
     assigned_tech_id: scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? null,
   })
-  const statusLabel = SCHEDULER_STATUS_LABEL[lifecyclePhase]
+  const rawJobStatus = localJobStatus ?? scheduledEvent?.job_status ?? poolWithTech?.job_status ?? null
+  const statusLabel =
+    schedulerJobStatusDisplayLabel(rawJobStatus) ?? SCHEDULER_STATUS_LABEL[lifecyclePhase]
 
   useEffect(() => {
     if (!source) return
@@ -473,6 +479,61 @@ export function JobDetailDrawer({
     }
   }
 
+  // Persist Internal Dispatch Notes without forcing a pipeline change.
+  async function handleSaveJobNotes() {
+    if (!jobId || saving) return
+    if (!canSave) return
+    const committedNotes = (scheduledEvent?.job_notes ?? poolJob?.job_notes ?? "").trim()
+    if (jobNotes.trim() === committedNotes) return
+    await handleSave()
+  }
+
+  // Cancel / Referred / Complete — write job_status then close the drawer.
+  async function handleQuickLifecycleAction(status: JobLifecycleQuickStatus) {
+    if (!jobId || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      // Keep any pending notes so close-out context is not lost.
+      const committedNotes = (scheduledEvent?.job_notes ?? poolJob?.job_notes ?? "").trim()
+      if (canSave && jobNotes.trim() !== committedNotes) {
+        const body = buildSaveBody()
+        const notesRes = await fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        const notesJson = (await notesRes.json()) as {
+          error?: string
+          data?: { event?: SchedulerEvent }
+        }
+        if (!notesRes.ok) throw new Error(notesJson.error ?? "Could not save notes")
+        if (notesJson.data?.event) applySavedEvent(notesJson.data.event)
+      }
+
+      const res = await fetch(`/api/owner/jobs/${encodeURIComponent(jobId)}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+      if (!res.ok) throw new Error(json.error ?? "Could not update job status")
+      const event = json.data?.event
+      if (event) {
+        applySavedEvent(event)
+        onStatusChanged?.(event)
+        onSaved?.(event)
+      }
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update job status")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const quotedPriceDollars =
     resolveQuotedPriceCents() > 0 ? Math.round(resolveQuotedPriceCents() / 100) : 0
   const baselineQuotedDollars =
@@ -508,6 +569,7 @@ export function JobDetailDrawer({
               assignedTechId={assignedTechId}
               pipelineDirty={pipelineDirty}
               saving={saving}
+              error={error}
               onEdit={() => setViewMode("edit")}
               onPipelineStatusChange={(status) => {
                 setPipelineStatus(status)
@@ -518,6 +580,9 @@ export function JobDetailDrawer({
                 if (techId.trim()) setPipelineStatus("DISPATCHED")
               }}
               onSavePipeline={() => void handleSavePipeline()}
+              onJobNotesChange={setJobNotes}
+              onSaveJobNotes={() => void handleSaveJobNotes()}
+              onQuickLifecycleAction={(status) => void handleQuickLifecycleAction(status)}
               onClose={requestClose}
             />
           ) : (

@@ -35,6 +35,15 @@ export function resolveScheduleInteractionPhase(params: {
 }): ScheduleInteractionPhase {
   const status = (params.job_status ?? "").trim().toLowerCase()
   if (status === "completed") return "completed"
+  // Close-outs should not keep flashing overdue on the board.
+  if (
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "unresolved" ||
+    status === "referred"
+  ) {
+    return "completed"
+  }
   if (status === "en_route" || status === "arrived") return "active"
 
   const iso = params.scheduled_at?.trim()

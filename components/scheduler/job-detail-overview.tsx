@@ -27,6 +27,9 @@ import {
 import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
 import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
+/** Terminal lifecycle status written by Quick Actions. */
+export type JobLifecycleQuickStatus = "cancelled" | "referred" | "completed"
+
 type JobDetailOverviewProps = {
   source: UnassignedPoolJob | SchedulerEvent
   scheduledEvent: SchedulerEvent | null
@@ -41,10 +44,14 @@ type JobDetailOverviewProps = {
   assignedTechId: string
   pipelineDirty: boolean
   saving: boolean
+  error?: string | null
   onEdit: () => void
   onPipelineStatusChange: (status: JobPipelineStatusId) => void
   onAssignedTechChange: (techUserId: string) => void
   onSavePipeline: () => void
+  onJobNotesChange: (notes: string) => void
+  onSaveJobNotes: () => void
+  onQuickLifecycleAction: (status: JobLifecycleQuickStatus) => void
   onClose: () => void
 }
 
@@ -56,6 +63,10 @@ function telHref(phone: string): string | null {
   if (trimmed.startsWith("+")) return `tel:${trimmed}`
   return `tel:+1${digits.slice(-10)}`
 }
+
+/** Low-profile micro-button used in the Quick Actions row. */
+const QUICK_ACTION_BASE =
+  "text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
 
 export function JobDetailOverview({
   source,
@@ -70,10 +81,14 @@ export function JobDetailOverview({
   assignedTechId,
   pipelineDirty,
   saving,
+  error = null,
   onEdit,
   onPipelineStatusChange,
   onAssignedTechChange,
   onSavePipeline,
+  onJobNotesChange,
+  onSaveJobNotes,
+  onQuickLifecycleAction,
   onClose,
 }: JobDetailOverviewProps) {
   const customerName = (source.customer_name ?? "").trim() || "Customer"
@@ -144,17 +159,17 @@ export function JobDetailOverview({
               <p className={cn(SCHEDULER_FIELD_VALUE, "min-w-0 text-right")}>{addressBlock.value}</p>
             </div>
           ) : null}
-
-          <div className={SCHEDULER_FIELD_STACK}>
-            <span className={SCHEDULER_METADATA_LABEL}>Notes</span>
-            <p className={cn(SCHEDULER_GLASS_CARD, "min-h-[50px] whitespace-pre-wrap text-sm text-slate-200")}>
-              {jobNotes.trim() || "No notes added"}
-            </p>
-          </div>
         </div>
       </div>
 
-      <footer className={cn("shrink-0 border-t border-border/60 bg-card px-5 py-4", SCHEDULER_STACK)}>
+      <footer
+        className={cn(
+          "shrink-0 border-t border-border/60 bg-card px-5 py-4",
+          SCHEDULER_STACK,
+          // Extra bottom room so Safari’s home-indicator / browser chrome don’t cover Close
+          "mb-6 pb-[max(1rem,env(safe-area-inset-bottom,0px))]"
+        )}
+      >
         <div className={cn(SCHEDULER_GLASS_CARD, "border-emerald-500/30 bg-emerald-500/5")}>
           <p className={cn(SCHEDULER_METADATA_LABEL, "text-emerald-400/90")}>Billing balance</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
@@ -224,8 +239,67 @@ export function JobDetailOverview({
                 </p>
               ) : null}
             </div>
+
+            {/* Instant close-out / transfer controls for stalled jobs */}
+            <div className={SCHEDULER_FIELD_STACK}>
+              <p className={SCHEDULER_METADATA_LABEL}>Quick Actions</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onQuickLifecycleAction("cancelled")}
+                  className={cn(
+                    QUICK_ACTION_BASE,
+                    "border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+                  )}
+                >
+                  Cancel Job
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onQuickLifecycleAction("referred")}
+                  className={cn(
+                    QUICK_ACTION_BASE,
+                    "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+                  )}
+                >
+                  Mark Referred
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onQuickLifecycleAction("completed")}
+                  className={cn(
+                    QUICK_ACTION_BASE,
+                    "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
+                  )}
+                >
+                  Complete
+                </button>
+              </div>
+            </div>
+
+            {/* Dispatcher activity log — persists to job_notes on the lead */}
+            <div className={SCHEDULER_FIELD_STACK}>
+              <label htmlFor="internal-dispatch-notes" className={SCHEDULER_METADATA_LABEL}>
+                Internal Dispatch Notes
+              </label>
+              <textarea
+                id="internal-dispatch-notes"
+                rows={4}
+                disabled={saving}
+                value={jobNotes}
+                placeholder="e.g. Autel failed due to poor cell signal, customer towing home, referred to partner with Smart Pro"
+                onChange={(e) => onJobNotesChange(e.target.value)}
+                onBlur={() => onSaveJobNotes()}
+                className="min-h-[88px] w-full resize-y bg-slate-950/50 border border-slate-850 rounded-xl p-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 disabled:opacity-60"
+              />
+            </div>
           </div>
         </div>
+
+        {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
         {pipelineDirty ? (
           <Button

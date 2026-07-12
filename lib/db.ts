@@ -8187,17 +8187,18 @@ export async function listOwnerActivePipelineJobsForDay(params: {
           FROM ai_leads l
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
           WHERE l.user_id = ${params.ownerUserId}
-            AND (l.job_status IS NULL OR l.job_status <> 'completed')
+            AND (
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN (
+                'completed', 'cancelled', 'canceled', 'unresolved', 'referred', 'unassigned'
+              )
+            )
             AND (
               l.disposition IN ('BOOKED', 'PENDING_TIME')
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
             AND l.assigned_tech_id IS NOT NULL
             AND TRIM(l.assigned_tech_id) <> ''
-            AND (
-              l.job_status IS NULL
-              OR LOWER(TRIM(l.job_status)) NOT IN ('completed', 'unassigned')
-            )
             AND l.scheduled_at IS NOT NULL
             AND l.scheduled_at >= ${fromIso}::timestamptz
             AND l.scheduled_at < ${toIso}::timestamptz
@@ -8211,17 +8212,18 @@ export async function listOwnerActivePipelineJobsForDay(params: {
           FROM ai_leads l
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
           WHERE l.user_id = ${params.ownerUserId}
-            AND (l.job_status IS NULL OR l.job_status <> 'completed')
+            AND (
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN (
+                'completed', 'cancelled', 'canceled', 'unresolved', 'referred', 'unassigned'
+              )
+            )
             AND (
               l.disposition IN ('BOOKED', 'PENDING_TIME')
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
             AND l.assigned_tech_id IS NOT NULL
             AND TRIM(l.assigned_tech_id) <> ''
-            AND (
-              l.job_status IS NULL
-              OR LOWER(TRIM(l.job_status)) NOT IN ('completed', 'unassigned')
-            )
             AND l.scheduled_at IS NOT NULL
             AND l.scheduled_at >= ${fromIso}::timestamptz
             AND l.scheduled_at < ${toIso}::timestamptz
@@ -8256,7 +8258,12 @@ export async function listOwnerUnassignedPoolJobs(params: {
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
           WHERE l.user_id = ${params.ownerUserId}
             AND l.assigned_tech_id IS NULL
-            AND (l.job_status IS NULL OR l.job_status <> 'completed')
+            AND (
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN (
+                'completed', 'cancelled', 'canceled', 'unresolved', 'referred'
+              )
+            )
             AND (
               l.disposition = 'BOOKED'
               OR l.collected->>'disposition' = 'BOOKED'
@@ -8275,7 +8282,12 @@ export async function listOwnerUnassignedPoolJobs(params: {
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
           WHERE l.user_id = ${params.ownerUserId}
             AND l.assigned_tech_id IS NULL
-            AND (l.job_status IS NULL OR l.job_status <> 'completed')
+            AND (
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN (
+                'completed', 'cancelled', 'canceled', 'unresolved', 'referred'
+              )
+            )
             AND (
               l.disposition = 'BOOKED'
               OR l.collected->>'disposition' = 'BOOKED'
