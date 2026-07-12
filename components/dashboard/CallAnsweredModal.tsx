@@ -13,7 +13,7 @@ import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/com
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
-import { IncomingCallOpsToolbar } from "@/components/dashboard/incoming-call-ops-toolbar"
+import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
 import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
@@ -64,6 +64,7 @@ import type {
 } from "@/lib/realtime/owner-call-event-types"
 import { isMissedCallTelemetry, talkSecondsFromCompletedPayload } from "@/lib/realtime/owner-call-event-types"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import { revalidateLeadsWorkspaceCache } from "@/lib/leads-cache"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
@@ -1107,6 +1108,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const isMobile = useIsMobile()
   /** Step-by-step intake on manual walk-ins and on mobile for real answered calls. */
   const stepIntake = isManual || isMobile
+
+  const incomingPhone = form.phoneNumber || effectiveCurrent?.from_number || ""
+  const repeatUrgency = useRepeatCallerUrgency(incomingPhone, effectiveCurrent?.id ?? null)
   const canAdvanceToDispatch = useMemo(
     () =>
       Boolean(
@@ -1198,12 +1202,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
                 {isRinging ? "Incoming call" : "Call answered"}
               </p>
-              <SheetTitle className="flex items-center gap-2 text-left text-lg">
+              <SheetTitle className="flex flex-wrap items-center gap-2 text-left text-lg">
                 <Phone
                   className={cn("h-5 w-5 shrink-0 text-primary", isRinging && "animate-pulse")}
                   aria-hidden
                 />
-                {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
+                <span className="tabular-nums">
+                  {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
+                </span>
+                {repeatUrgency.isHighUrgency ? (
+                  <RepeatCallerUrgencyBadge attemptCount={repeatUrgency.attemptCount} />
+                ) : null}
               </SheetTitle>
               <IncomingCallOpsToolbar
                 className="mt-2"
@@ -1213,6 +1222,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 organizationId={activeOrganizationId}
                 isRinging={isRinging}
                 onDeclined={dismissOnly}
+                urgency={repeatUrgency}
               />
               {effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">

@@ -7,6 +7,11 @@ import { Loader2, MessageSquare, PhoneOff } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { useLyncEngineOptional } from "@/lib/lync-engine-context"
+import {
+  formatRepeatAttemptBadgeLabel,
+  formatRepeatCallerHistoryLine,
+  type RepeatCallerUrgency,
+} from "@/lib/repeat-caller-urgency"
 import type { SchedulerPhoneLookupResult } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -28,6 +33,36 @@ type IncomingCallOpsToolbarProps = {
   isRinging: boolean
   onDeclined: () => void
   className?: string
+  /** Repeat-caller scan from useRepeatCallerUrgency (parent owns the hook). */
+  urgency?: RepeatCallerUrgency | null
+}
+
+const EMPTY_URGENCY: RepeatCallerUrgency = {
+  attemptCount: 1,
+  previousMissedCount: 0,
+  minutesSinceLastMissed: null,
+  lastMissedAt: null,
+  isHighUrgency: false,
+}
+
+/** High-urgency badge — mount next to the incoming phone number. */
+export function RepeatCallerUrgencyBadge({
+  attemptCount,
+  className,
+}: {
+  attemptCount: number
+  className?: string
+}) {
+  return (
+    <span
+      className={cn(
+        "bg-rose-500/20 border border-rose-500 text-rose-400 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
+        className
+      )}
+    >
+      {formatRepeatAttemptBadgeLabel(attemptCount)}
+    </span>
+  )
 }
 
 export function IncomingCallOpsToolbar({
@@ -38,9 +73,11 @@ export function IncomingCallOpsToolbar({
   isRinging,
   onDeclined,
   className,
+  urgency: urgencyProp,
 }: IncomingCallOpsToolbarProps) {
   const { toast } = useToast()
   const engine = useLyncEngineOptional()
+  const urgency = urgencyProp ?? EMPTY_URGENCY
   const [lookup, setLookup] = useState<SchedulerPhoneLookupResult | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [declining, setDeclining] = useState(false)
@@ -167,7 +204,7 @@ export function IncomingCallOpsToolbar({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      {/* Context Engine — active job badge or CNAM token */}
+      {/* Context Engine — active job badge or CNAM token + repeat history */}
       <div className="min-h-[1.25rem]">
         {showLookupSpinner ? (
           <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -184,6 +221,11 @@ export function IncomingCallOpsToolbar({
         ) : (
           <p className="text-[11px] font-medium text-slate-400">{context.cnamToken}</p>
         )}
+        {urgency.isHighUrgency && urgency.minutesSinceLastMissed != null ? (
+          <p className="mt-1 text-[11px] font-medium text-amber-500/90">
+            {formatRepeatCallerHistoryLine(urgency.minutesSinceLastMissed)}
+          </p>
+        ) : null}
       </div>
 
       {/* Quick interaction controls — between context and step dots */}
