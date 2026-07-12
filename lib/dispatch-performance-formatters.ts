@@ -1,10 +1,16 @@
 // Formatters for Lines dashboard performance KPIs (booking / dispatch / rescue).
 
-/** Booking rate as a whole-number percent string, e.g. "78%". */
+/** Booking rate as a whole-number percent string, e.g. "78%" or "0%" when empty. */
 export function formatBookingRatePercent(rate: number | null | undefined): string {
   const n = Number(rate ?? 0)
-  if (!Number.isFinite(n) || n <= 0) return "—"
+  if (!Number.isFinite(n) || n <= 0) return "0%"
   return `${Math.min(100, Math.max(0, Math.round(n)))}%`
+}
+
+/** True when booking rate has no real signal yet (show muted style). */
+export function isBookingRateEmpty(rate: number | null | undefined): boolean {
+  const n = Number(rate ?? 0)
+  return !Number.isFinite(n) || n <= 0
 }
 
 /** Avg dispatch speed in minutes, e.g. "2.4 min". */

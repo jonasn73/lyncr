@@ -8,7 +8,8 @@ import {
 describe("formatBookingRatePercent", () => {
   it("renders whole-number percents", () => {
     expect(formatBookingRatePercent(78.4)).toBe("78%")
-    expect(formatBookingRatePercent(0)).toBe("—")
+    expect(formatBookingRatePercent(0)).toBe("0%")
+    expect(formatBookingRatePercent(undefined)).toBe("0%")
   })
 })
 

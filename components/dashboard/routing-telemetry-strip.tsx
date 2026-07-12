@@ -10,11 +10,13 @@ import {
   RoutingCallHistoryDialog,
   type CallHistoryFilter,
 } from "@/components/dashboard/routing-call-history-dialog"
+import { MissedCallRescueSheet } from "@/components/dashboard/missed-call-rescue-sheet"
 import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
 import {
   formatAvgDispatchSpeedMinutes,
   formatBookingRatePercent,
   formatRescueRevenueDollars,
+  isBookingRateEmpty,
 } from "@/lib/dispatch-performance-formatters"
 
 type TelemetryPillProps = {
@@ -62,10 +64,10 @@ function TelemetryPill({
         className={cn(
           sharedClasses,
           "relative z-10 min-h-11 touch-manipulation",
-          "hover:border-cyan-500/30 hover:bg-zinc-900/70 active:scale-[0.98]",
+          "hover:border-cyan-500/30 hover:bg-zinc-900/70 active:scale-95 transition-all",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
         )}
-        aria-label={`${label}: ${value}. Open call history.`}
+        aria-label={`${label}: ${value}. Open details.`}
       >
         {inner}
       </button>
@@ -99,7 +101,10 @@ function TelemetryTickerItem({
       <button
         type="button"
         onClick={onClick}
-        className={cn(shared, "touch-manipulation active:scale-[0.98]")}
+        className={cn(
+          shared,
+          "cursor-pointer touch-manipulation transition-all active:scale-95"
+        )}
         aria-label={`${label}: ${value}`}
       >
         {body}
@@ -110,7 +115,7 @@ function TelemetryTickerItem({
 }
 
 export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
-  businessNumbers: _businessNumbers,
+  businessNumbers,
   className,
 }: {
   businessNumbers: DashboardBusinessNumber[]
@@ -128,7 +133,9 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
 
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<CallHistoryFilter>("daily")
+  const [rescueOpen, setRescueOpen] = useState(false)
 
+  const bookingEmpty = isBookingRateEmpty(bookingRatePercent)
   const bookingDisplay = formatBookingRatePercent(bookingRatePercent)
   const speedDisplay = formatAvgDispatchSpeedMinutes(avgDispatchSpeedMinutes)
   const rescueDisplay = formatRescueRevenueDollars(rescueRevenueCents)
@@ -137,6 +144,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
     setHistoryOpen(true)
+  }, [])
+
+  const openMissedRescue = useCallback(() => {
+    setRescueOpen(true)
   }, [])
 
   return (
@@ -159,9 +170,13 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             label="Missed"
             value={missedCalls}
             valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
-            onClick={() => openCallHistory("missed")}
+            onClick={openMissedRescue}
           />
-          <TelemetryTickerItem label="Booking" value={bookingDisplay} />
+          <TelemetryTickerItem
+            label="Booking"
+            value={bookingDisplay}
+            valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
+          />
           <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
           <TelemetryTickerItem
             label="Rescue"
@@ -191,9 +206,15 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             icon={PhoneMissed}
             tone={missedCalls > 0 ? "amber" : "default"}
             valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
-            onClick={() => openCallHistory("missed")}
+            onClick={openMissedRescue}
           />
-          <TelemetryPill label="Booking rate" value={bookingDisplay} icon={Percent} tone="teal" />
+          <TelemetryPill
+            label="Booking rate"
+            value={bookingDisplay}
+            icon={Percent}
+            tone="teal"
+            valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
+          />
           <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
           <TelemetryPill
             label="Rescue revenue"
@@ -209,7 +230,12 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         open={historyOpen}
         onOpenChange={setHistoryOpen}
         filter={historyFilter}
-        businessNumbers={_businessNumbers}
+        businessNumbers={businessNumbers}
+      />
+      <MissedCallRescueSheet
+        open={rescueOpen}
+        onOpenChange={setRescueOpen}
+        businessNumbers={businessNumbers}
       />
     </>
   )

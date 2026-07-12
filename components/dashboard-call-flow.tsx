@@ -10,7 +10,6 @@ import {
   Smartphone,
   Hourglass,
   AudioWaveform,
-  Settings2,
   Network,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -28,13 +27,10 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import {
-  CallFlowLinePickerSkeleton,
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
 import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
-import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
-import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -315,8 +311,6 @@ export function buildCallFlowNodes(params: {
 
 export const DashboardCallFlow = memo(function DashboardCallFlow({
   businessNumbers,
-  routingBusinessNumber,
-  setRoutingBusinessNumber,
   quickSetupDecided,
   callFlowUiReady,
   routingLineDetailLoading,
@@ -334,16 +328,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   setShowFallbackSettings,
   adminRoutingOverridePhone,
 }: DashboardCallFlowProps) {
-  const { openBuyModal, openManageModal } = useDashboardNumbersModal()
-  const activation = useDashboardActivationOptional()
-  const realtimeStats = useRealTimeStatsContextOptional()
+  const { openBuyModal } = useDashboardNumbersModal()
   const isMobile = useIsMobile()
-  const subscriptionActive = activation?.subscriptionActive === true
-  const lineCarrierLive = activation?.lineCarrierLive === true
-  const activeLine =
-    routingBusinessNumber && businessNumbers.some((b) => businessNumbersMatch(b.number, routingBusinessNumber))
-      ? routingBusinessNumber
-      : businessNumbers[0]?.number ?? ""
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -363,92 +349,33 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
+  // Flattened shell — no outer card; step rows/cards sit on the page background.
   return (
-    <section
-      id="dash-call-flow"
-      className={cn(
-        "scroll-mt-28 min-h-0 overflow-x-clip md:min-h-[22rem] md:scroll-mt-24",
-        isMobile
-          ? "rounded-2xl border border-border/35 bg-card/40 p-3"
-          : "rounded-3xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40"
-      )}
-    >
-      <header
-        className={cn(
-          "border-b border-border/40",
-          isMobile
-            ? "px-0 pb-3 pt-0"
-            : "border-border/50 bg-gradient-to-b from-muted/20 to-transparent px-5 py-5 sm:px-8 sm:py-6"
-        )}
-      >
-        <div className={cn("flex flex-col", isMobile ? "gap-2" : "items-center gap-4")}>
-          <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              {!isMobile ? (
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
-                  <PhoneForwarded className="h-5 w-5 text-primary" aria-hidden />
-                </div>
-              ) : null}
-              <h2 className={cn("font-semibold tracking-tight text-foreground", isMobile ? "text-base" : "text-lg sm:text-xl")}>
-                Call flow
-              </h2>
-              <SheetInfoTrigger
-                onPress={() => setDashboardStoryKey("dashboard-call-flow")}
-                label="About call flow"
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              {isMobile ? (
-                <button
-                  type="button"
-                  onClick={openManageModal}
-                  className={cn(
-                    "rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10",
-                    MOBILE_TAP_TARGET
-                  )}
-                >
-                  Lines
-                </button>
-              ) : null}
-              {routingLineDetailLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading line" />
-              ) : null}
-            </div>
+    <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:min-h-[22rem] md:scroll-mt-24">
+      {/* Title + info only on md+ — non-actionable on mobile per UI standards. */}
+      <div className="mb-3 hidden items-center justify-between gap-2 md:flex">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
+            <PhoneForwarded className="h-5 w-5 text-primary" aria-hidden />
           </div>
-
-          {!callFlowUiReady ? (
-            <CallFlowLinePickerSkeleton />
-          ) : businessNumbers.length > 0 ? (
-            <ActiveLinePicker
-              businessNumbers={businessNumbers}
-              activeLine={activeLine}
-              onSelect={setRoutingBusinessNumber}
-              subscriptionActive={subscriptionActive}
-              lineCarrierLive={lineCarrierLive}
-              routingStrategy={routingStrategy}
-              activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
-              compact={isMobile}
-            />
-          ) : quickSetupDecided ? (
-            <button
-              type="button"
-              onClick={openBuyModal}
-              className="inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/15"
-            >
-              <Settings2 className="h-4 w-4" aria-hidden />
-              + Add business number
-            </button>
-          ) : null}
+          <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">Call flow</h2>
+          <SheetInfoTrigger
+            onPress={() => setDashboardStoryKey("dashboard-call-flow")}
+            label="About call flow"
+          />
         </div>
-      </header>
+        {routingLineDetailLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading line" />
+        ) : null}
+      </div>
 
-      <div className={cn(isMobile ? "px-0 pt-3" : "px-4 py-6 sm:px-8 sm:py-8", !isMobile && CALL_FLOW_STEPS_MIN_H)}>
-        {!callFlowUiReady ? (
-          <CallFlowStepsSkeleton />
-        ) : businessNumbers.length === 0 ? (
-          <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">
-            <div>
-              <p className="text-sm font-medium text-foreground">No business line yet</p>
+      {!callFlowUiReady ? (
+        <CallFlowStepsSkeleton />
+      ) : businessNumbers.length === 0 ? (
+        <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">
+          <div>
+            <p className="text-sm font-medium text-foreground">No business line yet</p>
+            {quickSetupDecided ? (
               <button
                 type="button"
                 onClick={openBuyModal}
@@ -456,22 +383,47 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               >
                 + Add business number
               </button>
-            </div>
+            ) : null}
           </div>
-        ) : (
-          <div className={isMobile ? "" : "space-y-4"}>
-            <AdminRoutingOverrideNotice
-              active={adminOverrideActive}
-              phone={adminRoutingOverridePhone?.trim() ?? ""}
-            />
-            {isMobile ? (
-              <div
-                className={cn("flex flex-col gap-2", routingLineDetailLoading && "opacity-60")}
-                aria-label="Call handling steps"
-              >
-                {flowNodes.map((node) => (
-                  <FlowStepMobileRow
-                    key={node.key}
+        </div>
+      ) : (
+        <div className={cn(!isMobile && CALL_FLOW_STEPS_MIN_H, !isMobile && "space-y-4")}>
+          <AdminRoutingOverrideNotice
+            active={adminOverrideActive}
+            phone={adminRoutingOverridePhone?.trim() ?? ""}
+          />
+          {isMobile ? (
+            <div
+              className={cn("flex flex-col gap-2", routingLineDetailLoading && "opacity-60")}
+              aria-label="Call handling steps"
+            >
+              {flowNodes.map((node) => (
+                <FlowStepMobileRow
+                  key={node.key}
+                  title={node.title}
+                  icon={node.icon}
+                  value={node.value}
+                  detail={node.detail}
+                  onOpen={node.onOpen}
+                  loading={routingLineDetailLoading}
+                  accent={node.accent}
+                />
+              ))}
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "flex flex-col gap-4 lg:flex-row lg:items-stretch",
+                CALL_FLOW_STEPS_MIN_H,
+                routingLineDetailLoading && "opacity-60"
+              )}
+              aria-label="Call handling steps"
+            >
+              {flowNodes.map((node, i) => (
+                <Fragment key={node.key}>
+                  {i > 0 ? <FlowConnector /> : null}
+                  <FlowStepCard
+                    step={String(i + 2)}
                     title={node.title}
                     icon={node.icon}
                     value={node.value}
@@ -480,38 +432,87 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                     loading={routingLineDetailLoading}
                     accent={node.accent}
                   />
-                ))}
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  "flex flex-col gap-4 lg:flex-row lg:items-stretch",
-                  CALL_FLOW_STEPS_MIN_H,
-                  routingLineDetailLoading && "opacity-60"
-                )}
-                aria-label="Call handling steps"
-              >
-                {flowNodes.map((node, i) => (
-                  <Fragment key={node.key}>
-                    {i > 0 ? <FlowConnector /> : null}
-                    <FlowStepCard
-                      step={String(i + 2)}
-                      title={node.title}
-                      icon={node.icon}
-                      value={node.value}
-                      detail={node.detail}
-                      onOpen={node.onOpen}
-                      loading={routingLineDetailLoading}
-                      accent={node.accent}
-                    />
-                  </Fragment>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                </Fragment>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </section>
+  )
+})
+
+export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
+  businessNumbers,
+  activeLine,
+  onSelect,
+  subscriptionActive,
+  lineCarrierLive,
+  routingStrategy,
+  activeCallCount,
+  loading = false,
+}: {
+  businessNumbers: DashboardBusinessNumber[]
+  activeLine: string
+  onSelect: (n: string) => void
+  subscriptionActive: boolean
+  lineCarrierLive: boolean
+  routingStrategy: RoutingStrategy
+  activeCallCount: number
+  loading?: boolean
+}) {
+  const { openBuyModal, openManageModal } = useDashboardNumbersModal()
+  const isMobile = useIsMobile()
+
+  if (businessNumbers.length === 0) {
+    return (
+      <div className="flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-2.5">
+        <p className="text-sm text-slate-500">No business line yet</p>
+        <button
+          type="button"
+          onClick={openBuyModal}
+          className={cn(
+            "rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10",
+            MOBILE_TAP_TARGET
+          )}
+        >
+          + Add number
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-2.5 sm:gap-3">
+      <div className="min-w-0 flex-1">
+        <ActiveLinePicker
+          businessNumbers={businessNumbers}
+          activeLine={activeLine}
+          onSelect={onSelect}
+          subscriptionActive={subscriptionActive}
+          lineCarrierLive={lineCarrierLive}
+          routingStrategy={routingStrategy}
+          activeCallCount={activeCallCount}
+          compact
+          wide
+        />
+      </div>
+      {loading ? (
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Loading line" />
+      ) : null}
+      {isMobile ? (
+        <button
+          type="button"
+          onClick={openManageModal}
+          className={cn(
+            "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10",
+            MOBILE_TAP_TARGET
+          )}
+        >
+          Lines
+        </button>
+      ) : null}
+    </div>
   )
 })
 
@@ -524,6 +525,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   routingStrategy,
   activeCallCount,
   compact = false,
+  wide = false,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   activeLine: string
@@ -533,11 +535,77 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   routingStrategy: RoutingStrategy
   activeCallCount: number
   compact?: boolean
+  /** Full-width sub-header under the metric ticker — no nested card chrome. */
+  wide?: boolean
 }) {
   const activeRow = businessNumbers.find((b) => businessNumbersMatch(b.number, activeLine))
   const display = formatPhoneDisplay(activeLine)
   const label = activeRow?.label?.trim() || "Business Line"
   const multi = businessNumbers.length > 1
+
+  // Wide sub-header: phone + live badge on one sleek row (no card-in-card).
+  if (wide) {
+    const status = (
+      <LineRoutingStatus
+        routingStrategy={routingStrategy}
+        subscriptionActive={subscriptionActive}
+        lineCarrierLive={lineCarrierLive}
+        activeCallCount={activeCallCount}
+        className="shrink-0"
+      />
+    )
+    if (!multi) {
+      return (
+        <div className="flex w-full min-w-0 items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
+              {label}
+            </p>
+            <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display}</p>
+          </div>
+          {status}
+        </div>
+      )
+    }
+    return (
+      <label className="relative block w-full min-w-0">
+        <span className="sr-only">Active business line</span>
+        <div className="pointer-events-none flex items-center justify-between gap-3 pr-7">
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
+              {label}
+            </p>
+            <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display}</p>
+          </div>
+          {status}
+        </div>
+        <select
+          value={activeLine}
+          onChange={(e) => onSelect(e.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          aria-label="Select active business line"
+        >
+          {businessNumbers.map((bn) => {
+            const link = lineCarrierLive
+              ? "Live & Connected"
+              : subscriptionActive
+                ? "Activating line"
+                : "Inactive (Pending Payment)"
+            const lineLabel = bn.label?.trim() || "Business Line"
+            return (
+              <option key={bn.number} value={bn.number}>
+                {lineLabel} · {formatPhoneDisplay(bn.number)} — {link}
+              </option>
+            )
+          })}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+          aria-hidden
+        />
+      </label>
+    )
+  }
 
   // Compact mobile: phone left, status pill right — no tall stacked box
   if (compact && !multi) {

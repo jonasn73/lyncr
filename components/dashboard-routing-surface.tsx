@@ -5,11 +5,13 @@ import Link from "next/link"
 import { Check, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
-import { DashboardCallFlow } from "@/components/dashboard-call-flow"
+import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
 import { RealTimeStatsProvider } from "@/components/dashboard/real-time-stats-provider"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
+import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
+import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
 import {
   businessNumbersMatch,
   formatPhoneDisplay,
@@ -69,6 +71,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   adminRoutingOverridePhone,
 }: DashboardRoutingSurfaceProps) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
+  const activation = useDashboardActivationOptional()
 
   // Resolve the currently-selected line the same way the call-flow header does, so the sidebar's
   // active-line card always mirrors what the chart on the right is configuring.
@@ -80,6 +83,81 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
 
   return (
     <RealTimeStatsProvider businessNumbers={businessNumbers} activeLineE164={activeLineRaw || null}>
+    <DashboardRoutingSurfaceInner
+      quickSetupDecided={quickSetupDecided}
+      callFlowUiReady={callFlowUiReady}
+      isSetupComplete={isSetupComplete}
+      hasBusinessNumbers={hasBusinessNumbers}
+      hasReceptionists={hasReceptionists}
+      businessNumbers={businessNumbers}
+      routingBusinessNumber={routingBusinessNumber}
+      setRoutingBusinessNumber={setRoutingBusinessNumber}
+      routingLineDetailLoading={routingLineDetailLoading}
+      isRoutingToOwner={isRoutingToOwner}
+      selectedReceptionist={selectedReceptionist}
+      ownerPhoneDisplay={ownerPhoneDisplay}
+      ringTimeoutSec={ringTimeoutSec}
+      activeFallbackLabel={activeFallbackLabel}
+      routingStrategy={routingStrategy}
+      allowLyncrNetworkFallback={allowLyncrNetworkFallback}
+      onConfigureStrategy={onConfigureStrategy}
+      setDashboardStoryKey={setDashboardStoryKey}
+      setWhoAnswersOpen={setWhoAnswersOpen}
+      setRingBackupOpen={setRingBackupOpen}
+      setShowFallbackSettings={setShowFallbackSettings}
+      adminRoutingOverridePhone={adminRoutingOverridePhone}
+      activeLineRaw={activeLineRaw}
+      activeLineDisplay={activeLineDisplay}
+      subscriptionActive={activation?.subscriptionActive === true}
+      lineCarrierLive={activation?.lineCarrierLive === true}
+      openBuyModal={openBuyModal}
+      openManageModal={openManageModal}
+    />
+    </RealTimeStatsProvider>
+  )
+})
+
+/** Inner tree sits under RealTimeStatsProvider so the line sub-header can read live call counts. */
+const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner({
+  quickSetupDecided,
+  callFlowUiReady,
+  isSetupComplete,
+  hasBusinessNumbers,
+  hasReceptionists,
+  businessNumbers,
+  routingBusinessNumber,
+  setRoutingBusinessNumber,
+  routingLineDetailLoading,
+  isRoutingToOwner,
+  selectedReceptionist,
+  ownerPhoneDisplay,
+  ringTimeoutSec,
+  activeFallbackLabel,
+  routingStrategy,
+  allowLyncrNetworkFallback,
+  onConfigureStrategy,
+  setDashboardStoryKey,
+  setWhoAnswersOpen,
+  setRingBackupOpen,
+  setShowFallbackSettings,
+  adminRoutingOverridePhone,
+  activeLineRaw,
+  activeLineDisplay,
+  subscriptionActive,
+  lineCarrierLive,
+  openBuyModal,
+  openManageModal,
+}: DashboardRoutingSurfaceProps & {
+  activeLineRaw: string
+  activeLineDisplay: string | null
+  subscriptionActive: boolean
+  lineCarrierLive: boolean
+  openBuyModal: () => void
+  openManageModal: () => void
+}) {
+  const realtimeStats = useRealTimeStatsContextOptional()
+
+  return (
     <div className="mx-auto w-full max-w-7xl">
       <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
         <DashboardRoutingSidebar
@@ -185,6 +263,20 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
 
       <RoutingTelemetryStrip businessNumbers={businessNumbers} />
 
+      {/* Wide line status row — sits under the metric ticker, outside any Call flow card. */}
+      {callFlowUiReady ? (
+        <ActiveLineSubHeader
+          businessNumbers={businessNumbers}
+          activeLine={activeLineRaw}
+          onSelect={(n) => setRoutingBusinessNumber(n)}
+          subscriptionActive={subscriptionActive}
+          lineCarrierLive={lineCarrierLive}
+          routingStrategy={routingStrategy}
+          activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
+          loading={routingLineDetailLoading}
+        />
+      ) : null}
+
       <DashboardCallFlow
         businessNumbers={businessNumbers}
         routingBusinessNumber={routingBusinessNumber}
@@ -210,6 +302,5 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
         </div>
       </div>
     </div>
-    </RealTimeStatsProvider>
   )
 })
