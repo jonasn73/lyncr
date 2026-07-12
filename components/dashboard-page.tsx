@@ -488,7 +488,8 @@ export function DashboardPage() {
   }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 sm:gap-14">
+    // Full-width shell so the sticky tracking line can span the main column; max-w lives under the bar.
+    <div className="flex w-full flex-col gap-10 sm:gap-14">
       <DashboardRoutingWithSheets
         quickSetupDecided={quickSetupDecided}
         callFlowUiReady={callFlowUiReady}

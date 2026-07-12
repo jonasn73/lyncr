@@ -451,6 +451,8 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   routingStrategy,
   activeCallCount,
   loading = false,
+  /** When true, skip local border/padding — parent sticky chrome owns the frame. */
+  bare = false,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   activeLine: string
@@ -460,13 +462,25 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   routingStrategy: RoutingStrategy
   activeCallCount: number
   loading?: boolean
+  bare?: boolean
 }) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
   const isMobile = useIsMobile()
 
+  // Shared row layout; bare mode lets the sticky nav wrapper supply padding/border.
+  const rowClass = bare
+    ? "flex w-full min-w-0 items-center gap-2 sm:gap-3"
+    : "flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-2.5 sm:gap-3"
+
   if (businessNumbers.length === 0) {
     return (
-      <div className="flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-2.5">
+      <div
+        className={
+          bare
+            ? "flex w-full min-w-0 items-center justify-between gap-3"
+            : "flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-2.5"
+        }
+      >
         <p className="text-sm text-slate-500">No business line yet</p>
         <button
           type="button"
@@ -483,7 +497,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   }
 
   return (
-    <div className="flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-2.5 sm:gap-3">
+    <div className={rowClass}>
       <div className="min-w-0 flex-1">
         <ActiveLinePicker
           businessNumbers={businessNumbers}
@@ -535,7 +549,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   routingStrategy: RoutingStrategy
   activeCallCount: number
   compact?: boolean
-  /** Full-width sub-header under the metric ticker — no nested card chrome. */
+  /** Full-width sub-header for the sticky tracking-line nav — no nested card chrome. */
   wide?: boolean
 }) {
   const activeRow = businessNumbers.find((b) => businessNumbersMatch(b.number, activeLine))
