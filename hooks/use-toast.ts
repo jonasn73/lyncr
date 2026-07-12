@@ -6,7 +6,10 @@ import * as React from 'react'
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+/** How long the toast stays visible before auto-dismiss. */
+const TOAST_AUTO_DISMISS_MS = 4000
+/** Delay after dismiss before removing from the DOM (exit animation). */
+const TOAST_REMOVE_DELAY = 1000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -155,11 +158,19 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      duration: TOAST_AUTO_DISMISS_MS,
       onOpenChange: (open) => {
         if (!open) dismiss()
       },
     },
   })
+
+  // Clear active notification state after the configured timeout.
+  if (typeof window !== "undefined") {
+    window.setTimeout(() => {
+      dismiss()
+    }, TOAST_AUTO_DISMISS_MS)
+  }
 
   return {
     id: id,

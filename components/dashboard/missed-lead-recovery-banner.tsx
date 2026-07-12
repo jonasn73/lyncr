@@ -57,12 +57,16 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
         else failed += 1
       }
       onIntercepted?.(phones)
+      const preview =
+        MISSED_LEAD_INTERCEPT_SMS.length > 96
+          ? `${MISSED_LEAD_INTERCEPT_SMS.slice(0, 96).trimEnd()}...`
+          : MISSED_LEAD_INTERCEPT_SMS
       toast({
         title: sent > 0 ? "Intercept texts sent" : "Could not send intercept texts",
         description:
           failed > 0
             ? `Delivered ${sent} of ${phones.length}. Check SMS / 10DLC if some failed.`
-            : `Hold message sent to ${sent} prospect${sent === 1 ? "" : "s"}.`,
+            : `Hold message sent to ${sent} prospect${sent === 1 ? "" : "s"}: '${preview}'`,
         variant: sent > 0 ? "default" : "destructive",
       })
     } finally {
