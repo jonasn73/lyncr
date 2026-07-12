@@ -82,11 +82,13 @@ export function defaultCampaignCopy(displayName: string): {
   messageFlow: string
 } {
   const biz = displayName.trim() || "our business"
+  const optInUrl = "https://lyncr.app/sms-opt-in"
+  const privacyUrl = "https://lyncr.app/privacy"
   return {
-    description: `${biz} sends transactional notifications and lead/appointment alerts to the business owner and staff who requested them.`,
-    sample1: `${biz}: New lead — John D. (555-123-4567) requested a callback about service. Reply STOP to opt out.`,
-    sample2: `${biz}: Reminder — your appointment is confirmed for 2:00 PM today. Reply HELP for help, STOP to unsubscribe.`,
-    messageFlow: `Recipients (the business owner and staff) opt in when they create their ${biz} account and provide their mobile number to receive lead and appointment notifications. They can reply STOP at any time to unsubscribe.`,
+    description: `${biz} sends transactional service notifications, lead alerts, and appointment updates to subscribers who affirmatively opt in to SMS.`,
+    sample1: `${biz}: New lead — John D. (555-123-4567) requested a callback about service. Message frequency may vary. Msg&data rates may apply. Reply HELP for help, STOP to opt out.`,
+    sample2: `${biz}: Reminder — your appointment is confirmed for 2:00 PM today. Message frequency may vary. Msg&data rates may apply. Reply HELP for help, STOP to unsubscribe.`,
+    messageFlow: `The user navigates to ${biz}'s SMS opt-in page at ${optInUrl} and subscribes via the web form (phone number field plus an unchecked consent checkbox). The opt-in form clearly states: "By providing your phone number and checking the consent box, you agree to receive SMS service notifications, lead alerts, and appointment updates from ${biz}. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase. Your mobile information will not be sold or shared with third parties for promotional or marketing purposes. Privacy policy: ${privacyUrl}." Once the form is submitted, a confirmation SMS is sent with STOP/HELP language and "Message frequency may vary." Subscribers may also text START to the business line to opt in and receive the same confirmation. Screenshot of the opt-in form: ${optInUrl}`,
   }
 }
 

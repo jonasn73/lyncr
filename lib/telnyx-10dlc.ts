@@ -181,13 +181,28 @@ export type CreateCampaignInput = {
 /** TCR-required auto-reply when a subscriber texts STOP. */
 export function buildTenDlcOptoutMessage(businessName: string): string {
   const biz = businessName.trim() || "this business"
-  return `You have been unsubscribed from ${biz} messages. No more messages will be sent. Reply START to resubscribe.`
+  return `${biz}: You are unsubscribed and will receive no further messages. Reply START to resubscribe.`
+}
+
+/** Support contact used in HELP auto-replies (website + email). */
+export function tenDlcSupportContact(): { supportUrl: string; supportEmail: string } {
+  const supportUrl = "https://lyncr.app/support"
+  const supportEmail =
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@getzingapp.com"
+  return { supportUrl, supportEmail }
 }
 
 /** TCR-required auto-reply when a subscriber texts START/YES. */
 export function buildTenDlcOptinMessage(businessName: string): string {
   const biz = businessName.trim() || "this business"
-  return `You are subscribed to ${biz} service notifications. Reply STOP to opt out, HELP for help. Msg&data rates may apply.`
+  return `${biz}: Thanks for subscribing to service notifications and appointment alerts! Reply HELP for help. Message frequency may vary. Msg&data rates may apply. Consent is not a condition of purchase. Reply STOP to opt out.`
+}
+
+/** TCR-required auto-reply when a subscriber texts HELP. */
+export function buildTenDlcHelpMessage(businessName: string): string {
+  const biz = businessName.trim() || "this business"
+  const { supportUrl, supportEmail } = tenDlcSupportContact()
+  return `${biz}: Please reach out to us at ${supportUrl} or ${supportEmail} for help. Reply STOP to opt out.`
 }
 
 /** Telnyx requires comma-separated keywords with no spaces (e.g. STOP,UNSUBSCRIBE). */
@@ -213,9 +228,7 @@ export async function createTelnyx10DlcCampaign(
   }
 
   const biz = input.businessName?.trim() || "this business"
-  const helpMessage =
-    input.helpMessage ||
-    `${biz} support: Reply HELP for help or STOP to unsubscribe. Msg&data rates may apply.`
+  const helpMessage = input.helpMessage || buildTenDlcHelpMessage(biz)
   const optinMessage = input.optinMessage || buildTenDlcOptinMessage(biz)
   const optoutMessage = input.optoutMessage || buildTenDlcOptoutMessage(biz)
 

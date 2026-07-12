@@ -186,6 +186,20 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         <div role="alert" className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-red-300">Carrier rejection reason</p>
           <p className="mt-2 text-sm leading-relaxed text-red-100/90">{summary.rejection_reason}</p>
+          {isRejected ? (
+            <p className="mt-3 text-xs leading-relaxed text-red-200/70">
+              After updating, resubmit uses the compliant opt-in page at{" "}
+              <a
+                href="/sms-opt-in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-red-100 underline underline-offset-2 hover:text-white"
+              >
+                /sms-opt-in
+              </a>
+              .
+            </p>
+          ) : null}
         </div>
       ) : null}
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
+import { defaultCampaignCopy } from "@/lib/messaging-10dlc"
 import {
+  buildTenDlcHelpMessage,
+  buildTenDlcOptinMessage,
   effectiveTelnyx10DlcCampaignId,
   formatTelnyxRegistryText,
   isTelnyxRegistryRejected,
@@ -78,5 +81,27 @@ describe("effectiveTelnyx10DlcCampaignId", () => {
         campaign_id: "campaign-2",
       })
     ).toBe("campaign-2")
+  })
+})
+
+describe("10DLC compliant opt-in copy", () => {
+  it("includes Message frequency may vary in the START confirmation", () => {
+    expect(buildTenDlcOptinMessage("Key Squad")).toMatch(/Message frequency may vary/i)
+    expect(buildTenDlcOptinMessage("Key Squad")).toMatch(/Consent is not a condition of purchase/i)
+  })
+
+  it("includes a real support contact in the HELP reply", () => {
+    const help = buildTenDlcHelpMessage("Key Squad")
+    expect(help).toMatch(/lyncr\.app\/support/)
+    expect(help.toLowerCase()).toMatch(/@/)
+  })
+
+  it("documents the public sms-opt-in form and consent checkbox language", () => {
+    const copy = defaultCampaignCopy("Key Squad")
+    expect(copy.messageFlow).toMatch(/sms-opt-in/)
+    expect(copy.messageFlow.toLowerCase()).toMatch(/checkbox|consent/)
+    expect(copy.messageFlow).toMatch(/Message frequency may vary/)
+    expect(copy.sample1).toMatch(/Message frequency may vary/)
+    expect(copy.sample2).toMatch(/HELP/)
   })
 })
