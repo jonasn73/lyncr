@@ -1,6 +1,6 @@
 "use client"
 
-// Live KPI banner for the dispatch scheduler — contained on mobile to avoid horizontal clip.
+// Live KPI banner for the dispatch scheduler — number-first tiles, quiet zeros.
 
 import { memo, useMemo } from "react"
 import { Plus } from "lucide-react"
@@ -14,8 +14,10 @@ import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib
 type MetricCellProps = {
   label: string
   value: number
+  /** Accent color when the count is non-zero. */
   valueClassName?: string
   className?: string
+  compact?: boolean
 }
 
 function MetricCell({
@@ -24,7 +26,11 @@ function MetricCell({
   valueClassName,
   className,
   compact = false,
-}: MetricCellProps & { compact?: boolean }) {
+}: MetricCellProps) {
+  // Zero counts stay muted so non-zero KPIs pop as the signal.
+  const isZero = value === 0
+
+  // Compact map toolbar — horizontal pill chip.
   if (compact) {
     return (
       <div
@@ -34,20 +40,39 @@ function MetricCell({
         )}
       >
         <span className="text-[10px] font-medium text-zinc-500">{label}</span>
-        <span className={cn("text-xs font-bold tabular-nums", valueClassName)}>{value}</span>
+        <span
+          className={cn(
+            "text-xs font-bold tabular-nums",
+            isZero ? "text-zinc-600" : valueClassName
+          )}
+        >
+          {value}
+        </span>
       </div>
     )
   }
+
+  // Number-first tile — big tabular digit, tiny uppercase label underneath.
   return (
-    <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
-      <span className="truncate text-xs font-medium text-zinc-400">{label}</span>
-      <span className={cn("text-sm font-bold tabular-nums text-zinc-100", valueClassName)}>{value}</span>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col items-start justify-center gap-1 rounded-xl border border-zinc-800/90 bg-zinc-950/60 px-3 py-2.5",
+        className
+      )}
+    >
+      <span
+        className={cn(
+          "text-2xl font-bold leading-none tracking-tight tabular-nums",
+          isZero ? "text-zinc-600" : valueClassName
+        )}
+      >
+        {value}
+      </span>
+      <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+        {label}
+      </span>
     </div>
   )
-}
-
-function MetricDivider() {
-  return <div className="hidden h-4 w-px shrink-0 bg-zinc-800 md:block" aria-hidden />
 }
 
 export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMetricStrip({
@@ -102,7 +127,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
         className={cn(
           showPillRow
             ? "flex flex-nowrap gap-1.5 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            : "grid grid-cols-2 gap-x-2 gap-y-1.5 px-2.5 py-2 xl:grid-cols-4 xl:gap-4 xl:px-8 xl:py-3",
+            : "grid grid-cols-2 gap-2 px-2.5 py-2.5 xl:grid-cols-4 xl:gap-2.5 xl:px-4 xl:py-3",
           sidebar && !showPillRow && "xl:grid-cols-2 xl:px-2.5 xl:py-2",
           !showPillRow && !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
         )}
@@ -113,26 +138,23 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           value={metrics.activeDispatches}
           valueClassName="text-sky-300"
         />
-        {!showPillRow ? <MetricDivider /> : null}
         <MetricCell
           compact={showPillRow}
           label={useShortLabels ? "Pool" : "Unassigned Pool"}
           value={metrics.unassignedPool}
           valueClassName="text-amber-300"
         />
-        {!showPillRow ? <MetricDivider /> : null}
         <MetricCell
           compact={showPillRow}
           label={useShortLabels ? "On-site" : "On-Site"}
           value={metrics.onSite}
-          valueClassName="text-yellow-300"
+          valueClassName="text-emerald-300"
         />
-        {!showPillRow ? <MetricDivider /> : null}
         <MetricCell
           compact={showPillRow}
           label={useShortLabels ? "Done" : "Completed Today"}
           value={metrics.completedToday}
-          valueClassName="text-zinc-400"
+          valueClassName="text-zinc-200"
         />
         {showPillRow && inboundCallPanel && !hidePrimaryAction ? (
           <Button
@@ -147,11 +169,17 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
         ) : null}
       </div>
       {!showPillRow && inboundCallPanel && !hidePrimaryAction ? (
-        <div className={cn("px-2.5 pb-2", sidebar ? "pt-0" : "px-3 md:px-8", !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-2.5")}>
+        <div
+          className={cn(
+            "px-2.5 pb-2",
+            sidebar ? "pt-0" : "px-3 md:px-8",
+            !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-2.5"
+          )}
+        >
           <Button
             type="button"
             size="sm"
-            className="h-8 w-full gap-1.5 font-semibold bg-primary text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
+            className="h-8 w-full gap-1.5 bg-primary font-semibold text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-4 w-4" aria-hidden />
