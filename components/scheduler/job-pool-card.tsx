@@ -3,10 +3,12 @@
 // Draggable card for one unassigned hopper job.
 
 import { useState } from "react"
-import { GripVertical, MapPin, Phone } from "lucide-react"
+import { GripVertical, MapPin, Navigation, Phone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSchedulerTouchInteraction } from "@/hooks/use-scheduler-mobile-timeline"
 import { useLiveClock } from "@/lib/hooks/use-live-clock"
+import { useNearestTechMatch } from "@/lib/hooks/use-nearest-tech-match"
+import { formatFieldDistanceLabel } from "@/lib/dispatch-eta"
 import { resolvePoolJobScheduledTarget } from "@/lib/job-pool-display"
 import { ScheduleInteractionBadge } from "@/components/scheduler/schedule-interaction-badge"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
@@ -61,6 +63,9 @@ export function JobPoolCard({
   const [rescueOfferOpen, setRescueOfferOpen] = useState(false)
   const touchInteraction = useSchedulerTouchInteraction()
   const now = useLiveClock()
+  const { match: nearestTech } = useNearestTechMatch(job.latitude, job.longitude)
+  const fieldDistanceLabel =
+    nearestTech != null ? formatFieldDistanceLabel(nearestTech.miles) : null
   const sidebar = variant === "sidebar"
   const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
   const area = job.neighborhood || job.location
@@ -215,6 +220,12 @@ export function JobPoolCard({
                     <span className="ml-1 text-xs font-medium text-slate-400">{postalCode}</span>
                   ) : null}
                 </span>
+              </p>
+            ) : null}
+            {fieldDistanceLabel ? (
+              <p className="text-slate-400 text-xs flex items-center gap-1">
+                <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                <span>{fieldDistanceLabel}</span>
               </p>
             ) : null}
           </div>

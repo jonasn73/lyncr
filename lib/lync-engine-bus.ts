@@ -10,6 +10,8 @@ export type LyncEngineBusEvent =
   | { type: "call-initiated"; payload: OwnerCallInitiatedPayload }
   | { type: "call-answered"; payload: OwnerCallAnsweredPayload }
   | { type: "call-completed"; payload: OwnerCallCompletedPayload }
+  /** Fired when a live leg ends — transcript / wrap-up hooks listen here. */
+  | { type: "onCallDisconnect"; payload: OwnerCallCompletedPayload }
   | { type: "engine-mounted" }
   | { type: "engine-unmounted" }
 

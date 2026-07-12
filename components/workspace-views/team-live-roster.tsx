@@ -3,11 +3,12 @@
 // Dense live technician availability roster for the Team tab.
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, UsersRound } from "lucide-react"
+import { Loader2, Navigation, UsersRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { organizationQueryString } from "@/lib/workspace-organizations"
-import type { DispatchJob, FieldTechnician } from "@/lib/types"
+import { calculateTechETA, type DispatchGeoPoint } from "@/lib/dispatch-eta"
+import type { DispatchJob, FieldTechnician, TechLiveLocation } from "@/lib/types"
 
 type RosterPresence = "on_job" | "standby" | "away"
 
@@ -16,6 +17,8 @@ type RosterRow = {
   shortName: string
   presence: RosterPresence
   detail: string
+  /** Optional field-distance ETA from mock routing (`calculateTechETA`). */
+  fieldDistanceLabel: string | null
 }
 
 /** "Alex Martinez" → "Alex M." */
@@ -47,24 +50,86 @@ function workloadDetail(job: DispatchJob & { job_type?: string | null }): string
   return `On job · ${type}`
 }
 
-function buildRosterRows(techs: FieldTechnician[], jobs: DispatchJob[]): RosterRow[] {
+function livePinForTech(
+  portalUserId: string | null | undefined,
+  techLocations: TechLiveLocation[]
+): DispatchGeoPoint | null {
+  if (!portalUserId) return null
+  const hit = techLocations.find((t) => t.tech_user_id === portalUserId)
+  if (!hit || !Number.isFinite(hit.latitude) || !Number.isFinite(hit.longitude)) return null
+  return { lat: hit.latitude, lng: hit.longitude }
+}
+
+function jobSitePin(job: DispatchJob): DispatchGeoPoint | null {
+  if (job.latitude == null || job.longitude == null) return null
+  if (!Number.isFinite(job.latitude) || !Number.isFinite(job.longitude)) return null
+  return { lat: job.latitude, lng: job.longitude }
+}
+
+function buildRosterRows(
+  techs: FieldTechnician[],
+  jobs: DispatchJob[],
+  techLocations: TechLiveLocation[]
+): RosterRow[] {
   const activeJobs = jobs.filter(isActiveFieldJob)
+  const unassignedWithPin = activeJobs.filter(
+    (j) => !j.assigned_tech_id && jobSitePin(j) != null
+  )
+
   return techs.map((tech) => {
     const shortName = shortDisplayName(tech.name)
     if (!tech.is_active) {
-      return { id: tech.id, shortName, presence: "away", detail: "Inactive" }
+      return {
+        id: tech.id,
+        shortName,
+        presence: "away",
+        detail: "Inactive",
+        fieldDistanceLabel: null,
+      }
     }
     if (tech.invite_pending) {
-      return { id: tech.id, shortName, presence: "away", detail: "Invite pending" }
+      return {
+        id: tech.id,
+        shortName,
+        presence: "away",
+        detail: "Invite pending",
+        fieldDistanceLabel: null,
+      }
     }
     const portalId = tech.portal_user_id
+    const techPin = livePinForTech(portalId, techLocations)
     const job = portalId
       ? activeJobs.find((j) => j.assigned_tech_id === portalId)
       : undefined
     if (job) {
-      return { id: tech.id, shortName, presence: "on_job", detail: workloadDetail(job) }
+      const eta = calculateTechETA(jobSitePin(job), techPin)
+      return {
+        id: tech.id,
+        shortName,
+        presence: "on_job",
+        detail: workloadDetail(job),
+        fieldDistanceLabel: eta?.label ?? null,
+      }
     }
-    return { id: tech.id, shortName, presence: "standby", detail: "Available for 2h" }
+    // Standby — ETA to nearest unassigned geocoded job when intake leaves work in the hopper.
+    let nearestLabel: string | null = null
+    if (techPin && unassignedWithPin.length > 0) {
+      let bestSort = Number.POSITIVE_INFINITY
+      for (const openJob of unassignedWithPin) {
+        const eta = calculateTechETA(jobSitePin(openJob), techPin)
+        if (eta && eta.sortKeyMiles < bestSort) {
+          bestSort = eta.sortKeyMiles
+          nearestLabel = eta.label
+        }
+      }
+    }
+    return {
+      id: tech.id,
+      shortName,
+      presence: "standby",
+      detail: "Available for 2h",
+      fieldDistanceLabel: nearestLabel,
+    }
   })
 }
 
@@ -87,6 +152,7 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
 
   const [techs, setTechs] = useState<FieldTechnician[]>([])
   const [jobs, setJobs] = useState<DispatchJob[]>([])
+  const [techLocations, setTechLocations] = useState<TechLiveLocation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -101,11 +167,19 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
         r.ok ? r.json() : Promise.reject(new Error("jobs"))
       ),
     ])
-      .then(([techJson, jobsJson]: [{ data?: FieldTechnician[] }, { data?: { jobs?: DispatchJob[] } }]) => {
-        setTechs(Array.isArray(techJson.data) ? techJson.data : [])
-        setJobs(Array.isArray(jobsJson.data?.jobs) ? jobsJson.data!.jobs! : [])
-        setError(null)
-      })
+      .then(
+        ([techJson, jobsJson]: [
+          { data?: FieldTechnician[] },
+          { data?: { jobs?: DispatchJob[]; techLocations?: TechLiveLocation[] } },
+        ]) => {
+          setTechs(Array.isArray(techJson.data) ? techJson.data : [])
+          setJobs(Array.isArray(jobsJson.data?.jobs) ? jobsJson.data!.jobs! : [])
+          setTechLocations(
+            Array.isArray(jobsJson.data?.techLocations) ? jobsJson.data!.techLocations! : []
+          )
+          setError(null)
+        }
+      )
       .catch(() => setError("Could not load live roster"))
       .finally(() => setLoading(false))
   }, [orgId])
@@ -116,7 +190,10 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
     return () => window.clearInterval(id)
   }, [load])
 
-  const rows = useMemo(() => buildRosterRows(techs, jobs), [techs, jobs])
+  const rows = useMemo(
+    () => buildRosterRows(techs, jobs, techLocations),
+    [techs, jobs, techLocations]
+  )
 
   return (
     <section
@@ -156,13 +233,21 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
               key={row.id}
               className="flex items-center justify-between gap-3 px-4 py-3"
             >
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className={cn("h-2 w-2 shrink-0 rounded-full", PRESENCE_DOT[row.presence])}
-                  title={PRESENCE_LABEL[row.presence]}
-                  aria-label={PRESENCE_LABEL[row.presence]}
-                />
-                <span className="truncate text-sm font-semibold text-slate-100">{row.shortName}</span>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={cn("h-2 w-2 shrink-0 rounded-full", PRESENCE_DOT[row.presence])}
+                    title={PRESENCE_LABEL[row.presence]}
+                    aria-label={PRESENCE_LABEL[row.presence]}
+                  />
+                  <span className="truncate text-sm font-semibold text-slate-100">{row.shortName}</span>
+                </div>
+                {row.fieldDistanceLabel ? (
+                  <p className="text-slate-400 text-xs flex items-center gap-1 pl-[18px]">
+                    <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                    <span>{row.fieldDistanceLabel}</span>
+                  </p>
+                ) : null}
               </div>
               <span className="shrink-0 text-right text-[11px] font-medium text-slate-400">
                 {row.detail}

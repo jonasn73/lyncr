@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useState } from "react"
 import { Loader2, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -14,6 +15,10 @@ import {
   formatScheduledDateDisplay,
   formatScheduledTimeDisplay,
 } from "@/lib/scheduler-utils"
+import {
+  buildDepositSmsStagingTemplate,
+  createMockSecureDepositLink,
+} from "@/lib/secure-deposit-link"
 import { cn } from "@/lib/utils"
 import {
   SCHEDULER_FIELD_STACK,
@@ -112,6 +117,23 @@ export function JobDetailOverview({
     job_status: jobStatus,
   })
   const appointmentDelayed = appointmentPhase === "overdue"
+
+  const [depositSmsStaging, setDepositSmsStaging] = useState<string | null>(null)
+
+  const handleSecureDepositLink = useCallback(() => {
+    const depositUrl = createMockSecureDepositLink(source.id)
+    const amountLabel =
+      quotedPriceDollars > 0
+        ? `$${Math.max(25, Math.round(quotedPriceDollars * 0.2))}`
+        : null
+    setDepositSmsStaging(
+      buildDepositSmsStagingTemplate({
+        customerName,
+        depositUrl,
+        amountLabel,
+      })
+    )
+  }, [source.id, quotedPriceDollars, customerName])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -290,7 +312,36 @@ export function JobDetailOverview({
                 >
                   Complete
                 </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={handleSecureDepositLink}
+                  className={cn(
+                    QUICK_ACTION_BASE,
+                    "bg-emerald-950/40 text-emerald-400 border border-emerald-900/50 hover:bg-emerald-950/60"
+                  )}
+                >
+                  Secure Deposit Link
+                </button>
               </div>
+              {depositSmsStaging != null ? (
+                <div className="mt-2 space-y-1.5">
+                  <label htmlFor="deposit-sms-staging" className={DRAWER_SECTION_LABEL}>
+                    Deposit SMS staging
+                  </label>
+                  <textarea
+                    id="deposit-sms-staging"
+                    rows={3}
+                    value={depositSmsStaging}
+                    onChange={(e) => setDepositSmsStaging(e.target.value)}
+                    className="h-20 w-full resize-y rounded-xl border border-emerald-900/40 bg-slate-950/50 p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-emerald-500/50 focus:outline-none"
+                    placeholder="Edit the deposit SMS before sending…"
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    Mock secure payment link appended — edit before copying into Messages.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             {/* Dispatcher activity log — persists to job_notes on the lead */}

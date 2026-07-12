@@ -16,11 +16,13 @@ import { useDashboardSessionOptional } from "@/components/dashboard-session-cont
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { clearOperationsDataCache } from "@/lib/hooks/use-operations-data"
+import { injectAiTranscriptOnCallDisconnect } from "@/lib/call-transcript-stub"
 import {
   emitLyncEngineBus,
   LYNCR_ACTIVITY_REFRESH_EVENT,
   LYNCR_FOCUS_INTAKE_EVENT,
   setLyncEngineOwningRealtime,
+  subscribeLyncEngineBus,
   type LyncFocusIntakeDetail,
 } from "@/lib/lync-engine-bus"
 import type { LyncEngineCall, LyncEnginePublicState, LyncLinePhase } from "@/lib/lync-engine-types"
@@ -112,6 +114,20 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
   // Hydrate badge from sessionStorage once on mount.
   useEffect(() => {
     setActivityBadgeCount(readBadgeCount())
+  }, [])
+
+  // onCallDisconnect case — when a leg ends with an open intake draft, inject AI transcript stub.
+  useEffect(() => {
+    return subscribeLyncEngineBus((event) => {
+      if (event.type !== "onCallDisconnect") return
+      const from = String(event.payload.from_number ?? "").trim()
+      if (!from) return
+      try {
+        injectAiTranscriptOnCallDisconnect(from)
+      } catch (err) {
+        console.warn("[lync-engine] transcript stub failed", err)
+      }
+    })
   }, [])
 
   // Clear Activities badge when the user opens that tab.
@@ -282,6 +298,8 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       if (!eventMatchesWorkspace(raw)) return
       const callSid = String(raw.call_sid ?? "").trim()
       emitLyncEngineBus({ type: "call-completed", payload: raw })
+      // Disconnect case — background pipes (transcript stub, wrap-up) subscribe here.
+      emitLyncEngineBus({ type: "onCallDisconnect", payload: raw })
       setActiveCalls((prev) => prev.filter((c) => c.callSid !== callSid))
 
       if (isMissedCallTelemetry(raw)) {

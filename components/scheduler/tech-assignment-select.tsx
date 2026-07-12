@@ -15,6 +15,7 @@ import {
   jobGeoContextFromJob,
   pickBestMatchTechUserId,
 } from "@/lib/tech-territory-match"
+import { calculateTechETA, sortTechsByProximityEta } from "@/lib/dispatch-eta"
 import { SCHEDULER_INPUT, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
 import type { ActivePipelineJob, FieldTechnician, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
 
@@ -58,6 +59,20 @@ export function TechAssignmentSelect({
     [technicians]
   )
 
+  const jobPin = useMemo(() => {
+    if (job.latitude == null || job.longitude == null) return null
+    if (!Number.isFinite(job.latitude) || !Number.isFinite(job.longitude)) return null
+    return { lat: job.latitude, lng: job.longitude }
+  }, [job.latitude, job.longitude])
+
+  const techsByProximity = useMemo(() => {
+    return sortTechsByProximityEta(assignableTechs, jobPin, (tech) => {
+      const loc = techLocations.find((t) => t.tech_user_id === tech.portal_user_id)
+      if (!loc) return null
+      return { lat: loc.latitude, lng: loc.longitude }
+    })
+  }, [assignableTechs, jobPin, techLocations])
+
   const bestMatchTechId = useMemo(() => {
     return pickBestMatchTechUserId({
       technicians: assignableTechs,
@@ -83,18 +98,30 @@ export function TechAssignmentSelect({
         </SelectTrigger>
         <SelectContent className="border-slate-800/80 bg-slate-900/95 backdrop-blur-md">
           <SelectItem value="__unassigned__">Unassigned — select when scheduled</SelectItem>
-          {assignableTechs.map((tech) => {
+          {techsByProximity.map((tech) => {
             const techUserId = tech.portal_user_id!
             const isBestMatch = bestMatchTechId === techUserId
+            const loc = techLocations.find((t) => t.tech_user_id === techUserId)
+            const eta = calculateTechETA(
+              jobPin,
+              loc ? { lat: loc.latitude, lng: loc.longitude } : null
+            )
             return (
               <SelectItem key={techUserId} value={techUserId} className="py-2.5">
                 <span className="flex w-full items-center justify-between gap-2">
                   <span>{tech.name}</span>
-                  {isBestMatch ? (
-                    <span className="shrink-0 text-[11px] font-semibold tracking-wider text-emerald-400">
-                      ★ Closest
-                    </span>
-                  ) : null}
+                  <span className="flex shrink-0 items-center gap-2">
+                    {eta ? (
+                      <span className="text-[10px] font-medium tabular-nums text-slate-400">
+                        {eta.label}
+                      </span>
+                    ) : null}
+                    {isBestMatch ? (
+                      <span className="text-[11px] font-semibold tracking-wider text-emerald-400">
+                        ★ Closest
+                      </span>
+                    ) : null}
+                  </span>
                 </span>
               </SelectItem>
             )
@@ -104,7 +131,7 @@ export function TechAssignmentSelect({
 
       {bestMatchTechId ? (
         <p className={SCHEDULER_METADATA_LABEL}>
-          Territory match uses ZIP, city, active assignments, and live GPS.
+          Sorted by proximity ETA when live GPS is available (ZIP / territory fallback otherwise).
         </p>
       ) : null}
     </div>
