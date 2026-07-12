@@ -126,3 +126,10 @@ If porting to mobile:
 - Replace shadcn components with React Native equivalents (react-native-paper, nativewind)
 - API routes stay as-is on the Next.js backend
 - Mobile app calls the same /api/* endpoints
+
+# Global UI & Spacing Standards
+- Always hide non-actionable subheader descriptive blocks on mobile using `hidden md:block`.
+- Protect bottom action buttons from mobile browser navigation bars using `pb-[calc(env(safe-area-inset-bottom)+1.5rem)]` or `pb-20` on structural page shells.
+- Never duplicate currency formatting (e.g., prevent '$ $375').
+- Flatten card metadata loops into clean inline rows ("Attribute • Detail") instead of vertical rows with heavy icons.
+- Group consecutive duplicate phone logs into a single item with a counter: "Unknown Caller (2)".
