@@ -13,6 +13,8 @@ export type SmartOverflowFallbackCardProps = {
   compact?: boolean
   step?: string
   overflowActive: boolean
+  /** Presence On-Job / Closed — stronger amber glow on the automation path. */
+  presenceDriven?: boolean
   nextAvailableSlotText: string
   confirmedJobsToday: number
   config: SmartOverflowConfig
@@ -41,6 +43,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   compact = false,
   step = "3",
   overflowActive,
+  presenceDriven = false,
   nextAvailableSlotText,
   confirmedJobsToday,
   config,
@@ -50,24 +53,37 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   retellConnected = true,
 }: SmartOverflowFallbackCardProps) {
   const title = overflowActive
-    ? "📞 FALLBACK · IVR MENU ACTIVE"
+    ? presenceDriven
+      ? "📞 FALLBACK · AUTOMATION LIVE"
+      : "📞 FALLBACK · IVR MENU ACTIVE"
     : "Smart Overflow IVR Menu"
-  const value = overflowActive ? "[ IVR Menu LIVE ]" : "IVR Menu standby"
+  const value = overflowActive
+    ? presenceDriven
+      ? "[ IVR Menu LIVE · Presence ]"
+      : "[ IVR Menu LIVE ]"
+    : "IVR Menu standby"
   const detail = overflowActive
-    ? "Inbound calls → automated greeting + press 1 / press 2 menu"
+    ? presenceDriven
+      ? "Presence On-Job / Closed — calls skip your cell and hit automation first"
+      : "Inbound calls → automated greeting + press 1 / press 2 menu"
     : "Pick Manual or Auto-On Full Capacity below."
   const valueClass = overflowActive
-    ? "animate-pulse text-emerald-300"
+    ? presenceDriven
+      ? "animate-pulse text-amber-300"
+      : "animate-pulse text-emerald-300"
     : "text-foreground"
+  const liveChrome = overflowActive
+    ? presenceDriven
+      ? "border-amber-400/70 bg-amber-950/20 shadow-[0_0_28px_-4px_rgba(251,191,36,0.55)] ring-2 ring-amber-400/40"
+      : "border-emerald-500/30 bg-emerald-950/10 shadow-[0_0_24px_-6px_rgba(16,185,129,0.35)]"
+    : "border-slate-850/60 bg-slate-900/30"
 
   if (compact) {
     return (
       <div
         className={cn(
-          "w-full rounded-xl border px-3 py-2.5 text-left",
-          overflowActive
-            ? "border-emerald-500/30 bg-emerald-950/10"
-            : "border-slate-850/60 bg-slate-900/30",
+          "w-full rounded-xl border px-3 py-2.5 text-left transition-[box-shadow,border-color,background-color]",
+          liveChrome,
           loading && "opacity-50"
         )}
       >
@@ -80,7 +96,11 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           <div
             className={cn(
               "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-              overflowActive ? "bg-emerald-500/15 text-emerald-300" : "bg-primary/12 text-primary"
+              overflowActive
+                ? presenceDriven
+                  ? "bg-amber-500/15 text-amber-300"
+                  : "bg-emerald-500/15 text-emerald-300"
+                : "bg-primary/12 text-primary"
             )}
           >
             <Hourglass className="h-3.5 w-3.5" aria-hidden />
@@ -115,9 +135,11 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   return (
     <div
       className={cn(
-        "group relative flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border p-3 text-left shadow-sm sm:min-h-[12.5rem] sm:p-5",
+        "group relative flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border p-3 text-left shadow-sm transition-[box-shadow,border-color,background-color] sm:min-h-[12.5rem] sm:p-5",
         overflowActive
-          ? "border-emerald-500/30 bg-emerald-950/10"
+          ? presenceDriven
+            ? "border-amber-400/70 bg-amber-950/15 shadow-[0_0_32px_-4px_rgba(251,191,36,0.55)] ring-2 ring-amber-400/35"
+            : "border-emerald-500/30 bg-emerald-950/10 shadow-[0_0_24px_-6px_rgba(16,185,129,0.35)]"
           : "border-border/70 bg-gradient-to-b from-card to-background/80",
         loading && "pointer-events-none opacity-50"
       )}
@@ -132,19 +154,32 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-xl border",
               overflowActive
-                ? "border-emerald-500/30 bg-emerald-500/15 shadow-[0_0_20px_-6px_rgb(16_185_129)]"
+                ? presenceDriven
+                  ? "border-amber-400/40 bg-amber-500/15 shadow-[0_0_20px_-4px_rgba(251,191,36,0.65)]"
+                  : "border-emerald-500/30 bg-emerald-500/15 shadow-[0_0_20px_-6px_rgb(16_185_129)]"
                 : "border-primary/30 bg-primary/15 shadow-[0_0_20px_-6px_var(--primary)]"
             )}
           >
             <Hourglass
-              className={cn("h-5 w-5", overflowActive ? "text-emerald-300" : "text-primary")}
+              className={cn(
+                "h-5 w-5",
+                overflowActive
+                  ? presenceDriven
+                    ? "text-amber-300"
+                    : "text-emerald-300"
+                  : "text-primary"
+              )}
               aria-hidden
             />
           </div>
           <span
             className={cn(
               "text-[10px] font-bold uppercase tracking-wider",
-              overflowActive ? "text-emerald-300/80" : "text-primary/80"
+              overflowActive
+                ? presenceDriven
+                  ? "text-amber-300/90"
+                  : "text-emerald-300/80"
+                : "text-primary/80"
             )}
           >
             Step {step}

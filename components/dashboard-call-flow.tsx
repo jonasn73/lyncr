@@ -37,6 +37,7 @@ import {
   normalizeActiveRoutingMode,
   type ActiveRoutingMode,
 } from "@/lib/active-routing-mode"
+import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -379,12 +380,25 @@ export function buildCallFlowNodes(params: {
   autopilotMode: boolean
   /** Off-duty IVR Menu is answering — fade Your phone and badge Forwarding to IVR. */
   ivrMenuLive?: boolean
+  /** Presence On-Job / Closed — cell is bypassed for automation. */
+  presenceBypass?: boolean
+  presenceStatus?: "AVAILABLE" | "ON_JOB" | "CLOSED"
   openWhoAnswers: () => void
   configureStrategy: () => void
 }): CallFlowNode[] {
   const poolIsPrimary = params.routingStrategy === "lyncr_only"
   const nodes: CallFlowNode[] = []
   const ivrLive = params.ivrMenuLive === true
+  const presenceBypass = params.presenceBypass === true
+  const cellBypassed = ivrLive || presenceBypass
+  const presenceBadge =
+    params.presenceStatus === "CLOSED"
+      ? "[ SILENCED ]"
+      : params.presenceStatus === "ON_JOB"
+        ? "[ BYPASSED ]"
+        : undefined
+  const bypassDetail =
+    "Calls are routing 100% to automation. Your cell device will not ring."
 
   // Node 1 — Primary: whoever the webhook dials first on this line.
   if (poolIsPrimary) {
@@ -393,15 +407,19 @@ export function buildCallFlowNodes(params: {
       title: "Primary · Who answers",
       icon: Network,
       value: "Lyncr Network Pool",
-      detail: "Certified shared agents answer in-browser",
+      detail: presenceBypass
+        ? bypassDetail
+        : ivrLive
+          ? "Certified shared agents answer in-browser · IVR live"
+          : "Certified shared agents answer in-browser",
       onOpen: params.openWhoAnswers,
       accent: "network",
-      faded: ivrLive,
-      valueBadge: ivrLive ? "[ Forwarding to IVR ]" : undefined,
-      badgeTone: ivrLive ? "emerald" : "amber",
-      detailMuted: ivrLive,
+      faded: cellBypassed,
+      valueBadge: presenceBadge || (ivrLive ? "[ Forwarding to IVR ]" : undefined),
+      badgeTone: presenceBypass ? "amber" : ivrLive ? "emerald" : "amber",
+      detailMuted: cellBypassed,
     })
-  } else if (params.isRoutingToOwner && params.autopilotMode && !ivrLive) {
+  } else if (params.isRoutingToOwner && params.autopilotMode && !cellBypassed) {
     // Sunday Autopilot: Your phone stays listed, but rings are bypassed for the AI scheduler.
     nodes.push({
       key: "primary",
@@ -412,6 +430,20 @@ export function buildCallFlowNodes(params: {
       detail: `${params.ownerPhoneDisplay} ⏸️ Rings bypassed`,
       valueBadge: "AUTOPILOT",
       detailMuted: true,
+      onOpen: params.openWhoAnswers,
+      accent: "primary",
+    })
+  } else if (params.isRoutingToOwner && presenceBypass) {
+    nodes.push({
+      key: "primary",
+      title: "Primary · Who answers",
+      icon: Smartphone,
+      value: "Your phone",
+      detail: `${params.ownerPhoneDisplay} · ${bypassDetail}`,
+      valueBadge: presenceBadge,
+      badgeTone: "amber",
+      detailMuted: true,
+      faded: true,
       onOpen: params.openWhoAnswers,
       accent: "primary",
     })
@@ -436,13 +468,17 @@ export function buildCallFlowNodes(params: {
       title: "Primary · Who answers",
       icon: Smartphone,
       value: params.isRoutingToOwner ? "Your phone" : params.selectedReceptionistName ?? "—",
-      detail: params.isRoutingToOwner ? params.ownerPhoneDisplay : params.selectedReceptionistPhone ?? undefined,
+      detail: presenceBypass
+        ? bypassDetail
+        : params.isRoutingToOwner
+          ? params.ownerPhoneDisplay
+          : params.selectedReceptionistPhone ?? undefined,
       onOpen: params.openWhoAnswers,
       accent: "primary",
-      faded: ivrLive,
-      valueBadge: ivrLive ? "[ Forwarding to IVR ]" : undefined,
-      badgeTone: ivrLive ? "emerald" : "amber",
-      detailMuted: ivrLive,
+      faded: cellBypassed,
+      valueBadge: presenceBadge || (ivrLive ? "[ Forwarding to IVR ]" : undefined),
+      badgeTone: presenceBypass ? "amber" : ivrLive ? "emerald" : "amber",
+      detailMuted: cellBypassed,
     })
   }
 
@@ -456,7 +492,7 @@ export function buildCallFlowNodes(params: {
       detail: "Shared agents try next",
       onOpen: params.configureStrategy,
       accent: "network",
-      faded: ivrLive,
+      faded: cellBypassed,
     })
   }
 
@@ -487,6 +523,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const isMobile = useIsMobile()
+  const { presenceStatus, presenceBypass } = useAccountPresence()
   // Live calendar capacity + next open 1-hour block for Smart Overflow IVR Menu.
   const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
   // Who Answers primary mode — gates the entire IVR configuration deck.
@@ -522,10 +559,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     return () => window.removeEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
   }, [loadActiveRoutingMode])
 
-  // Only show Smart Overflow IVR Menu when Who Answers primary target is Smart IVR.
-  const showIvrDeck = activeRoutingMode === "smart_ivr"
-  // Emerald live badges / connectors when IVR is the active primary answering path.
-  const ivrMenuLive = showIvrDeck
+  // Smart IVR mode OR presence On-Job/Closed — automation owns inbound.
+  const showIvrDeck = activeRoutingMode === "smart_ivr" || presenceBypass
+  const ivrMenuLive = activeRoutingMode === "smart_ivr" || presenceBypass
+  const automationLive = ivrMenuLive || smartOverflow.overflowActive || autopilotMode
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -536,7 +573,9 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     selectedReceptionistPhone: selectedReceptionist?.phone ? formatPhoneDisplay(selectedReceptionist.phone) : null,
     ownerPhoneDisplay,
     autopilotMode: autopilotMode && !ivrMenuLive,
-    ivrMenuLive,
+    ivrMenuLive: activeRoutingMode === "smart_ivr",
+    presenceBypass,
+    presenceStatus,
     openWhoAnswers: () => setWhoAnswersOpen(true),
     configureStrategy: onConfigureStrategy,
   })
@@ -550,7 +589,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     <SmartOverflowFallbackCard
       compact={isMobile}
       step={String(primaryAndNetworkNodes.length + 2)}
-      overflowActive={smartOverflow.overflowActive || autopilotMode || showIvrDeck}
+      overflowActive={automationLive}
+      presenceDriven={presenceBypass}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
       config={smartOverflow.config}

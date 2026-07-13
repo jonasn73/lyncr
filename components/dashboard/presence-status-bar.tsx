@@ -2,11 +2,10 @@
 
 // Sticky Presence bar on Lines — Available / On-Job / Closed.
 
-import { useCallback, useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
 import type { PresenceStatus } from "@/lib/account-presence"
+import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
 const OPTIONS: {
   value: PresenceStatus
@@ -31,76 +30,7 @@ const OPTIONS: {
 ]
 
 export function PresenceStatusBar({ className }: { className?: string }) {
-  const { toast } = useToast()
-  const [status, setStatus] = useState<PresenceStatus>("AVAILABLE")
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState<PresenceStatus | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch("/api/routing/presence", { credentials: "include" })
-      const json = (await res.json()) as {
-        data?: { presence_status?: string }
-      }
-      const raw = String(json.data?.presence_status || "AVAILABLE").toUpperCase()
-      if (raw === "ON_JOB") setStatus("ON_JOB")
-      else if (raw === "CLOSED") setStatus("CLOSED")
-      else setStatus("AVAILABLE")
-    } catch {
-      setStatus("AVAILABLE")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  async function select(next: PresenceStatus) {
-    if (next === status && !saving) return
-    const prev = status
-    setStatus(next)
-    setSaving(next)
-    try {
-      const res = await fetch("/api/routing/presence", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ presence_status: next }),
-      })
-      const json = (await res.json()) as {
-        error?: string
-        migration?: string
-        data?: { presence_status?: string }
-      }
-      if (!res.ok) {
-        setStatus(prev)
-        toast({
-          title: "Could not update presence",
-          description: json.migration
-            ? `Run ${json.migration} in Neon, then try again.`
-            : json.error || res.statusText,
-          variant: "destructive",
-        })
-        return
-      }
-      const saved = String(json.data?.presence_status || next).toUpperCase()
-      if (saved === "ON_JOB") setStatus("ON_JOB")
-      else if (saved === "CLOSED") setStatus("CLOSED")
-      else setStatus("AVAILABLE")
-    } catch (e) {
-      setStatus(prev)
-      toast({
-        title: "Could not update presence",
-        description: e instanceof Error ? e.message : "Try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setSaving(null)
-    }
-  }
+  const { presenceStatus, loading, saving, setPresenceStatus } = useAccountPresence()
 
   return (
     <div
@@ -120,13 +50,13 @@ export function PresenceStatusBar({ className }: { className?: string }) {
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         {OPTIONS.map((opt) => {
-          const active = status === opt.value
+          const active = presenceStatus === opt.value
           return (
             <button
               key={opt.value}
               type="button"
-              disabled={loading || saving != null}
-              onClick={() => void select(opt.value)}
+              disabled={loading || saving}
+              onClick={() => void setPresenceStatus(opt.value)}
               className={cn(
                 "flex min-h-[3.25rem] flex-col items-center justify-center rounded-xl border px-2 py-2 text-center transition-colors",
                 active

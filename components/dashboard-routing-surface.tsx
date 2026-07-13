@@ -10,6 +10,7 @@ import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
 import { MissedLeadRecoveryBanner } from "@/components/dashboard/missed-lead-recovery-banner"
 import { PresenceStatusBar } from "@/components/dashboard/presence-status-bar"
+import { AccountPresenceProvider } from "@/components/dashboard/account-presence-context"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
@@ -186,6 +187,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   )
 
   return (
+    <AccountPresenceProvider>
     <div className="flex w-full flex-col">
       {stickyChrome}
 
@@ -330,5 +332,6 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
         </div>
       </div>
     </div>
+    </AccountPresenceProvider>
   )
 })
