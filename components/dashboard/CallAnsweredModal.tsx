@@ -73,7 +73,7 @@ import {
   normalizeCallEventPhoneDigits,
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
-import { emitFocusDispatchMap } from "@/lib/dispatch-map-focus"
+import { emitFocusDispatchMap, LYNCR_RETURN_TO_INTAKE_EVENT } from "@/lib/dispatch-map-focus"
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
@@ -1402,14 +1402,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [form.displayName, form.addressLine1, form.city, addressReady]
   )
 
-  /** Auto-advance when name + address are ready on the contact step. */
-  useEffect(() => {
-    if (!stepIntake) return
-    if (currentStep !== "ADDRESS_CONTACT") return
-    if (!canAdvanceToDispatch) return
-    const timer = window.setTimeout(() => setCurrentStep("FINAL_DISPATCH"), 450)
-    return () => window.clearTimeout(timer)
-  }, [stepIntake, currentStep, canAdvanceToDispatch])
+  /** Explicit Continue button advances — no silent auto-jump past name/address. */
 
   /** Jump to top of the step panel whenever the workflow advances (mobile was stacking steps below). */
   useEffect(() => {
@@ -1466,6 +1459,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     isMinimizedRef.current = false
     setIsMinimized(false)
   }, [])
+
+  // Map overlay "← Return to Intake Form" — reopen the intake drawer instantly.
+  useEffect(() => {
+    const onReturn = () => {
+      expandIntake()
+    }
+    window.addEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
+    return () => window.removeEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
+  }, [expandIntake])
 
   const viewOnMapLayout = useCallback(() => {
     const lat = form.serviceAddress?.lat
@@ -1834,9 +1836,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   jobLat={form.serviceAddress?.lat ?? null}
                                   jobLng={form.serviceAddress?.lng ?? null}
                                 />
-                                <p className="text-[10px] text-muted-foreground">
-                                  Pick a suggestion or finish typing — advances when name + address are ready.
-                                </p>
                               </div>
                             </fieldset>
                           ) : null}
@@ -2336,15 +2335,31 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       </div>
                     ) : null}
                     {currentStep === "ADDRESS_CONTACT" ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="lg"
-                        className="h-11 w-full"
-                        onClick={() => goBackManualWorkflow(manualPath)}
-                      >
-                        Back
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="h-11 shrink-0"
+                          onClick={() => goBackManualWorkflow(manualPath)}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          size="lg"
+                          className={cn(
+                            "h-11 min-w-0 flex-1 font-semibold",
+                            !canAdvanceToDispatch && "opacity-50"
+                          )}
+                          disabled={!canAdvanceToDispatch}
+                          onClick={() => setCurrentStep("FINAL_DISPATCH")}
+                        >
+                          {canAdvanceToDispatch
+                            ? "Continue to Time Blocks →"
+                            : "Enter Name & Address to Advance"}
+                        </Button>
+                      </div>
                     ) : null}
                     {currentStep === "FINAL_DISPATCH" ? (
                       <>

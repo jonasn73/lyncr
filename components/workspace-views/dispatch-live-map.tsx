@@ -14,7 +14,9 @@ import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { DispatchJob, FieldTechnician, TechLiveLocation } from "@/lib/types"
 import {
   LYNCR_FOCUS_DISPATCH_MAP_EVENT,
+  LYNCR_RETURN_TO_INTAKE_EVENT,
   consumePendingFocusDispatchMap,
+  emitReturnToIntakeFromMap,
   type FocusDispatchMapDetail,
 } from "@/lib/dispatch-map-focus"
 import { cn } from "@/lib/utils"
@@ -355,7 +357,7 @@ export function DispatchLiveMap({
       />
 
       {destination ? (
-        <div className="absolute left-3 top-3 z-[1200] max-w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2 shadow-xl backdrop-blur">
+        <div className="absolute left-3 top-3 z-[1200] max-w-[min(18rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur">
           <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
             Intake target
           </p>
@@ -374,6 +376,15 @@ export function DispatchLiveMap({
             className="mt-1.5 text-[10px] font-semibold text-rose-300/90 underline-offset-2 hover:underline"
           >
             Clear pin
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              emitReturnToIntakeFromMap()
+            }}
+            className="mt-2 flex w-full items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
+          >
+            ← Return to Intake Form
           </button>
         </div>
       ) : null}
