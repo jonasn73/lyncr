@@ -78,11 +78,15 @@ import {
 } from "@/lib/active-routing-mode-db"
 import {
   CAPTURE_DEFAULT_RING_E164,
+  CAPTURE_STATUS_CALENDAR_BUSY,
+  CAPTURE_STATUS_CALENDAR_OFF,
   CAPTURE_STATUS_NIGHT_MENU,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+  buildCalendarFullDayGatherXml,
+  buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
   buildNightCaptureGatherXml,
-  isNightMode,
+  resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
 
 export const runtime = "nodejs"
@@ -1445,13 +1449,22 @@ async function tryFastInboundReceptionistResponse(
           pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || ""
         const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
         const captureBase = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-capture`
-        const night = isNightMode()
+        const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id })
         const ownerDial =
           normalizePhoneNumberE164(routing.owner_phone) ||
           (isReasonablePstnDialString(routing.owner_phone) ? routing.owner_phone.trim() : "") ||
           CAPTURE_DEFAULT_RING_E164
 
-        const initialRoutedName = night ? CAPTURE_STATUS_NIGHT_MENU : "Owner"
+        const initialRoutedName =
+          plan.kind === "calendar_full_day"
+            ? CAPTURE_STATUS_CALENDAR_OFF
+            : plan.kind === "calendar_partial"
+              ? CAPTURE_STATUS_CALENDAR_BUSY
+              : plan.kind === "night"
+                ? CAPTURE_STATUS_NIGHT_MENU
+                : "Owner"
+        const initialCallType = plan.kind === "day_dial" ? "incoming" : "missed"
+
         if (callSidEarly && routing.user_id) {
           after(() => {
             void insertCallLog({
@@ -1462,7 +1475,7 @@ async function tryFastInboundReceptionistResponse(
                 : "Unknown",
               to_number: businessLineE164Early,
               caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
-              call_type: night ? "missed" : "incoming",
+              call_type: initialCallType,
               status: "ringing",
               duration_seconds: 0,
               routed_to_receptionist_id: null,
@@ -1476,7 +1489,7 @@ async function tryFastInboundReceptionistResponse(
                 const { updateCallLog } = await import("@/lib/db")
                 await updateCallLog(callSidEarly, {
                   routed_to_name: initialRoutedName,
-                  call_type: night ? "missed" : "incoming",
+                  call_type: initialCallType,
                 })
               })
               .catch(async (logErr) => {
@@ -1485,7 +1498,7 @@ async function tryFastInboundReceptionistResponse(
                   const { updateCallLog } = await import("@/lib/db")
                   await updateCallLog(callSidEarly, {
                     routed_to_name: initialRoutedName,
-                    call_type: night ? "missed" : "incoming",
+                    call_type: initialCallType,
                   })
                 } catch (e2) {
                   console.error("[Sigo] Call log capture retag failed:", e2)
@@ -1494,27 +1507,38 @@ async function tryFastInboundReceptionistResponse(
           })
         }
 
-        const xml = night
-          ? buildNightCaptureGatherXml(`${captureBase}?step=night`)
-          : buildDayCaptureDialXml({
-              ringE164: ownerDial,
-              actionUrl: `${captureBase}?step=day-fallback`,
-              callerId: businessLineE164Early,
-              timeoutSeconds: DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
-            })
+        let xml: string
+        if (plan.kind === "calendar_full_day") {
+          xml = buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
+        } else if (plan.kind === "calendar_partial") {
+          xml = buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
+        } else if (plan.kind === "night") {
+          xml = buildNightCaptureGatherXml(`${captureBase}?step=night`)
+        } else {
+          xml = buildDayCaptureDialXml({
+            ringE164: ownerDial,
+            actionUrl: `${captureBase}?step=day-fallback`,
+            callerId: businessLineE164Early,
+            timeoutSeconds: DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+          })
+        }
 
         console.log(
           JSON.stringify({
             ...(perfStartMs != null
               ? { execMs: +(performance.now() - perfStartMs).toFixed(2) }
               : {}),
-            zing: night ? "telnyx-incoming-night-capture" : "telnyx-incoming-day-capture",
+            zing: `telnyx-incoming-capture-${plan.kind}`,
             callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
             ringTail4: ownerDial.replace(/\D/g, "").slice(-4) || null,
             lookupMs,
             routingSource: memHit ? "memory" : "db",
             routingMode,
+            planKind: plan.kind,
+            ...(plan.kind === "calendar_full_day" || plan.kind === "calendar_partial"
+              ? { dateKey: plan.dateKey, timeHhMm: plan.timeHhMm, reason: plan.reason }
+              : {}),
           })
         )
         return new NextResponse(xml, {

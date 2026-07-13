@@ -6,6 +6,10 @@ import {
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   NIGHT_CAPTURE_PROMPT,
   DAY_BUSY_FALLBACK_PROMPT,
+  CALENDAR_FULL_DAY_PROMPT,
+  CALENDAR_PARTIAL_BUSY_PROMPT,
+  buildCalendarFullDayGatherXml,
+  buildCalendarPartialBusyGatherXml,
   buildDayBusyFallbackGatherXml,
   buildDayCaptureDialXml,
   buildNightCaptureGatherXml,
@@ -69,6 +73,18 @@ describe("inbound time capture", () => {
     expect(isCaptureDialUnanswered("no-answer")).toBe(true)
     expect(isCaptureDialUnanswered("busy")).toBe(true)
     expect(isCaptureDialUnanswered("completed")).toBe(false)
+  })
+
+  it("builds calendar full-day and partial busy Gather prompts", () => {
+    const full = buildCalendarFullDayGatherXml("https://lyncr.app/api/telnyx-capture?step=calendar-off")
+    expect(full).toContain(CALENDAR_FULL_DAY_PROMPT)
+    expect(full).toContain("calendar-off")
+
+    const partial = buildCalendarPartialBusyGatherXml(
+      "https://lyncr.app/api/telnyx-capture?step=calendar-busy"
+    )
+    expect(partial).toContain(CALENDAR_PARTIAL_BUSY_PROMPT)
+    expect(partial).toContain("calendar-busy")
   })
 })
 

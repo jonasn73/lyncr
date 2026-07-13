@@ -206,6 +206,8 @@ export type ActivityCallStatus =
   | "voicemail"
   | "night_link"
   | "day_link"
+  | "day_off_link"
+  | "busy_link"
   | "emergency"
 
 export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
@@ -224,6 +226,10 @@ export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
       "border-sky-500/45 bg-sky-500/12 text-sky-200 shadow-[0_0_14px_-6px_rgba(14,165,233,0.4)]",
     day_link:
       "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
+    day_off_link:
+      "border-sky-500/45 bg-sky-500/12 text-sky-200 shadow-[0_0_14px_-6px_rgba(14,165,233,0.4)]",
+    busy_link:
+      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
     missed: "border-red-500/35 bg-red-500/8 text-red-400",
   }
   const labels: Record<ActivityCallStatus, string> = {
@@ -234,6 +240,8 @@ export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
     missed_ivr: "Missed (IVR)",
     night_link: "Missed - Sent Night Link",
     day_link: "Missed - Sent Day Link",
+    day_off_link: "Missed - Sent Day Off Link",
+    busy_link: "Missed - Sent Busy Link",
     missed: "Missed",
   }
   return (

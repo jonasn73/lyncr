@@ -15,13 +15,19 @@ import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
   CAPTURE_DEFAULT_RING_E164,
+  CAPTURE_STATUS_BUSY_LINK,
+  CAPTURE_STATUS_CALENDAR_BUSY,
+  CAPTURE_STATUS_CALENDAR_OFF,
   CAPTURE_STATUS_DAY_BUSY,
   CAPTURE_STATUS_DAY_LINK,
   CAPTURE_STATUS_EMERGENCY_ANSWERED,
+  CAPTURE_STATUS_FULL_DAY_LINK,
   CAPTURE_STATUS_NIGHT_LINK,
   CAPTURE_STATUS_NIGHT_MENU,
   CAPTURE_XML_CONTENT_TYPE,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+  buildCalendarFullDayGatherXml,
+  buildCalendarPartialBusyGatherXml,
   buildCaptureHangupXml,
   buildCaptureSayHangupXml,
   buildDayBusyFallbackGatherXml,
@@ -29,7 +35,7 @@ import {
   buildDayHoldVoicemailXml,
   buildNightCaptureGatherXml,
   isCaptureDialUnanswered,
-  isNightMode,
+  resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
 
 export const runtime = "nodejs"
@@ -142,8 +148,12 @@ async function sendBookingSmsAndHangup(opts: {
   ownerUserId: string | null
   businessLineE164: string
   callSid: string
-  /** Night vs day status label for Activities / Missed Call Rescue. */
-  routedToName: typeof CAPTURE_STATUS_NIGHT_LINK | typeof CAPTURE_STATUS_DAY_LINK
+  /** Night / day / calendar status label for Activities / Missed Call Rescue. */
+  routedToName:
+    | typeof CAPTURE_STATUS_NIGHT_LINK
+    | typeof CAPTURE_STATUS_DAY_LINK
+    | typeof CAPTURE_STATUS_FULL_DAY_LINK
+    | typeof CAPTURE_STATUS_BUSY_LINK
   source: string
 }): Promise<string> {
   if (opts.fromE164) {
@@ -234,6 +244,22 @@ export async function POST(req: NextRequest) {
 
   if (step === "vm-done") {
     return xmlResponse(buildCaptureSayHangupXml("Thank you. Goodbye."))
+  }
+
+  // Calendar full-day / partial busy Gather → SMS (Press 1 or stay on the line).
+  if (step === "calendar-off" || step === "calendar-busy") {
+    const routedToName =
+      step === "calendar-off" ? CAPTURE_STATUS_FULL_DAY_LINK : CAPTURE_STATUS_BUSY_LINK
+    return xmlResponse(
+      await sendBookingSmsAndHangup({
+        fromE164,
+        ownerUserId,
+        businessLineE164,
+        callSid,
+        routedToName,
+        source: step === "calendar-off" ? "capture_calendar_off" : "capture_calendar_busy",
+      })
+    )
   }
 
   // Night Gather result (Press 1 / timeout → SMS, Press 2 → emergency Dial).
@@ -359,8 +385,31 @@ async function handleEntry(
     }
   }
   const ring = ringE164 || (await resolveRingE164(owner))
+  const plan = await resolveInboundCapturePlan({ ownerUserId: owner })
 
-  if (isNightMode()) {
+  if (plan.kind === "calendar_full_day") {
+    if (sid) {
+      void tagCall(sid, {
+        routed_to_name: CAPTURE_STATUS_CALENDAR_OFF,
+        call_type: "missed",
+        status: "ringing",
+      })
+    }
+    return xmlResponse(buildCalendarFullDayGatherXml(captureUrl({ step: "calendar-off" })))
+  }
+
+  if (plan.kind === "calendar_partial") {
+    if (sid) {
+      void tagCall(sid, {
+        routed_to_name: CAPTURE_STATUS_CALENDAR_BUSY,
+        call_type: "missed",
+        status: "ringing",
+      })
+    }
+    return xmlResponse(buildCalendarPartialBusyGatherXml(captureUrl({ step: "calendar-busy" })))
+  }
+
+  if (plan.kind === "night") {
     if (sid) {
       void tagCall(sid, {
         routed_to_name: CAPTURE_STATUS_NIGHT_MENU,

@@ -77,6 +77,18 @@ export async function listScheduleBlockouts(params: {
   }
 }
 
+/** Fast inbound lookup — today's blockouts for calendar-aware call routing. */
+export async function listScheduleBlockoutsForDate(params: {
+  ownerUserId: string
+  dateKey: string
+}): Promise<ScheduleBlockout[]> {
+  return listScheduleBlockouts({
+    ownerUserId: params.ownerUserId,
+    fromDate: params.dateKey,
+    toDate: params.dateKey,
+  })
+}
+
 /** Insert a new blockout row. */
 export async function createScheduleBlockout(params: {
   ownerUserId: string

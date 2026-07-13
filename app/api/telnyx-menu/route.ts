@@ -44,6 +44,14 @@ import {
   getEarliestOpenBlockTomorrow,
   isTelnyxMenuDialUnanswered,
 } from "@/lib/telnyx-menu"
+import {
+  buildCalendarFullDayGatherXml,
+  buildCalendarPartialBusyGatherXml,
+  buildDayCaptureDialXml,
+  buildNightCaptureGatherXml,
+  DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+  resolveInboundCapturePlan,
+} from "@/lib/inbound-time-capture"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -317,17 +325,47 @@ async function dispatchIvrAction(opts: {
   }
 }
 
-/** Play the Gather menu using the line’s saved greeting (or defaults). */
+/** Calendar + day/night entry TeXML (shared with /api/telnyx-capture). */
+async function buildCalendarAwareEntryXml(opts: {
+  ownerUserId: string | null
+  ringE164: string
+  businessLineE164: string
+}): Promise<string> {
+  const plan = await resolveInboundCapturePlan({ ownerUserId: opts.ownerUserId })
+  const captureBase = `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-capture`
+  if (plan.kind === "calendar_full_day") {
+    return buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
+  }
+  if (plan.kind === "calendar_partial") {
+    return buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
+  }
+  if (plan.kind === "night") {
+    return buildNightCaptureGatherXml(`${captureBase}?step=night`)
+  }
+  return buildDayCaptureDialXml({
+    ringE164: opts.ringE164 || TELNYX_MENU_DEFAULT_RING_E164,
+    actionUrl: `${captureBase}?step=day-fallback`,
+    callerId: opts.businessLineE164 || null,
+    timeoutSeconds: DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+  })
+}
+
+/** Play the Gather menu using calendar-aware capture (blockouts → day/night). */
 export async function GET(req: NextRequest) {
   const to =
     req.nextUrl.searchParams.get("To") ||
     req.nextUrl.searchParams.get("to") ||
     ""
-  const { settings } = to
+  const { ownerUserId, ringE164 } = to
     ? await resolveIvrContext(to)
-    : { settings: { ...DEFAULT_IVR_MENU_SETTINGS, ivrGreetingText: TELNYX_MENU_PROMPT } }
+    : { ownerUserId: null, ringE164: TELNYX_MENU_DEFAULT_RING_E164 }
+  const businessLineE164 = to ? normalizePhoneNumberE164(to) || toE164(to) : ""
   return xmlResponse(
-    buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText || TELNYX_MENU_PROMPT)
+    await buildCalendarAwareEntryXml({
+      ownerUserId,
+      ringE164,
+      businessLineE164,
+    })
   )
 }
 
@@ -400,13 +438,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // No Digits yet → present the dashboard-configured IVR greeting.
+  // No Digits yet → calendar-aware entry (blockouts override day/night).
   if (!digits) {
     return xmlResponse(
-      buildTelnyxMenuGatherXml(
-        menuSelfUrl(),
-        settings.ivrGreetingText || TELNYX_MENU_PROMPT
-      )
+      await buildCalendarAwareEntryXml({
+        ownerUserId,
+        ringE164,
+        businessLineE164,
+      })
     )
   }
 

@@ -9,8 +9,10 @@ import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { isMissedCallRecord, isMissedCallTodayRecord, isIvrMenuHandler, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
 import {
+  CAPTURE_STATUS_BUSY_LINK,
   CAPTURE_STATUS_DAY_LINK,
   CAPTURE_STATUS_EMERGENCY_ANSWERED,
+  CAPTURE_STATUS_FULL_DAY_LINK,
   CAPTURE_STATUS_NIGHT_LINK,
 } from "@/lib/inbound-time-capture"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -256,6 +258,8 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
   if (routed === CAPTURE_STATUS_EMERGENCY_ANSWERED) return "emergency"
   if (routed === CAPTURE_STATUS_NIGHT_LINK) return "night_link"
   if (routed === CAPTURE_STATUS_DAY_LINK) return "day_link"
+  if (routed === CAPTURE_STATUS_FULL_DAY_LINK) return "day_off_link"
+  if (routed === CAPTURE_STATUS_BUSY_LINK) return "busy_link"
   if (call.type === "voicemail" || /voicemail/i.test(routed)) return "voicemail"
   // IVR / keypad — amber Missed (IVR), never green Answered.
   if (isIvrMenuHandler(routed)) return "missed_ivr"
@@ -285,7 +289,9 @@ function isMissedActivityCall(call: UiCallRecord): boolean {
     status === "voicemail" ||
     status === "ai_handled" ||
     status === "night_link" ||
-    status === "day_link"
+    status === "day_link" ||
+    status === "day_off_link" ||
+    status === "busy_link"
   )
 }
 
