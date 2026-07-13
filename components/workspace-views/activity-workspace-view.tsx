@@ -365,13 +365,13 @@ function CallBackButton({
       href={href}
       onClick={handleClick}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]",
-        compact ? "min-h-10 px-3 py-2 text-xs" : "min-h-11 w-full px-4 py-2.5 text-sm",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-500/35 bg-cyan-500/10 font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]",
+        compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
         className
       )}
     >
       <Phone className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-      Call back
+      {compact ? "Call" : "Call back"}
     </a>
   )
 }
@@ -451,10 +451,20 @@ function resolveCallAgent(call: UiCallRecord): CallAgent {
   return { label: name, kind: "operator" }
 }
 
-function AgentBadge({ agent }: { agent: CallAgent }) {
+function AgentBadge({
+  agent,
+  /** Table cells: short label only so the badge is not truncated to “Ans…”. */
+  compact = false,
+}: {
+  agent: CallAgent
+  compact?: boolean
+}) {
   if (agent.kind === "none") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2.5 py-1 text-[11px] font-medium text-zinc-500">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2 py-0.5 text-[11px] font-medium text-zinc-500"
+        title={agent.label}
+      >
         {agent.label}
       </span>
     )
@@ -468,7 +478,7 @@ function AgentBadge({ agent }: { agent: CallAgent }) {
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
         tone
       )}
       title={`Answered by: ${agent.label}`}
@@ -480,7 +490,7 @@ function AgentBadge({ agent }: { agent: CallAgent }) {
         )}
         aria-hidden
       />
-      <span className="truncate">Answered by: {agent.label}</span>
+      <span className="truncate">{compact ? agent.label : `Answered by: ${agent.label}`}</span>
     </span>
   )
 }
@@ -537,6 +547,9 @@ function ActivityIntakeSummary({
   const isNoIntake = activity.intakeAction === "No intake recorded"
   const canOpenIntakeDraft = Boolean(isNoIntake && callerPhone && inbound)
 
+  const displayAction =
+    compact && isNoIntake ? "No intake" : activity.intakeAction
+
   return (
     <div className={cn("space-y-1", compact && "space-y-0.5")}>
       {canOpenIntakeDraft ? (
@@ -548,26 +561,28 @@ function ActivityIntakeSummary({
             openIntakeDraftForPhone(inbound, callerPhone!)
           }}
           className={cn(
-            "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            "inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[10px] font-medium",
+            compact ? "normal-case tracking-normal" : "uppercase tracking-wide font-semibold rounded-full",
             intakeActionTone(activity.intakeAction),
-            "cursor-pointer hover:bg-slate-800 transition-all"
+            "cursor-pointer transition-colors hover:brightness-110"
           )}
           aria-label="Open intake draft for this caller"
         >
-          {activity.intakeAction}
+          {displayAction}
         </button>
       ) : (
         <span
           className={cn(
-            "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            "inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[10px] font-medium",
+            compact ? "normal-case tracking-normal" : "uppercase tracking-wide font-semibold rounded-full",
             intakeActionTone(activity.intakeAction)
           )}
         >
-          {activity.intakeAction}
+          {displayAction}
         </span>
       )}
       {activity.intakeDetail ? (
-        <p className={cn("text-zinc-400", compact ? "text-[11px] leading-snug" : "text-xs leading-relaxed")}>
+        <p className={cn("text-zinc-400", compact ? "text-[11px] leading-snug line-clamp-2" : "text-xs leading-relaxed")}>
           {activity.intakeDetail}
         </p>
       ) : null}
@@ -687,10 +702,10 @@ type ActivityTableProps = {
 /** Caller name with optional collapsed-count suffix: Unknown Caller (2). */
 function CallerNameWithCount({ call }: { call: GroupedActivityCall }) {
   return (
-    <p className="truncate font-medium text-foreground">
+    <p className="truncate font-medium text-foreground" title={call.callerName}>
       <span>{call.callerName}</span>
       {call.count > 1 ? (
-        <span className="text-slate-400 font-normal ml-1.5">({call.count})</span>
+        <span className="ml-1.5 font-normal text-slate-400">({call.count})</span>
       ) : null}
     </p>
   )
@@ -809,7 +824,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                       {formatGroupedCallSummary(call)}
                     </span>
                   ) : (
-                    <AgentBadge agent={resolveCallAgent(call)} />
+                    <AgentBadge agent={resolveCallAgent(call)} compact />
                   )}
                   <span className="truncate" title={targetLabel}>
                     {targetLabel}
@@ -861,24 +876,24 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
       <div className="hidden md:block">
       <WorkspaceTableWrap className="min-h-[340px]" bleed>
         <colgroup>
-          <col className="w-[10%]" />
+          <col className="w-[11%]" />
           <col className="w-[12%]" />
-          <col className="w-[17%]" />
-          <col className="w-[22%]" />
+          <col className="w-[18%]" />
+          <col className="w-[16%]" />
           <col className="w-[8%]" />
-          <col className="w-[14%]" />
+          <col className="w-[12%]" />
           <col className="w-[13%]" />
-          <col className="w-[8%]" />
+          <col className="w-[10%]" />
         </colgroup>
         <thead>
           <tr>
             <WorkspaceTh>Status</WorkspaceTh>
             <WorkspaceTh>Called</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
-            <WorkspaceTh>Intake &amp; schedule</WorkspaceTh>
+            <WorkspaceTh>Intake</WorkspaceTh>
             <WorkspaceTh>Duration</WorkspaceTh>
             <WorkspaceTh>Agent</WorkspaceTh>
-            <WorkspaceTh>Target line</WorkspaceTh>
+            <WorkspaceTh>Line</WorkspaceTh>
             <WorkspaceTh />
           </tr>
         </thead>
@@ -897,37 +912,37 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
               const expanded = expandable && expandedIds.has(call.id)
               return (
                 <Fragment key={call.id}>
-                  <tr className={cn("transition-colors hover:bg-zinc-900/50", WORKSPACE_TABLE_ROW_CLASS)}>
-                    <WorkspaceTd>
+                  <tr className={cn("transition-colors hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       <ActivityStatusPill status={st} />
                     </WorkspaceTd>
-                    <WorkspaceTd>
-                      <div className="flex items-start gap-1.5">
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                      <div className="flex items-center gap-1">
                         <CallTimeDisplay call={call} />
                         {expandable ? (
                           <button
                             type="button"
                             onClick={() => toggleExpanded(call.id)}
-                            className="mt-0.5 rounded p-0.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+                            className="rounded p-0.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
                             aria-label={expanded ? "Hide call times" : "Show all call times"}
                             aria-expanded={expanded}
                           >
                             <ChevronDown
-                              className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
+                              className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
                               aria-hidden
                             />
                           </button>
                         ) : null}
                       </div>
                     </WorkspaceTd>
-                    <WorkspaceTd>
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       <button
                         type="button"
                         onClick={() => {
                           if (expandable) toggleExpanded(call.id)
                         }}
                         className={cn(
-                          "w-full text-left",
+                          "w-full min-w-0 text-left",
                           expandable && "cursor-pointer"
                         )}
                         disabled={!expandable}
@@ -937,16 +952,19 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       {canCallBack(call) ? (
                         <a
                           href={buildTelHref(call.callerNumber) ?? undefined}
-                          className="text-xs font-medium text-cyan-400 underline-offset-2 hover:underline"
+                          className="block truncate text-xs font-medium text-cyan-400 underline-offset-2 hover:underline"
+                          title={call.callerNumber}
                         >
                           {call.callerNumber}
                         </a>
                       ) : (
-                        <p className="text-xs text-zinc-500">{call.callerNumber}</p>
+                        <p className="truncate text-xs text-zinc-500" title={call.callerNumber}>
+                          {call.callerNumber}
+                        </p>
                       )}
                       {expanded ? <GroupedCallChronology members={call.members} /> : null}
                     </WorkspaceTd>
-                    <WorkspaceTd>
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       {call.activity ? (
                         <ActivityIntakeSummary
                           activity={call.activity}
@@ -957,28 +975,31 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         <span className="text-xs text-zinc-600">—</span>
                       )}
                     </WorkspaceTd>
-                    <WorkspaceTd className="tabular-nums text-zinc-400">
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle tabular-nums text-sm text-zinc-300">
                       {formatDuration(call.durationSeconds)}
                     </WorkspaceTd>
-                    <WorkspaceTd>
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       {call.count > 1 ? (
-                        <span className="text-[11px] leading-snug text-slate-500">
+                        <span
+                          className="line-clamp-2 text-[11px] leading-snug text-slate-500"
+                          title={formatGroupedCallSummary(call)}
+                        >
                           {formatGroupedCallSummary(call)}
                         </span>
                       ) : (
-                        <AgentBadge agent={resolveCallAgent(call)} />
+                        <AgentBadge agent={resolveCallAgent(call)} compact />
                       )}
                     </WorkspaceTd>
-                    <WorkspaceTd>
-                      <p className="truncate font-medium text-zinc-200" title={targetLabel}>
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                      <p className="truncate text-sm font-medium text-zinc-200" title={targetLabel}>
                         {targetLabel}
                       </p>
-                      <p className="mt-1 truncate text-[11px] text-zinc-500" title={call.routedTo}>
+                      <p className="mt-0.5 truncate text-[11px] text-zinc-500" title={call.routedTo}>
                         {formatRoutedToLabel(call.routedTo)}
                       </p>
                     </WorkspaceTd>
-                    <WorkspaceTd className="text-right">
-                      <div className="flex flex-col items-end gap-1.5">
+                    <WorkspaceTd className="!px-3 !py-2.5 align-middle text-right">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
                         {canCallBack(call) ? (
                           <CallBackButton
                             phone={call.callerNumber}
@@ -992,9 +1013,9 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                             setSelectedActivityLog(call)
                             openLog(call)
                           }}
-                          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-400"
+                          className="inline-flex h-8 items-center rounded-lg border border-zinc-700/80 bg-zinc-900/40 px-2.5 text-[11px] font-semibold text-zinc-300 transition-colors hover:border-zinc-500 hover:text-foreground"
                         >
-                          View log
+                          Log
                         </button>
                       </div>
                     </WorkspaceTd>
