@@ -3705,11 +3705,13 @@ export async function getDailyCallTelemetryForOwner(
     talk_seconds > 0
     AND call_type IS DISTINCT FROM 'missed'
     AND call_type IS DISTINCT FROM 'voicemail'
+    AND NOT (lower(COALESCE(routed_to_name, '')) ~* '(ivr|voicemail|ai receptionist|voice ai|assistant|smart overflow|keypad)')
   `
 
   const missedWhere = sql`
     call_type IN ('missed', 'voicemail')
     OR lower(COALESCE(status, '')) IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled')
+    OR lower(COALESCE(routed_to_name, '')) ~* '(ivr|voicemail|ai receptionist|voice ai|assistant|smart overflow|keypad)'
     OR (
       call_type = 'incoming'
       AND lower(COALESCE(status, '')) IN ('completed', 'canceled', 'cancelled')
@@ -3717,6 +3719,7 @@ export async function getDailyCallTelemetryForOwner(
         answered_at IS NOT NULL
         AND ended_at IS NOT NULL
         AND answered_at < ended_at - interval '2 seconds'
+        AND NOT (lower(COALESCE(routed_to_name, '')) ~* '(ivr|voicemail|ai receptionist|voice ai|assistant|smart overflow|keypad)')
       )
     )
   `

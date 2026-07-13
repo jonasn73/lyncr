@@ -6,7 +6,7 @@
 
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
-import { recordCallStatusEvent, updateCallLog } from "@/lib/db"
+import { getCallLogSnapshotForTelemetry, recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-alerts"
 import { notifyOwnerInboundCallAnswered } from "@/lib/inbound-call-answered-broadcast"
 import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
@@ -14,6 +14,7 @@ import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { maybeSendMissedCallRescueSms } from "@/lib/missed-call-rescue"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
+import { isAutomatedCallHandler } from "@/lib/missed-call-telemetry"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -50,20 +51,32 @@ export async function POST(req: NextRequest) {
     }
 
     // Timing metrics update can fail safely (e.g. before migration runs).
+    // Snapshot — IVR Gather sets carrier "answered" but is not a human bridge.
+    const snapshot = await getCallLogSnapshotForTelemetry(callSid).catch(() => null)
+    const automated = isAutomatedCallHandler(snapshot?.routed_to_name ?? null)
+
     try {
-      await recordCallStatusEvent(callSid, callStatus, duration, eventTimestamp || undefined)
+      await recordCallStatusEvent(callSid, callStatus, duration, eventTimestamp || undefined, {
+        skipAnsweredTelemetry: automated,
+      })
     } catch (metricsError) {
       console.error("[Telnyx] Metrics update failed in status callback:", metricsError)
+    }
+
+    if (automated && (callStatus === "completed" || callStatus === "no-answer" || callStatus === "busy" || callStatus === "canceled")) {
+      callType = snapshot?.call_type === "voicemail" ? "voicemail" : "missed"
     }
 
     await updateCallLog(callSid, {
       call_type: callType,
       status: callStatus,
       ...(duration > 0 ? { duration_seconds: duration } : {}),
+      // Clear machine "answered_at" so metrics / Activities never treat IVR as live Answered.
+      ...(automated && callType === "missed" ? { answered_at: null } : {}),
     })
 
     const answeredLive = ["answered", "in-progress"].includes(callStatus)
-    if (answeredLive && callType === "incoming") {
+    if (answeredLive && callType === "incoming" && !automated) {
       try {
         await notifyOwnerInboundCallAnswered({
           providerCallSid: callSid,

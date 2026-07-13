@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
   activityCallerPhoneKey,
+  formatCallChronologyStatus,
   formatGroupedCallSummary,
   groupConsecutiveCallsByPhone,
+  resolveCallWasAnswered,
 } from "@/lib/activity-call-groups"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 
@@ -75,5 +77,47 @@ describe("groupConsecutiveCallsByPhone", () => {
       now
     )[0]
     expect(formatGroupedCallSummary(group, now)).toBe("Last answered 36s ago • 2 total calls today")
+  })
+
+  it("labels IVR / no-answer chronology correctly (never plain Answered)", () => {
+    expect(
+      formatCallChronologyStatus(
+        makeCall({
+          id: "ivr",
+          callerNumber: "+18594170996",
+          routedTo: "IVR Menu",
+          rawCallType: "missed",
+          type: "missed",
+          answeredAt: null,
+          durationSeconds: 40,
+        })
+      )
+    ).toBe("Missed / Left on IVR")
+    expect(
+      formatCallChronologyStatus(
+        makeCall({
+          id: "na",
+          callerNumber: "+18594170996",
+          routedTo: "You",
+          rawCallType: "missed",
+          type: "missed",
+          callStatus: "no-answer",
+          answeredAt: null,
+          durationSeconds: 5,
+        })
+      )
+    ).toBe("Missed / No Answer")
+    expect(
+      resolveCallWasAnswered(
+        makeCall({
+          id: "ivr2",
+          callerNumber: "+18594170996",
+          routedTo: "IVR Menu",
+          answeredAt: "2026-07-13T13:33:00.000Z",
+          endedAt: "2026-07-13T13:34:00.000Z",
+          durationSeconds: 60,
+        })
+      )
+    ).toBe(false)
   })
 })

@@ -1,6 +1,11 @@
 // Collapse consecutive activity rows that share the same caller number.
 
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
+import {
+  isAutomatedCallHandler,
+  isIvrMenuHandler,
+  isMissedCallRecord,
+} from "@/lib/missed-call-telemetry"
 
 /** One feed row — latest call fields kept, with how many consecutive matches were folded in. */
 export type GroupedActivityCall = UiCallRecord & {
@@ -96,16 +101,35 @@ export function formatGroupedCallSummary(group: GroupedActivityCall, now: Date =
 
 export function resolveCallWasAnswered(call: UiCallRecord): boolean {
   if (call.type === "missed" || call.type === "voicemail") return false
-  if (call.answeredAt) return true
-  return call.durationSeconds > 0
+  if (isAutomatedCallHandler(call.routedTo)) return false
+  if (
+    isMissedCallRecord({
+      call_type: call.rawCallType || call.type,
+      status: call.callStatus,
+      answered_at: call.answeredAt,
+      ended_at: call.endedAt,
+      routed_to_name: call.routedTo,
+    })
+  ) {
+    return false
+  }
+  if (call.answeredAt && call.durationSeconds > 0) return true
+  return call.durationSeconds > 0 && Boolean(call.answeredAt)
 }
 
 /** Short status label for expandable chronology bullets. */
 export function formatCallChronologyStatus(call: UiCallRecord): string {
-  if (call.type === "voicemail") return "Voicemail"
+  if (call.type === "voicemail" || /voicemail/i.test(call.routedTo || "")) return "Missed / Voicemail"
   if (call.type === "outgoing") return "Outgoing"
+  if (isIvrMenuHandler(call.routedTo)) return "Missed / Left on IVR"
+  if (isAutomatedCallHandler(call.routedTo)) return "Missed / Automated"
   if (resolveCallWasAnswered(call)) return "Answered"
-  return "Missed"
+  const status = String(call.callStatus || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+  if (status === "no-answer" || status === "busy") return "Missed / No Answer"
+  return "Missed / No Answer"
 }
 
 /** Local clock time for a chronology bullet (e.g. "9:33 AM"). */

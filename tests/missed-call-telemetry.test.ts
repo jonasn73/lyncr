@@ -46,6 +46,27 @@ describe("isMissedCallRecord", () => {
       })
     ).toBe(false)
   })
+
+  it("counts IVR / automated handlers as missed even with carrier answered_at", () => {
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: "2026-07-13T13:33:00.000Z",
+        ended_at: "2026-07-13T13:34:30.000Z",
+        routed_to_name: "IVR Menu",
+      })
+    ).toBe(true)
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: "2026-07-13T13:33:00.000Z",
+        ended_at: "2026-07-13T13:34:30.000Z",
+        routed_to_name: "AI Receptionist",
+      })
+    ).toBe(true)
+  })
 })
 
 describe("isMissedCallTelemetry", () => {

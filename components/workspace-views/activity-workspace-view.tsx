@@ -7,7 +7,7 @@ import { CalendarDays, ChevronDown, ClipboardList, Clock, MapPin, Phone, PhoneMi
 import { cn } from "@/lib/utils"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
-import { isMissedCallRecord, isMissedCallTodayRecord, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
+import { isMissedCallRecord, isMissedCallTodayRecord, isIvrMenuHandler, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
@@ -247,11 +247,19 @@ function missedRecordFromUiCall(call: UiCallRecord): MissedCallRecordInput {
 
 function classifyCall(call: UiCallRecord): ActivityCallStatus {
   const routed = call.routedTo ?? ""
-  if (call.type === "voicemail") return "voicemail"
+  if (call.type === "voicemail" || /voicemail/i.test(routed)) return "voicemail"
+  if (call.type === "missed" && isIvrMenuHandler(routed)) return "missed_ivr"
   if (call.type === "missed") return "missed"
+  // IVR / keypad before AI — red/amber Missed (IVR), never green Answered.
+  if (isIvrMenuHandler(routed)) return "missed_ivr"
   if (/ai receptionist|voice ai|assistant/i.test(routed)) return "ai_handled"
-  if (isMissedCallRecord(missedRecordFromUiCall(call))) return "missed"
-  if (call.durationSeconds > 0) return "answered"
+  if (isMissedCallRecord(missedRecordFromUiCall(call))) {
+    return isIvrMenuHandler(routed) ? "missed_ivr" : "missed"
+  }
+  // Duration alone is not a live answer — IVR Gather also accrues talk time.
+  if (call.durationSeconds > 0 && call.answeredAt && !isMissedCallRecord(missedRecordFromUiCall(call))) {
+    return "answered"
+  }
   return "missed"
 }
 
@@ -260,7 +268,7 @@ type ActivityCallFilter = "all" | "missed"
 function isMissedActivityCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
   const status = classifyCall(call)
-  return status === "missed" || status === "voicemail"
+  return status === "missed" || status === "missed_ivr" || status === "voicemail" || status === "ai_handled"
 }
 
 /** Same rules as the Lines HUD “Missed today” pill — local calendar day + shared missed detection. */

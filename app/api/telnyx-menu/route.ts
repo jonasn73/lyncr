@@ -5,7 +5,7 @@
 // (App Router equivalent of pages/api/telnyx-menu.ts)
 
 import { NextRequest, NextResponse } from "next/server"
-import { listOwnerSchedulerEvents, normalizePhoneNumberE164 } from "@/lib/db"
+import { listOwnerSchedulerEvents, normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
@@ -15,6 +15,7 @@ import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
 import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
+import { IVR_MENU_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 import {
   DEFAULT_IVR_MENU_SETTINGS,
   type IvrMenuAction,
@@ -243,6 +244,15 @@ export async function POST(req: NextRequest) {
 
   const { ownerUserId, settings } = await resolveIvrContext(toRaw)
 
+  const callSid = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
+  // Reinforce IVR tagging whenever the menu Gather runs (covers status "answered" races).
+  if (callSid) {
+    void updateCallLog(callSid, {
+      routed_to_name: IVR_MENU_ROUTED_TO_NAME,
+      call_type: "missed",
+    }).catch((e) => console.warn("[telnyx-menu] IVR call-log tag failed:", e))
+  }
+
   // No Digits yet → present the dashboard-configured IVR greeting.
   if (!digits) {
     return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText))
@@ -255,7 +265,6 @@ export async function POST(req: NextRequest) {
       ownerUserId,
       businessLineE164,
     })
-    const callSid = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
     if (callSid) void markIvrActionCompleted(callSid)
     return xmlResponse(xml)
   }
@@ -267,7 +276,6 @@ export async function POST(req: NextRequest) {
       ownerUserId,
       businessLineE164,
     })
-    const callSid = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
     if (callSid) void markIvrActionCompleted(callSid)
     return xmlResponse(xml)
   }

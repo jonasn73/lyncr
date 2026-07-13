@@ -73,6 +73,7 @@ import { buildRoutingPoolDialResponse, getAvailableReceptionistsForLine } from "
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "@/lib/telnyx-admin-routing-override"
 import { isIvrMenuEnabledForInboundDid } from "@/lib/ivr-menu-db"
+import { IVR_MENU_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 import { getCustomRoutingPhoneForDid } from "@/lib/active-routing-mode-db"
 
 export const runtime = "nodejs"
@@ -1406,11 +1407,58 @@ async function tryFastInboundReceptionistResponse(
         const menuUrl = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-menu`
         const vr = new VoiceResponse()
         vr.redirect({ method: "POST" }, menuUrl)
+        const callSidEarly =
+          pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || ""
+        const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
+        // Tag the log as IVR immediately so status "answered" (Gather connect) never
+        // looks like a live human answer in Activities / missed metrics.
+        if (callSidEarly && routing.user_id) {
+          after(() => {
+            void insertCallLog({
+              user_id: routing.user_id,
+              provider_call_sid: callSidEarly,
+              from_number: fromEarly.trim()
+                ? normalizePhoneNumberE164(fromEarly)
+                : "Unknown",
+              to_number: businessLineE164Early,
+              caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
+              call_type: "missed",
+              status: "ringing",
+              duration_seconds: 0,
+              routed_to_receptionist_id: null,
+              routed_to_name: IVR_MENU_ROUTED_TO_NAME,
+              has_recording: false,
+              recording_url: null,
+              recording_duration_seconds: null,
+            })
+              .then(async (id) => {
+                if (id) return
+                // Row may already exist from a prior webhook — force IVR tags.
+                const { updateCallLog } = await import("@/lib/db")
+                await updateCallLog(callSidEarly, {
+                  routed_to_name: IVR_MENU_ROUTED_TO_NAME,
+                  call_type: "missed",
+                })
+              })
+              .catch(async (logErr) => {
+                console.error("[Sigo] Call log insert failed (IVR menu path):", logErr)
+                try {
+                  const { updateCallLog } = await import("@/lib/db")
+                  await updateCallLog(callSidEarly, {
+                    routed_to_name: IVR_MENU_ROUTED_TO_NAME,
+                    call_type: "missed",
+                  })
+                } catch (e2) {
+                  console.error("[Sigo] Call log IVR retag failed:", e2)
+                }
+              })
+          })
+        }
         console.log(
           JSON.stringify({
             ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
             zing: "telnyx-incoming-ivr-menu-redirect",
-            callSid: pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || null,
+            callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
             lookupMs,
             routingSource: memHit ? "memory" : "db",
