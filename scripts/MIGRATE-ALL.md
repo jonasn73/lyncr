@@ -98,6 +98,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 93 | `093-live-gps-locate.sql` | **Live GPS locate tokens.** Creates **`live_gps_locate_tokens`** for intake “Request Live GPS” SMS links (`/locate?c=…`). **Required** for customer GPS → intake address. |
 | 94 | `094-pending-call-review-sms.sql` | **Post-call review gate.** Creates **`pending_call_review_sms`** — after answered inbound &gt;60s, wait 15 min then send Google review SMS only if intake/invoice exists. Flushed by **`/api/sms/flush-scheduled`**. |
 | 95 | `095-users-team-roles.sql` | **Team roles.** Ensures **`users.account_role`** defaults to **`owner`**, widens CHECK for **`owner` / `receptionist` / `field_tech` / `technician`** (TECHNICIAN alias). Powers multi-operator Dial + account-wide presence channels. |
+| 96 | `096-job-photo-requests.sql` | **Request Job Photos.** Creates **`job_photo_tokens`** + **`job_photos`** for intake SMS upload links (`/upload?t=…`). Customer photos stream into the live **Job Attachments** gallery via Pusher **`ticket.photos_updated`**. |
 
 ## Platform admin (`admin@lyncr.app`)
 

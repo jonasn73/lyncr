@@ -13,6 +13,10 @@ import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/com
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import {
+  IntakeJobPhotosPanel,
+  type IntakeJobPhoto,
+} from "@/components/dashboard/intake-job-photos-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
 import {
@@ -506,6 +510,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   } = useActiveCallForm(effectiveCurrent, { linkManualCallLog })
 
   const [gpsRequestState, setGpsRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle")
+  // Live gallery for customer job photos (ignition / lockout) from /upload SMS.
+  const [jobPhotos, setJobPhotos] = useState<IntakeJobPhoto[]>([])
+  const setJobPhotosRef = useRef(setJobPhotos)
+  setJobPhotosRef.current = setJobPhotos
   const setServiceAddressRef = useRef(setServiceAddress)
   setServiceAddressRef.current = setServiceAddress
   const effectiveCurrentIdRef = useRef(effectiveCurrent?.id ?? null)
@@ -572,6 +580,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setNegotiationStep(1)
     setCurrentStep("SERVICE_SELECT")
     lastLoadedDraftPhoneRef.current = null
+    // Reset attachments when a new call / ticket opens.
+    setJobPhotos([])
+    setGpsRequestState("idle")
   }, [effectiveCurrent?.id])
 
   const activeDraftPhone = useMemo(() => {
@@ -1025,12 +1036,54 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         })
     }
 
+    // Customer uploaded a job photo on /upload — refresh the intake gallery live.
+    const onTicketPhotosUpdated = (raw: Record<string, unknown>) => {
+      const callLogId = raw.call_log_id != null ? String(raw.call_log_id).trim() : ""
+      const activeId = effectiveCurrentIdRef.current
+      // Ignore photos for a different ticket when we know both ids.
+      if (callLogId && activeId && !activeId.startsWith("ring-") && callLogId !== activeId) return
+      const list = Array.isArray(raw.photos) ? raw.photos : []
+      const mapped: IntakeJobPhoto[] = []
+      for (const item of list) {
+        if (!item || typeof item !== "object") continue
+        const row = item as Record<string, unknown>
+        const id = row.id != null ? String(row.id) : ""
+        const url = row.url != null ? String(row.url) : ""
+        if (!id || !url) continue
+        mapped.push({
+          id,
+          url,
+          mime_type: row.mime_type != null ? String(row.mime_type) : undefined,
+          created_at: row.created_at != null ? String(row.created_at) : undefined,
+        })
+      }
+      if (mapped.length) {
+        setJobPhotosRef.current(mapped)
+        return
+      }
+      // Single-photo payloads still update the gallery.
+      const single = raw.photo && typeof raw.photo === "object" ? (raw.photo as Record<string, unknown>) : null
+      if (single?.id && single?.url) {
+        const next: IntakeJobPhoto = {
+          id: String(single.id),
+          url: String(single.url),
+          mime_type: single.mime_type != null ? String(single.mime_type) : undefined,
+          created_at: single.created_at != null ? String(single.created_at) : undefined,
+        }
+        setJobPhotosRef.current((prev) => {
+          if (prev.some((p) => p.id === next.id)) return prev
+          return [...prev, next]
+        })
+      }
+    }
+
     for (const channel of channels) {
       channel.bind("call-initiated", onInitiated)
       channel.bind("call-answered", onAnswered)
       channel.bind("call-completed", onCompleted)
       channel.bind("call-recording-ready", onRecordingReady)
       channel.bind("live-gps", onLiveGps)
+      channel.bind("ticket.photos_updated", onTicketPhotosUpdated)
     }
     return () => {
       cancelled = true
@@ -1043,6 +1096,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         channel.unbind("call-completed", onCompleted)
         channel.unbind("call-recording-ready", onRecordingReady)
         channel.unbind("live-gps", onLiveGps)
+        channel.unbind("ticket.photos_updated", onTicketPhotosUpdated)
         pusher.unsubscribe(channel.name)
       }
     }
@@ -1713,6 +1767,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 variant="selector-only"
                                 compact
                               />
+                              <IntakeJobPhotosPanel
+                                compact
+                                callLogId={effectiveCurrent?.id ?? null}
+                                customerPhone={
+                                  resolvedPhoneNumber ||
+                                  form.phoneNumber ||
+                                  effectiveCurrent?.from_number ||
+                                  ""
+                                }
+                                photos={jobPhotos}
+                                onPhotosChange={setJobPhotos}
+                              />
                             </div>
                           ) : null}
 
@@ -1996,6 +2062,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   vehicleMake={form.vehicleMake}
                   vehicleModel={form.vehicleModel}
                   onServiceTypeChange={setServiceQuoteTypeId}
+                />
+
+                <IntakeJobPhotosPanel
+                  callLogId={effectiveCurrent?.id ?? null}
+                  customerPhone={
+                    resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
+                  }
+                  photos={jobPhotos}
+                  onPhotosChange={setJobPhotos}
                 />
 
                 <PriceNegotiationHelperPanel
