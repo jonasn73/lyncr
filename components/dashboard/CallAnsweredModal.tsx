@@ -97,14 +97,23 @@ import type { StructuredAddress } from "@/lib/structured-address"
 import { cn } from "@/lib/utils"
 
 /** Manual intake micro-step views — branching by service type. */
-type WorkflowStep = "SERVICE_SELECT" | "VEHICLE_INFO" | "KEY_SPECIFICS" | "ADDRESS_CONTACT" | "FINAL_DISPATCH"
+type WorkflowStep =
+  | "SERVICE_SELECT"
+  | "VEHICLE_INFO"
+  | "KEY_SPECIFICS"
+  | "ADDRESS_CONTACT"
+  | "SCHEDULE_TIME"
+  | "CUSTOMER_NAME"
+  | "BOOKING_COMPLETE"
 
 const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   SERVICE_SELECT: "Service",
   VEHICLE_INFO: "Vehicle",
   KEY_SPECIFICS: "Key details",
   ADDRESS_CONTACT: "Location",
-  FINAL_DISPATCH: "Dispatch",
+  SCHEDULE_TIME: "Schedule",
+  CUSTOMER_NAME: "Customer",
+  BOOKING_COMPLETE: "Done",
 }
 
 function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
@@ -112,7 +121,8 @@ function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
   if (serviceTypeRequiresVehicle(serviceTypeId)) {
     path.push("VEHICLE_INFO", "KEY_SPECIFICS")
   }
-  path.push("ADDRESS_CONTACT", "FINAL_DISPATCH")
+  // Location → Time blocks → Customer name → Booking summary
+  path.push("ADDRESS_CONTACT", "SCHEDULE_TIME", "CUSTOMER_NAME", "BOOKING_COMPLETE")
   return path
 }
 
@@ -432,6 +442,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
   const [negotiationStep, setNegotiationStep] = useState(1)
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("SERVICE_SELECT")
+  const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -582,7 +593,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!draft.form.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
       patchForm({ phoneNumber: effectiveCurrent.from_number.trim() })
     }
-    setCurrentStep(draft.currentStep)
+    setCurrentStep(draft.currentStep as WorkflowStep)
     setCustomPrice(draft.customPrice)
     setFailureReason(draft.failureReason || FAILURE_REASON_NEUTRAL)
     setRecoveredViaRouteDiscount(draft.recoveredViaRouteDiscount)
@@ -1112,6 +1123,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const resetIntakeUiState = useCallback(() => {
     resetForm()
     setCurrentStep("SERVICE_SELECT")
+    setBookedLeadId(null)
     setCustomPrice("")
     setNegotiationDiscountApplied(null)
     setNegotiationDiscountsTried([])
@@ -1153,18 +1165,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
-    closeIntakeAfterSave()
-    router.push(buildSchedulerFocusUrl(result.leadId))
+
+    // TODO: Activate automated booking confirmation SMS once 10DLC registration is fully approved.
+    // await sendSmsConfirmation(phoneNumber, selectedTimeBlock, address);
+
+    setBookedLeadId(result.leadId)
+    setCurrentStep("BOOKING_COMPLETE")
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
-    closeIntakeAfterSave,
     createJob,
     effectiveCurrent,
     jobCreateExtras,
     resolveOwnerUserId,
-    router,
   ])
+
+  const finishBookingAndOpenScheduler = useCallback(() => {
+    const leadId = bookedLeadId
+    closeIntakeAfterSave()
+    if (leadId) router.push(buildSchedulerFocusUrl(leadId))
+  }, [bookedLeadId, closeIntakeAfterSave, router])
 
   const sendToDispatch = useCallback(async () => {
     if (!effectiveCurrent) return
@@ -1392,14 +1412,23 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const incomingPhone = form.phoneNumber || effectiveCurrent?.from_number || ""
   const repeatUrgency = useRepeatCallerUrgency(incomingPhone, effectiveCurrent?.id ?? null)
-  const canAdvanceToDispatch = useMemo(
+  const canAdvanceToSchedule = useMemo(
     () =>
       Boolean(
-        form.displayName.trim() &&
-          (addressReady ||
-            isFlatAddressReadyForDispatch({ addressLine1: form.addressLine1, city: form.city }))
+        addressReady ||
+          isFlatAddressReadyForDispatch({ addressLine1: form.addressLine1, city: form.city })
       ),
-    [form.displayName, form.addressLine1, form.city, addressReady]
+    [form.addressLine1, form.city, addressReady]
+  )
+
+  const canAdvanceToCustomerName = useMemo(
+    () => Boolean(form.scheduledDate.trim() && form.scheduledTime.trim()),
+    [form.scheduledDate, form.scheduledTime]
+  )
+
+  const canFinalizeBooking = useMemo(
+    () => Boolean(form.displayName.trim()),
+    [form.displayName]
   )
 
   /** Explicit Continue button advances — no silent auto-jump past name/address. */
@@ -1414,6 +1443,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       if (stepIntake) {
         if (currentStep === "ADDRESS_CONTACT") {
           addressSearchRef.current?.focus()
+          return
+        }
+        if (currentStep === "CUSTOMER_NAME") {
+          document.getElementById("manual-ac-display")?.focus()
           return
         }
         if (currentStep === "SERVICE_SELECT") {
@@ -1762,20 +1795,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {currentStep === "ADDRESS_CONTACT" ? (
                             <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                                Customer &amp; location
+                                Location &amp; address
                               </legend>
-                              <div className="space-y-1.5">
-                                <Label htmlFor="manual-ac-display" className="text-xs">
-                                  Caller name <span className="text-primary">*</span>
-                                </Label>
-                                <Input
-                                  id="manual-ac-display"
-                                  value={form.displayName}
-                                  onChange={(e) => patchForm({ displayName: e.target.value })}
-                                  placeholder="Ask before they hang up"
-                                  className="h-10"
-                                />
-                              </div>
                               <div className="space-y-1.5">
                                 <Label htmlFor="manual-ac-phone" className="text-xs">
                                   Phone number
@@ -1836,29 +1857,35 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   jobLat={form.serviceAddress?.lat ?? null}
                                   jobLng={form.serviceAddress?.lng ?? null}
                                 />
+                                <Button
+                                  type="button"
+                                  size="lg"
+                                  className={cn(
+                                    "mt-1 h-11 w-full font-semibold",
+                                    !canAdvanceToSchedule && "opacity-50"
+                                  )}
+                                  disabled={!canAdvanceToSchedule}
+                                  onClick={() => setCurrentStep("SCHEDULE_TIME")}
+                                >
+                                  {canAdvanceToSchedule
+                                    ? "Continue to Schedule →"
+                                    : "Enter a Service Address to Continue"}
+                                </Button>
                               </div>
                             </fieldset>
                           ) : null}
 
-                          {currentStep === "FINAL_DISPATCH" ? (
+                          {currentStep === "SCHEDULE_TIME" ? (
                             <div className="flex flex-col justify-start gap-4">
                               <div className={cn(WS_SECTION, "text-sm")}>
-                                <p className="font-medium text-foreground">
-                                  {form.displayName.trim() || "Customer"}
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                  Time block &amp; schedule
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
-                                </p>
-                                <p className="mt-2 text-xs text-muted-foreground">
+                                <p className="mt-1 text-xs text-muted-foreground">
                                   {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
                                     form.serviceAddress?.formatted ||
-                                    "—"}
+                                    "Service address selected"}
                                 </p>
-                                {form.vehicleYear || form.vehicleMake || form.vehicleModel ? (
-                                  <p className="mt-2 text-xs text-muted-foreground">
-                                    {[form.vehicleYear, form.vehicleMake, form.vehicleModel].filter(Boolean).join(" ")}
-                                  </p>
-                                ) : null}
                               </div>
 
                               <ServiceQuoteCalculatorPanel
@@ -1874,7 +1901,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
                                   <Label htmlFor="intake-scheduled-date" className="text-xs">
-                                    Appointment date
+                                    Appointment date <span className="text-primary">*</span>
                                   </Label>
                                   <Input
                                     id="intake-scheduled-date"
@@ -1886,7 +1913,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 </div>
                                 <div className="space-y-1.5">
                                   <Label htmlFor="intake-scheduled-time" className="text-xs">
-                                    Appointment time
+                                    Appointment time <span className="text-primary">*</span>
                                   </Label>
                                   <Input
                                     id="intake-scheduled-time"
@@ -1897,6 +1924,63 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   />
                                 </div>
                               </div>
+                            </div>
+                          ) : null}
+
+                          {currentStep === "CUSTOMER_NAME" ? (
+                            <fieldset className={cn(WS_SECTION, "grid gap-4")}>
+                              <legend className="px-1 text-sm font-semibold tracking-tight text-foreground">
+                                Who are we assisting?
+                              </legend>
+                              <p className="text-xs text-muted-foreground">
+                                Customer details — we&apos;ll lock the appointment under this name.
+                              </p>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="manual-ac-display" className="text-xs">
+                                  Caller name <span className="text-primary">*</span>
+                                </Label>
+                                <Input
+                                  id="manual-ac-display"
+                                  value={form.displayName}
+                                  onChange={(e) => patchForm({ displayName: e.target.value })}
+                                  placeholder="Customer full name"
+                                  className="h-12 text-base"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                                <p>
+                                  {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+                                    form.serviceAddress?.formatted ||
+                                    "—"}
+                                </p>
+                                <p className="mt-1 tabular-nums">
+                                  {form.scheduledDate} · {form.scheduledTime}
+                                </p>
+                              </div>
+                            </fieldset>
+                          ) : null}
+
+                          {currentStep === "BOOKING_COMPLETE" ? (
+                            <div className="flex flex-col items-stretch gap-4 py-2">
+                              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-4 text-center">
+                                <p className="inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-200">
+                                  Booking secured
+                                </p>
+                                <p className="mt-3 text-lg font-semibold text-foreground">
+                                  {form.displayName.trim() || "Customer"} is on the calendar
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {[form.addressLine1, form.city].filter(Boolean).join(", ") ||
+                                    form.serviceAddress?.formatted}
+                                </p>
+                                <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                                  {form.scheduledDate} at {form.scheduledTime}
+                                </p>
+                              </div>
+                              <p className="text-center text-[11px] text-muted-foreground">
+                                Confirmation SMS will send automatically once 10DLC registration is approved.
+                              </p>
                             </div>
                           ) : null}
                         </div>
@@ -2350,27 +2434,54 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           size="lg"
                           className={cn(
                             "h-11 min-w-0 flex-1 font-semibold",
-                            !canAdvanceToDispatch && "opacity-50"
+                            !canAdvanceToSchedule && "opacity-50"
                           )}
-                          disabled={!canAdvanceToDispatch}
-                          onClick={() => setCurrentStep("FINAL_DISPATCH")}
+                          disabled={!canAdvanceToSchedule}
+                          onClick={() => setCurrentStep("SCHEDULE_TIME")}
                         >
-                          {canAdvanceToDispatch
-                            ? "Continue to Time Blocks →"
-                            : "Enter Name & Address to Advance"}
+                          {canAdvanceToSchedule
+                            ? "Continue to Schedule →"
+                            : "Enter a Service Address to Continue"}
                         </Button>
                       </div>
                     ) : null}
-                    {currentStep === "FINAL_DISPATCH" ? (
+                    {currentStep === "SCHEDULE_TIME" ? (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="h-11 shrink-0"
+                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          size="lg"
+                          className={cn(
+                            "h-11 min-w-0 flex-1 font-semibold",
+                            !canAdvanceToCustomerName && "opacity-50"
+                          )}
+                          disabled={!canAdvanceToCustomerName}
+                          onClick={() => setCurrentStep("CUSTOMER_NAME")}
+                        >
+                          {canAdvanceToCustomerName
+                            ? "Continue to Customer Details →"
+                            : "Pick Date & Time to Advance"}
+                        </Button>
+                      </div>
+                    ) : null}
+                    {currentStep === "CUSTOMER_NAME" ? (
                       <>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="h-9 w-full"
-                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                          onClick={() => setCurrentStep("SCHEDULE_TIME")}
                         >
-                          Back to location
+                          Back to schedule
                         </Button>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
@@ -2405,19 +2516,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             type="button"
                             size="lg"
                             className={cn(
-                              "min-w-0 flex-1 gap-2",
+                              "min-w-0 flex-1 gap-2 font-semibold",
+                              (!canFinalizeBooking || !canDispatch) && "opacity-50",
                               highlightConfirmBook &&
                                 "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
                             )}
-                            disabled={jobState === "creating" || !canDispatch}
+                            disabled={
+                              jobState === "creating" || !canFinalizeBooking || !canDispatch
+                            }
                             onClick={() => void confirmAndBook()}
                           >
                             {jobState === "creating" ? (
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                            ) : (
-                              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-                            )}
-                            Confirm &amp; book
+                            ) : null}
+                            Finalize &amp; Secure Appointment →
                           </Button>
                         </div>
                         <button
@@ -2428,28 +2540,37 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         >
                           {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                         </button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="default"
-                          className="h-10 w-full gap-2"
-                          disabled={jobState === "creating" || !canDispatch}
-                          onClick={() => void sendToDispatch()}
-                        >
-                          Send to dispatch map &amp; schedule
-                        </Button>
                         {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
                           <p className="text-center text-[10px] text-amber-200/90">
                             Still needed: {dispatchBlockers.join(" · ")}
                           </p>
                         ) : null}
-                        {jobState === "created" ? (
-                          <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
-                            Job added to the hopper — assign when ready.
-                          </p>
-                        ) : null}
                         {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
                       </>
+                    ) : null}
+                    {currentStep === "BOOKING_COMPLETE" ? (
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          size="lg"
+                          className="h-11 w-full font-semibold"
+                          onClick={finishBookingAndOpenScheduler}
+                        >
+                          Open on Scheduler
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="h-11 w-full"
+                          onClick={() => {
+                            clearDraftForCurrentCaller()
+                            dismissOnly()
+                          }}
+                        >
+                          Done
+                        </Button>
+                      </div>
                     ) : null}
                     {(currentStep === "VEHICLE_INFO" || currentStep === "SERVICE_SELECT") &&
                     previousWorkflowStep(manualPath, currentStep) ? (

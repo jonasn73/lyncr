@@ -8,7 +8,10 @@ export type IntakeDraftWorkflowStep =
   | "VEHICLE_INFO"
   | "KEY_SPECIFICS"
   | "ADDRESS_CONTACT"
-  | "FINAL_DISPATCH"
+  | "SCHEDULE_TIME"
+  | "CUSTOMER_NAME"
+  | "BOOKING_COMPLETE"
+  | "FINAL_DISPATCH" // legacy drafts — mapped to SCHEDULE_TIME on load
 
 /** Everything needed to resume intake when the same customer calls back. */
 export type IntakeDraftSnapshot = {
@@ -54,8 +57,17 @@ function isWorkflowStep(value: unknown): value is IntakeDraftWorkflowStep {
     value === "VEHICLE_INFO" ||
     value === "KEY_SPECIFICS" ||
     value === "ADDRESS_CONTACT" ||
+    value === "SCHEDULE_TIME" ||
+    value === "CUSTOMER_NAME" ||
+    value === "BOOKING_COMPLETE" ||
     value === "FINAL_DISPATCH"
   )
+}
+
+/** Map legacy FINAL_DISPATCH drafts onto the new schedule step. */
+export function normalizeIntakeDraftStep(step: IntakeDraftWorkflowStep): IntakeDraftWorkflowStep {
+  if (step === "FINAL_DISPATCH") return "SCHEDULE_TIME"
+  return step
 }
 
 function isFormSnapshot(value: unknown): value is ActiveCallFormState {
@@ -78,13 +90,16 @@ export function loadIntakeDraft(phone: string): IntakeDraftSnapshot | null {
     const raw = localStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw) as StoredEnvelope | IntakeDraftSnapshot
-    const data = "v" in parsed && parsed.v === STORAGE_VERSION ? parsed.data : parsed
+    const data: IntakeDraftSnapshot =
+      "v" in parsed && parsed.v === STORAGE_VERSION && "data" in parsed
+        ? parsed.data
+        : (parsed as IntakeDraftSnapshot)
     if (!data || typeof data !== "object") return null
     if (!isFormSnapshot(data.form)) return null
     if (!isWorkflowStep(data.currentStep)) return null
     return {
       form: data.form,
-      currentStep: data.currentStep,
+      currentStep: normalizeIntakeDraftStep(data.currentStep),
       customPrice: typeof data.customPrice === "string" ? data.customPrice : "",
       failureReason: typeof data.failureReason === "string" ? data.failureReason : "__neutral__",
       recoveredViaRouteDiscount: Boolean(data.recoveredViaRouteDiscount),
@@ -104,7 +119,11 @@ export function saveIntakeDraft(phone: string, snapshot: Omit<IntakeDraftSnapsho
   try {
     const envelope: StoredEnvelope = {
       v: STORAGE_VERSION,
-      data: { ...snapshot, savedAt: new Date().toISOString() },
+      data: {
+        ...snapshot,
+        currentStep: normalizeIntakeDraftStep(snapshot.currentStep),
+        savedAt: new Date().toISOString(),
+      },
     }
     localStorage.setItem(key, JSON.stringify(envelope))
   } catch {
