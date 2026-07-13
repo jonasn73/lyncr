@@ -12,7 +12,6 @@ import {
   DrawerStepHeader,
   DrawerStickyFooter,
 } from "@/components/dashboard-routing-drawer-shared"
-import { Switch } from "@/components/ui/switch"
 import { IvrGreetingsSettingsForm } from "@/components/dashboard/ivr-greetings-settings-form"
 import {
   ACTIVE_ROUTING_MODE_OPTIONS,
@@ -55,7 +54,6 @@ export function DashboardWhoAnswersDrawer({
   const [mode, setMode] = useState<ActiveRoutingMode>("your_phone")
   const [customPhone, setCustomPhone] = useState("")
   const [ringTimeout, setRingTimeout] = useState(30)
-  const [requireDeposit, setRequireDeposit] = useState(false)
   const baselineRef = useRef("")
 
   const snapshot = useCallback(
@@ -64,21 +62,19 @@ export function DashboardWhoAnswersDrawer({
         mode,
         customPhone: customPhone.trim(),
         ringTimeout,
-        requireDeposit,
       }),
-    [mode, customPhone, ringTimeout, requireDeposit]
+    [mode, customPhone, ringTimeout]
   )
 
+  // Load only when the selected line changes — do not depend on `snapshot`/`mode`
+  // or every radio click would re-fetch and wipe the selection back to the DB value.
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const qs = routingBusinessNumber
         ? `?number=${encodeURIComponent(routingBusinessNumber)}`
         : ""
-      const [modeRes, depRes] = await Promise.all([
-        fetch(`/api/routing/mode${qs}`, { credentials: "include" }),
-        fetch("/api/routing/deposit-settings", { credentials: "include" }),
-      ])
+      const modeRes = await fetch(`/api/routing/mode${qs}`, { credentials: "include" })
       const modeJson = (await modeRes.json()) as {
         data?: {
           activeRoutingMode?: string
@@ -86,27 +82,29 @@ export function DashboardWhoAnswersDrawer({
           ringTimeoutSeconds?: number
         }
       }
-      const depJson = (await depRes.json()) as { data?: { require_deposit?: boolean } }
       const nextMode = normalizeActiveRoutingMode(modeJson.data?.activeRoutingMode)
       const nextPhone = modeJson.data?.customRoutingPhone || ""
       const nextRing = Number(modeJson.data?.ringTimeoutSeconds ?? 30)
-      const nextDep = depJson.data?.require_deposit === true
+      const phoneDigits = nextPhone.replace(/^\+1/, "").replace(/\D/g, "").slice(-10)
+      const ring = RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30
       setMode(nextMode)
-      setCustomPhone(nextPhone.replace(/^\+1/, "").replace(/\D/g, "").slice(-10))
-      setRingTimeout(RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30)
-      setRequireDeposit(nextDep)
+      setCustomPhone(phoneDigits)
+      setRingTimeout(ring)
       baselineRef.current = JSON.stringify({
         mode: nextMode,
-        customPhone: nextPhone.replace(/^\+1/, "").replace(/\D/g, "").slice(-10),
-        ringTimeout: RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30,
-        requireDeposit: nextDep,
+        customPhone: phoneDigits,
+        ringTimeout: ring,
       })
     } catch {
-      baselineRef.current = snapshot()
+      baselineRef.current = JSON.stringify({
+        mode: "your_phone",
+        customPhone: "",
+        ringTimeout: 30,
+      })
     } finally {
       setLoading(false)
     }
-  }, [routingBusinessNumber, snapshot])
+  }, [routingBusinessNumber])
 
   useEffect(() => {
     void load()
@@ -145,13 +143,6 @@ export function DashboardWhoAnswersDrawer({
         })
         return
       }
-
-      await fetch("/api/routing/deposit-settings", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ require_deposit: requireDeposit }),
-      })
 
       // Keep local dashboard strategy badge in sync.
       if (mode === "lyncr_pool") setRoutingStrategy("lyncr_only")
@@ -216,35 +207,53 @@ export function DashboardWhoAnswersDrawer({
               <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Active routing mode
               </legend>
-              {ACTIVE_ROUTING_MODE_OPTIONS.map((opt) => {
-                const active = mode === opt.value
-                return (
-                  <label
-                    key={opt.value}
-                    className={cn(
-                      "flex cursor-pointer gap-3 rounded-xl border px-3 py-3 transition-colors",
-                      active
-                        ? "border-emerald-500/40 bg-emerald-500/10"
-                        : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="active_routing_mode"
-                      value={opt.value}
-                      checked={active}
-                      onChange={() => setMode(opt.value)}
-                      className="mt-1"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-foreground">{opt.label}</span>
-                      <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
-                        {opt.description}
+              <div
+                role="radiogroup"
+                aria-label="Active routing mode"
+                className="relative z-10 space-y-2"
+              >
+                {ACTIVE_ROUTING_MODE_OPTIONS.map((opt) => {
+                  const active = mode === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setMode(opt.value)}
+                      className={cn(
+                        "relative z-10 flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
+                        "pointer-events-auto touch-manipulation",
+                        active
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                          active
+                            ? "border-emerald-400 bg-emerald-500/20"
+                            : "border-zinc-600 bg-transparent"
+                        )}
+                      >
+                        {active ? (
+                          <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        ) : null}
                       </span>
-                    </span>
-                  </label>
-                )
-              })}
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {opt.label}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
+                          {opt.description}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </fieldset>
 
             {mode === "smart_ivr" ? (
@@ -305,21 +314,6 @@ export function DashboardWhoAnswersDrawer({
                 settings needed.
               </p>
             ) : null}
-
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">Require deposit on /book</p>
-                <p className="text-[11px] text-zinc-500">
-                  When on, customers pay a Stripe deposit before the calendar slot is confirmed.
-                </p>
-              </div>
-              <Switch
-                checked={requireDeposit}
-                onCheckedChange={setRequireDeposit}
-                aria-label="Require deposit on booking link"
-                className="shrink-0 data-[state=checked]:bg-amber-500"
-              />
-            </div>
           </div>
         )}
       </DrawerScrollBody>

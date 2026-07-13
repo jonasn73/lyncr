@@ -43,6 +43,7 @@ import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { IntakeScheduleDialog } from "@/components/scheduler/intake-schedule-dialog"
 import { AddBlockoutModal } from "@/components/scheduler/add-blockout-modal"
 import { ScheduleBlockoutsPanel } from "@/components/scheduler/schedule-blockouts-panel"
+import { BookingDepositSettings } from "@/components/scheduler/booking-deposit-settings"
 import { useRegisterDispatchCommands } from "@/lib/dispatch-command-bridge"
 import { useMarkJobComplete } from "@/lib/hooks/use-mark-job-complete"
 import { useEscapeDismiss } from "@/lib/hooks/use-workspace-keyboard"
@@ -926,6 +927,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 {markCompleteError}
               </p>
             ) : null}
+
+            <BookingDepositSettings />
 
             <ScheduleBlockoutsPanel
               dateKey={selectedKey}
