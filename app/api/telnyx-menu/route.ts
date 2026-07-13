@@ -46,15 +46,16 @@ import {
   buildCalendarFullDayGatherXml,
   buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
-  buildPresenceClosedGatherXml,
-  buildPresenceOnJobGatherXml,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
+import { getAccountPresence, DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
 import {
-  getAccountPresence,
-  resolvePresenceAutomationGreeting,
-} from "@/lib/account-presence"
+  buildAutomationPresenceGatherXml,
+} from "@/lib/ivr-automation-texml"
+import {
+  isHolidayOverrideActive,
+} from "@/lib/ivr-automation-settings"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -312,38 +313,47 @@ async function dispatchIvrAction(opts: {
 }
 
 /** Calendar + presence entry TeXML (shared with /api/telnyx-capture).
- * Fetches presence via resolveInboundCapturePlan → getAccountPresence,
- * then Speak uses account_settings custom greetings (or product defaults).
+ * Holiday override → custom Speak; else ON_JOB / CLOSED with persona voice + bypass Gather.
  */
 async function buildCalendarAwareEntryXml(opts: {
   ownerUserId: string | null
   ringE164: string
   businessLineE164: string
 }): Promise<string> {
-  // Load ACTIVE line presence (CLOSED / ON_JOB / AVAILABLE) + calendar overrides.
   const plan = await resolveInboundCapturePlan({ ownerUserId: opts.ownerUserId })
   const captureBase = `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-capture`
 
-  // Custom Speak scripts from account_settings (dashboard Automation Voice Greetings).
-  let onJobGreeting: string | undefined
-  let closedGreeting: string | undefined
+  let presence = null as Awaited<ReturnType<typeof getAccountPresence>> | null
   if (opts.ownerUserId) {
     try {
-      const presence = await getAccountPresence(opts.ownerUserId)
-      onJobGreeting = presence.onJobGreetingText
-      closedGreeting = presence.closedGreetingText
+      presence = await getAccountPresence(opts.ownerUserId)
     } catch (e) {
       console.warn("[telnyx-menu] presence greeting lookup skipped:", e)
     }
   }
 
-  // Manual Closed → off-duty Speak (custom closed_greeting_text || default).
-  if (plan.kind === "presence_closed") {
-    const say = resolvePresenceAutomationGreeting({
-      presenceStatus: "CLOSED",
-      closedGreetingText: closedGreeting,
+  // Holiday window overrides ON_JOB / CLOSED before any other Speak.
+  if (
+    presence &&
+    isHolidayOverrideActive({
+      holidayOverrideStart: presence.holidayOverrideStart,
+      holidayOverrideEnd: presence.holidayOverrideEnd,
+      holidayGreetingText: presence.holidayGreetingText,
     })
-    return buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`, say)
+  ) {
+    return buildAutomationPresenceGatherXml({
+      kind: "holiday",
+      actionUrl: `${captureBase}?step=presence-holiday`,
+      presence,
+    })
+  }
+
+  if (plan.kind === "presence_closed") {
+    return buildAutomationPresenceGatherXml({
+      kind: "presence_closed",
+      actionUrl: `${captureBase}?step=presence-closed`,
+      presence: presence || DEFAULT_ACCOUNT_PRESENCE,
+    })
   }
   if (plan.kind === "calendar_full_day") {
     return buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
@@ -351,13 +361,12 @@ async function buildCalendarAwareEntryXml(opts: {
   if (plan.kind === "calendar_partial") {
     return buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
   }
-  // On Job → live lockout Speak (custom on_job_greeting_text || default).
   if (plan.kind === "presence_on_job") {
-    const say = resolvePresenceAutomationGreeting({
-      presenceStatus: "ON_JOB",
-      onJobGreetingText: onJobGreeting,
+    return buildAutomationPresenceGatherXml({
+      kind: "presence_on_job",
+      actionUrl: `${captureBase}?step=presence-on-job`,
+      presence: presence || DEFAULT_ACCOUNT_PRESENCE,
     })
-    return buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`, say)
   }
   return buildDayCaptureDialXml({
     ringE164: opts.ringE164 || TELNYX_MENU_DEFAULT_RING_E164,

@@ -136,18 +136,22 @@ export function buildNightCaptureGatherXml(actionUrl: string, voice = "alice"): 
   return buildSmsDefaultGatherXml(actionUrl, NIGHT_CAPTURE_PROMPT, voice)
 }
 
-/** Calendar / SMS-default Gather — Press 1 or stay on the line → SMS. */
+/** Calendar / SMS-default Gather — Press 1 or stay on the line → SMS.
+ * Optional bypass: larger numDigits so a secret code can interrupt to Dial.
+ */
 export function buildSmsDefaultGatherXml(
   actionUrl: string,
   prompt: string,
-  voice = "alice"
+  voice = "alice",
+  numDigits = 1
 ): string {
   const safeAction = escapeTexml(actionUrl)
   const safePrompt = escapeTexml(prompt.trim() || NIGHT_CAPTURE_PROMPT)
+  const digits = Math.max(1, Math.min(8, Math.floor(numDigits) || 1))
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Gather numDigits="1" timeout="8" action="${safeAction}" method="POST">` +
+    `<Gather numDigits="${digits}" timeout="8" action="${safeAction}" method="POST">` +
     `<Say voice="${escapeTexml(voice)}">${safePrompt}</Say>` +
     `</Gather>` +
     `<Redirect method="POST">${safeAction}</Redirect>` +
@@ -163,22 +167,73 @@ export function buildCalendarPartialBusyGatherXml(actionUrl: string, voice = "al
   return buildSmsDefaultGatherXml(actionUrl, CALENDAR_PARTIAL_BUSY_PROMPT, voice)
 }
 
-/** CLOSED presence Gather — `prompt` overrides dashboard custom / product default. */
+/** CLOSED presence Gather — `prompt` / `voice` / `numDigits` from dashboard automation settings. */
 export function buildPresenceClosedGatherXml(
   actionUrl: string,
   prompt: string = PRESENCE_CLOSED_PROMPT,
-  voice = "alice"
+  voice = "alice",
+  numDigits = 1
 ): string {
-  return buildSmsDefaultGatherXml(actionUrl, prompt.trim() || PRESENCE_CLOSED_PROMPT, voice)
+  return buildSmsDefaultGatherXml(
+    actionUrl,
+    prompt.trim() || PRESENCE_CLOSED_PROMPT,
+    voice,
+    numDigits
+  )
 }
 
-/** ON_JOB presence Gather — `prompt` overrides dashboard custom / product default. */
+/** ON_JOB presence Gather — `prompt` / `voice` / `numDigits` from dashboard automation settings. */
 export function buildPresenceOnJobGatherXml(
   actionUrl: string,
   prompt: string = PRESENCE_ON_JOB_PROMPT,
-  voice = "alice"
+  voice = "alice",
+  numDigits = 1
 ): string {
-  return buildSmsDefaultGatherXml(actionUrl, prompt.trim() || PRESENCE_ON_JOB_PROMPT, voice)
+  return buildSmsDefaultGatherXml(
+    actionUrl,
+    prompt.trim() || PRESENCE_ON_JOB_PROMPT,
+    voice,
+    numDigits
+  )
+}
+
+/** Holiday override Gather — same SMS-default digit behavior + optional bypass length. */
+export function buildHolidayOverrideGatherXml(
+  actionUrl: string,
+  prompt: string,
+  voice = "alice",
+  numDigits = 1
+): string {
+  return buildSmsDefaultGatherXml(
+    actionUrl,
+    prompt.trim() || PRESENCE_CLOSED_PROMPT,
+    voice,
+    numDigits
+  )
+}
+
+/** Immediate Dial to owner cell (secret bypass) — ignores presence / holiday SMS paths. */
+export function buildIvrBypassDialXml(opts: {
+  ringE164: string
+  callerId?: string | null
+  timeoutSeconds?: number
+}): string {
+  const timeout = opts.timeoutSeconds ?? 45
+  const safeNumber = escapeTexml(opts.ringE164.trim())
+  const callerAttr =
+    opts.callerId && opts.callerId.trim()
+      ? ` callerId="${escapeTexml(opts.callerId.trim())}"`
+      : ""
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response>` +
+    `<Say voice="alice">Connecting you now.</Say>` +
+    `<Dial timeout="${timeout}" answerOnBridge="true"${callerAttr}>` +
+    `<Number>${safeNumber}</Number>` +
+    `</Dial>` +
+    `<Hangup/>` +
+    `</Response>`
+  )
 }
 
 /** Day first ring — 15s Dial, then action URL for unanswered fallback. */

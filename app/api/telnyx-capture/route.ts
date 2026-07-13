@@ -12,6 +12,9 @@ import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
 import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
 import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
 import { buildTelnyxMenuBookingSms } from "@/lib/telnyx-menu"
+import { getAccountPresence } from "@/lib/account-presence"
+import { digitsMatchIvrBypass } from "@/lib/ivr-automation-settings"
+import { buildAutomationBypassDialXml } from "@/lib/ivr-automation-texml"
 import {
   localDateTimePartsInZone,
   remainingMinutesInActiveBlockout,
@@ -283,13 +286,35 @@ export async function POST(req: NextRequest) {
     return xmlResponse(buildCaptureSayHangupXml("Thank you. Goodbye."))
   }
 
-  // Legacy Gather action URLs for calendar / presence — SMS + hangup.
+  // Legacy Gather action URLs for calendar / presence / holiday — SMS + hangup (or bypass dial).
   if (
     step === "calendar-off" ||
     step === "calendar-busy" ||
     step === "presence-closed" ||
-    step === "presence-on-job"
+    step === "presence-on-job" ||
+    step === "presence-holiday"
   ) {
+    // Secret bypass: exact DTMF match → force dial owner cell, ignore presence SMS.
+    if (digits && ownerUserId) {
+      try {
+        const presence = await getAccountPresence(ownerUserId)
+        if (digitsMatchIvrBypass(digits, presence.ivrBypassCode)) {
+          void tagCall(callSid, {
+            routed_to_name: "Bypass Dial",
+            call_type: "incoming",
+            status: "ringing",
+          })
+          return xmlResponse(
+            buildAutomationBypassDialXml({
+              callerId: businessLineE164 || null,
+            })
+          )
+        }
+      } catch (e) {
+        console.warn("[telnyx-capture] bypass lookup skipped:", e)
+      }
+    }
+
     const routedToName =
       step === "calendar-off"
         ? CAPTURE_STATUS_FULL_DAY_LINK
@@ -297,7 +322,9 @@ export async function POST(req: NextRequest) {
           ? CAPTURE_STATUS_BUSY_LINK
           : step === "presence-closed"
             ? CAPTURE_STATUS_CLOSED_LINK
-            : CAPTURE_STATUS_ON_JOB_LINK
+            : step === "presence-holiday"
+              ? CAPTURE_STATUS_CLOSED_LINK
+              : CAPTURE_STATUS_ON_JOB_LINK
     return xmlResponse(
       await sendBookingSmsAndHangup({
         fromE164,

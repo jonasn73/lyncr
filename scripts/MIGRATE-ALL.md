@@ -103,6 +103,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 98 | `098-intake-rescue.sql` | **Pending Info Intake.** Adds customer name / VIN / notes / decoded vehicle columns on **`job_photo_tokens`**, photo **`category`** (`damage` / `id_verification`), and **`info_received`** ticket status for `/intake-rescue`. |
 | 99 | `099-intake-rescue-optional-id-vin.sql` | **Low-friction rescue.** Adds **`verify_on_arrival`** + **`vin_unavailable`** on **`job_photo_tokens`** so ID upload and VIN are optional; operator sees VERIFY ID ON SITE badge. |
 | 100 | `100-presence-automation-greetings.sql` | **Automation Voice Greetings.** Adds **`on_job_greeting_text`** + **`closed_greeting_text`** on **`account_settings`** (defaults = Key Squad On-Job / Closed Speak scripts). Powers Lines → 🤖 Automation Voice Greetings and dynamic TeXML on **`/api/telnyx-menu`** / inbound capture. **Required** to save custom presence greetings; app uses product defaults until applied. |
+| 101 | `101-ivr-automation-dispatch.sql` | **IVR dispatch overrides.** Adds **`ivr_bypass_code`**, **`ivr_voice_engine_model`**, **`holiday_override_start` / `end` / `holiday_greeting_text`** on **`account_settings`**. Powers AI Voice Persona, secret bypass dial to cell, and scheduled holiday Speak. **Required** for Save Greetings with those fields. |
 
 ## Platform admin (`admin@lyncr.app`)
 

@@ -86,14 +86,11 @@ import {
   buildCalendarFullDayGatherXml,
   buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
-  buildPresenceClosedGatherXml,
-  buildPresenceOnJobGatherXml,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
-import {
-  getAccountPresence,
-  resolvePresenceAutomationGreeting,
-} from "@/lib/account-presence"
+import { getAccountPresence, DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
+import { isHolidayOverrideActive } from "@/lib/ivr-automation-settings"
+import { buildAutomationPresenceGatherXml } from "@/lib/ivr-automation-texml"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -1516,36 +1513,34 @@ async function tryFastInboundReceptionistResponse(
         }
 
         let xml: string
-        if (plan.kind === "presence_closed" || plan.kind === "presence_on_job") {
-          // Load dashboard custom Speak scripts (account_settings) with product defaults.
-          let onJobGreeting: string | undefined
-          let closedGreeting: string | undefined
-          if (routing.user_id) {
-            try {
-              const presence = await getAccountPresence(routing.user_id)
-              onJobGreeting = presence.onJobGreetingText
-              closedGreeting = presence.closedGreetingText
-            } catch (e) {
-              console.warn("[telnyx-incoming] presence greeting lookup skipped:", e)
-            }
+        // Load dashboard automation settings (greetings, voice, bypass, holiday).
+        let presence = DEFAULT_ACCOUNT_PRESENCE
+        if (routing.user_id) {
+          try {
+            presence = await getAccountPresence(routing.user_id)
+          } catch (e) {
+            console.warn("[telnyx-incoming] presence greeting lookup skipped:", e)
           }
-          if (plan.kind === "presence_closed") {
-            xml = buildPresenceClosedGatherXml(
-              `${captureBase}?step=presence-closed`,
-              resolvePresenceAutomationGreeting({
-                presenceStatus: "CLOSED",
-                closedGreetingText: closedGreeting,
-              })
-            )
-          } else {
-            xml = buildPresenceOnJobGatherXml(
-              `${captureBase}?step=presence-on-job`,
-              resolvePresenceAutomationGreeting({
-                presenceStatus: "ON_JOB",
-                onJobGreetingText: onJobGreeting,
-              })
-            )
-          }
+        }
+
+        if (
+          isHolidayOverrideActive({
+            holidayOverrideStart: presence.holidayOverrideStart,
+            holidayOverrideEnd: presence.holidayOverrideEnd,
+            holidayGreetingText: presence.holidayGreetingText,
+          })
+        ) {
+          xml = buildAutomationPresenceGatherXml({
+            kind: "holiday",
+            actionUrl: `${captureBase}?step=presence-holiday`,
+            presence,
+          })
+        } else if (plan.kind === "presence_closed" || plan.kind === "presence_on_job") {
+          xml = buildAutomationPresenceGatherXml({
+            kind: plan.kind === "presence_closed" ? "presence_closed" : "presence_on_job",
+            actionUrl: `${captureBase}?step=${plan.kind === "presence_closed" ? "presence-closed" : "presence-on-job"}`,
+            presence,
+          })
         } else if (plan.kind === "calendar_full_day") {
           xml = buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
         } else if (plan.kind === "calendar_partial") {
