@@ -1144,6 +1144,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           vehicle_model: tokenRow?.vehicle_model != null ? String(tokenRow.vehicle_model) : null,
           vehicle_trim: tokenRow?.vehicle_trim != null ? String(tokenRow.vehicle_trim) : null,
           special_notes: tokenRow?.special_notes != null ? String(tokenRow.special_notes) : null,
+          verify_on_arrival: Boolean(
+            tokenRow?.verify_on_arrival ?? raw.verify_on_arrival
+          ),
+          vin_unavailable: Boolean(tokenRow?.vin_unavailable),
         }
         setRescueMetaRef.current(meta)
         if (meta.customer_name?.trim()) {

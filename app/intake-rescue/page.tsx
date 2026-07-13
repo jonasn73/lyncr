@@ -1,8 +1,8 @@
 "use client"
 
-// Customer Pending Info Intake: /intake-rescue?t=… — photos + name + VIN + notes.
+// Customer Pending Info Intake: /intake-rescue?t=… — low-friction photos + name + vehicle.
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 
 type PhotoSlot = {
@@ -39,6 +39,14 @@ async function compressImageFile(file: File): Promise<{ mimeType: string; dataBa
 
 function emptySlot(): PhotoSlot {
   return { previewUrl: null, mimeType: "", dataBase64: "", fileName: "" }
+}
+
+/** Year options for the locked-vehicle fallback (recent → older). */
+function vehicleYearChoices(): string[] {
+  const now = new Date().getFullYear() + 1
+  const years: string[] = []
+  for (let y = now; y >= 1990; y -= 1) years.push(String(y))
+  return years
 }
 
 function PhotoCaptureBox({
@@ -104,6 +112,15 @@ function IntakeRescueInner() {
   const [damageSlot, setDamageSlot] = useState<PhotoSlot>(emptySlot)
   const [idSlot, setIdSlot] = useState<PhotoSlot>(emptySlot)
   const [decodedLine, setDecodedLine] = useState<string | null>(null)
+  // Default: upload ID now for faster dispatch.
+  const [verifyOnArrival, setVerifyOnArrival] = useState(false)
+  // Locked vehicle / no VIN access → show Year / Make / Model fields.
+  const [vinUnavailable, setVinUnavailable] = useState(false)
+  const [vehicleYear, setVehicleYear] = useState("")
+  const [vehicleMake, setVehicleMake] = useState("")
+  const [vehicleModel, setVehicleModel] = useState("")
+
+  const yearChoices = useMemo(() => vehicleYearChoices(), [])
 
   useEffect(() => {
     if (!token) {
@@ -135,7 +152,7 @@ function IntakeRescueInner() {
           return
         }
         setStatus("ready")
-        setMessage("Fill in your details and photos so we can quote accurately and dispatch faster.")
+        setMessage("A few quick details help us quote accurately and dispatch faster.")
       })
       .catch(() => {
         if (!cancel) {
@@ -180,35 +197,40 @@ function IntakeRescueInner() {
       setMessage("Please add a lock / ignition damage photo.")
       return
     }
-    if (!idSlot.dataBase64) {
-      setMessage("Please add a photo of your ID or registration.")
-      return
-    }
     setStatus("submitting")
     setMessage("Submitting your intake info…")
     setDecodedLine(null)
     try {
+      const photos: Array<Record<string, string>> = [
+        {
+          category: "damage",
+          mime_type: damageSlot.mimeType,
+          file_name: damageSlot.fileName,
+          data_base64: damageSlot.dataBase64,
+        },
+      ]
+      // Only attach ID photo when the customer chose to upload now.
+      if (!verifyOnArrival && idSlot.dataBase64) {
+        photos.push({
+          category: "id_verification",
+          mime_type: idSlot.mimeType,
+          file_name: idSlot.fileName,
+          data_base64: idSlot.dataBase64,
+        })
+      }
       const res = await fetch(`/api/intake-rescue/${encodeURIComponent(token)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           full_name: fullName.trim(),
-          vehicle_vin: vehicleVin.trim() || undefined,
+          vehicle_vin: vinUnavailable ? undefined : vehicleVin.trim() || undefined,
           special_notes: specialNotes.trim() || undefined,
-          photos: [
-            {
-              category: "damage",
-              mime_type: damageSlot.mimeType,
-              file_name: damageSlot.fileName,
-              data_base64: damageSlot.dataBase64,
-            },
-            {
-              category: "id_verification",
-              mime_type: idSlot.mimeType,
-              file_name: idSlot.fileName,
-              data_base64: idSlot.dataBase64,
-            },
-          ],
+          verify_on_arrival: verifyOnArrival,
+          vin_unavailable: vinUnavailable,
+          vehicle_year: vinUnavailable ? vehicleYear.trim() || undefined : undefined,
+          vehicle_make: vinUnavailable ? vehicleMake.trim() || undefined : undefined,
+          vehicle_model: vinUnavailable ? vehicleModel.trim() || undefined : undefined,
+          photos,
         }),
       })
       const json = (await res.json().catch(() => ({}))) as {
@@ -229,9 +251,7 @@ function IntakeRescueInner() {
       }
       const v = json.data?.vehicle
       if (v?.year || v?.make || v?.model) {
-        setDecodedLine(
-          [v.year, v.make, v.model, v.trim].filter(Boolean).join(" ")
-        )
+        setDecodedLine([v.year, v.make, v.model, v.trim].filter(Boolean).join(" "))
       }
       setStatus("done")
       setMessage("Got it — your info was sent to Key Squad. You can close this page.")
@@ -239,7 +259,19 @@ function IntakeRescueInner() {
       setStatus("ready")
       setMessage("Network error. Check your connection and try again.")
     }
-  }, [token, fullName, vehicleVin, specialNotes, damageSlot, idSlot])
+  }, [
+    token,
+    fullName,
+    vehicleVin,
+    specialNotes,
+    damageSlot,
+    idSlot,
+    verifyOnArrival,
+    vinUnavailable,
+    vehicleYear,
+    vehicleMake,
+    vehicleModel,
+  ])
 
   const busy = status === "submitting" || status === "loading"
 
@@ -252,28 +284,67 @@ function IntakeRescueInner() {
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-600">{message}</p>
         {decodedLine ? (
-          <p className="mt-1 text-xs font-medium text-emerald-700">Vehicle decoded: {decodedLine}</p>
+          <p className="mt-1 text-xs font-medium text-emerald-700">Vehicle: {decodedLine}</p>
         ) : null}
       </div>
 
       {status === "ready" || status === "submitting" ? (
         <div className="space-y-4">
-          <div className="grid gap-3">
-            <PhotoCaptureBox
-              label="Lock / Ignition Damage Photos"
-              hint={damageSlot.dataBase64 ? "Tap to replace" : "Required — camera or gallery"}
-              slot={damageSlot}
-              disabled={busy}
-              onPicked={(f) => void assignSlot(f, "damage")}
-            />
-            <PhotoCaptureBox
-              label="Photo of ID / Registration"
-              hint={idSlot.dataBase64 ? "Tap to replace" : "Required — security verification"}
-              slot={idSlot}
-              disabled={busy}
-              onPicked={(f) => void assignSlot(f, "id")}
-            />
-          </div>
+          <PhotoCaptureBox
+            label="Lock / Ignition Damage Photos"
+            hint={damageSlot.dataBase64 ? "Tap to replace" : "Required — camera or gallery"}
+            slot={damageSlot}
+            disabled={busy}
+            onPicked={(f) => void assignSlot(f, "damage")}
+          />
+
+          {/* ID verification: upload now vs present on arrival */}
+          <fieldset className="space-y-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-zinc-700">
+              ID / Registration
+            </legend>
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-2.5 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+              <input
+                type="radio"
+                name="id-mode"
+                className="mt-1"
+                checked={!verifyOnArrival}
+                disabled={busy}
+                onChange={() => setVerifyOnArrival(false)}
+              />
+              <span className="text-sm text-zinc-800">
+                <span className="font-semibold">Upload ID now for faster dispatch</span>
+                <span className="mt-0.5 block text-[11px] text-zinc-500">Default — speeds up quoting</span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-2.5 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
+              <input
+                type="radio"
+                name="id-mode"
+                className="mt-1"
+                checked={verifyOnArrival}
+                disabled={busy}
+                onChange={() => setVerifyOnArrival(true)}
+              />
+              <span className="text-sm text-zinc-800">
+                <span className="font-semibold">I will present physical ID to the technician on arrival</span>
+                <span className="mt-0.5 block text-[11px] text-zinc-500">No photo needed right now</span>
+              </span>
+            </label>
+            {!verifyOnArrival ? (
+              <PhotoCaptureBox
+                label="Photo of ID / Registration"
+                hint={idSlot.dataBase64 ? "Tap to replace" : "Optional but recommended"}
+                slot={idSlot}
+                disabled={busy}
+                onPicked={(f) => void assignSlot(f, "id")}
+              />
+            ) : (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                Our technician will verify your ID on site before unlocking.
+              </p>
+            )}
+          </fieldset>
 
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
@@ -290,25 +361,83 @@ function IntakeRescueInner() {
             />
           </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
-              Vehicle VIN <span className="font-normal normal-case text-zinc-500">(optional)</span>
-            </span>
-            <input
-              type="text"
-              inputMode="text"
-              autoCapitalize="characters"
-              value={vehicleVin}
+          <div className="space-y-2">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
+                Vehicle VIN <span className="font-normal normal-case text-zinc-500">(optional)</span>
+              </span>
+              <input
+                type="text"
+                inputMode="text"
+                autoCapitalize="characters"
+                value={vehicleVin}
+                disabled={busy || vinUnavailable}
+                onChange={(e) => setVehicleVin(e.target.value.toUpperCase())}
+                placeholder="17-character VIN"
+                maxLength={17}
+                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base tracking-wide text-zinc-900 outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
+              />
+            </label>
+            <button
+              type="button"
               disabled={busy}
-              onChange={(e) => setVehicleVin(e.target.value.toUpperCase())}
-              placeholder="17-character VIN"
-              maxLength={17}
-              className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base tracking-wide text-zinc-900 outline-none focus:border-emerald-500"
-            />
-            <span className="text-[11px] text-zinc-500">
-              If provided, we decode Year / Make / Model / Trim automatically.
-            </span>
-          </label>
+              onClick={() => {
+                setVinUnavailable((v) => {
+                  const next = !v
+                  if (next) setVehicleVin("")
+                  return next
+                })
+              }}
+              className={
+                vinUnavailable
+                  ? "inline-flex w-full items-center justify-center rounded-full border border-amber-500 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900"
+                  : "inline-flex w-full items-center justify-center rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700"
+              }
+              aria-pressed={vinUnavailable}
+            >
+              Vehicle is locked / I don&apos;t have access to the VIN
+            </button>
+            {vinUnavailable ? (
+              <div className="grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-[11px] text-zinc-600">
+                  Type what you know — e.g. 2018 Kia Optima.
+                </p>
+                <select
+                  value={vehicleYear}
+                  disabled={busy}
+                  onChange={(e) => setVehicleYear(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900"
+                >
+                  <option value="">Year</option>
+                  {yearChoices.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={vehicleMake}
+                  disabled={busy}
+                  onChange={(e) => setVehicleMake(e.target.value)}
+                  placeholder="Make (e.g. Kia)"
+                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-emerald-500"
+                />
+                <input
+                  type="text"
+                  value={vehicleModel}
+                  disabled={busy}
+                  onChange={(e) => setVehicleModel(e.target.value)}
+                  placeholder="Model (e.g. Optima)"
+                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-emerald-500"
+                />
+              </div>
+            ) : (
+              <p className="text-[11px] text-zinc-500">
+                If provided, we decode Year / Make / Model / Trim automatically.
+              </p>
+            )}
+          </div>
 
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">

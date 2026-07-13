@@ -24,6 +24,8 @@ export type IntakeRescueMeta = {
   vehicle_model?: string | null
   vehicle_trim?: string | null
   special_notes?: string | null
+  verify_on_arrival?: boolean | null
+  vin_unavailable?: boolean | null
 }
 
 type IntakeJobPhotosPanelProps = {
@@ -139,6 +141,12 @@ export function IntakeJobPhotosPanel({
             vehicle_model: pkg.token.vehicle_model,
             vehicle_trim: pkg.token.vehicle_trim,
             special_notes: pkg.token.special_notes,
+            verify_on_arrival: Boolean(
+              (pkg.token as { verify_on_arrival?: boolean }).verify_on_arrival
+            ),
+            vin_unavailable: Boolean(
+              (pkg.token as { vin_unavailable?: boolean }).vin_unavailable
+            ),
           })
         }
       })
@@ -186,10 +194,19 @@ export function IntakeJobPhotosPanel({
   return (
     <div className={cn("space-y-2", className)}>
       {infoReceived ? (
-        <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center">
-          <p className="text-[11px] font-black uppercase tracking-wider text-emerald-200">
-            [ INFO RECEIVED - READY TO DISPATCH ]
-          </p>
+        <div className="space-y-2">
+          <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center">
+            <p className="text-[11px] font-black uppercase tracking-wider text-emerald-200">
+              [ INFO RECEIVED - READY TO DISPATCH ]
+            </p>
+          </div>
+          {rescueMeta?.verify_on_arrival ? (
+            <div className="rounded-xl border-2 border-amber-400 bg-amber-500/20 px-3 py-2.5 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+              <p className="text-[12px] font-black uppercase tracking-wide text-amber-100">
+                ⚠️ VERIFY ID ON SITE BEFORE UNLOCKING
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -257,9 +274,20 @@ export function IntakeJobPhotosPanel({
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">
                 Job Attachments ({photos.length})
               </p>
-              <div className="flex gap-2">
+                <div className="flex gap-2">
                 <PhotoGrid title="Damage" photos={damagePhotos} />
-                <PhotoGrid title="ID / Registration" photos={idPhotos} />
+                {rescueMeta?.verify_on_arrival ? (
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+                      ID / Registration
+                    </p>
+                    <div className="grid min-h-[72px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-3 text-center text-[10px] font-semibold text-amber-100">
+                      Verify ID on site
+                    </div>
+                  </div>
+                ) : (
+                  <PhotoGrid title="ID / Registration" photos={idPhotos} />
+                )}
               </div>
             </div>
           </motion.div>

@@ -101,6 +101,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 96 | `096-job-photo-requests.sql` | **Request Job Photos.** Creates **`job_photo_tokens`** + **`job_photos`** for intake SMS upload links (`/upload?t=…`). Customer photos stream into the live **Job Attachments** gallery via Pusher **`ticket.photos_updated`**. |
 | 97 | `097-photo-upload-alerts.sql` | **Delayed photo alerts.** Adds **`job_photo_tokens.ticket_status`** (`awaiting_photos` / `pending_info` / `resolved`) + **`operator_alert_sent_at`**, and **`operator_dashboard_heartbeats`**. Powers Pusher **`notification.photo_uploaded`** toast + Telnyx SMS to the operator when customers upload after the call. |
 | 98 | `098-intake-rescue.sql` | **Pending Info Intake.** Adds customer name / VIN / notes / decoded vehicle columns on **`job_photo_tokens`**, photo **`category`** (`damage` / `id_verification`), and **`info_received`** ticket status for `/intake-rescue`. |
+| 99 | `099-intake-rescue-optional-id-vin.sql` | **Low-friction rescue.** Adds **`verify_on_arrival`** + **`vin_unavailable`** on **`job_photo_tokens`** so ID upload and VIN are optional; operator sees VERIFY ID ON SITE badge. |
 
 ## Platform admin (`admin@lyncr.app`)
 

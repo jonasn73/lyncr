@@ -27,6 +27,10 @@ export type JobPhotoTokenRow = {
   vehicle_model: string | null
   vehicle_trim: string | null
   rescue_submitted_at: string | null
+  /** Customer chose to show physical ID on site instead of uploading. */
+  verify_on_arrival: boolean
+  /** Customer cannot access VIN (locked vehicle) — used Year/Make/Model fields. */
+  vin_unavailable: boolean
 }
 
 export type JobPhotoMeta = {
@@ -89,6 +93,8 @@ function mapTokenRow(row: Record<string, unknown>): JobPhotoTokenRow {
     vehicle_trim: row.vehicle_trim != null ? String(row.vehicle_trim) : null,
     rescue_submitted_at:
       row.rescue_submitted_at != null ? String(row.rescue_submitted_at) : null,
+    verify_on_arrival: Boolean(row.verify_on_arrival),
+    vin_unavailable: Boolean(row.vin_unavailable),
   }
 }
 
@@ -152,7 +158,9 @@ export async function getJobPhotoToken(id: string): Promise<JobPhotoTokenRow | n
         vehicle_make,
         vehicle_model,
         vehicle_trim,
-        rescue_submitted_at::text AS rescue_submitted_at
+        rescue_submitted_at::text AS rescue_submitted_at,
+        coalesce(verify_on_arrival, false) AS verify_on_arrival,
+        coalesce(vin_unavailable, false) AS vin_unavailable
       FROM job_photo_tokens
       WHERE id = ${id}
       LIMIT 1
@@ -233,7 +241,9 @@ export async function getIntakeRescueForCall(params: {
         vehicle_make,
         vehicle_model,
         vehicle_trim,
-        rescue_submitted_at::text AS rescue_submitted_at
+        rescue_submitted_at::text AS rescue_submitted_at,
+        coalesce(verify_on_arrival, false) AS verify_on_arrival,
+        coalesce(vin_unavailable, false) AS vin_unavailable
       FROM job_photo_tokens
       WHERE owner_user_id = ${params.ownerUserId}
         AND call_log_id = ${params.callLogId}
@@ -385,6 +395,11 @@ export async function submitIntakeRescueForm(params: {
   fullName: string
   vehicleVin?: string | null
   specialNotes?: string | null
+  verifyOnArrival?: boolean
+  vinUnavailable?: boolean
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
   photos: IntakeRescuePhotoInput[]
 }): Promise<
   | { ok: true; package: IntakeRescuePackage }
@@ -399,18 +414,20 @@ export async function submitIntakeRescueForm(params: {
   const fullName = params.fullName.trim()
   if (!fullName) return { ok: false, reason: "name-required" }
 
-  const damageInputs = params.photos.filter((p) => p.category === "damage")
-  const idInputs = params.photos.filter((p) => p.category === "id_verification")
-  if (damageInputs.length < 1) return { ok: false, reason: "damage-photo-required" }
-  if (idInputs.length < 1) return { ok: false, reason: "id-photo-required" }
+  const verifyOnArrival = Boolean(params.verifyOnArrival)
+  const vinUnavailable = Boolean(params.vinUnavailable)
 
-  // Optional VIN → NHTSA Year / Make / Model / Trim.
+  const damageInputs = params.photos.filter((p) => p.category === "damage")
+  if (damageInputs.length < 1) return { ok: false, reason: "damage-photo-required" }
+  // ID upload is always optional — verify_on_arrival just records how the tech will check ID.
+
+  // VIN decode when provided; otherwise accept manual Year / Make / Model.
   let vehicleYear: string | null = null
   let vehicleMake: string | null = null
   let vehicleModel: string | null = null
   let vehicleTrim: string | null = null
   let vehicleVin: string | null = null
-  const vinRaw = params.vehicleVin?.trim() || ""
+  const vinRaw = !vinUnavailable ? params.vehicleVin?.trim() || "" : ""
   if (vinRaw) {
     const decoded = await decodeVin(vinRaw)
     vehicleVin = normalizeVin(vinRaw) || decoded.vin
@@ -418,6 +435,10 @@ export async function submitIntakeRescueForm(params: {
     vehicleMake = decoded.vehicle_make
     vehicleModel = decoded.vehicle_model
     vehicleTrim = decoded.vehicle_trim
+  } else {
+    vehicleYear = params.vehicleYear?.trim() || null
+    vehicleMake = params.vehicleMake?.trim() || null
+    vehicleModel = params.vehicleModel?.trim() || null
   }
 
   const saved: JobPhotoMeta[] = []
@@ -433,7 +454,15 @@ export async function submitIntakeRescueForm(params: {
   }
   if (saved.length < 1) return { ok: false, reason: "upload-failed" }
 
-  const notes = params.specialNotes?.trim() || null
+  // Append a clear on-site ID note for the tech when verify_on_arrival is set.
+  let notes = params.specialNotes?.trim() || ""
+  if (verifyOnArrival) {
+    const tag = "VERIFY ID ON SITE BEFORE UNLOCKING"
+    if (!notes.toUpperCase().includes(tag)) {
+      notes = notes ? `${notes}\n\n${tag}` : tag
+    }
+  }
+
   try {
     await sql()`
       UPDATE job_photo_tokens
@@ -442,11 +471,13 @@ export async function submitIntakeRescueForm(params: {
         ticket_status = 'info_received',
         customer_name = ${fullName},
         vehicle_vin = ${vehicleVin},
-        special_notes = ${notes},
+        special_notes = ${notes || null},
         vehicle_year = ${vehicleYear},
         vehicle_make = ${vehicleMake},
         vehicle_model = ${vehicleModel},
         vehicle_trim = ${vehicleTrim},
+        verify_on_arrival = ${verifyOnArrival},
+        vin_unavailable = ${vinUnavailable},
         rescue_submitted_at = now(),
         operator_alert_sent_at = NULL
       WHERE id = ${params.tokenId}
@@ -472,6 +503,7 @@ export async function submitIntakeRescueForm(params: {
     photos,
     rescue: pkg,
     ticket_status: "info_received",
+    verify_on_arrival: verifyOnArrival,
   })
 
   try {

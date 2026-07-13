@@ -41,6 +41,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     full_name?: string
     vehicle_vin?: string
     special_notes?: string
+    verify_on_arrival?: boolean
+    vin_unavailable?: boolean
+    vehicle_year?: string
+    vehicle_make?: string
+    vehicle_model?: string
     photos?: Array<{
       mime_type?: string
       file_name?: string
@@ -74,6 +79,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     fullName: String(body.full_name || ""),
     vehicleVin: body.vehicle_vin ?? null,
     specialNotes: body.special_notes ?? null,
+    verifyOnArrival: Boolean(body.verify_on_arrival),
+    vinUnavailable: Boolean(body.vin_unavailable),
+    vehicleYear: body.vehicle_year ?? null,
+    vehicleMake: body.vehicle_make ?? null,
+    vehicleModel: body.vehicle_model ?? null,
     photos,
   })
 
@@ -92,7 +102,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const messages: Record<string, string> = {
       "name-required": "Please enter your full name.",
       "damage-photo-required": "Please add at least one lock/ignition damage photo.",
-      "id-photo-required": "Please add a photo of your ID or registration.",
+      "id-photo-required": "Please add a photo of your ID or registration, or choose verify on arrival.",
       expired: "This link has expired. Ask us to text a new one.",
       "not-found": "This link is no longer valid.",
     }
@@ -106,6 +116,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     data: {
       ok: true,
       ticket_status: result.package.token.ticket_status,
+      verify_on_arrival: result.package.token.verify_on_arrival,
       vehicle: {
         vin: result.package.token.vehicle_vin,
         year: result.package.token.vehicle_year,
