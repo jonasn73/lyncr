@@ -5,6 +5,7 @@ import {
   isAutomatedCallHandler,
   isIvrMenuHandler,
   isMissedCallRecord,
+  formatCaptureRoutedStatus,
 } from "@/lib/missed-call-telemetry"
 
 /** One feed row — latest call fields kept, with how many consecutive matches were folded in. */
@@ -119,6 +120,8 @@ export function resolveCallWasAnswered(call: UiCallRecord): boolean {
 
 /** Short status label for expandable chronology bullets. */
 export function formatCallChronologyStatus(call: UiCallRecord): string {
+  const capture = formatCaptureRoutedStatus(call.routedTo)
+  if (capture) return capture
   if (call.type === "voicemail" || /voicemail/i.test(call.routedTo || "")) return "Missed / Voicemail"
   if (call.type === "outgoing") return "Outgoing"
   if (isIvrMenuHandler(call.routedTo)) return "Missed / Left on IVR"

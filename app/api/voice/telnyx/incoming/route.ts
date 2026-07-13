@@ -72,9 +72,18 @@ import {
 import { buildRoutingPoolDialResponse, getAvailableReceptionistsForLine } from "@/lib/routing-pool"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "@/lib/telnyx-admin-routing-override"
-import { isIvrMenuEnabledForInboundDid } from "@/lib/ivr-menu-db"
-import { IVR_MENU_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
-import { getCustomRoutingPhoneForDid } from "@/lib/active-routing-mode-db"
+import {
+  getActiveRoutingModeForDid,
+  getCustomRoutingPhoneForDid,
+} from "@/lib/active-routing-mode-db"
+import {
+  CAPTURE_DEFAULT_RING_E164,
+  CAPTURE_STATUS_NIGHT_MENU,
+  DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+  buildDayCaptureDialXml,
+  buildNightCaptureGatherXml,
+  isNightMode,
+} from "@/lib/inbound-time-capture"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -1399,79 +1408,10 @@ async function tryFastInboundReceptionistResponse(
     })
   }
 
-  // Off-duty IVR Menu: skip PSTN / AI and Redirect into the traditional keypad Gather.
+  // Time-based capture (Your Phone / Smart IVR): night menu vs day 15s Dial + busy SMS.
+  // Skipped for Lyncr Pool + Custom Routing (handled below / later).
   const businessLineE164Early = normalizePhoneNumberE164(calledNumberRaw)
   if (businessLineE164Early) {
-    try {
-      if (await isIvrMenuEnabledForInboundDid(businessLineE164Early)) {
-        const menuUrl = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-menu`
-        const vr = new VoiceResponse()
-        vr.redirect({ method: "POST" }, menuUrl)
-        const callSidEarly =
-          pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || ""
-        const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
-        // Tag the log as IVR immediately so status "answered" (Gather connect) never
-        // looks like a live human answer in Activities / missed metrics.
-        if (callSidEarly && routing.user_id) {
-          after(() => {
-            void insertCallLog({
-              user_id: routing.user_id,
-              provider_call_sid: callSidEarly,
-              from_number: fromEarly.trim()
-                ? normalizePhoneNumberE164(fromEarly)
-                : "Unknown",
-              to_number: businessLineE164Early,
-              caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
-              call_type: "missed",
-              status: "ringing",
-              duration_seconds: 0,
-              routed_to_receptionist_id: null,
-              routed_to_name: IVR_MENU_ROUTED_TO_NAME,
-              has_recording: false,
-              recording_url: null,
-              recording_duration_seconds: null,
-            })
-              .then(async (id) => {
-                if (id) return
-                // Row may already exist from a prior webhook — force IVR tags.
-                const { updateCallLog } = await import("@/lib/db")
-                await updateCallLog(callSidEarly, {
-                  routed_to_name: IVR_MENU_ROUTED_TO_NAME,
-                  call_type: "missed",
-                })
-              })
-              .catch(async (logErr) => {
-                console.error("[Sigo] Call log insert failed (IVR menu path):", logErr)
-                try {
-                  const { updateCallLog } = await import("@/lib/db")
-                  await updateCallLog(callSidEarly, {
-                    routed_to_name: IVR_MENU_ROUTED_TO_NAME,
-                    call_type: "missed",
-                  })
-                } catch (e2) {
-                  console.error("[Sigo] Call log IVR retag failed:", e2)
-                }
-              })
-          })
-        }
-        console.log(
-          JSON.stringify({
-            ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
-            zing: "telnyx-incoming-ivr-menu-redirect",
-            callSid: callSidEarly || null,
-            didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
-            lookupMs,
-            routingSource: memHit ? "memory" : "db",
-          })
-        )
-        return new NextResponse(vr.toString(), {
-          headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
-        })
-      }
-    } catch (e) {
-      console.warn("[telnyx-incoming] IVR menu enable check failed:", e)
-    }
-
     // Custom Routing mode — forward straight to the configured 10-digit target.
     try {
       const customTarget = await getCustomRoutingPhoneForDid(businessLineE164Early)
@@ -1496,6 +1436,93 @@ async function tryFastInboundReceptionistResponse(
       }
     } catch (e) {
       console.warn("[telnyx-incoming] custom routing check failed:", e)
+    }
+
+    try {
+      const routingMode = await getActiveRoutingModeForDid(businessLineE164Early)
+      if (routingMode === "your_phone" || routingMode === "smart_ivr") {
+        const callSidEarly =
+          pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || ""
+        const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
+        const captureBase = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-capture`
+        const night = isNightMode()
+        const ownerDial =
+          normalizePhoneNumberE164(routing.owner_phone) ||
+          (isReasonablePstnDialString(routing.owner_phone) ? routing.owner_phone.trim() : "") ||
+          CAPTURE_DEFAULT_RING_E164
+
+        const initialRoutedName = night ? CAPTURE_STATUS_NIGHT_MENU : "Owner"
+        if (callSidEarly && routing.user_id) {
+          after(() => {
+            void insertCallLog({
+              user_id: routing.user_id,
+              provider_call_sid: callSidEarly,
+              from_number: fromEarly.trim()
+                ? normalizePhoneNumberE164(fromEarly)
+                : "Unknown",
+              to_number: businessLineE164Early,
+              caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
+              call_type: night ? "missed" : "incoming",
+              status: "ringing",
+              duration_seconds: 0,
+              routed_to_receptionist_id: null,
+              routed_to_name: initialRoutedName,
+              has_recording: false,
+              recording_url: null,
+              recording_duration_seconds: null,
+            })
+              .then(async (id) => {
+                if (id) return
+                const { updateCallLog } = await import("@/lib/db")
+                await updateCallLog(callSidEarly, {
+                  routed_to_name: initialRoutedName,
+                  call_type: night ? "missed" : "incoming",
+                })
+              })
+              .catch(async (logErr) => {
+                console.error("[Sigo] Call log insert failed (time capture):", logErr)
+                try {
+                  const { updateCallLog } = await import("@/lib/db")
+                  await updateCallLog(callSidEarly, {
+                    routed_to_name: initialRoutedName,
+                    call_type: night ? "missed" : "incoming",
+                  })
+                } catch (e2) {
+                  console.error("[Sigo] Call log capture retag failed:", e2)
+                }
+              })
+          })
+        }
+
+        const xml = night
+          ? buildNightCaptureGatherXml(`${captureBase}?step=night`)
+          : buildDayCaptureDialXml({
+              ringE164: ownerDial,
+              actionUrl: `${captureBase}?step=day-fallback`,
+              callerId: businessLineE164Early,
+              timeoutSeconds: DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+            })
+
+        console.log(
+          JSON.stringify({
+            ...(perfStartMs != null
+              ? { execMs: +(performance.now() - perfStartMs).toFixed(2) }
+              : {}),
+            zing: night ? "telnyx-incoming-night-capture" : "telnyx-incoming-day-capture",
+            callSid: callSidEarly || null,
+            didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
+            ringTail4: ownerDial.replace(/\D/g, "").slice(-4) || null,
+            lookupMs,
+            routingSource: memHit ? "memory" : "db",
+            routingMode,
+          })
+        )
+        return new NextResponse(xml, {
+          headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
+        })
+      }
+    } catch (e) {
+      console.warn("[telnyx-incoming] time capture path failed:", e)
     }
   }
 

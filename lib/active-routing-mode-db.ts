@@ -251,3 +251,43 @@ export async function getCustomRoutingPhoneForDid(toNumber: string): Promise<str
     return null
   }
 }
+
+/** Who Answers mode for an inbound DID — drives night/day capture vs pool. */
+export async function getActiveRoutingModeForDid(
+  toNumber: string
+): Promise<ActiveRoutingMode> {
+  const sql = sqlClient()
+  const normalized = normalizePhoneNumberE164(toNumber)
+  if (!normalized) return "your_phone"
+  const digitKey = normalized.replace(/\D/g, "").slice(-10)
+  try {
+    const rows = await sql`
+      SELECT
+        rc.active_routing_mode,
+        rc.ivr_menu_enabled,
+        rc.routing_strategy,
+        rc.custom_routing_phone,
+        rc.selected_receptionist_id
+      FROM phone_numbers pn
+      JOIN routing_config rc ON rc.user_id = pn.user_id
+        AND (rc.business_number = pn.number OR rc.business_number IS NULL)
+      WHERE pn.number = ${normalized}
+         OR RIGHT(regexp_replace(pn.number, '[^0-9]', '', 'g'), 10) = ${digitKey}
+      ORDER BY CASE WHEN rc.business_number = pn.number THEN 0 ELSE 1 END
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return "your_phone"
+    return inferActiveRoutingMode({
+      active_routing_mode: row.active_routing_mode as string | null,
+      ivr_menu_enabled: row.ivr_menu_enabled as boolean | null,
+      routing_strategy: row.routing_strategy as string | null,
+      custom_routing_phone: row.custom_routing_phone as string | null,
+      selected_receptionist_id: row.selected_receptionist_id as string | null,
+    })
+  } catch (e) {
+    if (isMissingModeColumn(e)) return "your_phone"
+    console.warn("[active-routing-mode] mode DID lookup failed:", e)
+    return "your_phone"
+  }
+}

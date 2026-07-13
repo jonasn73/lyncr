@@ -1,6 +1,16 @@
 // Shared rules for "missed call" — routing HUD, Pusher deltas, and call-history dialog.
 
 import { isLocalCalendarToday } from "@/lib/daily-call-telemetry"
+import {
+  isCaptureEmergencyAnswered,
+  isCaptureMissedLinkStatus,
+} from "@/lib/inbound-time-capture"
+
+export {
+  CAPTURE_STATUS_DAY_LINK,
+  CAPTURE_STATUS_EMERGENCY_ANSWERED,
+  CAPTURE_STATUS_NIGHT_LINK,
+} from "@/lib/inbound-time-capture"
 
 export type MissedCallRecordInput = {
   call_type?: string | null
@@ -34,10 +44,14 @@ function normalizeCallStatus(raw: string | null | undefined): string {
 }
 
 /**
- * True when the call was handled by IVR / AI / voicemail — not a physical team member.
+ * True when the call was handled by IVR / AI / voicemail / capture SMS — not a live team member.
  * These must never count as green live "Answered" in Activities or missed metrics.
  */
 export function isAutomatedCallHandler(routedToName: string | null | undefined): boolean {
+  if (isCaptureMissedLinkStatus(routedToName)) return true
+  // Emergency Answered is a live human bridge — not automated.
+  if (isCaptureEmergencyAnswered(routedToName)) return false
+
   const n = String(routedToName ?? "")
     .trim()
     .toLowerCase()
@@ -51,11 +65,14 @@ export function isAutomatedCallHandler(routedToName: string | null | undefined):
   if (n.includes("assistant") && !n.includes("human")) return true
   if (n.includes("keypad")) return true
   if (n.includes("menu") && (n.includes("ivr") || n.includes("overflow"))) return true
+  if (n.includes("night capture") || n.includes("day capture")) return true
+  if (n.includes("sent night link") || n.includes("sent day link")) return true
   return false
 }
 
-/** IVR / keypad menu path specifically (for Missed (IVR) badge + chronology copy). */
+/** IVR / keypad / night-day capture path (for Missed (IVR) badge + chronology copy). */
 export function isIvrMenuHandler(routedToName: string | null | undefined): boolean {
+  if (isCaptureMissedLinkStatus(routedToName)) return true
   const n = String(routedToName ?? "")
     .trim()
     .toLowerCase()
@@ -64,6 +81,8 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
   if (/\bivr\b/.test(n)) return true
   if (n.includes("smart overflow")) return true
   if (n.includes("keypad")) return true
+  if (n.includes("night capture") || n.includes("day capture")) return true
+  if (n.includes("sent night link") || n.includes("sent day link")) return true
   return false
 }
 
@@ -73,6 +92,14 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
  * Carrier "answered" on an IVR Gather alone is excluded via automated handler check.
  */
 export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
+  // Night emergency press-2 that connected.
+  if (isCaptureEmergencyAnswered(input.routed_to_name)) {
+    if (input.answered_at?.trim()) return true
+    const status = normalizeCallStatus(input.status)
+    const duration = Number(input.duration_seconds ?? 0)
+    if (status === "completed" && duration > 0) return true
+  }
+
   if (isAutomatedCallHandler(input.routed_to_name)) return false
 
   if (input.answered_at?.trim()) {
@@ -134,4 +161,14 @@ export function isMissedCallTodayRecord(
 ): boolean {
   if (!input.created_at || !isLocalCalendarToday(input.created_at, now)) return false
   return isMissedCallRecord(input)
+}
+
+/** Prefer exact capture status strings in Activities / Missed Call Rescue UI. */
+export function formatCaptureRoutedStatus(routedToName: string | null | undefined): string | null {
+  const n = String(routedToName ?? "").trim()
+  if (!n) return null
+  if (n === "Missed - Sent Night Link") return n
+  if (n === "Missed - Sent Day Link") return n
+  if (n === "Emergency Answered") return n
+  return null
 }

@@ -198,11 +198,21 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
   )
 }
 
-export type ActivityCallStatus = "answered" | "ai_handled" | "missed" | "missed_ivr" | "voicemail"
+export type ActivityCallStatus =
+  | "answered"
+  | "ai_handled"
+  | "missed"
+  | "missed_ivr"
+  | "voicemail"
+  | "night_link"
+  | "day_link"
+  | "emergency"
 
 export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
   const styles: Record<ActivityCallStatus, string> = {
     answered:
+      "border-emerald-500/45 bg-emerald-500/12 text-emerald-300 shadow-[0_0_14px_-6px_rgba(16,185,129,0.55)]",
+    emergency:
       "border-emerald-500/45 bg-emerald-500/12 text-emerald-300 shadow-[0_0_14px_-6px_rgba(16,185,129,0.55)]",
     ai_handled:
       "border-violet-500/45 bg-violet-500/12 text-violet-300 shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
@@ -210,13 +220,20 @@ export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
       "border-amber-500/40 bg-amber-500/10 text-amber-300 shadow-[0_0_14px_-6px_rgba(245,158,11,0.35)]",
     missed_ivr:
       "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
+    night_link:
+      "border-sky-500/45 bg-sky-500/12 text-sky-200 shadow-[0_0_14px_-6px_rgba(14,165,233,0.4)]",
+    day_link:
+      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
     missed: "border-red-500/35 bg-red-500/8 text-red-400",
   }
   const labels: Record<ActivityCallStatus, string> = {
     answered: "Answered",
+    emergency: "Emergency Answered",
     ai_handled: "AI handled",
     voicemail: "Voicemail",
     missed_ivr: "Missed (IVR)",
+    night_link: "Missed - Sent Night Link",
+    day_link: "Missed - Sent Day Link",
     missed: "Missed",
   }
   return (

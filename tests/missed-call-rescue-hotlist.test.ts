@@ -11,6 +11,7 @@ describe("collapseMissedHotlist", () => {
         to_number: "+15025550100",
         created_at: "2026-07-13T13:33:00.000Z",
         status: "no-answer",
+        routed_to_name: "Missed - Sent Night Link",
       },
       {
         id: "2",
@@ -19,6 +20,7 @@ describe("collapseMissedHotlist", () => {
         to_number: "+15025550100",
         created_at: "2026-07-13T12:00:00.000Z",
         status: "no-answer",
+        routed_to_name: "Missed - Sent Day Link",
       },
       {
         id: "3",
@@ -27,6 +29,7 @@ describe("collapseMissedHotlist", () => {
         to_number: "+15025550100",
         created_at: "2026-07-13T10:53:00.000Z",
         status: "no-answer",
+        routed_to_name: "Night Capture",
       },
     ])
 
@@ -34,6 +37,7 @@ describe("collapseMissedHotlist", () => {
     expect(items[0].key).toBe("8594170996")
     expect(items[0].count).toBe(2)
     expect(items[0].latestAt).toBe("2026-07-13T13:33:00.000Z")
+    expect(items[0].latestStatus).toBe("Missed - Sent Night Link")
     expect(items[0].times.length).toBe(2)
     expect(items[1].count).toBe(1)
   })

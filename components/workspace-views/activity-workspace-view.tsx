@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { isMissedCallRecord, isMissedCallTodayRecord, isIvrMenuHandler, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
+import {
+  CAPTURE_STATUS_DAY_LINK,
+  CAPTURE_STATUS_EMERGENCY_ANSWERED,
+  CAPTURE_STATUS_NIGHT_LINK,
+} from "@/lib/inbound-time-capture"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
@@ -248,6 +253,9 @@ function missedRecordFromUiCall(call: UiCallRecord): MissedCallRecordInput {
 
 function classifyCall(call: UiCallRecord): ActivityCallStatus {
   const routed = call.routedTo ?? ""
+  if (routed === CAPTURE_STATUS_EMERGENCY_ANSWERED) return "emergency"
+  if (routed === CAPTURE_STATUS_NIGHT_LINK) return "night_link"
+  if (routed === CAPTURE_STATUS_DAY_LINK) return "day_link"
   if (call.type === "voicemail" || /voicemail/i.test(routed)) return "voicemail"
   // IVR / keypad — amber Missed (IVR), never green Answered.
   if (isIvrMenuHandler(routed)) return "missed_ivr"
@@ -271,7 +279,14 @@ type ActivityCallFilter = "all" | "missed"
 function isMissedActivityCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
   const status = classifyCall(call)
-  return status === "missed" || status === "missed_ivr" || status === "voicemail" || status === "ai_handled"
+  return (
+    status === "missed" ||
+    status === "missed_ivr" ||
+    status === "voicemail" ||
+    status === "ai_handled" ||
+    status === "night_link" ||
+    status === "day_link"
+  )
 }
 
 /** Same rules as the Lines HUD “Missed today” pill — local calendar day + shared missed detection. */

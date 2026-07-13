@@ -39,6 +39,8 @@ export type MissedHotlistItem = {
   latestAt: string
   /** All missed times today, newest first (local clock strings). */
   times: string[]
+  /** Latest capture / IVR status for this lead (e.g. Missed - Sent Night Link). */
+  latestStatus: string | null
 }
 
 function formatMissedTime(iso: string): string {
@@ -54,11 +56,20 @@ function formatMissedTime(iso: string): string {
 export function collapseMissedHotlist(rows: MissedCallRow[]): MissedHotlistItem[] {
   const byKey = new Map<
     string,
-    { key: string; from_number: string; count: number; stamps: string[] }
+    {
+      key: string
+      from_number: string
+      count: number
+      stamps: string[]
+      latestStatus: string | null
+      latestAtMs: number
+    }
   >()
 
   for (const row of rows) {
     const key = activityCallerPhoneKey(row.from_number) || row.from_number.replace(/\D/g, "") || "unknown"
+    const atMs = Date.parse(row.created_at) || 0
+    const status = row.routed_to_name?.trim() || null
     const existing = byKey.get(key)
     if (!existing) {
       byKey.set(key, {
@@ -66,11 +77,17 @@ export function collapseMissedHotlist(rows: MissedCallRow[]): MissedHotlistItem[
         from_number: row.from_number,
         count: 1,
         stamps: [row.created_at],
+        latestStatus: status,
+        latestAtMs: atMs,
       })
       continue
     }
     existing.count += 1
     existing.stamps.push(row.created_at)
+    if (atMs >= existing.latestAtMs) {
+      existing.latestAtMs = atMs
+      existing.latestStatus = status
+    }
   }
 
   const items: MissedHotlistItem[] = []
@@ -91,6 +108,7 @@ export function collapseMissedHotlist(rows: MissedCallRow[]): MissedHotlistItem[
       count: g.count,
       latestAt,
       times,
+      latestStatus: g.latestStatus,
     })
   }
 
@@ -224,6 +242,9 @@ export function MissedCallRescueSheet({
                         {formatMissedTime(item.latestAt)}
                       </span>
                     </div>
+                    {item.latestStatus ? (
+                      <p className="mt-1 text-[10px] font-medium text-slate-400">{item.latestStatus}</p>
+                    ) : null}
                     {href ? (
                       <a
                         href={href}
