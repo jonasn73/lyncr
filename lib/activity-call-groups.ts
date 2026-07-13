@@ -10,6 +10,8 @@ export type GroupedActivityCall = UiCallRecord & {
   todayCount: number
   /** Ids of every call in the group (newest first). */
   groupIds: string[]
+  /** Full member rows newest-first — powers expandable chronology. */
+  members: UiCallRecord[]
 }
 
 /** Digits-only key so +15551234567 and (555) 123-4567 group together. */
@@ -34,7 +36,7 @@ function isCreatedToday(iso: string | null | undefined, now: Date = new Date()):
 
 /**
  * Walk a newest-first call list and fold consecutive same-number rows.
- * Keeps the first (latest) call’s fields and accumulates count / todayCount.
+ * Keeps the first (latest) call’s fields and accumulates count / todayCount / members.
  */
 export function groupConsecutiveCallsByPhone(
   calls: UiCallRecord[],
@@ -51,6 +53,7 @@ export function groupConsecutiveCallsByPhone(
     if (last && key && lastKey && key === lastKey) {
       last.count += 1
       last.groupIds.push(call.id)
+      last.members.push(call)
       if (isCreatedToday(call.createdAt, now)) last.todayCount += 1
       continue
     }
@@ -60,6 +63,7 @@ export function groupConsecutiveCallsByPhone(
       count: 1,
       todayCount: isCreatedToday(call.createdAt, now) ? 1 : 0,
       groupIds: [call.id],
+      members: [call],
     })
   }
 
@@ -90,8 +94,30 @@ export function formatGroupedCallSummary(group: GroupedActivityCall, now: Date =
   return `${lead} • ${today} total call${today === 1 ? "" : "s"} today`
 }
 
-function resolveCallWasAnswered(call: UiCallRecord): boolean {
+export function resolveCallWasAnswered(call: UiCallRecord): boolean {
   if (call.type === "missed" || call.type === "voicemail") return false
   if (call.answeredAt) return true
   return call.durationSeconds > 0
+}
+
+/** Short status label for expandable chronology bullets. */
+export function formatCallChronologyStatus(call: UiCallRecord): string {
+  if (call.type === "voicemail") return "Voicemail"
+  if (call.type === "outgoing") return "Outgoing"
+  if (resolveCallWasAnswered(call)) return "Answered"
+  return "Missed"
+}
+
+/** Local clock time for a chronology bullet (e.g. "9:33 AM"). */
+export function formatCallChronologyTime(call: UiCallRecord): string {
+  if (call.time?.trim()) return call.time.trim()
+  if (!call.createdAt?.trim()) return "—"
+  const d = new Date(call.createdAt)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+}
+
+/** One chronology line: "9:33 AM (Answered)". */
+export function formatCallChronologyLine(call: UiCallRecord): string {
+  return `${formatCallChronologyTime(call)} (${formatCallChronologyStatus(call)})`
 }

@@ -53,6 +53,7 @@ describe("groupConsecutiveCallsByPhone", () => {
     expect(grouped[0].count).toBe(2)
     expect(grouped[0].todayCount).toBe(2)
     expect(grouped[0].createdAt).toBe("2026-07-12T20:30:00.000Z")
+    expect(grouped[0].members.map((m) => m.id)).toEqual(["1", "2"])
     expect(grouped[1].id).toBe("3")
     expect(grouped[1].count).toBe(1)
     expect(grouped[2].id).toBe("4")

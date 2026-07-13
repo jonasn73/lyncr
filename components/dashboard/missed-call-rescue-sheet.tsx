@@ -17,6 +17,7 @@ import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { isMissedCallRecord, isMissedCallTodayRecord } from "@/lib/missed-call-telemetry"
 import { buildTelHref } from "@/lib/phone-e164"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
+import { activityCallerPhoneKey } from "@/lib/activity-call-groups"
 
 type MissedCallRow = {
   id: string
@@ -30,35 +31,71 @@ type MissedCallRow = {
   routed_to_name?: string | null
 }
 
-/** Collapse consecutive same-number misses into one hotlist row with a counter. */
-function collapseMissedHotlist(rows: MissedCallRow[]): Array<{
+export type MissedHotlistItem = {
   key: string
   from_number: string
   count: number
+  /** Most recent missed call ISO timestamp for this number today. */
   latestAt: string
-}> {
-  const groups: Array<{ key: string; from_number: string; count: number; latestAt: string }> = []
-  for (const row of rows) {
-    const digits = row.from_number.replace(/\D/g, "") || "unknown"
-    const prev = groups[groups.length - 1]
-    if (prev && prev.key === digits) {
-      prev.count += 1
-      continue
-    }
-    groups.push({
-      key: digits,
-      from_number: row.from_number,
-      count: 1,
-      latestAt: row.created_at,
-    })
-  }
-  return groups
+  /** All missed times today, newest first (local clock strings). */
+  times: string[]
 }
 
 function formatMissedTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+}
+
+/**
+ * Group ALL of today's missed rows by caller (not just consecutive).
+ * Latest timestamp wins the header clock; times[] keeps every occurrence (newest first).
+ */
+export function collapseMissedHotlist(rows: MissedCallRow[]): MissedHotlistItem[] {
+  const byKey = new Map<
+    string,
+    { key: string; from_number: string; count: number; stamps: string[] }
+  >()
+
+  for (const row of rows) {
+    const key = activityCallerPhoneKey(row.from_number) || row.from_number.replace(/\D/g, "") || "unknown"
+    const existing = byKey.get(key)
+    if (!existing) {
+      byKey.set(key, {
+        key,
+        from_number: row.from_number,
+        count: 1,
+        stamps: [row.created_at],
+      })
+      continue
+    }
+    existing.count += 1
+    existing.stamps.push(row.created_at)
+  }
+
+  const items: MissedHotlistItem[] = []
+  for (const g of byKey.values()) {
+    const stamps = [...g.stamps].sort((a, b) => Date.parse(b) - Date.parse(a))
+    const latestAt = stamps[0] || ""
+    const seen = new Set<string>()
+    const times: string[] = []
+    for (const iso of stamps) {
+      const label = formatMissedTime(iso)
+      if (!label || seen.has(label)) continue
+      seen.add(label)
+      times.push(label)
+    }
+    items.push({
+      key: g.key,
+      from_number: g.from_number,
+      count: g.count,
+      latestAt,
+      times,
+    })
+  }
+
+  items.sort((a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt))
+  return items
 }
 
 export function MissedCallRescueSheet({
@@ -73,12 +110,18 @@ export function MissedCallRescueSheet({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rows, setRows] = useState<MissedCallRow[]>([])
+  const [fetchedAt, setFetchedAt] = useState(0)
 
   const loadMissed = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/calls?limit=100", { credentials: "include", cache: "no-store" })
+      // Bust caches so the sheet always shows the latest missed activity.
+      const res = await fetch(`/api/calls?limit=100&_=${Date.now()}`, {
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      })
       if (!res.ok) throw new Error("Could not load missed calls")
       const json = (await res.json()) as { calls?: MissedCallRow[]; data?: MissedCallRow[] }
       const all = Array.isArray(json.calls)
@@ -105,6 +148,7 @@ export function MissedCallRescueSheet({
         })
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setRows(missed)
+      setFetchedAt(Date.now())
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load missed calls")
       setRows([])
@@ -115,6 +159,8 @@ export function MissedCallRescueSheet({
 
   useEffect(() => {
     if (!open) return
+    // Clear stale rows immediately so old timestamps do not flash while refetching.
+    setRows([])
     void loadMissed()
   }, [open, loadMissed])
 
@@ -154,21 +200,20 @@ export function MissedCallRescueSheet({
           ) : hotlist.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-500">No missed calls today — nice work.</p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-2" data-fetched-at={fetchedAt || undefined}>
               {hotlist.map((item) => {
                 const href = buildTelHref(item.from_number)
+                const phoneLabel = formatPhoneDisplay(item.from_number) || "Unknown Caller"
                 const label =
-                  item.count > 1
-                    ? `${formatPhoneDisplay(item.from_number) || "Unknown Caller"} (${item.count})`
-                    : formatPhoneDisplay(item.from_number) || "Unknown Caller"
+                  item.count > 1 ? `${phoneLabel} (x${item.count})` : phoneLabel
                 return (
                   <li
-                    key={`${item.key}-${item.latestAt}`}
+                    key={item.key}
                     className="rounded-xl border border-slate-850 bg-slate-900/40 p-3"
                   >
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-slate-100">{label}</p>
-                      <span className="shrink-0 text-[10px] tabular-nums text-slate-500">
+                      <span className="shrink-0 text-[10px] font-semibold tabular-nums text-amber-200/90">
                         {formatMissedTime(item.latestAt)}
                       </span>
                     </div>
@@ -189,6 +234,11 @@ export function MissedCallRescueSheet({
                     ) : (
                       <p className="mt-2 text-xs text-slate-500">No dialable number on this log.</p>
                     )}
+                    {item.count > 1 && item.times.length > 0 ? (
+                      <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-medium leading-snug text-amber-100/90">
+                        Called today at {item.times.join(" · ")}
+                      </p>
+                    ) : null}
                   </li>
                 )
               })}
