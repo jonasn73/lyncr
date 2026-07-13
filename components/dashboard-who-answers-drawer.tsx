@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Network, Plus, User } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+// Unified Who Answers — single active_routing_mode radio + conditional panels.
+
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
 import { submitFormEvent } from "@/lib/form-keyboard"
-import { openTeamInviteModal } from "@/lib/team-invite-events"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -12,180 +12,176 @@ import {
   DrawerStepHeader,
   DrawerStickyFooter,
 } from "@/components/dashboard-routing-drawer-shared"
-import { formatPhoneDisplay, type Contact } from "@/lib/dashboard-routing-utils"
-import type { RoutingStrategy } from "@/lib/types"
+import { Switch } from "@/components/ui/switch"
+import { IvrGreetingsSettingsForm } from "@/components/dashboard/ivr-greetings-settings-form"
+import {
+  ACTIVE_ROUTING_MODE_OPTIONS,
+  normalizeActiveRoutingMode,
+  type ActiveRoutingMode,
+} from "@/lib/active-routing-mode"
 
-// "pool" = route this line to the shared Lyncr Live Operator Pool (routing_strategy = 'lyncr_only').
-type ReceiverId = "owner" | "pool" | string
+const fieldClass =
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
-type TeamRow = {
-  id: ReceiverId
-  name: string
-  phone: string
-  initials: string
-  color?: string
-  status: "active" | "forwarding" | "offline"
-}
-
-function statusBadge(status: TeamRow["status"]) {
-  if (status === "active") {
-    return (
-      <span className="rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-success shadow-[0_0_10px_-4px_var(--success)]">
-        Active
-      </span>
-    )
-  }
-  if (status === "forwarding") {
-    return (
-      <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-400/90">
-        Forwarding
-      </span>
-    )
-  }
-  return (
-    <span className="rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
-      Offline
-    </span>
-  )
-}
+const RING_OPTIONS = [15, 20, 30, 45, 60] as const
 
 export type DashboardWhoAnswersDrawerProps = {
-  receptionists: Contact[]
-  selectedReceptionistId: string | null
+  receptionists?: unknown
+  selectedReceptionistId?: string | null
   ownerPhoneDisplay: string
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
   onClose: () => void
   onRegisterDiscard?: (discard: () => void) => void
   routingBusinessNumber: string | null
   routingLineDetailLoading?: boolean
-  // Opens the routing-strategy dialog on top of this drawer (private vs Lyncr network).
   onChangeRoutingStrategy?: () => void
-  // Current hybrid-network strategy for this line; "lyncr_only" means the operator pool is active.
-  routingStrategy: RoutingStrategy
-  // Pushes the new strategy back to the dashboard canvas after a save.
-  setRoutingStrategy: (s: RoutingStrategy) => void
+  routingStrategy?: string
+  setRoutingStrategy: (s: "private_only" | "lyncr_only" | "hybrid_fallback") => void
 }
 
 export function DashboardWhoAnswersDrawer({
-  receptionists,
-  selectedReceptionistId,
   ownerPhoneDisplay,
   saveRouting,
   onClose,
   onRegisterDiscard,
   routingBusinessNumber,
   routingLineDetailLoading,
-  onChangeRoutingStrategy,
-  routingStrategy,
   setRoutingStrategy,
 }: DashboardWhoAnswersDrawerProps) {
   const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  // Pool wins the initial selection when the line is set to "lyncr_only".
-  const initialReceiver: ReceiverId = routingStrategy === "lyncr_only" ? "pool" : selectedReceptionistId ?? "owner"
-  const [primaryId, setPrimaryId] = useState<ReceiverId>(initialReceiver)
-  const baselineRef = useRef(initialReceiver)
+  const [mode, setMode] = useState<ActiveRoutingMode>("your_phone")
+  const [customPhone, setCustomPhone] = useState("")
+  const [ringTimeout, setRingTimeout] = useState(30)
+  const [requireDeposit, setRequireDeposit] = useState(false)
+  const baselineRef = useRef("")
+
+  const snapshot = useCallback(
+    () =>
+      JSON.stringify({
+        mode,
+        customPhone: customPhone.trim(),
+        ringTimeout,
+        requireDeposit,
+      }),
+    [mode, customPhone, ringTimeout, requireDeposit]
+  )
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const qs = routingBusinessNumber
+        ? `?number=${encodeURIComponent(routingBusinessNumber)}`
+        : ""
+      const [modeRes, depRes] = await Promise.all([
+        fetch(`/api/routing/mode${qs}`, { credentials: "include" }),
+        fetch("/api/routing/deposit-settings", { credentials: "include" }),
+      ])
+      const modeJson = (await modeRes.json()) as {
+        data?: {
+          activeRoutingMode?: string
+          customRoutingPhone?: string | null
+          ringTimeoutSeconds?: number
+        }
+      }
+      const depJson = (await depRes.json()) as { data?: { require_deposit?: boolean } }
+      const nextMode = normalizeActiveRoutingMode(modeJson.data?.activeRoutingMode)
+      const nextPhone = modeJson.data?.customRoutingPhone || ""
+      const nextRing = Number(modeJson.data?.ringTimeoutSeconds ?? 30)
+      const nextDep = depJson.data?.require_deposit === true
+      setMode(nextMode)
+      setCustomPhone(nextPhone.replace(/^\+1/, "").replace(/\D/g, "").slice(-10))
+      setRingTimeout(RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30)
+      setRequireDeposit(nextDep)
+      baselineRef.current = JSON.stringify({
+        mode: nextMode,
+        customPhone: nextPhone.replace(/^\+1/, "").replace(/\D/g, "").slice(-10),
+        ringTimeout: RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30,
+        requireDeposit: nextDep,
+      })
+    } catch {
+      baselineRef.current = snapshot()
+    } finally {
+      setLoading(false)
+    }
+  }, [routingBusinessNumber, snapshot])
 
   useEffect(() => {
-    const next = routingStrategy === "lyncr_only" ? "pool" : selectedReceptionistId ?? "owner"
-    setPrimaryId(next)
-    baselineRef.current = next
-  }, [selectedReceptionistId, routingStrategy])
-
-  const dirty = primaryId !== baselineRef.current
-
-  const rows: TeamRow[] = useMemo(() => {
-    const ownerRow: TeamRow = {
-      id: "owner",
-      name: "Your Phone",
-      phone: ownerPhoneDisplay,
-      initials: "YO",
-      status: primaryId === "owner" ? "active" : "offline",
-    }
-    const poolRow: TeamRow = {
-      id: "pool",
-      name: "Lyncr Live Operator Pool",
-      phone: "Certified shared agents answer in-browser",
-      initials: "LP",
-      status: primaryId === "pool" ? "active" : "offline",
-    }
-    const teamRows: TeamRow[] = receptionists.map((c) => ({
-      id: c.id,
-      name: c.name,
-      phone: formatPhoneDisplay(c.phone),
-      initials: c.initials,
-      color: c.color,
-      status: primaryId === c.id ? "active" : "offline",
-    }))
-    return [ownerRow, poolRow, ...teamRows]
-  }, [receptionists, ownerPhoneDisplay, primaryId])
-
-  const lineLabel = routingBusinessNumber ? `Line ${formatPhoneDisplay(routingBusinessNumber)}` : null
-
-  const discardEdits = useCallback(() => {
-    setPrimaryId(baselineRef.current)
-  }, [])
+    void load()
+  }, [load])
 
   useEffect(() => {
-    onRegisterDiscard?.(discardEdits)
-  }, [onRegisterDiscard, discardEdits])
+    onRegisterDiscard?.(() => {
+      void load()
+    })
+  }, [onRegisterDiscard, load])
 
-  const handleCancel = useCallback(() => {
-    discardEdits()
-    onClose()
-  }, [discardEdits, onClose])
+  const dirty = snapshot() !== baselineRef.current
 
-  // Persist the per-line hybrid-network strategy via the parameterized /api/routing/strategy patch.
-  const persistStrategy = useCallback(
-    async (next: RoutingStrategy) => {
-      const res = await fetch("/api/routing/strategy", {
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/routing/mode", {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ routing_strategy: next, business_number: routingBusinessNumber || null }),
+        body: JSON.stringify({
+          business_number: routingBusinessNumber,
+          active_routing_mode: mode,
+          custom_routing_phone: mode === "custom_routing" ? customPhone : null,
+          ring_timeout_seconds: mode === "your_phone" ? ringTimeout : undefined,
+        }),
       })
+      const json = (await res.json()) as { error?: string; migration?: string; data?: unknown }
       if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(j.error ?? "Failed to save routing strategy")
+        toast({
+          title: "Could not save routing mode",
+          description: json.migration
+            ? `Run ${json.migration} in Neon, then try again.`
+            : json.error || res.statusText,
+          variant: "destructive",
+        })
+        return
       }
-    },
-    [routingBusinessNumber]
-  )
 
-  const handleSave = useCallback(async () => {
-    setSaving(true)
-    try {
-      if (primaryId === "pool") {
-        // Flip this line onto the shared Lyncr Live Operator Pool (routing_strategy = 'lyncr_only').
-        await persistStrategy("lyncr_only")
-        setRoutingStrategy("lyncr_only")
+      await fetch("/api/routing/deposit-settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ require_deposit: requireDeposit }),
+      })
+
+      // Keep local dashboard strategy badge in sync.
+      if (mode === "lyncr_pool") setRoutingStrategy("lyncr_only")
+      else setRoutingStrategy("private_only")
+
+      // Persist ring timeout through the classic routing API when Your Phone is selected.
+      if (mode === "your_phone") {
+        await saveRouting(
+          { ring_timeout_seconds: ringTimeout, selected_receptionist_id: null },
+          { quiet: true }
+        )
       } else {
-        // Owner / private receptionist: pick the ring target, and step off the pool if we were on it.
-        await saveRouting({ selected_receptionist_id: primaryId === "owner" ? null : primaryId })
-        if (routingStrategy === "lyncr_only") {
-          await persistStrategy("private_only")
-          setRoutingStrategy("private_only")
-        }
+        await saveRouting({ selected_receptionist_id: null }, { quiet: true })
       }
-      baselineRef.current = primaryId
+
+      baselineRef.current = snapshot()
       toast({
-        title: "Saved",
-        description:
-          primaryId === "pool"
-            ? "Calls on this line now route to the Lyncr Live Operator Pool."
-            : "Call destination updated for this line.",
+        title: "Routing mode saved",
+        description: ACTIVE_ROUTING_MODE_OPTIONS.find((o) => o.value === mode)?.label,
       })
       onClose()
     } catch (e) {
       toast({
         title: "Could not save",
-        description: e instanceof Error ? e.message : "Try again in a moment.",
+        description: e instanceof Error ? e.message : "Try again.",
         variant: "destructive",
       })
     } finally {
       setSaving(false)
     }
-  }, [primaryId, routingStrategy, saveRouting, persistStrategy, setRoutingStrategy, onClose, toast])
+  }
 
   return (
     <form
@@ -196,111 +192,140 @@ export function DashboardWhoAnswersDrawer({
       }}
     >
       <DrawerStepHeader
-        step="Step 2 · Call destination"
-        title="Who Answers"
-        subtitle="Manage which physical phones or team members ring when a call hits this line."
-        lineLabel={lineLabel}
+        step="Step 2 · Who answers"
+        title="Who answers"
+        subtitle={`Pick one routing mode for ${ownerPhoneDisplay || "this line"}. Conditional settings appear below.`}
       />
-      <DrawerScrollBody className={cn(routingLineDetailLoading && "pointer-events-none opacity-50")}>
-        <div className="space-y-2" role="radiogroup" aria-label="Primary call destination">
-          {rows.map((row) => {
-            const selected = primaryId === row.id
-            return (
-              <button
-                key={row.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setPrimaryId(row.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-[border-color,background-color] duration-200",
-                  selected
-                    ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_-10px_var(--primary)]"
-                    : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
-                )}
-              >
-                {row.id === "owner" ? (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/80">
-                    <User className="h-5 w-5 text-zinc-300" aria-hidden />
-                  </div>
-                ) : row.id === "pool" ? (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10">
-                    <Network className="h-5 w-5 text-emerald-300" aria-hidden />
-                  </div>
-                ) : (
-                  <Avatar className="h-11 w-11 shrink-0">
-                    <AvatarFallback className={cn(row.color, "text-xs font-semibold text-primary-foreground")}>
-                      {row.initials}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-foreground">{row.name}</p>
-                    {row.id === "pool" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" aria-hidden />
-                        Agents Available
-                      </span>
-                    ) : (
-                      statusBadge(row.status)
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-zinc-500">{row.phone}</p>
-                </div>
-                <div
-                  className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200",
-                    selected ? "border-primary bg-primary shadow-[0_0_12px_-2px_var(--primary)]" : "border-zinc-600 bg-transparent"
-                  )}
-                  aria-hidden
-                >
-                  {selected ? <span className="h-2 w-2 rounded-full bg-primary-foreground" /> : null}
-                </div>
-              </button>
-            )
-          })}
-        </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            onClose()
-            openTeamInviteModal()
-          }}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 bg-transparent px-4 py-3 text-sm font-semibold text-zinc-400 transition-colors duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          Add backup number
-        </button>
-
-        {receptionists.length === 0 ? (
-          <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-500">
-            No team members yet — add contacts on the Team tab, then pick who rings first here.
-          </p>
-        ) : null}
-
-        {onChangeRoutingStrategy ? (
-          <div className="mt-5 border-t border-zinc-800/80 pt-4">
-            <button
-              type="button"
-              onClick={onChangeRoutingStrategy}
-              className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
-            >
-              <Network className="h-3.5 w-3.5" aria-hidden />
-              Change Routing Strategy
-            </button>
-            <p className="mt-1.5 text-center text-[11px] leading-relaxed text-zinc-600">
-              Switch between your private team, the shared Lyncr network, or a hybrid fallback.
-            </p>
+      <DrawerScrollBody>
+        {loading || routingLineDetailLoading ? (
+          <div className="flex items-center gap-2 py-8 text-xs text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Loading routing mode…
           </div>
-        ) : null}
+        ) : (
+          <div className="space-y-5">
+            <fieldset className="space-y-2">
+              <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Active routing mode
+              </legend>
+              {ACTIVE_ROUTING_MODE_OPTIONS.map((opt) => {
+                const active = mode === opt.value
+                return (
+                  <label
+                    key={opt.value}
+                    className={cn(
+                      "flex cursor-pointer gap-3 rounded-xl border px-3 py-3 transition-colors",
+                      active
+                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="active_routing_mode"
+                      value={opt.value}
+                      checked={active}
+                      onChange={() => setMode(opt.value)}
+                      className="mt-1"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">{opt.label}</span>
+                      <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
+                        {opt.description}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </fieldset>
+
+            {mode === "smart_ivr" ? (
+              <IvrGreetingsSettingsForm routingBusinessNumber={routingBusinessNumber} />
+            ) : null}
+
+            {mode === "your_phone" ? (
+              <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  Backup ring delay
+                </p>
+                <p className="text-[11px] text-zinc-500">
+                  How long to ring your cell before falling back to Voice &amp; AI / voicemail.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {RING_OPTIONS.map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setRingTimeout(sec)}
+                      className={cn(
+                        "min-h-10 rounded-lg border px-3 text-sm font-semibold",
+                        ringTimeout === sec
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-zinc-800 text-zinc-300 hover:border-zinc-600"
+                      )}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {mode === "custom_routing" ? (
+              <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <label htmlFor="custom-routing-phone" className="text-xs font-semibold text-zinc-300">
+                  Target 10-digit phone number
+                </label>
+                <input
+                  id="custom-routing-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="5025551234"
+                  value={customPhone}
+                  onChange={(e) => setCustomPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  className={cn(fieldClass, "h-11")}
+                />
+                <p className="text-[10px] text-zinc-600">
+                  Every inbound call to this business line forwards to this number.
+                </p>
+              </section>
+            ) : null}
+
+            {mode === "lyncr_pool" ? (
+              <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-[11px] text-violet-200/90">
+                Lyncr Pool is active — certified shared agents answer in-browser. No extra phone
+                settings needed.
+              </p>
+            ) : null}
+
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Require deposit on /book</p>
+                <p className="text-[11px] text-zinc-500">
+                  When on, customers pay a Stripe deposit before the calendar slot is confirmed.
+                </p>
+              </div>
+              <Switch
+                checked={requireDeposit}
+                onCheckedChange={setRequireDeposit}
+                aria-label="Require deposit on booking link"
+                className="shrink-0 data-[state=checked]:bg-amber-500"
+              />
+            </div>
+          </div>
+        )}
       </DrawerScrollBody>
+
       <DrawerStickyFooter
         dirty={dirty}
         saving={saving}
         onSave={() => void handleSave()}
-        onCancel={handleCancel}
+        onCancel={() => {
+          void load()
+          onClose()
+        }}
+        saveLabel="Save routing mode"
         saveAsSubmit
       />
     </form>

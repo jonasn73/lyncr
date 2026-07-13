@@ -6,7 +6,7 @@ import {
   listOwnerSchedulerEvents,
   normalizePhoneNumberE164,
 } from "@/lib/db"
-import { listAvailableBookSlots } from "@/lib/book-availability"
+import { getUserRequireDeposit } from "@/lib/booking-deposit"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
@@ -81,12 +81,16 @@ export async function GET(req: NextRequest) {
       ...new Set(blockouts.filter((b) => b.is_full_day).map((b) => b.date)),
     ]
 
+    const requireDeposit = await getUserRequireDeposit(owner.id)
+
     return NextResponse.json({
       data: {
         business_name: owner.business_name || owner.name || "Lyncr",
         line,
         slots,
         fully_booked: slots.length === 0,
+        require_deposit: requireDeposit,
+        deposit_cents: 2500,
         blocked_dates: blockedDates,
         blockouts: blockouts.map((b) => ({
           date: b.date,

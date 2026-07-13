@@ -91,6 +91,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 86 | `086-ivr-menu-settings.sql` | **Dashboard traditional IVR menu.** Adds **`ivr_greeting_text`**, **`ivr_option1_action`**, **`ivr_option2_action`** on **`routing_config`** (canonical) and denormalized on **`phone_numbers`**. Powers Greetings → Traditional IVR (`GET`/`PUT /api/routing/ivr`) and dynamic TeXML on **`/api/telnyx-menu`**. **Required** for custom keypad greetings; app falls back to Key Squad defaults until applied. |
 | 87 | `087-ivr-menu-enabled.sql` | **IVR Off-duty switch.** Adds **`ivr_menu_enabled`** on **`routing_config`** + **`phone_numbers`**. When true, inbound TeXML Redirects to **`/api/telnyx-menu`** instead of ringing Your phone. **Required** for Smart Overflow IVR Menu toggle. |
 | 88 | `088-schedule-blockouts.sql` | **Schedule blockouts.** Creates **`schedule_blockouts`** (per-owner / optional org) with **`date`**, **`is_full_day`**, **`start_time`**, **`end_time`**, **`reason`**. Powers Scheduler “Add Blockout”, public **`/book`** availability, and IVR next-slot filtering. **Required** for blockout-aware booking. |
+| 89 | `089-active-routing-mode-and-deposits.sql` | **Unified Lines mode + deposits.** Adds **`routing_config.active_routing_mode`**, **`custom_routing_phone`**, **`users.require_deposit`**, **`booking_holds`**, and **`call_logs.ivr_action_completed`**. Powers Who Answers radio, Missed Call Rescue, and Stripe deposit on **`/book`**. |
 
 ## Platform admin (`admin@lyncr.app`)
 

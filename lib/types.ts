@@ -83,6 +83,8 @@ export interface User {
   admin_notification_preferences?: AdminNotificationPreferences
   /** When false, do not show the answered-call customer sheet (requires `023-user-answered-call-popup-toggle.sql`). */
   answered_call_customer_popup_enabled: boolean
+  /** When true, public /book requires a Stripe deposit before confirming (`089`). */
+  require_deposit?: boolean
 }
 
 /** A field technician on an owner's roster (`field_technicians` — scripts/061). */
@@ -893,6 +895,10 @@ export interface RoutingConfig {
   private_ring_timeout_seconds: number
   /** When true, callers hear a short greeting before the team cell rings (`081`). */
   inbound_caller_greeting_enabled: boolean
+  /** Unified Lines Who Answers mode (`089`). */
+  active_routing_mode?: "your_phone" | "smart_ivr" | "lyncr_pool" | "custom_routing" | string | null
+  /** E.164 forward target when mode is custom_routing (`089`). */
+  custom_routing_phone?: string | null
   updated_at: string
 }
 

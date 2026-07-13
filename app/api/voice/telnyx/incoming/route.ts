@@ -73,6 +73,7 @@ import { buildRoutingPoolDialResponse, getAvailableReceptionistsForLine } from "
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "@/lib/telnyx-admin-routing-override"
 import { isIvrMenuEnabledForInboundDid } from "@/lib/ivr-menu-db"
+import { getCustomRoutingPhoneForDid } from "@/lib/active-routing-mode-db"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -1421,6 +1422,32 @@ async function tryFastInboundReceptionistResponse(
       }
     } catch (e) {
       console.warn("[telnyx-incoming] IVR menu enable check failed:", e)
+    }
+
+    // Custom Routing mode — forward straight to the configured 10-digit target.
+    try {
+      const customTarget = await getCustomRoutingPhoneForDid(businessLineE164Early)
+      if (customTarget && isReasonablePstnDialString(customTarget)) {
+        const vr = new VoiceResponse()
+        const dial = vr.dial({
+          callerId: businessLineE164Early,
+          timeout: 30,
+          answerOnBridge: true,
+        } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
+        dial.number(customTarget)
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-incoming-custom-routing",
+            toTail4: customTarget.replace(/\D/g, "").slice(-4),
+            didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4),
+          })
+        )
+        return new NextResponse(vr.toString(), {
+          headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
+        })
+      }
+    } catch (e) {
+      console.warn("[telnyx-incoming] custom routing check failed:", e)
     }
   }
 

@@ -80,6 +80,13 @@ export async function handleStripeCheckoutSessionCompleted(session: Stripe.Check
     return
   }
 
+  if (checkoutType === "booking_deposit") {
+    if (session.payment_status !== "paid" && session.status !== "complete") return
+    const { fulfillBookingDepositFromCheckout } = await import("@/lib/booking-deposit")
+    await fulfillBookingDepositFromCheckout(session)
+    return
+  }
+
   if (checkoutType === "credit_pack") {
     if (session.payment_status !== "paid" && session.status !== "complete") return
     await applyStripeCreditPackPayment(userId, session)

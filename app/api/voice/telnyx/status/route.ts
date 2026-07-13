@@ -12,6 +12,7 @@ import { notifyOwnerInboundCallAnswered } from "@/lib/inbound-call-answered-broa
 import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
+import { maybeSendMissedCallRescueSms } from "@/lib/missed-call-rescue"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
 import type { CallType } from "@/lib/types"
 
@@ -31,6 +32,10 @@ export async function POST(req: NextRequest) {
     .replace(/_/g, "-")
   const duration = parseTelnyxTalkSecondsFromForm(formData)
   const direction = (formData.get("Direction") as string) || ""
+  const fromNumber =
+    String(formData.get("From") || formData.get("Caller") || formData.get("from") || "").trim()
+  const toNumber =
+    String(formData.get("To") || formData.get("Called") || formData.get("to") || "").trim()
   const eventTimestamp =
     (formData.get("Timestamp") as string) ||
     (formData.get("EventTimestamp") as string) ||
@@ -91,6 +96,25 @@ export async function POST(req: NextRequest) {
           await maybeSendAdminOverrideDispatchSms(callSid, callStatus)
         } catch (dispatchErr) {
           console.error("[Telnyx] Admin override dispatch SMS failed:", dispatchErr)
+        }
+        // Missed Call Rescue — abandoned / short IVR or no-answer legs.
+        try {
+          const preferRescue =
+            callStatus === "no-answer" ||
+            callStatus === "busy" ||
+            callStatus === "canceled" ||
+            (callStatus === "completed" && duration > 0 && duration < 45)
+          if (preferRescue && fromNumber && toNumber) {
+            await maybeSendMissedCallRescueSms({
+              callSid,
+              callStatus,
+              fromNumber,
+              toNumber,
+              preferRescue: true,
+            })
+          }
+        } catch (rescueErr) {
+          console.error("[Telnyx] Missed Call Rescue SMS failed:", rescueErr)
         }
       })
     }

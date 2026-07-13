@@ -14,6 +14,7 @@ import { toE164 } from "@/lib/phone-e164"
 import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
 import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
+import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
 import {
   DEFAULT_IVR_MENU_SETTINGS,
   type IvrMenuAction,
@@ -254,6 +255,8 @@ export async function POST(req: NextRequest) {
       ownerUserId,
       businessLineE164,
     })
+    const callSid = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
+    if (callSid) void markIvrActionCompleted(callSid)
     return xmlResponse(xml)
   }
 
@@ -264,6 +267,8 @@ export async function POST(req: NextRequest) {
       ownerUserId,
       businessLineE164,
     })
+    const callSid = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
+    if (callSid) void markIvrActionCompleted(callSid)
     return xmlResponse(xml)
   }
 
