@@ -1,6 +1,7 @@
 "use client"
 
-// Live Smart Overflow IVR Menu — calendar capacity + Off-duty → ivr_menu_enabled sync.
+// Live Smart Overflow IVR Menu — calendar capacity → ivr_menu_enabled sync.
+// Presence On-Job / Closed is controlled only by the top Presence bar (no Off-duty switch).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
@@ -10,15 +11,13 @@ import {
   getNextAvailableSlot,
   isSmartOverflowActive,
   onAICallBookingReceived,
-  readSmartOverflowConfigFromStorage,
-  writeSmartOverflowConfigToStorage,
+  SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
   type AICallBookingReceivedPayload,
   type SmartOverflowConfig,
   type SmartOverflowPoolSchemaBlock,
 } from "@/lib/smart-overflow-autopilot"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import type { SchedulerEvent } from "@/lib/types"
-import type { IvrMenuSettings } from "@/lib/ivr-menu-settings"
 
 function currentMonthKey(now = new Date()): string {
   const y = now.getFullYear()
@@ -49,17 +48,16 @@ async function persistIvrMenuEnabled(
 
 export type UseSmartOverflowAutopilotResult = {
   config: SmartOverflowConfig
-  setConfig: (next: SmartOverflowConfig) => void
-  /** True when Manual Off-duty is on or Auto-On Full Capacity trips. */
+  setCapacityThreshold: (next: number) => Promise<void>
+  capacitySaving: boolean
+  /** True when confirmed jobs today exceed the account capacity threshold. */
   overflowActive: boolean
   nextAvailableSlotText: string
   nextAvailableSlotIso: string | null
   confirmedJobsToday: number
   events: SchedulerEvent[]
   loading: boolean
-  /** Retell webhook bridge reachable (GET /api/retell-booking) — optional diagnostics. */
   retellConnected: boolean
-  /** Append a mock AI booking into the local event array (and optional server stub). */
   ingestAICallBooking: (
     payload: AICallBookingReceivedPayload
   ) => Promise<SmartOverflowPoolSchemaBlock | null>
@@ -68,75 +66,86 @@ export type UseSmartOverflowAutopilotResult = {
 export function useSmartOverflowAutopilot(
   routingBusinessNumber?: string | null
 ): UseSmartOverflowAutopilotResult {
-  const [config, setConfigState] = useState<SmartOverflowConfig>(DEFAULT_SMART_OVERFLOW_CONFIG)
+  const [config, setConfigState] = useState<SmartOverflowConfig>({
+    ...DEFAULT_SMART_OVERFLOW_CONFIG,
+    mode: "auto_capacity",
+    manualEnabled: false,
+    capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
+  })
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [hydrated, setHydrated] = useState(false)
-  const [ivrReady, setIvrReady] = useState(false)
+  const [capacitySaving, setCapacitySaving] = useState(false)
   const [retellOfferText, setRetellOfferText] = useState<string | null>(null)
   const [retellConnected, setRetellConnected] = useState(false)
   const lastSyncedIvrEnabled = useRef<boolean | null>(null)
 
-  // Restore Mode A / Mode B preferences after mount (avoid SSR mismatch).
-  useEffect(() => {
-    setConfigState(readSmartOverflowConfigFromStorage())
-    setHydrated(true)
-  }, [])
-
-  // Load Off-duty (ivr_menu_enabled) from DB for this business line.
+  // Load capacity threshold from account_settings (source of truth).
   useEffect(() => {
     let cancelled = false
-    setIvrReady(false)
-    const qs = routingBusinessNumber
-      ? `?number=${encodeURIComponent(routingBusinessNumber)}`
-      : ""
-    void fetch(`/api/routing/ivr${qs}`, { credentials: "include" })
+    void fetch("/api/routing/ivr-capacity", { credentials: "include", cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) return null
-        const json = (await res.json()) as { data?: IvrMenuSettings & { ivr_menu_enabled?: boolean } }
+        const json = (await res.json()) as {
+          data?: { ivrCapacityThreshold?: number; ivr_capacity_threshold?: number }
+        }
         return json.data || null
       })
       .then((data) => {
         if (cancelled || !data) {
-          if (!cancelled) setIvrReady(true)
+          if (!cancelled) setHydrated(true)
           return
         }
-        const enabled = data.ivrMenuEnabled === true || data.ivr_menu_enabled === true
-        lastSyncedIvrEnabled.current = enabled
-        setConfigState((prev) => {
-          const next: SmartOverflowConfig = {
-            ...prev,
-            // Prefer DB Off-duty flag when present; keep auto threshold from local storage.
-            manualEnabled: enabled,
-          }
-          writeSmartOverflowConfigToStorage(next)
-          return next
+        const threshold =
+          typeof data.ivrCapacityThreshold === "number"
+            ? data.ivrCapacityThreshold
+            : typeof data.ivr_capacity_threshold === "number"
+              ? data.ivr_capacity_threshold
+              : SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD
+        setConfigState({
+          mode: "auto_capacity",
+          manualEnabled: false,
+          capacityThreshold: Math.max(1, Math.min(40, Math.floor(threshold) || 5)),
         })
-        setIvrReady(true)
+        setHydrated(true)
       })
       .catch(() => {
-        if (!cancelled) setIvrReady(true)
+        if (!cancelled) setHydrated(true)
       })
     return () => {
       cancelled = true
     }
-  }, [routingBusinessNumber])
+  }, [])
 
-  const setConfig = useCallback(
-    (next: SmartOverflowConfig) => {
-      setConfigState(next)
-      writeSmartOverflowConfigToStorage(next)
-      // Immediate persist when the Off-duty switch flips in Manual mode.
-      if (next.mode === "manual") {
-        const enabled = next.manualEnabled === true
-        if (lastSyncedIvrEnabled.current !== enabled) {
-          lastSyncedIvrEnabled.current = enabled
-          void persistIvrMenuEnabled(enabled, routingBusinessNumber)
-        }
+  const setCapacityThreshold = useCallback(async (next: number) => {
+    const threshold = Math.max(1, Math.min(40, Math.floor(next) || 1))
+    setConfigState((prev) => ({
+      ...prev,
+      mode: "auto_capacity",
+      manualEnabled: false,
+      capacityThreshold: threshold,
+    }))
+    setCapacitySaving(true)
+    try {
+      const res = await fetch("/api/routing/ivr-capacity", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ivrCapacityThreshold: threshold,
+          ivr_capacity_threshold: threshold,
+        }),
+      })
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: string; migration?: string }
+        console.warn("[smart-overflow] capacity save failed:", json.error || res.statusText)
       }
-    },
-    [routingBusinessNumber]
-  )
+    } catch (e) {
+      console.warn("[smart-overflow] capacity save failed:", e)
+    } finally {
+      setCapacitySaving(false)
+    }
+  }, [])
 
   // Pull the live calendar month so capacity + next-slot stay data-aware.
   useEffect(() => {
@@ -181,16 +190,15 @@ export function useSmartOverflowAutopilot(
   const overflowActive = hydrated && isSmartOverflowActive(config, confirmedJobsToday)
   const nextSlot = useMemo(() => getNextAvailableSlot(now, events), [now, events])
 
-  // Keep Telnyx routing in sync when Auto-On Full Capacity trips or clears.
+  // Keep Telnyx routing in sync when capacity auto-bypass trips or clears.
   useEffect(() => {
-    if (!hydrated || !ivrReady) return
+    if (!hydrated) return
     const enabled = overflowActive
     if (lastSyncedIvrEnabled.current === enabled) return
     lastSyncedIvrEnabled.current = enabled
     void persistIvrMenuEnabled(enabled, routingBusinessNumber)
-  }, [overflowActive, hydrated, ivrReady, routingBusinessNumber])
+  }, [overflowActive, hydrated, routingBusinessNumber])
 
-  // Optional Retell offer text while overflow is active (diagnostics / next-slot copy).
   useEffect(() => {
     if (!overflowActive) {
       setRetellOfferText(null)
@@ -260,13 +268,14 @@ export function useSmartOverflowAutopilot(
 
   return {
     config,
-    setConfig,
+    setCapacityThreshold,
+    capacitySaving,
     overflowActive,
     nextAvailableSlotText: retellOfferText || nextSlot?.text || "Monday morning",
     nextAvailableSlotIso: nextSlot?.scheduledAtIso || null,
     confirmedJobsToday,
     events,
-    loading: loading || !ivrReady,
+    loading: loading || !hydrated,
     retellConnected,
     ingestAICallBooking,
   }

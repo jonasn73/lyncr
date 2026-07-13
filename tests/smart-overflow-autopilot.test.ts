@@ -60,14 +60,14 @@ describe("smart overflow autopilot", () => {
     ).toBe(true)
     expect(
       isSmartOverflowActive(
-        { mode: "auto_capacity", manualEnabled: false, capacityThreshold: 6 },
-        7
+        { mode: "auto_capacity", manualEnabled: false, capacityThreshold: 5 },
+        6
       )
     ).toBe(true)
     expect(
       isSmartOverflowActive(
-        { mode: "auto_capacity", manualEnabled: false, capacityThreshold: 6 },
-        6
+        { mode: "auto_capacity", manualEnabled: false, capacityThreshold: 5 },
+        5
       )
     ).toBe(false)
   })

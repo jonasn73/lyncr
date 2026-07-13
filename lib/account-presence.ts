@@ -9,6 +9,7 @@ import {
   normalizeIvrBypassCode,
   parseHolidayDateTimeInput,
 } from "@/lib/ivr-automation-settings"
+import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-autopilot"
 
 export type PresenceStatus = "AVAILABLE" | "ON_JOB" | "CLOSED"
 
@@ -30,6 +31,8 @@ export type AccountPresence = {
   holidayOverrideEnd: string | null
   /** Spoken when inside the holiday window. */
   holidayGreetingText: string | null
+  /** Auto-bypass to IVR when confirmed jobs today reach this count. */
+  ivrCapacityThreshold: number
 }
 
 export { DEFAULT_ON_JOB_GREETING_TEXT, DEFAULT_CLOSED_GREETING_TEXT }
@@ -44,6 +47,7 @@ export const DEFAULT_ACCOUNT_PRESENCE: AccountPresence = {
   holidayOverrideStart: null,
   holidayOverrideEnd: null,
   holidayGreetingText: null,
+  ivrCapacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
 }
 
 export function normalizePresenceStatus(raw: unknown): PresenceStatus {
@@ -90,7 +94,8 @@ function isMissingPresenceTable(e: unknown): boolean {
     msg.includes("closed_greeting_text") ||
     msg.includes("ivr_bypass_code") ||
     msg.includes("ivr_voice_engine_model") ||
-    msg.includes("holiday_override")
+    msg.includes("holiday_override") ||
+    msg.includes("ivr_capacity_threshold")
   )
 }
 
@@ -108,6 +113,17 @@ function isMissingDispatchColumns(e: unknown): boolean {
     msg.includes("holiday_override_end") ||
     msg.includes("holiday_greeting_text")
   )
+}
+
+function isMissingCapacityColumn(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e)
+  return msg.includes("ivr_capacity_threshold")
+}
+
+function normalizeCapacityThreshold(raw: unknown): number {
+  const n = typeof raw === "number" ? raw : Number(raw)
+  if (!Number.isFinite(n) || n < 1) return SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD
+  return Math.max(1, Math.min(40, Math.floor(n)))
 }
 
 function normalizeGreetingText(raw: unknown, fallback: string): string {
@@ -135,6 +151,7 @@ type PresenceRow = {
   holiday_override_start?: string | Date | null
   holiday_override_end?: string | Date | null
   holiday_greeting_text?: string | null
+  ivr_capacity_threshold?: number | string | null
 }
 
 function mapPresenceRow(row: PresenceRow): AccountPresence {
@@ -154,6 +171,7 @@ function mapPresenceRow(row: PresenceRow): AccountPresence {
       typeof row.holiday_greeting_text === "string" && row.holiday_greeting_text.trim()
         ? row.holiday_greeting_text.trim()
         : null,
+    ivrCapacityThreshold: normalizeCapacityThreshold(row.ivr_capacity_threshold),
   }
 }
 
@@ -172,7 +190,8 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
         ivr_voice_engine_model,
         holiday_override_start,
         holiday_override_end,
-        holiday_greeting_text
+        holiday_greeting_text,
+        ivr_capacity_threshold
       FROM account_settings
       WHERE user_id = ${ownerUserId}
       LIMIT 1
@@ -188,6 +207,34 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
     }
     return mapPresenceRow(row)
   } catch (e) {
+    // Pre-102: everything else exists but capacity column does not.
+    if (isMissingCapacityColumn(e)) {
+      try {
+        const rows = await sql`
+          SELECT
+            presence_status,
+            presence_closed_manual,
+            on_job_greeting_text,
+            closed_greeting_text,
+            ivr_bypass_code,
+            ivr_voice_engine_model,
+            holiday_override_start,
+            holiday_override_end,
+            holiday_greeting_text
+          FROM account_settings
+          WHERE user_id = ${ownerUserId}
+          LIMIT 1
+        `
+        const row = rows[0] as PresenceRow | undefined
+        if (!row) return { ...DEFAULT_ACCOUNT_PRESENCE }
+        return mapPresenceRow({
+          ...row,
+          ivr_capacity_threshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
+        })
+      } catch {
+        return { ...DEFAULT_ACCOUNT_PRESENCE }
+      }
+    }
     // Pre-101: greetings exist but dispatch columns do not.
     if (isMissingDispatchColumns(e) && !isMissingGreetingColumns(e)) {
       try {
@@ -208,6 +255,7 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
             holiday_override_start: null,
             holiday_override_end: null,
             holiday_greeting_text: null,
+            ivr_capacity_threshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
           }),
         }
       } catch {
@@ -269,6 +317,36 @@ export async function setAccountPresence(params: {
         "Presence settings missing — run scripts/092-account-presence-status.sql in Neon."
       )
       ;(err as Error & { code?: string }).code = "PRESENCE_MIGRATION_REQUIRED"
+      throw err
+    }
+    throw e
+  }
+}
+
+/** Persist Lines Call Flow capacity auto-bypass threshold. */
+export async function setAccountIvrCapacityThreshold(params: {
+  ownerUserId: string
+  ivrCapacityThreshold: number
+}): Promise<AccountPresence> {
+  const threshold = normalizeCapacityThreshold(params.ivrCapacityThreshold)
+  const sql = sqlClient()
+  try {
+    await sql`
+      INSERT INTO account_settings (
+        user_id, presence_status, presence_closed_manual, ivr_capacity_threshold, updated_at
+      )
+      VALUES (${params.ownerUserId}, 'AVAILABLE', false, ${threshold}, now())
+      ON CONFLICT (user_id) DO UPDATE SET
+        ivr_capacity_threshold = EXCLUDED.ivr_capacity_threshold,
+        updated_at = now()
+    `
+    return getAccountPresence(params.ownerUserId)
+  } catch (e) {
+    if (isMissingCapacityColumn(e) || isMissingPresenceTable(e)) {
+      const err = new Error(
+        "IVR capacity column missing — run scripts/102-ivr-capacity-threshold.sql in Neon."
+      )
+      ;(err as Error & { code?: string }).code = "IVR_CAPACITY_MIGRATION_REQUIRED"
       throw err
     }
     throw e

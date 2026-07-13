@@ -559,9 +559,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     return () => window.removeEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
   }, [loadActiveRoutingMode])
 
-  // Smart IVR mode OR presence On-Job/Closed — automation owns inbound.
-  const showIvrDeck = activeRoutingMode === "smart_ivr" || presenceBypass
-  const ivrMenuLive = activeRoutingMode === "smart_ivr" || presenceBypass
+  // Smart IVR mode, Presence On-Job/Closed, or capacity auto-bypass — automation owns inbound.
+  const showIvrDeck =
+    activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
+  const ivrMenuLive = activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
   const automationLive = ivrMenuLive || smartOverflow.overflowActive || autopilotMode
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
@@ -591,10 +592,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       step={String(primaryAndNetworkNodes.length + 2)}
       overflowActive={automationLive}
       presenceDriven={presenceBypass}
+      presenceStatus={presenceStatus}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
-      config={smartOverflow.config}
-      onConfigChange={smartOverflow.setConfig}
+      capacityThreshold={smartOverflow.config.capacityThreshold}
       onOpenScriptEditor={() => setShowFallbackSettings(true)}
       loading={routingLineDetailLoading || smartOverflow.loading}
       retellConnected={smartOverflow.retellConnected}
@@ -602,7 +603,14 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   ) : null
 
   const rescueCard = (
-    <MissedCallRescueCard compact={isMobile} loading={routingLineDetailLoading} />
+    <MissedCallRescueCard
+      compact={isMobile}
+      loading={routingLineDetailLoading}
+      capacityThreshold={smartOverflow.config.capacityThreshold}
+      confirmedJobsToday={smartOverflow.confirmedJobsToday}
+      onCapacityThresholdChange={(n) => void smartOverflow.setCapacityThreshold(n)}
+      capacitySaving={smartOverflow.capacitySaving}
+    />
   )
 
   // Flattened shell — no outer card; step rows/cards sit on the page background.

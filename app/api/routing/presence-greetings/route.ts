@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
         holidayOverrideStart: null,
         holidayOverrideEnd: null,
         holidayGreetingText: null,
+        ivrCapacityThreshold: 5,
       }),
     })
   }

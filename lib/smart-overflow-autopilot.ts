@@ -27,7 +27,7 @@ export type SmartOverflowConfig = {
 }
 
 /** Default capacity before Auto-On Full Capacity trips (confirmed jobs on the day). */
-export const SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD = 6
+export const SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD = 5
 
 export const DEFAULT_SMART_OVERFLOW_CONFIG: SmartOverflowConfig = {
   mode: "manual",

@@ -1,13 +1,12 @@
 "use client"
 
-// Smart Overflow IVR Menu — Off-duty switch + capacity trigger + greetings entry.
+// Smart Overflow IVR Menu — presence route-cause summary + greetings entry.
 
 import { memo } from "react"
 import { Hourglass, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
-import { Switch } from "@/components/ui/switch"
-import type { SmartOverflowConfig, SmartOverflowMode } from "@/lib/smart-overflow-autopilot"
+import type { PresenceStatus } from "@/lib/account-presence"
 
 export type SmartOverflowFallbackCardProps = {
   compact?: boolean
@@ -15,10 +14,11 @@ export type SmartOverflowFallbackCardProps = {
   overflowActive: boolean
   /** Presence On-Job / Closed — stronger amber glow on the automation path. */
   presenceDriven?: boolean
+  /** Active line presence — drives the read-only IVR trigger summary. */
+  presenceStatus?: PresenceStatus
   nextAvailableSlotText: string
   confirmedJobsToday: number
-  config: SmartOverflowConfig
-  onConfigChange: (next: SmartOverflowConfig) => void
+  capacityThreshold: number
   /** Opens the Voice & AI / Greetings IVR editor. */
   onOpenScriptEditor: () => void
   loading?: boolean
@@ -26,28 +26,21 @@ export type SmartOverflowFallbackCardProps = {
   retellConnected?: boolean
 }
 
-const MODE_OPTIONS: { id: SmartOverflowMode; label: string; hint: string }[] = [
-  {
-    id: "manual",
-    label: "Manual Toggle",
-    hint: "Turn on whenever you want to be off-duty.",
-  },
-  {
-    id: "auto_capacity",
-    label: "Auto-On Full Capacity",
-    hint: "Activates when today’s confirmed jobs exceed your threshold.",
-  },
-]
+function routeCauseLabel(status: PresenceStatus | undefined): string {
+  if (status === "ON_JOB") return "🤖 Route Cause: Manually set to On-Job"
+  if (status === "CLOSED") return "🤖 Route Cause: Manually set to Closed"
+  return "🤖 Route Cause: Presence Available — cell rings first"
+}
 
 export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard({
   compact = false,
   step = "3",
   overflowActive,
   presenceDriven = false,
+  presenceStatus = "AVAILABLE",
   nextAvailableSlotText,
   confirmedJobsToday,
-  config,
-  onConfigChange,
+  capacityThreshold,
   onOpenScriptEditor,
   loading = false,
   retellConnected = true,
@@ -66,7 +59,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
     ? presenceDriven
       ? "Presence On-Job / Closed — calls skip your cell and hit automation first"
       : "Inbound calls → automated greeting + press 1 / press 2 menu"
-    : "Pick Manual or Auto-On Full Capacity below."
+    : "Use Presence (top) for On-Job / Closed, or set the capacity threshold under Textback."
   const valueClass = overflowActive
     ? presenceDriven
       ? "animate-pulse text-amber-300"
@@ -122,11 +115,11 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           />
         ) : null}
 
-        <ModeControls
+        <IvrTriggerSummary
           compact
-          config={config}
+          presenceStatus={presenceStatus}
           confirmedJobsToday={confirmedJobsToday}
-          onConfigChange={onConfigChange}
+          capacityThreshold={capacityThreshold}
         />
       </div>
     )
@@ -203,10 +196,10 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
         />
       ) : null}
 
-      <ModeControls
-        config={config}
+      <IvrTriggerSummary
+        presenceStatus={presenceStatus}
         confirmedJobsToday={confirmedJobsToday}
-        onConfigChange={onConfigChange}
+        capacityThreshold={capacityThreshold}
       />
 
       <button
@@ -245,7 +238,7 @@ function DiagnosticBadges({
         )}
       >
         {retellConnected
-          ? "Routing: Off-duty → keypad menu"
+          ? "Routing: Presence / capacity → keypad menu"
           : "Routing: Waiting / menu endpoint check"}
       </span>
       <span className="inline-flex w-fit max-w-full items-center truncate rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
@@ -255,82 +248,44 @@ function DiagnosticBadges({
   )
 }
 
-function ModeControls({
+/** Read-only IVR trigger — mirrors top Presence buttons (no conflicting Off-duty switch). */
+function IvrTriggerSummary({
   compact = false,
-  config,
+  presenceStatus,
   confirmedJobsToday,
-  onConfigChange,
+  capacityThreshold,
 }: {
   compact?: boolean
-  config: SmartOverflowConfig
+  presenceStatus: PresenceStatus
   confirmedJobsToday: number
-  onConfigChange: (next: SmartOverflowConfig) => void
+  capacityThreshold: number
 }) {
+  const driven = presenceStatus === "ON_JOB" || presenceStatus === "CLOSED"
   return (
     <div className={cn("mt-3 space-y-2 border-t border-white/5 pt-3", compact && "pt-2")}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
         IVR trigger
       </p>
-      <div className="flex flex-col gap-1.5">
-        {MODE_OPTIONS.map((opt) => {
-          const active = config.mode === opt.id
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onConfigChange({ ...config, mode: opt.id })}
-              className={cn(
-                "rounded-lg border px-2.5 py-2 text-left transition-colors",
-                active
-                  ? "border-emerald-500/40 bg-emerald-500/10"
-                  : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
-              )}
-            >
-              <p className="text-[11px] font-semibold text-foreground">{opt.label}</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">{opt.hint}</p>
-            </button>
-          )
-        })}
+      <div
+        className={cn(
+          "rounded-lg border px-2.5 py-2",
+          driven
+            ? "border-amber-500/35 bg-amber-500/10"
+            : "border-zinc-800 bg-zinc-950/50"
+        )}
+      >
+        <p
+          className={cn(
+            "text-[11px] font-semibold leading-snug",
+            driven ? "text-amber-100" : "text-zinc-300"
+          )}
+        >
+          {routeCauseLabel(presenceStatus)}
+        </p>
+        <p className="mt-1 text-[10px] text-zinc-500">
+          Today: {confirmedJobsToday} confirmed · auto-bypass at {capacityThreshold}
+        </p>
       </div>
-
-      {config.mode === "manual" ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-2.5 py-2">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-foreground">Off-duty now</p>
-            <p className="text-[10px] text-zinc-500">
-              Manual Toggle · Automated IVR menu takes overflow calls
-            </p>
-          </div>
-          <Switch
-            checked={config.manualEnabled}
-            onCheckedChange={(on) => onConfigChange({ ...config, manualEnabled: on })}
-            aria-label="Off-duty IVR menu toggle"
-            className="shrink-0 data-[state=checked]:bg-emerald-500"
-          />
-        </div>
-      ) : (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-2.5 py-2">
-          <label className="flex items-center justify-between gap-2 text-[11px] font-semibold text-foreground">
-            Capacity threshold
-            <input
-              type="number"
-              min={1}
-              max={40}
-              value={config.capacityThreshold}
-              onChange={(e) =>
-                onConfigChange({
-                  ...config,
-                  capacityThreshold: Math.max(1, Math.min(40, Number(e.target.value) || 1)),
-                })
-              }
-              className="w-14 rounded-md border border-zinc-700 bg-zinc-900 px-1.5 py-1 text-center text-xs tabular-nums text-foreground"
-            />
-          </label>
-          <p className="mt-1 text-[10px] text-zinc-500">
-            Today: {confirmedJobsToday} confirmed · trips when &gt; {config.capacityThreshold}
-          </p>
-        </div>
-      )}
     </div>
   )
 }
