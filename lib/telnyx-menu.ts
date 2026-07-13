@@ -51,9 +51,13 @@ export function buildTelnyxMenuInvalidRedirectXml(menuUrl: string, voice = "alic
 }
 
 /** Entry Gather that posts Digits back to the same menu action URL. */
-export function buildTelnyxMenuGatherXml(actionUrl: string, voice = "alice"): string {
+export function buildTelnyxMenuGatherXml(
+  actionUrl: string,
+  greetingText: string = TELNYX_MENU_PROMPT,
+  voice = "alice"
+): string {
   const safeAction = escapeTexmlText(actionUrl)
-  const safePrompt = escapeTexmlText(TELNYX_MENU_PROMPT)
+  const safePrompt = escapeTexmlText(greetingText.trim() || TELNYX_MENU_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
@@ -61,6 +65,23 @@ export function buildTelnyxMenuGatherXml(actionUrl: string, voice = "alice"): st
     `<Say voice="${escapeTexmlText(voice)}">${safePrompt}</Say>` +
     `</Gather>` +
     `<Say voice="${escapeTexmlText(voice)}">We did not receive a selection. Goodbye.</Say>` +
+    `<Hangup/>` +
+    `</Response>`
+  )
+}
+
+/** Digit action → traditional voicemail record. */
+export function buildTelnyxMenuVoicemailXml(
+  recordingCallbackUrl: string,
+  voice = "alice"
+): string {
+  const safeCb = escapeTexmlText(recordingCallbackUrl)
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response>` +
+    `<Say voice="${escapeTexmlText(voice)}">Please leave a message after the beep. Press pound when you are finished.</Say>` +
+    `<Record maxLength="120" playBeep="true" finishOnKey="#" action="${safeCb}" method="POST"/>` +
+    `<Say voice="${escapeTexmlText(voice)}">Thank you. Goodbye.</Say>` +
     `<Hangup/>` +
     `</Response>`
   )

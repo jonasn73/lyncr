@@ -1,16 +1,22 @@
 // POST /api/telnyx-menu — traditional Telnyx TeXML IVR Gather handler.
-// Digits=1 → SMS booking link + hangup; Digits=2 → tomorrow priority hold + hangup;
-// else → Invalid option + Redirect to menu.
+// Loads dashboard-saved IVR greeting + digit actions from routing_config / phone_numbers.
+// Digits fire sms_link | live_booking | voicemail (no AI).
 //
 // (App Router equivalent of pages/api/telnyx-menu.ts)
 
 import { NextRequest, NextResponse } from "next/server"
-import { getIncomingRoutingByNumber, listOwnerSchedulerEvents, normalizePhoneNumberE164 } from "@/lib/db"
+import { listOwnerSchedulerEvents, normalizePhoneNumberE164 } from "@/lib/db"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { getAppUrl } from "@/lib/telnyx"
 import { toE164 } from "@/lib/phone-e164"
+import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
+import {
+  DEFAULT_IVR_MENU_SETTINGS,
+  type IvrMenuAction,
+  type IvrMenuSettings,
+} from "@/lib/ivr-menu-settings"
 import {
   TELNYX_MENU_DIGIT1_SAY,
   TELNYX_MENU_DIGIT2_SAY,
@@ -19,6 +25,7 @@ import {
   buildTelnyxMenuGatherXml,
   buildTelnyxMenuInvalidRedirectXml,
   buildTelnyxMenuSayHangupXml,
+  buildTelnyxMenuVoicemailXml,
   getEarliestOpenBlockTomorrow,
 } from "@/lib/telnyx-menu"
 import type { SchedulerEvent } from "@/lib/types"
@@ -89,21 +96,104 @@ async function loadOwnerMonthEvents(ownerUserId: string): Promise<SchedulerEvent
   }
 }
 
-async function resolveOwnerUserId(toNumber: string): Promise<string | null> {
-  const normalized = normalizePhoneNumberE164(toNumber) || toE164(toNumber)
-  if (!normalized) return null
+async function resolveIvrContext(toRaw: string): Promise<{
+  ownerUserId: string | null
+  settings: IvrMenuSettings
+}> {
+  if (!toRaw.trim()) {
+    return { ownerUserId: null, settings: { ...DEFAULT_IVR_MENU_SETTINGS } }
+  }
   try {
-    const routing = await getIncomingRoutingByNumber(normalized, { bypassCache: true })
-    return routing?.user_id?.trim() || null
+    return await getIvrMenuSettingsByInboundDid(toRaw)
   } catch (e) {
-    console.warn("[telnyx-menu] routing lookup failed:", e)
-    return null
+    console.warn("[telnyx-menu] IVR settings lookup failed:", e)
+    return { ownerUserId: null, settings: { ...DEFAULT_IVR_MENU_SETTINGS } }
   }
 }
 
-/** Play the Gather menu (entry point or Redirect target). */
-export async function GET() {
-  return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl()))
+async function runSmsLinkAction(opts: {
+  fromE164: string
+  ownerUserId: string | null
+}): Promise<string> {
+  if (opts.fromE164) {
+    const text = buildTelnyxMenuBookingSms(opts.fromE164)
+    try {
+      const sent = await sendTelnyxSms({
+        toE164: opts.fromE164,
+        text,
+        userId: opts.ownerUserId || undefined,
+      })
+      if (!sent.ok) console.warn("[telnyx-menu] sms_link failed:", sent.error)
+    } catch (e) {
+      console.warn("[telnyx-menu] sms_link threw:", e)
+    }
+  }
+  return buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY)
+}
+
+async function runLiveBookingAction(opts: {
+  fromE164: string
+  ownerUserId: string | null
+}): Promise<string> {
+  if (opts.ownerUserId && opts.fromE164) {
+    try {
+      const events = await loadOwnerMonthEvents(opts.ownerUserId)
+      const slot = getEarliestOpenBlockTomorrow(events, new Date())
+      const scheduledAtIso =
+        slot?.scheduledAtIso ||
+        (() => {
+          const d = new Date()
+          d.setDate(d.getDate() + 1)
+          d.setHours(9, 0, 0, 0)
+          return d.toISOString()
+        })()
+
+      await createUnassignedJobFromIntake({
+        ownerUserId: opts.ownerUserId,
+        callerE164: opts.fromE164,
+        customerName: "IVR priority hold",
+        jobType: "Priority slot (IVR)",
+        notes: `Temporary reservation via Telnyx menu live_booking · ${slot?.text || "Tomorrow morning"}`,
+        scheduledAtIso,
+        pendingCallback: true,
+      })
+    } catch (e) {
+      console.warn("[telnyx-menu] live_booking reservation failed:", e)
+    }
+  }
+  return buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT2_SAY)
+}
+
+function runVoicemailAction(): string {
+  const cb = `${menuSelfUrl()}?step=vm-done`
+  return buildTelnyxMenuVoicemailXml(cb)
+}
+
+async function dispatchIvrAction(opts: {
+  action: IvrMenuAction
+  fromE164: string
+  ownerUserId: string | null
+}): Promise<string> {
+  switch (opts.action) {
+    case "sms_link":
+      return runSmsLinkAction(opts)
+    case "live_booking":
+      return runLiveBookingAction(opts)
+    case "voicemail":
+      return runVoicemailAction()
+    default:
+      return runSmsLinkAction(opts)
+  }
+}
+
+/** Play the Gather menu using the line’s saved greeting (or defaults). */
+export async function GET(req: NextRequest) {
+  const to =
+    req.nextUrl.searchParams.get("To") ||
+    req.nextUrl.searchParams.get("to") ||
+    ""
+  const { settings } = to ? await resolveIvrContext(to) : { settings: DEFAULT_IVR_MENU_SETTINGS }
+  return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText))
 }
 
 export async function POST(req: NextRequest) {
@@ -112,69 +202,38 @@ export async function POST(req: NextRequest) {
   const fromRaw = pickField(fields, ["From", "from", "Caller", "caller"])
   const toRaw = pickField(fields, ["To", "to", "Called", "called"])
   const fromE164 = fromRaw ? normalizePhoneNumberE164(fromRaw) || toE164(fromRaw) : ""
+  const step = pickField(fields, ["step"])
 
-  // No Digits yet → present the IVR menu (TeXML may POST on redirect without Digits).
+  // After voicemail Record completes, hang up politely.
+  if (step === "vm-done") {
+    return xmlResponse(buildTelnyxMenuSayHangupXml("Thank you. Goodbye."))
+  }
+
+  const { ownerUserId, settings } = await resolveIvrContext(toRaw)
+
+  // No Digits yet → present the dashboard-configured IVR greeting.
   if (!digits) {
-    return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl()))
+    return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText))
   }
 
-  // ── Digits === "1" → SMS booking link, then polite hangup ──
   if (digits === "1") {
-    if (fromE164) {
-      const ownerUserId = toRaw ? await resolveOwnerUserId(toRaw) : null
-      const text = buildTelnyxMenuBookingSms(fromE164)
-      try {
-        const sent = await sendTelnyxSms({
-          toE164: fromE164,
-          text,
-          userId: ownerUserId || undefined,
-        })
-        if (!sent.ok) {
-          console.warn("[telnyx-menu] Digits=1 SMS failed:", sent.error)
-        }
-      } catch (e) {
-        console.warn("[telnyx-menu] Digits=1 SMS threw:", e)
-      }
-    } else {
-      console.warn("[telnyx-menu] Digits=1 missing From — skipping SMS")
-    }
-    return xmlResponse(buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY))
+    const xml = await dispatchIvrAction({
+      action: settings.ivrOption1Action,
+      fromE164,
+      ownerUserId,
+    })
+    return xmlResponse(xml)
   }
 
-  // ── Digits === "2" → temporary tomorrow priority reservation ──
   if (digits === "2") {
-    const ownerUserId = toRaw ? await resolveOwnerUserId(toRaw) : null
-    if (ownerUserId && fromE164) {
-      try {
-        const events = await loadOwnerMonthEvents(ownerUserId)
-        const slot = getEarliestOpenBlockTomorrow(events, new Date())
-        const scheduledAtIso =
-          slot?.scheduledAtIso ||
-          (() => {
-            const d = new Date()
-            d.setDate(d.getDate() + 1)
-            d.setHours(9, 0, 0, 0)
-            return d.toISOString()
-          })()
-
-        await createUnassignedJobFromIntake({
-          ownerUserId,
-          callerE164: fromE164,
-          customerName: "IVR priority hold",
-          jobType: "Priority slot (IVR)",
-          notes: `Temporary reservation via Telnyx menu Digits=2 · ${slot?.text || "Tomorrow morning"}`,
-          scheduledAtIso,
-          pendingCallback: true,
-        })
-      } catch (e) {
-        console.warn("[telnyx-menu] Digits=2 reservation failed:", e)
-      }
-    } else {
-      console.warn("[telnyx-menu] Digits=2 missing owner or From — spoken success still returned")
-    }
-    return xmlResponse(buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT2_SAY))
+    const xml = await dispatchIvrAction({
+      action: settings.ivrOption2Action,
+      fromE164,
+      ownerUserId,
+    })
+    return xmlResponse(xml)
   }
 
-  // ── Fallback — invalid keypress → back to menu ──
+  // Invalid keypress → back to menu with the same custom greeting.
   return xmlResponse(buildTelnyxMenuInvalidRedirectXml(menuSelfUrl()))
 }
