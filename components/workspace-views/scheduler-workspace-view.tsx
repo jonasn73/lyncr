@@ -845,22 +845,13 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="hidden text-sm text-zinc-500 md:block lg:text-xs">
-            {intakeProfile === "locksmith"
-              ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
-              : intakeProfile === "detailing"
-                ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
-                : "Automotive field jobs with industry-specific intake fields and validated addresses."}
-          </p>
-          <button
-            type="button"
-            onClick={() => setBlockoutModalOpen(true)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-500"
-          >
-            + Add Blockout Time
-          </button>
-        </div>
+        <p className="mb-3 hidden text-sm text-zinc-500 md:block lg:text-xs">
+          {intakeProfile === "locksmith"
+            ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
+            : intakeProfile === "detailing"
+              ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
+              : "Automotive field jobs with industry-specific intake fields and validated addresses."}
+        </p>
 
         <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-4 lg:gap-6 lg:pb-0">
           {/* Left control column — new intake, hopper, live metrics */}
