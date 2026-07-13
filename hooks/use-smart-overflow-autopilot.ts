@@ -1,8 +1,8 @@
 "use client"
 
-// Live Smart Overflow Autopilot — loads month scheduler events and exposes next-slot text.
+// Live Smart Overflow IVR Menu — calendar capacity + Off-duty → ivr_menu_enabled sync.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import {
   DEFAULT_SMART_OVERFLOW_CONFIG,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/smart-overflow-autopilot"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import type { SchedulerEvent } from "@/lib/types"
+import type { IvrMenuSettings } from "@/lib/ivr-menu-settings"
 
 function currentMonthKey(now = new Date()): string {
   const y = now.getFullYear()
@@ -25,17 +26,38 @@ function currentMonthKey(now = new Date()): string {
   return `${y}-${m}`
 }
 
+async function persistIvrMenuEnabled(
+  enabled: boolean,
+  routingBusinessNumber: string | null | undefined
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/routing/ivr", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_number: routingBusinessNumber || null,
+        ivrMenuEnabled: enabled,
+        ivr_menu_enabled: enabled,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 export type UseSmartOverflowAutopilotResult = {
   config: SmartOverflowConfig
   setConfig: (next: SmartOverflowConfig) => void
-  /** True when Manual is on or Auto-On Full Capacity trips. */
+  /** True when Manual Off-duty is on or Auto-On Full Capacity trips. */
   overflowActive: boolean
   nextAvailableSlotText: string
   nextAvailableSlotIso: string | null
   confirmedJobsToday: number
   events: SchedulerEvent[]
   loading: boolean
-  /** Retell webhook bridge reachable (GET /api/retell-booking). */
+  /** Retell webhook bridge reachable (GET /api/retell-booking) — optional diagnostics. */
   retellConnected: boolean
   /** Append a mock AI booking into the local event array (and optional server stub). */
   ingestAICallBooking: (
@@ -43,14 +65,17 @@ export type UseSmartOverflowAutopilotResult = {
   ) => Promise<SmartOverflowPoolSchemaBlock | null>
 }
 
-export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
+export function useSmartOverflowAutopilot(
+  routingBusinessNumber?: string | null
+): UseSmartOverflowAutopilotResult {
   const [config, setConfigState] = useState<SmartOverflowConfig>(DEFAULT_SMART_OVERFLOW_CONFIG)
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [hydrated, setHydrated] = useState(false)
-  // Prefer the Retell availability handler’s speech/offer copy when Autopilot is live.
+  const [ivrReady, setIvrReady] = useState(false)
   const [retellOfferText, setRetellOfferText] = useState<string | null>(null)
   const [retellConnected, setRetellConnected] = useState(false)
+  const lastSyncedIvrEnabled = useRef<boolean | null>(null)
 
   // Restore Mode A / Mode B preferences after mount (avoid SSR mismatch).
   useEffect(() => {
@@ -58,10 +83,60 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
     setHydrated(true)
   }, [])
 
-  const setConfig = useCallback((next: SmartOverflowConfig) => {
-    setConfigState(next)
-    writeSmartOverflowConfigToStorage(next)
-  }, [])
+  // Load Off-duty (ivr_menu_enabled) from DB for this business line.
+  useEffect(() => {
+    let cancelled = false
+    setIvrReady(false)
+    const qs = routingBusinessNumber
+      ? `?number=${encodeURIComponent(routingBusinessNumber)}`
+      : ""
+    void fetch(`/api/routing/ivr${qs}`, { credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) return null
+        const json = (await res.json()) as { data?: IvrMenuSettings & { ivr_menu_enabled?: boolean } }
+        return json.data || null
+      })
+      .then((data) => {
+        if (cancelled || !data) {
+          if (!cancelled) setIvrReady(true)
+          return
+        }
+        const enabled = data.ivrMenuEnabled === true || data.ivr_menu_enabled === true
+        lastSyncedIvrEnabled.current = enabled
+        setConfigState((prev) => {
+          const next: SmartOverflowConfig = {
+            ...prev,
+            // Prefer DB Off-duty flag when present; keep auto threshold from local storage.
+            manualEnabled: enabled,
+          }
+          writeSmartOverflowConfigToStorage(next)
+          return next
+        })
+        setIvrReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setIvrReady(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [routingBusinessNumber])
+
+  const setConfig = useCallback(
+    (next: SmartOverflowConfig) => {
+      setConfigState(next)
+      writeSmartOverflowConfigToStorage(next)
+      // Immediate persist when the Off-duty switch flips in Manual mode.
+      if (next.mode === "manual") {
+        const enabled = next.manualEnabled === true
+        if (lastSyncedIvrEnabled.current !== enabled) {
+          lastSyncedIvrEnabled.current = enabled
+          void persistIvrMenuEnabled(enabled, routingBusinessNumber)
+        }
+      }
+    },
+    [routingBusinessNumber]
+  )
 
   // Pull the live calendar month so capacity + next-slot stay data-aware.
   useEffect(() => {
@@ -76,7 +151,10 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
     })
       .then(async (res) => {
         if (!res.ok) return [] as SchedulerEvent[]
-        const json = (await res.json()) as { data?: { events?: SchedulerEvent[] }; events?: SchedulerEvent[] }
+        const json = (await res.json()) as {
+          data?: { events?: SchedulerEvent[] }
+          events?: SchedulerEvent[]
+        }
         return json.data?.events ?? json.events ?? []
       })
       .then((list) => {
@@ -103,7 +181,16 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
   const overflowActive = hydrated && isSmartOverflowActive(config, confirmedJobsToday)
   const nextSlot = useMemo(() => getNextAvailableSlot(now, events), [now, events])
 
-  // When Autopilot is active, poll the Retell bridge so the card shows what callers hear.
+  // Keep Telnyx routing in sync when Auto-On Full Capacity trips or clears.
+  useEffect(() => {
+    if (!hydrated || !ivrReady) return
+    const enabled = overflowActive
+    if (lastSyncedIvrEnabled.current === enabled) return
+    lastSyncedIvrEnabled.current = enabled
+    void persistIvrMenuEnabled(enabled, routingBusinessNumber)
+  }, [overflowActive, hydrated, ivrReady, routingBusinessNumber])
+
+  // Optional Retell offer text while overflow is active (diagnostics / next-slot copy).
   useEffect(() => {
     if (!overflowActive) {
       setRetellOfferText(null)
@@ -139,11 +226,9 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
 
   const ingestAICallBooking = useCallback(
     async (payload: AICallBookingReceivedPayload) => {
-      // Local engine: append into the in-memory Scheduler array immediately.
       const local = onAICallBookingReceived(payload, events, new Date())
       setEvents(local.nextEvents)
 
-      // Prefer Retell confirm tool so status is “Confirmed by AI”.
       try {
         const res = await fetch("/api/retell-booking", {
           method: "POST",
@@ -181,7 +266,7 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
     nextAvailableSlotIso: nextSlot?.scheduledAtIso || null,
     confirmedJobsToday,
     events,
-    loading,
+    loading: loading || !ivrReady,
     retellConnected,
     ingestAICallBooking,
   }

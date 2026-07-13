@@ -9,10 +9,19 @@ import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_IVR_GREETING_TEXT,
   DEFAULT_IVR_MENU_SETTINGS,
-  IVR_MENU_ACTION_OPTIONS,
+  IVR_DIGIT1_ACTION_OPTIONS,
+  IVR_DIGIT2_ACTION_OPTIONS,
   type IvrMenuAction,
   type IvrMenuSettings,
 } from "@/lib/ivr-menu-settings"
+
+/** API may return camelCase fields plus snake_case aliases. */
+type IvrApiPayload = IvrMenuSettings & {
+  ivr_greeting?: string
+  digit_1_action?: IvrMenuAction
+  digit_2_action?: IvrMenuAction
+  ivr_menu_enabled?: boolean
+}
 
 const fieldClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
@@ -40,16 +49,23 @@ export function IvrGreetingsSettingsForm({
         ? `?number=${encodeURIComponent(routingBusinessNumber)}`
         : ""
       const res = await fetch(`/api/routing/ivr${qs}`, { credentials: "include" })
-      const json = (await res.json()) as { data?: IvrMenuSettings; error?: string }
-      const data = json.data || DEFAULT_IVR_MENU_SETTINGS
-      setGreeting(data.ivrGreetingText || DEFAULT_IVR_GREETING_TEXT)
-      setOption1(data.ivrOption1Action)
-      setOption2(data.ivrOption2Action)
+      const json = (await res.json()) as {
+        data?: IvrApiPayload
+        error?: string
+      }
+      const data: IvrApiPayload = json.data || { ...DEFAULT_IVR_MENU_SETTINGS }
+      const greetingText =
+        data.ivrGreetingText || data.ivr_greeting || DEFAULT_IVR_GREETING_TEXT
+      const d1 = data.ivrOption1Action || data.digit_1_action || DEFAULT_IVR_MENU_SETTINGS.ivrOption1Action
+      const d2 = data.ivrOption2Action || data.digit_2_action || DEFAULT_IVR_MENU_SETTINGS.ivrOption2Action
+      setGreeting(greetingText)
+      setOption1(d1)
+      setOption2(d2)
       setBaseline(
         JSON.stringify({
-          ivrGreetingText: data.ivrGreetingText || DEFAULT_IVR_GREETING_TEXT,
-          ivrOption1Action: data.ivrOption1Action,
-          ivrOption2Action: data.ivrOption2Action,
+          ivr_greeting: greetingText,
+          digit_1_action: d1,
+          digit_2_action: d2,
         })
       )
     } catch {
@@ -67,9 +83,9 @@ export function IvrGreetingsSettingsForm({
 
   const dirty =
     JSON.stringify({
-      ivrGreetingText: greeting,
-      ivrOption1Action: option1,
-      ivrOption2Action: option2,
+      ivr_greeting: greeting,
+      digit_1_action: option1,
+      digit_2_action: option2,
     }) !== baseline
 
   async function handleSave() {
@@ -81,13 +97,17 @@ export function IvrGreetingsSettingsForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           business_number: routingBusinessNumber,
+          // Canonical + alias keys so DB schema and dashboard docs stay aligned.
           ivrGreetingText: greeting,
+          ivr_greeting: greeting,
           ivrOption1Action: option1,
+          digit_1_action: option1,
           ivrOption2Action: option2,
+          digit_2_action: option2,
         }),
       })
       const json = (await res.json()) as {
-        data?: IvrMenuSettings
+        data?: IvrApiPayload
         error?: string
         migration?: string
       }
@@ -101,15 +121,25 @@ export function IvrGreetingsSettingsForm({
         })
         return
       }
-      const data = json.data || {
+      const data: IvrApiPayload = json.data || {
         ivrGreetingText: greeting,
         ivrOption1Action: option1,
         ivrOption2Action: option2,
+        ivrMenuEnabled: false,
       }
-      setGreeting(data.ivrGreetingText)
-      setOption1(data.ivrOption1Action)
-      setOption2(data.ivrOption2Action)
-      setBaseline(JSON.stringify(data))
+      const greetingText = data.ivrGreetingText || data.ivr_greeting || greeting
+      const d1 = data.ivrOption1Action || data.digit_1_action || option1
+      const d2 = data.ivrOption2Action || data.digit_2_action || option2
+      setGreeting(greetingText)
+      setOption1(d1)
+      setOption2(d2)
+      setBaseline(
+        JSON.stringify({
+          ivr_greeting: greetingText,
+          digit_1_action: d1,
+          digit_2_action: d2,
+        })
+      )
       toast({
         title: "IVR settings saved",
         description: "Callers will hear your updated greeting and keypress actions.",
@@ -155,7 +185,7 @@ export function IvrGreetingsSettingsForm({
         <>
           <div className="space-y-2">
             <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-zinc-300">
-              IVR greeting text
+              Main greeting text
             </label>
             <textarea
               id="ivr-greeting-text"
@@ -173,14 +203,16 @@ export function IvrGreetingsSettingsForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <ActionSelect
               id="ivr-option-1"
-              label="Keypress 1"
+              label="Digit 1 Action"
               value={option1}
+              options={IVR_DIGIT1_ACTION_OPTIONS}
               onChange={setOption1}
             />
             <ActionSelect
               id="ivr-option-2"
-              label="Keypress 2"
+              label="Digit 2 Action"
               value={option2}
+              options={IVR_DIGIT2_ACTION_OPTIONS}
               onChange={setOption2}
             />
           </div>
@@ -213,14 +245,21 @@ function ActionSelect({
   id,
   label,
   value,
+  options,
   onChange,
 }: {
   id: string
   label: string
   value: IvrMenuAction
+  options: { value: IvrMenuAction; label: string; description: string }[]
   onChange: (v: IvrMenuAction) => void
 }) {
-  const active = IVR_MENU_ACTION_OPTIONS.find((o) => o.value === value)
+  // If a legacy value (e.g. voicemail) is stored, keep it selectable until changed.
+  const merged =
+    options.some((o) => o.value === value)
+      ? options
+      : [{ value, label: value, description: "Saved previously — pick a new action to update." }, ...options]
+  const active = merged.find((o) => o.value === value)
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="text-xs font-semibold text-zinc-300">
@@ -232,7 +271,7 @@ function ActionSelect({
         onChange={(e) => onChange(e.target.value as IvrMenuAction)}
         className={cn(fieldClass, "h-11 px-3")}
       >
-        {IVR_MENU_ACTION_OPTIONS.map((opt) => (
+        {merged.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>

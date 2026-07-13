@@ -181,8 +181,10 @@ async function dispatchIvrAction(opts: {
       return runLiveBookingAction(opts)
     case "voicemail":
       return runVoicemailAction()
+    case "do_nothing":
+      return buildTelnyxMenuSayHangupXml("Thank you for calling. Goodbye.")
     default:
-      return runSmsLinkAction(opts)
+      return buildTelnyxMenuSayHangupXml("Thank you for calling. Goodbye.")
   }
 }
 

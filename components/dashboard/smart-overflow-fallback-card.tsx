@@ -1,6 +1,6 @@
 "use client"
 
-// Smart Overflow Autopilot fallback card — mode selector + live offer badges.
+// Smart Overflow IVR Menu — Off-duty switch + capacity trigger + greetings entry.
 
 import { memo } from "react"
 import { Hourglass, ChevronRight } from "lucide-react"
@@ -17,10 +17,10 @@ export type SmartOverflowFallbackCardProps = {
   confirmedJobsToday: number
   config: SmartOverflowConfig
   onConfigChange: (next: SmartOverflowConfig) => void
-  /** Opens the Voice & AI greeting / slot-booking script editor. */
+  /** Opens the Voice & AI / Greetings IVR editor. */
   onOpenScriptEditor: () => void
   loading?: boolean
-  /** Live Retell webhook bridge health for connection diagnostics. */
+  /** Live Retell webhook bridge health (legacy diagnostics when AI path still used). */
   retellConnected?: boolean
 }
 
@@ -50,11 +50,11 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   retellConnected = true,
 }: SmartOverflowFallbackCardProps) {
   const title = overflowActive
-    ? "🤖 FALLBACK · AI SCHEDULER ACTIVE"
-    : "Smart Overflow Autopilot"
-  const value = overflowActive ? "Monday Calendar Intercept" : "Smart Overflow standby"
+    ? "📞 FALLBACK · IVR MENU ACTIVE"
+    : "Smart Overflow IVR Menu"
+  const value = overflowActive ? "Keypad menu answering" : "IVR Menu standby"
   const detail = overflowActive
-    ? "Instant greeting -> Automated SMS text slot dispatch engine"
+    ? "Inbound calls → automated greeting + press 1 / press 2 menu"
     : "Pick Manual or Auto-On Full Capacity below."
 
   if (compact) {
@@ -180,7 +180,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           "hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
         )}
       >
-        Edit booking greeting
+        Edit IVR greetings
       </button>
     </div>
   )
@@ -191,13 +191,12 @@ function DiagnosticBadges({
   retellConnected = true,
 }: {
   nextAvailableSlotText: string
-  /** When Smart Overflow is live, show Retell webhook bridge status. */
   retellConnected?: boolean
 }) {
   return (
     <div className="mt-3 flex flex-col gap-1.5">
       <span className="inline-flex w-fit items-center rounded border border-teal-900 bg-teal-950 px-2 py-0.5 text-[10px] font-semibold text-teal-400">
-        AI Live Listening Activated
+        IVR Menu Live · /api/telnyx-menu
       </span>
       <span
         className={cn(
@@ -208,8 +207,8 @@ function DiagnosticBadges({
         )}
       >
         {retellConnected
-          ? "API: Active / Connected to Retell AI"
-          : "API: Waiting / Retell bridge unreachable"}
+          ? "Routing: Off-duty → keypad menu"
+          : "Routing: Waiting / menu endpoint check"}
       </span>
       <span className="inline-flex w-fit max-w-full items-center truncate rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
         Offering: {nextAvailableSlotText}
@@ -232,7 +231,7 @@ function ModeControls({
   return (
     <div className={cn("mt-3 space-y-2 border-t border-white/5 pt-3", compact && "pt-2")}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-        Autopilot trigger
+        IVR trigger
       </p>
       <div className="flex flex-col gap-1.5">
         {MODE_OPTIONS.map((opt) => {
@@ -260,12 +259,14 @@ function ModeControls({
         <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-2.5 py-2">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold text-foreground">Off-duty now</p>
-            <p className="text-[10px] text-zinc-500">Manual Toggle · AI takes overflow calls</p>
+            <p className="text-[10px] text-zinc-500">
+              Manual Toggle · Automated IVR menu takes overflow calls
+            </p>
           </div>
           <Switch
             checked={config.manualEnabled}
             onCheckedChange={(on) => onConfigChange({ ...config, manualEnabled: on })}
-            aria-label="Manual Smart Overflow toggle"
+            aria-label="Off-duty IVR menu toggle"
             className="shrink-0 data-[state=checked]:bg-emerald-500"
           />
         </div>

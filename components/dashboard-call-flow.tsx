@@ -399,6 +399,7 @@ export function buildCallFlowNodes(params: {
 
 export const DashboardCallFlow = memo(function DashboardCallFlow({
   businessNumbers,
+  routingBusinessNumber,
   quickSetupDecided,
   callFlowUiReady,
   routingLineDetailLoading,
@@ -419,8 +420,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const isMobile = useIsMobile()
-  // Live calendar capacity + next open 1-hour block for Smart Overflow Autopilot.
-  const smartOverflow = useSmartOverflowAutopilot()
+  // Live calendar capacity + next open 1-hour block for Smart Overflow IVR Menu.
+  const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
   // Manual / Auto-On capacity trips OR classic Sunday Autopilot (AI + rings bypassed).
   const effectiveAutopilot = autopilotMode || smartOverflow.overflowActive
 

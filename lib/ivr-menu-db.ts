@@ -18,7 +18,8 @@ function isMissingIvrColumnError(e: unknown): boolean {
   return (
     msg.includes("ivr_greeting_text") ||
     msg.includes("ivr_option1_action") ||
-    msg.includes("ivr_option2_action")
+    msg.includes("ivr_option2_action") ||
+    msg.includes("ivr_menu_enabled")
   )
 }
 
@@ -35,7 +36,7 @@ export async function getIvrMenuSettingsForOwnerLine(
   try {
     if (bn) {
       const perLine = await sql`
-        SELECT ivr_greeting_text, ivr_option1_action, ivr_option2_action
+        SELECT ivr_greeting_text, ivr_option1_action, ivr_option2_action, ivr_menu_enabled
         FROM routing_config
         WHERE user_id = ${ownerUserId} AND business_number = ${bn}
         LIMIT 1
@@ -44,7 +45,7 @@ export async function getIvrMenuSettingsForOwnerLine(
     }
 
     const def = await sql`
-      SELECT ivr_greeting_text, ivr_option1_action, ivr_option2_action
+      SELECT ivr_greeting_text, ivr_option1_action, ivr_option2_action, ivr_menu_enabled
       FROM routing_config
       WHERE user_id = ${ownerUserId} AND business_number IS NULL
       LIMIT 1
@@ -52,7 +53,7 @@ export async function getIvrMenuSettingsForOwnerLine(
     if (def[0]) return normalizeIvrMenuSettings(def[0] as Record<string, unknown>)
   } catch (e) {
     if (!isMissingIvrColumnError(e)) throw e
-    console.warn("[ivr-menu-db] get skipped — run scripts/086-ivr-menu-settings.sql in Neon")
+    console.warn("[ivr-menu-db] get skipped — run scripts/086 + 087 in Neon")
   }
 
   return { ...DEFAULT_IVR_MENU_SETTINGS }
@@ -77,7 +78,8 @@ export async function getIvrMenuSettingsByInboundDid(
         pn.user_id,
         COALESCE(NULLIF(trim(pn.ivr_greeting_text), ''), rc.ivr_greeting_text) AS ivr_greeting_text,
         COALESCE(NULLIF(trim(pn.ivr_option1_action), ''), rc.ivr_option1_action) AS ivr_option1_action,
-        COALESCE(NULLIF(trim(pn.ivr_option2_action), ''), rc.ivr_option2_action) AS ivr_option2_action
+        COALESCE(NULLIF(trim(pn.ivr_option2_action), ''), rc.ivr_option2_action) AS ivr_option2_action,
+        COALESCE(pn.ivr_menu_enabled, rc.ivr_menu_enabled, false) AS ivr_menu_enabled
       FROM phone_numbers pn
       LEFT JOIN routing_config rc
         ON rc.user_id = pn.user_id
@@ -101,14 +103,12 @@ export async function getIvrMenuSettingsByInboundDid(
     }
   } catch (e) {
     if (!isMissingIvrColumnError(e)) {
-      // Fall through to owner lookup without IVR columns.
       console.warn("[ivr-menu-db] inbound DID IVR read failed:", e)
     } else {
-      console.warn("[ivr-menu-db] inbound DID skipped — run scripts/086 in Neon")
+      console.warn("[ivr-menu-db] inbound DID skipped — run scripts/086 + 087 in Neon")
     }
   }
 
-  // Soft fallback: resolve owner only.
   try {
     const ownerRows = await sql`
       SELECT user_id FROM phone_numbers
@@ -128,6 +128,12 @@ export async function getIvrMenuSettingsByInboundDid(
   return { ownerUserId: null, settings: { ...DEFAULT_IVR_MENU_SETTINGS } }
 }
 
+/** Fast inbound check — true when Off-duty IVR menu should answer this DID. */
+export async function isIvrMenuEnabledForInboundDid(toNumber: string): Promise<boolean> {
+  const { settings } = await getIvrMenuSettingsByInboundDid(toNumber)
+  return settings.ivrMenuEnabled === true
+}
+
 /** Upsert IVR settings on routing_config and denormalize onto phone_numbers. */
 export async function upsertIvrMenuSettings(params: {
   ownerUserId: string
@@ -139,6 +145,7 @@ export async function upsertIvrMenuSettings(params: {
   const greeting = params.settings.ivrGreetingText.trim() || DEFAULT_IVR_MENU_SETTINGS.ivrGreetingText
   const opt1 = params.settings.ivrOption1Action
   const opt2 = params.settings.ivrOption2Action
+  const enabled = params.settings.ivrMenuEnabled === true
 
   try {
     if (bn) {
@@ -154,11 +161,11 @@ export async function upsertIvrMenuSettings(params: {
             ivr_greeting_text = ${greeting},
             ivr_option1_action = ${opt1},
             ivr_option2_action = ${opt2},
+            ivr_menu_enabled = ${enabled},
             updated_at = now()
           WHERE user_id = ${params.ownerUserId} AND business_number = ${bn}
         `
       } else {
-        // Seed a per-line row from account defaults when missing.
         const def = await sql`
           SELECT selected_receptionist_id, fallback_type, ai_greeting, ring_timeout_seconds, ai_ring_owner_first
           FROM routing_config
@@ -169,7 +176,8 @@ export async function upsertIvrMenuSettings(params: {
         await sql`
           INSERT INTO routing_config (
             id, user_id, business_number, selected_receptionist_id, fallback_type, ai_greeting,
-            ring_timeout_seconds, ai_ring_owner_first, ivr_greeting_text, ivr_option1_action, ivr_option2_action, updated_at
+            ring_timeout_seconds, ai_ring_owner_first, ivr_greeting_text, ivr_option1_action,
+            ivr_option2_action, ivr_menu_enabled, updated_at
           ) VALUES (
             ${crypto.randomUUID()},
             ${params.ownerUserId},
@@ -182,6 +190,7 @@ export async function upsertIvrMenuSettings(params: {
             ${greeting},
             ${opt1},
             ${opt2},
+            ${enabled},
             now()
           )
         `
@@ -192,7 +201,8 @@ export async function upsertIvrMenuSettings(params: {
         SET
           ivr_greeting_text = ${greeting},
           ivr_option1_action = ${opt1},
-          ivr_option2_action = ${opt2}
+          ivr_option2_action = ${opt2},
+          ivr_menu_enabled = ${enabled}
         WHERE user_id = ${params.ownerUserId} AND number = ${bn}
       `
     } else {
@@ -202,24 +212,24 @@ export async function upsertIvrMenuSettings(params: {
           ivr_greeting_text = ${greeting},
           ivr_option1_action = ${opt1},
           ivr_option2_action = ${opt2},
+          ivr_menu_enabled = ${enabled},
           updated_at = now()
         WHERE user_id = ${params.ownerUserId} AND business_number IS NULL
       `
-      // Mirror onto all lines that have no per-line override text yet.
       await sql`
         UPDATE phone_numbers
         SET
-          ivr_greeting_text = ${greeting},
-          ivr_option1_action = ${opt1},
-          ivr_option2_action = ${opt2}
+          ivr_greeting_text = COALESCE(NULLIF(trim(ivr_greeting_text), ''), ${greeting}),
+          ivr_option1_action = COALESCE(NULLIF(trim(ivr_option1_action), ''), ${opt1}),
+          ivr_option2_action = COALESCE(NULLIF(trim(ivr_option2_action), ''), ${opt2}),
+          ivr_menu_enabled = ${enabled}
         WHERE user_id = ${params.ownerUserId}
-          AND (ivr_greeting_text IS NULL OR trim(ivr_greeting_text) = '')
       `
     }
   } catch (e) {
     if (isMissingIvrColumnError(e)) {
       const err = new Error(
-        "IVR settings columns missing — run scripts/086-ivr-menu-settings.sql in Neon SQL Editor."
+        "IVR settings columns missing — run scripts/086-ivr-menu-settings.sql and scripts/087-ivr-menu-enabled.sql in Neon."
       )
       ;(err as Error & { code?: string }).code = "IVR_MIGRATION_REQUIRED"
       throw err
@@ -231,5 +241,6 @@ export async function upsertIvrMenuSettings(params: {
     ivrGreetingText: greeting,
     ivrOption1Action: opt1,
     ivrOption2Action: opt2,
+    ivrMenuEnabled: enabled,
   }
 }

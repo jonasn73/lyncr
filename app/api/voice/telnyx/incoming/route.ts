@@ -72,6 +72,7 @@ import {
 import { buildRoutingPoolDialResponse, getAvailableReceptionistsForLine } from "@/lib/routing-pool"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "@/lib/telnyx-admin-routing-override"
+import { isIvrMenuEnabledForInboundDid } from "@/lib/ivr-menu-db"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -1394,6 +1395,33 @@ async function tryFastInboundReceptionistResponse(
     return new NextResponse(buildSuspendedInboundRejectTexml(), {
       headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
     })
+  }
+
+  // Off-duty IVR Menu: skip PSTN / AI and Redirect into the traditional keypad Gather.
+  const businessLineE164Early = normalizePhoneNumberE164(calledNumberRaw)
+  if (businessLineE164Early) {
+    try {
+      if (await isIvrMenuEnabledForInboundDid(businessLineE164Early)) {
+        const menuUrl = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-menu`
+        const vr = new VoiceResponse()
+        vr.redirect({ method: "POST" }, menuUrl)
+        console.log(
+          JSON.stringify({
+            ...(perfStartMs != null ? { execMs: +(performance.now() - perfStartMs).toFixed(2) } : {}),
+            zing: "telnyx-incoming-ivr-menu-redirect",
+            callSid: pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || null,
+            didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
+            lookupMs,
+            routingSource: memHit ? "memory" : "db",
+          })
+        )
+        return new NextResponse(vr.toString(), {
+          headers: { "Content-Type": "text/xml", "Cache-Control": "no-store" },
+        })
+      }
+    } catch (e) {
+      console.warn("[telnyx-incoming] IVR menu enable check failed:", e)
+    }
   }
 
   const greetingPassDone = inboundCtx?.greetingPassDone ?? false
