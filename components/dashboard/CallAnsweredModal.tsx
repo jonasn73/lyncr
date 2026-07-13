@@ -417,6 +417,7 @@ export type CallAnsweredModalProps = {
 
 export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const dismissedRef = useRef<Set<string>>(new Set())
   const ringAliasRef = useRef<string | null>(null)
   const [current, setCurrent] = useState<ActiveCallRow | null>(null)
@@ -462,10 +463,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const {
     form,
+    matchedCustomer,
     resolvedPhoneNumber,
     patchForm,
     resetForm,
     setServiceQuoteTypeId,
+    applyRapidLocksmithTemplate,
     setQuotedPriceDollars,
     syncQuotedPriceToAuto,
     liveQuote,
@@ -490,6 +493,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     addressSeedQuery,
     answeredClarificationIds,
   } = useActiveCallForm(effectiveCurrent, { linkManualCallLog })
+
+  const [gpsRequestState, setGpsRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle")
+  const setServiceAddressRef = useRef(setServiceAddress)
+  setServiceAddressRef.current = setServiceAddress
+  const effectiveCurrentIdRef = useRef(effectiveCurrent?.id ?? null)
+  effectiveCurrentIdRef.current = effectiveCurrent?.id ?? null
 
   // Park secondary rings in the overhead banner instead of replacing live intake.
   useEffect(() => {
@@ -938,10 +947,56 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       }
     }
 
+    const onLiveGps = (raw: Record<string, unknown>) => {
+      const callLogId = raw.call_log_id != null ? String(raw.call_log_id).trim() : ""
+      const activeId = effectiveCurrentIdRef.current
+      if (callLogId && activeId && callLogId !== activeId) return
+      const lat = Number(raw.latitude)
+      const lng = Number(raw.longitude)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      const formatted =
+        (raw.formatted_address != null ? String(raw.formatted_address).trim() : "") ||
+        `Live GPS ${lat.toFixed(5)}, ${lng.toFixed(5)}`
+      setServiceAddressRef.current({
+        formatted,
+        street_number: "",
+        route: formatted,
+        locality: "",
+        postal_code: "",
+        admin_area: "",
+        lat,
+        lng,
+      })
+      // Best-effort reverse lookup to fill street/city/ZIP into the address field.
+      void fetch(
+        `/api/geocode/autocomplete?q=${encodeURIComponent(`${lat},${lng}`)}`
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { suggestions?: Array<{ formatted?: string; street_number?: string; route?: string; locality?: string; postal_code?: string; admin_area?: string; lat?: number; lng?: number }> } | null) => {
+          const s = data?.suggestions?.[0]
+          if (!s?.formatted) return
+          setServiceAddressRef.current({
+            formatted: s.formatted,
+            street_number: s.street_number || "",
+            route: s.route || s.formatted,
+            locality: s.locality || "",
+            postal_code: s.postal_code || "",
+            admin_area: s.admin_area || "",
+            lat: s.lat ?? lat,
+            lng: s.lng ?? lng,
+          })
+          window.setTimeout(() => addressSearchRef.current?.focus(), 50)
+        })
+        .catch(() => {
+          window.setTimeout(() => addressSearchRef.current?.focus(), 50)
+        })
+    }
+
     channel.bind("call-initiated", onInitiated)
     channel.bind("call-answered", onAnswered)
     channel.bind("call-completed", onCompleted)
     channel.bind("call-recording-ready", onRecordingReady)
+    channel.bind("live-gps", onLiveGps)
     return () => {
       cancelled = true
       stopRingingFastPoll()
@@ -951,6 +1006,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       channel.unbind("call-answered", onAnswered)
       channel.unbind("call-completed", onCompleted)
       channel.unbind("call-recording-ready", onRecordingReady)
+      channel.unbind("live-gps", onLiveGps)
     }
   }, [enabled, ownerUserId, patchManualCallRow])
 
@@ -1204,6 +1260,59 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setServiceQuoteTypeId]
   )
 
+  const handleRapidTemplate = useCallback(
+    (template: "vehicle_lockout" | "home_lockout" | "rekey") => {
+      applyRapidLocksmithTemplate(template)
+      const nextType =
+        template === "rekey" ? ("rekey" as ServiceQuoteTypeId) : ("lockout" as ServiceQuoteTypeId)
+      setCurrentStep(manualIntakeStepAfterService(nextType))
+      // Jump focus to address as soon as the address step is shown.
+      window.setTimeout(() => {
+        setCurrentStep("ADDRESS_CONTACT")
+        window.setTimeout(() => addressSearchRef.current?.focus(), 80)
+      }, 0)
+    },
+    [applyRapidLocksmithTemplate]
+  )
+
+  const requestLiveGps = useCallback(async () => {
+    const phone = resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
+    if (!phone.trim()) {
+      toast({ title: "Need a phone number", description: "Enter the caller phone first." })
+      return
+    }
+    setGpsRequestState("sending")
+    try {
+      const res = await fetch("/api/intake/request-gps", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          call_log_id: effectiveCurrent?.id ?? null,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setGpsRequestState("error")
+        toast({
+          title: "GPS text failed",
+          description: json.error || "Could not send locate link.",
+          variant: "destructive",
+        })
+        return
+      }
+      setGpsRequestState("sent")
+      toast({
+        title: "Locate link texted",
+        description: "When they tap Allow, their pin drops into the address field.",
+      })
+    } catch {
+      setGpsRequestState("error")
+      toast({ title: "GPS text failed", description: "Network error.", variant: "destructive" })
+    }
+  }, [effectiveCurrent?.from_number, effectiveCurrent?.id, form.phoneNumber, resolvedPhoneNumber, toast])
+
   const handleManualVehicleChange = useCallback(
     (vehicle: { vehicle_year: string; vehicle_make: string; vehicle_model: string }) => {
       setVehicle(vehicle)
@@ -1330,8 +1439,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     isMinimizedRef.current = false
     setIsMinimized(false)
   }, [])
-
-  const { toast } = useToast()
 
   const viewOnMapLayout = useCallback(() => {
     const lat = form.serviceAddress?.lat
@@ -1494,16 +1601,57 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           )}
                         >
                           {currentStep === "SERVICE_SELECT" ? (
-                            <ServiceQuoteCalculatorPanel
-                              quote={liveQuote}
-                              serviceTypeId={serviceTypeId}
-                              vehicleYear={form.vehicleYear}
-                              vehicleMake={form.vehicleMake}
-                              vehicleModel={form.vehicleModel}
-                              onServiceTypeChange={handleManualServiceTypeChange}
-                              variant="selector-only"
-                              compact
-                            />
+                            <div className="space-y-3">
+                              {matchedCustomer ? (
+                                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200">
+                                    Repeat Customer
+                                  </p>
+                                  <p className="mt-0.5 text-sm font-semibold text-foreground">
+                                    {matchedCustomer.display_name?.trim() || "Known caller"}
+                                  </p>
+                                  {matchedCustomer.notes?.trim() ? (
+                                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                                      {matchedCustomer.notes.trim()}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  data-intake-primary-option
+                                  onClick={() => handleRapidTemplate("vehicle_lockout")}
+                                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                                >
+                                  🚗 Vehicle Lockout
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRapidTemplate("home_lockout")}
+                                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                                >
+                                  🏠 Home Lockout
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRapidTemplate("rekey")}
+                                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                                >
+                                  🔑 Re-key / Fresh Install
+                                </button>
+                              </div>
+                              <ServiceQuoteCalculatorPanel
+                                quote={liveQuote}
+                                serviceTypeId={serviceTypeId}
+                                vehicleYear={form.vehicleYear}
+                                vehicleMake={form.vehicleMake}
+                                vehicleModel={form.vehicleModel}
+                                onServiceTypeChange={handleManualServiceTypeChange}
+                                variant="selector-only"
+                                compact
+                              />
+                            </div>
                           ) : null}
 
                           {currentStep === "VEHICLE_INFO" ? (
@@ -1603,16 +1751,37 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 <Label htmlFor="manual-ac-phone" className="text-xs">
                                   Phone number
                                 </Label>
-                                <Input
-                                  id="manual-ac-phone"
-                                  type="tel"
-                                  inputMode="tel"
-                                  autoComplete="tel"
-                                  value={resolvedPhoneNumber}
-                                  onChange={(e) => patchForm({ phoneNumber: e.target.value })}
-                                  placeholder="(502) 555-1234"
-                                  className="h-10 font-mono text-base"
-                                />
+                                <div className="flex gap-2">
+                                  <Input
+                                    id="manual-ac-phone"
+                                    type="tel"
+                                    inputMode="tel"
+                                    autoComplete="tel"
+                                    value={resolvedPhoneNumber}
+                                    onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                                    placeholder="(502) 555-1234"
+                                    className="h-10 flex-1 font-mono text-base"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => void requestLiveGps()}
+                                    disabled={gpsRequestState === "sending"}
+                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                                    title="Text customer a live GPS share link"
+                                  >
+                                    {gpsRequestState === "sending" ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                                    ) : (
+                                      <MapPin className="h-3.5 w-3.5" aria-hidden />
+                                    )}
+                                    Request Live GPS
+                                  </button>
+                                </div>
+                                {gpsRequestState === "sent" ? (
+                                  <p className="text-[10px] text-emerald-400">
+                                    Locate link texted — waiting for customer GPS…
+                                  </p>
+                                ) : null}
                               </div>
                               <div className="space-y-1.5 overflow-visible">
                                 <Label className="text-xs">
@@ -1884,16 +2053,69 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <Label htmlFor="ac-phone" className="text-xs">
                       Phone number
                     </Label>
-                    <Input
-                      id="ac-phone"
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      value={resolvedPhoneNumber}
-                      onChange={(e) => patchForm({ phoneNumber: e.target.value })}
-                      placeholder="(502) 555-1234"
-                      className="h-10 font-mono text-base"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="ac-phone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={resolvedPhoneNumber}
+                        onChange={(e) => patchForm({ phoneNumber: e.target.value })}
+                        placeholder="(502) 555-1234"
+                        className="h-10 flex-1 font-mono text-base"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void requestLiveGps()}
+                        disabled={gpsRequestState === "sending"}
+                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                      >
+                        {gpsRequestState === "sending" ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        ) : (
+                          <MapPin className="h-3.5 w-3.5" aria-hidden />
+                        )}
+                        Request Live GPS
+                      </button>
+                    </div>
+                  </div>
+                  {matchedCustomer ? (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200">
+                        Repeat Customer
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold text-foreground">
+                        {matchedCustomer.display_name?.trim() || "Known caller"}
+                      </p>
+                      {matchedCustomer.notes?.trim() ? (
+                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                          {matchedCustomer.notes.trim()}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRapidTemplate("vehicle_lockout")}
+                      className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"
+                    >
+                      🚗 Vehicle Lockout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRapidTemplate("home_lockout")}
+                      className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"
+                    >
+                      🏠 Home Lockout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRapidTemplate("rekey")}
+                      className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"
+                    >
+                      🔑 Re-key / Fresh Install
+                    </button>
                   </div>
                 </fieldset>
 

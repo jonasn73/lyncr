@@ -125,6 +125,26 @@ export function resolveInboundCalendarOverride(
 }
 
 /**
+ * Minutes remaining in an active partial blockout (end_time − now).
+ * Full-day blockouts return a conservative default (60).
+ */
+export function remainingMinutesInActiveBlockout(
+  blockouts: readonly ScheduleBlockout[],
+  now: Date = new Date(),
+  timeZone = "America/New_York"
+): number | null {
+  const { dateKey, minutes } = localDateTimePartsInZone(now, timeZone)
+  const full = findFullDayBlockout(blockouts, dateKey)
+  if (full) return 60
+  const partial = findActivePartialBlockout(blockouts, dateKey, minutes)
+  if (!partial) return null
+  const end = parseHhMmToMinutes(partial.end_time)
+  if (end == null) return null
+  const left = end - minutes
+  return left > 0 ? left : 1
+}
+
+/**
  * True when a proposed appointment [timeValue, +durationMinutes) overlaps any
  * partial blockout window on that day. Full-day days should be rejected via
  * {@link isDateFullyBlocked} before calling this.

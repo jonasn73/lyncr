@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { flushDueScheduledSms } from "@/lib/sms-pipeline"
+import { flushDuePostCallReviewSms } from "@/lib/post-call-review-sms"
 
 export const dynamic = "force-dynamic"
 
@@ -20,8 +21,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await flushDueScheduledSms(40)
-    return NextResponse.json({ data: result })
+    const [scheduled, callReview] = await Promise.all([
+      flushDueScheduledSms(40),
+      flushDuePostCallReviewSms(40),
+    ])
+    return NextResponse.json({ data: { scheduled, callReview } })
   } catch (e) {
     console.error("[GET /api/sms/flush-scheduled] failed:", e)
     return NextResponse.json({ error: "Flush failed" }, { status: 500 })

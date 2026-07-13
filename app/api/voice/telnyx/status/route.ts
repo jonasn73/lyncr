@@ -13,6 +13,7 @@ import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { maybeSendMissedCallRescueSms } from "@/lib/missed-call-rescue"
+import { maybeQueuePostCallReviewSms } from "@/lib/post-call-review-sms"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
 import { isAutomatedCallHandler } from "@/lib/missed-call-telemetry"
 import type { CallType } from "@/lib/types"
@@ -155,6 +156,17 @@ export async function POST(req: NextRequest) {
           }
         } catch (rescueErr) {
           console.error("[Telnyx] Missed Call Rescue SMS failed:", rescueErr)
+        }
+        try {
+          await maybeQueuePostCallReviewSms({
+            callSid,
+            callStatus,
+            durationSeconds: duration,
+            fromNumber: fromNumber || undefined,
+            direction: direction || undefined,
+          })
+        } catch (reviewErr) {
+          console.error("[Telnyx] Post-call review queue failed:", reviewErr)
         }
       })
     }

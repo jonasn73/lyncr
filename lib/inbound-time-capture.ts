@@ -44,25 +44,35 @@ export function currentHourInTimeZone(
 export const NIGHT_CAPTURE_PROMPT =
   "Thanks for calling Key Squad 5-0-2. Our office is currently closed, but you can book your appointment right now on your phone. Press 1, or stay on the line, to receive an instant booking link via text message. If this is an absolute emergency, press 2 to ring our on-call line."
 
-/** Spoken after day Dial times out unanswered. */
+/** Spoken after day Dial times out unanswered (Press 1 = SMS, Press 2 = hold queue). */
 export const DAY_BUSY_FALLBACK_PROMPT =
   "Our representatives are currently assisting other clients. Press 1 to get a direct link texted to your mobile device to book your appointment instantly, or press 2 to remain on hold."
 
+/** Unified busy / on-job / closed / calendar — SMS already fired when this plays. */
+export const TIED_UP_BOOKING_PROMPT =
+  "Thanks for calling Key Squad. We're currently tied up on a service job, but our live calendar booking link was just texted to you. Press 1 or stay on the line to lock in our next open slot."
+
+/** Live call waiting — dial returned BUSY / CONGESTION. */
+export const LIVE_CALL_WAITING_PROMPT =
+  "We are currently assisting another emergency lockout on our main line. We have instantly texted you our live booking board so you can secure an immediate dispatch slot without waiting."
+
 /** Presence Closed — office closed, booking link only. */
-export const PRESENCE_CLOSED_PROMPT =
-  "Thanks for calling Key Squad. We are currently closed, but you can still book online. Press 1 or stay on the line to receive a text link to reserve your spot instantly."
+export const PRESENCE_CLOSED_PROMPT = TIED_UP_BOOKING_PROMPT
 
 /** Presence On-Job — busy IVR + booking link. */
-export const PRESENCE_ON_JOB_PROMPT =
-  "We are currently on a job and cannot take your call right now. Press 1 to get an instant text link to view our remaining open booking slots."
+export const PRESENCE_ON_JOB_PROMPT = TIED_UP_BOOKING_PROMPT
 
-/** Full-day calendar blockout — skip cell, SMS booking for tomorrow. */
-export const CALENDAR_FULL_DAY_PROMPT =
-  "Thanks for calling Key Squad. We are out of the office or fully booked today, but our schedule for tomorrow is wide open. Press 1 or stay on the line to receive a text link to reserve your spot instantly."
+/** Full-day calendar blockout — skip cell, SMS booking. */
+export const CALENDAR_FULL_DAY_PROMPT = TIED_UP_BOOKING_PROMPT
 
-/** Partial calendar blockout (job / appointment) — skip cell, SMS open slots. */
-export const CALENDAR_PARTIAL_BUSY_PROMPT =
-  "We are currently tied up on a job or appointment right now, but our online booking tracker is live. Press 1 to get an instant text link to view our remaining open slots for this afternoon."
+/** Partial calendar blockout — skip cell, SMS open slots. */
+export const CALENDAR_PARTIAL_BUSY_PROMPT = TIED_UP_BOOKING_PROMPT
+
+/** Build hold-queue TTS with remaining on-site minutes from the active blockout. */
+export function buildHoldQueuePrompt(remainingMinutes: number): string {
+  const mins = Math.max(1, Math.round(remainingMinutes))
+  return `Our current estimated on-site response time is approximately ${mins} minutes. To lock in this arrival window, please stay on the line, or press 1 at any time to have a priority booking link sent straight to your phone.`
+}
 
 /** Day first-ring timeout (seconds) before busy Gather. */
 export const DAY_CAPTURE_DIAL_TIMEOUT_SECONDS = 15
@@ -89,6 +99,8 @@ export const CAPTURE_STATUS_PRESENCE_CLOSED = "Presence Closed"
 export const CAPTURE_STATUS_CLOSED_LINK = "Missed - Sent Closed Link"
 export const CAPTURE_STATUS_PRESENCE_ON_JOB = "Presence On-Job"
 export const CAPTURE_STATUS_ON_JOB_LINK = "Missed - Sent On-Job Link"
+export const CAPTURE_STATUS_CALL_WAITING = "Missed - Call Waiting Link"
+export const CAPTURE_STATUS_HOLD_QUEUE = "Hold Queue"
 
 export const CAPTURE_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 
@@ -220,7 +232,42 @@ export function isCaptureDialUnanswered(statusRaw: string): boolean {
     s === "cancelled" ||
     s === "timeout" ||
     s === "unanswered" ||
+    s === "congestion" ||
     s === ""
+  )
+}
+
+/** True when the cell line is already on another live call. */
+export function isCaptureDialLineBusy(statusRaw: string): boolean {
+  const s = statusRaw.trim().toLowerCase().replace(/_/g, "-")
+  return s === "busy" || s === "congestion" || s === "user-busy"
+}
+
+/** Say + Hangup after SMS already fired (call-waiting deflection). */
+export function buildCaptureSmsAlreadySentHangupXml(
+  prompt: string = LIVE_CALL_WAITING_PROMPT,
+  voice = "alice"
+): string {
+  return buildCaptureSayHangupXml(prompt, voice)
+}
+
+/** Hold queue Gather — Press 1 = SMS; stay on line loops / parks with Music if available. */
+export function buildHoldQueueGatherXml(
+  actionUrl: string,
+  remainingMinutes: number,
+  voice = "alice"
+): string {
+  const prompt = buildHoldQueuePrompt(remainingMinutes)
+  const safeAction = escapeTexml(actionUrl)
+  const safePrompt = escapeTexml(prompt)
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response>` +
+    `<Gather numDigits="1" timeout="30" action="${safeAction}" method="POST">` +
+    `<Say voice="${escapeTexml(voice)}">${safePrompt}</Say>` +
+    `</Gather>` +
+    `<Redirect method="POST">${safeAction}</Redirect>` +
+    `</Response>`
   )
 }
 
@@ -239,7 +286,9 @@ export function isCaptureMissedLinkStatus(routedToName: string | null | undefine
     n === CAPTURE_STATUS_PRESENCE_CLOSED ||
     n === CAPTURE_STATUS_CLOSED_LINK ||
     n === CAPTURE_STATUS_PRESENCE_ON_JOB ||
-    n === CAPTURE_STATUS_ON_JOB_LINK
+    n === CAPTURE_STATUS_ON_JOB_LINK ||
+    n === CAPTURE_STATUS_CALL_WAITING ||
+    n === CAPTURE_STATUS_HOLD_QUEUE
   )
 }
 

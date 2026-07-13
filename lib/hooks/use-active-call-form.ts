@@ -21,6 +21,7 @@ import {
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
+import { DEFAULT_SERVICE_RATE_CARD } from "@/lib/service-rate-card"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
@@ -187,6 +188,7 @@ export function useActiveCallForm(
   const [jobState, setJobState] = useState<"idle" | "creating" | "created" | "error">("idle")
   const [jobError, setJobError] = useState<string | null>(null)
   const [form, setForm] = useState<ActiveCallFormState>(EMPTY_FORM)
+  const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(null)
   const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const callLogId = current?.id ?? null
@@ -463,8 +465,14 @@ export function useActiveCallForm(
   ])
 
   useEffect(() => {
-    if (!callLogId) return
-    if (!hasCompleteIntakePhone(resolvedPhoneNumber)) return
+    if (!callLogId) {
+      setMatchedCustomer(null)
+      return
+    }
+    if (!hasCompleteIntakePhone(resolvedPhoneNumber)) {
+      setMatchedCustomer(null)
+      return
+    }
 
     let cancel = false
     const t = window.setTimeout(() => {
@@ -473,11 +481,14 @@ export function useActiveCallForm(
         .then((r) => (r.ok ? r.json() : { customers: [] }))
         .then((data: { customers?: Customer[] }) => {
           if (cancel) return
-          const c = data.customers?.[0]
+          const c = data.customers?.[0] ?? null
+          setMatchedCustomer(c)
           if (!c) return
           setForm((prev) => formFromCustomer(c, prev))
         })
-        .catch(() => {})
+        .catch(() => {
+          if (!cancel) setMatchedCustomer(null)
+        })
     }, 350)
 
     return () => {
@@ -737,6 +748,50 @@ export function useActiveCallForm(
     setForm((prev) => ({ ...prev, serviceQuoteTypeId, quotedPriceOverridden: false }))
   }, [])
 
+  /** Rapid-tap locksmith template — sets job type + baseline fee from the rate card. */
+  const applyRapidLocksmithTemplate = useCallback(
+    (template: "vehicle_lockout" | "home_lockout" | "rekey") => {
+      const card = rateCard ?? DEFAULT_SERVICE_RATE_CARD
+      if (template === "vehicle_lockout") {
+        const cents = card.services.lockout ?? 8500
+        setForm((prev) => ({
+          ...prev,
+          jobType: "Lockout",
+          keyReplacementMode: "",
+          serviceQuoteTypeId: "lockout",
+          notes: prev.notes.trim() ? prev.notes : "Vehicle lockout",
+          quotedPriceCents: cents,
+          quotedPriceOverridden: true,
+        }))
+        return
+      }
+      if (template === "home_lockout") {
+        const cents = card.services.lockout ?? 8500
+        setForm((prev) => ({
+          ...prev,
+          jobType: "Lockout",
+          keyReplacementMode: "",
+          serviceQuoteTypeId: "lockout",
+          notes: prev.notes.trim() ? prev.notes : "Home lockout",
+          quotedPriceCents: cents,
+          quotedPriceOverridden: true,
+        }))
+        return
+      }
+      const cents = card.services.rekey ?? 14000
+      setForm((prev) => ({
+        ...prev,
+        jobType: "Other",
+        keyReplacementMode: "",
+        serviceQuoteTypeId: "rekey",
+        notes: prev.notes.trim() ? prev.notes : "Re-key / fresh install",
+        quotedPriceCents: cents,
+        quotedPriceOverridden: true,
+      }))
+    },
+    [rateCard]
+  )
+
   const setQuotedPriceDollars = useCallback((dollars: number) => {
     const cents = Number.isFinite(dollars) && dollars >= 0 ? Math.round(dollars * 100) : 0
     setForm((prev) => ({ ...prev, quotedPriceCents: cents, quotedPriceOverridden: true }))
@@ -749,6 +804,7 @@ export function useActiveCallForm(
   /** Reset every intake field — used when clearing a local draft on dismiss. */
   const resetForm = useCallback(() => {
     setForm(EMPTY_FORM)
+    setMatchedCustomer(null)
     setSaveState("idle")
   }, [])
 
@@ -767,10 +823,12 @@ export function useActiveCallForm(
 
   return {
     form,
+    matchedCustomer,
     resolvedPhoneNumber,
     patchForm,
     resetForm,
     setServiceQuoteTypeId,
+    applyRapidLocksmithTemplate,
     setQuotedPriceDollars,
     syncQuotedPriceToAuto,
     liveQuote,

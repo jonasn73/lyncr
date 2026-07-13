@@ -1,6 +1,7 @@
-// POST /api/telnyx-capture — night / day time-based inbound capture callbacks.
-// Night: Gather → SMS (1 / timeout) or emergency Dial (2).
-// Day: Dial action → busy Gather → SMS (1 / timeout) or voicemail hold (2).
+// POST /api/telnyx-capture — presence / calendar / day capture callbacks.
+// Busy paths: SMS booking link immediately + say + hangup.
+// Day Dial BUSY/CONGESTION: live call-waiting deflection.
+// Day unanswered: Gather (1 = SMS, 2 = hold queue with calendar ETA).
 
 import { NextRequest, NextResponse } from "next/server"
 import { normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
@@ -14,30 +15,38 @@ import { buildTelnyxMenuBookingSms } from "@/lib/telnyx-menu"
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
-  CAPTURE_DEFAULT_RING_E164,
+  localDateTimePartsInZone,
+  remainingMinutesInActiveBlockout,
+} from "@/lib/schedule-blockouts"
+import { listScheduleBlockoutsForDate } from "@/lib/schedule-blockouts-db"
+import type { CallType } from "@/lib/types"
   CAPTURE_STATUS_BUSY_LINK,
   CAPTURE_STATUS_CALENDAR_BUSY,
   CAPTURE_STATUS_CALENDAR_OFF,
+  CAPTURE_STATUS_CALL_WAITING,
   CAPTURE_STATUS_CLOSED_LINK,
   CAPTURE_STATUS_DAY_BUSY,
   CAPTURE_STATUS_DAY_LINK,
   CAPTURE_STATUS_EMERGENCY_ANSWERED,
   CAPTURE_STATUS_FULL_DAY_LINK,
+  CAPTURE_STATUS_HOLD_QUEUE,
   CAPTURE_STATUS_NIGHT_LINK,
+  CAPTURE_STATUS_NIGHT_MENU,
   CAPTURE_STATUS_ON_JOB_LINK,
   CAPTURE_STATUS_PRESENCE_CLOSED,
   CAPTURE_STATUS_PRESENCE_ON_JOB,
   CAPTURE_XML_CONTENT_TYPE,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
-  buildCalendarFullDayGatherXml,
-  buildCalendarPartialBusyGatherXml,
+  INBOUND_CAPTURE_TIMEZONE,
+  LIVE_CALL_WAITING_PROMPT,
+  TIED_UP_BOOKING_PROMPT,
   buildCaptureHangupXml,
   buildCaptureSayHangupXml,
+  buildCaptureSmsAlreadySentHangupXml,
   buildDayBusyFallbackGatherXml,
   buildDayCaptureDialXml,
-  buildDayHoldVoicemailXml,
-  buildPresenceClosedGatherXml,
-  buildPresenceOnJobGatherXml,
+  buildHoldQueueGatherXml,
+  isCaptureDialLineBusy,
   isCaptureDialUnanswered,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
@@ -147,12 +156,37 @@ async function resolveSecureBookUrl(opts: {
   })
 }
 
+async function fireBookingSms(opts: {
+  fromE164: string
+  ownerUserId: string | null
+  businessLineE164: string
+  source: string
+}): Promise<void> {
+  if (!opts.fromE164) return
+  const bookUrl = await resolveSecureBookUrl({
+    fromE164: opts.fromE164,
+    ownerUserId: opts.ownerUserId,
+    businessLineE164: opts.businessLineE164,
+    source: opts.source,
+  })
+  const text = buildTelnyxMenuBookingSms(opts.fromE164, bookUrl, opts.businessLineE164)
+  try {
+    const sent = await sendTelnyxSms({
+      toE164: opts.fromE164,
+      text,
+      userId: opts.ownerUserId || undefined,
+    })
+    if (!sent.ok) console.warn("[telnyx-capture] SMS failed:", sent.error)
+  } catch (e) {
+    console.warn("[telnyx-capture] SMS threw:", e)
+  }
+}
+
 async function sendBookingSmsAndHangup(opts: {
   fromE164: string
   ownerUserId: string | null
   businessLineE164: string
   callSid: string
-  /** Night / day / calendar status label for Activities / Missed Call Rescue. */
   routedToName:
     | typeof CAPTURE_STATUS_NIGHT_LINK
     | typeof CAPTURE_STATUS_DAY_LINK
@@ -160,27 +194,17 @@ async function sendBookingSmsAndHangup(opts: {
     | typeof CAPTURE_STATUS_BUSY_LINK
     | typeof CAPTURE_STATUS_CLOSED_LINK
     | typeof CAPTURE_STATUS_ON_JOB_LINK
+    | typeof CAPTURE_STATUS_CALL_WAITING
   source: string
+  /** When set, play this instead of the generic "we just texted" goodbye. */
+  sayPrompt?: string
 }): Promise<string> {
-  if (opts.fromE164) {
-    const bookUrl = await resolveSecureBookUrl({
-      fromE164: opts.fromE164,
-      ownerUserId: opts.ownerUserId,
-      businessLineE164: opts.businessLineE164,
-      source: opts.source,
-    })
-    const text = buildTelnyxMenuBookingSms(opts.fromE164, bookUrl, opts.businessLineE164)
-    try {
-      const sent = await sendTelnyxSms({
-        toE164: opts.fromE164,
-        text,
-        userId: opts.ownerUserId || undefined,
-      })
-      if (!sent.ok) console.warn("[telnyx-capture] SMS failed:", sent.error)
-    } catch (e) {
-      console.warn("[telnyx-capture] SMS threw:", e)
-    }
-  }
+  await fireBookingSms({
+    fromE164: opts.fromE164,
+    ownerUserId: opts.ownerUserId,
+    businessLineE164: opts.businessLineE164,
+    source: opts.source,
+  })
 
   if (opts.callSid) {
     void updateCallLog(opts.callSid, {
@@ -191,6 +215,9 @@ async function sendBookingSmsAndHangup(opts: {
     void markIvrActionCompleted(opts.callSid)
   }
 
+  if (opts.sayPrompt) {
+    return buildCaptureSmsAlreadySentHangupXml(opts.sayPrompt)
+  }
   return buildCaptureSayHangupXml(
     "Perfect, we just texted that booking link to your phone. Goodbye!"
   )
@@ -198,7 +225,7 @@ async function sendBookingSmsAndHangup(opts: {
 
 async function tagCall(
   callSid: string,
-  patch: { routed_to_name: string; call_type?: string; status?: string }
+  patch: { routed_to_name: string; call_type?: CallType; status?: string }
 ): Promise<void> {
   if (!callSid) return
   try {
@@ -212,7 +239,28 @@ async function tagCall(
   }
 }
 
-/** Entry: night Gather or day Dial TeXML (also used by incoming redirect). */
+async function resolveHoldEtaMinutes(ownerUserId: string | null): Promise<number> {
+  if (!ownerUserId) return 20
+  try {
+    const now = new Date()
+    const { dateKey } = localDateTimePartsInZone(now, INBOUND_CAPTURE_TIMEZONE)
+    const blockouts = await listScheduleBlockoutsForDate({
+      ownerUserId,
+      dateKey,
+    })
+    const left = remainingMinutesInActiveBlockout(
+      blockouts,
+      now,
+      INBOUND_CAPTURE_TIMEZONE
+    )
+    if (left != null && left > 0) return left
+  } catch (e) {
+    console.warn("[telnyx-capture] hold ETA lookup failed:", e)
+  }
+  return 20
+}
+
+/** Entry: presence / calendar SMS hangup or day Dial TeXML. */
 export async function GET(req: NextRequest) {
   const fields: Record<string, string> = {}
   req.nextUrl.searchParams.forEach((v, k) => {
@@ -252,7 +300,7 @@ export async function POST(req: NextRequest) {
     return xmlResponse(buildCaptureSayHangupXml("Thank you. Goodbye."))
   }
 
-  // Calendar / presence SMS Gather → SMS (Press 1 or stay on the line).
+  // Legacy Gather action URLs for calendar / presence — SMS + hangup.
   if (
     step === "calendar-off" ||
     step === "calendar-busy" ||
@@ -275,6 +323,7 @@ export async function POST(req: NextRequest) {
         callSid,
         routedToName,
         source: `capture_${step.replace(/-/g, "_")}`,
+        sayPrompt: TIED_UP_BOOKING_PROMPT,
       })
     )
   }
@@ -287,7 +336,6 @@ export async function POST(req: NextRequest) {
     })
 
     if (digits === "2") {
-      // Emergency — ring on-call line; action tags Emergency Answered / fallthrough.
       void tagCall(callSid, {
         routed_to_name: CAPTURE_STATUS_EMERGENCY_ANSWERED,
         call_type: "incoming",
@@ -303,7 +351,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Press 1, stay on line, or timeout → SMS night link.
     return xmlResponse(
       await sendBookingSmsAndHangup({
         fromE164,
@@ -338,11 +385,27 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Day Dial action — unanswered → busy Gather; answered → hangup.
+  // Day Dial action — answered → hangup; BUSY/CONGESTION → call-waiting SMS; else busy Gather.
   if (step === "day-fallback") {
     if (dialStatus && !isCaptureDialUnanswered(dialStatus)) {
       return xmlResponse(buildCaptureHangupXml())
     }
+
+    // Live call waiting — your cell is already on another call.
+    if (isCaptureDialLineBusy(dialStatus)) {
+      return xmlResponse(
+        await sendBookingSmsAndHangup({
+          fromE164,
+          ownerUserId,
+          businessLineE164,
+          callSid,
+          routedToName: CAPTURE_STATUS_CALL_WAITING,
+          source: "capture_call_waiting",
+          sayPrompt: LIVE_CALL_WAITING_PROMPT,
+        })
+      )
+    }
+
     void tagCall(callSid, {
       routed_to_name: CAPTURE_STATUS_DAY_BUSY,
       call_type: "missed",
@@ -350,14 +413,15 @@ export async function POST(req: NextRequest) {
     return xmlResponse(buildDayBusyFallbackGatherXml(captureUrl({ step: "day-busy" })))
   }
 
-  // Day busy Gather — 1 / timeout → SMS; 2 → voicemail hold.
+  // Day busy Gather — 1 / timeout → SMS; 2 → hold queue with calendar ETA.
   if (step === "day-busy") {
     if (digits === "2") {
       void tagCall(callSid, {
-        routed_to_name: "Voicemail",
-        call_type: "voicemail",
+        routed_to_name: CAPTURE_STATUS_HOLD_QUEUE,
+        call_type: "missed",
       })
-      return xmlResponse(buildDayHoldVoicemailXml(captureUrl({ step: "vm-done" })))
+      const eta = await resolveHoldEtaMinutes(ownerUserId)
+      return xmlResponse(buildHoldQueueGatherXml(captureUrl({ step: "hold-queue" }), eta))
     }
     return xmlResponse(
       await sendBookingSmsAndHangup({
@@ -371,7 +435,30 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // No step → entry (night Gather or day Dial).
+  // Hold queue — Press 1 / timeout → priority booking SMS; stay loops with refreshed ETA.
+  if (step === "hold-queue") {
+    if (digits === "1" || !digits) {
+      return xmlResponse(
+        await sendBookingSmsAndHangup({
+          fromE164,
+          ownerUserId,
+          businessLineE164,
+          callSid,
+          routedToName: CAPTURE_STATUS_DAY_LINK,
+          source: "capture_hold_priority",
+        })
+      )
+    }
+    // Any other digit — re-announce ETA and keep holding.
+    void tagCall(callSid, {
+      routed_to_name: CAPTURE_STATUS_HOLD_QUEUE,
+      call_type: "missed",
+    })
+    const eta = await resolveHoldEtaMinutes(ownerUserId)
+    return xmlResponse(buildHoldQueueGatherXml(captureUrl({ step: "hold-queue" }), eta))
+  }
+
+  // No step → entry (presence / calendar SMS or day Dial).
   return handleEntry(fields, ownerUserId, ringE164, businessLineE164, callSid)
 }
 
@@ -390,6 +477,7 @@ async function handleEntry(
   const line =
     businessLineE164 ||
     (toRaw ? normalizePhoneNumberE164(toRaw) || toE164(toRaw) : "")
+  const fromE164 = fromRaw ? normalizePhoneNumberE164(fromRaw) || toE164(fromRaw) : ""
 
   let owner = ownerUserId ?? null
   if (owner === undefined || owner === null) {
@@ -404,48 +492,47 @@ async function handleEntry(
   const ring = ringE164 || (await resolveRingE164(owner))
   const plan = await resolveInboundCapturePlan({ ownerUserId: owner })
 
-  if (plan.kind === "presence_closed") {
+  // CLOSED / ON_JOB / calendar → skip cell, SMS booking link, play tied-up prompt, hangup.
+  if (
+    plan.kind === "presence_closed" ||
+    plan.kind === "presence_on_job" ||
+    plan.kind === "calendar_full_day" ||
+    plan.kind === "calendar_partial"
+  ) {
+    const routedToName =
+      plan.kind === "presence_closed"
+        ? CAPTURE_STATUS_CLOSED_LINK
+        : plan.kind === "presence_on_job"
+          ? CAPTURE_STATUS_ON_JOB_LINK
+          : plan.kind === "calendar_full_day"
+            ? CAPTURE_STATUS_FULL_DAY_LINK
+            : CAPTURE_STATUS_BUSY_LINK
+    const menuTag =
+      plan.kind === "presence_closed"
+        ? CAPTURE_STATUS_PRESENCE_CLOSED
+        : plan.kind === "presence_on_job"
+          ? CAPTURE_STATUS_PRESENCE_ON_JOB
+          : plan.kind === "calendar_full_day"
+            ? CAPTURE_STATUS_CALENDAR_OFF
+            : CAPTURE_STATUS_CALENDAR_BUSY
     if (sid) {
       void tagCall(sid, {
-        routed_to_name: CAPTURE_STATUS_PRESENCE_CLOSED,
+        routed_to_name: menuTag,
         call_type: "missed",
         status: "ringing",
       })
     }
-    return xmlResponse(buildPresenceClosedGatherXml(captureUrl({ step: "presence-closed" })))
-  }
-
-  if (plan.kind === "calendar_full_day") {
-    if (sid) {
-      void tagCall(sid, {
-        routed_to_name: CAPTURE_STATUS_CALENDAR_OFF,
-        call_type: "missed",
-        status: "ringing",
+    return xmlResponse(
+      await sendBookingSmsAndHangup({
+        fromE164,
+        ownerUserId: owner,
+        businessLineE164: line,
+        callSid: sid,
+        routedToName,
+        source: `capture_${plan.kind}`,
+        sayPrompt: TIED_UP_BOOKING_PROMPT,
       })
-    }
-    return xmlResponse(buildCalendarFullDayGatherXml(captureUrl({ step: "calendar-off" })))
-  }
-
-  if (plan.kind === "calendar_partial") {
-    if (sid) {
-      void tagCall(sid, {
-        routed_to_name: CAPTURE_STATUS_CALENDAR_BUSY,
-        call_type: "missed",
-        status: "ringing",
-      })
-    }
-    return xmlResponse(buildCalendarPartialBusyGatherXml(captureUrl({ step: "calendar-busy" })))
-  }
-
-  if (plan.kind === "presence_on_job") {
-    if (sid) {
-      void tagCall(sid, {
-        routed_to_name: CAPTURE_STATUS_PRESENCE_ON_JOB,
-        call_type: "missed",
-        status: "ringing",
-      })
-    }
-    return xmlResponse(buildPresenceOnJobGatherXml(captureUrl({ step: "presence-on-job" })))
+    )
   }
 
   if (sid) {
