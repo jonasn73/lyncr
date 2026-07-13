@@ -165,6 +165,13 @@ export function MissedCallRescueSheet({
   }, [open, loadMissed])
 
   const hotlist = useMemo(() => collapseMissedHotlist(rows), [rows])
+  // Match Lines HUD math: total miss events vs unique caller phones today.
+  const totalMissedCalls = rows.length
+  const uniqueLeadsCount = hotlist.length
+  const headerTitle =
+    totalMissedCalls > 0
+      ? `Missed Call Rescue (${totalMissedCalls} Call${totalMissedCalls === 1 ? "" : "s"} · ${uniqueLeadsCount} Lead${uniqueLeadsCount === 1 ? "" : "s"})`
+      : "Missed Call Rescue"
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -175,8 +182,8 @@ export function MissedCallRescueSheet({
       >
         <SheetHeader className="shrink-0 border-b border-slate-850 px-4 pb-3 pt-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base text-slate-100">
-            <PhoneMissed className="h-4 w-4 text-amber-300" aria-hidden />
-            Missed call rescue
+            <PhoneMissed className="h-4 w-4 shrink-0 text-amber-300" aria-hidden />
+            <span className="min-w-0 leading-snug">{headerTitle}</span>
           </SheetTitle>
           {/* Non-actionable copy — hide on the smallest phones per global UI standards. */}
           <SheetDescription className="hidden text-xs text-slate-500 md:block">
