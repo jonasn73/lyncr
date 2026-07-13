@@ -161,7 +161,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
   return (
     <section
       className={cn(
-        "space-y-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4",
+        "space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 sm:space-y-4 sm:p-4",
         className
       )}
       aria-labelledby="automation-voice-greetings-heading"
@@ -173,7 +173,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         >
           🤖 Automation Voice Greetings
         </p>
-        <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
           Edit On-Job / Closed Speak scripts, TTS persona, secret bypass dial, and holiday
           closures.
         </p>

@@ -6,7 +6,6 @@ import { Loader2, Volume2, Play } from "lucide-react"
 import { DrawerAutoGrowTextarea, DrawerStickyFooter } from "@/components/dashboard-routing-drawer-shared"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
-import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { displayUserFacingMessage } from "@/lib/porting-display"
 import { DEFAULT_BUSY_GREETING_LOCKSMITH } from "@/lib/ai-intake-defaults"
@@ -14,7 +13,6 @@ import { ONBOARDING_DEFAULT_VOICEMAIL_GREETING } from "@/lib/onboarding-ai-trade
 import { isAiIntakeProfileId, type AiIntakeProfileId } from "@/lib/business-industries"
 import type { Contact, FallbackOption } from "@/lib/dashboard-routing-utils"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { IvrGreetingsSettingsForm } from "@/components/dashboard/ivr-greetings-settings-form"
 import { PresenceAutomationGreetingsForm } from "@/components/dashboard/presence-automation-greetings-form"
 
 const PROMPT_PLACEHOLDER =
@@ -402,51 +400,41 @@ export function DashboardVoiceAiDrawer({
         if (!saving) void handleSave()
       }}
     >
-      <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-5 pt-6">
+      <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Step 4 · Voice &amp; AI Greetings</p>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Voice &amp; AI Greetings</h2>
-        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-zinc-500">
-          Edit the IVR spoken greeting below, then tune AI / voicemail fallback scripts.
+        <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground sm:mt-1.5 sm:text-xl">Voice &amp; AI Greetings</h2>
+        <p className="mt-1 max-w-md text-sm leading-snug text-zinc-500">
+          Edit On-Job / Closed automation greetings, keypress routes, then AI / voicemail scripts.
         </p>
         {routingBusinessNumber ? (
-          <p className="mt-2 text-[11px] text-zinc-600">Line {formatPhoneDisplay(routingBusinessNumber)}</p>
+          <p className="mt-1 text-[11px] text-zinc-600">Line {formatPhoneDisplay(routingBusinessNumber)}</p>
         ) : null}
-
-        <div
-          className={cn(
-            "mt-5 flex items-center justify-between gap-4 rounded-xl border px-4 py-3.5 transition-shadow duration-200",
-            aiEnabled
-              ? "border-primary/50 bg-primary/10 shadow-[0_0_24px_-6px_var(--primary)]"
-              : "border-zinc-800 bg-zinc-900/40"
-          )}
-        >
-          <div className="min-w-0">
-            <label htmlFor="dash-ai-enable" className="text-sm font-semibold text-foreground">
-              Enable AI Receptionist
-            </label>
-            <p className="mt-0.5 text-[11px] text-zinc-500">Answers when your team does not pick up in time.</p>
-          </div>
-          <Switch
-            id="dash-ai-enable"
-            checked={aiEnabled}
-            onCheckedChange={(on) => {
-              setAiEnabled(on)
-              if (on) {
-                setFallback("ai")
-                if (postAiRoute === "voicemail") setPostAiRoute("owner_phone")
-              } else {
-                setFallback(postAiRoute === "voicemail" ? "voicemail" : "owner")
-              }
-            }}
-            className="shrink-0 data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_14px_-2px_var(--primary)]"
-          />
-        </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">
-        <div className="mb-8 space-y-6">
-          <IvrGreetingsSettingsForm routingBusinessNumber={routingBusinessNumber} />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6 sm:py-4">
+        {/* Presence + digit actions sit under the title — no duplicate Traditional IVR greeting card. */}
+        <div className="mb-4 space-y-3 sm:mb-5 sm:space-y-4">
           <PresenceAutomationGreetingsForm />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+                Digit 1 Action
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+                Texts a secure lyncr.app/book/[id] tracking link, then hangs up.
+              </p>
+            </div>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+                Digit 2 Action
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">Ring Our Phone</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+                Dials your cell for 20 seconds. If no answer, offers an SMS booking link.
+              </p>
+            </div>
+          </div>
         </div>
         <VoiceAiDrawerBody
           bufferedScript={bufferedScript}
