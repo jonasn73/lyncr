@@ -7,6 +7,7 @@ import {
   resolveInboundCalendarOverride,
 } from "@/lib/schedule-blockouts"
 import { listScheduleBlockoutsForDate } from "@/lib/schedule-blockouts-db"
+import { getAccountPresence } from "@/lib/account-presence"
 
 export const INBOUND_CAPTURE_TIMEZONE = "America/New_York"
 
@@ -47,6 +48,14 @@ export const NIGHT_CAPTURE_PROMPT =
 export const DAY_BUSY_FALLBACK_PROMPT =
   "Our representatives are currently assisting other clients. Press 1 to get a direct link texted to your mobile device to book your appointment instantly, or press 2 to remain on hold."
 
+/** Presence Closed — office closed, booking link only. */
+export const PRESENCE_CLOSED_PROMPT =
+  "Thanks for calling Key Squad. We are currently closed, but you can still book online. Press 1 or stay on the line to receive a text link to reserve your spot instantly."
+
+/** Presence On-Job — busy IVR + booking link. */
+export const PRESENCE_ON_JOB_PROMPT =
+  "We are currently on a job and cannot take your call right now. Press 1 to get an instant text link to view our remaining open booking slots."
+
 /** Full-day calendar blockout — skip cell, SMS booking for tomorrow. */
 export const CALENDAR_FULL_DAY_PROMPT =
   "Thanks for calling Key Squad. We are out of the office or fully booked today, but our schedule for tomorrow is wide open. Press 1 or stay on the line to receive a text link to reserve your spot instantly."
@@ -75,6 +84,11 @@ export const CAPTURE_STATUS_FULL_DAY_LINK = "Missed - Sent Day Off Link"
 /** Partial blockout Gather / SMS. */
 export const CAPTURE_STATUS_CALENDAR_BUSY = "Calendar Busy"
 export const CAPTURE_STATUS_BUSY_LINK = "Missed - Sent Busy Link"
+/** Presence Closed / On-Job. */
+export const CAPTURE_STATUS_PRESENCE_CLOSED = "Presence Closed"
+export const CAPTURE_STATUS_CLOSED_LINK = "Missed - Sent Closed Link"
+export const CAPTURE_STATUS_PRESENCE_ON_JOB = "Presence On-Job"
+export const CAPTURE_STATUS_ON_JOB_LINK = "Missed - Sent On-Job Link"
 
 export const CAPTURE_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 
@@ -131,6 +145,14 @@ export function buildCalendarFullDayGatherXml(actionUrl: string, voice = "alice"
 
 export function buildCalendarPartialBusyGatherXml(actionUrl: string, voice = "alice"): string {
   return buildSmsDefaultGatherXml(actionUrl, CALENDAR_PARTIAL_BUSY_PROMPT, voice)
+}
+
+export function buildPresenceClosedGatherXml(actionUrl: string, voice = "alice"): string {
+  return buildSmsDefaultGatherXml(actionUrl, PRESENCE_CLOSED_PROMPT, voice)
+}
+
+export function buildPresenceOnJobGatherXml(actionUrl: string, voice = "alice"): string {
+  return buildSmsDefaultGatherXml(actionUrl, PRESENCE_ON_JOB_PROMPT, voice)
 }
 
 /** Day first ring — 15s Dial, then action URL for unanswered fallback. */
@@ -213,7 +235,11 @@ export function isCaptureMissedLinkStatus(routedToName: string | null | undefine
     n === CAPTURE_STATUS_CALENDAR_OFF ||
     n === CAPTURE_STATUS_FULL_DAY_LINK ||
     n === CAPTURE_STATUS_CALENDAR_BUSY ||
-    n === CAPTURE_STATUS_BUSY_LINK
+    n === CAPTURE_STATUS_BUSY_LINK ||
+    n === CAPTURE_STATUS_PRESENCE_CLOSED ||
+    n === CAPTURE_STATUS_CLOSED_LINK ||
+    n === CAPTURE_STATUS_PRESENCE_ON_JOB ||
+    n === CAPTURE_STATUS_ON_JOB_LINK
   )
 }
 
@@ -222,6 +248,12 @@ export function isCaptureEmergencyAnswered(routedToName: string | null | undefin
 }
 
 export type InboundCapturePlan =
+  | {
+      kind: "presence_closed"
+    }
+  | {
+      kind: "presence_on_job"
+    }
   | {
       kind: "calendar_full_day"
       dateKey: string
@@ -234,12 +266,13 @@ export type InboundCapturePlan =
       timeHhMm: string
       reason: string | null
     }
-  | { kind: "night" }
   | { kind: "day_dial" }
 
 /**
- * Calendar overrides win over day/night.
- * Full-day off / currently busy → skip cell; else night menu or 15s day Dial.
+ * Presence + calendar drive ring vs SMS (no rigid night clock).
+ * CLOSED or any active blockout → no cell ring.
+ * ON_JOB → busy IVR + booking link.
+ * AVAILABLE (no blockout) → 15s Dial then SMS fallback.
  */
 export async function resolveInboundCapturePlan(params: {
   ownerUserId: string | null
@@ -248,6 +281,20 @@ export async function resolveInboundCapturePlan(params: {
 }): Promise<InboundCapturePlan> {
   const now = params.now ?? new Date()
   const timeZone = params.timeZone ?? INBOUND_CAPTURE_TIMEZONE
+
+  let presenceStatus: "AVAILABLE" | "ON_JOB" | "CLOSED" = "AVAILABLE"
+  if (params.ownerUserId) {
+    try {
+      presenceStatus = (await getAccountPresence(params.ownerUserId)).presenceStatus
+    } catch (e) {
+      console.warn("[inbound-capture] presence lookup skipped:", e)
+    }
+  }
+
+  // Manual Closed always wins — never ring.
+  if (presenceStatus === "CLOSED") {
+    return { kind: "presence_closed" }
+  }
 
   if (params.ownerUserId) {
     try {
@@ -278,6 +325,9 @@ export async function resolveInboundCapturePlan(params: {
     }
   }
 
-  if (isNightMode(now, timeZone)) return { kind: "night" }
+  if (presenceStatus === "ON_JOB") {
+    return { kind: "presence_on_job" }
+  }
+
   return { kind: "day_dial" }
 }

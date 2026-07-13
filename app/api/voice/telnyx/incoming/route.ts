@@ -80,12 +80,14 @@ import {
   CAPTURE_DEFAULT_RING_E164,
   CAPTURE_STATUS_CALENDAR_BUSY,
   CAPTURE_STATUS_CALENDAR_OFF,
-  CAPTURE_STATUS_NIGHT_MENU,
+  CAPTURE_STATUS_PRESENCE_CLOSED,
+  CAPTURE_STATUS_PRESENCE_ON_JOB,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   buildCalendarFullDayGatherXml,
   buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
-  buildNightCaptureGatherXml,
+  buildPresenceClosedGatherXml,
+  buildPresenceOnJobGatherXml,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
 
@@ -1456,13 +1458,15 @@ async function tryFastInboundReceptionistResponse(
           CAPTURE_DEFAULT_RING_E164
 
         const initialRoutedName =
-          plan.kind === "calendar_full_day"
-            ? CAPTURE_STATUS_CALENDAR_OFF
-            : plan.kind === "calendar_partial"
-              ? CAPTURE_STATUS_CALENDAR_BUSY
-              : plan.kind === "night"
-                ? CAPTURE_STATUS_NIGHT_MENU
-                : "Owner"
+          plan.kind === "presence_closed"
+            ? CAPTURE_STATUS_PRESENCE_CLOSED
+            : plan.kind === "presence_on_job"
+              ? CAPTURE_STATUS_PRESENCE_ON_JOB
+              : plan.kind === "calendar_full_day"
+                ? CAPTURE_STATUS_CALENDAR_OFF
+                : plan.kind === "calendar_partial"
+                  ? CAPTURE_STATUS_CALENDAR_BUSY
+                  : "Owner"
         const initialCallType = plan.kind === "day_dial" ? "incoming" : "missed"
 
         if (callSidEarly && routing.user_id) {
@@ -1508,12 +1512,14 @@ async function tryFastInboundReceptionistResponse(
         }
 
         let xml: string
-        if (plan.kind === "calendar_full_day") {
+        if (plan.kind === "presence_closed") {
+          xml = buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`)
+        } else if (plan.kind === "calendar_full_day") {
           xml = buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
         } else if (plan.kind === "calendar_partial") {
           xml = buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
-        } else if (plan.kind === "night") {
-          xml = buildNightCaptureGatherXml(`${captureBase}?step=night`)
+        } else if (plan.kind === "presence_on_job") {
+          xml = buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`)
         } else {
           xml = buildDayCaptureDialXml({
             ringE164: ownerDial,

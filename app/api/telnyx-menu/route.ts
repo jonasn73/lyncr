@@ -48,7 +48,8 @@ import {
   buildCalendarFullDayGatherXml,
   buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
-  buildNightCaptureGatherXml,
+  buildPresenceClosedGatherXml,
+  buildPresenceOnJobGatherXml,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
@@ -333,14 +334,17 @@ async function buildCalendarAwareEntryXml(opts: {
 }): Promise<string> {
   const plan = await resolveInboundCapturePlan({ ownerUserId: opts.ownerUserId })
   const captureBase = `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-capture`
+  if (plan.kind === "presence_closed") {
+    return buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`)
+  }
   if (plan.kind === "calendar_full_day") {
     return buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
   }
   if (plan.kind === "calendar_partial") {
     return buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
   }
-  if (plan.kind === "night") {
-    return buildNightCaptureGatherXml(`${captureBase}?step=night`)
+  if (plan.kind === "presence_on_job") {
+    return buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`)
   }
   return buildDayCaptureDialXml({
     ringE164: opts.ringE164 || TELNYX_MENU_DEFAULT_RING_E164,

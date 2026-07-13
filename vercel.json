@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/recover-leads",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/sync-presence",
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {

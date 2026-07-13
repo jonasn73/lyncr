@@ -18,12 +18,15 @@ import {
   CAPTURE_STATUS_BUSY_LINK,
   CAPTURE_STATUS_CALENDAR_BUSY,
   CAPTURE_STATUS_CALENDAR_OFF,
+  CAPTURE_STATUS_CLOSED_LINK,
   CAPTURE_STATUS_DAY_BUSY,
   CAPTURE_STATUS_DAY_LINK,
   CAPTURE_STATUS_EMERGENCY_ANSWERED,
   CAPTURE_STATUS_FULL_DAY_LINK,
   CAPTURE_STATUS_NIGHT_LINK,
-  CAPTURE_STATUS_NIGHT_MENU,
+  CAPTURE_STATUS_ON_JOB_LINK,
+  CAPTURE_STATUS_PRESENCE_CLOSED,
+  CAPTURE_STATUS_PRESENCE_ON_JOB,
   CAPTURE_XML_CONTENT_TYPE,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   buildCalendarFullDayGatherXml,
@@ -33,7 +36,8 @@ import {
   buildDayBusyFallbackGatherXml,
   buildDayCaptureDialXml,
   buildDayHoldVoicemailXml,
-  buildNightCaptureGatherXml,
+  buildPresenceClosedGatherXml,
+  buildPresenceOnJobGatherXml,
   isCaptureDialUnanswered,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
@@ -154,6 +158,8 @@ async function sendBookingSmsAndHangup(opts: {
     | typeof CAPTURE_STATUS_DAY_LINK
     | typeof CAPTURE_STATUS_FULL_DAY_LINK
     | typeof CAPTURE_STATUS_BUSY_LINK
+    | typeof CAPTURE_STATUS_CLOSED_LINK
+    | typeof CAPTURE_STATUS_ON_JOB_LINK
   source: string
 }): Promise<string> {
   if (opts.fromE164) {
@@ -246,10 +252,21 @@ export async function POST(req: NextRequest) {
     return xmlResponse(buildCaptureSayHangupXml("Thank you. Goodbye."))
   }
 
-  // Calendar full-day / partial busy Gather → SMS (Press 1 or stay on the line).
-  if (step === "calendar-off" || step === "calendar-busy") {
+  // Calendar / presence SMS Gather → SMS (Press 1 or stay on the line).
+  if (
+    step === "calendar-off" ||
+    step === "calendar-busy" ||
+    step === "presence-closed" ||
+    step === "presence-on-job"
+  ) {
     const routedToName =
-      step === "calendar-off" ? CAPTURE_STATUS_FULL_DAY_LINK : CAPTURE_STATUS_BUSY_LINK
+      step === "calendar-off"
+        ? CAPTURE_STATUS_FULL_DAY_LINK
+        : step === "calendar-busy"
+          ? CAPTURE_STATUS_BUSY_LINK
+          : step === "presence-closed"
+            ? CAPTURE_STATUS_CLOSED_LINK
+            : CAPTURE_STATUS_ON_JOB_LINK
     return xmlResponse(
       await sendBookingSmsAndHangup({
         fromE164,
@@ -257,7 +274,7 @@ export async function POST(req: NextRequest) {
         businessLineE164,
         callSid,
         routedToName,
-        source: step === "calendar-off" ? "capture_calendar_off" : "capture_calendar_busy",
+        source: `capture_${step.replace(/-/g, "_")}`,
       })
     )
   }
@@ -387,6 +404,17 @@ async function handleEntry(
   const ring = ringE164 || (await resolveRingE164(owner))
   const plan = await resolveInboundCapturePlan({ ownerUserId: owner })
 
+  if (plan.kind === "presence_closed") {
+    if (sid) {
+      void tagCall(sid, {
+        routed_to_name: CAPTURE_STATUS_PRESENCE_CLOSED,
+        call_type: "missed",
+        status: "ringing",
+      })
+    }
+    return xmlResponse(buildPresenceClosedGatherXml(captureUrl({ step: "presence-closed" })))
+  }
+
   if (plan.kind === "calendar_full_day") {
     if (sid) {
       void tagCall(sid, {
@@ -409,15 +437,15 @@ async function handleEntry(
     return xmlResponse(buildCalendarPartialBusyGatherXml(captureUrl({ step: "calendar-busy" })))
   }
 
-  if (plan.kind === "night") {
+  if (plan.kind === "presence_on_job") {
     if (sid) {
       void tagCall(sid, {
-        routed_to_name: CAPTURE_STATUS_NIGHT_MENU,
+        routed_to_name: CAPTURE_STATUS_PRESENCE_ON_JOB,
         call_type: "missed",
         status: "ringing",
       })
     }
-    return xmlResponse(buildNightCaptureGatherXml(captureUrl({ step: "night" })))
+    return xmlResponse(buildPresenceOnJobGatherXml(captureUrl({ step: "presence-on-job" })))
   }
 
   if (sid) {

@@ -67,8 +67,14 @@ export function isAutomatedCallHandler(routedToName: string | null | undefined):
   if (n.includes("menu") && (n.includes("ivr") || n.includes("overflow"))) return true
   if (n.includes("night capture") || n.includes("day capture")) return true
   if (n.includes("calendar day off") || n.includes("calendar busy")) return true
+  if (n.includes("presence closed") || n.includes("presence on-job") || n.includes("presence on job")) {
+    return true
+  }
   if (n.includes("sent night link") || n.includes("sent day link")) return true
   if (n.includes("sent day off link") || n.includes("sent busy link")) return true
+  if (n.includes("sent closed link") || n.includes("sent on-job link") || n.includes("sent on job link")) {
+    return true
+  }
   return false
 }
 
@@ -85,8 +91,14 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
   if (n.includes("keypad")) return true
   if (n.includes("night capture") || n.includes("day capture")) return true
   if (n.includes("calendar day off") || n.includes("calendar busy")) return true
+  if (n.includes("presence closed") || n.includes("presence on-job") || n.includes("presence on job")) {
+    return true
+  }
   if (n.includes("sent night link") || n.includes("sent day link")) return true
   if (n.includes("sent day off link") || n.includes("sent busy link")) return true
+  if (n.includes("sent closed link") || n.includes("sent on-job link") || n.includes("sent on job link")) {
+    return true
+  }
   return false
 }
 
@@ -175,6 +187,8 @@ export function formatCaptureRoutedStatus(routedToName: string | null | undefine
   if (n === "Missed - Sent Day Link") return n
   if (n === "Missed - Sent Day Off Link") return n
   if (n === "Missed - Sent Busy Link") return n
+  if (n === "Missed - Sent Closed Link") return n
+  if (n === "Missed - Sent On-Job Link") return n
   if (n === "Emergency Answered") return n
   return null
 }

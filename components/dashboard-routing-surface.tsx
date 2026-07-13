@@ -9,6 +9,7 @@ import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-c
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
 import { MissedLeadRecoveryBanner } from "@/components/dashboard/missed-lead-recovery-banner"
+import { PresenceStatusBar } from "@/components/dashboard/presence-status-bar"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
@@ -162,27 +163,31 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const realtimeStats = useRealTimeStatsContextOptional()
   const missedLeadInsights = useMissedLeadInsights(businessNumbers)
 
-  // Sticky tracking line is a sibling of the scroll body — not nested inside overflow —
-  // so it keeps viewport pin context under the shell header.
-  const trackingLine = callFlowUiReady ? (
-    <div className="sticky top-0 z-40 w-full bg-slate-950 px-4 py-3 border-b border-slate-900 flex items-center justify-between">
-      <ActiveLineSubHeader
-        bare
-        businessNumbers={businessNumbers}
-        activeLine={activeLineRaw}
-        onSelect={(n) => setRoutingBusinessNumber(n)}
-        subscriptionActive={subscriptionActive}
-        lineCarrierLive={lineCarrierLive}
-        routingStrategy={routingStrategy}
-        activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
-        loading={routingLineDetailLoading}
-      />
+  // Sticky Presence + tracking line — siblings of the scroll body so they pin under the shell header.
+  const stickyChrome = callFlowUiReady ? (
+    <div className="sticky top-0 z-50 w-full bg-slate-950">
+      <PresenceStatusBar />
+      <div className="flex w-full items-center justify-between border-b border-slate-900 px-4 py-3">
+        <ActiveLineSubHeader
+          bare
+          businessNumbers={businessNumbers}
+          activeLine={activeLineRaw}
+          onSelect={(n) => setRoutingBusinessNumber(n)}
+          subscriptionActive={subscriptionActive}
+          lineCarrierLive={lineCarrierLive}
+          routingStrategy={routingStrategy}
+          activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
+          loading={routingLineDetailLoading}
+        />
+      </div>
     </div>
-  ) : null
+  ) : (
+    <PresenceStatusBar />
+  )
 
   return (
     <div className="flex w-full flex-col">
-      {trackingLine}
+      {stickyChrome}
 
       <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-24 md:pb-8">
         <div className="mx-auto w-full max-w-7xl px-0 pt-4 sm:px-0">
