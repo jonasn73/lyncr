@@ -22,9 +22,14 @@ export type IntakeDraftSnapshot = {
   recoveredViaRouteDiscount: boolean
   negotiationStep: number
   savedAt: string
+  /** True after Finalize & Secure Appointment — never auto-restore. */
+  submitted?: boolean
 }
 
 const STORAGE_VERSION = 1
+
+/** Drafts older than this are treated as stale and ignored on open. */
+export const INTAKE_DRAFT_MAX_AGE_MS = 2 * 60 * 60 * 1000
 
 type StoredEnvelope = {
   v: number
@@ -81,14 +86,25 @@ function isFormSnapshot(value: unknown): value is ActiveCallFormState {
   )
 }
 
-/** Parse a stored draft; returns null when missing or corrupt. */
-export function loadIntakeDraft(phone: string): IntakeDraftSnapshot | null {
-  if (typeof localStorage === "undefined") return null
-  const key = intakeDraftStorageKey(phone)
-  if (!key) return null
+/** True when the draft is recent enough to resume (default: under 2 hours). */
+export function isIntakeDraftFresh(
+  draft: Pick<IntakeDraftSnapshot, "savedAt">,
+  nowMs: number = Date.now()
+): boolean {
+  const saved = new Date(draft.savedAt).getTime()
+  if (!Number.isFinite(saved)) return false
+  return nowMs - saved <= INTAKE_DRAFT_MAX_AGE_MS
+}
+
+/** True when this draft should hydrate the open intake sheet. */
+export function isIntakeDraftRestorable(draft: IntakeDraftSnapshot, nowMs: number = Date.now()): boolean {
+  if (draft.submitted) return false
+  if (draft.currentStep === "BOOKING_COMPLETE") return false
+  return isIntakeDraftFresh(draft, nowMs)
+}
+
+function parseStoredDraft(raw: string): IntakeDraftSnapshot | null {
   try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return null
     const parsed = JSON.parse(raw) as StoredEnvelope | IntakeDraftSnapshot
     const data: IntakeDraftSnapshot =
       "v" in parsed && parsed.v === STORAGE_VERSION && "data" in parsed
@@ -105,14 +121,49 @@ export function loadIntakeDraft(phone: string): IntakeDraftSnapshot | null {
       recoveredViaRouteDiscount: Boolean(data.recoveredViaRouteDiscount),
       negotiationStep: typeof data.negotiationStep === "number" ? data.negotiationStep : 1,
       savedAt: typeof data.savedAt === "string" ? data.savedAt : new Date().toISOString(),
+      submitted: Boolean(data.submitted),
     }
   } catch {
     return null
   }
 }
 
+/** Parse a stored draft; returns null when missing or corrupt (does not apply TTL). */
+export function loadIntakeDraft(phone: string): IntakeDraftSnapshot | null {
+  if (typeof localStorage === "undefined") return null
+  const key = intakeDraftStorageKey(phone)
+  if (!key) return null
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    return parseStoredDraft(raw)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resume helper for intake open — only returns a draft that is fresh,
+ * not submitted, and not already on the booking-complete step.
+ */
+export function getDraftByPhoneNumber(phone: string): IntakeDraftSnapshot | null {
+  const draft = loadIntakeDraft(phone)
+  if (!draft) return null
+  if (!isIntakeDraftRestorable(draft)) {
+    // Drop stale / submitted entries so the next call starts clean.
+    if (draft.submitted || !isIntakeDraftFresh(draft)) {
+      clearIntakeDraft(phone)
+    }
+    return null
+  }
+  return draft
+}
+
 /** Persist the active intake snapshot for this phone number. */
-export function saveIntakeDraft(phone: string, snapshot: Omit<IntakeDraftSnapshot, "savedAt">): void {
+export function saveIntakeDraft(
+  phone: string,
+  snapshot: Omit<IntakeDraftSnapshot, "savedAt"> & { savedAt?: string }
+): void {
   if (typeof localStorage === "undefined") return
   const key = intakeDraftStorageKey(phone)
   if (!key) return
@@ -122,7 +173,8 @@ export function saveIntakeDraft(phone: string, snapshot: Omit<IntakeDraftSnapsho
       data: {
         ...snapshot,
         currentStep: normalizeIntakeDraftStep(snapshot.currentStep),
-        savedAt: new Date().toISOString(),
+        submitted: Boolean(snapshot.submitted),
+        savedAt: snapshot.savedAt || new Date().toISOString(),
       },
     }
     localStorage.setItem(key, JSON.stringify(envelope))

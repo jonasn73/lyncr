@@ -93,8 +93,8 @@ import {
 import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
 import {
   clearIntakeDraft,
+  getDraftByPhoneNumber,
   isValidIntakeDraftPhone,
-  loadIntakeDraft,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
 } from "@/lib/intake-draft-storage"
@@ -292,6 +292,29 @@ function IntakeAutoSaveStatus({
   )
 }
 
+function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
+  return (
+    <AnimatePresence>
+      {visible ? (
+        <motion.div
+          key="draft-restored"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 6 }}
+          transition={{ duration: 0.2 }}
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-[160] flex justify-center px-4 sm:bottom-8"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="rounded-full border border-emerald-500/40 bg-slate-950/95 px-4 py-2 text-xs font-medium text-emerald-100 shadow-lg backdrop-blur">
+            🔄 Progress automatically restored.
+          </p>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  )
+}
+
 /** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
 const RINGING_LOOKUP_DELAYS_MS = [0, 50, 150, 350]
 /** While a call is ringing, poll quickly until answered_at lands in Neon. */
@@ -451,6 +474,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const skipNextDraftSaveRef = useRef(false)
+  // Friendly flash when a prior draft is hydrated into the open sheet.
+  const [draftRestoredFlash, setDraftRestoredFlash] = useState(false)
+  const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
   const { activeOrganizationId, setActiveTab } = useDashboardWorkspace()
@@ -595,6 +622,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setJobPhotos([])
     setRescueMeta(null)
     setGpsRequestState("idle")
+    setDraftRestoredFlash(false)
   }, [effectiveCurrent?.id])
 
   // When rescue metadata arrives (hydrate or live), autofill name / vehicle into the form.
@@ -626,16 +654,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return isValidIntakeDraftPhone(raw) ? raw : null
   }, [form.phoneNumber, effectiveCurrent?.from_number])
 
-  /** Resume partial intake when the same customer calls back on this number. */
+  /** Resume partial intake when the same customer calls back / sheet reopens. */
   useEffect(() => {
     if (!effectiveCurrent || !activeDraftPhone) return
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
     if (!normalized || lastLoadedDraftPhoneRef.current === normalized) return
 
-    const draft = loadIntakeDraft(activeDraftPhone)
+    // Prefer the restorable helper (fresh + not submitted).
+    const draft = getDraftByPhoneNumber(activeDraftPhone)
     lastLoadedDraftPhoneRef.current = normalized
     if (!draft) return
 
+    // Avoid immediately re-writing the same snapshot during hydrate.
+    skipNextDraftSaveRef.current = true
     patchForm(draft.form)
     if (!draft.form.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
       patchForm({ phoneNumber: effectiveCurrent.from_number.trim() })
@@ -645,6 +676,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setFailureReason(draft.failureReason || FAILURE_REASON_NEUTRAL)
     setRecoveredViaRouteDiscount(draft.recoveredViaRouteDiscount)
     setNegotiationStep(draft.negotiationStep)
+    setDraftRestoredFlash(true)
+    if (draftRestoredTimerRef.current) window.clearTimeout(draftRestoredTimerRef.current)
+    draftRestoredTimerRef.current = window.setTimeout(() => setDraftRestoredFlash(false), 4200)
   }, [effectiveCurrent, activeDraftPhone, patchForm])
 
   // useLyncEngine onCallDisconnect may inject an AI transcript stub into the draft —
@@ -665,9 +699,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return () => window.removeEventListener("lyncr-ai-transcript-injected", onInjected)
   }, [activeDraftPhone, form.notes, patchForm])
 
-  /** Persist partial intake locally whenever fields change. */
+  /** Persist partial intake locally whenever fields / step change (keyed by phone). */
   useEffect(() => {
     if (!effectiveCurrent || !activeDraftPhone) return
+    // Do not keep caching after a successful booking.
+    if (currentStep === "BOOKING_COMPLETE") return
+    if (skipNextDraftSaveRef.current) {
+      skipNextDraftSaveRef.current = false
+      return
+    }
 
     const timer = window.setTimeout(() => {
       saveIntakeDraft(activeDraftPhone, {
@@ -677,6 +717,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         failureReason,
         recoveredViaRouteDiscount,
         negotiationStep,
+        submitted: false,
       })
       setDraftPulse(true)
       if (draftPulseTimerRef.current) window.clearTimeout(draftPulseTimerRef.current)
@@ -698,6 +739,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   useEffect(
     () => () => {
       if (draftPulseTimerRef.current) window.clearTimeout(draftPulseTimerRef.current)
+      if (draftRestoredTimerRef.current) window.clearTimeout(draftRestoredTimerRef.current)
     },
     []
   )
@@ -1280,6 +1322,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setLostLeadState("idle")
     setLostLeadError(null)
     setDraftPulse(false)
+    setDraftRestoredFlash(false)
     lastLoadedDraftPhoneRef.current = null
   }, [resetForm])
 
@@ -1316,11 +1359,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     // TODO: Activate automated booking confirmation SMS once 10DLC registration is fully approved.
     // await sendSmsConfirmation(phoneNumber, selectedTimeBlock, address);
 
+    // Wipe the phone-keyed draft so the next call from this customer starts fresh.
+    clearDraftForCurrentCaller()
     setBookedLeadId(result.leadId)
     setCurrentStep("BOOKING_COMPLETE")
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
+    clearDraftForCurrentCaller,
     createJob,
     effectiveCurrent,
     jobCreateExtras,
@@ -1705,6 +1751,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           onExpand={expandIntake}
         />
       ) : null}
+
+      <IntakeDraftRestoredFlash visible={draftRestoredFlash && sheetOpen} />
 
     <Sheet
       open={sheetOpen}

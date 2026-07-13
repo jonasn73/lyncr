@@ -1,10 +1,14 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import {
   clearIntakeDraft,
+  getDraftByPhoneNumber,
   intakeDraftStorageKey,
+  isIntakeDraftFresh,
+  isIntakeDraftRestorable,
   loadIntakeDraft,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
+  INTAKE_DRAFT_MAX_AGE_MS,
 } from "@/lib/intake-draft-storage"
 import type { ActiveCallFormState } from "@/lib/hooks/use-active-call-form"
 
@@ -89,5 +93,51 @@ describe("intake draft storage", () => {
     })
     clearIntakeDraft("5025551234")
     expect(loadIntakeDraft("5025551234")).toBeNull()
+  })
+
+  it("getDraftByPhoneNumber ignores stale drafts over 2 hours", () => {
+    const staleAt = new Date(Date.now() - INTAKE_DRAFT_MAX_AGE_MS - 60_000).toISOString()
+    saveIntakeDraft("5025551234", {
+      form: SAMPLE_FORM,
+      currentStep: "SCHEDULE_TIME",
+      customPrice: "",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+      savedAt: staleAt,
+    })
+    expect(isIntakeDraftFresh({ savedAt: staleAt })).toBe(false)
+    expect(getDraftByPhoneNumber("5025551234")).toBeNull()
+    expect(loadIntakeDraft("5025551234")).toBeNull()
+  })
+
+  it("getDraftByPhoneNumber ignores submitted drafts", () => {
+    saveIntakeDraft("5025559999", {
+      form: SAMPLE_FORM,
+      currentStep: "CUSTOMER_NAME",
+      customPrice: "",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+      submitted: true,
+    })
+    const raw = loadIntakeDraft("5025559999")
+    expect(raw).not.toBeNull()
+    expect(isIntakeDraftRestorable(raw!)).toBe(false)
+    expect(getDraftByPhoneNumber("5025559999")).toBeNull()
+  })
+
+  it("getDraftByPhoneNumber returns a fresh in-progress draft", () => {
+    saveIntakeDraft("5025550000", {
+      form: SAMPLE_FORM,
+      currentStep: "ADDRESS_CONTACT",
+      customPrice: "120",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+    })
+    const draft = getDraftByPhoneNumber("5025550000")
+    expect(draft?.currentStep).toBe("ADDRESS_CONTACT")
+    expect(draft?.form.displayName).toBe("Alex")
   })
 })
