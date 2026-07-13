@@ -86,6 +86,7 @@ export async function GET(req: NextRequest) {
         business_name: owner.business_name || owner.name || "Lyncr",
         line,
         slots,
+        fully_booked: slots.length === 0,
         blocked_dates: blockedDates,
         blockouts: blockouts.map((b) => ({
           date: b.date,

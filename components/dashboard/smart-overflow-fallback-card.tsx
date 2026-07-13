@@ -52,10 +52,13 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   const title = overflowActive
     ? "📞 FALLBACK · IVR MENU ACTIVE"
     : "Smart Overflow IVR Menu"
-  const value = overflowActive ? "Keypad menu answering" : "IVR Menu standby"
+  const value = overflowActive ? "[ IVR Menu LIVE ]" : "IVR Menu standby"
   const detail = overflowActive
     ? "Inbound calls → automated greeting + press 1 / press 2 menu"
     : "Pick Manual or Auto-On Full Capacity below."
+  const valueClass = overflowActive
+    ? "animate-pulse text-emerald-300"
+    : "text-foreground"
 
   if (compact) {
     return (
@@ -86,7 +89,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {title}
             </p>
-            <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+            <p className={cn("truncate text-sm font-semibold", valueClass)}>{value}</p>
             <p className="truncate text-xs text-zinc-500">{detail}</p>
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
@@ -151,7 +154,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
             {title}
           </p>
-          <p className="text-base font-semibold leading-tight text-foreground line-clamp-2 sm:text-lg md:text-xl">
+          <p className={cn("text-base font-semibold leading-tight line-clamp-2 sm:text-lg md:text-xl", valueClass)}>
             {value}
           </p>
           <p className="text-xs text-zinc-500 line-clamp-2">{detail}</p>

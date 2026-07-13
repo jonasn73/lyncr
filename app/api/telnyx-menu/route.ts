@@ -168,22 +168,20 @@ async function runLiveBookingAction(opts: {
         loadOwnerBlockoutsNearNow(opts.ownerUserId),
       ])
       const slot = getEarliestOpenBlockTomorrow(events, new Date(), blockouts)
-      const scheduledAtIso =
-        slot?.scheduledAtIso ||
-        (() => {
-          const d = new Date()
-          d.setDate(d.getDate() + 1)
-          d.setHours(9, 0, 0, 0)
-          return d.toISOString()
-        })()
+      // Full-day blockout or zero open 1-hour slots → tell the caller we are fully booked.
+      if (!slot) {
+        return buildTelnyxMenuSayHangupXml(
+          "We are fully booked for tomorrow. Please try again another day, or press 1 next time for a booking link. Goodbye."
+        )
+      }
 
       await createUnassignedJobFromIntake({
         ownerUserId: opts.ownerUserId,
         callerE164: opts.fromE164,
         customerName: "IVR priority hold",
         jobType: "Priority slot (IVR)",
-        notes: `Temporary reservation via Telnyx menu live_booking · ${slot?.text || "Tomorrow morning"}`,
-        scheduledAtIso,
+        notes: `Temporary reservation via Telnyx menu live_booking · ${slot.text}`,
+        scheduledAtIso: slot.scheduledAtIso,
         pendingCallback: true,
       })
     } catch (e) {

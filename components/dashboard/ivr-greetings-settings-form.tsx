@@ -1,6 +1,6 @@
 "use client"
 
-// Greetings → Traditional IVR settings (no AI) — greeting text + keypress 1/2 actions.
+// Greetings → Traditional IVR settings — TTS greeting + locked Digits 1 / 2 routes.
 
 import { useCallback, useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -9,17 +9,14 @@ import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_IVR_GREETING_TEXT,
   DEFAULT_IVR_MENU_SETTINGS,
-  IVR_DIGIT1_ACTION_OPTIONS,
-  IVR_DIGIT2_ACTION_OPTIONS,
-  type IvrMenuAction,
   type IvrMenuSettings,
 } from "@/lib/ivr-menu-settings"
 
 /** API may return camelCase fields plus snake_case aliases. */
 type IvrApiPayload = IvrMenuSettings & {
   ivr_greeting?: string
-  digit_1_action?: IvrMenuAction
-  digit_2_action?: IvrMenuAction
+  digit_1_action?: string
+  digit_2_action?: string
   ivr_menu_enabled?: boolean
 }
 
@@ -38,9 +35,11 @@ export function IvrGreetingsSettingsForm({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [greeting, setGreeting] = useState(DEFAULT_IVR_GREETING_TEXT)
-  const [option1, setOption1] = useState<IvrMenuAction>(DEFAULT_IVR_MENU_SETTINGS.ivrOption1Action)
-  const [option2, setOption2] = useState<IvrMenuAction>(DEFAULT_IVR_MENU_SETTINGS.ivrOption2Action)
   const [baseline, setBaseline] = useState("")
+
+  // Digits are fixed product routes — Keypress 1 = SMS booking link, Keypress 2 = next-day hold.
+  const digit1Action = "sms_link" as const
+  const digit2Action = "live_booking" as const
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,22 +55,10 @@ export function IvrGreetingsSettingsForm({
       const data: IvrApiPayload = json.data || { ...DEFAULT_IVR_MENU_SETTINGS }
       const greetingText =
         data.ivrGreetingText || data.ivr_greeting || DEFAULT_IVR_GREETING_TEXT
-      const d1 = data.ivrOption1Action || data.digit_1_action || DEFAULT_IVR_MENU_SETTINGS.ivrOption1Action
-      const d2 = data.ivrOption2Action || data.digit_2_action || DEFAULT_IVR_MENU_SETTINGS.ivrOption2Action
       setGreeting(greetingText)
-      setOption1(d1)
-      setOption2(d2)
-      setBaseline(
-        JSON.stringify({
-          ivr_greeting: greetingText,
-          digit_1_action: d1,
-          digit_2_action: d2,
-        })
-      )
+      setBaseline(JSON.stringify({ ivr_greeting: greetingText }))
     } catch {
       setGreeting(DEFAULT_IVR_GREETING_TEXT)
-      setOption1("sms_link")
-      setOption2("live_booking")
     } finally {
       setLoading(false)
     }
@@ -81,12 +68,7 @@ export function IvrGreetingsSettingsForm({
     void load()
   }, [load])
 
-  const dirty =
-    JSON.stringify({
-      ivr_greeting: greeting,
-      digit_1_action: option1,
-      digit_2_action: option2,
-    }) !== baseline
+  const dirty = JSON.stringify({ ivr_greeting: greeting }) !== baseline
 
   async function handleSave() {
     setSaving(true)
@@ -97,13 +79,14 @@ export function IvrGreetingsSettingsForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           business_number: routingBusinessNumber,
-          // Canonical + alias keys so DB schema and dashboard docs stay aligned.
+          // TTS script the keypad menu speaks to callers.
           ivrGreetingText: greeting,
           ivr_greeting: greeting,
-          ivrOption1Action: option1,
-          digit_1_action: option1,
-          ivrOption2Action: option2,
-          digit_2_action: option2,
+          // Strict mappings — always commit the product routes on save.
+          ivrOption1Action: digit1Action,
+          digit_1_action: digit1Action,
+          ivrOption2Action: digit2Action,
+          digit_2_action: digit2Action,
         }),
       })
       const json = (await res.json()) as {
@@ -122,27 +105,15 @@ export function IvrGreetingsSettingsForm({
         return
       }
       const data: IvrApiPayload = json.data || {
+        ...DEFAULT_IVR_MENU_SETTINGS,
         ivrGreetingText: greeting,
-        ivrOption1Action: option1,
-        ivrOption2Action: option2,
-        ivrMenuEnabled: false,
       }
       const greetingText = data.ivrGreetingText || data.ivr_greeting || greeting
-      const d1 = data.ivrOption1Action || data.digit_1_action || option1
-      const d2 = data.ivrOption2Action || data.digit_2_action || option2
       setGreeting(greetingText)
-      setOption1(d1)
-      setOption2(d2)
-      setBaseline(
-        JSON.stringify({
-          ivr_greeting: greetingText,
-          digit_1_action: d1,
-          digit_2_action: d2,
-        })
-      )
+      setBaseline(JSON.stringify({ ivr_greeting: greetingText }))
       toast({
-        title: "IVR settings saved",
-        description: "Callers will hear your updated greeting and keypress actions.",
+        title: "IVR greetings saved",
+        description: "Callers hear your updated script. Press 1 texts the booking link; Press 2 holds tomorrow.",
       })
     } catch (e) {
       toast({
@@ -171,8 +142,8 @@ export function IvrGreetingsSettingsForm({
           Greetings · Traditional IVR
         </p>
         <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-          No AI required. Control the automated voice greeting and what happens when callers press 1
-          or 2 on the phone keypad.
+          Edit what the text-to-speech engine reads when Off-duty IVR answers. Keypress routes are
+          fixed below.
         </p>
       </div>
 
@@ -185,7 +156,7 @@ export function IvrGreetingsSettingsForm({
         <>
           <div className="space-y-2">
             <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-zinc-300">
-              Main greeting text
+              Spoken greeting (text-to-speech)
             </label>
             <textarea
               id="ivr-greeting-text"
@@ -201,20 +172,24 @@ export function IvrGreetingsSettingsForm({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <ActionSelect
-              id="ivr-option-1"
-              label="Digit 1 Action"
-              value={option1}
-              options={IVR_DIGIT1_ACTION_OPTIONS}
-              onChange={setOption1}
-            />
-            <ActionSelect
-              id="ivr-option-2"
-              label="Digit 2 Action"
-              value={option2}
-              options={IVR_DIGIT2_ACTION_OPTIONS}
-              onChange={setOption2}
-            />
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+                Digit 1 Action
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+                Texts a secure lyncr.app/book link (calendar + blockouts applied), then hangs up.
+              </p>
+            </div>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+                Digit 2 Action
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">Auto-Book Next Day</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+                Reserves the earliest open tomorrow slot (skips full-day / overlapping blockouts).
+              </p>
+            </div>
           </div>
 
           <button
@@ -238,46 +213,5 @@ export function IvrGreetingsSettingsForm({
         </>
       )}
     </section>
-  )
-}
-
-function ActionSelect({
-  id,
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  id: string
-  label: string
-  value: IvrMenuAction
-  options: { value: IvrMenuAction; label: string; description: string }[]
-  onChange: (v: IvrMenuAction) => void
-}) {
-  // If a legacy value (e.g. voicemail) is stored, keep it selectable until changed.
-  const merged =
-    options.some((o) => o.value === value)
-      ? options
-      : [{ value, label: value, description: "Saved previously — pick a new action to update." }, ...options]
-  const active = merged.find((o) => o.value === value)
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="text-xs font-semibold text-zinc-300">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value as IvrMenuAction)}
-        className={cn(fieldClass, "h-11 px-3")}
-      >
-        {merged.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {active ? <p className="text-[10px] leading-snug text-zinc-600">{active.description}</p> : null}
-    </div>
   )
 }

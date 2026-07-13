@@ -402,10 +402,10 @@ export function DashboardVoiceAiDrawer({
       }}
     >
       <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-5 pt-6">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Step 4 · Voice &amp; AI</p>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Voice &amp; AI Settings</h2>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Step 4 · Voice &amp; AI Greetings</p>
+        <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Voice &amp; AI Greetings</h2>
         <p className="mt-1.5 max-w-md text-sm leading-relaxed text-zinc-500">
-          Configure your automated front-desk receptionist and inbound greeting routing.
+          Edit the IVR spoken greeting below, then tune AI / voicemail fallback scripts.
         </p>
         {routingBusinessNumber ? (
           <p className="mt-2 text-[11px] text-zinc-600">Line {formatPhoneDisplay(routingBusinessNumber)}</p>

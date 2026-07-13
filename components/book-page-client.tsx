@@ -71,8 +71,8 @@ export default function BookPageClient() {
           {data?.business_name || "Book a visit"}
         </h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Pick an open one-hour window. Days fully blocked by the business stay hidden as
-          unavailable.
+          Pick an open one-hour window. Days with a full-day blockout show as fully booked and are
+          not selectable. Partial blockouts (for example 10:30–11:30) remove overlapping hours.
         </p>
         {phone ? (
           <p className="mt-1 text-xs text-zinc-500">Booking for {phone}</p>
@@ -95,7 +95,8 @@ export default function BookPageClient() {
           <div className="mt-8 space-y-6">
             {slotsByDay.size === 0 ? (
               <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-400">
-                No open slots in the next two weeks. Please call us and we will help.
+                Fully booked — no open slots in the next two weeks (calendar jobs or blockouts).
+                Please call us and we will help.
               </p>
             ) : (
               [...slotsByDay.entries()].map(([dateKey, slots]) => (
@@ -128,7 +129,7 @@ export default function BookPageClient() {
 
             {(data?.blocked_dates?.length || 0) > 0 ? (
               <p className="text-[11px] text-zinc-600">
-                Fully unavailable: {data?.blocked_dates.join(", ")}
+                Fully booked (all-day blockouts): {data?.blocked_dates.join(", ")}
               </p>
             ) : null}
 

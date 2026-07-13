@@ -41,15 +41,29 @@ export const VOICE_AI_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-lg md:max-w-xl lg:max-w-2xl [&>button]:top-5 [&>button]:right-5 " +
   DRAWER_SHEET_GPU
 
-function FlowConnector() {
+function FlowConnector({ live = false }: { live?: boolean }) {
   return (
     <div
       className="hidden min-w-[2.5rem] shrink-0 items-center justify-center px-1 sm:flex md:min-w-[3.5rem]"
       aria-hidden
     >
       <div className="relative flex w-full max-w-[4rem] items-center">
-        <div className="h-[2px] w-full rounded-full bg-gradient-to-r from-primary/15 via-primary to-primary/15 shadow-[var(--electric-glow)]" />
-        <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-r-2 border-t-2 border-primary shadow-[0_0_10px_var(--primary)]" />
+        <div
+          className={cn(
+            "h-[2px] w-full rounded-full",
+            live
+              ? "animate-pulse bg-gradient-to-r from-emerald-500/20 via-emerald-400 to-emerald-500/20 shadow-[0_0_12px_rgb(52_211_153)]"
+              : "bg-gradient-to-r from-primary/15 via-primary to-primary/15 shadow-[var(--electric-glow)]"
+          )}
+        />
+        <div
+          className={cn(
+            "absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-r-2 border-t-2",
+            live
+              ? "border-emerald-400 shadow-[0_0_10px_rgb(52_211_153)]"
+              : "border-primary shadow-[0_0_10px_var(--primary)]"
+          )}
+        />
       </div>
     </div>
   )
@@ -65,6 +79,8 @@ function FlowStepMobileRow({
   accent = "primary",
   valueBadge,
   detailMuted = false,
+  faded = false,
+  badgeTone = "amber",
 }: {
   title: string
   icon: LucideIcon
@@ -77,6 +93,8 @@ function FlowStepMobileRow({
   valueBadge?: string
   /** Muted slate detail copy (Autopilot “rings bypassed” line). */
   detailMuted?: boolean
+  faded?: boolean
+  badgeTone?: "amber" | "emerald"
 }) {
   // Pick the tint for the left icon tile from the step accent.
   const isNetwork = accent === "network"
@@ -93,7 +111,8 @@ function FlowStepMobileRow({
           ? "border-emerald-500/30 bg-emerald-950/10"
           : "border-slate-850/60 bg-slate-900/30",
         MOBILE_TAP_TARGET,
-        loading && "pointer-events-none opacity-50"
+        loading && "pointer-events-none opacity-50",
+        faded && "opacity-45"
       )}
     >
       <div
@@ -110,16 +129,27 @@ function FlowStepMobileRow({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-        <div className="flex min-w-0 items-center gap-1.5">
-          <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <p className={cn("truncate text-sm font-semibold", faded ? "text-zinc-500" : "text-foreground")}>
+            {value}
+          </p>
           {valueBadge ? (
-            <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+            <span
+              className={cn(
+                "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold",
+                badgeTone === "emerald"
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                  : "border-amber-500/20 bg-amber-500/10 text-amber-500"
+              )}
+            >
               {valueBadge}
             </span>
           ) : null}
         </div>
         {detail ? (
-          <p className={cn("truncate text-xs", detailMuted ? "text-slate-500" : "text-zinc-500")}>{detail}</p>
+          <p className={cn("truncate text-xs", detailMuted || faded ? "text-slate-500" : "text-zinc-500")}>
+            {detail}
+          </p>
         ) : null}
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
@@ -138,6 +168,8 @@ function FlowStepCard({
   accent = "primary",
   valueBadge,
   detailMuted = false,
+  faded = false,
+  badgeTone = "amber",
 }: {
   step: string
   title: string
@@ -152,6 +184,8 @@ function FlowStepCard({
   valueBadge?: string
   /** Muted slate detail copy (Autopilot “rings bypassed” line). */
   detailMuted?: boolean
+  faded?: boolean
+  badgeTone?: "amber" | "emerald"
 }) {
   // Resolve accent flags once so class lists stay readable.
   const isNetwork = accent === "network"
@@ -170,7 +204,8 @@ function FlowStepCard({
           : isScheduler
             ? "border-emerald-500/30 bg-emerald-950/10 hover:border-emerald-500/50 hover:shadow-[0_0_32px_-12px_rgb(16_185_129)] focus-visible:ring-emerald-500/40"
             : "border-border/70 bg-gradient-to-b from-card to-background/80 hover:border-primary/45 hover:shadow-[0_0_32px_-12px_var(--primary)] focus-visible:ring-primary/50",
-        loading && "pointer-events-none opacity-50"
+        loading && "pointer-events-none opacity-50",
+        faded && "opacity-45 grayscale-[0.35]"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -204,17 +239,31 @@ function FlowStepCard({
       <div className="mt-3 flex flex-1 flex-col gap-0.5 sm:mt-4 sm:gap-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{title}</p>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <p className="text-base font-semibold leading-tight text-foreground line-clamp-2 sm:text-lg md:text-xl">
+          <p
+            className={cn(
+              "text-base font-semibold leading-tight line-clamp-2 sm:text-lg md:text-xl",
+              faded ? "text-zinc-500" : "text-foreground"
+            )}
+          >
             {value}
           </p>
           {valueBadge ? (
-            <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+            <span
+              className={cn(
+                "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold",
+                badgeTone === "emerald"
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                  : "border-amber-500/20 bg-amber-500/10 text-amber-500"
+              )}
+            >
               {valueBadge}
             </span>
           ) : null}
         </div>
         {detail ? (
-          <p className={cn("text-xs line-clamp-2", detailMuted ? "text-slate-500" : "text-zinc-500")}>{detail}</p>
+          <p className={cn("text-xs line-clamp-2", detailMuted || faded ? "text-slate-500" : "text-zinc-500")}>
+            {detail}
+          </p>
         ) : null}
       </div>
       <span
@@ -305,6 +354,8 @@ type CallFlowNode = {
   accent: "primary" | "network" | "scheduler"
   valueBadge?: string
   detailMuted?: boolean
+  faded?: boolean
+  badgeTone?: "amber" | "emerald"
 }
 
 /**
@@ -323,6 +374,8 @@ export function buildCallFlowNodes(params: {
   activeFallbackLabel: string
   /** When true, Primary/Fallback cards show Sunday Autopilot scheduler copy. */
   autopilotMode: boolean
+  /** Off-duty IVR Menu is answering — fade Your phone and badge Forwarding to IVR. */
+  ivrMenuLive?: boolean
   openWhoAnswers: () => void
   openRingBackup: () => void
   openVoiceAi: () => void
@@ -330,6 +383,7 @@ export function buildCallFlowNodes(params: {
 }): CallFlowNode[] {
   const poolIsPrimary = params.routingStrategy === "lyncr_only"
   const nodes: CallFlowNode[] = []
+  const ivrLive = params.ivrMenuLive === true
 
   // Node 1 — Primary: whoever the webhook dials first on this line.
   if (poolIsPrimary) {
@@ -341,8 +395,12 @@ export function buildCallFlowNodes(params: {
       detail: "Certified shared agents answer in-browser",
       onOpen: params.openWhoAnswers,
       accent: "network",
+      faded: ivrLive,
+      valueBadge: ivrLive ? "[ Forwarding to IVR ]" : undefined,
+      badgeTone: ivrLive ? "emerald" : "amber",
+      detailMuted: ivrLive,
     })
-  } else if (params.isRoutingToOwner && params.autopilotMode) {
+  } else if (params.isRoutingToOwner && params.autopilotMode && !ivrLive) {
     // Sunday Autopilot: Your phone stays listed, but rings are bypassed for the AI scheduler.
     nodes.push({
       key: "primary",
@@ -356,6 +414,21 @@ export function buildCallFlowNodes(params: {
       onOpen: params.openWhoAnswers,
       accent: "primary",
     })
+  } else if (params.isRoutingToOwner && ivrLive) {
+    // Off-duty IVR Menu owns the first answer — cell is no longer the initial hit.
+    nodes.push({
+      key: "primary",
+      title: "Primary · Who answers",
+      icon: Smartphone,
+      value: "Your phone",
+      detail: `${params.ownerPhoneDisplay} · cell bypassed while IVR is live`,
+      valueBadge: "[ Forwarding to IVR ]",
+      badgeTone: "emerald",
+      detailMuted: true,
+      faded: true,
+      onOpen: params.openWhoAnswers,
+      accent: "primary",
+    })
   } else {
     nodes.push({
       key: "primary",
@@ -365,6 +438,10 @@ export function buildCallFlowNodes(params: {
       detail: params.isRoutingToOwner ? params.ownerPhoneDisplay : params.selectedReceptionistPhone ?? undefined,
       onOpen: params.openWhoAnswers,
       accent: "primary",
+      faded: ivrLive,
+      valueBadge: ivrLive ? "[ Forwarding to IVR ]" : undefined,
+      badgeTone: ivrLive ? "emerald" : "amber",
+      detailMuted: ivrLive,
     })
   }
 
@@ -378,18 +455,20 @@ export function buildCallFlowNodes(params: {
       detail: "Shared agents try next",
       onOpen: params.configureStrategy,
       accent: "network",
+      faded: ivrLive,
     })
   }
 
   // Node 3 — Fallback is owned by the Smart Overflow Autopilot card (rendered separately).
   // (Kept out of the generic node list so mode controls + live badges can sit on the card.)
 
-  // Node 4 — Voice & AI greetings (final voicemail / AI script).
+  // Node 4 — Voice & AI greetings (final voicemail / AI script + IVR greeting editor).
   nodes.push({
     key: "voice",
     title: "Voice & AI",
     icon: AudioWaveform,
     value: "Greetings",
+    detail: "IVR greeting + keypress 1 / 2",
     onOpen: params.openVoiceAi,
     accent: "primary",
   })
@@ -424,6 +503,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
   // Manual / Auto-On capacity trips OR classic Sunday Autopilot (AI + rings bypassed).
   const effectiveAutopilot = autopilotMode || smartOverflow.overflowActive
+  const ivrMenuLive = smartOverflow.overflowActive
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -435,7 +515,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     ownerPhoneDisplay,
     ringTimeoutSec,
     activeFallbackLabel,
-    autopilotMode: effectiveAutopilot,
+    autopilotMode: autopilotMode && !ivrMenuLive,
+    ivrMenuLive,
     openWhoAnswers: () => setWhoAnswersOpen(true),
     openRingBackup: () => setRingBackupOpen(true),
     openVoiceAi: () => setShowFallbackSettings(true),
@@ -523,8 +604,16 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   accent={node.accent}
                   valueBadge={node.valueBadge}
                   detailMuted={node.detailMuted}
+                  faded={node.faded}
+                  badgeTone={node.badgeTone}
                 />
               ))}
+              {ivrMenuLive ? (
+                <div
+                  className="mx-auto h-6 w-[2px] animate-pulse rounded-full bg-gradient-to-b from-emerald-500/20 via-emerald-400 to-emerald-500/20"
+                  aria-hidden
+                />
+              ) : null}
               {overflowCard}
               {voiceNode ? (
                 <FlowStepMobileRow
@@ -550,7 +639,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             >
               {primaryAndNetworkNodes.map((node, i) => (
                 <Fragment key={node.key}>
-                  {i > 0 ? <FlowConnector /> : null}
+                  {i > 0 ? <FlowConnector live={ivrMenuLive} /> : null}
                   <FlowStepCard
                     step={String(i + 2)}
                     title={node.title}
@@ -562,10 +651,12 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                     accent={node.accent}
                     valueBadge={node.valueBadge}
                     detailMuted={node.detailMuted}
+                    faded={node.faded}
+                    badgeTone={node.badgeTone}
                   />
                 </Fragment>
               ))}
-              <FlowConnector />
+              <FlowConnector live={ivrMenuLive} />
               {overflowCard}
               {voiceNode ? (
                 <>
