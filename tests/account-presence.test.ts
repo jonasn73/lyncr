@@ -21,13 +21,19 @@ describe("account presence", () => {
     const closed = buildPresenceClosedGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-closed"
     )
-    expect(closed).toContain(PRESENCE_CLOSED_PROMPT)
+    // TeXML escapes apostrophes — assert on distinctive unescaped phrases.
+    expect(closed).toContain("off-duty for the evening")
+    expect(closed).toContain("priority appointment slot")
     expect(closed).toContain("presence-closed")
 
     const onJob = buildPresenceOnJobGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-on-job"
     )
-    expect(onJob).toContain(PRESENCE_ON_JOB_PROMPT)
+    expect(onJob).toContain("live lockout service")
+    expect(onJob).toContain("next open dispatch slot")
     expect(onJob).toContain("presence-on-job")
+
+    // Closed and On-Job must not share the same Speak copy.
+    expect(PRESENCE_CLOSED_PROMPT).not.toBe(PRESENCE_ON_JOB_PROMPT)
   })
 })

@@ -77,14 +77,17 @@ describe("inbound time capture", () => {
 
   it("builds calendar full-day and partial busy Gather prompts", () => {
     const full = buildCalendarFullDayGatherXml("https://lyncr.app/api/telnyx-capture?step=calendar-off")
-    expect(full).toContain(CALENDAR_FULL_DAY_PROMPT)
+    // TeXML escapes apostrophes (We're → We&apos;re) — match unescaped fragments.
+    expect(full).toContain("tied up on a service job")
     expect(full).toContain("calendar-off")
+    expect(CALENDAR_FULL_DAY_PROMPT).toContain("tied up")
 
     const partial = buildCalendarPartialBusyGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=calendar-busy"
     )
-    expect(partial).toContain(CALENDAR_PARTIAL_BUSY_PROMPT)
+    expect(partial).toContain("tied up on a service job")
     expect(partial).toContain("calendar-busy")
+    expect(CALENDAR_PARTIAL_BUSY_PROMPT).toContain("tied up")
   })
 })
 

@@ -9,6 +9,39 @@ import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 export const TELNYX_MENU_PROMPT =
   "Thanks for calling Key Squad 5-0-2. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
 
+/**
+ * Spoken when the active line's presence_status is ON_JOB.
+ * Used by /api/telnyx-menu calendar-aware entry (via buildPresenceOnJobGatherXml).
+ */
+export const TELNYX_MENU_ON_JOB_PROMPT =
+  "Thanks for calling Key Squad. We're actively on a live lockout service right now, but we are open. Press 1 to get our next open dispatch slot text straight to your device, or stay on the line."
+
+/**
+ * Spoken when the active line's presence_status is CLOSED.
+ * Used by /api/telnyx-menu calendar-aware entry (via buildPresenceClosedGatherXml).
+ */
+export const TELNYX_MENU_CLOSED_PROMPT =
+  "Thanks for calling Key Squad. Our mobile technicians are currently off-duty for the evening. You can book a priority appointment slot for tomorrow morning by pressing 1, or leave a voicemail."
+
+/**
+ * Pick the initial IVR <Say> greeting from presence_status.
+ * AVAILABLE uses the standard menu; ON_JOB / CLOSED use presence-specific copy.
+ */
+export function resolveTelnyxMenuGreetingForPresence(
+  presenceStatus: "AVAILABLE" | "ON_JOB" | "CLOSED" | string | null | undefined
+): string {
+  // Normalize whatever the DB or UI sent into a comparable uppercase token.
+  const status = String(presenceStatus || "")
+    .trim()
+    .toUpperCase()
+  // Live lockout — still open, offer next dispatch slot by text.
+  if (status === "ON_JOB") return TELNYX_MENU_ON_JOB_PROMPT
+  // Off-duty evening — tomorrow priority slot or voicemail.
+  if (status === "CLOSED") return TELNYX_MENU_CLOSED_PROMPT
+  // Open / unknown — standard press-1 / press-2 menu.
+  return TELNYX_MENU_PROMPT
+}
+
 /** Spoken after unanswered / busy / timed-out Dial to the owner cell. */
 export const TELNYX_MENU_BUSY_FALLBACK_PROMPT =
   "Our phones are busy today but our online booking is still available. Press 1 to receive a link."

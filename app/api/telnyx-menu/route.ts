@@ -307,14 +307,19 @@ async function dispatchIvrAction(opts: {
   }
 }
 
-/** Calendar + day/night entry TeXML (shared with /api/telnyx-capture). */
+/** Calendar + presence entry TeXML (shared with /api/telnyx-capture).
+ * Fetches presence via resolveInboundCapturePlan → getAccountPresence,
+ * then Speak uses ON_JOB / CLOSED greetings from lib/telnyx-menu.ts.
+ */
 async function buildCalendarAwareEntryXml(opts: {
   ownerUserId: string | null
   ringE164: string
   businessLineE164: string
 }): Promise<string> {
+  // Load ACTIVE line presence (CLOSED / ON_JOB / AVAILABLE) + calendar overrides.
   const plan = await resolveInboundCapturePlan({ ownerUserId: opts.ownerUserId })
   const captureBase = `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-capture`
+  // Manual Closed → off-duty evening Speak (TELNYX_MENU_CLOSED_PROMPT).
   if (plan.kind === "presence_closed") {
     return buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`)
   }
@@ -324,6 +329,7 @@ async function buildCalendarAwareEntryXml(opts: {
   if (plan.kind === "calendar_partial") {
     return buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
   }
+  // On Job → live lockout Speak (TELNYX_MENU_ON_JOB_PROMPT).
   if (plan.kind === "presence_on_job") {
     return buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`)
   }

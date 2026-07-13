@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
   TELNYX_MENU_BUSY_FALLBACK_PROMPT,
+  TELNYX_MENU_CLOSED_PROMPT,
   TELNYX_MENU_DEFAULT_RING_E164,
   TELNYX_MENU_DIGIT1_SAY,
   TELNYX_MENU_DIGIT2_SAY,
   TELNYX_MENU_DIAL_TIMEOUT_SECONDS,
+  TELNYX_MENU_ON_JOB_PROMPT,
   TELNYX_MENU_PROMPT,
   buildTelnyxMenuBookingSms,
   buildTelnyxMenuBusyFallbackGatherXml,
@@ -15,6 +17,7 @@ import {
   buildTelnyxMenuSayHangupXml,
   getEarliestOpenBlockTomorrow,
   isTelnyxMenuDialUnanswered,
+  resolveTelnyxMenuGreetingForPresence,
   tomorrowLocalMidnight,
 } from "@/lib/telnyx-menu"
 import { combineDateAndTime } from "@/lib/intake-schedule-helpers"
@@ -87,6 +90,15 @@ describe("telnyx menu IVR helpers", () => {
     expect(xml).toContain("Press 2")
     expect(xml).toContain("Key Squad 5-0-2")
     expect(TELNYX_MENU_PROMPT).toContain("ring our phone")
+  })
+
+  it("resolves distinct Speak greetings for ON_JOB vs CLOSED presence", () => {
+    expect(resolveTelnyxMenuGreetingForPresence("ON_JOB")).toBe(TELNYX_MENU_ON_JOB_PROMPT)
+    expect(resolveTelnyxMenuGreetingForPresence("CLOSED")).toBe(TELNYX_MENU_CLOSED_PROMPT)
+    expect(resolveTelnyxMenuGreetingForPresence("AVAILABLE")).toBe(TELNYX_MENU_PROMPT)
+    expect(TELNYX_MENU_ON_JOB_PROMPT).toContain("live lockout service")
+    expect(TELNYX_MENU_CLOSED_PROMPT).toContain("off-duty for the evening")
+    expect(TELNYX_MENU_ON_JOB_PROMPT).not.toBe(TELNYX_MENU_CLOSED_PROMPT)
   })
 
   it("builds Digits=2 Dial with 20s timeout and unanswered action URL", () => {

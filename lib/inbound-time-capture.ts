@@ -8,6 +8,10 @@ import {
 } from "@/lib/schedule-blockouts"
 import { listScheduleBlockoutsForDate } from "@/lib/schedule-blockouts-db"
 import { getAccountPresence } from "@/lib/account-presence"
+import {
+  TELNYX_MENU_CLOSED_PROMPT,
+  TELNYX_MENU_ON_JOB_PROMPT,
+} from "@/lib/telnyx-menu"
 
 export const INBOUND_CAPTURE_TIMEZONE = "America/New_York"
 
@@ -56,11 +60,11 @@ export const TIED_UP_BOOKING_PROMPT =
 export const LIVE_CALL_WAITING_PROMPT =
   "We are currently assisting another emergency lockout on our main line. We have instantly texted you our live booking board so you can secure an immediate dispatch slot without waiting."
 
-/** Presence Closed — office closed, booking link only. */
-export const PRESENCE_CLOSED_PROMPT = TIED_UP_BOOKING_PROMPT
+/** Presence Closed — off-duty evening; press 1 for tomorrow slot or leave voicemail. */
+export const PRESENCE_CLOSED_PROMPT = TELNYX_MENU_CLOSED_PROMPT
 
-/** Presence On-Job — busy IVR + booking link. */
-export const PRESENCE_ON_JOB_PROMPT = TIED_UP_BOOKING_PROMPT
+/** Presence On-Job — live lockout in progress, still open for next-slot SMS. */
+export const PRESENCE_ON_JOB_PROMPT = TELNYX_MENU_ON_JOB_PROMPT
 
 /** Full-day calendar blockout — skip cell, SMS booking. */
 export const CALENDAR_FULL_DAY_PROMPT = TIED_UP_BOOKING_PROMPT
