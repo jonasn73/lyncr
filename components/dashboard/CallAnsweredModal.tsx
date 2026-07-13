@@ -864,64 +864,86 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       }
     }
 
-    const channelName = `owner-${ownerUserId}`
+    // Account-wide channel — every OWNER / RECEPTIONIST on the team sees the same intake.
+    const channelName = `presence-account-${ownerUserId}`
     const channel = pusher.subscribe(channelName)
+    // Keep legacy owner-* subscription for older deploys still publishing only there.
+    const legacyChannel = pusher.subscribe(`owner-${ownerUserId}`)
+    const channels = [channel, legacyChannel]
 
-    const onInitiated = (payload: OwnerCallInitiatedPayload) => {
-      const row = rowFromInitiatedPayload(payload)
-      if (!row) {
-        scheduleRingingLookups()
+    const seenCallSids = new Set<string>()
+    const oncePerSid = (sid: string, fn: () => void) => {
+      if (!sid) {
+        fn()
         return
       }
-      // Active intake owns the sheet — park the second ring in the overhead banner.
-      if (isCallActiveRef.current) {
-        const primary = effectiveCurrentRef.current
-        const primaryDigits = phoneDigitsKey(primary?.from_number)
-        const incomingDigits = phoneDigitsKey(row.from_number)
-        if (!primaryDigits || !incomingDigits || primaryDigits !== incomingDigits) {
-          const callSid = String(payload.call_sid ?? "").trim()
-          const callLogId = String(payload.call_log_id ?? "").trim()
-          setSecondaryIncoming({
-            callSid: callSid || (row.id.startsWith("ring-") ? row.id.slice(5) : row.id),
-            callLogId: callLogId || (row.id.startsWith("ring-") ? null : row.id),
-            fromNumber: row.from_number,
-            toNumber: row.to_number,
-          })
+      const key = `${sid}`
+      if (seenCallSids.has(key)) return
+      seenCallSids.add(key)
+      // Bound memory — drop old keys occasionally.
+      if (seenCallSids.size > 200) seenCallSids.clear()
+      fn()
+    }
+
+    const onInitiated = (payload: OwnerCallInitiatedPayload) => {
+      oncePerSid(`i:${String(payload.call_sid ?? "")}`, () => {
+        const row = rowFromInitiatedPayload(payload)
+        if (!row) {
           scheduleRingingLookups()
           return
         }
-      }
-      showCallRow(setCurrent, row, dismissedRef.current)
-      scheduleRingingLookups()
+        // Active intake owns the sheet — park the second ring in the overhead banner.
+        if (isCallActiveRef.current) {
+          const primary = effectiveCurrentRef.current
+          const primaryDigits = phoneDigitsKey(primary?.from_number)
+          const incomingDigits = phoneDigitsKey(row.from_number)
+          if (!primaryDigits || !incomingDigits || primaryDigits !== incomingDigits) {
+            const callSid = String(payload.call_sid ?? "").trim()
+            const callLogId = String(payload.call_log_id ?? "").trim()
+            setSecondaryIncoming({
+              callSid: callSid || (row.id.startsWith("ring-") ? row.id.slice(5) : row.id),
+              callLogId: callLogId || (row.id.startsWith("ring-") ? null : row.id),
+              fromNumber: row.from_number,
+              toNumber: row.to_number,
+            })
+            scheduleRingingLookups()
+            return
+          }
+        }
+        showCallRow(setCurrent, row, dismissedRef.current)
+        scheduleRingingLookups()
+      })
     }
 
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
-      const row = rowFromAnsweredPayload(payload)
-      if (!row) return
-      stopRingingFastPoll()
-      // Re-open intake even if this call id was dismissed earlier this session.
-      dismissedRef.current.delete(row.id)
-      if (payload.call_sid) dismissedRef.current.delete(`ring-${payload.call_sid}`)
-      // Don't steal an open intake for a different answered leg (secondary answer is rare).
-      if (isCallActiveRef.current) {
-        const primary = effectiveCurrentRef.current
-        const primaryDigits = phoneDigitsKey(primary?.from_number)
-        const answeredDigits = phoneDigitsKey(row.from_number)
-        if (primaryDigits && answeredDigits && primaryDigits !== answeredDigits) {
-          return
+      oncePerSid(`a:${String(payload.call_sid ?? payload.call_log_id ?? "")}`, () => {
+        const row = rowFromAnsweredPayload(payload)
+        if (!row) return
+        stopRingingFastPoll()
+        // Re-open intake even if this call id was dismissed earlier this session.
+        dismissedRef.current.delete(row.id)
+        if (payload.call_sid) dismissedRef.current.delete(`ring-${payload.call_sid}`)
+        // Don't steal an open intake for a different answered leg (secondary answer is rare).
+        if (isCallActiveRef.current) {
+          const primary = effectiveCurrentRef.current
+          const primaryDigits = phoneDigitsKey(primary?.from_number)
+          const answeredDigits = phoneDigitsKey(row.from_number)
+          if (primaryDigits && answeredDigits && primaryDigits !== answeredDigits) {
+            return
+          }
         }
-      }
-      isMinimizedRef.current = false
-      setIsMinimized(false)
-      setCurrent((prev) => {
-        if (prev?.id.startsWith("ring-") && phoneDigitsKey(prev.from_number) === phoneDigitsKey(row.from_number)) {
-          ringAliasRef.current = prev.id
-          dismissedRef.current.delete(prev.id)
-        }
-        return {
-          ...row,
-          caller_name: row.caller_name ?? prev?.caller_name ?? null,
-        }
+        isMinimizedRef.current = false
+        setIsMinimized(false)
+        setCurrent((prev) => {
+          if (prev?.id.startsWith("ring-") && phoneDigitsKey(prev.from_number) === phoneDigitsKey(row.from_number)) {
+            ringAliasRef.current = prev.id
+            dismissedRef.current.delete(prev.id)
+          }
+          return {
+            ...row,
+            caller_name: row.caller_name ?? prev?.caller_name ?? null,
+          }
+        })
       })
     }
 
@@ -992,21 +1014,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         })
     }
 
-    channel.bind("call-initiated", onInitiated)
-    channel.bind("call-answered", onAnswered)
-    channel.bind("call-completed", onCompleted)
-    channel.bind("call-recording-ready", onRecordingReady)
-    channel.bind("live-gps", onLiveGps)
+    for (const channel of channels) {
+      channel.bind("call-initiated", onInitiated)
+      channel.bind("call-answered", onAnswered)
+      channel.bind("call-completed", onCompleted)
+      channel.bind("call-recording-ready", onRecordingReady)
+      channel.bind("live-gps", onLiveGps)
+    }
     return () => {
       cancelled = true
       stopRingingFastPoll()
       window.clearInterval(pollId)
       for (const timer of lookupTimers) window.clearTimeout(timer)
-      channel.unbind("call-initiated", onInitiated)
-      channel.unbind("call-answered", onAnswered)
-      channel.unbind("call-completed", onCompleted)
-      channel.unbind("call-recording-ready", onRecordingReady)
-      channel.unbind("live-gps", onLiveGps)
+      for (const channel of channels) {
+        channel.unbind("call-initiated", onInitiated)
+        channel.unbind("call-answered", onAnswered)
+        channel.unbind("call-completed", onCompleted)
+        channel.unbind("call-recording-ready", onRecordingReady)
+        channel.unbind("live-gps", onLiveGps)
+        pusher.unsubscribe(channel.name)
+      }
     }
   }, [enabled, ownerUserId, patchManualCallRow])
 

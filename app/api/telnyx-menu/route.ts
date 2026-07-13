@@ -18,8 +18,6 @@ import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
 import { IVR_MENU_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
-import { neon } from "@neondatabase/serverless"
-import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
   DEFAULT_IVR_MENU_SETTINGS,
   type IvrMenuAction,
@@ -168,35 +166,18 @@ async function resolveIvrContext(toRaw: string): Promise<{
   }
 }
 
-/** Prefer account owner cell; fall back to Key Squad (502) 260-2716. */
+/** Prefer account owner cell via AVAILABLE receptionist → OWNER; fall back to Key Squad cell. */
 async function resolveOwnerRingE164(
   ownerUserId: string | null,
   businessLineRaw: string
 ): Promise<string> {
   if (ownerUserId) {
     try {
-      const sql = neon(resolveNeonDatabaseUrl())
-      const rows = await sql`
-        SELECT
-          NULLIF(trim(u.phone), '') AS owner_phone,
-          NULLIF(trim(rc.custom_routing_phone), '') AS custom_phone
-        FROM users u
-        LEFT JOIN routing_config rc
-          ON rc.user_id = u.id AND rc.business_number IS NULL
-        WHERE u.id = ${ownerUserId}
-        LIMIT 1
-      `
-      const row = rows[0] as { owner_phone?: string | null; custom_phone?: string | null } | undefined
-      const custom = row?.custom_phone
-        ? normalizePhoneNumberE164(row.custom_phone) || toE164(row.custom_phone)
-        : ""
-      const owner = row?.owner_phone
-        ? normalizePhoneNumberE164(row.owner_phone) || toE164(row.owner_phone)
-        : ""
-      if (custom) return custom
-      if (owner) return owner
+      const { findActiveOperatorForAccount } = await import("@/lib/active-operator")
+      const active = await findActiveOperatorForAccount(ownerUserId)
+      if (active?.phoneE164) return active.phoneE164
     } catch (e) {
-      console.warn("[telnyx-menu] owner ring lookup failed:", e)
+      console.warn("[telnyx-menu] active operator lookup failed:", e)
     }
   }
   const line = normalizePhoneNumberE164(businessLineRaw) || toE164(businessLineRaw)

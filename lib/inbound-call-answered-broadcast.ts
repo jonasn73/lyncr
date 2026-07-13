@@ -1,4 +1,4 @@
-// Single hub: carrier "leg answered" webhook → owner-{userId} Pusher `call-answered`.
+// Single hub: carrier "leg answered" webhook → owner-* + presence-account-* Pusher `call-answered`.
 // Used by TeXML <Number url> / <Sip url>, Telnyx status callbacks, and Call Control bridge.
 
 import { after } from "next/server"

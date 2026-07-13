@@ -2074,11 +2074,14 @@ function parseUserRow(row: Record<string, unknown>): User {
   }
 }
 
-/** Map a raw DB account_role to the typed union (defaults to owner). */
+/** Map a raw DB account_role to the typed union (defaults to owner / OWNER). */
 function normalizeAccountRole(raw: unknown): "owner" | "receptionist" | "field_tech" {
   const v = String(raw ?? "owner")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_")
   if (v === "receptionist") return "receptionist"
-  if (v === "field_tech") return "field_tech"
+  if (v === "field_tech" || v === "technician" || v === "tech") return "field_tech"
   return "owner"
 }
 

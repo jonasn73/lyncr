@@ -12,8 +12,6 @@ import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
 import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
 import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
 import { buildTelnyxMenuBookingSms } from "@/lib/telnyx-menu"
-import { neon } from "@neondatabase/serverless"
-import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
   localDateTimePartsInZone,
   remainingMinutesInActiveBlockout,
@@ -109,28 +107,11 @@ function captureUrl(qs: Record<string, string>): string {
 async function resolveRingE164(ownerUserId: string | null): Promise<string> {
   if (ownerUserId) {
     try {
-      const sql = neon(resolveNeonDatabaseUrl())
-      const rows = await sql`
-        SELECT
-          NULLIF(trim(u.phone), '') AS owner_phone,
-          NULLIF(trim(rc.custom_routing_phone), '') AS custom_phone
-        FROM users u
-        LEFT JOIN routing_config rc
-          ON rc.user_id = u.id AND rc.business_number IS NULL
-        WHERE u.id = ${ownerUserId}
-        LIMIT 1
-      `
-      const row = rows[0] as { owner_phone?: string | null; custom_phone?: string | null } | undefined
-      const custom = row?.custom_phone
-        ? normalizePhoneNumberE164(row.custom_phone) || toE164(row.custom_phone)
-        : ""
-      const owner = row?.owner_phone
-        ? normalizePhoneNumberE164(row.owner_phone) || toE164(row.owner_phone)
-        : ""
-      if (custom) return custom
-      if (owner) return owner
+      const { findActiveOperatorForAccount } = await import("@/lib/active-operator")
+      const active = await findActiveOperatorForAccount(ownerUserId)
+      if (active?.phoneE164) return active.phoneE164
     } catch (e) {
-      console.warn("[telnyx-capture] ring lookup failed:", e)
+      console.warn("[telnyx-capture] active operator lookup failed:", e)
     }
   }
   return CAPTURE_DEFAULT_RING_E164

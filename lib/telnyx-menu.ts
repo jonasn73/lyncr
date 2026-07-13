@@ -1,4 +1,6 @@
 // Telnyx traditional IVR menu helpers — Gather, SMS booking link, Dial + unanswered fallback.
+// Digit-2 ring target is resolved dynamically via findActiveOperatorForAccount
+// (AVAILABLE RECEPTIONIST → OWNER) in app/api/telnyx-menu/route.ts — never hardcode a cell here.
 
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
@@ -99,9 +101,7 @@ export function buildTelnyxMenuGatherXml(
   )
 }
 
-/**
- * Digits=2 — Dial the owner cell; unanswered / busy / timeout posts to `actionUrl`.
- */
+/** Digits=2 — Dial the owner cell; unanswered / busy / timeout posts to `actionUrl`. */
 export function buildTelnyxMenuDialXml(opts: {
   ringE164: string
   actionUrl: string

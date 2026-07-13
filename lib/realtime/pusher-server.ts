@@ -3,6 +3,7 @@
 // (the receptionist HUD falls back to its 15s polling refresh).
 
 import Pusher from "pusher"
+import { workspacePresenceChannel } from "@/lib/active-operator"
 
 let cached: Pusher | null = null
 let resolved = false
@@ -102,11 +103,16 @@ export async function publishOwnerEvent(
 ): Promise<boolean> {
   const pusher = getPusherServer()
   if (!pusher) return false
-  const channel = `owner-${ownerId}`
+  const ownerChannel = `owner-${ownerId}`
+  // Account-wide workspace channel — every logged-in OWNER / RECEPTIONIST on the team hears it.
+  const accountChannel = workspacePresenceChannel(ownerId)
 
   if (OWNER_INBOUND_TELEMETRY.has(event)) {
     try {
-      await pusher.trigger(channel, event, payload)
+      await Promise.all([
+        pusher.trigger(ownerChannel, event, payload),
+        pusher.trigger(accountChannel, event, payload),
+      ])
       return true
     } catch (e) {
       console.error("[realtime] publishOwnerEvent failed:", e)
@@ -118,10 +124,22 @@ export async function publishOwnerEvent(
   const prepared = await prepareOwnerEventForDelivery(ownerId, event, payload)
   if (!prepared.publish) return false
   try {
-    await pusher.trigger(channel, event, prepared.payload)
+    await Promise.all([
+      pusher.trigger(ownerChannel, event, prepared.payload),
+      pusher.trigger(accountChannel, event, prepared.payload),
+    ])
     return true
   } catch (e) {
     console.error("[realtime] publishOwnerEvent failed:", e)
     return false
   }
+}
+
+/** Explicit account-wide broadcast (alias for publishOwnerEvent on the presence channel). */
+export async function publishAccountPresenceEvent(
+  accountId: string,
+  event: OwnerChannelEvent,
+  payload: Record<string, unknown>
+): Promise<boolean> {
+  return publishOwnerEvent(accountId, event, payload)
 }

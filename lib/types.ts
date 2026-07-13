@@ -2,8 +2,12 @@
 // lyncr — Core Types
 // ============================================
 
-// --- Users (Business Owners) ---
+// --- Users (Business Owners + team) ---
+/** DB / session role (lowercase). TECHNICIAN maps to field_tech. */
 export type AccountRole = "owner" | "receptionist" | "field_tech"
+
+/** Product-facing team role labels for scaling docs / UI. */
+export type TeamRoleLabel = "OWNER" | "RECEPTIONIST" | "TECHNICIAN"
 
 /** Operator provisioning lifecycle (082-operator-onboarding.sql). */
 export type OperatorOnboardingStatus = "PENDING_INVITE" | "DEVICE_TESTING" | "ACTIVE_READY"
@@ -61,9 +65,8 @@ export interface User {
   name: string
   phone: string // owner's personal cell
   business_name: string
-  /** owner = business dashboard; receptionist = /receptionist portal */
+  /** owner = business dashboard; receptionist = /receptionist; field_tech = TECHNICIAN (/tech) */
   account_role: AccountRole
-  /** owner = business dashboard; receptionist = /receptionist; field_tech = /tech mobile console */
   /** When false, skip the short callee-only whisper on forwarded inbound calls (TeXML Number url). */
   inbound_receptionist_whisper_enabled: boolean
   /** Signup industry — default AI fallback playbook when intake has no profileId override */

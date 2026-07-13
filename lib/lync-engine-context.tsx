@@ -181,7 +181,8 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const channelName = `owner-${ownerUserId}`
+    // Account-wide workspace channel (all team members on this business account).
+    const channelName = `presence-account-${ownerUserId}`
     const channel = pusher.subscribe(channelName)
     setRealtimeConnected(true)
 
