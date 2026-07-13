@@ -4,7 +4,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { SCHEDULER_GLASS_CARD } from "@/lib/scheduler-ui-tokens"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -846,89 +848,76 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
-        <p className="mb-3 hidden text-sm text-zinc-500 md:block lg:text-xs">
+        <p className="mb-4 hidden text-xs text-zinc-500 md:block">
           {intakeProfile === "locksmith"
-            ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
+            ? "Vehicle cascade, VIN lookup, and validated job addresses."
             : intakeProfile === "detailing"
-              ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
-              : "Automotive field jobs with industry-specific intake fields and validated addresses."}
+              ? "Vehicle size, on-site utilities, and validated job addresses."
+              : "Field jobs with intake fields and validated addresses."}
         </p>
 
-        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-4 lg:gap-6 lg:pb-0">
-          {/* Left control column — new intake, hopper, live metrics */}
-          <div className="flex w-full min-w-0 flex-col gap-4 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)]">
-            {inboundCallPanel ? (
-              <button
-                type="button"
-                onClick={openNewIntake}
-                className="inline-flex w-full items-center justify-center rounded-lg bg-cyan-500 py-2.5 text-sm font-medium text-black transition-colors hover:bg-cyan-400"
-              >
-                + New Intake
-              </button>
-            ) : null}
+        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-4 lg:gap-5 lg:pb-0">
+          {/* Left control column — one glass surface: intake → pool → live status → booking */}
+          <div className="flex w-full min-w-0 flex-col gap-3 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)]">
+            <div className={cn(SCHEDULER_GLASS_CARD, "overflow-hidden p-0")}>
+              {inboundCallPanel ? (
+                <div className="border-b border-zinc-800/80 p-3">
+                  <button
+                    type="button"
+                    onClick={openNewIntake}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-cyan-500 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-cyan-400"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden />
+                    New Intake
+                  </button>
+                </div>
+              ) : null}
 
-            <div className="lg:hidden">
-              <JobPoolPanel
-                jobs={displayPoolJobs}
-                highlightId={highlightId}
-                onSelectJob={openPoolJobDrawer}
-                onMobileAssignJob={queueMobilePoolAssign}
-              />
-            </div>
-            <div className="hidden w-full lg:block">
-              <JobPoolPanel
-                jobs={displayPoolJobs}
-                highlightId={highlightId}
-                onSelectJob={openPoolJobDrawer}
-                onMobileAssignJob={queueMobilePoolAssign}
-                variant="sidebar"
-              />
-            </div>
+              <div className="border-b border-zinc-800/80 px-3 py-3">
+                <JobPoolPanel
+                  jobs={displayPoolJobs}
+                  highlightId={highlightId}
+                  onSelectJob={openPoolJobDrawer}
+                  onMobileAssignJob={queueMobilePoolAssign}
+                  variant="sidebar"
+                  embedded
+                />
+              </div>
 
-            <div ref={liveStatusRef}>
-            <div className="lg:hidden">
-              <SchedulerDispatchLiveStatus
-                hidePrimaryAction
-                selectedDay={selectedDay}
-                poolJobs={displayPoolJobs}
-                activePipelineJobs={displayPipelineJobs}
-                dayEvents={dayEvents}
-                rawCalendarJobs={displayEvents}
-                todayKey={todayKey}
-                completedTodayLedger={completedTodayLedger}
-                onSelectJob={focusJobById}
-                onMarkComplete={handleMarkJobComplete}
-                completingJobId={completingId}
-              />
-            </div>
-            <div className="hidden lg:block">
-              <SchedulerDispatchLiveStatus
-                sidebar
-                hidePrimaryAction
-                selectedDay={selectedDay}
-                poolJobs={displayPoolJobs}
-                activePipelineJobs={displayPipelineJobs}
-                dayEvents={dayEvents}
-                rawCalendarJobs={displayEvents}
-                todayKey={todayKey}
-                completedTodayLedger={completedTodayLedger}
-                onSelectJob={focusJobById}
-                onMarkComplete={handleMarkJobComplete}
-                completingJobId={completingId}
-              />
-            </div>
+              <div ref={liveStatusRef} className="border-b border-zinc-800/80">
+                <SchedulerDispatchLiveStatus
+                  sidebar
+                  hidePrimaryAction
+                  className="rounded-none border-0 bg-transparent backdrop-blur-none"
+                  selectedDay={selectedDay}
+                  poolJobs={displayPoolJobs}
+                  activePipelineJobs={displayPipelineJobs}
+                  dayEvents={dayEvents}
+                  rawCalendarJobs={displayEvents}
+                  todayKey={todayKey}
+                  completedTodayLedger={completedTodayLedger}
+                  onSelectJob={focusJobById}
+                  onMarkComplete={handleMarkJobComplete}
+                  completingJobId={completingId}
+                />
+              </div>
+
+              <div className="p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Booking
+                </p>
+                <BookingDepositSettings className="border-zinc-800/60 bg-zinc-950/40" />
+              </div>
             </div>
           </div>
 
           {/* Main workspace — pipeline + swimlanes */}
-          <div className="flex w-full min-w-0 flex-col gap-4 lg:col-span-3 lg:gap-6">
+          <div className="flex w-full min-w-0 flex-col gap-3 lg:col-span-3 lg:gap-4">
             {markCompleteError ? (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                 {markCompleteError}
               </p>
             ) : null}
-
-            <BookingDepositSettings />
 
             <ScheduleBlockoutsPanel
               dateKey={selectedKey}
@@ -954,9 +943,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
             {/* Empty board: one flat placeholder instead of nested empty panels. */}
             {displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
-              <div className="rounded-xl border border-slate-850 bg-slate-900/20 p-4 text-center">
-                <p className="text-sm text-slate-400">
-                  No active jobs today • Add active technicians in Team view to get started.
+              <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/30 px-4 py-8 text-center">
+                <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Add technicians in Team, then use New Intake to book the first job.
                 </p>
               </div>
             ) : (

@@ -13,6 +13,8 @@ type JobPoolPanelProps = {
   onSelectJob?: (job: UnassignedPoolJob) => void
   onMobileAssignJob?: (job: UnassignedPoolJob) => void
   variant?: "default" | "sidebar"
+  /** Nest inside a parent glass card — skip the outer shell. */
+  embedded?: boolean
 }
 
 /** Hopper tray — uses live SWR jobs from the parent when provided. */
@@ -22,6 +24,7 @@ export function JobPoolPanel({
   onSelectJob,
   onMobileAssignJob,
   variant = "default",
+  embedded = false,
 }: JobPoolPanelProps) {
   if (jobs !== undefined) {
     return (
@@ -31,6 +34,7 @@ export function JobPoolPanel({
         onSelectJob={onSelectJob}
         onMobileAssignJob={onMobileAssignJob}
         variant={variant}
+        embedded={embedded}
       />
     )
   }

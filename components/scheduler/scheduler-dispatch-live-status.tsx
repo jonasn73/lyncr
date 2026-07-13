@@ -121,7 +121,11 @@ function UpcomingJobsList({
   completingJobId?: string | null
 }) {
   if (upcoming.length === 0) {
-    return <p className="text-xs text-zinc-600">No upcoming jobs for this day.</p>
+    return (
+      <p className="rounded-md border border-dashed border-zinc-800/80 bg-zinc-950/20 px-2.5 py-2 text-xs text-zinc-500">
+        Nothing scheduled for this day yet.
+      </p>
+    )
   }
 
   return (
@@ -233,25 +237,33 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
       aria-label="Dispatch live status"
     >
       <div>
-        <div className={cn("flex gap-2", compact || sidebar ? "flex-col gap-0" : "flex-col gap-0 md:flex-row md:items-stretch")}>
+        <div
+          className={cn(
+            "flex gap-0",
+            compact || sidebar ? "flex-col" : "flex-col md:flex-row md:items-stretch"
+          )}
+        >
           <div
             className={cn(
-              "flex shrink-0 items-center gap-1.5",
-              compact ? "px-0 py-0" : sidebar
-                ? "border-b border-zinc-800/80 px-2.5 py-1.5"
-                : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
+              "flex shrink-0 items-center gap-2",
+              compact
+                ? "px-0 py-0"
+                : sidebar
+                  ? "border-b border-zinc-800/80 px-3 py-2"
+                  : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-3.5 md:py-2.5"
             )}
           >
-            <Clock3 className={cn("shrink-0 text-primary", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-            <div className="flex min-w-0 flex-col">
-              {!compact ? (
-                <span className={SCHEDULER_METADATA_LABEL}>Now</span>
-              ) : null}
+            <Clock3
+              className={cn("shrink-0 text-primary", compact ? "h-3.5 w-3.5" : "h-3.5 w-3.5")}
+              aria-hidden
+            />
+            <div className="flex min-w-0 flex-col leading-tight">
+              {!compact ? <span className={SCHEDULER_METADATA_LABEL}>Now</span> : null}
               {/* Absolute top live date/time token — keep this; remove nested date headers elsewhere. */}
               <time
                 dateTime={now.toISOString()}
                 className={cn(
-                  "font-bold tabular-nums text-zinc-100",
+                  "font-semibold tabular-nums text-zinc-100",
                   compact ? "text-xs" : "text-sm"
                 )}
               >
@@ -275,15 +287,19 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
           </div>
         </div>
 
-        {!compact && !sidebar ? (
-          <div className="border-t border-zinc-800/80 px-3 py-2 md:px-4">
-            <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1.5")}>
-              Coming up next
-            </p>
+        {/* Show upcoming in the left rail too — empty days stay a single quiet line. */}
+        {!compact ? (
+          <div
+            className={cn(
+              "border-t border-zinc-800/80",
+              sidebar ? "px-3 py-2" : "px-3 py-2 md:px-3.5"
+            )}
+          >
+            <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1.5")}>Coming up next</p>
             <UpcomingJobsList
               upcoming={upcoming}
               now={now}
-              stackLayout={stackLayout}
+              stackLayout={stackLayout || sidebar}
               onSelectJob={onSelectJob}
               onMarkComplete={onMarkComplete}
               completingJobId={completingJobId}
