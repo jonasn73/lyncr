@@ -1,10 +1,10 @@
 // POST /api/voice/telnyx/ai-booking-received
 // Mock listener stub — when the voice bot finishes an automated booking loop,
-// construct a Scheduler pool entry (hopper job) via createIntakeJob.
+// construct a Scheduler pool entry (hopper job) via createUnassignedJobFromIntake.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { createIntakeJob } from "@/lib/create-intake-job"
+import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { listOwnerSchedulerEvents } from "@/lib/db"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
 import {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   const phone = (body.callerPhone || "").trim()
   if (phone) {
     try {
-      const created = await createIntakeJob({
+      const created = await createUnassignedJobFromIntake({
         ownerUserId: userId,
         callerE164: phone,
         customerName: body.customerName || local.poolEntry.customer_name,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       })
       persistedId = created.lead_id ?? null
     } catch (e) {
-      console.warn("[ai-booking-received] createIntakeJob stub failed:", e)
+      console.warn("[ai-booking-received] createUnassignedJobFromIntake stub failed:", e)
     }
   }
 
