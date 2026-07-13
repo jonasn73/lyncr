@@ -16,6 +16,7 @@ type PhotoUploadNotice = {
   ticketId: string
   callLogId: string | null
   viewIntakeUrl: string
+  headline: string
 }
 
 export function PhotoUploadNotificationBanner() {
@@ -41,6 +42,8 @@ export function PhotoUploadNotificationBanner() {
         (raw.phone_display != null ? String(raw.phone_display).trim() : "") ||
         (raw.phone_number != null ? String(raw.phone_number).trim() : "") ||
         "customer"
+      const customerName = raw.customer_name != null ? String(raw.customer_name).trim() : ""
+      const kind = raw.kind != null ? String(raw.kind) : "photo"
       const ticketId =
         (raw.ticket_id != null ? String(raw.ticket_id).trim() : "") ||
         (raw.call_log_id != null ? String(raw.call_log_id).trim() : "") ||
@@ -49,11 +52,26 @@ export function PhotoUploadNotificationBanner() {
       const viewIntakeUrl =
         (raw.view_intake_url != null ? String(raw.view_intake_url).trim() : "") ||
         `/dashboard?id=${encodeURIComponent(ticketId || "")}`
+      const label =
+        customerName ||
+        (kind === "intake_rescue" ? phoneDisplay : phoneDisplay)
       const id = `${ticketId}-${Date.now()}`
       setNotices((prev) => {
-        // One banner per ticket — replace older notice for the same ticket.
         const without = prev.filter((n) => n.ticketId !== ticketId)
-        return [...without, { id, phoneDisplay, ticketId, callLogId, viewIntakeUrl }]
+        return [
+          ...without,
+          {
+            id,
+            phoneDisplay: label,
+            ticketId,
+            callLogId,
+            viewIntakeUrl,
+            headline:
+              kind === "intake_rescue"
+                ? `New intake info received for ${label}.`
+                : `New photos received for client ${label}.`,
+          },
+        ]
       })
     }
 
@@ -149,7 +167,7 @@ export function PhotoUploadNotificationBanner() {
           <Camera className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="font-medium leading-snug">
-              New photos received for client {notice.phoneDisplay}.{" "}
+              {notice.headline}{" "}
               <button
                 type="button"
                 onClick={() => focusIntake(notice)}

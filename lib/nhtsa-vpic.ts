@@ -138,6 +138,8 @@ export type VinDecodeResult = {
   vehicle_year: string | null
   vehicle_make: string | null
   vehicle_model: string | null
+  /** Trim / series from NHTSA when available. */
+  vehicle_trim: string | null
   error?: string | null
 }
 
@@ -148,28 +150,76 @@ export function normalizeVin(raw: string): string {
 export async function decodeVin(vinRaw: string): Promise<VinDecodeResult> {
   const vin = normalizeVin(vinRaw)
   if (vin.length !== 17) {
-    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: "VIN must be 17 characters." }
+    return {
+      vin,
+      vehicle_year: null,
+      vehicle_make: null,
+      vehicle_model: null,
+      vehicle_trim: null,
+      error: "VIN must be 17 characters.",
+    }
   }
   const url = `${VPIC}/decodevinvalues/${encodeURIComponent(vin)}?format=json`
   const res = await fetch(url, { cache: "no-store" })
   if (!res.ok) {
-    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: "VIN lookup failed." }
+    return {
+      vin,
+      vehicle_year: null,
+      vehicle_make: null,
+      vehicle_model: null,
+      vehicle_trim: null,
+      error: "VIN lookup failed.",
+    }
   }
   const data = (await res.json()) as {
-    Results?: Array<{ ModelYear?: string; Make?: string; Model?: string; ErrorText?: string }>
+    Results?: Array<{
+      ModelYear?: string
+      Make?: string
+      Model?: string
+      Trim?: string
+      Series?: string
+      Series2?: string
+      BodyClass?: string
+      ErrorText?: string
+    }>
   }
   const row = data.Results?.[0]
   if (!row) {
-    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: "No vehicle found for VIN." }
+    return {
+      vin,
+      vehicle_year: null,
+      vehicle_make: null,
+      vehicle_model: null,
+      vehicle_trim: null,
+      error: "No vehicle found for VIN.",
+    }
   }
-  if (row.ErrorText && row.ErrorText !== "0 - VIN decoded clean.") {
-    return { vin, vehicle_year: null, vehicle_make: null, vehicle_model: null, error: row.ErrorText }
+  // NHTSA returns soft warnings with codes — still use Year/Make/Model when present.
+  const year = row.ModelYear?.trim() || null
+  const make = row.Make?.trim() || null
+  const model = row.Model?.trim() || null
+  if (!year && !make && !model) {
+    return {
+      vin,
+      vehicle_year: null,
+      vehicle_make: null,
+      vehicle_model: null,
+      vehicle_trim: null,
+      error: row.ErrorText || "No vehicle found for VIN.",
+    }
   }
+  const trim =
+    row.Trim?.trim() ||
+    row.Series?.trim() ||
+    row.Series2?.trim() ||
+    row.BodyClass?.trim() ||
+    null
   return {
     vin,
-    vehicle_year: row.ModelYear?.trim() || null,
-    vehicle_make: row.Make?.trim() || null,
-    vehicle_model: row.Model?.trim() || null,
+    vehicle_year: year,
+    vehicle_make: make,
+    vehicle_model: model,
+    vehicle_trim: trim,
     error: null,
   }
 }

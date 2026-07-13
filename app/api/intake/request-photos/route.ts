@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Exact SMS copy from product requirement.
+  // Exact SMS copy — points customers at the full Pending Info Intake page.
   const text = `Key Squad here! Please click this link to upload photos of your lock or ignition damage so we can accurately quote your parts: ${created.url}`
   // Send via the account's Telnyx number (prefer company account for messaging profile).
   const sent = await sendTelnyxSms({ toE164: phone, text, userId: accountId })

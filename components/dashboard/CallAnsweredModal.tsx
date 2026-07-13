@@ -16,6 +16,7 @@ import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quot
 import {
   IntakeJobPhotosPanel,
   type IntakeJobPhoto,
+  type IntakeRescueMeta,
 } from "@/components/dashboard/intake-job-photos-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
@@ -514,8 +515,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [jobPhotos, setJobPhotos] = useState<IntakeJobPhoto[]>([])
   const setJobPhotosRef = useRef(setJobPhotos)
   setJobPhotosRef.current = setJobPhotos
+  // Pending Info Intake rescue profile (name / VIN decode / notes).
+  const [rescueMeta, setRescueMeta] = useState<IntakeRescueMeta | null>(null)
+  const setRescueMetaRef = useRef(setRescueMeta)
+  setRescueMetaRef.current = setRescueMeta
   const setServiceAddressRef = useRef(setServiceAddress)
   setServiceAddressRef.current = setServiceAddress
+  const patchFormRef = useRef(patchForm)
+  patchFormRef.current = patchForm
+  const setVehicleRef = useRef(setVehicle)
+  setVehicleRef.current = setVehicle
+  const formNotesRef = useRef(form.notes)
+  formNotesRef.current = form.notes
   const effectiveCurrentIdRef = useRef(effectiveCurrent?.id ?? null)
   effectiveCurrentIdRef.current = effectiveCurrent?.id ?? null
 
@@ -582,8 +593,33 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     lastLoadedDraftPhoneRef.current = null
     // Reset attachments when a new call / ticket opens.
     setJobPhotos([])
+    setRescueMeta(null)
     setGpsRequestState("idle")
   }, [effectiveCurrent?.id])
+
+  // When rescue metadata arrives (hydrate or live), autofill name / vehicle into the form.
+  useEffect(() => {
+    if (!rescueMeta || rescueMeta.ticket_status !== "info_received") return
+    if (rescueMeta.customer_name?.trim()) {
+      patchForm({ displayName: rescueMeta.customer_name.trim() })
+    }
+    if (rescueMeta.vehicle_year || rescueMeta.vehicle_make || rescueMeta.vehicle_model) {
+      setVehicle({
+        vehicle_year: rescueMeta.vehicle_year || "",
+        vehicle_make: rescueMeta.vehicle_make || "",
+        vehicle_model: rescueMeta.vehicle_model || "",
+      })
+    }
+    if (rescueMeta.vehicle_trim?.trim()) {
+      patchForm({ vehicleTrim: rescueMeta.vehicle_trim.trim() })
+    }
+    if (rescueMeta.special_notes?.trim() && !form.notes.trim()) {
+      patchForm({ notes: rescueMeta.special_notes.trim() })
+    }
+    // Only re-run when ticket flips to info_received for this call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rescueMeta?.ticket_status, rescueMeta?.customer_name, rescueMeta?.vehicle_vin, effectiveCurrent?.id])
+
 
   const activeDraftPhone = useMemo(() => {
     const raw = (form.phoneNumber.trim() || effectiveCurrent?.from_number || "").trim()
@@ -1036,7 +1072,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         })
     }
 
-    // Customer uploaded a job photo on /upload — refresh the intake gallery live.
+    // Customer uploaded a job photo / completed intake-rescue — refresh gallery + autofill.
     const onTicketPhotosUpdated = (raw: Record<string, unknown>) => {
       const callLogId = raw.call_log_id != null ? String(raw.call_log_id).trim() : ""
       const activeId = effectiveCurrentIdRef.current
@@ -1050,30 +1086,82 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         const id = row.id != null ? String(row.id) : ""
         const url = row.url != null ? String(row.url) : ""
         if (!id || !url) continue
+        const categoryRaw = row.category != null ? String(row.category) : "damage"
+        const category =
+          categoryRaw === "id_verification" || categoryRaw === "other"
+            ? categoryRaw
+            : ("damage" as const)
         mapped.push({
           id,
           url,
           mime_type: row.mime_type != null ? String(row.mime_type) : undefined,
           created_at: row.created_at != null ? String(row.created_at) : undefined,
+          category,
         })
       }
       if (mapped.length) {
         setJobPhotosRef.current(mapped)
-        return
-      }
-      // Single-photo payloads still update the gallery.
-      const single = raw.photo && typeof raw.photo === "object" ? (raw.photo as Record<string, unknown>) : null
-      if (single?.id && single?.url) {
-        const next: IntakeJobPhoto = {
-          id: String(single.id),
-          url: String(single.url),
-          mime_type: single.mime_type != null ? String(single.mime_type) : undefined,
-          created_at: single.created_at != null ? String(single.created_at) : undefined,
+      } else {
+        // Single-photo payloads still update the gallery.
+        const single = raw.photo && typeof raw.photo === "object" ? (raw.photo as Record<string, unknown>) : null
+        if (single?.id && single?.url) {
+          const catRaw = single.category != null ? String(single.category) : "damage"
+          const next: IntakeJobPhoto = {
+            id: String(single.id),
+            url: String(single.url),
+            mime_type: single.mime_type != null ? String(single.mime_type) : undefined,
+            created_at: single.created_at != null ? String(single.created_at) : undefined,
+            category:
+              catRaw === "id_verification" || catRaw === "other"
+                ? catRaw
+                : "damage",
+          }
+          setJobPhotosRef.current((prev) => {
+            if (prev.some((p) => p.id === next.id)) return prev
+            return [...prev, next]
+          })
         }
-        setJobPhotosRef.current((prev) => {
-          if (prev.some((p) => p.id === next.id)) return prev
-          return [...prev, next]
-        })
+      }
+
+      // Full rescue package — autofill name + vehicle into the open intake form.
+      const rescue =
+        raw.rescue && typeof raw.rescue === "object"
+          ? (raw.rescue as { token?: Record<string, unknown> })
+          : null
+      const tokenRow = rescue?.token && typeof rescue.token === "object" ? rescue.token : null
+      if (tokenRow || raw.ticket_status === "info_received") {
+        const meta: IntakeRescueMeta = {
+          ticket_status:
+            (tokenRow?.ticket_status != null
+              ? String(tokenRow.ticket_status)
+              : raw.ticket_status != null
+                ? String(raw.ticket_status)
+                : null) || "info_received",
+          customer_name: tokenRow?.customer_name != null ? String(tokenRow.customer_name) : null,
+          vehicle_vin: tokenRow?.vehicle_vin != null ? String(tokenRow.vehicle_vin) : null,
+          vehicle_year: tokenRow?.vehicle_year != null ? String(tokenRow.vehicle_year) : null,
+          vehicle_make: tokenRow?.vehicle_make != null ? String(tokenRow.vehicle_make) : null,
+          vehicle_model: tokenRow?.vehicle_model != null ? String(tokenRow.vehicle_model) : null,
+          vehicle_trim: tokenRow?.vehicle_trim != null ? String(tokenRow.vehicle_trim) : null,
+          special_notes: tokenRow?.special_notes != null ? String(tokenRow.special_notes) : null,
+        }
+        setRescueMetaRef.current(meta)
+        if (meta.customer_name?.trim()) {
+          patchFormRef.current({ displayName: meta.customer_name.trim() })
+        }
+        if (meta.vehicle_year || meta.vehicle_make || meta.vehicle_model) {
+          setVehicleRef.current({
+            vehicle_year: meta.vehicle_year || "",
+            vehicle_make: meta.vehicle_make || "",
+            vehicle_model: meta.vehicle_model || "",
+          })
+        }
+        if (meta.vehicle_trim?.trim()) {
+          patchFormRef.current({ vehicleTrim: meta.vehicle_trim.trim() })
+        }
+        if (meta.special_notes?.trim() && !formNotesRef.current.trim()) {
+          patchFormRef.current({ notes: meta.special_notes.trim() })
+        }
       }
     }
 
@@ -1779,6 +1867,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 }
                                 photos={jobPhotos}
                                 onPhotosChange={setJobPhotos}
+                                rescueMeta={rescueMeta}
+                                onRescueMetaChange={setRescueMeta}
                               />
                             </div>
                           ) : null}
@@ -2072,6 +2162,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   }
                   photos={jobPhotos}
                   onPhotosChange={setJobPhotos}
+                  rescueMeta={rescueMeta}
+                  onRescueMetaChange={setRescueMeta}
                 />
 
                 <PriceNegotiationHelperPanel
