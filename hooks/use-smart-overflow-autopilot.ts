@@ -35,6 +35,8 @@ export type UseSmartOverflowAutopilotResult = {
   confirmedJobsToday: number
   events: SchedulerEvent[]
   loading: boolean
+  /** Retell webhook bridge reachable (GET /api/retell-booking). */
+  retellConnected: boolean
   /** Append a mock AI booking into the local event array (and optional server stub). */
   ingestAICallBooking: (
     payload: AICallBookingReceivedPayload
@@ -46,6 +48,9 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [hydrated, setHydrated] = useState(false)
+  // Prefer the Retell availability handler’s speech/offer copy when Autopilot is live.
+  const [retellOfferText, setRetellOfferText] = useState<string | null>(null)
+  const [retellConnected, setRetellConnected] = useState(false)
 
   // Restore Mode A / Mode B preferences after mount (avoid SSR mismatch).
   useEffect(() => {
@@ -98,27 +103,69 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
   const overflowActive = hydrated && isSmartOverflowActive(config, confirmedJobsToday)
   const nextSlot = useMemo(() => getNextAvailableSlot(now, events), [now, events])
 
+  // When Autopilot is active, poll the Retell bridge so the card shows what callers hear.
+  useEffect(() => {
+    if (!overflowActive) {
+      setRetellOfferText(null)
+      return
+    }
+
+    let cancelled = false
+    const pull = () => {
+      void fetch("/api/retell-booking", { credentials: "include" })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`retell ${res.status}`)
+          const json = (await res.json()) as {
+            data?: { available_slot_raw?: string; offering?: string }
+          }
+          const raw = json.data?.available_slot_raw?.trim()
+          if (!cancelled) {
+            setRetellConnected(true)
+            if (raw) setRetellOfferText(raw)
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setRetellConnected(false)
+        })
+    }
+
+    pull()
+    const id = window.setInterval(pull, 30_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [overflowActive])
+
   const ingestAICallBooking = useCallback(
     async (payload: AICallBookingReceivedPayload) => {
       // Local engine: append into the in-memory Scheduler array immediately.
       const local = onAICallBookingReceived(payload, events, new Date())
       setEvents(local.nextEvents)
 
-      // Server stub — persists a hopper job when auth + DB are available.
+      // Prefer Retell confirm tool so status is “Confirmed by AI”.
       try {
-        const res = await fetch("/api/voice/telnyx/ai-booking-received", {
+        const res = await fetch("/api/retell-booking", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...payload,
-            scheduledAtIso: local.poolEntry.scheduled_at,
-            nextAvailableSlotText: local.nextAvailableSlotText,
+            name: "confirm_monday_booking",
+            args: {
+              customerName: payload.customerName,
+              customerPhone: payload.callerPhone,
+              jobType: payload.jobType,
+            },
           }),
         })
         if (!res.ok) return local.poolEntry
-        const json = (await res.json()) as { data?: { poolEntry?: SmartOverflowPoolSchemaBlock } }
-        return json.data?.poolEntry ?? local.poolEntry
+        const json = (await res.json()) as {
+          appointment?: SmartOverflowPoolSchemaBlock
+          available_slot_raw?: string
+        }
+        if (json.available_slot_raw) setRetellOfferText(json.available_slot_raw)
+        setRetellConnected(true)
+        return json.appointment ?? local.poolEntry
       } catch {
         return local.poolEntry
       }
@@ -130,11 +177,12 @@ export function useSmartOverflowAutopilot(): UseSmartOverflowAutopilotResult {
     config,
     setConfig,
     overflowActive,
-    nextAvailableSlotText: nextSlot?.text ?? "Monday morning",
+    nextAvailableSlotText: retellOfferText || nextSlot?.text || "Monday morning",
     nextAvailableSlotIso: nextSlot?.scheduledAtIso || null,
     confirmedJobsToday,
     events,
     loading,
+    retellConnected,
     ingestAICallBooking,
   }
 }

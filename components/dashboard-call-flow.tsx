@@ -458,6 +458,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       onConfigChange={smartOverflow.setConfig}
       onOpenScriptEditor={() => setShowFallbackSettings(true)}
       loading={routingLineDetailLoading || smartOverflow.loading}
+      retellConnected={smartOverflow.retellConnected}
     />
   )
 

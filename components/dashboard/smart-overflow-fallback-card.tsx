@@ -20,6 +20,8 @@ export type SmartOverflowFallbackCardProps = {
   /** Opens the Voice & AI greeting / slot-booking script editor. */
   onOpenScriptEditor: () => void
   loading?: boolean
+  /** Live Retell webhook bridge health for connection diagnostics. */
+  retellConnected?: boolean
 }
 
 const MODE_OPTIONS: { id: SmartOverflowMode; label: string; hint: string }[] = [
@@ -45,6 +47,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   onConfigChange,
   onOpenScriptEditor,
   loading = false,
+  retellConnected = true,
 }: SmartOverflowFallbackCardProps) {
   const title = overflowActive
     ? "🤖 FALLBACK · AI SCHEDULER ACTIVE"
@@ -89,7 +92,12 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
         </button>
 
-        {overflowActive ? <DiagnosticBadges nextAvailableSlotText={nextAvailableSlotText} /> : null}
+        {overflowActive ? (
+          <DiagnosticBadges
+            nextAvailableSlotText={nextAvailableSlotText}
+            retellConnected={retellConnected}
+          />
+        ) : null}
 
         <ModeControls
           compact
@@ -150,7 +158,12 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
         </div>
       </button>
 
-      {overflowActive ? <DiagnosticBadges nextAvailableSlotText={nextAvailableSlotText} /> : null}
+      {overflowActive ? (
+        <DiagnosticBadges
+          nextAvailableSlotText={nextAvailableSlotText}
+          retellConnected={retellConnected}
+        />
+      ) : null}
 
       <ModeControls
         config={config}
@@ -173,11 +186,30 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   )
 })
 
-function DiagnosticBadges({ nextAvailableSlotText }: { nextAvailableSlotText: string }) {
+function DiagnosticBadges({
+  nextAvailableSlotText,
+  retellConnected = true,
+}: {
+  nextAvailableSlotText: string
+  /** When Smart Overflow is live, show Retell webhook bridge status. */
+  retellConnected?: boolean
+}) {
   return (
     <div className="mt-3 flex flex-col gap-1.5">
       <span className="inline-flex w-fit items-center rounded border border-teal-900 bg-teal-950 px-2 py-0.5 text-[10px] font-semibold text-teal-400">
         AI Live Listening Activated
+      </span>
+      <span
+        className={cn(
+          "inline-flex w-fit max-w-full items-center truncate rounded border px-2 py-0.5 text-[10px] font-semibold",
+          retellConnected
+            ? "border-emerald-900/80 bg-emerald-950/60 text-emerald-300"
+            : "border-amber-900/80 bg-amber-950/50 text-amber-300"
+        )}
+      >
+        {retellConnected
+          ? "API: Active / Connected to Retell AI"
+          : "API: Waiting / Retell bridge unreachable"}
       </span>
       <span className="inline-flex w-fit max-w-full items-center truncate rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
         Offering: {nextAvailableSlotText}
