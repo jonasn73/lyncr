@@ -16,6 +16,8 @@ import { DashboardLeadsPrefetch } from "@/components/dashboard-leads-prefetch"
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { CallAnsweredModal } from "@/components/dashboard/CallAnsweredModal"
+import { PhotoUploadNotificationBanner } from "@/components/dashboard/photo-upload-notification-banner"
+import { DashboardOperatorHeartbeatHost } from "@/components/dashboard/dashboard-operator-heartbeat-host"
 import {
   DashboardActivationProvider,
   type DashboardActivationSeed,
@@ -220,6 +222,8 @@ export function DashboardShell({
                       <DashboardMainStreamGate activePage={activePage}>
                         <DashboardMainContent activePage={activePage} routedChildren={children} />
                       </DashboardMainStreamGate>
+                      <DashboardOperatorHeartbeatHost />
+                      <PhotoUploadNotificationBanner />
                       <DashboardAnsweredCallPopup enabled={popupEnabled} />
                     </AppShell>
                     </DispatchCommandBridgeProvider>

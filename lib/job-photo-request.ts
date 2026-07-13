@@ -12,6 +12,10 @@ export type JobPhotoTokenRow = {
   call_log_id: string | null
   customer_phone: string | null
   status: string
+  /** Pending Info / Awaiting Photos wait state for delayed upload alerts. */
+  ticket_status: string
+  /** ISO timestamp when the operator SMS/toast alert already fired (anti-spam). */
+  operator_alert_sent_at: string | null
   expires_at: string
 }
 
@@ -53,12 +57,15 @@ export async function createJobPhotoToken(params: {
   const id = createJobPhotoTokenId()
   try {
     await sql()`
-      INSERT INTO job_photo_tokens (id, owner_user_id, call_log_id, customer_phone)
+      INSERT INTO job_photo_tokens (
+        id, owner_user_id, call_log_id, customer_phone, ticket_status
+      )
       VALUES (
         ${id},
         ${params.ownerUserId},
         ${params.callLogId ?? null},
-        ${params.customerPhone ?? null}
+        ${params.customerPhone ?? null},
+        ${"awaiting_photos"}
       )
     `
     return { id, url: buildJobPhotoUploadUrl(id) }
@@ -71,7 +78,15 @@ export async function createJobPhotoToken(params: {
 export async function getJobPhotoToken(id: string): Promise<JobPhotoTokenRow | null> {
   try {
     const rows = await sql()`
-      SELECT id, owner_user_id, call_log_id, customer_phone, status, expires_at::text AS expires_at
+      SELECT
+        id,
+        owner_user_id,
+        call_log_id,
+        customer_phone,
+        status,
+        coalesce(ticket_status, 'awaiting_photos') AS ticket_status,
+        operator_alert_sent_at::text AS operator_alert_sent_at,
+        expires_at::text AS expires_at
       FROM job_photo_tokens
       WHERE id = ${id}
       LIMIT 1
@@ -84,6 +99,9 @@ export async function getJobPhotoToken(id: string): Promise<JobPhotoTokenRow | n
       call_log_id: row.call_log_id != null ? String(row.call_log_id) : null,
       customer_phone: row.customer_phone != null ? String(row.customer_phone) : null,
       status: String(row.status),
+      ticket_status: String(row.ticket_status || "awaiting_photos"),
+      operator_alert_sent_at:
+        row.operator_alert_sent_at != null ? String(row.operator_alert_sent_at) : null,
       expires_at: String(row.expires_at),
     }
   } catch (e) {
@@ -228,16 +246,60 @@ export async function saveJobPhotoFromUpload(params: {
       url: jobPhotoFileUrl(String(row.id)),
     }
 
+    const photos = await listJobPhotosForToken(params.tokenId)
+
     await publishOwnerEvent(token.owner_user_id, "ticket.photos_updated", {
       token_id: params.tokenId,
       call_log_id: token.call_log_id,
       photo,
-      photos: await listJobPhotosForToken(params.tokenId),
+      photos,
     })
+
+    // Delayed / parked tickets (Pending Info · Awaiting Photos) → toast + operator SMS.
+    try {
+      const { notifyDelayedJobPhotoUpload } = await import("@/lib/job-photo-delayed-alert")
+      await notifyDelayedJobPhotoUpload({ token, photoCount: photos.length })
+    } catch (alertErr) {
+      console.warn("[job-photos] delayed alert failed:", alertErr)
+    }
 
     return { ok: true, photo }
   } catch (e) {
     console.warn("[job-photos] save failed:", e)
     return { ok: false, reason: "db-error" }
+  }
+}
+
+/** Stamp operator_alert_sent_at so we only SMS once per upload token. */
+export async function markJobPhotoOperatorAlertSent(tokenId: string): Promise<void> {
+  try {
+    await sql()`
+      UPDATE job_photo_tokens
+      SET operator_alert_sent_at = now()
+      WHERE id = ${tokenId}
+        AND operator_alert_sent_at IS NULL
+    `
+  } catch (e) {
+    console.warn("[job-photos] mark alert sent failed:", e)
+  }
+}
+
+/** Promote open photo tokens for a finished call to Pending Info (delayed upload wait). */
+export async function markJobPhotoTokensPendingInfo(params: {
+  ownerUserId: string
+  callLogId: string
+}): Promise<void> {
+  if (!params.callLogId.trim()) return
+  try {
+    await sql()`
+      UPDATE job_photo_tokens
+      SET ticket_status = 'pending_info'
+      WHERE owner_user_id = ${params.ownerUserId}
+        AND call_log_id = ${params.callLogId}
+        AND ticket_status = 'awaiting_photos'
+        AND status IN ('pending', 'uploaded')
+    `
+  } catch (e) {
+    console.warn("[job-photos] mark pending_info failed:", e)
   }
 }

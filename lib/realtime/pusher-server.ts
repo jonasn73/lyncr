@@ -86,6 +86,7 @@ export type OwnerChannelEvent =
   | "porting-update"
   | "live-gps"
   | "ticket.photos_updated"
+  | "notification.photo_uploaded"
 
 /** Live call HUD events — must not await Neon before trigger (intake modal latency). */
 const OWNER_INBOUND_TELEMETRY: ReadonlySet<OwnerChannelEvent> = new Set([
@@ -95,6 +96,7 @@ const OWNER_INBOUND_TELEMETRY: ReadonlySet<OwnerChannelEvent> = new Set([
   "call-recording-ready",
   "live-gps",
   "ticket.photos_updated",
+  "notification.photo_uploaded",
 ])
 
 /** Publish an event to a business owner's channel (e.g. live booking alerts). Safe no-op when unconfigured. */

@@ -78,6 +78,19 @@ export async function broadcastCallCompleted(params: {
     routed_to_name: params.routedToName ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-completed", payload)
+
+  // Park open photo-request tickets as Pending Info once the live call ends.
+  if (params.callLogId?.trim()) {
+    try {
+      const { markJobPhotoTokensPendingInfo } = await import("@/lib/job-photo-request")
+      await markJobPhotoTokensPendingInfo({
+        ownerUserId: params.ownerUserId,
+        callLogId: params.callLogId,
+      })
+    } catch (e) {
+      console.warn("[call-telemetry] mark photo tokens pending_info failed:", e)
+    }
+  }
 }
 
 /** Fired when a call recording URL is saved — opens the intake sheet audio player instantly. */

@@ -1106,7 +1106,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   useEffect(() => {
     const onFocus = (event: Event) => {
       const detail = (event as CustomEvent<LyncFocusIntakeDetail>).detail
-      if (!detail?.fromNumber) return
+      // Allow deep links that only have a call_log id (photo-upload SMS / toast).
+      if (!detail?.fromNumber && !detail?.callLogId) return
       const callLogId = detail.callLogId?.trim() || ""
       const id = callLogId || (detail.callSid ? `ring-${detail.callSid}` : "")
       if (!id) return
@@ -1115,7 +1116,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       if (detail.callSid) dismissedRef.current.delete(`ring-${detail.callSid}`)
       const row: ActiveCallRow = {
         id: callLogId || id,
-        from_number: detail.fromNumber,
+        from_number: detail.fromNumber || "",
         to_number: detail.toNumber || "",
         caller_name: null,
         answered_at: detail.phase === "connected" ? detail.answeredAt ?? new Date().toISOString() : null,

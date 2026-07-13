@@ -99,6 +99,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 94 | `094-pending-call-review-sms.sql` | **Post-call review gate.** Creates **`pending_call_review_sms`** — after answered inbound &gt;60s, wait 15 min then send Google review SMS only if intake/invoice exists. Flushed by **`/api/sms/flush-scheduled`**. |
 | 95 | `095-users-team-roles.sql` | **Team roles.** Ensures **`users.account_role`** defaults to **`owner`**, widens CHECK for **`owner` / `receptionist` / `field_tech` / `technician`** (TECHNICIAN alias). Powers multi-operator Dial + account-wide presence channels. |
 | 96 | `096-job-photo-requests.sql` | **Request Job Photos.** Creates **`job_photo_tokens`** + **`job_photos`** for intake SMS upload links (`/upload?t=…`). Customer photos stream into the live **Job Attachments** gallery via Pusher **`ticket.photos_updated`**. |
+| 97 | `097-photo-upload-alerts.sql` | **Delayed photo alerts.** Adds **`job_photo_tokens.ticket_status`** (`awaiting_photos` / `pending_info` / `resolved`) + **`operator_alert_sent_at`**, and **`operator_dashboard_heartbeats`**. Powers Pusher **`notification.photo_uploaded`** toast + Telnyx SMS to the operator when customers upload after the call. |
 
 ## Platform admin (`admin@lyncr.app`)
 
