@@ -10,6 +10,7 @@ describe("ivr menu settings", () => {
   it("normalizes action aliases", () => {
     expect(normalizeIvrMenuAction("sms_link", "voicemail")).toBe("sms_link")
     expect(normalizeIvrMenuAction("auto_book_next_day", "sms_link")).toBe("live_booking")
+    expect(normalizeIvrMenuAction("ring_owner", "sms_link")).toBe("ring_phone")
     expect(normalizeIvrMenuAction("voicemail", "sms_link")).toBe("voicemail")
     expect(normalizeIvrMenuAction("nope", "live_booking")).toBe("live_booking")
   })
@@ -17,8 +18,10 @@ describe("ivr menu settings", () => {
   it("normalizes settings with Key Squad default greeting", () => {
     const settings = normalizeIvrMenuSettings({})
     expect(settings.ivrGreetingText).toContain("Key Squad 5-0-2")
+    expect(settings.ivrGreetingText).toContain("ring our phone")
     expect(settings.ivrOption1Action).toBe("sms_link")
-    expect(settings.ivrOption2Action).toBe("live_booking")
+    expect(settings.ivrOption2Action).toBe("ring_phone")
+    expect(DEFAULT_IVR_GREETING_TEXT).toContain("Press 1")
   })
 
   it("injects custom greeting into Gather TeXML", () => {

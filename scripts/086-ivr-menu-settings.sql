@@ -3,7 +3,7 @@
 
 ALTER TABLE routing_config
   ADD COLUMN IF NOT EXISTS ivr_greeting_text TEXT NOT NULL DEFAULT
-    'Thanks for calling Key Squad 5-0-2. We are fully booked today. Press 1 to receive a secure booking link by text. Press 2 to reserve our earliest priority slot tomorrow morning.',
+    'Thanks for calling Key Squad 5-0-2. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone.',
   ADD COLUMN IF NOT EXISTS ivr_option1_action TEXT NOT NULL DEFAULT 'sms_link',
   ADD COLUMN IF NOT EXISTS ivr_option2_action TEXT NOT NULL DEFAULT 'live_booking';
 

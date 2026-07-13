@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest"
 import {
+  TELNYX_MENU_BUSY_FALLBACK_PROMPT,
+  TELNYX_MENU_DEFAULT_RING_E164,
   TELNYX_MENU_DIGIT1_SAY,
   TELNYX_MENU_DIGIT2_SAY,
+  TELNYX_MENU_DIAL_TIMEOUT_SECONDS,
+  TELNYX_MENU_PROMPT,
   buildTelnyxMenuBookingSms,
+  buildTelnyxMenuBusyFallbackGatherXml,
+  buildTelnyxMenuDialXml,
   buildTelnyxMenuGatherXml,
+  buildTelnyxMenuHangupXml,
   buildTelnyxMenuInvalidRedirectXml,
   buildTelnyxMenuSayHangupXml,
   getEarliestOpenBlockTomorrow,
+  isTelnyxMenuDialUnanswered,
   tomorrowLocalMidnight,
 } from "@/lib/telnyx-menu"
 import { combineDateAndTime } from "@/lib/intake-schedule-helpers"
@@ -45,6 +53,15 @@ describe("telnyx menu IVR helpers", () => {
     expect(sms).toContain("secure booking link")
   })
 
+  it("builds Digits=1 SMS from an opaque /book/[id] tracking URL", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    )
+    expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+    expect(sms).not.toContain("phone=")
+  })
+
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with alice voice", () => {
     const xml1 = buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY)
     expect(xml1).toContain('voice="alice"')
@@ -62,12 +79,45 @@ describe("telnyx menu IVR helpers", () => {
     expect(xml).toContain("<Redirect method=\"POST\">https://lyncr.app/api/telnyx-menu</Redirect>")
   })
 
-  it("builds the Gather entry menu pointing at the action URL", () => {
+  it("builds the Gather entry menu with Key Squad press-1 / press-2 copy", () => {
     const xml = buildTelnyxMenuGatherXml("https://lyncr.app/api/telnyx-menu")
     expect(xml).toContain("<Gather")
     expect(xml).toContain('action="https://lyncr.app/api/telnyx-menu"')
     expect(xml).toContain("Press 1")
     expect(xml).toContain("Press 2")
+    expect(xml).toContain("Key Squad 5-0-2")
+    expect(TELNYX_MENU_PROMPT).toContain("ring our phone")
+  })
+
+  it("builds Digits=2 Dial with 20s timeout and unanswered action URL", () => {
+    const xml = buildTelnyxMenuDialXml({
+      ringE164: TELNYX_MENU_DEFAULT_RING_E164,
+      actionUrl: "https://lyncr.app/api/telnyx-menu?step=dial-fallback",
+      callerId: "+15027843047",
+      timeoutSeconds: TELNYX_MENU_DIAL_TIMEOUT_SECONDS,
+    })
+    expect(xml).toContain(`timeout="${TELNYX_MENU_DIAL_TIMEOUT_SECONDS}"`)
+    expect(xml).toContain(TELNYX_MENU_DEFAULT_RING_E164)
+    expect(xml).toContain('action="https://lyncr.app/api/telnyx-menu?step=dial-fallback"')
+    expect(xml).toContain('callerId="+15027843047"')
+  })
+
+  it("builds busy-fallback Gather prompting for an SMS link", () => {
+    const xml = buildTelnyxMenuBusyFallbackGatherXml(
+      "https://lyncr.app/api/telnyx-menu?step=busy-gather"
+    )
+    expect(xml).toContain(TELNYX_MENU_BUSY_FALLBACK_PROMPT)
+    expect(xml).toContain('action="https://lyncr.app/api/telnyx-menu?step=busy-gather"')
+    expect(xml).toContain("<Hangup/>")
+  })
+
+  it("classifies Dial statuses as unanswered vs connected", () => {
+    expect(isTelnyxMenuDialUnanswered("no-answer")).toBe(true)
+    expect(isTelnyxMenuDialUnanswered("busy")).toBe(true)
+    expect(isTelnyxMenuDialUnanswered("failed")).toBe(true)
+    expect(isTelnyxMenuDialUnanswered("completed")).toBe(false)
+    expect(isTelnyxMenuDialUnanswered("answered")).toBe(false)
+    expect(buildTelnyxMenuHangupXml()).toContain("<Hangup/>")
   })
 
   it("finds the earliest open block tomorrow when 9am is taken", () => {

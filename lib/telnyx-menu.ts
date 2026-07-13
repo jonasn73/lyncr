@@ -1,11 +1,21 @@
-// Telnyx traditional IVR menu helpers — Digits gather, SMS booking link, tomorrow slot hold.
+// Telnyx traditional IVR menu helpers — Gather, SMS booking link, Dial + unanswered fallback.
 
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
-/** Default Gather menu copy for the IVR entry point. */
+/** Default Gather menu — Key Squad multi-step IVR. */
 export const TELNYX_MENU_PROMPT =
-  "Welcome to Lyncr booking. Press 1 to receive a secure booking link by text. Press 2 to reserve our earliest priority slot tomorrow morning."
+  "Thanks for calling Key Squad 5-0-2. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
+
+/** Spoken after unanswered / busy / timed-out Dial to the owner cell. */
+export const TELNYX_MENU_BUSY_FALLBACK_PROMPT =
+  "Our phones are busy today but our online booking is still available. Press 1 to receive a link."
+
+/** Default owner cell for Digits=2 Dial when routing has no owner phone. */
+export const TELNYX_MENU_DEFAULT_RING_E164 = "+15022602716"
+
+/** Ring timeout (seconds) on Digits=2 before unanswered fallback. */
+export const TELNYX_MENU_DIAL_TIMEOUT_SECONDS = 20
 
 /** TeXML Content-Type for Gather action callbacks. */
 export const TELNYX_MENU_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
@@ -19,19 +29,25 @@ export function escapeTexmlText(value: string): string {
     .replace(/'/g, "&apos;")
 }
 
-/** Secure booking deep-link SMS body (phone + optional business line for calendar). */
+/** Secure booking deep-link SMS body — prefers opaque /book/[id] tracking URLs. */
 export function buildTelnyxMenuBookingSms(
   fromE164: string,
-  bookBaseUrl = "https://lyncr.app/book",
+  bookUrlOrBase = "https://lyncr.app/book",
   businessLineE164?: string | null
 ): string {
+  const trimmed = bookUrlOrBase.trim()
+  // Already a full /book/<uuid> (or other absolute) tracking link.
+  if (/^https?:\/\/.+/i.test(trimmed) && /\/book\/[^/?#]+/i.test(trimmed)) {
+    return `Here is your secure booking link: ${trimmed}`
+  }
+
   const phone = encodeURIComponent(fromE164.trim())
   const lineQs =
     businessLineE164 && businessLineE164.trim()
       ? `&line=${encodeURIComponent(businessLineE164.trim())}`
       : ""
-  const link = `${bookBaseUrl.replace(/\/+$/, "")}?phone=${phone}${lineQs}`
-  return `Here is your secure booking link to lock in your spot for tomorrow: ${link}`
+  const link = `${trimmed.replace(/\/+$/, "")}?phone=${phone}${lineQs}`
+  return `Here is your secure booking link to lock in your spot: ${link}`
 }
 
 /** Raw TeXML: polite hangup after SMS / reservation success. */
@@ -44,6 +60,11 @@ export function buildTelnyxMenuSayHangupXml(sayText: string, voice = "alice"): s
     `<Hangup/>` +
     `</Response>`
   )
+}
+
+/** Empty hangup — used when the Dial leg already connected and the call is ending. */
+export function buildTelnyxMenuHangupXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`
 }
 
 /** Invalid keypress → announce and Redirect back to the menu Gather URL. */
@@ -78,6 +99,52 @@ export function buildTelnyxMenuGatherXml(
   )
 }
 
+/**
+ * Digits=2 — Dial the owner cell; unanswered / busy / timeout posts to `actionUrl`.
+ */
+export function buildTelnyxMenuDialXml(opts: {
+  ringE164: string
+  actionUrl: string
+  callerId?: string | null
+  timeoutSeconds?: number
+}): string {
+  const timeout = opts.timeoutSeconds ?? TELNYX_MENU_DIAL_TIMEOUT_SECONDS
+  const safeAction = escapeTexmlText(opts.actionUrl)
+  const safeNumber = escapeTexmlText(opts.ringE164.trim())
+  const callerAttr =
+    opts.callerId && opts.callerId.trim()
+      ? ` callerId="${escapeTexmlText(opts.callerId.trim())}"`
+      : ""
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response>` +
+    `<Dial timeout="${timeout}" answerOnBridge="true"${callerAttr} action="${safeAction}" method="POST">` +
+    `<Number>${safeNumber}</Number>` +
+    `</Dial>` +
+    `</Response>`
+  )
+}
+
+/** Unanswered Dial → offer SMS booking link again. */
+export function buildTelnyxMenuBusyFallbackGatherXml(
+  actionUrl: string,
+  prompt: string = TELNYX_MENU_BUSY_FALLBACK_PROMPT,
+  voice = "alice"
+): string {
+  const safeAction = escapeTexmlText(actionUrl)
+  const safePrompt = escapeTexmlText(prompt.trim() || TELNYX_MENU_BUSY_FALLBACK_PROMPT)
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response>` +
+    `<Gather numDigits="1" timeout="8" action="${safeAction}" method="POST">` +
+    `<Say voice="${escapeTexmlText(voice)}">${safePrompt}</Say>` +
+    `</Gather>` +
+    `<Say voice="${escapeTexmlText(voice)}">Goodbye.</Say>` +
+    `<Hangup/>` +
+    `</Response>`
+  )
+}
+
 /** Digit action → traditional voicemail record. */
 export function buildTelnyxMenuVoicemailXml(
   recordingCallbackUrl: string,
@@ -92,6 +159,20 @@ export function buildTelnyxMenuVoicemailXml(
     `<Say voice="${escapeTexmlText(voice)}">Thank you. Goodbye.</Say>` +
     `<Hangup/>` +
     `</Response>`
+  )
+}
+
+/** True when Dial status means the owner never took the call. */
+export function isTelnyxMenuDialUnanswered(statusRaw: string): boolean {
+  const s = statusRaw.trim().toLowerCase().replace(/_/g, "-")
+  return (
+    s === "no-answer" ||
+    s === "busy" ||
+    s === "failed" ||
+    s === "canceled" ||
+    s === "cancelled" ||
+    s === "timeout" ||
+    s === "unanswered"
   )
 }
 

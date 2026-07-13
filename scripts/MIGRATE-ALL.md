@@ -93,6 +93,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 88 | `088-schedule-blockouts.sql` | **Schedule blockouts.** Creates **`schedule_blockouts`** (per-owner / optional org) with **`date`**, **`is_full_day`**, **`start_time`**, **`end_time`**, **`reason`**. Powers Scheduler “Add Blockout”, public **`/book`** availability, and IVR next-slot filtering. **Required** for blockout-aware booking. |
 | 89 | `089-active-routing-mode-and-deposits.sql` | **Unified Lines mode + deposits.** Adds **`routing_config.active_routing_mode`**, **`custom_routing_phone`**, **`users.require_deposit`**, **`booking_holds`**, and **`call_logs.ivr_action_completed`**. Powers Who Answers radio, Missed Call Rescue, and Stripe deposit on **`/book`**. |
 | 90 | `090-missed-call-textback-enabled.sql` | **Missed Call Rescue toggle.** Adds **`users.missed_call_textback_enabled`** (default true). Lines Call Flow card + gates auto SMS booking link after unanswered inbound. **Required** for the Automation · Missed Call Rescue switch. |
+| 91 | `091-booking-invites.sql` | **Secure `/book/[id]` invites.** Creates **`booking_invites`** for IVR Digit 1 + unanswered Dial fallback SMS tracking links. **Required** for opaque booking URLs from **`/api/telnyx-menu`**. |
 
 ## Platform admin (`admin@lyncr.app`)
 

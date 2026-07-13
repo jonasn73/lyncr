@@ -37,9 +37,9 @@ export function IvrGreetingsSettingsForm({
   const [greeting, setGreeting] = useState(DEFAULT_IVR_GREETING_TEXT)
   const [baseline, setBaseline] = useState("")
 
-  // Digits are fixed product routes — Keypress 1 = SMS booking link, Keypress 2 = next-day hold.
+  // Digits are fixed product routes — 1 = SMS /book/[id], 2 = ring owner cell (+ busy SMS fallback).
   const digit1Action = "sms_link" as const
-  const digit2Action = "live_booking" as const
+  const digit2Action = "ring_phone" as const
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -178,16 +178,16 @@ export function IvrGreetingsSettingsForm({
               </p>
               <p className="mt-1 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
               <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
-                Texts a secure lyncr.app/book link (calendar + blockouts applied), then hangs up.
+                Texts a secure lyncr.app/book/[id] tracking link, then hangs up.
               </p>
             </div>
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
                 Digit 2 Action
               </p>
-              <p className="mt-1 text-sm font-semibold text-foreground">Auto-Book Next Day</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">Ring Our Phone</p>
               <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
-                Reserves the earliest open tomorrow slot (skips full-day / overlapping blockouts).
+                Dials your cell for 20 seconds. If no answer, offers an SMS booking link.
               </p>
             </div>
           </div>

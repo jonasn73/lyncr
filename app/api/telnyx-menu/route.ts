@@ -1,6 +1,7 @@
 // POST /api/telnyx-menu — traditional Telnyx TeXML IVR Gather handler.
-// Loads dashboard-saved IVR greeting + digit actions from routing_config / phone_numbers.
-// Digits fire sms_link | live_booking | voicemail (no AI).
+// Multi-step Key Squad flow:
+//   Digits 1 → SMS secure /book/[id] link + Hangup
+//   Digits 2 → Dial owner cell (20s); unanswered → busy Gather → SMS again
 //
 // (App Router equivalent of pages/api/telnyx-menu.ts)
 
@@ -16,21 +17,32 @@ import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
 import { IVR_MENU_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
+import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
+import { neon } from "@neondatabase/serverless"
+import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
   DEFAULT_IVR_MENU_SETTINGS,
   type IvrMenuAction,
   type IvrMenuSettings,
 } from "@/lib/ivr-menu-settings"
 import {
+  TELNYX_MENU_BUSY_FALLBACK_PROMPT,
+  TELNYX_MENU_DEFAULT_RING_E164,
   TELNYX_MENU_DIGIT1_SAY,
   TELNYX_MENU_DIGIT2_SAY,
+  TELNYX_MENU_DIAL_TIMEOUT_SECONDS,
+  TELNYX_MENU_PROMPT,
   TELNYX_MENU_XML_CONTENT_TYPE,
   buildTelnyxMenuBookingSms,
+  buildTelnyxMenuBusyFallbackGatherXml,
+  buildTelnyxMenuDialXml,
   buildTelnyxMenuGatherXml,
+  buildTelnyxMenuHangupXml,
   buildTelnyxMenuInvalidRedirectXml,
   buildTelnyxMenuSayHangupXml,
   buildTelnyxMenuVoicemailXml,
   getEarliestOpenBlockTomorrow,
+  isTelnyxMenuDialUnanswered,
 } from "@/lib/telnyx-menu"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
@@ -81,8 +93,11 @@ async function readTelnyxFields(req: NextRequest): Promise<Record<string, string
   return out
 }
 
-function menuSelfUrl(): string {
-  return `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-menu`
+function menuSelfUrl(qs?: Record<string, string>): string {
+  const base = `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-menu`
+  if (!qs || Object.keys(qs).length === 0) return base
+  const params = new URLSearchParams(qs)
+  return `${base}?${params.toString()}`
 }
 
 async function loadOwnerMonthEvents(ownerUserId: string): Promise<SchedulerEvent[]> {
@@ -121,16 +136,86 @@ async function loadOwnerBlockoutsNearNow(ownerUserId: string): Promise<ScheduleB
 async function resolveIvrContext(toRaw: string): Promise<{
   ownerUserId: string | null
   settings: IvrMenuSettings
+  ringE164: string
 }> {
   if (!toRaw.trim()) {
-    return { ownerUserId: null, settings: { ...DEFAULT_IVR_MENU_SETTINGS } }
+    return {
+      ownerUserId: null,
+      settings: { ...DEFAULT_IVR_MENU_SETTINGS },
+      ringE164: TELNYX_MENU_DEFAULT_RING_E164,
+    }
   }
   try {
-    return await getIvrMenuSettingsByInboundDid(toRaw)
+    const { ownerUserId, settings } = await getIvrMenuSettingsByInboundDid(toRaw)
+    const ringE164 = await resolveOwnerRingE164(ownerUserId, toRaw)
+    return { ownerUserId, settings, ringE164 }
   } catch (e) {
     console.warn("[telnyx-menu] IVR settings lookup failed:", e)
-    return { ownerUserId: null, settings: { ...DEFAULT_IVR_MENU_SETTINGS } }
+    return {
+      ownerUserId: null,
+      settings: { ...DEFAULT_IVR_MENU_SETTINGS },
+      ringE164: TELNYX_MENU_DEFAULT_RING_E164,
+    }
   }
+}
+
+/** Prefer account owner cell; fall back to Key Squad (502) 260-2716. */
+async function resolveOwnerRingE164(
+  ownerUserId: string | null,
+  businessLineRaw: string
+): Promise<string> {
+  if (ownerUserId) {
+    try {
+      const sql = neon(resolveNeonDatabaseUrl())
+      const rows = await sql`
+        SELECT
+          NULLIF(trim(u.phone), '') AS owner_phone,
+          NULLIF(trim(rc.custom_routing_phone), '') AS custom_phone
+        FROM users u
+        LEFT JOIN routing_config rc
+          ON rc.user_id = u.id AND rc.business_number IS NULL
+        WHERE u.id = ${ownerUserId}
+        LIMIT 1
+      `
+      const row = rows[0] as { owner_phone?: string | null; custom_phone?: string | null } | undefined
+      const custom = row?.custom_phone
+        ? normalizePhoneNumberE164(row.custom_phone) || toE164(row.custom_phone)
+        : ""
+      const owner = row?.owner_phone
+        ? normalizePhoneNumberE164(row.owner_phone) || toE164(row.owner_phone)
+        : ""
+      if (custom) return custom
+      if (owner) return owner
+    } catch (e) {
+      console.warn("[telnyx-menu] owner ring lookup failed:", e)
+    }
+  }
+  const line = normalizePhoneNumberE164(businessLineRaw) || toE164(businessLineRaw)
+  // Never dial the business DID back to itself — use the default cell.
+  if (line && line === TELNYX_MENU_DEFAULT_RING_E164) return TELNYX_MENU_DEFAULT_RING_E164
+  return TELNYX_MENU_DEFAULT_RING_E164
+}
+
+async function resolveSecureBookUrl(opts: {
+  fromE164: string
+  ownerUserId: string | null
+  businessLineE164?: string
+  source?: string
+}): Promise<string> {
+  const line = opts.businessLineE164?.trim() || ""
+  if (opts.ownerUserId && line) {
+    const created = await createBookingInvite({
+      ownerUserId: opts.ownerUserId,
+      businessLine: line,
+      callerPhone: opts.fromE164 || null,
+      source: opts.source || "ivr",
+    })
+    if (created?.url) return created.url
+  }
+  return buildBookQueryUrl({
+    callerPhone: opts.fromE164,
+    businessLine: line || opts.fromE164,
+  })
 }
 
 async function runSmsLinkAction(opts: {
@@ -138,13 +223,11 @@ async function runSmsLinkAction(opts: {
   ownerUserId: string | null
   /** Business DID so /book knows which calendar to show. */
   businessLineE164?: string
+  source?: string
 }): Promise<string> {
   if (opts.fromE164) {
-    const text = buildTelnyxMenuBookingSms(
-      opts.fromE164,
-      "https://lyncr.app/book",
-      opts.businessLineE164
-    )
+    const bookUrl = await resolveSecureBookUrl(opts)
+    const text = buildTelnyxMenuBookingSms(opts.fromE164, bookUrl, opts.businessLineE164)
     try {
       const sent = await sendTelnyxSms({
         toE164: opts.fromE164,
@@ -157,6 +240,19 @@ async function runSmsLinkAction(opts: {
     }
   }
   return buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY)
+}
+
+function runRingPhoneAction(opts: {
+  ringE164: string
+  businessLineE164?: string
+}): string {
+  const actionUrl = menuSelfUrl({ step: "dial-fallback" })
+  return buildTelnyxMenuDialXml({
+    ringE164: opts.ringE164 || TELNYX_MENU_DEFAULT_RING_E164,
+    actionUrl,
+    callerId: opts.businessLineE164 || null,
+    timeoutSeconds: TELNYX_MENU_DIAL_TIMEOUT_SECONDS,
+  })
 }
 
 async function runLiveBookingAction(opts: {
@@ -194,7 +290,7 @@ async function runLiveBookingAction(opts: {
 }
 
 function runVoicemailAction(): string {
-  const cb = `${menuSelfUrl()}?step=vm-done`
+  const cb = menuSelfUrl({ step: "vm-done" })
   return buildTelnyxMenuVoicemailXml(cb)
 }
 
@@ -203,10 +299,13 @@ async function dispatchIvrAction(opts: {
   fromE164: string
   ownerUserId: string | null
   businessLineE164?: string
+  ringE164: string
 }): Promise<string> {
   switch (opts.action) {
     case "sms_link":
       return runSmsLinkAction(opts)
+    case "ring_phone":
+      return runRingPhoneAction(opts)
     case "live_booking":
       return runLiveBookingAction(opts)
     case "voicemail":
@@ -224,8 +323,12 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.get("To") ||
     req.nextUrl.searchParams.get("to") ||
     ""
-  const { settings } = to ? await resolveIvrContext(to) : { settings: DEFAULT_IVR_MENU_SETTINGS }
-  return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText))
+  const { settings } = to
+    ? await resolveIvrContext(to)
+    : { settings: { ...DEFAULT_IVR_MENU_SETTINGS, ivrGreetingText: TELNYX_MENU_PROMPT } }
+  return xmlResponse(
+    buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText || TELNYX_MENU_PROMPT)
+  )
 }
 
 export async function POST(req: NextRequest) {
@@ -236,13 +339,19 @@ export async function POST(req: NextRequest) {
   const fromE164 = fromRaw ? normalizePhoneNumberE164(fromRaw) || toE164(fromRaw) : ""
   const businessLineE164 = toRaw ? normalizePhoneNumberE164(toRaw) || toE164(toRaw) : ""
   const step = pickField(fields, ["step"])
+  const dialStatus = pickField(fields, [
+    "DialCallStatus",
+    "DialStatus",
+    "DialCallLegStatus",
+    "DialCallLegState",
+  ])
 
   // After voicemail Record completes, hang up politely.
   if (step === "vm-done") {
     return xmlResponse(buildTelnyxMenuSayHangupXml("Thank you. Goodbye."))
   }
 
-  const { ownerUserId, settings } = await resolveIvrContext(toRaw)
+  const { ownerUserId, settings, ringE164 } = await resolveIvrContext(toRaw)
 
   const callSid = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
   // Reinforce IVR tagging whenever the menu Gather runs (covers status "answered" races).
@@ -253,9 +362,52 @@ export async function POST(req: NextRequest) {
     }).catch((e) => console.warn("[telnyx-menu] IVR call-log tag failed:", e))
   }
 
+  // Digits=2 Dial action callback — unanswered → busy Gather; answered/completed → hangup.
+  if (step === "dial-fallback") {
+    if (dialStatus && !isTelnyxMenuDialUnanswered(dialStatus)) {
+      // Owner connected (or call already ended after a bridge) — clean hangup.
+      return xmlResponse(buildTelnyxMenuHangupXml())
+    }
+    // no-answer / busy / failed / timeout / missing status → offer SMS booking again.
+    return xmlResponse(
+      buildTelnyxMenuBusyFallbackGatherXml(
+        menuSelfUrl({ step: "busy-gather" }),
+        TELNYX_MENU_BUSY_FALLBACK_PROMPT
+      )
+    )
+  }
+
+  // Busy-fallback Gather — Press 1 texts the secure booking link.
+  if (step === "busy-gather") {
+    if (digits === "1") {
+      const xml = await runSmsLinkAction({
+        fromE164,
+        ownerUserId,
+        businessLineE164,
+        source: "ivr_busy_fallback",
+      })
+      if (callSid) void markIvrActionCompleted(callSid)
+      return xmlResponse(xml)
+    }
+    if (!digits) {
+      return xmlResponse(buildTelnyxMenuSayHangupXml("Goodbye."))
+    }
+    return xmlResponse(
+      buildTelnyxMenuBusyFallbackGatherXml(
+        menuSelfUrl({ step: "busy-gather" }),
+        TELNYX_MENU_BUSY_FALLBACK_PROMPT
+      )
+    )
+  }
+
   // No Digits yet → present the dashboard-configured IVR greeting.
   if (!digits) {
-    return xmlResponse(buildTelnyxMenuGatherXml(menuSelfUrl(), settings.ivrGreetingText))
+    return xmlResponse(
+      buildTelnyxMenuGatherXml(
+        menuSelfUrl(),
+        settings.ivrGreetingText || TELNYX_MENU_PROMPT
+      )
+    )
   }
 
   if (digits === "1") {
@@ -264,19 +416,21 @@ export async function POST(req: NextRequest) {
       fromE164,
       ownerUserId,
       businessLineE164,
+      ringE164,
     })
     if (callSid) void markIvrActionCompleted(callSid)
     return xmlResponse(xml)
   }
 
   if (digits === "2") {
+    // Product route: Dial owner cell (20s) → unanswered busy SMS fallback.
     const xml = await dispatchIvrAction({
-      action: settings.ivrOption2Action,
+      action: "ring_phone",
       fromE164,
       ownerUserId,
       businessLineE164,
+      ringE164,
     })
-    if (callSid) void markIvrActionCompleted(callSid)
     return xmlResponse(xml)
   }
 

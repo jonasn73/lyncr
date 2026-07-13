@@ -18,10 +18,17 @@ type AvailabilityPayload = {
   fully_booked?: boolean
 }
 
-export default function BookPageClient() {
+export default function BookPageClient({
+  initialLine = "",
+  initialPhone = "",
+}: {
+  /** From /book/[id] invite resolution — used when query string is absent. */
+  initialLine?: string
+  initialPhone?: string
+} = {}) {
   const searchParams = useSearchParams()
-  const phone = searchParams.get("phone")?.trim() || ""
-  const line = searchParams.get("line")?.trim() || ""
+  const phone = searchParams.get("phone")?.trim() || initialPhone.trim() || ""
+  const line = searchParams.get("line")?.trim() || initialLine.trim() || ""
   const depositStatus = searchParams.get("deposit")?.trim() || ""
 
   const [loading, setLoading] = useState(true)
