@@ -1,5 +1,6 @@
-// POST /api/retell-booking — Retell AI custom-function webhook bridge.
-// Expects `{ name, args }` and routes check_next_available_slot | confirm_monday_booking.
+// POST /api/retell-booking — Retell AI custom-function + inbound call webhook bridge.
+// Supports: call-start dynamic greeting ([dynamic_slot]), slot check, booking confirm,
+// and DTMF/voice shortcuts (1/book it → confirm, 2/questions → open conversation).
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
@@ -8,6 +9,8 @@ import { listOwnerSchedulerEvents } from "@/lib/db"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
 import { getNextAvailableSlot } from "@/lib/smart-overflow-autopilot"
 import {
+  buildRetellInboundGreetingResponse,
+  isRetellInboundCallEvent,
   parseRetellBookingPayload,
   routeRetellBookingTool,
   type RetellBookingRequestBody,
@@ -43,6 +46,20 @@ function resolveOwnerUserId(req: NextRequest, args: Record<string, unknown>): st
   return getUserIdFromRequest(req.headers.get("cookie"))
 }
 
+function ownerIdFromInboundBody(body: RetellBookingRequestBody): Record<string, unknown> {
+  const meta = body.call?.metadata || {}
+  const inbound = body.call_inbound || {}
+  return {
+    ownerUserId:
+      meta.ownerUserId ||
+      meta.owner_user_id ||
+      meta.userId ||
+      inbound.ownerUserId ||
+      inbound.owner_user_id ||
+      undefined,
+  }
+}
+
 async function loadMonthEvents(ownerUserId: string): Promise<SchedulerEvent[]> {
   const now = new Date()
   const range = monthRangeUtc(now.getFullYear(), now.getMonth())
@@ -71,6 +88,7 @@ export async function GET(req: NextRequest) {
   const events = await loadMonthEvents(ownerUserId)
   const slot = getNextAvailableSlot(new Date(), events)
   const available_slot_raw = slot?.text || "Monday morning at 9:00 AM"
+  const greeting = buildRetellInboundGreetingResponse(events, new Date())
 
   return NextResponse.json({
     data: {
@@ -81,6 +99,8 @@ export async function GET(req: NextRequest) {
       available_slot_raw,
       offering: `Offering: ${available_slot_raw}`,
       scheduled_at_iso: slot?.scheduledAtIso || null,
+      begin_message: greeting.call_inbound.agent_override.retell_llm.begin_message,
+      dynamic_slot: available_slot_raw,
     },
   })
 }
@@ -103,6 +123,20 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // ── 1) Call-start / inbound webhook → inject [dynamic_slot] into greeting ──
+  if (isRetellInboundCallEvent(body)) {
+    const ownerUserId = resolveOwnerUserId(req, ownerIdFromInboundBody(body))
+    if (!ownerUserId) {
+      // Still answer Retell quickly with a soft default so the call is not rejected.
+      const fallback = buildRetellInboundGreetingResponse([], new Date())
+      return NextResponse.json(fallback)
+    }
+    const events = await loadMonthEvents(ownerUserId)
+    const greeting = buildRetellInboundGreetingResponse(events, new Date())
+    return NextResponse.json(greeting)
+  }
+
+  // ── 2) Custom functions + DTMF / spoken intent shortcuts ──
   const { name, args } = parseRetellBookingPayload(body)
   const ownerUserId = resolveOwnerUserId(req, args)
   if (!ownerUserId) {
@@ -157,6 +191,31 @@ export async function POST(req: NextRequest) {
       available_slot_raw: routed.available_slot_raw,
       scheduled_at_iso: routed.scheduled_at_iso,
       tool: routed.tool,
+      connection_label: "API: Active / Connected to Retell AI",
+    })
+  }
+
+  if (routed.tool === "start_confirm_monday_booking") {
+    return NextResponse.json({
+      speech_response: routed.speech_response,
+      available_slot_raw: routed.available_slot_raw,
+      scheduled_at_iso: routed.scheduled_at_iso,
+      tool: routed.tool,
+      llm_context_state: routed.llm_context_state,
+      next_action: routed.next_action,
+      digit: routed.digit ?? null,
+      connection_label: "API: Active / Connected to Retell AI",
+    })
+  }
+
+  if (routed.tool === "open_conversation_mode") {
+    return NextResponse.json({
+      speech_response: routed.speech_response,
+      available_slot_raw: routed.available_slot_raw,
+      tool: routed.tool,
+      llm_context_state: routed.llm_context_state,
+      next_action: routed.next_action,
+      digit: "digit" in routed ? routed.digit ?? null : null,
       connection_label: "API: Active / Connected to Retell AI",
     })
   }

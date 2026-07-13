@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildRetellInboundGreetingResponse,
+  classifyCallerIntent,
+  handleCallerIntentShortcut,
   handleCheckNextAvailableSlot,
   handleConfirmMondayBooking,
+  injectDynamicSlotGreeting,
+  isRetellInboundCallEvent,
   parseRetellBookingPayload,
   routeRetellBookingTool,
+  RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE,
 } from "@/lib/retell-booking"
 import { combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { SchedulerEvent } from "@/lib/types"
@@ -74,5 +80,61 @@ describe("retell booking tools", () => {
   it("routes unknown tools to a speech fallback error", () => {
     const routed = routeRetellBookingTool("do_something_else", {}, [])
     expect("error" in routed).toBe(true)
+  })
+
+  it("injects [dynamic_slot] into the inbound begin message", () => {
+    const text = injectDynamicSlotGreeting(
+      RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE,
+      "Monday morning at 9:00 AM"
+    )
+    expect(text).toContain("Monday morning at 9:00 AM")
+    expect(text).not.toContain("[dynamic_slot]")
+  })
+
+  it("builds Retell call_inbound greeting override with dynamic_variables", () => {
+    const now = new Date(2026, 6, 13, 8, 0, 0, 0)
+    const greeting = buildRetellInboundGreetingResponse([], now)
+    expect(greeting.call_inbound.dynamic_variables.dynamic_slot).toBeTruthy()
+    expect(greeting.call_inbound.agent_override.retell_llm.begin_message).toContain(
+      greeting.available_slot_raw
+    )
+    expect(greeting.call_inbound.agent_override.retell_llm.begin_message).not.toContain(
+      "[dynamic_slot]"
+    )
+  })
+
+  it("detects inbound call webhook events", () => {
+    expect(isRetellInboundCallEvent({ event: "call_started" })).toBe(true)
+    expect(isRetellInboundCallEvent({ call_inbound: { from_number: "+1" } })).toBe(true)
+    expect(
+      isRetellInboundCallEvent({ name: "check_next_available_slot", args: {} })
+    ).toBe(false)
+  })
+
+  it("classifies DTMF 1 / book it as book and 2 / questions as open conversation", () => {
+    expect(classifyCallerIntent({ digit: "1" })).toBe("book")
+    expect(classifyCallerIntent({ utterance: "yes book it" })).toBe("book")
+    expect(classifyCallerIntent({ digit: "2" })).toBe("open_conversation")
+    expect(classifyCallerIntent({ utterance: "I have questions about pricing" })).toBe(
+      "open_conversation"
+    )
+  })
+
+  it("handle_caller_intent routes digit 1 into confirm collection state", () => {
+    const now = new Date(2026, 6, 13, 8, 0, 0, 0)
+    const result = handleCallerIntentShortcut({ digit: "1" }, [], now)
+    expect("error" in result).toBe(false)
+    if ("error" in result) return
+    expect(result.tool).toBe("start_confirm_monday_booking")
+    expect(result.llm_context_state).toBe("confirm_monday_booking_collect")
+  })
+
+  it("handle_caller_intent routes digit 2 into open conversation mode", () => {
+    const now = new Date(2026, 6, 13, 8, 0, 0, 0)
+    const result = handleCallerIntentShortcut({ digit: "2" }, [], now)
+    expect("error" in result).toBe(false)
+    if ("error" in result) return
+    expect(result.tool).toBe("open_conversation_mode")
+    expect(result.llm_context_state).toBe("open_conversation")
   })
 })
