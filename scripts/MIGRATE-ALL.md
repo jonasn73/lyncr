@@ -102,6 +102,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 97 | `097-photo-upload-alerts.sql` | **Delayed photo alerts.** Adds **`job_photo_tokens.ticket_status`** (`awaiting_photos` / `pending_info` / `resolved`) + **`operator_alert_sent_at`**, and **`operator_dashboard_heartbeats`**. Powers Pusher **`notification.photo_uploaded`** toast + Telnyx SMS to the operator when customers upload after the call. |
 | 98 | `098-intake-rescue.sql` | **Pending Info Intake.** Adds customer name / VIN / notes / decoded vehicle columns on **`job_photo_tokens`**, photo **`category`** (`damage` / `id_verification`), and **`info_received`** ticket status for `/intake-rescue`. |
 | 99 | `099-intake-rescue-optional-id-vin.sql` | **Low-friction rescue.** Adds **`verify_on_arrival`** + **`vin_unavailable`** on **`job_photo_tokens`** so ID upload and VIN are optional; operator sees VERIFY ID ON SITE badge. |
+| 100 | `100-presence-automation-greetings.sql` | **Automation Voice Greetings.** Adds **`on_job_greeting_text`** + **`closed_greeting_text`** on **`account_settings`** (defaults = Key Squad On-Job / Closed Speak scripts). Powers Lines → 🤖 Automation Voice Greetings and dynamic TeXML on **`/api/telnyx-menu`** / inbound capture. **Required** to save custom presence greetings; app uses product defaults until applied. |
 
 ## Platform admin (`admin@lyncr.app`)
 

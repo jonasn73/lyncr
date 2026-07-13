@@ -35,5 +35,11 @@ describe("account presence", () => {
 
     // Closed and On-Job must not share the same Speak copy.
     expect(PRESENCE_CLOSED_PROMPT).not.toBe(PRESENCE_ON_JOB_PROMPT)
+
+    const custom = buildPresenceOnJobGatherXml(
+      "https://lyncr.app/api/telnyx-capture?step=presence-on-job",
+      "Custom on-job greeting from the dashboard."
+    )
+    expect(custom).toContain("Custom on-job greeting from the dashboard.")
   })
 })

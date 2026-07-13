@@ -15,6 +15,7 @@ import { isAiIntakeProfileId, type AiIntakeProfileId } from "@/lib/business-indu
 import type { Contact, FallbackOption } from "@/lib/dashboard-routing-utils"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { IvrGreetingsSettingsForm } from "@/components/dashboard/ivr-greetings-settings-form"
+import { PresenceAutomationGreetingsForm } from "@/components/dashboard/presence-automation-greetings-form"
 
 const PROMPT_PLACEHOLDER =
   "Example: You are the front-desk receptionist for a premium service company. Professionally greet the caller, ask how we can help, collect their name and problem, and let them know a technician will call them right back..."
@@ -443,8 +444,9 @@ export function DashboardVoiceAiDrawer({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">
-        <div className="mb-8">
+        <div className="mb-8 space-y-6">
           <IvrGreetingsSettingsForm routingBusinessNumber={routingBusinessNumber} />
+          <PresenceAutomationGreetingsForm />
         </div>
         <VoiceAiDrawerBody
           bufferedScript={bufferedScript}

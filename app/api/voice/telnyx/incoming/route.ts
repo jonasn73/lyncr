@@ -90,6 +90,10 @@ import {
   buildPresenceOnJobGatherXml,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
+import {
+  getAccountPresence,
+  resolvePresenceAutomationGreeting,
+} from "@/lib/account-presence"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -1512,14 +1516,40 @@ async function tryFastInboundReceptionistResponse(
         }
 
         let xml: string
-        if (plan.kind === "presence_closed") {
-          xml = buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`)
+        if (plan.kind === "presence_closed" || plan.kind === "presence_on_job") {
+          // Load dashboard custom Speak scripts (account_settings) with product defaults.
+          let onJobGreeting: string | undefined
+          let closedGreeting: string | undefined
+          if (routing.user_id) {
+            try {
+              const presence = await getAccountPresence(routing.user_id)
+              onJobGreeting = presence.onJobGreetingText
+              closedGreeting = presence.closedGreetingText
+            } catch (e) {
+              console.warn("[telnyx-incoming] presence greeting lookup skipped:", e)
+            }
+          }
+          if (plan.kind === "presence_closed") {
+            xml = buildPresenceClosedGatherXml(
+              `${captureBase}?step=presence-closed`,
+              resolvePresenceAutomationGreeting({
+                presenceStatus: "CLOSED",
+                closedGreetingText: closedGreeting,
+              })
+            )
+          } else {
+            xml = buildPresenceOnJobGatherXml(
+              `${captureBase}?step=presence-on-job`,
+              resolvePresenceAutomationGreeting({
+                presenceStatus: "ON_JOB",
+                onJobGreetingText: onJobGreeting,
+              })
+            )
+          }
         } else if (plan.kind === "calendar_full_day") {
           xml = buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
         } else if (plan.kind === "calendar_partial") {
           xml = buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
-        } else if (plan.kind === "presence_on_job") {
-          xml = buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`)
         } else {
           xml = buildDayCaptureDialXml({
             ringE164: ownerDial,

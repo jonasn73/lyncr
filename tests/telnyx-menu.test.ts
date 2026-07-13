@@ -101,6 +101,22 @@ describe("telnyx menu IVR helpers", () => {
     expect(TELNYX_MENU_ON_JOB_PROMPT).not.toBe(TELNYX_MENU_CLOSED_PROMPT)
   })
 
+  it("prefers custom account_settings greetings over product defaults", () => {
+    expect(
+      resolveTelnyxMenuGreetingForPresence("ON_JOB", {
+        onJobGreetingText: "Custom on-job script for callers.",
+      })
+    ).toBe("Custom on-job script for callers.")
+    expect(
+      resolveTelnyxMenuGreetingForPresence("CLOSED", {
+        closedGreetingText: "Custom closed script for callers.",
+      })
+    ).toBe("Custom closed script for callers.")
+    expect(
+      resolveTelnyxMenuGreetingForPresence("ON_JOB", { onJobGreetingText: "   " })
+    ).toBe(TELNYX_MENU_ON_JOB_PROMPT)
+  })
+
   it("builds Digits=2 Dial with 20s timeout and unanswered action URL", () => {
     const xml = buildTelnyxMenuDialXml({
       ringE164: TELNYX_MENU_DEFAULT_RING_E164,

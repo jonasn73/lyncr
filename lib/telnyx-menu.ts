@@ -25,19 +25,31 @@ export const TELNYX_MENU_CLOSED_PROMPT =
 
 /**
  * Pick the initial IVR <Say> greeting from presence_status.
- * AVAILABLE uses the standard menu; ON_JOB / CLOSED use presence-specific copy.
+ * Optional custom scripts (from account_settings) override product defaults.
  */
 export function resolveTelnyxMenuGreetingForPresence(
-  presenceStatus: "AVAILABLE" | "ON_JOB" | "CLOSED" | string | null | undefined
+  presenceStatus: "AVAILABLE" | "ON_JOB" | "CLOSED" | string | null | undefined,
+  custom?: {
+    onJobGreetingText?: string | null
+    closedGreetingText?: string | null
+  }
 ): string {
   // Normalize whatever the DB or UI sent into a comparable uppercase token.
   const status = String(presenceStatus || "")
     .trim()
     .toUpperCase()
   // Live lockout — still open, offer next dispatch slot by text.
-  if (status === "ON_JOB") return TELNYX_MENU_ON_JOB_PROMPT
+  if (status === "ON_JOB") {
+    const customText =
+      typeof custom?.onJobGreetingText === "string" ? custom.onJobGreetingText.trim() : ""
+    return customText || TELNYX_MENU_ON_JOB_PROMPT
+  }
   // Off-duty evening — tomorrow priority slot or voicemail.
-  if (status === "CLOSED") return TELNYX_MENU_CLOSED_PROMPT
+  if (status === "CLOSED") {
+    const customText =
+      typeof custom?.closedGreetingText === "string" ? custom.closedGreetingText.trim() : ""
+    return customText || TELNYX_MENU_CLOSED_PROMPT
+  }
   // Open / unknown — standard press-1 / press-2 menu.
   return TELNYX_MENU_PROMPT
 }

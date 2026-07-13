@@ -13,6 +13,7 @@ import {
   DrawerStickyFooter,
 } from "@/components/dashboard-routing-drawer-shared"
 import { IvrGreetingsSettingsForm } from "@/components/dashboard/ivr-greetings-settings-form"
+import { PresenceAutomationGreetingsForm } from "@/components/dashboard/presence-automation-greetings-form"
 import {
   ACTIVE_ROUTING_MODE_OPTIONS,
   LYNCR_ROUTING_MODE_CHANGED,
@@ -257,8 +258,13 @@ export function DashboardWhoAnswersDrawer({
             </fieldset>
 
             {mode === "smart_ivr" ? (
-              <IvrGreetingsSettingsForm routingBusinessNumber={routingBusinessNumber} />
-            ) : null}
+              <>
+                <IvrGreetingsSettingsForm routingBusinessNumber={routingBusinessNumber} />
+                <PresenceAutomationGreetingsForm />
+              </>
+            ) : (
+              <PresenceAutomationGreetingsForm />
+            )}
 
             {mode === "your_phone" ? (
               <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">

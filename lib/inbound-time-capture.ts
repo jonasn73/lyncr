@@ -163,12 +163,22 @@ export function buildCalendarPartialBusyGatherXml(actionUrl: string, voice = "al
   return buildSmsDefaultGatherXml(actionUrl, CALENDAR_PARTIAL_BUSY_PROMPT, voice)
 }
 
-export function buildPresenceClosedGatherXml(actionUrl: string, voice = "alice"): string {
-  return buildSmsDefaultGatherXml(actionUrl, PRESENCE_CLOSED_PROMPT, voice)
+/** CLOSED presence Gather — `prompt` overrides dashboard custom / product default. */
+export function buildPresenceClosedGatherXml(
+  actionUrl: string,
+  prompt: string = PRESENCE_CLOSED_PROMPT,
+  voice = "alice"
+): string {
+  return buildSmsDefaultGatherXml(actionUrl, prompt.trim() || PRESENCE_CLOSED_PROMPT, voice)
 }
 
-export function buildPresenceOnJobGatherXml(actionUrl: string, voice = "alice"): string {
-  return buildSmsDefaultGatherXml(actionUrl, PRESENCE_ON_JOB_PROMPT, voice)
+/** ON_JOB presence Gather — `prompt` overrides dashboard custom / product default. */
+export function buildPresenceOnJobGatherXml(
+  actionUrl: string,
+  prompt: string = PRESENCE_ON_JOB_PROMPT,
+  voice = "alice"
+): string {
+  return buildSmsDefaultGatherXml(actionUrl, prompt.trim() || PRESENCE_ON_JOB_PROMPT, voice)
 }
 
 /** Day first ring — 15s Dial, then action URL for unanswered fallback. */

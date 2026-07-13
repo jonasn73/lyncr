@@ -51,6 +51,10 @@ import {
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
+import {
+  getAccountPresence,
+  resolvePresenceAutomationGreeting,
+} from "@/lib/account-presence"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -309,7 +313,7 @@ async function dispatchIvrAction(opts: {
 
 /** Calendar + presence entry TeXML (shared with /api/telnyx-capture).
  * Fetches presence via resolveInboundCapturePlan → getAccountPresence,
- * then Speak uses ON_JOB / CLOSED greetings from lib/telnyx-menu.ts.
+ * then Speak uses account_settings custom greetings (or product defaults).
  */
 async function buildCalendarAwareEntryXml(opts: {
   ownerUserId: string | null
@@ -319,9 +323,27 @@ async function buildCalendarAwareEntryXml(opts: {
   // Load ACTIVE line presence (CLOSED / ON_JOB / AVAILABLE) + calendar overrides.
   const plan = await resolveInboundCapturePlan({ ownerUserId: opts.ownerUserId })
   const captureBase = `${getAppUrl().replace(/\/+$/, "")}/api/telnyx-capture`
-  // Manual Closed → off-duty evening Speak (TELNYX_MENU_CLOSED_PROMPT).
+
+  // Custom Speak scripts from account_settings (dashboard Automation Voice Greetings).
+  let onJobGreeting: string | undefined
+  let closedGreeting: string | undefined
+  if (opts.ownerUserId) {
+    try {
+      const presence = await getAccountPresence(opts.ownerUserId)
+      onJobGreeting = presence.onJobGreetingText
+      closedGreeting = presence.closedGreetingText
+    } catch (e) {
+      console.warn("[telnyx-menu] presence greeting lookup skipped:", e)
+    }
+  }
+
+  // Manual Closed → off-duty Speak (custom closed_greeting_text || default).
   if (plan.kind === "presence_closed") {
-    return buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`)
+    const say = resolvePresenceAutomationGreeting({
+      presenceStatus: "CLOSED",
+      closedGreetingText: closedGreeting,
+    })
+    return buildPresenceClosedGatherXml(`${captureBase}?step=presence-closed`, say)
   }
   if (plan.kind === "calendar_full_day") {
     return buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
@@ -329,9 +351,13 @@ async function buildCalendarAwareEntryXml(opts: {
   if (plan.kind === "calendar_partial") {
     return buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
   }
-  // On Job → live lockout Speak (TELNYX_MENU_ON_JOB_PROMPT).
+  // On Job → live lockout Speak (custom on_job_greeting_text || default).
   if (plan.kind === "presence_on_job") {
-    return buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`)
+    const say = resolvePresenceAutomationGreeting({
+      presenceStatus: "ON_JOB",
+      onJobGreetingText: onJobGreeting,
+    })
+    return buildPresenceOnJobGatherXml(`${captureBase}?step=presence-on-job`, say)
   }
   return buildDayCaptureDialXml({
     ringE164: opts.ringE164 || TELNYX_MENU_DEFAULT_RING_E164,
