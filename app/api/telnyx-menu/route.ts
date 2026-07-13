@@ -12,6 +12,8 @@ import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { getAppUrl } from "@/lib/telnyx"
 import { toE164 } from "@/lib/phone-e164"
 import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
+import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
+import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import {
   DEFAULT_IVR_MENU_SETTINGS,
   type IvrMenuAction,
@@ -28,7 +30,7 @@ import {
   buildTelnyxMenuVoicemailXml,
   getEarliestOpenBlockTomorrow,
 } from "@/lib/telnyx-menu"
-import type { SchedulerEvent } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -96,6 +98,24 @@ async function loadOwnerMonthEvents(ownerUserId: string): Promise<SchedulerEvent
   }
 }
 
+/** Load blockouts covering tomorrow + a short lookahead for IVR slot math. */
+async function loadOwnerBlockoutsNearNow(ownerUserId: string): Promise<ScheduleBlockout[]> {
+  const now = new Date()
+  const from = defaultIntakeScheduleDate(now)
+  const ahead = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 16)
+  const to = defaultIntakeScheduleDate(ahead)
+  try {
+    return await listScheduleBlockouts({
+      ownerUserId,
+      fromDate: from,
+      toDate: to,
+    })
+  } catch (e) {
+    console.warn("[telnyx-menu] blockouts list skipped:", e)
+    return []
+  }
+}
+
 async function resolveIvrContext(toRaw: string): Promise<{
   ownerUserId: string | null
   settings: IvrMenuSettings
@@ -114,9 +134,15 @@ async function resolveIvrContext(toRaw: string): Promise<{
 async function runSmsLinkAction(opts: {
   fromE164: string
   ownerUserId: string | null
+  /** Business DID so /book knows which calendar to show. */
+  businessLineE164?: string
 }): Promise<string> {
   if (opts.fromE164) {
-    const text = buildTelnyxMenuBookingSms(opts.fromE164)
+    const text = buildTelnyxMenuBookingSms(
+      opts.fromE164,
+      "https://lyncr.app/book",
+      opts.businessLineE164
+    )
     try {
       const sent = await sendTelnyxSms({
         toE164: opts.fromE164,
@@ -137,8 +163,11 @@ async function runLiveBookingAction(opts: {
 }): Promise<string> {
   if (opts.ownerUserId && opts.fromE164) {
     try {
-      const events = await loadOwnerMonthEvents(opts.ownerUserId)
-      const slot = getEarliestOpenBlockTomorrow(events, new Date())
+      const [events, blockouts] = await Promise.all([
+        loadOwnerMonthEvents(opts.ownerUserId),
+        loadOwnerBlockoutsNearNow(opts.ownerUserId),
+      ])
+      const slot = getEarliestOpenBlockTomorrow(events, new Date(), blockouts)
       const scheduledAtIso =
         slot?.scheduledAtIso ||
         (() => {
@@ -173,6 +202,7 @@ async function dispatchIvrAction(opts: {
   action: IvrMenuAction
   fromE164: string
   ownerUserId: string | null
+  businessLineE164?: string
 }): Promise<string> {
   switch (opts.action) {
     case "sms_link":
@@ -204,6 +234,7 @@ export async function POST(req: NextRequest) {
   const fromRaw = pickField(fields, ["From", "from", "Caller", "caller"])
   const toRaw = pickField(fields, ["To", "to", "Called", "called"])
   const fromE164 = fromRaw ? normalizePhoneNumberE164(fromRaw) || toE164(fromRaw) : ""
+  const businessLineE164 = toRaw ? normalizePhoneNumberE164(toRaw) || toE164(toRaw) : ""
   const step = pickField(fields, ["step"])
 
   // After voicemail Record completes, hang up politely.
@@ -223,6 +254,7 @@ export async function POST(req: NextRequest) {
       action: settings.ivrOption1Action,
       fromE164,
       ownerUserId,
+      businessLineE164,
     })
     return xmlResponse(xml)
   }
@@ -232,6 +264,7 @@ export async function POST(req: NextRequest) {
       action: settings.ivrOption2Action,
       fromE164,
       ownerUserId,
+      businessLineE164,
     })
     return xmlResponse(xml)
   }

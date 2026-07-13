@@ -206,6 +206,29 @@ export interface SchedulerEvent {
   /** Tech must verify key style / door electronics before cutting. */
   field_verification_required?: boolean | null
 }
+
+/**
+ * Owner-defined calendar unavailability (full day or a time window).
+ * Stored in `schedule_blockouts` — used by Scheduler UI, /book, and IVR slot math.
+ */
+export interface ScheduleBlockout {
+  id: string
+  user_id: string
+  organization_id: string | null
+  /** Local calendar day YYYY-MM-DD (e.g. "2026-07-14"). */
+  date: string
+  /** When true, the whole day is unavailable. */
+  is_full_day: boolean
+  /** HH:mm start when not full-day (e.g. "10:30"). */
+  start_time: string | null
+  /** HH:mm end when not full-day (e.g. "12:00"). */
+  end_time: string | null
+  /** Optional label (e.g. "Doctor Appointment"). */
+  reason: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface UnassignedPoolJob {
   id: string
   customer_name: string | null

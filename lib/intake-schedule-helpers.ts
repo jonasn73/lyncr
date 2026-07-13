@@ -1,7 +1,11 @@
 // Helpers for the post-intake “Schedule this job” dialog (date + time fields).
 
 import { dayKeyLocal } from "@/lib/scheduler-utils"
-import type { SchedulerEvent } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
+import {
+  isDateFullyBlocked,
+  slotOverlapsBlockout,
+} from "@/lib/schedule-blockouts"
 
 /** Today’s calendar date as YYYY-MM-DD in the local timezone. */
 export function defaultIntakeScheduleDate(now = new Date()): string {
@@ -139,15 +143,48 @@ export function findScheduleConflicts(
   timeValue: string,
   durationMinutes: number,
   assignedTechId: string | null,
-  excludeJobId?: string | null
+  excludeJobId?: string | null,
+  blockouts: readonly ScheduleBlockout[] = []
 ): SchedulerEvent[] {
+  // Full-day or overlapping blockouts act like hard conflicts (synthetic marker id).
+  if (
+    isDateFullyBlocked(blockouts, dateKey) ||
+    slotOverlapsBlockout(blockouts, dateKey, timeValue, durationMinutes)
+  ) {
+    return [
+      {
+        id: `blockout:${dateKey}:${timeValue}`,
+        customer_name: "Blocked",
+        customer_phone: null,
+        location: null,
+        summary: "Schedule blockout",
+        disposition: "BOOKED",
+        scheduled_at: combineDateAndTime(dateKey, timeValue) || new Date().toISOString(),
+        scheduled_tentative: false,
+        created_at: new Date().toISOString(),
+        job_type: "Blockout",
+        duration_minutes: durationMinutes,
+        assigned_tech_id: null,
+        assigned_tech_name: null,
+        vehicle_year: null,
+        vehicle_make: null,
+        vehicle_model: null,
+        job_notes: null,
+        latitude: null,
+        longitude: null,
+        job_status: null,
+        dispatch_status: null,
+      },
+    ]
+  }
+
   const proposed = proposedTimeRange(dateKey, timeValue, durationMinutes)
   if (!proposed) return []
   const dayEvents = eventsOnScheduleDay(events, dateKey, excludeJobId)
   return dayEvents.filter((ev) => rangesOverlap(proposed, eventTimeRange(ev), assignedTechId))
 }
 
-/** First open slot on a day (optional starting time filter). */
+/** First open slot on a day (optional starting time filter) — respects blockouts. */
 export function suggestNextOpenTime(
   events: SchedulerEvent[],
   dateKey: string,
@@ -155,10 +192,22 @@ export function suggestNextOpenTime(
   assignedTechId: string | null,
   excludeJobId?: string | null,
   startHour = 7,
-  endHour = 19
+  endHour = 19,
+  blockouts: readonly ScheduleBlockout[] = []
 ): string | null {
+  if (isDateFullyBlocked(blockouts, dateKey)) return null
   for (const slot of scheduleTimeSlotOptions(startHour, endHour)) {
-    if (findScheduleConflicts(events, dateKey, slot.value, durationMinutes, assignedTechId, excludeJobId).length === 0) {
+    if (
+      findScheduleConflicts(
+        events,
+        dateKey,
+        slot.value,
+        durationMinutes,
+        assignedTechId,
+        excludeJobId,
+        blockouts
+      ).length === 0
+    ) {
       return slot.value
     }
   }

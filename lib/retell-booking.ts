@@ -6,7 +6,7 @@ import {
   onAICallBookingReceived,
   type SmartOverflowPoolSchemaBlock,
 } from "@/lib/smart-overflow-autopilot"
-import type { SchedulerEvent } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 /** Tools Retell agents may invoke via POST /api/retell-booking. */
 export type RetellBookingToolName =
@@ -205,9 +205,10 @@ export function injectDynamicSlotGreeting(
 export function buildRetellInboundGreetingResponse(
   events: readonly SchedulerEvent[],
   now = new Date(),
-  beginMessageTemplate = RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE
+  beginMessageTemplate = RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE,
+  blockouts: readonly ScheduleBlockout[] = []
 ): RetellInboundGreetingResponse {
-  const slot = getNextAvailableSlot(now, events)
+  const slot = getNextAvailableSlot(now, events, { blockouts })
   const available_slot_raw = slot?.text || "Monday morning at 9:00 AM"
   const scheduled_at_iso = slot?.scheduledAtIso || ""
   const begin_message = injectDynamicSlotGreeting(beginMessageTemplate, available_slot_raw)
@@ -287,11 +288,12 @@ function extractIntentSignals(args: Record<string, unknown>): {
 export function handleCallerIntentShortcut(
   args: Record<string, unknown>,
   events: readonly SchedulerEvent[],
-  now = new Date()
+  now = new Date(),
+  blockouts: readonly ScheduleBlockout[] = []
 ): IntentShortcutResult | { error: string; speech_response: string } {
   const { digit, utterance } = extractIntentSignals(args)
   const intent = classifyCallerIntent({ digit, utterance })
-  const slot = handleCheckNextAvailableSlot(events, now)
+  const slot = handleCheckNextAvailableSlot(events, now, blockouts)
 
   if (intent === "book") {
     return {
@@ -329,9 +331,10 @@ export function handleCallerIntentShortcut(
 
 export function handleOpenConversationMode(
   events: readonly SchedulerEvent[],
-  now = new Date()
+  now = new Date(),
+  blockouts: readonly ScheduleBlockout[] = []
 ): OpenConversationToolResult {
-  const slot = handleCheckNextAvailableSlot(events, now)
+  const slot = handleCheckNextAvailableSlot(events, now, blockouts)
   return {
     tool: "open_conversation_mode",
     available_slot_raw: slot.available_slot_raw,
@@ -357,9 +360,10 @@ export function isRetellBookingToolName(name: string): name is RetellBookingTool
  */
 export function handleCheckNextAvailableSlot(
   events: readonly SchedulerEvent[],
-  now = new Date()
+  now = new Date(),
+  blockouts: readonly ScheduleBlockout[] = []
 ): CheckSlotToolResult {
-  const slot = getNextAvailableSlot(now, events)
+  const slot = getNextAvailableSlot(now, events, { blockouts })
   const available_slot_raw = slot?.text || "Monday morning at 9:00 AM"
   const speech_response = `The next available one-hour service opening is ${available_slot_raw}. Would you like me to book that for you?`
   return {
@@ -376,7 +380,8 @@ export function handleCheckNextAvailableSlot(
 export function handleConfirmMondayBooking(
   args: Record<string, unknown>,
   events: readonly SchedulerEvent[],
-  now = new Date()
+  now = new Date(),
+  blockouts: readonly ScheduleBlockout[] = []
 ): ConfirmBookingToolResult {
   const customerName =
     asString(args.customerName) ||
@@ -391,7 +396,7 @@ export function handleConfirmMondayBooking(
   const jobType =
     asString(args.jobType) || asString(args.job_type) || asString(args.service) || "Service call"
 
-  const check = handleCheckNextAvailableSlot(events, now)
+  const check = handleCheckNextAvailableSlot(events, now, blockouts)
   const booked = onAICallBookingReceived(
     {
       customerName,
@@ -426,7 +431,8 @@ export function routeRetellBookingTool(
   name: string,
   args: Record<string, unknown>,
   events: readonly SchedulerEvent[],
-  now = new Date()
+  now = new Date(),
+  blockouts: readonly ScheduleBlockout[] = []
 ):
   | CheckSlotToolResult
   | ConfirmBookingToolResult
@@ -437,24 +443,24 @@ export function routeRetellBookingTool(
 
   // Bare DTMF / spoken shortcut with no explicit tool name → intent router.
   if (!name && (digit || utterance)) {
-    return handleCallerIntentShortcut(args, events, now)
+    return handleCallerIntentShortcut(args, events, now, blockouts)
   }
 
   switch (name) {
     case "check_next_available_slot":
-      return handleCheckNextAvailableSlot(events, now)
+      return handleCheckNextAvailableSlot(events, now, blockouts)
     case "confirm_monday_booking":
-      return handleConfirmMondayBooking(args, events, now)
+      return handleConfirmMondayBooking(args, events, now, blockouts)
     case "handle_caller_intent":
     case "dtmf":
     case "dtmf_pressed":
-      return handleCallerIntentShortcut(args, events, now)
+      return handleCallerIntentShortcut(args, events, now, blockouts)
     case "open_conversation_mode":
-      return handleOpenConversationMode(events, now)
+      return handleOpenConversationMode(events, now, blockouts)
     default:
       // If the custom function name is unknown but digit/utterance is present, still route.
       if (digit || utterance) {
-        return handleCallerIntentShortcut(args, events, now)
+        return handleCallerIntentShortcut(args, events, now, blockouts)
       }
       return {
         error: `Unknown Retell tool: ${name || "(missing)"}`,

@@ -41,12 +41,16 @@ import {
 } from "@/components/scheduler/technician-swimlane-board"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { IntakeScheduleDialog } from "@/components/scheduler/intake-schedule-dialog"
+import { AddBlockoutModal } from "@/components/scheduler/add-blockout-modal"
+import { ScheduleBlockoutsPanel } from "@/components/scheduler/schedule-blockouts-panel"
 import { useRegisterDispatchCommands } from "@/lib/dispatch-command-bridge"
 import { useMarkJobComplete } from "@/lib/hooks/use-mark-job-complete"
 import { useEscapeDismiss } from "@/lib/hooks/use-workspace-keyboard"
+import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import type {
   ActivePipelineJob,
   FieldTechnician,
+  ScheduleBlockout,
   SchedulerEvent,
   UnassignedPoolJob,
 } from "@/lib/types"
@@ -69,6 +73,9 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
   const [events, setEvents] = useState<SchedulerEvent[]>([])
+  const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>([])
+  const [blockoutModalOpen, setBlockoutModalOpen] = useState(false)
+  const [deletingBlockoutId, setDeletingBlockoutId] = useState<string | null>(null)
   const [technicians, setTechnicians] = useState<FieldTechnician[]>([])
   const [lineIndustryTags, setLineIndustryTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -321,6 +328,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         (j: {
           data?: {
             events?: SchedulerEvent[]
+            blockouts?: ScheduleBlockout[]
             technicians?: FieldTechnician[]
             lineIndustryTags?: string[]
             ownerUserId?: string
@@ -332,6 +340,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           setEvents(
             deleted.size > 0 ? rawEvents.filter((ev) => !deleted.has(ev.id)) : rawEvents
           )
+          setBlockouts(Array.isArray(j.data?.blockouts) ? j.data!.blockouts! : [])
           setTechnicians(Array.isArray(j.data?.technicians) ? j.data!.technicians! : [])
           setLineIndustryTags(Array.isArray(j.data?.lineIndustryTags) ? j.data!.lineIndustryTags! : [])
           if (j.data?.ownerUserId) setOwnerUserId(j.data.ownerUserId)
@@ -339,6 +348,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       )
       .catch(() => {
         setEvents([])
+        setBlockouts([])
         setTechnicians([])
         setLineIndustryTags([])
       })
@@ -835,13 +845,22 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
-        <p className="hidden text-sm text-zinc-500 md:block lg:text-xs">
-          {intakeProfile === "locksmith"
-            ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
-            : intakeProfile === "detailing"
-              ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
-              : "Automotive field jobs with industry-specific intake fields and validated addresses."}
-        </p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="hidden text-sm text-zinc-500 md:block lg:text-xs">
+            {intakeProfile === "locksmith"
+              ? "Locksmith workspace — vehicle cascade, VIN lookup, AKL / key-type flags, and validated job addresses."
+              : intakeProfile === "detailing"
+                ? "Detailing workspace — vehicle size, pet hair, on-site utilities, and validated job addresses."
+                : "Automotive field jobs with industry-specific intake fields and validated addresses."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setBlockoutModalOpen(true)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-500"
+          >
+            + Add Blockout Time
+          </button>
+        </div>
 
         <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-4 lg:gap-6 lg:pb-0">
           {/* Left control column — new intake, hopper, live metrics */}
@@ -916,6 +935,28 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 {markCompleteError}
               </p>
             ) : null}
+
+            <ScheduleBlockoutsPanel
+              dateKey={selectedKey}
+              blockouts={blockouts}
+              deletingId={deletingBlockoutId}
+              onAdd={() => setBlockoutModalOpen(true)}
+              onDelete={(id) => {
+                void (async () => {
+                  setDeletingBlockoutId(id)
+                  try {
+                    const res = await fetch(`/api/owner/scheduler/blockouts/${encodeURIComponent(id)}`, {
+                      method: "DELETE",
+                      credentials: "include",
+                    })
+                    if (!res.ok) return
+                    setBlockouts((prev) => prev.filter((b) => b.id !== id))
+                  } finally {
+                    setDeletingBlockoutId(null)
+                  }
+                })()
+              }}
+            />
 
             {/* Empty board: one flat placeholder instead of nested empty panels. */}
             {displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
@@ -1066,6 +1107,16 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         organizationQuery={orgQuery}
         onSchedule={handleScheduleCommitted}
         onSkip={handleIntakeScheduleSkip}
+      />
+
+      <AddBlockoutModal
+        open={blockoutModalOpen}
+        onClose={() => setBlockoutModalOpen(false)}
+        organizationId={orgId}
+        defaultDate={selectedKey || defaultIntakeScheduleDate()}
+        onCreated={(row) => {
+          setBlockouts((prev) => [...prev.filter((b) => b.id !== row.id), row])
+        }}
       />
     </>
   )

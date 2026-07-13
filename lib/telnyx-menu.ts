@@ -1,7 +1,7 @@
 // Telnyx traditional IVR menu helpers — Digits gather, SMS booking link, tomorrow slot hold.
 
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
-import type { SchedulerEvent } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 /** Default Gather menu copy for the IVR entry point. */
 export const TELNYX_MENU_PROMPT =
@@ -19,10 +19,18 @@ export function escapeTexmlText(value: string): string {
     .replace(/'/g, "&apos;")
 }
 
-/** Secure booking deep-link SMS body (phone substituted into the query string). */
-export function buildTelnyxMenuBookingSms(fromE164: string, bookBaseUrl = "https://lyncr.app/book"): string {
+/** Secure booking deep-link SMS body (phone + optional business line for calendar). */
+export function buildTelnyxMenuBookingSms(
+  fromE164: string,
+  bookBaseUrl = "https://lyncr.app/book",
+  businessLineE164?: string | null
+): string {
   const phone = encodeURIComponent(fromE164.trim())
-  const link = `${bookBaseUrl.replace(/\/+$/, "")}?phone=${phone}`
+  const lineQs =
+    businessLineE164 && businessLineE164.trim()
+      ? `&line=${encodeURIComponent(businessLineE164.trim())}`
+      : ""
+  const link = `${bookBaseUrl.replace(/\/+$/, "")}?phone=${phone}${lineQs}`
   return `Here is your secure booking link to lock in your spot for tomorrow: ${link}`
 }
 
@@ -98,11 +106,12 @@ export function tomorrowLocalMidnight(now = new Date()): Date {
  */
 export function getEarliestOpenBlockTomorrow(
   events: readonly SchedulerEvent[],
-  now = new Date()
+  now = new Date(),
+  blockouts: readonly ScheduleBlockout[] = []
 ): { dateKey: string; timeValue: string; localDateTime: string; scheduledAtIso: string; text: string } | null {
   const tomorrow = tomorrowLocalMidnight(now)
   const dateKey = defaultIntakeScheduleDate(tomorrow)
-  const timeValue = suggestNextOpenTime([...events], dateKey, 60, null, null, 7, 19)
+  const timeValue = suggestNextOpenTime([...events], dateKey, 60, null, null, 7, 19, blockouts)
   if (!timeValue) return null
 
   const localDateTime = combineDateAndTime(dateKey, timeValue)

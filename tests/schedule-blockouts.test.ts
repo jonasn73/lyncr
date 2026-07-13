@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest"
+import {
+  isDateFullyBlocked,
+  slotOverlapsBlockout,
+} from "@/lib/schedule-blockouts"
+import { suggestNextOpenTime } from "@/lib/intake-schedule-helpers"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
+
+function blockout(partial: Partial<ScheduleBlockout> & Pick<ScheduleBlockout, "date">): ScheduleBlockout {
+  return {
+    id: partial.id || "b1",
+    user_id: "u1",
+    organization_id: null,
+    date: partial.date,
+    is_full_day: partial.is_full_day ?? false,
+    start_time: partial.start_time ?? null,
+    end_time: partial.end_time ?? null,
+    reason: partial.reason ?? null,
+    created_at: "",
+    updated_at: "",
+  }
+}
+
+describe("schedule blockouts", () => {
+  it("flags full-day dates as blocked", () => {
+    const rows = [blockout({ date: "2026-07-14", is_full_day: true })]
+    expect(isDateFullyBlocked(rows, "2026-07-14")).toBe(true)
+    expect(isDateFullyBlocked(rows, "2026-07-15")).toBe(false)
+  })
+
+  it("detects 1-hour slot overlap with a partial window", () => {
+    const rows = [
+      blockout({ date: "2026-07-14", start_time: "10:30", end_time: "12:00" }),
+    ]
+    expect(slotOverlapsBlockout(rows, "2026-07-14", "10:00", 60)).toBe(true)
+    expect(slotOverlapsBlockout(rows, "2026-07-14", "11:00", 60)).toBe(true)
+    expect(slotOverlapsBlockout(rows, "2026-07-14", "12:00", 60)).toBe(false)
+    expect(slotOverlapsBlockout(rows, "2026-07-14", "09:00", 60)).toBe(false)
+  })
+
+  it("suggestNextOpenTime skips full-day and overlapping windows", () => {
+    const events: SchedulerEvent[] = []
+    const fullDay = [blockout({ date: "2026-07-14", is_full_day: true })]
+    expect(suggestNextOpenTime(events, "2026-07-14", 60, null, null, 7, 19, fullDay)).toBeNull()
+
+    const partial = [
+      blockout({ date: "2026-07-14", start_time: "07:00", end_time: "10:00" }),
+    ]
+    expect(suggestNextOpenTime(events, "2026-07-14", 60, null, null, 7, 19, partial)).toBe("10:00")
+  })
+})

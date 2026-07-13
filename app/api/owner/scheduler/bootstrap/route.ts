@@ -1,8 +1,9 @@
-// GET /api/owner/scheduler/bootstrap — calendar events + tech roster + line tags in one round trip
+// GET /api/owner/scheduler/bootstrap — calendar events + blockouts + tech roster + line tags
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getPhoneNumbers, listFieldTechnicians, listOwnerSchedulerEvents } from "@/lib/db"
+import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
 
 export const dynamic = "force-dynamic"
@@ -17,20 +18,30 @@ export async function GET(req: NextRequest) {
 
   let fromIso: string
   let toIso: string
+  let fromDate: string
+  let toDate: string
   if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
     const [y, m] = monthParam.split("-").map(Number)
     const range = monthRangeUtc(y, m - 1)
     fromIso = range.from
     toIso = range.to
+    fromDate = `${y}-${String(m).padStart(2, "0")}-01`
+    const lastDay = new Date(y, m, 0).getDate()
+    toDate = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
   } else {
     const now = new Date()
     const range = monthRangeUtc(now.getFullYear(), now.getMonth())
     fromIso = range.from
     toIso = range.to
+    const y = now.getFullYear()
+    const m = now.getMonth() + 1
+    fromDate = `${y}-${String(m).padStart(2, "0")}-01`
+    const lastDay = new Date(y, m, 0).getDate()
+    toDate = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
   }
 
   try {
-    const [events, technicians, numbers] = await Promise.all([
+    const [events, technicians, numbers, blockouts] = await Promise.all([
       listOwnerSchedulerEvents({
         ownerUserId: userId,
         fromIso,
@@ -39,6 +50,12 @@ export async function GET(req: NextRequest) {
       }),
       listFieldTechnicians(userId, orgId),
       getPhoneNumbers(userId, orgId),
+      listScheduleBlockouts({
+        ownerUserId: userId,
+        fromDate,
+        toDate,
+        organizationId: orgId,
+      }),
     ])
 
     const lineIndustryTags = numbers
@@ -48,6 +65,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       data: {
         events,
+        blockouts,
         technicians,
         lineIndustryTags,
         ownerUserId: userId,
@@ -61,6 +79,7 @@ export async function GET(req: NextRequest) {
       {
         data: {
           events: [],
+          blockouts: [],
           technicians: [],
           lineIndustryTags: [],
           ownerUserId: userId,

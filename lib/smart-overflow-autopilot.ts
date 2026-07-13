@@ -10,7 +10,7 @@ import {
   suggestNextOpenTime,
 } from "@/lib/intake-schedule-helpers"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
-import type { SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 import { UNASSIGNED_POOL_STATUS } from "@/lib/job-pool"
 
 /** How Smart Overflow decides to turn itself on. */
@@ -112,10 +112,16 @@ export function formatNextAvailableSlotText(
 export function getNextAvailableSlot(
   currentDate: Date,
   events: readonly SchedulerEvent[] = [],
-  opts?: { durationMinutes?: number; lookaheadDays?: number }
+  opts?: {
+    durationMinutes?: number
+    lookaheadDays?: number
+    /** Owner blockouts — full-day days skipped; partial windows filter 1-hour slots. */
+    blockouts?: readonly ScheduleBlockout[]
+  }
 ): NextAvailableSlot | null {
   const durationMinutes = opts?.durationMinutes ?? ONE_HOUR_MINUTES
   const lookaheadDays = opts?.lookaheadDays ?? LOOKAHEAD_DAYS
+  const blockouts = opts?.blockouts ?? []
   const list = [...events]
 
   for (let offset = 0; offset < lookaheadDays; offset += 1) {
@@ -141,7 +147,16 @@ export function getNextAvailableSlot(
       if (startHour >= 19) continue
     }
 
-    const timeValue = suggestNextOpenTime(list, dateKey, durationMinutes, null, null, startHour, 19)
+    const timeValue = suggestNextOpenTime(
+      list,
+      dateKey,
+      durationMinutes,
+      null,
+      null,
+      startHour,
+      19,
+      blockouts
+    )
     if (!timeValue) continue
 
     const localDateTime = combineDateAndTime(dateKey, timeValue)

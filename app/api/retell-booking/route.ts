@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { listOwnerSchedulerEvents } from "@/lib/db"
+import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
+import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
 import { getNextAvailableSlot } from "@/lib/smart-overflow-autopilot"
 import {
@@ -13,9 +15,10 @@ import {
   isRetellInboundCallEvent,
   parseRetellBookingPayload,
   routeRetellBookingTool,
+  RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE,
   type RetellBookingRequestBody,
 } from "@/lib/retell-booking"
-import type { SchedulerEvent } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -75,6 +78,19 @@ async function loadMonthEvents(ownerUserId: string): Promise<SchedulerEvent[]> {
   }
 }
 
+async function loadOwnerBlockouts(ownerUserId: string): Promise<ScheduleBlockout[]> {
+  const now = new Date()
+  const fromDate = defaultIntakeScheduleDate(now)
+  const ahead = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 21)
+  const toDate = defaultIntakeScheduleDate(ahead)
+  try {
+    return await listScheduleBlockouts({ ownerUserId, fromDate, toDate })
+  } catch (e) {
+    console.warn("[retell-booking] blockouts list skipped:", e)
+    return []
+  }
+}
+
 /** GET — live offer snapshot for Smart Overflow Autopilot UI / operators. */
 export async function GET(req: NextRequest) {
   if (!retellSecretOk(req)) {
@@ -85,10 +101,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "ownerUserId required" }, { status: 401 })
   }
 
-  const events = await loadMonthEvents(ownerUserId)
-  const slot = getNextAvailableSlot(new Date(), events)
+  const [events, blockouts] = await Promise.all([
+    loadMonthEvents(ownerUserId),
+    loadOwnerBlockouts(ownerUserId),
+  ])
+  const slot = getNextAvailableSlot(new Date(), events, { blockouts })
   const available_slot_raw = slot?.text || "Monday morning at 9:00 AM"
-  const greeting = buildRetellInboundGreetingResponse(events, new Date())
+  const greeting = buildRetellInboundGreetingResponse(events, new Date(), RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE, blockouts)
 
   return NextResponse.json({
     data: {
@@ -131,8 +150,16 @@ export async function POST(req: NextRequest) {
       const fallback = buildRetellInboundGreetingResponse([], new Date())
       return NextResponse.json(fallback)
     }
-    const events = await loadMonthEvents(ownerUserId)
-    const greeting = buildRetellInboundGreetingResponse(events, new Date())
+    const [events, blockouts] = await Promise.all([
+      loadMonthEvents(ownerUserId),
+      loadOwnerBlockouts(ownerUserId),
+    ])
+    const greeting = buildRetellInboundGreetingResponse(
+      events,
+      new Date(),
+      RETELL_DEFAULT_BEGIN_MESSAGE_TEMPLATE,
+      blockouts
+    )
     return NextResponse.json(greeting)
   }
 
@@ -149,8 +176,11 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const events = await loadMonthEvents(ownerUserId)
-  const routed = routeRetellBookingTool(name, args, events, new Date())
+  const [events, blockouts] = await Promise.all([
+    loadMonthEvents(ownerUserId),
+    loadOwnerBlockouts(ownerUserId),
+  ])
+  const routed = routeRetellBookingTool(name, args, events, new Date(), blockouts)
 
   if ("error" in routed) {
     return NextResponse.json(
