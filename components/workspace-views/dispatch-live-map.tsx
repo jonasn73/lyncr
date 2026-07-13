@@ -4,8 +4,8 @@
 
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { MapPinned, X, Loader2, Phone } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { ExternalLink, MapPinned, X, Loader2, Phone } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 import "@/app/leaflet-popup-overrides.css"
 import type { Map as LeafletMap, Marker } from "leaflet"
@@ -18,6 +18,9 @@ import {
   emitReturnToIntakeFromMap,
   type FocusDispatchMapDetail,
 } from "@/lib/dispatch-map-focus"
+import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
+import { calculateTechETA } from "@/lib/dispatch-eta"
+import { estimateTravelMinutes, travelDistanceMiles } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 
 // Status → dot color for tech live markers.
@@ -29,8 +32,18 @@ const TECH_COLOR: Record<string, string> = {
 
 import { loadLeafletClient } from "@/lib/leaflet-client"
 import { attachBaseMapTiles } from "@/lib/map-tiles"
+import { DEFAULT_502_SERVICE_BIAS } from "@/lib/geocode-service-bias"
 
 type LeafletModule = typeof import("leaflet")
+
+/** City-level zoom when no live pins are on the map yet. */
+const HOME_SERVICE_CITY_ZOOM = 11
+
+/** True for phone-width viewports — single-finger map drag traps page scroll. */
+function isMobileMapViewport(): boolean {
+  if (typeof window === "undefined") return false
+  return window.matchMedia("(max-width: 767px)").matches
+}
 
 /** Branded HTML marker icons (no external image assets → no bundler icon-path issues). */
 function jobIcon(L: LeafletModule) {
@@ -87,6 +100,54 @@ export function DispatchLiveMap({
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [destination, setDestination] = useState<FocusDispatchMapDetail | null>(null)
+
+  // Ask the browser for the operator's GPS while an intake pin is on the map.
+  const dispatcherLocation = useDispatcherLocation(Boolean(destination))
+
+  // Prefer live GPS; fall back to the business home city (Louisville 502) baseline.
+  const originPoint = useMemo(() => {
+    if (
+      dispatcherLocation.status === "ready" &&
+      dispatcherLocation.lat != null &&
+      dispatcherLocation.lng != null
+    ) {
+      return { lat: dispatcherLocation.lat, lng: dispatcherLocation.lng, source: "gps" as const }
+    }
+    return {
+      lat: DEFAULT_502_SERVICE_BIAS.lat,
+      lng: DEFAULT_502_SERVICE_BIAS.lon,
+      source: "business" as const,
+    }
+  }, [dispatcherLocation.lat, dispatcherLocation.lng, dispatcherLocation.status])
+
+  // Straight-line miles + rough drive minutes from origin → intake target.
+  const travelMetrics = useMemo(() => {
+    if (!destination) return null
+    const miles = travelDistanceMiles(originPoint, { lat: destination.lat, lng: destination.lng })
+    if (!Number.isFinite(miles) || miles < 0) return null
+    return {
+      miles,
+      durationMins: estimateTravelMinutes(miles),
+      fromGps: originPoint.source === "gps",
+    }
+  }, [destination, originPoint])
+
+  // Closest live tech pin to the intake destination (haversine proximity).
+  const nearestTech = useMemo(() => {
+    if (!destination || techs.length === 0) return null
+    let best: { name: string; miles: number } | null = null
+    for (const tech of techs) {
+      const eta = calculateTechETA(
+        { lat: destination.lat, lng: destination.lng },
+        { lat: tech.latitude, lng: tech.longitude }
+      )
+      if (!eta) continue
+      if (!best || eta.straightLineMiles < best.miles) {
+        best = { name: tech.name || "Technician", miles: eta.straightLineMiles }
+      }
+    }
+    return best
+  }, [destination, techs])
 
   const load = useCallback(() => {
     fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
@@ -177,20 +238,46 @@ export function DispatchLiveMap({
   useEffect(() => {
     let cancelled = false
     let created: LeafletMap | null = null
+    let media: MediaQueryList | null = null
+    const onViewportChange = () => {
+      const map = mapRef.current
+      if (!map) return
+      // Mobile: disable one-finger drag so vertical swipes scroll the page.
+      if (isMobileMapViewport()) {
+        map.dragging.disable()
+        map.scrollWheelZoom.disable()
+      } else {
+        map.dragging.enable()
+        map.scrollWheelZoom.enable()
+      }
+    }
     void (async () => {
       const L = await loadLeafletClient()
       if (cancelled || !containerRef.current || mapRef.current) return
       leafletRef.current = L
-      created = L.map(containerRef.current, { zoomControl: true, attributionControl: true }).setView(
-        [39.5, -98.35],
-        4
+      const mobile = isMobileMapViewport()
+      // Default to the business home service city (Louisville 502), not the full US.
+      created = L.map(containerRef.current, {
+        zoomControl: true,
+        attributionControl: true,
+        // Single-finger pan off on mobile so the parent page scrolls smoothly.
+        dragging: !mobile,
+        scrollWheelZoom: !mobile,
+        // Pinch-to-zoom still works when dragging is off.
+        touchZoom: true,
+      }).setView(
+        [DEFAULT_502_SERVICE_BIAS.lat, DEFAULT_502_SERVICE_BIAS.lon],
+        HOME_SERVICE_CITY_ZOOM
       )
       attachBaseMapTiles(L, created)
       mapRef.current = created
       setReady(true)
+      media = window.matchMedia("(max-width: 767px)")
+      media.addEventListener("change", onViewportChange)
     })()
     return () => {
       cancelled = true
+      media?.removeEventListener("change", onViewportChange)
       if (created) created.remove()
       mapRef.current = null
       jobMarkers.current.clear()
@@ -319,17 +406,23 @@ export function DispatchLiveMap({
       destinationMarkerRef.current = null
     }
 
-    // Frame everything once, the first time we have points (don't fight the user's panning after).
+    // Frame pins once when they appear; with zero live coords stay on home service city.
     if (!didFit.current) {
       const pts: [number, number][] = [
         ...plottableJobs.map((j) => [j.latitude as number, j.longitude as number] as [number, number]),
         ...techs.map((t) => [t.latitude, t.longitude] as [number, number]),
       ]
       if (destination) pts.push([destination.lat, destination.lng])
-      if (pts.length === 1) {
+      if (pts.length === 0) {
+        map.setView(
+          [DEFAULT_502_SERVICE_BIAS.lat, DEFAULT_502_SERVICE_BIAS.lon],
+          HOME_SERVICE_CITY_ZOOM
+        )
+        // Leave didFit false so the first real pin(s) still trigger a fit.
+      } else if (pts.length === 1) {
         map.setView(pts[0], 14)
         didFit.current = true
-      } else if (pts.length > 1) {
+      } else {
         map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 15 })
         didFit.current = true
       }
@@ -357,7 +450,7 @@ export function DispatchLiveMap({
 
       {destination ? (
         <div
-          className="pointer-events-auto absolute left-3 top-3 z-[2000] max-w-[min(18rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur"
+          className="pointer-events-auto absolute left-3 top-3 z-[2000] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -368,8 +461,67 @@ export function DispatchLiveMap({
             {destination.label?.trim() || "Customer location"}
           </p>
           {destination.address ? (
-            <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{destination.address}</p>
+            <div className="mt-0.5 flex items-start gap-1.5">
+              {/* Customer street address — keep readable on a narrow floating card. */}
+              <p className="min-w-0 flex-1 line-clamp-2 text-[11px] text-slate-400">
+                {destination.address}
+              </p>
+              {/* Opens Google Maps (or the OS maps handler) for native turn-by-turn. */}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open in Maps"
+                aria-label="Open address in Google Maps"
+                className="mt-0.5 shrink-0 rounded p-0.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-sky-300"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </a>
+            </div>
           ) : null}
+
+          {/* Distance / ETA from operator GPS (or business home city fallback). */}
+          {travelMetrics ? (
+            <div className="mt-2 space-y-0.5 border-t border-slate-800/80 pt-2 text-[10px] leading-relaxed text-slate-300">
+              <p>
+                🚗 Distance from current spot:{" "}
+                <span className="font-semibold tabular-nums text-slate-100">
+                  {travelMetrics.miles < 10
+                    ? travelMetrics.miles.toFixed(1)
+                    : Math.round(travelMetrics.miles)}{" "}
+                  mi
+                </span>
+                {!travelMetrics.fromGps ? (
+                  <span className="text-slate-500"> · shop baseline</span>
+                ) : null}
+              </p>
+              <p>
+                ⏱️ Estimated Drive Time:{" "}
+                <span className="font-semibold tabular-nums text-slate-100">
+                  {travelMetrics.durationMins} mins
+                </span>
+              </p>
+              {nearestTech ? (
+                <p className="text-amber-200/90">
+                  ⚡ Nearest available tech: {nearestTech.name} (
+                  {nearestTech.miles < 10
+                    ? nearestTech.miles.toFixed(1)
+                    : Math.round(nearestTech.miles)}{" "}
+                  mi away)
+                </p>
+              ) : null}
+            </div>
+          ) : nearestTech ? (
+            <p className="mt-2 border-t border-slate-800/80 pt-2 text-[10px] text-amber-200/90">
+              ⚡ Nearest available tech: {nearestTech.name} (
+              {nearestTech.miles < 10
+                ? nearestTech.miles.toFixed(1)
+                : Math.round(nearestTech.miles)}{" "}
+              mi away)
+            </p>
+          ) : null}
+
           <button
             type="button"
             onClick={(e) => {

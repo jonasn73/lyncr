@@ -159,29 +159,57 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
   const load = useCallback(() => {
     setLoading(true)
     const techQs = organizationQueryString(orgId)
-    Promise.all([
-      fetch(`/api/technicians${techQs}`, { credentials: "include", cache: "no-store" }).then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error("techs"))
-      ),
-      fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" }).then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error("jobs"))
-      ),
-    ])
-      .then(
-        ([techJson, jobsJson]: [
-          { data?: FieldTechnician[] },
-          { data?: { jobs?: DispatchJob[]; techLocations?: TechLiveLocation[] } },
-        ]) => {
-          setTechs(Array.isArray(techJson.data) ? techJson.data : [])
-          setJobs(Array.isArray(jobsJson.data?.jobs) ? jobsJson.data!.jobs! : [])
-          setTechLocations(
-            Array.isArray(jobsJson.data?.techLocations) ? jobsJson.data!.techLocations! : []
-          )
-          setError(null)
+
+    // Load techs + jobs independently so an empty tech list is not treated as a hard failure
+    // when jobs (or org scoping) misbehaves.
+    let techsOk = false
+
+    const techsPromise = fetch(`/api/technicians${techQs}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("techs")
+        const techJson = (await r.json()) as { data?: FieldTechnician[] }
+        const list = Array.isArray(techJson.data) ? techJson.data : []
+        techsOk = true
+        setTechs(list)
+      })
+      .catch(() => {
+        techsOk = false
+      })
+
+    const jobsPromise = fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("jobs")
+        const jobsJson = (await r.json()) as {
+          data?: { jobs?: DispatchJob[]; techLocations?: TechLiveLocation[] }
         }
-      )
-      .catch(() => setError("Could not load live roster"))
-      .finally(() => setLoading(false))
+        setJobs(Array.isArray(jobsJson.data?.jobs) ? jobsJson.data!.jobs! : [])
+        setTechLocations(
+          Array.isArray(jobsJson.data?.techLocations) ? jobsJson.data!.techLocations! : []
+        )
+      })
+      .catch(() => {
+        /* Jobs are optional for the roster empty state — keep last known. */
+      })
+
+    void Promise.all([techsPromise, jobsPromise]).finally(() => {
+      // Only show the red error when the technicians API actually failed with no roster.
+      if (techsOk) {
+        setError(null)
+      } else {
+        setTechs((prev) => {
+          if (prev.length > 0) {
+            setError(null)
+          } else {
+            setError("Could not load live roster")
+          }
+          return prev
+        })
+      }
+      setLoading(false)
+    })
   }, [orgId])
 
   useEffect(() => {
@@ -220,12 +248,14 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
           <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
           Loading roster…
         </div>
-      ) : error && rows.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-rose-400">{error}</p>
       ) : rows.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">
-          No field techs yet — invite from the directory below.
-        </p>
+        error ? (
+          <p className="px-4 py-6 text-center text-sm text-rose-400">{error}</p>
+        ) : (
+          <p className="px-4 py-6 text-center text-sm text-slate-500">
+            No field techs yet — invite from the directory below.
+          </p>
+        )
       ) : (
         <ul className="divide-y divide-slate-900/60">
           {rows.map((row) => (
