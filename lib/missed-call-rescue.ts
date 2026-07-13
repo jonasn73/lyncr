@@ -5,6 +5,7 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { normalizePhoneNumberE164, getUserByPhoneNumber } from "@/lib/db"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { toE164 } from "@/lib/phone-e164"
+import { getMissedCallTextbackEnabled } from "@/lib/missed-call-textback"
 
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
@@ -101,6 +102,11 @@ export async function maybeSendMissedCallRescueSms(params: {
 
   const owner = await getUserByPhoneNumber(to)
   if (!owner) return { sent: false, reason: "unknown_line" }
+
+  // Account toggle — Lines "Missed Call Rescue" card.
+  if (!(await getMissedCallTextbackEnabled(owner.id))) {
+    return { sent: false, reason: "textback_disabled" }
+  }
 
   // Only rescue short / unanswered legs (or explicitly flagged IVR abandons).
   const prefer = params.preferRescue === true

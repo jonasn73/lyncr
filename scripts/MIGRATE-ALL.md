@@ -92,6 +92,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 87 | `087-ivr-menu-enabled.sql` | **IVR Off-duty switch.** Adds **`ivr_menu_enabled`** on **`routing_config`** + **`phone_numbers`**. When true, inbound TeXML Redirects to **`/api/telnyx-menu`** instead of ringing Your phone. **Required** for Smart Overflow IVR Menu toggle. |
 | 88 | `088-schedule-blockouts.sql` | **Schedule blockouts.** Creates **`schedule_blockouts`** (per-owner / optional org) with **`date`**, **`is_full_day`**, **`start_time`**, **`end_time`**, **`reason`**. Powers Scheduler “Add Blockout”, public **`/book`** availability, and IVR next-slot filtering. **Required** for blockout-aware booking. |
 | 89 | `089-active-routing-mode-and-deposits.sql` | **Unified Lines mode + deposits.** Adds **`routing_config.active_routing_mode`**, **`custom_routing_phone`**, **`users.require_deposit`**, **`booking_holds`**, and **`call_logs.ivr_action_completed`**. Powers Who Answers radio, Missed Call Rescue, and Stripe deposit on **`/book`**. |
+| 90 | `090-missed-call-textback-enabled.sql` | **Missed Call Rescue toggle.** Adds **`users.missed_call_textback_enabled`** (default true). Lines Call Flow card + gates auto SMS booking link after unanswered inbound. **Required** for the Automation · Missed Call Rescue switch. |
 
 ## Platform admin (`admin@lyncr.app`)
 

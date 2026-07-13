@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronRight,
   Smartphone,
-  AudioWaveform,
   Network,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -26,6 +25,7 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import { SmartOverflowFallbackCard } from "@/components/dashboard/smart-overflow-fallback-card"
+import { MissedCallRescueCard } from "@/components/dashboard/missed-call-rescue-card"
 import {
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
@@ -375,15 +375,11 @@ export function buildCallFlowNodes(params: {
   selectedReceptionistName: string | null
   selectedReceptionistPhone: string | null
   ownerPhoneDisplay: string
-  ringTimeoutSec: number
-  activeFallbackLabel: string
   /** When true, Primary/Fallback cards show Sunday Autopilot scheduler copy. */
   autopilotMode: boolean
   /** Off-duty IVR Menu is answering — fade Your phone and badge Forwarding to IVR. */
   ivrMenuLive?: boolean
   openWhoAnswers: () => void
-  openRingBackup: () => void
-  openVoiceAi: () => void
   configureStrategy: () => void
 }): CallFlowNode[] {
   const poolIsPrimary = params.routingStrategy === "lyncr_only"
@@ -464,20 +460,7 @@ export function buildCallFlowNodes(params: {
     })
   }
 
-  // Node 3 — Fallback is owned by the Smart Overflow Autopilot card (rendered separately).
-  // (Kept out of the generic node list so mode controls + live badges can sit on the card.)
-
-  // Node 4 — Voice & AI greetings (final voicemail / AI script + IVR greeting editor).
-  nodes.push({
-    key: "voice",
-    title: "Voice & AI",
-    icon: AudioWaveform,
-    value: "Greetings",
-    detail: "IVR greeting + keypress 1 / 2",
-    onOpen: params.openVoiceAi,
-    accent: "primary",
-  })
-
+  // Fallback IVR + Missed Call Rescue are rendered as dedicated cards outside this list.
   return nodes
 }
 
@@ -490,15 +473,15 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   isRoutingToOwner,
   selectedReceptionist,
   ownerPhoneDisplay,
-  ringTimeoutSec,
-  activeFallbackLabel,
+  ringTimeoutSec: _ringTimeoutSec,
+  activeFallbackLabel: _activeFallbackLabel,
   autopilotMode,
   routingStrategy,
   allowLyncrNetworkFallback,
   onConfigureStrategy,
   setDashboardStoryKey,
   setWhoAnswersOpen,
-  setRingBackupOpen,
+  setRingBackupOpen: _setRingBackupOpen,
   setShowFallbackSettings,
   adminRoutingOverridePhone,
 }: DashboardCallFlowProps) {
@@ -552,19 +535,14 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     selectedReceptionistName: selectedReceptionist?.name ?? null,
     selectedReceptionistPhone: selectedReceptionist?.phone ? formatPhoneDisplay(selectedReceptionist.phone) : null,
     ownerPhoneDisplay,
-    ringTimeoutSec,
-    activeFallbackLabel,
     autopilotMode: autopilotMode && !ivrMenuLive,
     ivrMenuLive,
     openWhoAnswers: () => setWhoAnswersOpen(true),
-    openRingBackup: () => setRingBackupOpen(true),
-    openVoiceAi: () => setShowFallbackSettings(true),
     configureStrategy: onConfigureStrategy,
   })
 
-  // Voice & AI is always last; Smart Overflow owns the fallback slot before it (when visible).
-  const primaryAndNetworkNodes = flowNodes.filter((n) => n.key !== "voice")
-  const voiceNode = flowNodes.find((n) => n.key === "voice")
+  // Primary (+ optional network); IVR and Missed Call Rescue are dedicated cards below.
+  const primaryAndNetworkNodes = flowNodes
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
@@ -582,6 +560,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       retellConnected={smartOverflow.retellConnected}
     />
   ) : null
+
+  const rescueCard = (
+    <MissedCallRescueCard compact={isMobile} loading={routingLineDetailLoading} />
+  )
 
   // Flattened shell — no outer card; step rows/cards sit on the page background.
   return (
@@ -654,18 +636,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                 />
               ) : null}
               {overflowCard}
-              {voiceNode ? (
-                <FlowStepMobileRow
-                  key={voiceNode.key}
-                  title={voiceNode.title}
-                  icon={voiceNode.icon}
-                  value={voiceNode.value}
-                  detail={voiceNode.detail}
-                  onOpen={voiceNode.onOpen}
-                  loading={routingLineDetailLoading}
-                  accent={voiceNode.accent}
-                />
-              ) : null}
+              {rescueCard}
             </div>
           ) : (
             <div
@@ -701,21 +672,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   {overflowCard}
                 </>
               ) : null}
-              {voiceNode ? (
-                <>
-                  <FlowConnector />
-                  <FlowStepCard
-                    step={String(primaryAndNetworkNodes.length + (showIvrDeck ? 3 : 2))}
-                    title={voiceNode.title}
-                    icon={voiceNode.icon}
-                    value={voiceNode.value}
-                    detail={voiceNode.detail}
-                    onOpen={voiceNode.onOpen}
-                    loading={routingLineDetailLoading}
-                    accent={voiceNode.accent}
-                  />
-                </>
-              ) : null}
+              <FlowConnector />
+              {rescueCard}
             </div>
           )}
         </div>
