@@ -6,6 +6,8 @@ import { normalizePhoneNumberE164, getUserByPhoneNumber } from "@/lib/db"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { toE164 } from "@/lib/phone-e164"
 import { getMissedCallTextbackEnabled } from "@/lib/missed-call-textback"
+import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
+import { buildTelnyxMenuBookingSms } from "@/lib/telnyx-menu"
 
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
@@ -120,21 +122,68 @@ export async function maybeSendMissedCallRescueSms(params: {
     return { sent: false, reason: "sms_within_2h" }
   }
 
-  const body = `Sorry we missed your call. Tap to book a slot: https://lyncr.app/book?phone=${encodeURIComponent(from)}&line=${encodeURIComponent(to)}`
+  const result = await sendMissedCallRescueBookingLink({
+    ownerUserId: owner.id,
+    customerPhone: from,
+    businessLine: to,
+    source: "missed_call_textback",
+  })
+  return result.ok
+    ? { sent: true, reason: "sent" }
+    : { sent: false, reason: result.error || "sms_failed" }
+}
+
+/**
+ * Operator-triggered (or auto) booking-link SMS — creates a /book/[id] invite when possible.
+ * Skips the 2h anti-spam window so "Re-send SMS Link" always fires.
+ */
+export async function sendMissedCallRescueBookingLink(params: {
+  ownerUserId: string
+  customerPhone: string
+  businessLine?: string | null
+  source?: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const customer =
+    normalizePhoneNumberE164(params.customerPhone) || toE164(params.customerPhone)
+  if (!customer) return { ok: false, error: "invalid_customer_phone" }
+
+  const lineRaw = params.businessLine?.trim() || ""
+  const line = lineRaw
+    ? normalizePhoneNumberE164(lineRaw) || toE164(lineRaw) || lineRaw
+    : ""
+
+  let bookUrl = ""
+  if (line) {
+    const created = await createBookingInvite({
+      ownerUserId: params.ownerUserId,
+      businessLine: line,
+      callerPhone: customer,
+      source: params.source || "missed_call_rescue_resend",
+    })
+    bookUrl = created?.url || ""
+  }
+  if (!bookUrl) {
+    bookUrl = buildBookQueryUrl({
+      callerPhone: customer,
+      businessLine: line || customer,
+    })
+  }
+
+  const text = buildTelnyxMenuBookingSms(customer, bookUrl, line || null)
 
   try {
     const sent = await sendTelnyxSms({
-      toE164: from,
-      text: body,
-      userId: owner.id,
+      toE164: customer,
+      text,
+      userId: params.ownerUserId,
     })
     if (!sent.ok) {
-      console.warn("[missed-call-rescue] SMS failed:", sent.error)
-      return { sent: false, reason: sent.error || "sms_failed" }
+      console.warn("[missed-call-rescue] booking link SMS failed:", sent.error)
+      return { ok: false, error: sent.error || "sms_failed" }
     }
-    return { sent: true, reason: "sent" }
+    return { ok: true }
   } catch (e) {
-    console.warn("[missed-call-rescue] threw:", e)
-    return { sent: false, reason: e instanceof Error ? e.message : "error" }
+    console.warn("[missed-call-rescue] booking link SMS threw:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "error" }
   }
 }

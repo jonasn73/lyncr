@@ -70,6 +70,8 @@ export async function POST(req: NextRequest) {
         notes: `Public /book · ${scheduledAtIso}`,
         scheduledAtIso,
         pendingCallback: false,
+        // Tag so Caller ID / Textback cards can attribute rescued revenue.
+        intakeSource: "public_book",
       })
       return NextResponse.json({
         data: { require_deposit: false, lead_id: job.lead_id, status: "booked" },

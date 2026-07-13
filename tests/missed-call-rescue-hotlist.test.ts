@@ -39,6 +39,32 @@ describe("collapseMissedHotlist", () => {
     expect(items[0].latestAt).toBe("2026-07-13T13:33:00.000Z")
     expect(items[0].latestStatus).toBe("Missed - Sent Night Link")
     expect(items[0].times.length).toBe(2)
+    expect(items[0].to_number).toBe("+15025550100")
     expect(items[1].count).toBe(1)
+  })
+
+  it("keeps the newest CNAM / caller_name for the grouped lead", () => {
+    const items = collapseMissedHotlist([
+      {
+        id: "1",
+        call_type: "missed",
+        from_number: "+15025550123",
+        to_number: "+15025550100",
+        created_at: "2026-07-13T14:00:00.000Z",
+        status: "no-answer",
+        caller_name: "Key Squad HQ",
+      },
+      {
+        id: "2",
+        call_type: "missed",
+        from_number: "+15025550123",
+        to_number: "+15025550100",
+        created_at: "2026-07-13T10:00:00.000Z",
+        status: "no-answer",
+        caller_name: "Old Label",
+      },
+    ])
+    expect(items).toHaveLength(1)
+    expect(items[0].displayName).toBe("Key Squad HQ")
   })
 })

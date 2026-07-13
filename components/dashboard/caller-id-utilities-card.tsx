@@ -2,9 +2,10 @@
 
 // Caller ID card — spam shield + CNAM utilities (compact settings rows).
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { Switch } from "@/components/ui/switch"
+import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
 import { cn } from "@/lib/utils"
 
 type CallerIdUtilityPrefs = {
@@ -51,12 +52,15 @@ function UtilityRow({
   enabled,
   onEnabledChange,
   id,
+  belowDescription,
 }: {
   title: string
   description: string
   enabled: boolean
   onEnabledChange: (next: boolean) => void
   id: string
+  /** Optional muted metric line under the description (e.g. spam blocks this week). */
+  belowDescription?: ReactNode
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-slate-900 py-2 last:border-b-0">
@@ -65,6 +69,7 @@ function UtilityRow({
           {title}
         </label>
         <p className="mt-0.5 text-[11px] font-normal text-slate-500">{description}</p>
+        {belowDescription}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {enabled ? (
@@ -94,9 +99,33 @@ export function CallerIdUtilitiesCard({
   className?: string
 }) {
   const [prefs, setPrefs] = useState<CallerIdUtilityPrefs>(DEFAULT_PREFS)
+  // High-risk spam rings blocked this calendar week (status = blocked_spam).
+  const [spamCount, setSpamCount] = useState<number | null>(null)
 
   useEffect(() => {
     setPrefs(readPrefs(organizationId))
+  }, [organizationId])
+
+  useEffect(() => {
+    let cancelled = false
+    const qs = routingTelemetryQueryString(organizationId)
+    void fetch(`/api/routing/tracking-metrics${qs}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("metrics")
+        const json = (await r.json()) as { data?: { spam_blocked_this_week?: number } }
+        if (!cancelled) {
+          setSpamCount(Number(json.data?.spam_blocked_this_week ?? 0))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSpamCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [organizationId])
 
   const updatePref = useCallback(
@@ -134,6 +163,13 @@ export function CallerIdUtilitiesCard({
           description="Auto-reject verified high-risk spam"
           enabled={prefs.spamShieldEnabled}
           onEnabledChange={(next) => updatePref({ spamShieldEnabled: next })}
+          belowDescription={
+            spamCount != null ? (
+              <p className="mt-1 text-[10px] font-normal leading-snug text-slate-500">
+                🛡️ {spamCount} high-risk calls blocked this week.
+              </p>
+            ) : null
+          }
         />
         <UtilityRow
           id="caller-id-enhanced-cnam"

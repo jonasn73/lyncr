@@ -49,7 +49,8 @@ const AppShellHeader = memo(function AppShellHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:grid-cols-[1fr_auto_1fr] sm:gap-2 sm:px-5 sm:py-3.5",
+        // Above map body / Leaflet chrome; notification popover portals at z-[9999].
+        "sticky top-0 z-50 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:grid-cols-[1fr_auto_1fr] sm:gap-2 sm:px-5 sm:py-3.5",
         SHELL_ACRYLIC_SURFACE
       )}
     >

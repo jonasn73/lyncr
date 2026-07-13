@@ -154,16 +154,12 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
   const [jobs, setJobs] = useState<DispatchJob[]>([])
   const [techLocations, setTechLocations] = useState<TechLiveLocation[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
     const techQs = organizationQueryString(orgId)
 
-    // Load techs + jobs independently so an empty tech list is not treated as a hard failure
-    // when jobs (or org scoping) misbehaves.
-    let techsOk = false
-
+    // Load techs + jobs independently — empty tech list is a soft empty state, never a red error.
     const techsPromise = fetch(`/api/technicians${techQs}`, {
       credentials: "include",
       cache: "no-store",
@@ -172,11 +168,10 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
         if (!r.ok) throw new Error("techs")
         const techJson = (await r.json()) as { data?: FieldTechnician[] }
         const list = Array.isArray(techJson.data) ? techJson.data : []
-        techsOk = true
         setTechs(list)
       })
       .catch(() => {
-        techsOk = false
+        // Keep last known roster on a flaky poll; never show a broken-server empty state.
       })
 
     const jobsPromise = fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
@@ -195,19 +190,6 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
       })
 
     void Promise.all([techsPromise, jobsPromise]).finally(() => {
-      // Only show the red error when the technicians API actually failed with no roster.
-      if (techsOk) {
-        setError(null)
-      } else {
-        setTechs((prev) => {
-          if (prev.length > 0) {
-            setError(null)
-          } else {
-            setError("Could not load live roster")
-          }
-          return prev
-        })
-      }
       setLoading(false)
     })
   }, [orgId])
@@ -249,13 +231,9 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
           Loading roster…
         </div>
       ) : rows.length === 0 ? (
-        error ? (
-          <p className="px-4 py-6 text-center text-sm text-rose-400">{error}</p>
-        ) : (
-          <p className="px-4 py-6 text-center text-sm text-slate-500">
-            No field techs yet — invite from the directory below.
-          </p>
-        )
+        <p className="px-4 py-6 text-center text-sm text-slate-500">
+          No field techs yet — invite from the directory below.
+        </p>
       ) : (
         <ul className="divide-y divide-slate-900/60">
           {rows.map((row) => (

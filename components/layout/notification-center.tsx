@@ -453,7 +453,13 @@ export const NotificationCenter = memo(function NotificationCenter() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="w-[min(92vw,22rem)] p-0" motion="fade">
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        // Sit above Leaflet panes / map chrome (z-index ~400–2000) and shell chrome.
+        className="z-[9999] w-[min(92vw,22rem)] p-0"
+        motion="fade"
+      >
         <div className="border-b border-border/60 px-4 py-3">
           <p className="text-sm font-semibold text-foreground">Notifications</p>
           <p className="text-xs text-muted-foreground">

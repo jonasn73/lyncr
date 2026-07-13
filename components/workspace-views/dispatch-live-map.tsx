@@ -39,9 +39,11 @@ type LeafletModule = typeof import("leaflet")
 /** City-level zoom when no live pins are on the map yet. */
 const HOME_SERVICE_CITY_ZOOM = 11
 
-/** True for phone-width viewports — single-finger map drag traps page scroll. */
-function isMobileMapViewport(): boolean {
+/** True for phone-width viewports OR Leaflet's mobile UA — single-finger drag traps page scroll. */
+function isMobileMapViewport(L?: LeafletModule): boolean {
   if (typeof window === "undefined") return false
+  // Prefer Leaflet's own mobile detection when available (matches dragging={!L.Browser.mobile}).
+  if (L?.Browser?.mobile) return true
   return window.matchMedia("(max-width: 767px)").matches
 }
 
@@ -241,11 +243,16 @@ export function DispatchLiveMap({
     let media: MediaQueryList | null = null
     const onViewportChange = () => {
       const map = mapRef.current
-      if (!map) return
+      const L = leafletRef.current
+      if (!map || !L) return
       // Mobile: disable one-finger drag so vertical swipes scroll the page.
-      if (isMobileMapViewport()) {
+      const mobile = isMobileMapViewport(L)
+      if (mobile) {
         map.dragging.disable()
         map.scrollWheelZoom.disable()
+        // Leaflet tap handler can still steal clicks/swipes on some phones.
+        const tapHandler = (map as unknown as { tap?: { disable: () => void } }).tap
+        tapHandler?.disable()
       } else {
         map.dragging.enable()
         map.scrollWheelZoom.enable()
@@ -255,20 +262,27 @@ export function DispatchLiveMap({
       const L = await loadLeafletClient()
       if (cancelled || !containerRef.current || mapRef.current) return
       leafletRef.current = L
-      const mobile = isMobileMapViewport()
+      // Force cooperative single-finger scroll on phones (dragging={!L.Browser.mobile}).
+      const mobile = isMobileMapViewport(L)
       // Default to the business home service city (Louisville 502), not the full US.
       created = L.map(containerRef.current, {
         zoomControl: true,
         attributionControl: true,
         // Single-finger pan off on mobile so the parent page scrolls smoothly.
         dragging: !mobile,
-        scrollWheelZoom: !mobile,
+        scrollWheelZoom: false,
         // Pinch-to-zoom still works when dragging is off.
         touchZoom: true,
+        // Disable fast-click / tap hijacking that blocks page scroll on mobile.
+        tap: false,
       }).setView(
         [DEFAULT_502_SERVICE_BIAS.lat, DEFAULT_502_SERVICE_BIAS.lon],
         HOME_SERVICE_CITY_ZOOM
       )
+      // Let the browser own one-finger vertical scroll over the map canvas.
+      if (mobile && containerRef.current) {
+        containerRef.current.style.touchAction = "pan-y"
+      }
       attachBaseMapTiles(L, created)
       mapRef.current = created
       setReady(true)
@@ -444,6 +458,8 @@ export function DispatchLiveMap({
         ref={containerRef}
         className={cn(
           "w-full overflow-hidden border border-zinc-800 bg-zinc-900",
+          // One-finger vertical swipes scroll the page; pinch still zooms the map.
+          "touch-pan-y",
           fullViewport ? "h-[min(70vh,34rem)] rounded-2xl" : "h-72 rounded-xl"
         )}
       />

@@ -145,9 +145,10 @@ export async function fulfillBookingDepositFromCheckout(session: {
     callerE164: (hold.customer_phone as string) || "+10000000000",
     customerName: (hold.customer_name as string) || "Online booking",
     jobType: "Booked online (deposit paid)",
-    notes: `Deposit hold ${holdId} · Stripe ${session.id}`,
+    notes: `Public /book · Deposit hold ${holdId} · Stripe ${session.id}`,
     scheduledAtIso: scheduledAt,
     pendingCallback: false,
+    intakeSource: "public_book",
   })
 
   const leadId = job.lead_id || null

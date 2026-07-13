@@ -4009,6 +4009,101 @@ export async function getDispatchPerformanceTelemetry(
   }
 }
 
+/**
+ * Count inbound calls rejected as high-risk spam this calendar week (Mon–Sun local).
+ * Expects call_logs.status = 'blocked_spam' when the shield rejects a ring.
+ */
+export async function getSpamBlockedCountThisWeek(
+  sessionUserId: string,
+  organizationId?: string | null,
+  timezone?: string | null
+): Promise<number> {
+  const sql = getSql()
+  const orgUuid =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId.trim() : null
+
+  let telemetryOwnerUserId = sessionUserId
+  if (orgUuid) {
+    const org = await getOrganizationById(orgUuid)
+    if (org?.owner_user_id) telemetryOwnerUserId = org.owner_user_id
+  }
+
+  const tz = sanitizeIanaTimezone(timezone)
+  try {
+    const rows = await sql`
+      SELECT COUNT(*)::int AS spam_count
+      FROM call_logs
+      WHERE user_id = ${telemetryOwnerUserId}
+        AND lower(trim(COALESCE(status, ''))) = 'blocked_spam'
+        AND date_trunc('week', timezone(${tz}, created_at))
+          = date_trunc('week', timezone(${tz}, now()))
+    `
+    return Number(rows[0]?.spam_count ?? 0)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "call_logs")) return 0
+    console.warn("[getSpamBlockedCountThisWeek] failed:", e)
+    return 0
+  }
+}
+
+/**
+ * Sum quoted job dollars from leads booked via public /book (textback / IVR booking links).
+ */
+export async function getTextbackRescueRevenueCents(
+  sessionUserId: string,
+  organizationId?: string | null
+): Promise<number> {
+  const sql = getSql()
+  const orgUuid =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId.trim() : null
+
+  let telemetryOwnerUserId = sessionUserId
+  if (orgUuid) {
+    const org = await getOrganizationById(orgUuid)
+    if (org?.owner_user_id) telemetryOwnerUserId = org.owner_user_id
+  }
+
+  try {
+    const rows = await sql`
+      SELECT COALESCE(
+        SUM(
+          GREATEST(
+            0,
+            COALESCE(
+              NULLIF(trim(collected->>'quoted_price_cents'), '')::int,
+              NULLIF(trim(collected->>'last_quoted_price_cents'), '')::int,
+              NULLIF(trim(collected->>'baseline_quoted_price_cents'), '')::int,
+              0
+            )
+          )
+        ),
+        0
+      )::int AS rescue_cents
+      FROM ai_leads
+      WHERE user_id = ${telemetryOwnerUserId}
+        AND (
+          coalesce(collected->>'notes', '') ILIKE '%Public /book%'
+          OR coalesce(collected->>'job_notes', '') ILIKE '%Public /book%'
+          OR lower(trim(coalesce(collected->>'source', ''))) IN (
+            'public_book',
+            'booking_link',
+            'missed_call_textback'
+          )
+        )
+        AND (
+          ${orgUuid}::uuid IS NULL
+          OR organization_id IS NULL
+          OR organization_id = ${orgUuid}::uuid
+        )
+    `
+    return Number(rows[0]?.rescue_cents ?? 0)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || pgErrorCode(e) === "42703") return 0
+    console.warn("[getTextbackRescueRevenueCents] failed:", e)
+    return 0
+  }
+}
+
 export async function getVoiceOperationsInsights(userId: string, days = 7): Promise<{
   daily_quality: {
     day: string

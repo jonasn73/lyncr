@@ -53,6 +53,8 @@ export type CreateIntakeJobInput = {
   quotedPriceCents?: number | null
   /** Straight-line miles from dispatcher to job (from intake GPS + address). */
   distanceMiles?: number | null
+  /** Override collected.source — e.g. public_book for /book textback conversions. */
+  intakeSource?: string | null
   /** Calculator service id (lockout, key_gen, …) — used with DB rate card server-side. */
   serviceQuoteTypeId?: string | null
   keyVariantId?: string | null
@@ -210,7 +212,9 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     status: pendingCallback ? CRM_LEAD_STATUS : "active_booking",
     job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
     is_salvageable: false,
-    source: pendingCallback ? "answered_call_pending_callback" : "answered_call_intake",
+    source: pendingCallback
+      ? "answered_call_pending_callback"
+      : input.intakeSource?.trim() || "answered_call_intake",
     ...(pendingCallback
       ? { pending_callback: true, sales_recovery_stage: "pending_callbacks" }
       : {}),

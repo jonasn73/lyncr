@@ -174,6 +174,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     setHistoryOpen(true)
   }, [])
 
+  // Open the Missed Call Rescue drawer (Calls · Leads hotlist).
   const openMissedRescue = useCallback(() => {
     setRescueOpen(true)
   }, [])

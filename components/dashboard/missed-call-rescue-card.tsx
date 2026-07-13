@@ -7,7 +7,10 @@ import { MessageSquareText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-autopilot"
+import { formatRescueRevenueDollars } from "@/lib/dispatch-performance-formatters"
+import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
 
 export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   compact = false,
@@ -26,9 +29,12 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   capacitySaving?: boolean
 }) {
   const { toast } = useToast()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [enabled, setEnabled] = useState(true)
+  // Dollars booked via public /book textback links (ai_leads quoted totals).
+  const [rescueTotalCents, setRescueTotalCents] = useState(0)
   const [localCapacity, setLocalCapacity] = useState(
     capacityThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD
   )
@@ -42,20 +48,33 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/routing/missed-call-rescue", {
-        credentials: "include",
-        cache: "no-store",
-      })
-      const json = (await res.json()) as {
+      const qs = routingTelemetryQueryString(activeOrganizationId)
+      const [toggleRes, metricsRes] = await Promise.all([
+        fetch("/api/routing/missed-call-rescue", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch(`/api/routing/tracking-metrics${qs}`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ])
+      const toggleJson = (await toggleRes.json()) as {
         data?: { missed_call_textback_enabled?: boolean }
       }
-      setEnabled(json.data?.missed_call_textback_enabled !== false)
+      setEnabled(toggleJson.data?.missed_call_textback_enabled !== false)
+      if (metricsRes.ok) {
+        const metricsJson = (await metricsRes.json()) as {
+          data?: { textback_rescue_revenue_cents?: number }
+        }
+        setRescueTotalCents(Number(metricsJson.data?.textback_rescue_revenue_cents ?? 0))
+      }
     } catch {
       // Keep default on.
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeOrganizationId])
 
   useEffect(() => {
     void load()
@@ -109,6 +128,12 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
 
   const busy = loading || parentLoading || saving
   const showCapacity = typeof onCapacityThresholdChange === "function"
+  const rescueBadge = (
+    <p className="mt-1.5 text-[10px] font-medium leading-snug text-amber-200/85">
+      ✨ Rescued Revenue: {formatRescueRevenueDollars(rescueTotalCents)} generated via automated
+      textback links.
+    </p>
+  )
 
   const capacityField = showCapacity ? (
     <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5">
@@ -173,6 +198,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             <p className="text-xs leading-snug text-zinc-500">
               Instantly texts a booking link when a call goes unanswered.
             </p>
+            {rescueBadge}
           </div>
           <Switch
             checked={enabled}
@@ -230,6 +256,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
         Instantly sends a text message with your secure booking link to any customer whose phone call
         goes unanswered.
       </p>
+      {rescueBadge}
       {capacityField}
     </div>
   )

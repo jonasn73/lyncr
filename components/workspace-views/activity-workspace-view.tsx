@@ -1164,14 +1164,15 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [filter, setFilter] = useState<ActivityCallFilter>(() => {
-    if (searchParams.get("filter") === "missed") return "missed"
+    const param = searchParams.get("filter")
+    if (param === "missed" || param === "missed_leads") return "missed"
     return "all"
   })
   useBookingAlerts()
 
   useEffect(() => {
     const param = searchParams.get("filter")
-    if (param === "missed") setFilter("missed")
+    if (param === "missed" || param === "missed_leads") setFilter("missed")
     else if (param === "all") setFilter("all")
   }, [searchParams])
 
