@@ -14,7 +14,6 @@ import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { DispatchJob, FieldTechnician, TechLiveLocation } from "@/lib/types"
 import {
   LYNCR_FOCUS_DISPATCH_MAP_EVENT,
-  LYNCR_RETURN_TO_INTAKE_EVENT,
   consumePendingFocusDispatchMap,
   emitReturnToIntakeFromMap,
   type FocusDispatchMapDetail,
