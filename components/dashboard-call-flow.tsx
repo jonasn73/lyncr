@@ -62,6 +62,8 @@ function FlowStepMobileRow({
   onOpen,
   loading,
   accent = "primary",
+  valueBadge,
+  detailMuted = false,
 }: {
   title: string
   icon: LucideIcon
@@ -69,9 +71,15 @@ function FlowStepMobileRow({
   detail?: string
   onOpen: () => void
   loading?: boolean
-  accent?: "primary" | "network"
+  accent?: "primary" | "network" | "scheduler"
+  /** Optional warning / status chip next to the value (e.g. Autopilot). */
+  valueBadge?: string
+  /** Muted slate detail copy (Autopilot “rings bypassed” line). */
+  detailMuted?: boolean
 }) {
+  // Pick the tint for the left icon tile from the step accent.
   const isNetwork = accent === "network"
+  const isScheduler = accent === "scheduler"
   return (
     <button
       type="button"
@@ -79,7 +87,10 @@ function FlowStepMobileRow({
       disabled={loading}
       className={cn(
         // Compact routing row — matches workspace glass tokens without tall tap stacks
-        "flex w-full items-center gap-3 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5 text-left transition-colors active:bg-slate-900/50",
+        "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors active:bg-slate-900/50",
+        isScheduler
+          ? "border-emerald-500/30 bg-emerald-950/10"
+          : "border-slate-850/60 bg-slate-900/30",
         MOBILE_TAP_TARGET,
         loading && "pointer-events-none opacity-50"
       )}
@@ -87,15 +98,28 @@ function FlowStepMobileRow({
       <div
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-          isNetwork ? "bg-violet-500/15 text-violet-300" : "bg-primary/12 text-primary"
+          isNetwork
+            ? "bg-violet-500/15 text-violet-300"
+            : isScheduler
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-primary/12 text-primary"
         )}
       >
         <Icon className="h-3.5 w-3.5" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-        <p className="truncate text-sm font-semibold text-foreground">{value}</p>
-        {detail ? <p className="truncate text-xs text-zinc-500">{detail}</p> : null}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+          {valueBadge ? (
+            <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+              {valueBadge}
+            </span>
+          ) : null}
+        </div>
+        {detail ? (
+          <p className={cn("truncate text-xs", detailMuted ? "text-slate-500" : "text-zinc-500")}>{detail}</p>
+        ) : null}
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
     </button>
@@ -111,6 +135,8 @@ function FlowStepCard({
   onOpen,
   loading,
   accent = "primary",
+  valueBadge,
+  detailMuted = false,
 }: {
   step: string
   title: string
@@ -119,10 +145,16 @@ function FlowStepCard({
   detail?: string
   onOpen: () => void
   loading?: boolean
-  // "network" paints the shared Lyncr pool card violet to set it apart from the primary flow.
-  accent?: "primary" | "network"
+  // "network" = Lyncr pool (violet); "scheduler" = Sunday Autopilot AI fallback (emerald).
+  accent?: "primary" | "network" | "scheduler"
+  /** Optional warning / status chip next to the value (e.g. Autopilot). */
+  valueBadge?: string
+  /** Muted slate detail copy (Autopilot “rings bypassed” line). */
+  detailMuted?: boolean
 }) {
+  // Resolve accent flags once so class lists stay readable.
   const isNetwork = accent === "network"
+  const isScheduler = accent === "scheduler"
   return (
     <button
       type="button"
@@ -134,7 +166,9 @@ function FlowStepCard({
         "focus-visible:outline-none focus-visible:ring-2",
         isNetwork
           ? "border-violet-500/40 bg-gradient-to-b from-violet-500/10 to-background/80 hover:border-violet-500/60 hover:shadow-[0_0_32px_-12px_rgb(139_92_246)] focus-visible:ring-violet-500/50"
-          : "border-border/70 bg-gradient-to-b from-card to-background/80 hover:border-primary/45 hover:shadow-[0_0_32px_-12px_var(--primary)] focus-visible:ring-primary/50",
+          : isScheduler
+            ? "border-emerald-500/30 bg-emerald-950/10 hover:border-emerald-500/50 hover:shadow-[0_0_32px_-12px_rgb(16_185_129)] focus-visible:ring-emerald-500/40"
+            : "border-border/70 bg-gradient-to-b from-card to-background/80 hover:border-primary/45 hover:shadow-[0_0_32px_-12px_var(--primary)] focus-visible:ring-primary/50",
         loading && "pointer-events-none opacity-50"
       )}
     >
@@ -144,15 +178,23 @@ function FlowStepCard({
             "flex h-11 w-11 items-center justify-center rounded-xl border",
             isNetwork
               ? "border-violet-500/30 bg-violet-500/15 shadow-[0_0_20px_-6px_rgb(139_92_246)]"
-              : "border-primary/30 bg-primary/15 shadow-[0_0_20px_-6px_var(--primary)]"
+              : isScheduler
+                ? "border-emerald-500/30 bg-emerald-500/15 shadow-[0_0_20px_-6px_rgb(16_185_129)]"
+                : "border-primary/30 bg-primary/15 shadow-[0_0_20px_-6px_var(--primary)]"
           )}
         >
-          <Icon className={cn("h-5 w-5", isNetwork ? "text-violet-300" : "text-primary")} aria-hidden />
+          <Icon
+            className={cn(
+              "h-5 w-5",
+              isNetwork ? "text-violet-300" : isScheduler ? "text-emerald-300" : "text-primary"
+            )}
+            aria-hidden
+          />
         </div>
         <span
           className={cn(
             "text-[10px] font-bold uppercase tracking-wider",
-            isNetwork ? "text-violet-300/80" : "text-primary/80"
+            isNetwork ? "text-violet-300/80" : isScheduler ? "text-emerald-300/80" : "text-primary/80"
           )}
         >
           Step {step}
@@ -160,8 +202,19 @@ function FlowStepCard({
       </div>
       <div className="mt-3 flex flex-1 flex-col gap-0.5 sm:mt-4 sm:gap-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{title}</p>
-        <p className="text-base font-semibold leading-tight text-foreground line-clamp-2 sm:text-lg md:text-xl">{value}</p>
-        {detail ? <p className="text-xs text-zinc-500 line-clamp-2">{detail}</p> : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <p className="text-base font-semibold leading-tight text-foreground line-clamp-2 sm:text-lg md:text-xl">
+            {value}
+          </p>
+          {valueBadge ? (
+            <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+              {valueBadge}
+            </span>
+          ) : null}
+        </div>
+        {detail ? (
+          <p className={cn("text-xs line-clamp-2", detailMuted ? "text-slate-500" : "text-zinc-500")}>{detail}</p>
+        ) : null}
       </div>
       <span
         className={cn(
@@ -169,7 +222,9 @@ function FlowStepCard({
           MOBILE_TAP_TARGET,
           isNetwork
             ? "group-hover:border-violet-500/50 group-hover:bg-violet-500/10 group-hover:text-violet-200"
-            : "group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:text-primary"
+            : isScheduler
+              ? "group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10 group-hover:text-emerald-200"
+              : "group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:text-primary"
         )}
       >
         Configure
@@ -191,6 +246,11 @@ export type DashboardCallFlowProps = {
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
+  /**
+   * Sunday Autopilot — AI answers with owner rings bypassed
+   * (`fallback_type === "ai"` + `!ai_ring_owner_first` + routing to your phone).
+   */
+  autopilotMode: boolean
   // Hybrid-network state (migrations 048/049) — drives the inline "Lyncr Network Pool" step.
   routingStrategy: RoutingStrategy
   allowLyncrNetworkFallback: boolean
@@ -216,6 +276,23 @@ export function isLyncrNetworkStepActive(
   )
 }
 
+/**
+ * Sunday Autopilot is active when Voice AI is the fallback, the owner’s phone is not rung first,
+ * and this line is set to “Your phone” — matching the direct-AI inbound path.
+ */
+export function isSundayAutopilotActive(opts: {
+  fallback: string
+  aiRingOwnerFirst: boolean
+  isRoutingToOwner: boolean
+}): boolean {
+  // AI receptionist must be the configured fallback destination.
+  if (opts.fallback !== "ai") return false
+  // “Ring my phone first” must be off so inbound skips the PSTN ring.
+  if (opts.aiRingOwnerFirst) return false
+  // Autopilot UI only applies when the primary destination is the owner’s cell.
+  return opts.isRoutingToOwner
+}
+
 /** One node in the visual call-flow waterfall — rendered left→right in the exact order Telnyx executes. */
 type CallFlowNode = {
   key: string
@@ -224,7 +301,9 @@ type CallFlowNode = {
   value: string
   detail?: string
   onOpen: () => void
-  accent: "primary" | "network"
+  accent: "primary" | "network" | "scheduler"
+  valueBadge?: string
+  detailMuted?: boolean
 }
 
 /**
@@ -241,6 +320,8 @@ export function buildCallFlowNodes(params: {
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
+  /** When true, Primary/Fallback cards show Sunday Autopilot scheduler copy. */
+  autopilotMode: boolean
   openWhoAnswers: () => void
   openRingBackup: () => void
   openVoiceAi: () => void
@@ -259,6 +340,20 @@ export function buildCallFlowNodes(params: {
       detail: "Certified shared agents answer in-browser",
       onOpen: params.openWhoAnswers,
       accent: "network",
+    })
+  } else if (params.isRoutingToOwner && params.autopilotMode) {
+    // Sunday Autopilot: Your phone stays listed, but rings are bypassed for the AI scheduler.
+    nodes.push({
+      key: "primary",
+      title: "Primary · Who answers",
+      icon: Smartphone,
+      value: "Your phone",
+      // Muted slate number + bypass notice so operators see Autopilot at a glance.
+      detail: `${params.ownerPhoneDisplay} ⏸️ Rings bypassed`,
+      valueBadge: "AUTOPILOT",
+      detailMuted: true,
+      onOpen: params.openWhoAnswers,
+      accent: "primary",
     })
   } else {
     nodes.push({
@@ -285,16 +380,29 @@ export function buildCallFlowNodes(params: {
     })
   }
 
-  // Node 3 — Fallback: the configured no-answer destination (your cell / AI / voicemail).
-  nodes.push({
-    key: "fallback",
-    title: "Fallback · If no one answers",
-    icon: Hourglass,
-    value: params.activeFallbackLabel,
-    detail: `After ringing ${params.ringTimeoutSec}s`,
-    onOpen: params.openRingBackup,
-    accent: "primary",
-  })
+  // Node 3 — Fallback: Autopilot turns this into the AI scheduler card (opens greeting script editor).
+  if (params.autopilotMode) {
+    nodes.push({
+      key: "fallback",
+      title: "🤖 FALLBACK · AI SCHEDULER ACTIVE",
+      icon: Hourglass,
+      value: "Monday Calendar Intercept",
+      detail: "Instant greeting -> Automated SMS text slot dispatch engine",
+      // Preserve intake: tap opens the Voice & AI script editor (slot-booking greeting copy).
+      onOpen: params.openVoiceAi,
+      accent: "scheduler",
+    })
+  } else {
+    nodes.push({
+      key: "fallback",
+      title: "Fallback · If no one answers",
+      icon: Hourglass,
+      value: params.activeFallbackLabel,
+      detail: `After ringing ${params.ringTimeoutSec}s`,
+      onOpen: params.openRingBackup,
+      accent: "primary",
+    })
+  }
 
   // Node 4 — Voice & AI greetings (final voicemail / AI script).
   nodes.push({
@@ -319,6 +427,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
+  autopilotMode,
   routingStrategy,
   allowLyncrNetworkFallback,
   onConfigureStrategy,
@@ -341,6 +450,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     ownerPhoneDisplay,
     ringTimeoutSec,
     activeFallbackLabel,
+    autopilotMode,
     openWhoAnswers: () => setWhoAnswersOpen(true),
     openRingBackup: () => setRingBackupOpen(true),
     openVoiceAi: () => setShowFallbackSettings(true),
@@ -407,6 +517,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   onOpen={node.onOpen}
                   loading={routingLineDetailLoading}
                   accent={node.accent}
+                  valueBadge={node.valueBadge}
+                  detailMuted={node.detailMuted}
                 />
               ))}
             </div>
@@ -431,6 +543,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                     onOpen={node.onOpen}
                     loading={routingLineDetailLoading}
                     accent={node.accent}
+                    valueBadge={node.valueBadge}
+                    detailMuted={node.detailMuted}
                   />
                 </Fragment>
               ))}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardRoutingSurface, type DashboardRoutingSurfaceProps } from "@/components/dashboard-routing-surface"
 import { DashboardRoutingSheets, type DashboardRoutingSheetsProps } from "@/components/dashboard-routing-sheets"
+import { isSundayAutopilotActive } from "@/components/dashboard-call-flow"
 import dynamic from "next/dynamic"
 import type { RoutingStrategy } from "@/lib/types"
 
@@ -53,6 +54,13 @@ export function DashboardRoutingWithSheets(props: Props) {
     router.replace("/dashboard", { scroll: false })
   }, [searchParams, router])
 
+  // Derive Sunday Autopilot from Voice AI fallback + rings-bypassed + Your phone primary.
+  const autopilotMode = isSundayAutopilotActive({
+    fallback: props.fallback,
+    aiRingOwnerFirst: props.aiRingOwnerFirst,
+    isRoutingToOwner: props.isRoutingToOwner,
+  })
+
   const surfaceProps: DashboardRoutingSurfaceProps = {
     quickSetupDecided: props.quickSetupDecided,
     callFlowUiReady: props.callFlowUiReady,
@@ -68,6 +76,7 @@ export function DashboardRoutingWithSheets(props: Props) {
     ownerPhoneDisplay: props.ownerPhoneDisplay,
     ringTimeoutSec: props.ringTimeoutSec,
     activeFallbackLabel: props.activeFallbackLabel,
+    autopilotMode,
     routingStrategy: props.routingStrategy,
     allowLyncrNetworkFallback: props.allowLyncrNetworkFallback,
     onConfigureStrategy: () => setStrategyDialogOpen(true),

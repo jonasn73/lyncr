@@ -36,6 +36,8 @@ export type DashboardRoutingSurfaceProps = {
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
+  /** Sunday Autopilot — AI answers with owner rings bypassed. */
+  autopilotMode: boolean
   routingStrategy: RoutingStrategy
   allowLyncrNetworkFallback: boolean
   onConfigureStrategy: () => void
@@ -62,6 +64,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
+  autopilotMode,
   routingStrategy,
   allowLyncrNetworkFallback,
   onConfigureStrategy,
@@ -98,6 +101,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
       ownerPhoneDisplay={ownerPhoneDisplay}
       ringTimeoutSec={ringTimeoutSec}
       activeFallbackLabel={activeFallbackLabel}
+      autopilotMode={autopilotMode}
       routingStrategy={routingStrategy}
       allowLyncrNetworkFallback={allowLyncrNetworkFallback}
       onConfigureStrategy={onConfigureStrategy}
@@ -132,6 +136,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
+  autopilotMode,
   routingStrategy,
   allowLyncrNetworkFallback,
   onConfigureStrategy,
@@ -305,6 +310,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                 ownerPhoneDisplay={ownerPhoneDisplay}
                 ringTimeoutSec={ringTimeoutSec}
                 activeFallbackLabel={activeFallbackLabel}
+                autopilotMode={autopilotMode}
                 routingStrategy={routingStrategy}
                 allowLyncrNetworkFallback={allowLyncrNetworkFallback}
                 onConfigureStrategy={onConfigureStrategy}
