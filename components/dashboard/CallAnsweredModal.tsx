@@ -890,6 +890,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const row = rowFromAnsweredPayload(payload)
       if (!row) return
       stopRingingFastPoll()
+      // Re-open intake even if this call id was dismissed earlier this session.
+      dismissedRef.current.delete(row.id)
+      if (payload.call_sid) dismissedRef.current.delete(`ring-${payload.call_sid}`)
       // Don't steal an open intake for a different answered leg (secondary answer is rare).
       if (isCallActiveRef.current) {
         const primary = effectiveCurrentRef.current
@@ -899,10 +902,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           return
         }
       }
+      isMinimizedRef.current = false
+      setIsMinimized(false)
       setCurrent((prev) => {
-        if (dismissedRef.current.has(row.id)) return null
-        if (prev?.id.startsWith("ring-") && prev.from_number === row.from_number) {
+        if (prev?.id.startsWith("ring-") && phoneDigitsKey(prev.from_number) === phoneDigitsKey(row.from_number)) {
           ringAliasRef.current = prev.id
+          dismissedRef.current.delete(prev.id)
         }
         return {
           ...row,

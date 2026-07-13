@@ -7,13 +7,18 @@ export type MissedCallRecordInput = {
   status?: string | null
   /** Set when owner/receptionist bridged live on the call. */
   routed_to_name?: string | null
-  /** When set, a completed row without answered_at was never picked up live. */
+  /** Set when the callee leg answered (Your Phone / receptionist) — any duration counts. */
   answered_at?: string | null
   ended_at?: string | null
+  /** Optional talk seconds — positive duration with a human answer reinforces live answer. */
+  duration_seconds?: number | null
 }
 
 /** Canonical label written to call_logs.routed_to_name for Smart IVR Menu. */
 export const IVR_MENU_ROUTED_TO_NAME = "IVR Menu"
+
+/** Canonical label when Your Phone (owner cell) accepts the inbound leg. */
+export const OWNER_PHONE_ROUTED_TO_NAME = "Owner"
 
 function normalizeCallType(raw: string | null | undefined): string {
   return String(raw ?? "")
@@ -63,18 +68,31 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
 }
 
 /**
- * True only when a human (owner / receptionist) likely bridged live.
- * Carrier "answered" on an IVR Gather alone is NOT a human answer.
+ * True when Your Phone / a receptionist accepted the inbound leg.
+ * Any answered_at counts — short 6s pickups must stay Answered, never Missed.
+ * Carrier "answered" on an IVR Gather alone is excluded via automated handler check.
  */
-function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
+export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
   if (isAutomatedCallHandler(input.routed_to_name)) return false
 
-  const answeredAt = input.answered_at ? Date.parse(input.answered_at) : NaN
-  const endedAt = input.ended_at ? Date.parse(input.ended_at) : NaN
-  if (Number.isFinite(answeredAt) && Number.isFinite(endedAt) && endedAt - answeredAt >= 2000) {
+  if (input.answered_at?.trim()) {
+    const answeredAt = Date.parse(input.answered_at)
+    if (Number.isFinite(answeredAt)) return true
+  }
+
+  // Fallback: completed leg with talk time and a human routing label (Owner / named agent).
+  const status = normalizeCallStatus(input.status)
+  const duration = Number(input.duration_seconds ?? 0)
+  const routed = String(input.routed_to_name ?? "").trim()
+  if (
+    status === "completed" &&
+    duration > 0 &&
+    routed &&
+    !isAutomatedCallHandler(routed)
+  ) {
     return true
   }
-  // Inbound rows preset routed_to_name ("Owner", "AI Receptionist") before anyone picks up — ignore it here.
+
   return false
 }
 
@@ -84,10 +102,14 @@ function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
  * Matches the routing strip SQL in getDailyCallTelemetryForOwner.
  */
 export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
+  // Human answer wins over a stale call_type=missed or short duration.
+  if (ownerLiveAnswered(input)) return false
+
   const type = normalizeCallType(input.call_type)
   const status = normalizeCallStatus(input.status)
 
-  if (type === "missed" || type === "voicemail") return true
+  if (type === "voicemail") return true
+  if (type === "missed") return true
   if (["no-answer", "busy", "missed", "canceled", "cancelled"].includes(status)) return true
 
   // Automated handler — always an unhandled / machine-handled lead for callback metrics.

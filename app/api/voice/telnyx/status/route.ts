@@ -50,10 +50,25 @@ export async function POST(req: NextRequest) {
       callType = "missed"
     }
 
-    // Timing metrics update can fail safely (e.g. before migration runs).
     // Snapshot — IVR Gather sets carrier "answered" but is not a human bridge.
     const snapshot = await getCallLogSnapshotForTelemetry(callSid).catch(() => null)
     const automated = isAutomatedCallHandler(snapshot?.routed_to_name ?? null)
+    const alreadyHumanAnswered =
+      !automated && Boolean(snapshot?.answered_at) && snapshot?.call_type !== "voicemail"
+
+    // Your Phone / receptionist already accepted — never demote a short pickup to missed.
+    if (alreadyHumanAnswered && callType === "missed") {
+      callType = "incoming"
+    }
+    if (
+      !automated &&
+      callType !== "outgoing" &&
+      duration > 0 &&
+      snapshot?.routed_to_name &&
+      !isAutomatedCallHandler(snapshot.routed_to_name)
+    ) {
+      callType = snapshot.call_type === "voicemail" ? "voicemail" : "incoming"
+    }
 
     try {
       await recordCallStatusEvent(callSid, callStatus, duration, eventTimestamp || undefined, {
@@ -63,24 +78,32 @@ export async function POST(req: NextRequest) {
       console.error("[Telnyx] Metrics update failed in status callback:", metricsError)
     }
 
-    if (automated && (callStatus === "completed" || callStatus === "no-answer" || callStatus === "busy" || callStatus === "canceled")) {
+    if (
+      automated &&
+      (callStatus === "completed" ||
+        callStatus === "no-answer" ||
+        callStatus === "busy" ||
+        callStatus === "canceled")
+    ) {
       callType = snapshot?.call_type === "voicemail" ? "voicemail" : "missed"
     }
 
     await updateCallLog(callSid, {
       call_type: callType,
-      status: callStatus,
+      status: alreadyHumanAnswered && callStatus === "no-answer" ? "completed" : callStatus,
       ...(duration > 0 ? { duration_seconds: duration } : {}),
       // Clear machine "answered_at" so metrics / Activities never treat IVR as live Answered.
       ...(automated && callType === "missed" ? { answered_at: null } : {}),
     })
 
     const answeredLive = ["answered", "in-progress"].includes(callStatus)
-    if (answeredLive && callType === "incoming" && !automated) {
+    if (answeredLive && !automated) {
       try {
         await notifyOwnerInboundCallAnswered({
           providerCallSid: callSid,
           occurredAtIso: eventTimestamp || undefined,
+          fromNumber: fromNumber || undefined,
+          toNumber: toNumber || undefined,
         })
       } catch (telemetryErr) {
         console.warn("[Telnyx] call-answered telemetry broadcast failed:", telemetryErr)
@@ -110,13 +133,17 @@ export async function POST(req: NextRequest) {
         } catch (dispatchErr) {
           console.error("[Telnyx] Admin override dispatch SMS failed:", dispatchErr)
         }
-        // Missed Call Rescue — abandoned / short IVR or no-answer legs.
+        // Missed Call Rescue — skip legs that already had a human answer.
         try {
+          const snap2 = await getCallLogSnapshotForTelemetry(callSid).catch(() => null)
+          const humanAnswered =
+            Boolean(snap2?.answered_at) && !isAutomatedCallHandler(snap2?.routed_to_name)
           const preferRescue =
-            callStatus === "no-answer" ||
-            callStatus === "busy" ||
-            callStatus === "canceled" ||
-            (callStatus === "completed" && duration > 0 && duration < 45)
+            !humanAnswered &&
+            (callStatus === "no-answer" ||
+              callStatus === "busy" ||
+              callStatus === "canceled" ||
+              (callStatus === "completed" && duration > 0 && duration < 45 && !snap2?.answered_at))
           if (preferRescue && fromNumber && toNumber) {
             await maybeSendMissedCallRescueSms({
               callSid,

@@ -870,6 +870,17 @@ export async function handleTelnyxFallbackDialEnded(
         }
       )
       if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
+      // Persist short Your Phone pickups as answered inbound — never leave them as missed.
+      persistInboundDialTalkTime(callSid, dialDurationSec, {
+        call_type: "incoming",
+        status: dialStatus || "completed",
+      })
+      void updateCallLog(callSid, {
+        call_type: "incoming",
+        routed_to_name: "Owner",
+        answered_at: new Date().toISOString(),
+        ...(dialDurationSec > 0 ? { duration_seconds: dialDurationSec } : {}),
+      }).catch(() => {})
       texml.hangup()
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },

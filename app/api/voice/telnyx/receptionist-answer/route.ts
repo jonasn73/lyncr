@@ -19,6 +19,8 @@ import { handleCallConnected } from "@/app/actions/call-events"
 import { notifyOwnerInboundCallAnswered } from "@/lib/inbound-call-answered-broadcast"
 import type { ReceptionistBusinessType } from "@/lib/business-type"
 import { VoiceResponse } from "@/lib/telnyx"
+import { updateCallLog } from "@/lib/db"
+import { OWNER_PHONE_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -86,12 +88,28 @@ function resolveProviderCallSid(req: NextRequest): string {
 async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   const callSid = resolveProviderCallSid(req)
   if (!callSid) return
+  const ownerUserId = param(req, "u", "ownerUserId")
+  const callLogId = param(req, "lid", "callLogId")
+  const fromNumber = param(req, "from", "caller")
+  const toNumber = param(req, "to")
+  const receptionistId = param(req, "r", "receptionistId")
+
+  // Persist human-answer tags immediately so short pickups never finalize as Missed.
+  void updateCallLog(callSid, {
+    call_type: "incoming",
+    status: "in-progress",
+    answered_at: new Date().toISOString(),
+    ...(receptionistId?.trim() ? {} : { routed_to_name: OWNER_PHONE_ROUTED_TO_NAME }),
+  }).catch((e) => {
+    console.warn("[receptionist-answer] call-log answer tag failed:", e)
+  })
+
   await notifyOwnerInboundCallAnswered({
     providerCallSid: callSid,
-    ownerUserId: param(req, "u", "ownerUserId"),
-    callLogId: param(req, "lid", "callLogId"),
-    fromNumber: param(req, "from", "caller"),
-    toNumber: param(req, "to"),
+    ownerUserId,
+    callLogId,
+    fromNumber,
+    toNumber,
     callerName: param(req, "cn", "callerName"),
   }).catch((e) => {
     console.error("[receptionist-answer] owner call-answered broadcast failed:", e)

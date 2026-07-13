@@ -97,8 +97,8 @@ export async function broadcastCallRecordingReady(params: {
 export async function broadcastCallAnsweredBySid(callSid: string): Promise<void> {
   const snapshot = await getCallLogSnapshotForTelemetry(callSid)
   if (!snapshot) return
-  if (snapshot.call_type !== "incoming") return
   if (!snapshot.answered_at) return
+  if (snapshot.call_type === "voicemail" || snapshot.call_type === "outgoing") return
   await broadcastCallAnswered({
     ownerUserId: snapshot.user_id,
     callSid,

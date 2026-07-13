@@ -24,7 +24,9 @@ export type NotifyOwnerInboundCallAnsweredParams = {
 
 async function broadcastFromSnapshot(providerCallSid: string): Promise<boolean> {
   const snapshot = await getCallLogSnapshotForTelemetry(providerCallSid)
-  if (!snapshot || snapshot.call_type !== "incoming" || !snapshot.answered_at) return false
+  if (!snapshot || !snapshot.answered_at) return false
+  // Allow rows briefly tagged missed before answer tags landed — intake still must open.
+  if (snapshot.call_type === "voicemail" || snapshot.call_type === "outgoing") return false
   await broadcastCallAnswered({
     ownerUserId: snapshot.user_id,
     callSid: providerCallSid,

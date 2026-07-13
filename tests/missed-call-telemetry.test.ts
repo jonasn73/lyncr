@@ -3,7 +3,7 @@ import { isMissedCallRecord, isMissedCallTodayRecord } from "@/lib/missed-call-t
 import { isMissedCallTelemetry } from "@/lib/realtime/owner-call-event-types"
 
 describe("isMissedCallRecord", () => {
-  it("counts explicit missed and voicemail rows", () => {
+  it("counts explicit missed and voicemail rows without answered_at", () => {
     expect(isMissedCallRecord({ call_type: "missed", status: "canceled" })).toBe(true)
     expect(isMissedCallRecord({ call_type: "voicemail", status: "completed" })).toBe(true)
   })
@@ -13,12 +13,12 @@ describe("isMissedCallRecord", () => {
     expect(isMissedCallRecord({ call_type: "incoming", status: "canceled" })).toBe(true)
   })
 
-  it("counts completed inbound rows that never got bridged to owner", () => {
+  it("counts completed inbound rows that never got answered_at", () => {
     expect(
       isMissedCallRecord({
         call_type: "incoming",
         status: "completed",
-        answered_at: "2026-07-01T03:33:41.866Z",
+        answered_at: null,
         ended_at: "2026-07-01T03:33:41.866Z",
         routed_to_name: null,
       })
@@ -35,13 +35,45 @@ describe("isMissedCallRecord", () => {
     ).toBe(true)
   })
 
-  it("does not count live answered conversations", () => {
+  it("does not count live answered conversations — including short pickups", () => {
     expect(
       isMissedCallRecord({
         call_type: "incoming",
         status: "completed",
         answered_at: "2026-06-27T17:00:00.000Z",
         ended_at: "2026-06-27T17:01:11.000Z",
+        routed_to_name: "Owner",
+      })
+    ).toBe(false)
+    // 6-second Your Phone answer must stay Answered (not Missed).
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: "2026-07-13T14:42:04.000Z",
+        ended_at: "2026-07-13T14:42:10.000Z",
+        duration_seconds: 6,
+        routed_to_name: "Owner",
+      })
+    ).toBe(false)
+    // answered_at wins even if call_type was wrongly stamped missed.
+    expect(
+      isMissedCallRecord({
+        call_type: "missed",
+        status: "completed",
+        answered_at: "2026-07-13T14:42:04.000Z",
+        ended_at: "2026-07-13T14:42:10.000Z",
+        duration_seconds: 6,
+        routed_to_name: "Owner",
+      })
+    ).toBe(false)
+    // Zero-duration hangup still counts once answered_at is set.
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: "2026-07-01T03:33:41.866Z",
+        ended_at: "2026-07-01T03:33:41.866Z",
         routed_to_name: "Owner",
       })
     ).toBe(false)
@@ -83,7 +115,7 @@ describe("isMissedCallTelemetry", () => {
         call_sid: "abc",
         call_type: "incoming",
         status: "completed",
-        answered_at: "2026-07-01T03:33:41.866Z",
+        answered_at: null,
         ended_at: "2026-07-01T03:33:41.866Z",
         routed_to_name: null,
       })

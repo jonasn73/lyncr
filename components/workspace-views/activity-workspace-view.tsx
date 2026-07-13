@@ -242,24 +242,27 @@ function missedRecordFromUiCall(call: UiCallRecord): MissedCallRecordInput {
     answered_at: call.answeredAt,
     ended_at: call.endedAt,
     routed_to_name: call.routedTo,
+    duration_seconds: call.durationSeconds,
   }
 }
 
 function classifyCall(call: UiCallRecord): ActivityCallStatus {
   const routed = call.routedTo ?? ""
   if (call.type === "voicemail" || /voicemail/i.test(routed)) return "voicemail"
-  if (call.type === "missed" && isIvrMenuHandler(routed)) return "missed_ivr"
-  if (call.type === "missed") return "missed"
-  // IVR / keypad before AI — red/amber Missed (IVR), never green Answered.
+  // IVR / keypad — amber Missed (IVR), never green Answered.
   if (isIvrMenuHandler(routed)) return "missed_ivr"
   if (/ai receptionist|voice ai|assistant/i.test(routed)) return "ai_handled"
+  // Your Phone / human answer — green Answered even for short pickups (e.g. 6s).
+  if (
+    !isMissedCallRecord(missedRecordFromUiCall(call)) &&
+    (Boolean(call.answeredAt) || (call.durationSeconds > 0 && Boolean(routed) && !isIvrMenuHandler(routed)))
+  ) {
+    return "answered"
+  }
   if (isMissedCallRecord(missedRecordFromUiCall(call))) {
     return isIvrMenuHandler(routed) ? "missed_ivr" : "missed"
   }
-  // Duration alone is not a live answer — IVR Gather also accrues talk time.
-  if (call.durationSeconds > 0 && call.answeredAt && !isMissedCallRecord(missedRecordFromUiCall(call))) {
-    return "answered"
-  }
+  if (call.type === "missed") return "missed"
   return "missed"
 }
 
