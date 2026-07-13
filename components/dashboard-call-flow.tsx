@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronRight,
   Smartphone,
-  Hourglass,
   AudioWaveform,
   Network,
 } from "lucide-react"
@@ -26,11 +25,13 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
+import { SmartOverflowFallbackCard } from "@/components/dashboard/smart-overflow-fallback-card"
 import {
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
 import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
+import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -380,29 +381,8 @@ export function buildCallFlowNodes(params: {
     })
   }
 
-  // Node 3 — Fallback: Autopilot turns this into the AI scheduler card (opens greeting script editor).
-  if (params.autopilotMode) {
-    nodes.push({
-      key: "fallback",
-      title: "🤖 FALLBACK · AI SCHEDULER ACTIVE",
-      icon: Hourglass,
-      value: "Monday Calendar Intercept",
-      detail: "Instant greeting -> Automated SMS text slot dispatch engine",
-      // Preserve intake: tap opens the Voice & AI script editor (slot-booking greeting copy).
-      onOpen: params.openVoiceAi,
-      accent: "scheduler",
-    })
-  } else {
-    nodes.push({
-      key: "fallback",
-      title: "Fallback · If no one answers",
-      icon: Hourglass,
-      value: params.activeFallbackLabel,
-      detail: `After ringing ${params.ringTimeoutSec}s`,
-      onOpen: params.openRingBackup,
-      accent: "primary",
-    })
-  }
+  // Node 3 — Fallback is owned by the Smart Overflow Autopilot card (rendered separately).
+  // (Kept out of the generic node list so mode controls + live badges can sit on the card.)
 
   // Node 4 — Voice & AI greetings (final voicemail / AI script).
   nodes.push({
@@ -439,6 +419,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const isMobile = useIsMobile()
+  // Live calendar capacity + next open 1-hour block for Smart Overflow Autopilot.
+  const smartOverflow = useSmartOverflowAutopilot()
+  // Manual / Auto-On capacity trips OR classic Sunday Autopilot (AI + rings bypassed).
+  const effectiveAutopilot = autopilotMode || smartOverflow.overflowActive
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -450,14 +434,32 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     ownerPhoneDisplay,
     ringTimeoutSec,
     activeFallbackLabel,
-    autopilotMode,
+    autopilotMode: effectiveAutopilot,
     openWhoAnswers: () => setWhoAnswersOpen(true),
     openRingBackup: () => setRingBackupOpen(true),
     openVoiceAi: () => setShowFallbackSettings(true),
     configureStrategy: onConfigureStrategy,
   })
 
+  // Voice & AI is always last; Smart Overflow owns the fallback slot before it.
+  const primaryAndNetworkNodes = flowNodes.filter((n) => n.key !== "voice")
+  const voiceNode = flowNodes.find((n) => n.key === "voice")
+
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
+
+  const overflowCard = (
+    <SmartOverflowFallbackCard
+      compact={isMobile}
+      step={String(primaryAndNetworkNodes.length + 2)}
+      overflowActive={smartOverflow.overflowActive || autopilotMode}
+      nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
+      confirmedJobsToday={smartOverflow.confirmedJobsToday}
+      config={smartOverflow.config}
+      onConfigChange={smartOverflow.setConfig}
+      onOpenScriptEditor={() => setShowFallbackSettings(true)}
+      loading={routingLineDetailLoading || smartOverflow.loading}
+    />
+  )
 
   // Flattened shell — no outer card; step rows/cards sit on the page background.
   return (
@@ -507,7 +509,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               className={cn("flex flex-col gap-2", routingLineDetailLoading && "opacity-60")}
               aria-label="Call handling steps"
             >
-              {flowNodes.map((node) => (
+              {primaryAndNetworkNodes.map((node) => (
                 <FlowStepMobileRow
                   key={node.key}
                   title={node.title}
@@ -521,6 +523,19 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   detailMuted={node.detailMuted}
                 />
               ))}
+              {overflowCard}
+              {voiceNode ? (
+                <FlowStepMobileRow
+                  key={voiceNode.key}
+                  title={voiceNode.title}
+                  icon={voiceNode.icon}
+                  value={voiceNode.value}
+                  detail={voiceNode.detail}
+                  onOpen={voiceNode.onOpen}
+                  loading={routingLineDetailLoading}
+                  accent={voiceNode.accent}
+                />
+              ) : null}
             </div>
           ) : (
             <div
@@ -531,7 +546,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               )}
               aria-label="Call handling steps"
             >
-              {flowNodes.map((node, i) => (
+              {primaryAndNetworkNodes.map((node, i) => (
                 <Fragment key={node.key}>
                   {i > 0 ? <FlowConnector /> : null}
                   <FlowStepCard
@@ -548,6 +563,23 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   />
                 </Fragment>
               ))}
+              <FlowConnector />
+              {overflowCard}
+              {voiceNode ? (
+                <>
+                  <FlowConnector />
+                  <FlowStepCard
+                    step={String(primaryAndNetworkNodes.length + 3)}
+                    title={voiceNode.title}
+                    icon={voiceNode.icon}
+                    value={voiceNode.value}
+                    detail={voiceNode.detail}
+                    onOpen={voiceNode.onOpen}
+                    loading={routingLineDetailLoading}
+                    accent={voiceNode.accent}
+                  />
+                </>
+              ) : null}
             </div>
           )}
         </div>
