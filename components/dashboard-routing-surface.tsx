@@ -184,8 +184,8 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
     <div className="flex w-full flex-col">
       {trackingLine}
 
-      <div className="h-[calc(100vh-120px)] overflow-y-auto overscroll-y-contain">
-        <div className="mx-auto w-full max-w-7xl px-0 pb-8 pt-4 sm:px-0">
+      <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-24 md:pb-8">
+        <div className="mx-auto w-full max-w-7xl px-0 pt-4 sm:px-0">
           <MissedLeadRecoveryBanner
             prospects={missedLeadInsights.recentUnreturned}
             onIntercepted={missedLeadInsights.markIntercepted}

@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch"
 import { IvrGreetingsSettingsForm } from "@/components/dashboard/ivr-greetings-settings-form"
 import {
   ACTIVE_ROUTING_MODE_OPTIONS,
+  LYNCR_ROUTING_MODE_CHANGED,
   normalizeActiveRoutingMode,
   type ActiveRoutingMode,
 } from "@/lib/active-routing-mode"
@@ -167,6 +168,12 @@ export function DashboardWhoAnswersDrawer({
       }
 
       baselineRef.current = snapshot()
+      // Refresh Lines Call Flow so IVR deck shows/hides from the saved primary mode.
+      window.dispatchEvent(
+        new CustomEvent(LYNCR_ROUTING_MODE_CHANGED, {
+          detail: { mode, businessNumber: routingBusinessNumber },
+        })
+      )
       toast({
         title: "Routing mode saved",
         description: ACTIVE_ROUTING_MODE_OPTIONS.find((o) => o.value === mode)?.label,

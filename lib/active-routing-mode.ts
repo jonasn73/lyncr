@@ -42,6 +42,9 @@ export function normalizeActiveRoutingMode(raw: unknown): ActiveRoutingMode {
   return "your_phone"
 }
 
+/** CustomEvent name — Who Answers save → Call Flow refreshes active_routing_mode / IVR deck. */
+export const LYNCR_ROUTING_MODE_CHANGED = "lyncr-routing-mode-changed"
+
 /** Infer mode from legacy columns when active_routing_mode is unset. */
 export function inferActiveRoutingMode(row: {
   active_routing_mode?: string | null

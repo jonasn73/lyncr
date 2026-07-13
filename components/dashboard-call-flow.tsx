@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, memo } from "react"
+import { Fragment, memo, useCallback, useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   PhoneForwarded,
@@ -32,6 +32,11 @@ import {
 import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
+import {
+  LYNCR_ROUTING_MODE_CHANGED,
+  normalizeActiveRoutingMode,
+  type ActiveRoutingMode,
+} from "@/lib/active-routing-mode"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -501,9 +506,43 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   const isMobile = useIsMobile()
   // Live calendar capacity + next open 1-hour block for Smart Overflow IVR Menu.
   const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
-  // Manual / Auto-On capacity trips OR classic Sunday Autopilot (AI + rings bypassed).
-  const effectiveAutopilot = autopilotMode || smartOverflow.overflowActive
-  const ivrMenuLive = smartOverflow.overflowActive
+  // Who Answers primary mode — gates the entire IVR configuration deck.
+  const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>("your_phone")
+
+  const loadActiveRoutingMode = useCallback(async () => {
+    if (!routingBusinessNumber?.trim()) {
+      setActiveRoutingMode("your_phone")
+      return
+    }
+    try {
+      const res = await fetch(
+        `/api/routing/mode?number=${encodeURIComponent(routingBusinessNumber)}`,
+        { credentials: "include", cache: "no-store" }
+      )
+      if (!res.ok) return
+      const json = (await res.json()) as { data?: { activeRoutingMode?: string } }
+      setActiveRoutingMode(normalizeActiveRoutingMode(json.data?.activeRoutingMode))
+    } catch {
+      // Keep last known mode on transient network errors.
+    }
+  }, [routingBusinessNumber])
+
+  useEffect(() => {
+    void loadActiveRoutingMode()
+  }, [loadActiveRoutingMode])
+
+  useEffect(() => {
+    const onModeChanged = () => {
+      void loadActiveRoutingMode()
+    }
+    window.addEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
+    return () => window.removeEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
+  }, [loadActiveRoutingMode])
+
+  // Only show Smart Overflow IVR Menu when Who Answers primary target is Smart IVR.
+  const showIvrDeck = activeRoutingMode === "smart_ivr"
+  // Emerald live badges / connectors when IVR is the active primary answering path.
+  const ivrMenuLive = showIvrDeck
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -523,17 +562,17 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     configureStrategy: onConfigureStrategy,
   })
 
-  // Voice & AI is always last; Smart Overflow owns the fallback slot before it.
+  // Voice & AI is always last; Smart Overflow owns the fallback slot before it (when visible).
   const primaryAndNetworkNodes = flowNodes.filter((n) => n.key !== "voice")
   const voiceNode = flowNodes.find((n) => n.key === "voice")
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
-  const overflowCard = (
+  const overflowCard = showIvrDeck ? (
     <SmartOverflowFallbackCard
       compact={isMobile}
       step={String(primaryAndNetworkNodes.length + 2)}
-      overflowActive={smartOverflow.overflowActive || autopilotMode}
+      overflowActive={smartOverflow.overflowActive || autopilotMode || showIvrDeck}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
       config={smartOverflow.config}
@@ -542,7 +581,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       loading={routingLineDetailLoading || smartOverflow.loading}
       retellConnected={smartOverflow.retellConnected}
     />
-  )
+  ) : null
 
   // Flattened shell — no outer card; step rows/cards sit on the page background.
   return (
@@ -608,7 +647,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   badgeTone={node.badgeTone}
                 />
               ))}
-              {ivrMenuLive ? (
+              {showIvrDeck && ivrMenuLive ? (
                 <div
                   className="mx-auto h-6 w-[2px] animate-pulse rounded-full bg-gradient-to-b from-emerald-500/20 via-emerald-400 to-emerald-500/20"
                   aria-hidden
@@ -656,13 +695,17 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   />
                 </Fragment>
               ))}
-              <FlowConnector live={ivrMenuLive} />
-              {overflowCard}
+              {showIvrDeck ? (
+                <>
+                  <FlowConnector live={ivrMenuLive} />
+                  {overflowCard}
+                </>
+              ) : null}
               {voiceNode ? (
                 <>
                   <FlowConnector />
                   <FlowStepCard
-                    step={String(primaryAndNetworkNodes.length + 3)}
+                    step={String(primaryAndNetworkNodes.length + (showIvrDeck ? 3 : 2))}
                     title={voiceNode.title}
                     icon={voiceNode.icon}
                     value={voiceNode.value}
