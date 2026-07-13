@@ -1616,38 +1616,31 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     focusIntakePrimaryField()
   }, [effectiveCurrent?.id, currentStep, stepIntake, focusIntakePrimaryField])
 
-  if (!enabled && !manualCallRow) return null
-
-  const isRinging =
-    effectiveCurrent != null &&
-    (effectiveCurrent.manualCallStatus === "ringing" ||
-      (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
-  const isPriceTooHigh = failureReason === "Price too high"
-  const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
-  const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
-  const intakePhoneDisplay = formatPhoneDisplay(
-    form.phoneNumber || effectiveCurrent?.from_number || ""
-  )
-  const sheetOpen = effectiveCurrent != null && !isMinimized
-
   const minimizeIntake = useCallback(() => {
     isMinimizedRef.current = true
     setIsMinimized(true)
   }, [])
 
   const expandIntake = useCallback(() => {
+    // Force the intake sheet back open (map "Return to Intake Form" + PiP tray).
     isMinimizedRef.current = false
     setIsMinimized(false)
   }, [])
 
-  // Map overlay "← Return to Intake Form" — reopen the intake drawer instantly.
+  // Map overlay "← Return to Intake Form" — must register even when sheet is minimized.
   useEffect(() => {
     const onReturn = () => {
-      expandIntake()
+      isMinimizedRef.current = false
+      setIsMinimized(false)
+      // Radix can swallow a controlled open flip mid-close animation — nudge again next frame.
+      window.requestAnimationFrame(() => {
+        isMinimizedRef.current = false
+        setIsMinimized(false)
+      })
     }
     window.addEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
     return () => window.removeEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
-  }, [expandIntake])
+  }, [])
 
   const viewOnMapLayout = useCallback(() => {
     const lat = form.serviceAddress?.lat
@@ -1681,6 +1674,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setActiveTab,
     toast,
   ])
+
+  if (!enabled && !manualCallRow) return null
+
+  const isRinging =
+    effectiveCurrent != null &&
+    (effectiveCurrent.manualCallStatus === "ringing" ||
+      (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
+  const isPriceTooHigh = failureReason === "Price too high"
+  const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
+  const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
+  const intakePhoneDisplay = formatPhoneDisplay(
+    form.phoneNumber || effectiveCurrent?.from_number || ""
+  )
+  const sheetOpen = effectiveCurrent != null && !isMinimized
 
   return (
     <>

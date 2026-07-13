@@ -356,7 +356,11 @@ export function DispatchLiveMap({
       />
 
       {destination ? (
-        <div className="absolute left-3 top-3 z-[1200] max-w-[min(18rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur">
+        <div
+          className="pointer-events-auto absolute left-3 top-3 z-[2000] max-w-[min(18rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
             Intake target
           </p>
@@ -368,7 +372,9 @@ export function DispatchLiveMap({
           ) : null}
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
               setDestination(null)
               didFit.current = false
             }}
@@ -378,10 +384,13 @@ export function DispatchLiveMap({
           </button>
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              // Re-open the minimized CallAnsweredModal intake drawer.
               emitReturnToIntakeFromMap()
             }}
-            className="mt-2 flex w-full items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
+            className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
           >
             ← Return to Intake Form
           </button>
