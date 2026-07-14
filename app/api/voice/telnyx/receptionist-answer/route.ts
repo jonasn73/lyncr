@@ -2,8 +2,8 @@
 // GET/POST /api/voice/telnyx/receptionist-answer
 // ============================================
 // Telnyx fetches this `<Number url="…" method="POST">` document the instant the callee leg
-// answers (before bridging to the caller). We broadcast `call-answered` synchronously here
-// so the owner CRM modal opens immediately — then return whisper / press-1 TeXML.
+// answers (before bridging to the caller). Press-1 confirms a human — voicemail cannot press 1,
+// so Lyncr keeps the call as missed and falls through to textback / native voicemail.
 
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
@@ -84,7 +84,10 @@ function resolveProviderCallSid(req: NextRequest): string {
   return param(req, "cl", "callSid", "callLogId") ?? ""
 }
 
-/** Owner intake sheet — fire the instant the callee leg answers (before press-1 gate). */
+/**
+ * Confirmed human answer (press 1, or press-1 disabled).
+ * Sets answered_at so Activities / Missed Call Rescue treat the leg as live.
+ */
 async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   const callSid = resolveProviderCallSid(req)
   if (!callSid) return
@@ -94,7 +97,6 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   const toNumber = param(req, "to")
   const receptionistId = param(req, "r", "receptionistId")
 
-  // Persist human-answer tags immediately so short pickups never finalize as Missed.
   void updateCallLog(callSid, {
     call_type: "incoming",
     status: "in-progress",
@@ -139,38 +141,36 @@ function scheduleReceptionistHudConnected(req: NextRequest, receptionistId: stri
 async function respond(req: NextRequest): Promise<NextResponse> {
   const isGate = param(req, "g") === "1"
   const businessName = param(req, "bn", "businessName") || "your business"
+  const receptionistId = param(req, "r", "receptionistId")
+  const phrase = whisperPhrase(req)
 
+  // Gate callback — only digit 1 confirms a human (voicemail cannot press 1).
   if (isGate) {
     const digit = await readPressedDigit(req)
     if (digit === "1") {
-      const receptionistId = param(req, "r", "receptionistId")
+      await notifyOwnerCrmAnswered(req)
       if (receptionistId?.trim()) scheduleReceptionistHudConnected(req, receptionistId)
       return xmlResponseBody(buildReceptionistPress1AcceptedTexml())
     }
     return xmlResponseBody(buildReceptionistPress1RejectedTexml())
   }
 
-  const receptionistId = param(req, "r", "receptionistId")
-  if (!receptionistId?.trim()) {
-    await notifyOwnerCrmAnswered(req)
-    const texml = new VoiceResponse()
-    const phrase = whisperPhrase(req)
-    if (phrase) texmlSayWhisperPlain(texml, phrase)
-    return xmlResponseBody(texml.toString())
-  }
-
-  // Owner CRM opens on answer; press-1 only gates bridging + receptionist HUD.
-  await notifyOwnerCrmAnswered(req)
-
+  // Escape hatch for debugging / accounts that want immediate bridge.
   if (PRESS1_SCREEN_DISABLED) {
-    scheduleReceptionistHudConnected(req, receptionistId)
+    await notifyOwnerCrmAnswered(req)
+    if (receptionistId?.trim()) scheduleReceptionistHudConnected(req, receptionistId)
     const texml = new VoiceResponse()
-    const phrase = whisperPhrase(req)
     if (phrase) texmlSayWhisperPlain(texml, phrase)
     return xmlResponseBody(texml.toString())
   }
 
-  return xmlResponseBody(buildReceptionistPress1ScreenTexml(businessName, gateActionUrl(req)))
+  // Owner cell AND receptionist: press 1 before bridging (anti-voicemail).
+  // Do NOT set answered_at yet — voicemail pickup must stay Missed.
+  return xmlResponseBody(
+    buildReceptionistPress1ScreenTexml(businessName, gateActionUrl(req), {
+      whisperPhrase: phrase,
+    })
+  )
 }
 
 export async function GET(req: NextRequest) {

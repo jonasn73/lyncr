@@ -224,15 +224,32 @@ export function buildInboundPstnNumberAttributes(): Record<string, string | bool
   return out
 }
 
+/** Dial-leg progress webhooks → `/api/voice/telnyx/status` (initiated / ringing / answered / completed). */
+export function buildInboundDialLegStatusCallbackAttributes(
+  statusCallbackUrl?: string | null
+): Record<string, string> {
+  const base = getAppUrl().replace(/\/+$/, "")
+  const url = (statusCallbackUrl?.trim() || `${base}/api/voice/telnyx/status`).trim()
+  return {
+    statusCallback: url,
+    statusCallbackMethod: "POST",
+    statusCallbackEvent: "initiated ringing answered completed",
+  }
+}
+
 /** `<Number url method="POST">` — Telnyx TeXML apps usually POST; without `method` the screen URL may never run. */
 export function buildInboundPstnNumberAttributesWithAnswerUrl(
-  answerUrl?: string
+  answerUrl?: string,
+  opts?: { statusCallbackUrl?: string | null; includeStatusCallback?: boolean }
 ): Record<string, string | boolean | number> {
   const out = buildInboundPstnNumberAttributes()
   const url = answerUrl?.trim()
   if (url) {
     out.url = url
     out.method = "POST"
+  }
+  if (opts?.includeStatusCallback !== false) {
+    Object.assign(out, buildInboundDialLegStatusCallbackAttributes(opts?.statusCallbackUrl))
   }
   return out
 }

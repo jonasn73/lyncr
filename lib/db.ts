@@ -3441,12 +3441,14 @@ export async function recordCallStatusEvent(
   callStatus: string,
   durationSeconds: number,
   occurredAtIso?: string,
-  options?: { skipAnsweredTelemetry?: boolean }
+  options?: { skipAnsweredTelemetry?: boolean; skipAnsweredAt?: boolean }
 ): Promise<void> {
   const sql = getSql()
   const normalizedStatus = callStatus.trim().toLowerCase().replace(/_/g, "-")
   const occurredAt = occurredAtIso ? new Date(occurredAtIso) : new Date()
   const providerSid = providerCallSid.trim()
+  // Press-1 gate owns answered_at — carrier "answered" on cell voicemail must not stamp it.
+  const skipAnsweredAt = options?.skipAnsweredAt === true
   try {
     const rows = await sql`
       WITH target AS (
@@ -3469,6 +3471,7 @@ export async function recordCallStatusEvent(
             ELSE GREATEST(COALESCE(cl.duration_seconds, 0), ${durationSeconds})
           END,
           answered_at = CASE
+            WHEN ${skipAnsweredAt} THEN cl.answered_at
             WHEN ${normalizedStatus} IN ('answered', 'in-progress') AND cl.answered_at IS NULL THEN ${occurredAt}
             ELSE cl.answered_at
           END,
@@ -3714,15 +3717,17 @@ export async function getDailyCallTelemetryForOwner(
   const missedWhere = sql`
     (
       answered_at IS NULL
+      OR COALESCE(duration_seconds, 0) < 5
       OR lower(COALESCE(routed_to_name, '')) ~* '(ivr|voicemail|ai receptionist|voice ai|assistant|smart overflow|keypad)'
     )
     AND (
       call_type IN ('missed', 'voicemail')
       OR lower(COALESCE(status, '')) IN ('no-answer', 'busy', 'missed', 'canceled', 'cancelled')
+      OR COALESCE(duration_seconds, 0) < 5
       OR (
         call_type = 'incoming'
         AND lower(COALESCE(status, '')) IN ('completed', 'canceled', 'cancelled')
-        AND answered_at IS NULL
+        AND (answered_at IS NULL OR COALESCE(duration_seconds, 0) < 5)
       )
     )
   `

@@ -8,14 +8,23 @@ function escapeXmlText(text: string): string {
 }
 
 /** Callee hears this on their cell the instant they pick up — before the caller is bridged. */
-export function buildReceptionistPress1ScreenTexml(businessName: string, gateActionUrl: string): string {
+export function buildReceptionistPress1ScreenTexml(
+  businessName: string,
+  gateActionUrl: string,
+  opts?: { whisperPhrase?: string | null }
+): string {
   const attrs = getTexmlSayVoiceAttributes()
   const safeAction = escapeXmlAttr(gateActionUrl)
   const name = escapeXmlText(businessName.trim() || "your business")
+  const whisper = String(opts?.whisperPhrase ?? "").trim()
+  const whisperXml = whisper
+    ? `<Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">${escapeXmlText(whisper)}</Say>`
+    : ""
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  ${whisperXml}
   <Gather input="dtmf" numDigits="1" validDigits="1" timeout="12" action="${safeAction}" method="POST">
-    <Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">Lyncr alert. Incoming call for ${name}. Press 1 to connect.</Say>
+    <Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">Lyncr alert. Incoming call for ${name}. Press 1 to accept this call.</Say>
   </Gather>
   <Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">No key received. Goodbye.</Say>
   <Hangup/>

@@ -30,6 +30,13 @@ export const IVR_MENU_ROUTED_TO_NAME = "IVR Menu"
 /** Canonical label when Your Phone (owner cell) accepts the inbound leg. */
 export const OWNER_PHONE_ROUTED_TO_NAME = "Owner"
 
+/**
+ * Talk seconds below this count as missed even if the carrier said "completed"
+ * (voicemail / aborted connect / false answer). Press-1 confirmations normally
+ * produce longer bridged talk; sub-5s legs are almost never real conversations.
+ */
+export const MIN_LIVE_ANSWER_DURATION_SECONDS = 5
+
 function normalizeCallType(raw: string | null | undefined): string {
   return String(raw ?? "")
     .trim()
@@ -103,33 +110,44 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
 }
 
 /**
- * True when Your Phone / a receptionist accepted the inbound leg.
- * Any answered_at counts — short 6s pickups must stay Answered, never Missed.
- * Carrier "answered" on an IVR Gather alone is excluded via automated handler check.
+ * True when Your Phone / a receptionist accepted the inbound leg for real.
+ * Short talk time (&lt; {@link MIN_LIVE_ANSWER_DURATION_SECONDS}) is treated as missed
+ * even with answered_at — cell voicemail often "answers" without a human.
  */
 export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
   // Night emergency press-2 that connected.
   if (isCaptureEmergencyAnswered(input.routed_to_name)) {
-    if (input.answered_at?.trim()) return true
+    if (input.answered_at?.trim()) {
+      const duration = Number(input.duration_seconds ?? NaN)
+      if (Number.isFinite(duration) && duration < MIN_LIVE_ANSWER_DURATION_SECONDS) return false
+      return true
+    }
     const status = normalizeCallStatus(input.status)
     const duration = Number(input.duration_seconds ?? 0)
-    if (status === "completed" && duration > 0) return true
+    if (status === "completed" && duration >= MIN_LIVE_ANSWER_DURATION_SECONDS) return true
   }
 
   if (isAutomatedCallHandler(input.routed_to_name)) return false
 
+  const duration = Number(input.duration_seconds ?? NaN)
+  const shortTalk =
+    Number.isFinite(duration) && duration >= 0 && duration < MIN_LIVE_ANSWER_DURATION_SECONDS
+
   if (input.answered_at?.trim()) {
     const answeredAt = Date.parse(input.answered_at)
-    if (Number.isFinite(answeredAt)) return true
+    if (!Number.isFinite(answeredAt)) return false
+    // Known sub-threshold talk time → voicemail / abandoned connect.
+    if (shortTalk) return false
+    return true
   }
 
-  // Fallback: completed leg with talk time and a human routing label (Owner / named agent).
+  // Fallback: completed leg with real talk time and a human routing label (Owner / named agent).
   const status = normalizeCallStatus(input.status)
-  const duration = Number(input.duration_seconds ?? 0)
   const routed = String(input.routed_to_name ?? "").trim()
   if (
     status === "completed" &&
-    duration > 0 &&
+    Number.isFinite(duration) &&
+    duration >= MIN_LIVE_ANSWER_DURATION_SECONDS &&
     routed &&
     !isAutomatedCallHandler(routed)
   ) {
@@ -141,19 +159,30 @@ export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
 
 /**
  * True when nobody answered the business line live (includes voicemail after no-answer,
- * IVR Gather-only legs, and AI receptionist without a human bridge).
+ * IVR Gather-only legs, AI receptionist without a human bridge, and sub-5s "completed" legs).
  * Matches the routing strip SQL in getDailyCallTelemetryForOwner.
  */
 export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
-  // Human answer wins over a stale call_type=missed or short duration.
+  // Human answer wins over a stale call_type=missed — unless talk time is too short.
   if (ownerLiveAnswered(input)) return false
 
   const type = normalizeCallType(input.call_type)
   const status = normalizeCallStatus(input.status)
+  const duration = Number(input.duration_seconds ?? NaN)
 
   if (type === "voicemail") return true
   if (type === "missed") return true
   if (["no-answer", "busy", "missed", "canceled", "cancelled"].includes(status)) return true
+
+  // Explicit short talk-time rule (even when carrier said completed + stamped answered_at).
+  if (
+    Number.isFinite(duration) &&
+    duration >= 0 &&
+    duration < MIN_LIVE_ANSWER_DURATION_SECONDS &&
+    type !== "outgoing"
+  ) {
+    return true
+  }
 
   // Automated handler — always an unhandled / machine-handled lead for callback metrics.
   if (isAutomatedCallHandler(input.routed_to_name)) return true

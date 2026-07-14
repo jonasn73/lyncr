@@ -53,6 +53,8 @@ import {
   appendVoicemailRecordTexml,
   resolveVoicemailGreetingText,
 } from "@/lib/voicemail-greeting"
+import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
+import { buildInboundPstnNumberAttributesWithAnswerUrl } from "@/lib/telnyx-inbound-media-quality"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -1160,7 +1162,20 @@ export async function handleTelnyxFallbackDialEnded(
             action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}${origFromSuffix}`,
             method: "POST",
           } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
-          dial.number(toE164(user.phone))
+          // Press-1 anti-voicemail screen + dial-leg status callbacks on owner cell.
+          const ownerPhoneE164 = toE164(user.phone)
+          const ownerAnswerUrl = buildReceptionistAnswerUrl({
+            appUrl,
+            ownerUserId: userId,
+            toNumber: bnForAction || null,
+            callSid,
+            businessType: "generic",
+            businessName: user.business_name || "your business",
+          })
+          dial.number(
+            { ...buildInboundPstnNumberAttributesWithAnswerUrl(ownerAnswerUrl) },
+            ownerPhoneE164
+          )
         } else {
           appendVoicemailRecordTexml(texml, {
             greetingText: voicemailGreeting,

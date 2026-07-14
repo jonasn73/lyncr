@@ -61,6 +61,7 @@ import { shouldEmitVoiceHotPathDebugLogs } from "@/lib/voice-log-gate"
 import {
   buildInboundPstnDialAttributes,
   buildInboundPstnNumberAttributes,
+  buildInboundDialLegStatusCallbackAttributes,
   buildFastReceptionistDialTexml,
   buildFastReceptionistDialWebRtcTexml,
   resolveReceptionistSipUri,
@@ -1299,7 +1300,10 @@ async function handleIncomingCall(
       lineLbl && lineLbl.toLowerCase() !== "main line" ? lineLbl : routing.business_name
     const fromDisplayName = buildTelnyxDialFromDisplayName(fromDisplaySource)
 
-    const pstnNumberAttrs = buildInboundPstnNumberAttributes()
+    const pstnNumberAttrs = {
+      ...buildInboundPstnNumberAttributes(),
+      ...buildInboundDialLegStatusCallbackAttributes(),
+    }
 
     const workspaceName = resolveWorkspaceDisplayName(routing)
     const callerGreeting = resolveCallerGreetingForDialPass(workspaceName, greetingPassDone, greetingEnabled)

@@ -35,7 +35,7 @@ describe("isMissedCallRecord", () => {
     ).toBe(true)
   })
 
-  it("does not count live answered conversations — including short pickups", () => {
+  it("does not count live answered conversations — including short-but-real pickups", () => {
     expect(
       isMissedCallRecord({
         call_type: "incoming",
@@ -67,16 +67,36 @@ describe("isMissedCallRecord", () => {
         routed_to_name: "Owner",
       })
     ).toBe(false)
-    // Zero-duration hangup still counts once answered_at is set.
+  })
+
+  it("counts sub-5s completed legs as missed (anti-voicemail / aborted connect)", () => {
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: "2026-07-01T03:33:41.866Z",
+        ended_at: "2026-07-01T03:33:44.866Z",
+        duration_seconds: 3,
+        routed_to_name: "Owner",
+      })
+    ).toBe(true)
     expect(
       isMissedCallRecord({
         call_type: "incoming",
         status: "completed",
         answered_at: "2026-07-01T03:33:41.866Z",
         ended_at: "2026-07-01T03:33:41.866Z",
+        duration_seconds: 0,
         routed_to_name: "Owner",
       })
-    ).toBe(false)
+    ).toBe(true)
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "busy",
+        duration_seconds: 2,
+      })
+    ).toBe(true)
   })
 
   it("counts IVR / automated handlers as missed even with carrier answered_at", () => {

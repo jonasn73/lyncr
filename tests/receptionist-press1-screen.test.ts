@@ -12,14 +12,14 @@ import {
 import { shouldPlayCallerRingbackDuringDial } from "@/lib/inbound-branded-greeting"
 
 describe("receptionist-answer route", () => {
-  it("owner leg (no r=) bridges immediately without press-1 gather", async () => {
+  it("owner leg (no r=) still requires press-1 to accept (anti-voicemail)", async () => {
     const req = new NextRequest(
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?cl=CA_test&bt=generic&bn=Key%20Squad"
     )
     const res = await receptionistAnswerGet(req)
     const xml = await res.text()
-    expect(xml).not.toContain("<Gather")
-    expect(xml).not.toContain("Press 1")
+    expect(xml).toContain("<Gather")
+    expect(xml).toContain("Press 1 to accept this call")
   })
 
   it("receptionist leg still shows press-1 gather", async () => {
@@ -29,17 +29,21 @@ describe("receptionist-answer route", () => {
     const res = await receptionistAnswerGet(req)
     const xml = await res.text()
     expect(xml).toContain("<Gather")
-    expect(xml).toContain("Press 1 to connect")
+    expect(xml).toContain("Press 1 to accept this call")
   })
 })
 
 describe("buildInboundPstnNumberAttributesWithAnswerUrl", () => {
-  it("sets url and method POST for the press-1 screen webhook", () => {
+  it("sets url, method POST, and dial-leg status callbacks", () => {
     const attrs = buildInboundPstnNumberAttributesWithAnswerUrl(
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?r=abc"
     )
     expect(attrs.url).toContain("receptionist-answer")
     expect(attrs.method).toBe("POST")
+    expect(attrs.statusCallback).toContain("/api/voice/telnyx/status")
+    expect(String(attrs.statusCallbackEvent)).toContain("initiated")
+    expect(String(attrs.statusCallbackEvent)).toContain("answered")
+    expect(String(attrs.statusCallbackEvent)).toContain("completed")
   })
 })
 
@@ -83,7 +87,7 @@ describe("buildReceptionistPress1ScreenTexml", () => {
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?g=1"
     )
     expect(xml).toContain('validDigits="1"')
-    expect(xml).toContain("Press 1 to connect")
+    expect(xml).toContain("Press 1 to accept this call")
     expect(xml).toContain("Key Squad 502")
   })
 
