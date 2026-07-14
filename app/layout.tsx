@@ -12,6 +12,7 @@ import {
   SITE_NAME,
   SITE_TITLE_TEMPLATE_SUFFIX,
 } from "@/lib/brand"
+import { DevErrorLogDrawer } from "@/components/dev-error-log-drawer"
 import "./globals.css"
 
 const inter = Inter({
@@ -70,6 +71,8 @@ export default function RootLayout({
         {children}
         <Toaster />
         <SonnerToaster richColors position="top-center" closeButton />
+        {/* Floating client error panel — stripped from production builds via NODE_ENV check. */}
+        {process.env.NODE_ENV === "development" ? <DevErrorLogDrawer /> : null}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

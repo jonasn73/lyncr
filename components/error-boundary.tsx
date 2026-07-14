@@ -25,6 +25,17 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[Sigo] Client error:", error, info.componentStack)
+    // Feed the local Dev Log drawer (development only — push is a no-op cost if unused).
+    if (process.env.NODE_ENV === "development") {
+      void import("@/lib/dev-error-log").then(({ pushDevErrorLog }) => {
+        pushDevErrorLog({
+          kind: "react",
+          message: error.message || error.name || "React render error",
+          stack: error.stack ?? null,
+          componentStack: info.componentStack ?? null,
+        })
+      })
+    }
   }
 
   render() {
