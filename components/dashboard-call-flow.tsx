@@ -153,7 +153,13 @@ function FlowStepMobileRow({
           ) : null}
         </div>
         {detail ? (
-          <p className={cn("truncate text-xs", detailMuted || faded ? "text-slate-500" : "text-zinc-500")}>
+          <p
+            className={cn(
+              // Wrap on narrow phones so long automation copy isn't mid-character clipped.
+              "text-xs break-words [overflow-wrap:anywhere] sm:truncate sm:overflow-hidden sm:whitespace-nowrap",
+              detailMuted || faded ? "text-slate-500" : "text-zinc-500"
+            )}
+          >
             {detail}
           </p>
         ) : null}
@@ -858,12 +864,14 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
     )
     if (!multi) {
       return (
-        <div className="flex w-full min-w-0 items-center justify-between gap-3">
-          <div className="min-w-0">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+          <div className="min-w-0 max-w-full flex-1 basis-[min(100%,12rem)]">
             <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
               {label}
             </p>
-            <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display}</p>
+            <p className="break-all text-base font-semibold tabular-nums text-slate-100 sm:truncate">
+              {display}
+            </p>
           </div>
           {status}
         </div>
@@ -912,17 +920,17 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   // Compact mobile: phone left, status pill right — no tall stacked box
   if (compact && !multi) {
     return (
-      <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5">
-        <div className="min-w-0">
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5">
+        <div className="min-w-0 max-w-full flex-1 basis-[min(100%,11rem)]">
           <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
-          <p className="truncate text-sm font-semibold text-foreground">{display}</p>
+          <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display}</p>
         </div>
         <LineRoutingStatus
           routingStrategy={routingStrategy}
           subscriptionActive={subscriptionActive}
           lineCarrierLive={lineCarrierLive}
           activeCallCount={activeCallCount}
-          className="shrink-0"
+          className="max-w-full shrink min-w-0"
         />
       </div>
     )

@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   Bell,
@@ -434,15 +434,35 @@ export const NotificationCenter = memo(function NotificationCenter() {
     }
   }
 
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // Explicit outside-click close — reliable on mobile when overlays / map chrome compete with Radix.
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (triggerRef.current?.contains(target)) return
+      if (contentRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener("pointerdown", onPointerDown, true)
+    return () => document.removeEventListener("pointerdown", onPointerDown, true)
+  }, [open])
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="ghost"
           size="icon"
           className="relative h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
           aria-label={items.length > 0 ? `${items.length} notifications` : "Notifications"}
+          aria-expanded={open}
+          aria-haspopup="dialog"
           title="Notifications"
         >
           <Bell className="h-5 w-5" />
@@ -454,11 +474,15 @@ export const NotificationCenter = memo(function NotificationCenter() {
         </Button>
       </PopoverTrigger>
       <PopoverContent
+        ref={contentRef}
         align="end"
         sideOffset={8}
         // Sit above Leaflet panes / map chrome (z-index ~400–2000) and shell chrome.
         className="z-[9999] w-[min(92vw,22rem)] p-0"
         motion="fade"
+        onPointerDownOutside={() => setOpen(false)}
+        onInteractOutside={() => setOpen(false)}
+        onEscapeKeyDown={() => setOpen(false)}
       >
         <div className="border-b border-border/60 px-4 py-3">
           <p className="text-sm font-semibold text-foreground">Notifications</p>

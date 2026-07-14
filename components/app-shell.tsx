@@ -82,7 +82,9 @@ const AppShellHeader = memo(function AppShellHeader({
       </div>
 
       {headerCenter ? (
-        <div className="flex min-w-0 justify-center justify-self-center px-1 sm:px-2">{headerCenter}</div>
+        <div className="relative z-20 flex min-w-0 justify-center justify-self-center pointer-events-auto px-1 sm:px-2">
+          {headerCenter}
+        </div>
       ) : (
         <div aria-hidden />
       )}

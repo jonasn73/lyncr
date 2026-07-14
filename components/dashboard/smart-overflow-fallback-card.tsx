@@ -102,8 +102,10 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {title}
             </p>
-            <p className={cn("truncate text-sm font-semibold", valueClass)}>{value}</p>
-            <p className="truncate text-xs text-zinc-500">{detail}</p>
+            <p className={cn("break-words text-sm font-semibold [overflow-wrap:anywhere] sm:truncate", valueClass)}>
+              {value}
+            </p>
+            <p className="break-words text-xs text-zinc-500 [overflow-wrap:anywhere] sm:truncate">{detail}</p>
           </div>
           <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
         </button>

@@ -31,7 +31,8 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-200/95",
+          "inline-flex max-w-full min-w-0 items-center gap-1.5 text-[11px] font-semibold text-amber-200/95",
+          "break-words [overflow-wrap:anywhere]",
           className
         )}
       >

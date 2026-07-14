@@ -344,23 +344,26 @@ export function OrganizationSwitcher({
 
   return (
     <>
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal>
         <DropdownMenuTrigger asChild>
           <Button
             type="button"
             variant="outline"
             size="sm"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
             className={cn(
-              "h-9 w-full min-w-0 max-w-[min(100%,14rem)] gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
+              // relative z + touch-manipulation so the pill stays tappable on 375px Safari/Chrome
+              "relative z-20 h-9 w-full min-w-0 max-w-[min(100%,14rem)] touch-manipulation gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
               className
             )}
           >
             <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-            <span className="truncate">{active?.name ?? "Business"}</span>
+            <span className="min-w-0 truncate">{active?.name ?? "Business"}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72 p-1">
+        <DropdownMenuContent align="start" className="z-[9999] w-72 p-1">
           <DropdownMenuLabel className="px-2 text-xs text-muted-foreground">Switch business</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {organizations.map((org) => {

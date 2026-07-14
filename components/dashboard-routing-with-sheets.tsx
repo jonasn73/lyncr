@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { DashboardRoutingSurface, type DashboardRoutingSurfaceProps } from "@/components/dashboard-routing-surface"
 import { DashboardRoutingSheets, type DashboardRoutingSheetsProps } from "@/components/dashboard-routing-sheets"
 import { isSundayAutopilotActive } from "@/components/dashboard-call-flow"
@@ -38,9 +38,16 @@ type Props = Omit<
     setAllowLyncrNetworkFallback: (v: boolean) => void
   }
 
+/** True only on the Routing tab URL (presence host keeps this tree mounted on other tabs). */
+function isRoutingDashboardPath(pathname: string | null): boolean {
+  if (!pathname) return false
+  return pathname === "/dashboard" || pathname === "/dashboard/"
+}
+
 /** Owns drawer open state so toggling sheets does not re-render the call-flow surface. */
 export function DashboardRoutingWithSheets(props: Props) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [whoAnswersOpen, setWhoAnswersOpen] = useState(false)
   const [ringBackupOpen, setRingBackupOpen] = useState(false)
@@ -48,11 +55,46 @@ export function DashboardRoutingWithSheets(props: Props) {
   const [strategyDialogOpen, setStrategyDialogOpen] = useState(false)
   const [dashboardStoryKey, setDashboardStoryKey] = useState<string | null>(null)
 
+  // Presence host keeps Routing mounted with `hidden` — portaled sheets would linger unless we close them.
+  useEffect(() => {
+    if (isRoutingDashboardPath(pathname)) return
+    setWhoAnswersOpen(false)
+    setRingBackupOpen(false)
+    setShowFallbackSettings(false)
+    setStrategyDialogOpen(false)
+    setDashboardStoryKey(null)
+  }, [pathname])
+
+  // Workspace switch should also dismiss configure drawers so overlays never block the header pill.
+  useEffect(() => {
+    const closeDrawers = () => {
+      setWhoAnswersOpen(false)
+      setRingBackupOpen(false)
+      setShowFallbackSettings(false)
+      setStrategyDialogOpen(false)
+      setDashboardStoryKey(null)
+    }
+    window.addEventListener("lyncr-organization-changed", closeDrawers)
+    return () => window.removeEventListener("lyncr-organization-changed", closeDrawers)
+  }, [])
+
+  // Also clear on unmount (e.g. leaving the dashboard shell entirely).
+  useEffect(() => {
+    return () => {
+      setWhoAnswersOpen(false)
+      setRingBackupOpen(false)
+      setShowFallbackSettings(false)
+      setStrategyDialogOpen(false)
+      setDashboardStoryKey(null)
+    }
+  }, [])
+
   useEffect(() => {
     if (searchParams.get("ai") !== "1") return
+    if (!isRoutingDashboardPath(pathname)) return
     setShowFallbackSettings(true)
     router.replace("/dashboard", { scroll: false })
-  }, [searchParams, router])
+  }, [searchParams, router, pathname])
 
   // Derive Sunday Autopilot from Voice AI fallback + rings-bypassed + Your phone primary.
   const autopilotMode = isSundayAutopilotActive({
@@ -60,6 +102,8 @@ export function DashboardRoutingWithSheets(props: Props) {
     aiRingOwnerFirst: props.aiRingOwnerFirst,
     isRoutingToOwner: props.isRoutingToOwner,
   })
+
+  const onRoutingTab = isRoutingDashboardPath(pathname)
 
   const surfaceProps: DashboardRoutingSurfaceProps = {
     quickSetupDecided: props.quickSetupDecided,
@@ -88,9 +132,9 @@ export function DashboardRoutingWithSheets(props: Props) {
   }
 
   return (
-  <>
+    <>
       <DashboardRoutingSurface {...surfaceProps} />
-      {strategyDialogOpen ? (
+      {strategyDialogOpen && onRoutingTab ? (
         <RoutingStrategyDialog
           open={strategyDialogOpen}
           onOpenChange={setStrategyDialogOpen}
@@ -104,13 +148,13 @@ export function DashboardRoutingWithSheets(props: Props) {
         />
       ) : null}
       <DashboardRoutingSheets
-        whoAnswersOpen={whoAnswersOpen}
+        whoAnswersOpen={whoAnswersOpen && onRoutingTab}
         setWhoAnswersOpen={setWhoAnswersOpen}
-        ringBackupOpen={ringBackupOpen}
+        ringBackupOpen={ringBackupOpen && onRoutingTab}
         setRingBackupOpen={setRingBackupOpen}
-        showFallbackSettings={showFallbackSettings}
+        showFallbackSettings={showFallbackSettings && onRoutingTab}
         setShowFallbackSettings={setShowFallbackSettings}
-        dashboardStoryKey={dashboardStoryKey}
+        dashboardStoryKey={onRoutingTab ? dashboardStoryKey : null}
         setDashboardStoryKey={setDashboardStoryKey}
         receptionists={props.receptionists}
         selectedReceptionistId={props.selectedReceptionistId}
