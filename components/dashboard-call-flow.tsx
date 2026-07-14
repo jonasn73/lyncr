@@ -170,7 +170,7 @@ function FlowStepMobileRow({
 }
 
 function FlowStepCard({
-  step,
+  step: _step,
   title,
   icon: Icon,
   value,
@@ -183,7 +183,7 @@ function FlowStepCard({
   faded = false,
   badgeTone = "amber",
 }: {
-  step: string
+  step?: string
   title: string
   icon: LucideIcon
   value: string
@@ -220,34 +220,26 @@ function FlowStepCard({
         faded && "opacity-45 grayscale-[0.35]"
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div
-          className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-xl border",
-            isNetwork
-              ? "border-violet-500/30 bg-violet-500/15 shadow-[0_0_20px_-6px_rgb(139_92_246)]"
-              : isScheduler
-                ? "border-emerald-500/30 bg-emerald-500/15 shadow-[0_0_20px_-6px_rgb(16_185_129)]"
-                : "border-primary/30 bg-primary/15 shadow-[0_0_20px_-6px_var(--primary)]"
-          )}
-        >
-          <Icon
+        <div className="flex items-start justify-between gap-2">
+          <div
             className={cn(
-              "h-5 w-5",
-              isNetwork ? "text-violet-300" : isScheduler ? "text-emerald-300" : "text-primary"
+              "flex h-11 w-11 items-center justify-center rounded-xl border",
+              isNetwork
+                ? "border-violet-500/30 bg-violet-500/15 shadow-[0_0_20px_-6px_rgb(139_92_246)]"
+                : isScheduler
+                  ? "border-emerald-500/30 bg-emerald-500/15 shadow-[0_0_20px_-6px_rgb(16_185_129)]"
+                  : "border-primary/30 bg-primary/15 shadow-[0_0_20px_-6px_var(--primary)]"
             )}
-            aria-hidden
-          />
+          >
+            <Icon
+              className={cn(
+                "h-5 w-5",
+                isNetwork ? "text-violet-300" : isScheduler ? "text-emerald-300" : "text-primary"
+              )}
+              aria-hidden
+            />
+          </div>
         </div>
-        <span
-          className={cn(
-            "text-[10px] font-bold uppercase tracking-wider",
-            isNetwork ? "text-violet-300/80" : isScheduler ? "text-emerald-300/80" : "text-primary/80"
-          )}
-        >
-          Step {step}
-        </span>
-      </div>
       <div className="mt-3 flex flex-1 flex-col gap-0.5 sm:mt-4 sm:gap-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{title}</p>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">

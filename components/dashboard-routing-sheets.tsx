@@ -8,8 +8,7 @@ import {
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { StorySheetHeader } from "@/components/story-sheet-header"
 import { VOICE_AI_DRAWER_SHEET_CLASS } from "@/components/dashboard-call-flow"
-import { DashboardVoiceAiDrawer } from "@/components/dashboard-voice-ai-drawer"
-import { DashboardWhoAnswersDrawer } from "@/components/dashboard-who-answers-drawer"
+import { DashboardCallFlowConfigureDrawer } from "@/components/dashboard-call-flow-configure-drawer"
 import { DashboardRingBackupDrawer } from "@/components/dashboard-ring-backup-drawer"
 import { CallerIdUtilitiesCard } from "@/components/dashboard/caller-id-utilities-card"
 import type { Contact, DashboardBusinessNumber, FallbackOption } from "@/lib/dashboard-routing-utils"
@@ -47,12 +46,9 @@ export type DashboardRoutingSheetsProps = {
   setHasTelnyxAiAssistant: (v: boolean) => void
   businessNumbers: DashboardBusinessNumber[]
   routingBusinessNumber: string | null
-  // Opens the hybrid routing-strategy dialog from inside the Who answers drawer.
   onChangeRoutingStrategy: () => void
-  // Current hybrid-network strategy + setter so the Who answers drawer can offer the operator pool.
   routingStrategy: RoutingStrategy
   setRoutingStrategy: (s: RoutingStrategy) => void
-  /** Workspace id — scopes Caller ID utility prefs in localStorage. */
   organizationId?: string | null
 }
 
@@ -65,13 +61,7 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   setShowFallbackSettings,
   dashboardStoryKey,
   setDashboardStoryKey,
-  receptionists,
-  selectedReceptionistId,
-  isRoutingToOwner,
   ownerPhoneDisplay,
-  selectedReceptionist,
-  clearReceptionist: _clearReceptionist,
-  selectReceptionist: _selectReceptionist,
   routingLineDetailLoading,
   ringTimeoutSec,
   setRingTimeoutSec,
@@ -82,27 +72,31 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   saveRouting,
   fallback,
   setFallback,
-  aiRingOwnerFirst,
-  setAiRingOwnerFirst,
-  hasTelnyxAiAssistant,
-  setHasTelnyxAiAssistant,
-  businessNumbers,
   routingBusinessNumber,
-  onChangeRoutingStrategy,
-  routingStrategy,
   setRoutingStrategy,
-  organizationId = null,
+  organizationId,
 }: DashboardRoutingSheetsProps) {
-  const whoAnswersDiscardRef = useRef<() => void>(() => {})
+  const configureDiscardRef = useRef<() => void>(() => {})
   const ringBackupDiscardRef = useRef<() => void>(() => {})
-  const voiceAiDiscardRef = useRef<() => void>(() => {})
 
-  const handleWhoAnswersOpenChange = useCallback(
+  // Who Answers + Voice AI cards both open the same tabbed configure drawer.
+  const configureOpen = whoAnswersOpen || showFallbackSettings
+  const configureInitialTab =
+    showFallbackSettings && !whoAnswersOpen ? ("greetings" as const) : ("routing" as const)
+
+  const closeConfigure = useCallback(() => {
+    setWhoAnswersOpen(false)
+    setShowFallbackSettings(false)
+  }, [setWhoAnswersOpen, setShowFallbackSettings])
+
+  const handleConfigureOpenChange = useCallback(
     (open: boolean) => {
-      if (!open) whoAnswersDiscardRef.current()
-      setWhoAnswersOpen(open)
+      if (!open) {
+        configureDiscardRef.current()
+        closeConfigure()
+      }
     },
-    [setWhoAnswersOpen]
+    [closeConfigure]
   )
 
   const handleRingBackupOpenChange = useCallback(
@@ -113,14 +107,6 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
     [setRingBackupOpen]
   )
 
-  const handleVoiceAiOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) voiceAiDiscardRef.current()
-      setShowFallbackSettings(open)
-    },
-    [setShowFallbackSettings]
-  )
-
   return (
     <>
       <CallerIdUtilitiesCard
@@ -128,106 +114,76 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
         onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}
       />
 
-      {whoAnswersOpen ? (
-      <Sheet open={whoAnswersOpen} onOpenChange={handleWhoAnswersOpenChange} modal>
-        <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <DashboardWhoAnswersDrawer
-              receptionists={receptionists}
-              selectedReceptionistId={selectedReceptionistId}
-              ownerPhoneDisplay={ownerPhoneDisplay}
-              saveRouting={saveRouting}
-              onClose={() => setWhoAnswersOpen(false)}
-              onRegisterDiscard={(fn) => {
-                whoAnswersDiscardRef.current = fn
-              }}
-              routingBusinessNumber={routingBusinessNumber}
-              routingLineDetailLoading={routingLineDetailLoading}
-              onChangeRoutingStrategy={onChangeRoutingStrategy}
-              routingStrategy={routingStrategy}
-              setRoutingStrategy={setRoutingStrategy}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {configureOpen ? (
+        <Sheet open={configureOpen} onOpenChange={handleConfigureOpenChange} modal>
+          <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <DashboardCallFlowConfigureDrawer
+                ownerPhoneDisplay={ownerPhoneDisplay}
+                routingBusinessNumber={routingBusinessNumber}
+                routingLineDetailLoading={routingLineDetailLoading}
+                initialTab={configureInitialTab}
+                setRoutingStrategy={setRoutingStrategy}
+                setFallback={setFallback}
+                setRingTimeoutSec={setRingTimeoutSec}
+                onClose={closeConfigure}
+                onRegisterDiscard={(fn) => {
+                  configureDiscardRef.current = fn
+                }}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       {ringBackupOpen ? (
-      <Sheet open={ringBackupOpen} onOpenChange={handleRingBackupOpenChange} modal>
-        <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <DashboardRingBackupDrawer
-              ringTimeoutSec={ringTimeoutSec}
-              setRingTimeoutSec={setRingTimeoutSec}
-              inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
-              setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
-              forwardOriginalCallerId={forwardOriginalCallerId}
-              setForwardOriginalCallerId={setForwardOriginalCallerId}
-              fallback={fallback}
-              setFallback={setFallback}
-              saveRouting={saveRouting}
-              onClose={() => setRingBackupOpen(false)}
-              onRegisterDiscard={(fn) => {
-                ringBackupDiscardRef.current = fn
-              }}
-              onOpenVoiceAi={() => {
-                setRingBackupOpen(false)
-                setShowFallbackSettings(true)
-              }}
-              routingBusinessNumber={routingBusinessNumber}
-              routingLineDetailLoading={routingLineDetailLoading}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-      ) : null}
-
-      {showFallbackSettings ? (
-      <Sheet open={showFallbackSettings} onOpenChange={handleVoiceAiOpenChange} modal>
-        <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <DashboardVoiceAiDrawer
-              fallback={fallback}
-              setFallback={setFallback}
-              aiRingOwnerFirst={aiRingOwnerFirst}
-              setAiRingOwnerFirst={setAiRingOwnerFirst}
-              saveRouting={saveRouting}
-              onClose={() => setShowFallbackSettings(false)}
-              onRegisterDiscard={(fn) => {
-                voiceAiDiscardRef.current = fn
-              }}
-              onHasAssistantChange={(active) => setHasTelnyxAiAssistant(active)}
-              isRoutingToOwner={isRoutingToOwner}
-              selectedReceptionist={selectedReceptionist}
-              routingBusinessNumber={routingBusinessNumber}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+        <Sheet open={ringBackupOpen} onOpenChange={handleRingBackupOpenChange} modal>
+          <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <DashboardRingBackupDrawer
+                ringTimeoutSec={ringTimeoutSec}
+                setRingTimeoutSec={setRingTimeoutSec}
+                inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
+                setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
+                forwardOriginalCallerId={forwardOriginalCallerId}
+                setForwardOriginalCallerId={setForwardOriginalCallerId}
+                fallback={fallback}
+                setFallback={setFallback}
+                saveRouting={saveRouting}
+                onClose={() => setRingBackupOpen(false)}
+                onRegisterDiscard={(fn) => {
+                  ringBackupDiscardRef.current = fn
+                }}
+                onOpenVoiceAi={() => {
+                  setRingBackupOpen(false)
+                  setShowFallbackSettings(true)
+                }}
+                routingBusinessNumber={routingBusinessNumber}
+                routingLineDetailLoading={routingLineDetailLoading}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       {dashboardStoryKey != null ? (
-      <Sheet open onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
-        <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
-          {dashboardStoryKey ? (
-            (() => {
-              const story = getAppSheetStory(dashboardStoryKey)
-              if (!story) {
-                return (
-                  <div className="p-6 text-sm text-muted-foreground">
-                    No story is defined for this control yet.
-                  </div>
-                )
-              }
-              return (
-                <>
-                  <StorySheetHeader {...story} />
-                </>
-              )
-            })()
-          ) : null}
-        </SheetContent>
-      </Sheet>
+        <Sheet open onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
+          <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
+            {dashboardStoryKey ? (
+              (() => {
+                const story = getAppSheetStory(dashboardStoryKey)
+                if (!story) {
+                  return (
+                    <div className="p-6 text-sm text-muted-foreground">
+                      No story is defined for this control yet.
+                    </div>
+                  )
+                }
+                return <StorySheetHeader {...story} />
+              })()
+            ) : null}
+          </SheetContent>
+        </Sheet>
       ) : null}
     </>
   )

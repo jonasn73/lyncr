@@ -41,15 +41,24 @@ export function DrawerStepHeader({
   subtitle,
   lineLabel,
 }: {
-  step: string
+  step?: string | null
   title: string
   subtitle: string
   lineLabel?: string | null
 }) {
   return (
     <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-5 pt-6">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
-      <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">{title}</h2>
+      {step?.trim() ? (
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
+      ) : null}
+      <h2
+        className={cn(
+          "text-xl font-semibold tracking-tight text-foreground",
+          step?.trim() ? "mt-2" : "mt-0"
+        )}
+      >
+        {title}
+      </h2>
       {subtitle.trim() ? (
         <p className="mt-1.5 max-w-md text-sm leading-relaxed text-zinc-500">{subtitle}</p>
       ) : null}
@@ -83,10 +92,10 @@ export function DrawerStickyFooter({
         <button
           type={saveAsSubmit ? "submit" : "button"}
           onClick={saveAsSubmit ? undefined : onSave}
-          disabled={saving}
+          disabled={saving || !dirty}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:opacity-60",
-            dirty && "ring-1 ring-primary/50"
+            "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
+            dirty && !saving && "ring-1 ring-primary/50"
           )}
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}

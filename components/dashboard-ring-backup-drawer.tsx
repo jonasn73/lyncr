@@ -247,9 +247,8 @@ export function DashboardRingBackupDrawer({
       }}
     >
       <DrawerStepHeader
-        step="Step 3 · Timing & backup"
-        title="Ring & Backup Config"
-        subtitle="Define exactly how long lines ring before automated fallback systems execute."
+        title="Ring & Backup"
+        subtitle="Caller experience, ring timing, and backup strategy."
         lineLabel={lineLabel}
       />
       <DrawerScrollBody className={cn(routingLineDetailLoading && "pointer-events-none opacity-50")}>

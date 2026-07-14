@@ -34,7 +34,7 @@ function routeCauseLabel(status: PresenceStatus | undefined): string {
 
 export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard({
   compact = false,
-  step = "3",
+  step: _step = "3",
   overflowActive,
   presenceDriven = false,
   presenceStatus = "AVAILABLE",
@@ -167,18 +167,6 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
               aria-hidden
             />
           </div>
-          <span
-            className={cn(
-              "text-[10px] font-bold uppercase tracking-wider",
-              overflowActive
-                ? presenceDriven
-                  ? "text-amber-300/90"
-                  : "text-emerald-300/80"
-                : "text-primary/80"
-            )}
-          >
-            Step {step}
-          </span>
         </div>
         <div className="mt-3 flex flex-1 flex-col gap-0.5 sm:mt-4 sm:gap-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
