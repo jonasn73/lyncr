@@ -3851,6 +3851,8 @@ export async function getDailyCallTelemetryForOwner(
             answered_at,
             routed_to_name,
             ended_at,
+            -- Keep raw duration for missedWhere (outer query cannot see call_logs columns).
+            duration_seconds,
             GREATEST(
               0,
               COALESCE(duration_seconds, 0),
@@ -3906,6 +3908,8 @@ export async function getDailyCallTelemetryForOwner(
             answered_at,
             routed_to_name,
             ended_at,
+            -- Keep raw duration for missedWhere (outer query cannot see call_logs columns).
+            duration_seconds,
             GREATEST(
               0,
               COALESCE(duration_seconds, 0),
@@ -4043,8 +4047,8 @@ export async function getDispatchPerformanceTelemetry(
              )
            )
           WHERE l.user_id = ${telemetryOwnerUserId}
+            -- assigned_tech_id is uuid — TRIM() is invalid (btrim(uuid) does not exist).
             AND l.assigned_tech_id IS NOT NULL
-            AND TRIM(l.assigned_tech_id) <> ''
             AND l.created_at >= now() - interval '7 days'
             AND l.created_at >= COALESCE(cl.ended_at, cl.created_at)
             AND EXTRACT(EPOCH FROM (l.created_at - COALESCE(cl.ended_at, cl.created_at))) / 60.0 BETWEEN 0 AND 120
@@ -8555,8 +8559,8 @@ export async function listOwnerActivePipelineJobsForDay(params: {
               l.disposition IN ('BOOKED', 'PENDING_TIME')
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
+            -- assigned_tech_id is uuid — TRIM() is invalid (btrim(uuid) does not exist).
             AND l.assigned_tech_id IS NOT NULL
-            AND TRIM(l.assigned_tech_id) <> ''
             AND l.scheduled_at IS NOT NULL
             AND l.scheduled_at >= ${fromIso}::timestamptz
             AND l.scheduled_at < ${toIso}::timestamptz
@@ -8580,8 +8584,8 @@ export async function listOwnerActivePipelineJobsForDay(params: {
               l.disposition IN ('BOOKED', 'PENDING_TIME')
               OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
+            -- assigned_tech_id is uuid — TRIM() is invalid (btrim(uuid) does not exist).
             AND l.assigned_tech_id IS NOT NULL
-            AND TRIM(l.assigned_tech_id) <> ''
             AND l.scheduled_at IS NOT NULL
             AND l.scheduled_at >= ${fromIso}::timestamptz
             AND l.scheduled_at < ${toIso}::timestamptz
