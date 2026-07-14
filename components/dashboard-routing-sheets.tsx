@@ -36,6 +36,8 @@ export type DashboardRoutingSheetsProps = {
   setRingTimeoutSec: (n: number) => void
   inboundCallerGreetingEnabled: boolean
   setInboundCallerGreetingEnabled: (v: boolean) => void
+  forwardOriginalCallerId: boolean
+  setForwardOriginalCallerId: (v: boolean) => void
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
   fallback: FallbackOption
   setFallback: (f: FallbackOption) => void
@@ -75,6 +77,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   setRingTimeoutSec,
   inboundCallerGreetingEnabled,
   setInboundCallerGreetingEnabled,
+  forwardOriginalCallerId,
+  setForwardOriginalCallerId,
   saveRouting,
   fallback,
   setFallback,
@@ -157,6 +161,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
               setRingTimeoutSec={setRingTimeoutSec}
               inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
               setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
+              forwardOriginalCallerId={forwardOriginalCallerId}
+              setForwardOriginalCallerId={setForwardOriginalCallerId}
               fallback={fallback}
               setFallback={setFallback}
               saveRouting={saveRouting}

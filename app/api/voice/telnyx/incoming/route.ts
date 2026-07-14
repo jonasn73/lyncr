@@ -472,6 +472,7 @@ async function tryFastInboundPstnDial(params: {
   const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
     inboundFromRaw: callerNumber,
     businessOutboundE164: outboundCallerId,
+    forwardOriginalCallerId: routing.forward_original_caller_id === true,
   })
   const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone ?? false, greetingEnabled)
   const ownerLegQuery = hasReceptionist ? "" : "&primary=owner&leg=owner-first"
@@ -606,6 +607,7 @@ async function tryRoutingPoolInboundDial(params: {
   const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
     inboundFromRaw: callerNumber,
     businessOutboundE164: outboundCallerId,
+    forwardOriginalCallerId: routing.forward_original_caller_id === true,
   })
   // When the pool engine already skipped private staff and dialed global Lyncr network agents as the
   // FIRST leg (matched_scope === "network"), flag it so /fallback never re-rings the network pool.
@@ -1278,6 +1280,7 @@ async function handleIncomingCall(
     const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
       inboundFromRaw: callerNumber,
       businessOutboundE164: outboundCallerId,
+      forwardOriginalCallerId: routing.forward_original_caller_id === true,
     })
     const answerOnBridge = resolveInboundPstnForwardAnswerOnBridge(greetingPassDone, greetingEnabled)
     if (shouldEmitVoiceHotPathDebugLogs()) {

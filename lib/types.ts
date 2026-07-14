@@ -898,6 +898,11 @@ export interface RoutingConfig {
   private_ring_timeout_seconds: number
   /** When true, callers hear a short greeting before the team cell rings (`081`). */
   inbound_caller_greeting_enabled: boolean
+  /**
+   * When true, forwarded cell legs show the customer's number as caller ID (`103`).
+   * When false (default), the cell shows the Lyncr business DID.
+   */
+  forward_original_caller_id: boolean
   /** Unified Lines Who Answers mode (`089`). */
   active_routing_mode?: "your_phone" | "smart_ivr" | "lyncr_pool" | "custom_routing" | string | null
   /** E.164 forward target when mode is custom_routing (`089`). */
@@ -1189,6 +1194,8 @@ export interface UpdateRoutingRequest {
   private_ring_timeout_seconds?: number
   /** Caller hears greeting before connect vs straight ring (`081`). */
   inbound_caller_greeting_enabled?: boolean
+  /** Show customer number vs Lyncr business DID on forwarded cell legs (`103`). */
+  forward_original_caller_id?: boolean
   business_number?: string | null // E.164 number for per-number routing; omit or null for the default config
 }
 

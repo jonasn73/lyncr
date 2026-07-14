@@ -11,22 +11,34 @@ describe("resolvePstnDialCallerIdForInboundForward", () => {
     vi.unstubAllEnvs()
   })
 
-  it("prefers inbound caller over business line by default", () => {
+  it("uses business line by default (forwardOriginalCallerId off)", () => {
     vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
     expect(
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "+15551234567",
         businessOutboundE164: "+15025199741",
       })
+    ).toBe("+15025199741")
+  })
+
+  it("uses customer number when forwardOriginalCallerId is true", () => {
+    vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "")
+    expect(
+      resolvePstnDialCallerIdForInboundForward({
+        inboundFromRaw: "+15551234567",
+        businessOutboundE164: "+15025199741",
+        forwardOriginalCallerId: true,
+      })
     ).toBe("+15551234567")
   })
 
-  it("uses business line when env is set", () => {
+  it("forces business line when env is set even if toggle is on", () => {
     vi.stubEnv("ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE", "1")
     expect(
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "+15551234567",
         businessOutboundE164: "+15025199741",
+        forwardOriginalCallerId: true,
       })
     ).toBe("+15025199741")
   })
@@ -37,6 +49,7 @@ describe("resolvePstnDialCallerIdForInboundForward", () => {
       resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: "",
         businessOutboundE164: "+15025199908",
+        forwardOriginalCallerId: true,
       })
     ).toBe("+15025199908")
   })

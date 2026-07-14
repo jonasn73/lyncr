@@ -75,6 +75,10 @@ export function DashboardPage() {
   const [inboundCallerGreetingEnabled, setInboundCallerGreetingEnabled] = useState(
     () => bootstrap?.routing.routing.inbound_caller_greeting_enabled !== false
   )
+  // Default OFF = cell shows Lyncr business number (not the customer's).
+  const [forwardOriginalCallerId, setForwardOriginalCallerId] = useState(
+    () => bootstrap?.routing.routing.forward_original_caller_id === true
+  )
 
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
   const [routingLineDetailLoading, setRoutingLineDetailLoading] = useState(false)
@@ -145,6 +149,7 @@ export function DashboardPage() {
     setRoutingStrategy(bootstrap.routing.routing.routing_strategy ?? "private_only")
     setAllowLyncrNetworkFallback(bootstrap.routing.routing.allow_lyncr_network_fallback ?? false)
     setInboundCallerGreetingEnabled(bootstrap.routing.routing.inbound_caller_greeting_enabled !== false)
+    setForwardOriginalCallerId(bootstrap.routing.routing.forward_original_caller_id === true)
     if (bootstrap.routing.primaryLineNumber && !activeLine) {
       const inWorkspace = routedNumbers.some((b) =>
         businessNumbersMatch(b.number, bootstrap.routing.primaryLineNumber)
@@ -184,6 +189,7 @@ export function DashboardPage() {
         setRoutingStrategy(data.routing.routing_strategy)
         setAllowLyncrNetworkFallback(data.routing.allow_lyncr_network_fallback)
         setInboundCallerGreetingEnabled(data.routing.inbound_caller_greeting_enabled !== false)
+        setForwardOriginalCallerId(data.routing.forward_original_caller_id === true)
         if (data.primaryLineNumber && !activeLine) {
           setActiveLine(data.primaryLineNumber)
         }
@@ -308,6 +314,9 @@ export function DashboardPage() {
           if (rData.config.inbound_caller_greeting_enabled !== undefined) {
             setInboundCallerGreetingEnabled(rData.config.inbound_caller_greeting_enabled !== false)
           }
+          if (rData.config.forward_original_caller_id !== undefined) {
+            setForwardOriginalCallerId(rData.config.forward_original_caller_id === true)
+          }
         }
       })
       .catch(() => {})
@@ -351,7 +360,8 @@ export function DashboardPage() {
       updates.fallback_type !== undefined ||
       updates.ai_greeting !== undefined ||
       updates.ring_timeout_seconds !== undefined ||
-      updates.inbound_caller_greeting_enabled !== undefined
+      updates.inbound_caller_greeting_enabled !== undefined ||
+      updates.forward_original_caller_id !== undefined
     if (active.length >= 2 && touchesPerLine && !lineE164) {
       if (!opts?.quiet) {
         toast({
@@ -517,6 +527,8 @@ export function DashboardPage() {
         setRingTimeoutSec={setRingTimeoutSec}
         inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
         setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
+        forwardOriginalCallerId={forwardOriginalCallerId}
+        setForwardOriginalCallerId={setForwardOriginalCallerId}
         saveRouting={saveRouting}
         fallback={fallback}
         setFallback={setFallback}

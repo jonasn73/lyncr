@@ -43,21 +43,25 @@ export function resolveInboundOutboundCallerId(
 
 /**
  * Outbound PSTN `<Dial callerId>` for forwarding inbound calls.
- * Default: show the **original caller** on the teammate’s phone.
- * Set `ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` to show the **business / carrier-safe** number instead (previous behavior).
+ * Default / `forwardOriginalCallerId=false`: show the **Lyncr business DID** on the cell.
+ * `forwardOriginalCallerId=true`: show the **original customer** number.
+ * Env `ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` always forces the business DID (escape hatch).
  */
 export function resolvePstnDialCallerIdForInboundForward(opts: {
   inboundFromRaw: string
   businessOutboundE164: string
+  /** When true, show the customer's number. Default false = Lyncr business number. */
+  forwardOriginalCallerId?: boolean | null
 }): string {
-  const useBusinessLine = ["1", "true", "yes", "on"].includes(
+  const forceBusinessEnv = ["1", "true", "yes", "on"].includes(
     (process.env.ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE || "").trim().toLowerCase()
   )
   const biz = opts.businessOutboundE164.trim() ? normalizePhoneNumberE164(opts.businessOutboundE164) : ""
   const from = opts.inboundFromRaw.trim() ? normalizePhoneNumberE164(opts.inboundFromRaw) : ""
-  if (useBusinessLine && isReasonablePstnDialString(biz)) return biz
-  if (isReasonablePstnDialString(from)) return from
+  const showCustomer = opts.forwardOriginalCallerId === true && !forceBusinessEnv
+  if (showCustomer && isReasonablePstnDialString(from)) return from
   if (isReasonablePstnDialString(biz)) return biz
+  if (isReasonablePstnDialString(from)) return from
   return ""
 }
 

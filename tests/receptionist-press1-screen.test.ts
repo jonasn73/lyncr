@@ -87,6 +87,7 @@ describe("buildReceptionistPress1ScreenTexml", () => {
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?g=1"
     )
     expect(xml).toContain('validDigits="1"')
+    expect(xml).toContain('timeout="5"')
     expect(xml).toContain("Press 1 to accept this call")
     expect(xml).toContain("Key Squad 502")
   })

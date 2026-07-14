@@ -949,6 +949,7 @@ export async function handleTelnyxFallbackDialEnded(
       const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
         inboundFromRaw: inboundCallerRawForPstnId,
         businessOutboundE164: bizNorm,
+        forwardOriginalCallerId: lr?.forward_original_caller_id === true,
       })
       const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name || "Business")
       const didPath = bnForAction.replace(/\D/g, "")
@@ -1044,6 +1045,7 @@ export async function handleTelnyxFallbackDialEnded(
           const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
             inboundFromRaw: inboundCallerRawForPstnId,
             businessOutboundE164: bizNorm,
+            forwardOriginalCallerId: lr?.forward_original_caller_id === true,
           })
           const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name || "Business")
           const didPath = bnForAction.replace(/\D/g, "")
@@ -1140,6 +1142,7 @@ export async function handleTelnyxFallbackDialEnded(
           const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
             inboundFromRaw: inboundCallerRawForPstnId,
             businessOutboundE164: bizNorm,
+            forwardOriginalCallerId: lr?.forward_original_caller_id === true,
           })
           const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name)
           const didPath = bnForAction.replace(/\D/g, "")

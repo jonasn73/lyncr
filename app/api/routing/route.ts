@@ -106,7 +106,8 @@ export async function PUT(req: NextRequest) {
       body.fallback_type !== undefined ||
       body.ai_greeting !== undefined ||
       body.ring_timeout_seconds !== undefined ||
-      body.inbound_caller_greeting_enabled !== undefined
+      body.inbound_caller_greeting_enabled !== undefined ||
+      body.forward_original_caller_id !== undefined
 
     if (touchesPerLineRouting && businessNumber == null) {
       const nums = await getPhoneNumbers(userId)
@@ -131,6 +132,7 @@ export async function PUT(req: NextRequest) {
         ring_timeout_seconds: body.ring_timeout_seconds,
         ai_ring_owner_first: body.ai_ring_owner_first,
         inbound_caller_greeting_enabled: body.inbound_caller_greeting_enabled,
+        forward_original_caller_id: body.forward_original_caller_id,
       },
       businessNumber
     )

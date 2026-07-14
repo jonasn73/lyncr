@@ -105,6 +105,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 100 | `100-presence-automation-greetings.sql` | **Automation Voice Greetings.** Adds **`on_job_greeting_text`** + **`closed_greeting_text`** on **`account_settings`** (defaults = Key Squad On-Job / Closed Speak scripts). Powers Lines → 🤖 Automation Voice Greetings and dynamic TeXML on **`/api/telnyx-menu`** / inbound capture. **Required** to save custom presence greetings; app uses product defaults until applied. |
 | 101 | `101-ivr-automation-dispatch.sql` | **IVR dispatch overrides.** Adds **`ivr_bypass_code`**, **`ivr_voice_engine_model`**, **`holiday_override_start` / `end` / `holiday_greeting_text`** on **`account_settings`**. Powers AI Voice Persona, secret bypass dial to cell, and scheduled holiday Speak. **Required** for Save Greetings with those fields. |
 | 102 | `102-ivr-capacity-threshold.sql` | **IVR capacity auto-bypass.** Adds **`ivr_capacity_threshold`** on **`account_settings`** (default 5). Powers Lines → “Auto-Bypass to IVR when confirmed daily jobs reach…” under Missed Call Rescue. |
+| 103 | `103-forward-original-caller-id.sql` | **Forward Caller ID.** Adds **`forward_original_caller_id`** on **`routing_config`** + **`phone_numbers`** (default `false` = show Lyncr business DID on cell). Powers Ring & Backup → “Show Customer's Number on Inbound Calls”. **Required** to save the toggle; dials use business DID until applied. |
 
 ## Platform admin (`admin@lyncr.app`)
 

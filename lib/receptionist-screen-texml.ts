@@ -23,7 +23,7 @@ export function buildReceptionistPress1ScreenTexml(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   ${whisperXml}
-  <Gather input="dtmf" numDigits="1" validDigits="1" timeout="12" action="${safeAction}" method="POST">
+  <Gather input="dtmf" numDigits="1" validDigits="1" timeout="5" action="${safeAction}" method="POST">
     <Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">Lyncr alert. Incoming call for ${name}. Press 1 to accept this call.</Say>
   </Gather>
   <Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">No key received. Goodbye.</Say>

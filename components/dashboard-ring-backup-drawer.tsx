@@ -5,6 +5,7 @@ import { Bot, Phone, PhoneIncoming, Users, Voicemail } from "lucide-react"
 import { submitFormEvent } from "@/lib/form-keyboard"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { Switch } from "@/components/ui/switch"
 import {
   DrawerScrollBody,
   DrawerStepHeader,
@@ -88,6 +89,9 @@ export type DashboardRingBackupDrawerProps = {
   setRingTimeoutSec: (n: number) => void
   inboundCallerGreetingEnabled: boolean
   setInboundCallerGreetingEnabled: (v: boolean) => void
+  /** When true, cell shows customer's number; when false, Lyncr business DID. */
+  forwardOriginalCallerId: boolean
+  setForwardOriginalCallerId: (v: boolean) => void
   fallback: FallbackOption
   setFallback: (f: FallbackOption) => void
   saveRouting: (updates: Record<string, unknown>, opts?: { quiet?: boolean }) => Promise<void>
@@ -103,6 +107,8 @@ export function DashboardRingBackupDrawer({
   setRingTimeoutSec,
   inboundCallerGreetingEnabled,
   setInboundCallerGreetingEnabled,
+  forwardOriginalCallerId,
+  setForwardOriginalCallerId,
   fallback,
   setFallback,
   saveRouting,
@@ -117,6 +123,8 @@ export function DashboardRingBackupDrawer({
   const [draftSeconds, setDraftSeconds] = useState(ringTimeoutSec)
   const [draftStrategy, setDraftStrategy] = useState<BackupStrategy>(() => strategyFromFallback(fallback))
   const [draftGreetingEnabled, setDraftGreetingEnabled] = useState(inboundCallerGreetingEnabled)
+  // Draft for "Show Customer's Number" — saved with the rest of ring/backup settings.
+  const [draftForwardCallerId, setDraftForwardCallerId] = useState(forwardOriginalCallerId)
   const baselineRef = useRef("")
 
   useEffect(() => {
@@ -124,16 +132,22 @@ export function DashboardRingBackupDrawer({
     setDraftSeconds(snapped)
     setDraftStrategy(strategyFromFallback(fallback))
     setDraftGreetingEnabled(inboundCallerGreetingEnabled)
+    setDraftForwardCallerId(forwardOriginalCallerId)
     baselineRef.current = JSON.stringify({
       seconds: snapped,
       strategy: strategyFromFallback(fallback),
       greetingEnabled: inboundCallerGreetingEnabled,
+      forwardCallerId: forwardOriginalCallerId,
     })
-  }, [ringTimeoutSec, fallback, inboundCallerGreetingEnabled])
+  }, [ringTimeoutSec, fallback, inboundCallerGreetingEnabled, forwardOriginalCallerId])
 
   const dirty =
-    JSON.stringify({ seconds: draftSeconds, strategy: draftStrategy, greetingEnabled: draftGreetingEnabled }) !==
-    baselineRef.current
+    JSON.stringify({
+      seconds: draftSeconds,
+      strategy: draftStrategy,
+      greetingEnabled: draftGreetingEnabled,
+      forwardCallerId: draftForwardCallerId,
+    }) !== baselineRef.current
 
   const physicalRings = useMemo(() => estimatePhysicalRings(draftSeconds), [draftSeconds])
   const lineLabel = routingBusinessNumber ? `Line ${formatPhoneDisplay(routingBusinessNumber)}` : null
@@ -157,16 +171,19 @@ export function DashboardRingBackupDrawer({
         seconds: number
         strategy: BackupStrategy
         greetingEnabled: boolean
+        forwardCallerId: boolean
       }
       setDraftSeconds(parsed.seconds)
       setDraftStrategy(parsed.strategy)
       setDraftGreetingEnabled(parsed.greetingEnabled)
+      setDraftForwardCallerId(Boolean(parsed.forwardCallerId))
     } catch {
       setDraftSeconds(snapDashboardRingTimeoutSec(ringTimeoutSec))
       setDraftStrategy(strategyFromFallback(fallback))
       setDraftGreetingEnabled(inboundCallerGreetingEnabled)
+      setDraftForwardCallerId(forwardOriginalCallerId)
     }
-  }, [ringTimeoutSec, fallback, inboundCallerGreetingEnabled])
+  }, [ringTimeoutSec, fallback, inboundCallerGreetingEnabled, forwardOriginalCallerId])
 
   useEffect(() => {
     onRegisterDiscard?.(discardEdits)
@@ -185,15 +202,18 @@ export function DashboardRingBackupDrawer({
       setRingTimeoutSec(snapped)
       setFallback(nextFallback)
       setInboundCallerGreetingEnabled(draftGreetingEnabled)
+      setForwardOriginalCallerId(draftForwardCallerId)
       await saveRouting({
         ring_timeout_seconds: snapped,
         fallback_type: nextFallback,
         inbound_caller_greeting_enabled: draftGreetingEnabled,
+        forward_original_caller_id: draftForwardCallerId,
       })
       baselineRef.current = JSON.stringify({
         seconds: snapped,
         strategy: draftStrategy,
         greetingEnabled: draftGreetingEnabled,
+        forwardCallerId: draftForwardCallerId,
       })
       toast({ title: "Saved", description: "Caller experience, ring timing, and backup strategy updated." })
       onClose()
@@ -207,10 +227,12 @@ export function DashboardRingBackupDrawer({
     draftSeconds,
     draftStrategy,
     draftGreetingEnabled,
+    draftForwardCallerId,
     saveRouting,
     setRingTimeoutSec,
     setFallback,
     setInboundCallerGreetingEnabled,
+    setForwardOriginalCallerId,
     onClose,
     onOpenVoiceAi,
     toast,
@@ -260,6 +282,27 @@ export function DashboardRingBackupDrawer({
                 </button>
               )
             })}
+          </div>
+        </section>
+
+        <section className="mt-8 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Caller ID on your cell</p>
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-snug text-foreground">
+                Show Customer&apos;s Number on Inbound Calls
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                When toggled OFF, inbound calls to your cell will display your Lyncr Business Number so you always know
+                it&apos;s a business lead.
+              </p>
+            </div>
+            <Switch
+              checked={draftForwardCallerId}
+              onCheckedChange={setDraftForwardCallerId}
+              aria-label="Show customer's number on inbound calls"
+              className="mt-0.5 shrink-0"
+            />
           </div>
         </section>
 

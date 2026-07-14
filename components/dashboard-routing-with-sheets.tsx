@@ -124,6 +124,8 @@ export function DashboardRoutingWithSheets(props: Props) {
         setRingTimeoutSec={props.setRingTimeoutSec}
         inboundCallerGreetingEnabled={props.inboundCallerGreetingEnabled}
         setInboundCallerGreetingEnabled={props.setInboundCallerGreetingEnabled}
+        forwardOriginalCallerId={props.forwardOriginalCallerId}
+        setForwardOriginalCallerId={props.setForwardOriginalCallerId}
         saveRouting={props.saveRouting}
         fallback={props.fallback}
         setFallback={props.setFallback}

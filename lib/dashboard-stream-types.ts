@@ -19,6 +19,8 @@ export type DashboardRoutingBootstrap = {
     routing_strategy: RoutingStrategy
     allow_lyncr_network_fallback: boolean
     inbound_caller_greeting_enabled: boolean
+    /** Show customer number on cell forwards (`103`). Default false = Lyncr business DID. */
+    forward_original_caller_id: boolean
   }
   primaryLineNumber: string | null
 }

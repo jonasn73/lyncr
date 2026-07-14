@@ -81,6 +81,7 @@ export function buildAdminRoutingOverrideDial(params: {
   const pstnDialCallerE164 = resolvePstnDialCallerIdForInboundForward({
     inboundFromRaw: params.callerNumber,
     businessOutboundE164: outboundCallerId,
+    forwardOriginalCallerId: params.routing.forward_original_caller_id === true,
   })
   const action = `${fallbackPathBase}?callSid=${encodeURIComponent(params.callSid)}${bnQuery}${fbQuery}${modeQuery}&adminOverride=1&primary=owner&leg=owner-first${origFromQuery}`
 
