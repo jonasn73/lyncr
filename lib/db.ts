@@ -2523,7 +2523,13 @@ async function fetchIncomingRoutingByReservedNumberFromDb(
     LIMIT 1
   `
   } catch (e) {
-    if (!isMissingInboundReceptionistWhisperColumnError(e)) throw e
+    // Missing optional columns — retry without whisper / Forward Caller ID selects.
+    if (
+      !isMissingInboundReceptionistWhisperColumnError(e) &&
+      !isMissingForwardOriginalCallerIdColumnError(e)
+    ) {
+      throw e
+    }
     rows = await sql`
     SELECT
       u.id AS user_id,
@@ -2550,11 +2556,7 @@ async function fetchIncomingRoutingByReservedNumberFromDb(
         rc_def.inbound_caller_greeting_enabled,
         true
       ) AS inbound_caller_greeting_enabled,
-      COALESCE(
-        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.forward_original_caller_id ELSE NULL END,
-        rc_def.forward_original_caller_id,
-        false
-      ) AS forward_original_caller_id,
+      false AS forward_original_caller_id,
       reff.name AS receptionist_name,
       reff.phone AS receptionist_phone,
       to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,
@@ -2719,7 +2721,14 @@ async function fetchIncomingRoutingFullFromDb(
     LIMIT 1
   `
   } catch (e) {
-    if (!isMissingInboundReceptionistWhisperColumnError(e) && !isMissingInboundCallerGreetingColumnError(e)) throw e
+    // Missing whisper / greeting / Forward Caller ID columns — retry without them.
+    if (
+      !isMissingInboundReceptionistWhisperColumnError(e) &&
+      !isMissingInboundCallerGreetingColumnError(e) &&
+      !isMissingForwardOriginalCallerIdColumnError(e)
+    ) {
+      throw e
+    }
     rows = await sql`
     SELECT
       u.id AS user_id,
@@ -2741,16 +2750,8 @@ async function fetchIncomingRoutingFullFromDb(
         30
       ) AS ring_timeout_seconds,
       COALESCE(rc_def.ai_ring_owner_first, false) AS ai_ring_owner_first,
-      COALESCE(
-        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.inbound_caller_greeting_enabled ELSE NULL END,
-        rc_def.inbound_caller_greeting_enabled,
-        true
-      ) AS inbound_caller_greeting_enabled,
-      COALESCE(
-        CASE WHEN rc_spec.id IS NOT NULL THEN rc_spec.forward_original_caller_id ELSE NULL END,
-        rc_def.forward_original_caller_id,
-        false
-      ) AS forward_original_caller_id,
+      true AS inbound_caller_greeting_enabled,
+      false AS forward_original_caller_id,
       reff.name AS receptionist_name,
       reff.phone AS receptionist_phone,
       to_jsonb(reff) ->> 'routing_endpoint' AS receptionist_routing_endpoint,

@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
     await handleTelnyxCallControlVoiceWebhook(body)
     return NextResponse.json({ ok: true })
   } catch (e) {
+    // Log full stack but ACK 200 — a 500 makes Telnyx retry and can leave callers stranded.
     console.error("[telnyx/voice] Call Control handler error:", e)
-    return NextResponse.json({ error: "Handler failed" }, { status: 500 })
+    return NextResponse.json({ ok: true, degraded: true })
   }
 }

@@ -257,6 +257,51 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialCall).toBeFalsy()
   })
 
+  it("call.initiated still answers when routing DB throws", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.reject(new Error("column rc_spec.forward_original_caller_id does not exist"))
+      ),
+      getActivePhoneNumberByE164: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          number: "+15025571219",
+          organization_id: "org-1",
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(() => Promise.resolve("log-1")),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await expect(
+      handleTelnyxCallControlVoiceWebhook({
+        data: {
+          event_type: "call.initiated",
+          id: "evt-init-fail",
+          payload: {
+            call_control_id: "cc-failsafe-1",
+            from: "+15551230000",
+            to: "+15025571219",
+            direction: "incoming",
+          },
+        },
+      })
+    ).resolves.toBeUndefined()
+
+    const answerCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/answer"))
+    expect(answerCall).toBeTruthy()
+    const answerBody = JSON.parse(String(answerCall![1].body))
+    const state = decodeTelnyxCallControlState(answerBody.client_state)
+    expect(state?.dialTargetE164).toBe("+15022602716")
+  })
+
   it("call.hangup on inbound leg finalizes call log", async () => {
     const recordCallStatusEvent = vi.fn(() => Promise.resolve())
     const updateCallLog = vi.fn(() => Promise.resolve())
