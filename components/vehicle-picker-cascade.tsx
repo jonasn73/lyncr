@@ -201,6 +201,16 @@ function OptionChip({
   )
 }
 
+function pickerLoadingLike(
+  activePicker: ActivePicker,
+  loadingMakes: boolean,
+  loadingModels: boolean
+): boolean {
+  if (activePicker === "make") return loadingMakes
+  if (activePicker === "model") return loadingModels
+  return false
+}
+
 function VehiclePickerSequential({
   value,
   onChange,
@@ -221,11 +231,19 @@ function VehiclePickerSequential({
   loadingModels: boolean
 }) {
   const [activePicker, setActivePicker] = useState<ActivePicker>(() => activePickerFromValue(value))
+  // Quick-filter for the year / make / model chip grid.
+  const [filterQuery, setFilterQuery] = useState("")
   const optionsListRef = useRef<HTMLDivElement>(null)
+  const filterInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setActivePicker(activePickerFromValue(value))
   }, [value.vehicle_year, value.vehicle_make, value.vehicle_model])
+
+  // Clear search when switching Year ↔ Make ↔ Model so the new list starts unfiltered.
+  useEffect(() => {
+    setFilterQuery("")
+  }, [activePicker])
 
   // When make → model advances, bring the full model list into the parent scroll view.
   useEffect(() => {
@@ -237,6 +255,13 @@ function VehiclePickerSequential({
       el.scrollIntoView({ block: "nearest", behavior: "smooth" })
     })
   }, [activePicker, loadingModels, models.length])
+
+  // Focus the filter when a list becomes available (makes typing-to-jump feel instant).
+  useEffect(() => {
+    if (pickerLoadingLike(activePicker, loadingMakes, loadingModels)) return
+    const t = window.setTimeout(() => filterInputRef.current?.focus(), 80)
+    return () => window.clearTimeout(t)
+  }, [activePicker, loadingMakes, loadingModels])
 
   const handleYearSelect = (year: string) => {
     onChange({ vehicle_year: year, vehicle_make: "", vehicle_model: "" })
@@ -255,12 +280,30 @@ function VehiclePickerSequential({
   const pickerTitle =
     activePicker === "year" ? "Tap year" : activePicker === "make" ? "Tap make" : "Tap model"
 
+  const searchPlaceholder =
+    activePicker === "year"
+      ? "Search years..."
+      : activePicker === "make"
+        ? "Search makes..."
+        : "Search models..."
+
+  const emptyFilterMessage =
+    activePicker === "year"
+      ? "No matching years found."
+      : activePicker === "make"
+        ? "No matching makes found."
+        : "No matching models found."
+
   const pickerOptions: string[] =
     activePicker === "year"
       ? years.map(String)
       : activePicker === "make"
         ? makes
         : models
+
+  const filteredOptions = pickerOptions.filter((opt) =>
+    opt.toLowerCase().includes(filterQuery.trim().toLowerCase())
+  )
 
   const pickerLoading =
     activePicker === "make" ? loadingMakes : activePicker === "model" ? loadingModels : false
@@ -323,26 +366,46 @@ function VehiclePickerSequential({
           ) : (
             // No nested max-height scroll — parent intake sheet owns scrolling so the
             // last model chips are reachable (nested overflow often truncates on mobile).
-            <div
-              ref={optionsListRef}
-              className="grid grid-cols-2 gap-3 pb-2 pr-0.5 sm:grid-cols-3"
-            >
-              {pickerOptions.map((option) => {
-                const selected = selectedValue === option
-                return (
-                  <OptionChip
-                    key={option}
-                    label={option}
-                    selected={selected}
-                    disabled={disabled}
-                    onSelect={() => {
-                      if (activePicker === "year") handleYearSelect(option)
-                      else if (activePicker === "make") handleMakeSelect(option)
-                      else handleModelSelect(option)
-                    }}
-                  />
-                )
-              })}
+            <div ref={optionsListRef} className="grid gap-2 pb-2 pr-0.5">
+              <input
+                ref={filterInputRef}
+                type="search"
+                value={filterQuery}
+                disabled={disabled}
+                placeholder={searchPlaceholder}
+                autoComplete="off"
+                spellCheck={false}
+                aria-label={searchPlaceholder}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                className={cn(
+                  "sticky top-0 z-10 w-full rounded-md border border-border/70 bg-background p-2 text-sm text-foreground",
+                  "mb-1 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                )}
+              />
+              {filteredOptions.length === 0 ? (
+                <p className="px-1 py-3 text-center text-[11px] text-muted-foreground">
+                  {emptyFilterMessage}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {filteredOptions.map((option) => {
+                    const selected = selectedValue === option
+                    return (
+                      <OptionChip
+                        key={option}
+                        label={option}
+                        selected={selected}
+                        disabled={disabled}
+                        onSelect={() => {
+                          if (activePicker === "year") handleYearSelect(option)
+                          else if (activePicker === "make") handleMakeSelect(option)
+                          else handleModelSelect(option)
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
         </motion.div>
