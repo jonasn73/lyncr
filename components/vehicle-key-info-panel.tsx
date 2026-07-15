@@ -10,7 +10,11 @@ import {
   lookupMykeysProProfile,
   mykeysProKeyOptions,
 } from "@/lib/mykeys-pro-database"
-import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
+import {
+  isVolvoInsertFobikVehicle,
+  sanitizeFccIdInput,
+  type ManualKeyFrequencyOption,
+} from "@/lib/fcc-id-input"
 import { normalizeVin } from "@/lib/nhtsa-vpic"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel, inferProgrammingMethod } from "@/lib/vehicle-key-variant-labels"
@@ -220,15 +224,28 @@ function manualOptionCardModel(
   }
 }
 
-type KeyIllustrationKind = "proximity" | "high_security" | "transponder"
+type KeyIllustrationKind = "proximity" | "high_security" | "transponder" | "volvo_fobik"
 
 /** Pick a sample illustration from the card label / variant id when no photo exists. */
-function classifyKeyIllustration(label: string, variantId?: string | null): KeyIllustrationKind {
+function classifyKeyIllustration(
+  label: string,
+  variantId?: string | null,
+  make?: string | null,
+  model?: string | null
+): KeyIllustrationKind {
   const blob = `${label} ${variantId ?? ""}`.toLowerCase()
+  // Explicit Fobik option id / label.
+  if (
+    variantId === "volvo-fobik-5b" ||
+    /volvo.*fobik|fobik.*5|5.?button.?fobik|insert.?and.?start/.test(blob)
+  ) {
+    return "volvo_fobik"
+  }
   if (/proximity|smart\s*key|push.?start|\bprox\b/.test(blob)) return "proximity"
   if (/high.?security|edge.?cut|laser|flip.?blade|mechanical|blade\b/.test(blob)) return "high_security"
   if (/transponder|remote.?head|315|433|standard/.test(blob)) return "transponder"
-  // Default to classic plastic-head key when the label is ambiguous.
+  // Classic Volvo insert-start models in bypass: default sample to the Fobik shape.
+  if (make && model && isVolvoInsertFobikVehicle(make, model)) return "volvo_fobik"
   return "transponder"
 }
 
@@ -291,9 +308,61 @@ function StandardTransponderKeySvg() {
   )
 }
 
+/**
+ * Volvo 5-button insert Fobik — vertical body, squared plastic insert shaft on top,
+ * Lock / Unlock / Lights / Trunk grid + red panic triangle at the bottom.
+ */
+function VolvoFobik5ButtonSvg() {
+  return (
+    <svg viewBox="0 0 72 130" className="h-28 w-auto" aria-hidden>
+      {/* Protruding square plastic insert shaft (blade) at the top */}
+      <rect x="26" y="2" width="20" height="16" rx="2" fill="#94a3b8" stroke="#64748b" strokeWidth="1.25" />
+      <rect x="30" y="5" width="12" height="10" rx="1" fill="#cbd5e1" />
+      {/* Vertical rectangular body with a rounded bottom */}
+      <path
+        d="M16 18h40c4 0 8 4 8 8v60c0 16-12 28-28 28S8 102 8 86V26c0-4 4-8 8-8z"
+        fill="#1e293b"
+        stroke="#94a3b8"
+        strokeWidth="2"
+      />
+      {/* Inner face plate */}
+      <path
+        d="M20 24h32c2.5 0 5 2.5 5 5v54c0 12-9 22-21 22S15 95 15 83V29c0-2.5 2.5-5 5-5z"
+        fill="#0f172a"
+        stroke="#475569"
+        strokeWidth="1"
+      />
+      {/* 2×2 grid: Lock, Unlock, Lights, Trunk */}
+      <rect x="24" y="32" width="10" height="10" rx="1.5" fill="#334155" stroke="#64748b" strokeWidth="0.75" />
+      <rect x="38" y="32" width="10" height="10" rx="1.5" fill="#334155" stroke="#64748b" strokeWidth="0.75" />
+      <rect x="24" y="46" width="10" height="10" rx="1.5" fill="#334155" stroke="#64748b" strokeWidth="0.75" />
+      <rect x="38" y="46" width="10" height="10" rx="1.5" fill="#334155" stroke="#64748b" strokeWidth="0.75" />
+      {/* Tiny lock / unlock glyphs */}
+      <circle cx="29" cy="36" r="1.6" fill="none" stroke="#94a3b8" strokeWidth="0.9" />
+      <rect x="27.5" y="37.2" width="3" height="2.5" rx="0.4" fill="#94a3b8" />
+      <path d="M40.5 36.5h5M43 34v5" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" />
+      {/* Lights + trunk glyphs */}
+      <circle cx="29" cy="51" r="2.2" fill="none" stroke="#94a3b8" strokeWidth="0.9" />
+      <path d="M29 48.2v-1.2M26.5 49.2l-.9-.9M31.5 49.2l.9-.9" stroke="#94a3b8" strokeWidth="0.7" />
+      <path d="M40 52h6v2.5h-6zM41 50.5h4l.8 1.5h-5.6z" fill="#94a3b8" />
+      {/* Red warning-triangle panic button at the bottom */}
+      <path
+        d="M36 78 L44 92 L28 92 Z"
+        fill="#ef4444"
+        stroke="#fca5a5"
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+      <rect x="35.2" y="82" width="1.6" height="5" rx="0.4" fill="#fff" />
+      <circle cx="36" cy="89.2" r="0.9" fill="#fff" />
+    </svg>
+  )
+}
+
 function KeyTypeSampleIllustration({ kind }: { kind: KeyIllustrationKind }) {
   if (kind === "proximity") return <ProximitySmartKeySvg />
   if (kind === "high_security") return <HighSecurityBladeKeySvg />
+  if (kind === "volvo_fobik") return <VolvoFobik5ButtonSvg />
   return <StandardTransponderKeySvg />
 }
 
@@ -301,14 +370,18 @@ function KeyThumbnail({
   imageUrl,
   label,
   variantId,
+  make,
+  model,
 }: {
   imageUrl: string | null
   label: string
   variantId?: string | null
+  make?: string | null
+  model?: string | null
 }) {
   const [failed, setFailed] = useState(false)
   const showImage = Boolean(imageUrl) && !failed
-  const illustrationKind = classifyKeyIllustration(label, variantId)
+  const illustrationKind = classifyKeyIllustration(label, variantId, make, model)
 
   return (
     <div className="w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-850">
@@ -344,12 +417,16 @@ export function KeySelectionCard({
   disabled,
   disabledReason,
   onClick,
+  make,
+  model,
 }: {
   card: KeySelectionCardModel
   selected: boolean
   disabled?: boolean
   disabledReason?: string | null
   onClick: () => void
+  make?: string | null
+  model?: string | null
 }) {
   return (
     <div className="grid gap-1">
@@ -378,7 +455,13 @@ export function KeySelectionCard({
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         ) : null}
-        <KeyThumbnail imageUrl={card.imageUrl} label={card.label} variantId={card.id} />
+        <KeyThumbnail
+          imageUrl={card.imageUrl}
+          label={card.label}
+          variantId={card.id}
+          make={make}
+          model={model}
+        />
         <div className="mt-2.5 min-w-0 space-y-2">
           {card.tiSku ? (
             <span className="inline-flex max-w-full truncate text-emerald-400 font-mono text-sm tracking-wider bg-emerald-950/40 border border-emerald-900/50 px-2 py-1 rounded-md">
@@ -535,6 +618,7 @@ function VariantFilmstrip({
               disabled={cardDisabled}
               disabledReason={trimGate.disabled ? "Feature not supported by vehicle trim" : null}
               onClick={() => onPick(variant)}
+              make={make}
             />
           )
         })}
@@ -792,6 +876,8 @@ function ManualFrequencyGrid({
             selected={selected}
             disabled={disabled}
             onClick={() => onPick(option)}
+            make={make}
+            model={model}
           />
         )
       })}

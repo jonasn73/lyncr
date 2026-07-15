@@ -19,6 +19,30 @@ export type ManualKeyFrequencyOption = {
   fccId?: string | null
 }
 
+/**
+ * Classic Volvo insert-and-start dashboard Fobik (C30 / S40 / V50 / C70 era).
+ * Shown in manual bypass for those models — not in the generic regional list.
+ */
+export const VOLVO_FOBIK_5B_OPTION: ManualKeyFrequencyOption = {
+  id: "volvo-fobik-5b",
+  label: "Volvo 5-Button Fobik Key",
+  keyStyle: "Remote head key",
+  frequency: "315",
+  description: "Insert-and-start dashboard fobik key",
+  programmingMethod: "OBD2 PROGRAMMING REQUIRED",
+  imageUrl: null,
+}
+
+/** Models that commonly use the 5-button insert Fobik (manual bypass + SVG sample). */
+const VOLVO_INSERT_FOBIK_MODELS = new Set(["c30", "s40", "v50", "c70"])
+
+/** True when this YMM should offer / illustrate the Volvo 5-button Fobik. */
+export function isVolvoInsertFobikVehicle(make: string, model: string): boolean {
+  if (make.trim().toLowerCase() !== "volvo") return false
+  const normalizedModel = model.trim().toLowerCase().replace(/\s+/g, "")
+  return VOLVO_INSERT_FOBIK_MODELS.has(normalizedModel)
+}
+
 /** Dispatcher fallback when FCC / YMM lookup cannot resolve a specific remote. */
 export const MANUAL_KEY_FREQUENCY_OPTIONS: readonly ManualKeyFrequencyOption[] = [
   {

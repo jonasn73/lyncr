@@ -32,4 +32,13 @@ describe("mykeys-pro-database", () => {
     expect(options).toHaveLength(3)
     expect(options[0]?.id).toBe("manual-315-transponder")
   })
+
+  it("prepends the Volvo 5-button Fobik for classic insert-start models", () => {
+    const options = mykeysProKeyOptions("Volvo", "C30")
+    expect(options[0]?.id).toBe("volvo-fobik-5b")
+    expect(options[0]?.label).toBe("Volvo 5-Button Fobik Key")
+    expect(options[0]?.description).toBe("Insert-and-start dashboard fobik key")
+    expect(options[0]?.programmingMethod).toBe("OBD2 PROGRAMMING REQUIRED")
+    expect(options).toHaveLength(4)
+  })
 })
