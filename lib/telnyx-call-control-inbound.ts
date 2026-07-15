@@ -8,6 +8,7 @@ import {
   telnyxCallControlHangup,
   telnyxCallControlRecordStart,
   telnyxCallControlSpeak,
+  telnyxListActiveCalls,
 } from "@/lib/telnyx-call-control-api"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
 import {
@@ -285,26 +286,24 @@ async function dialTechnicianLeg(
 
   // Track the cell leg so call.hangup on the caller can kill phantom ringing immediately.
   if (outboundCallControlId) {
-    rememberOutboundDialLeg(inboundCallControlId, outboundCallControlId)
+    await rememberOutboundDialLeg(inboundCallControlId, outboundCallControlId)
     const stateWithOutbound: TelnyxCallControlClientState = {
       ...nextStatePayload,
       outboundCallControlId,
     }
     const encodedWithOutbound = encodeTelnyxCallControlState(stateWithOutbound)
-    // Stamp outbound id onto the inbound leg (for hangup webhooks) and refresh outbound state.
-    void Promise.all([
-      telnyxCallControlClientStateUpdate(inboundCallControlId, encodedWithOutbound),
-      telnyxCallControlClientStateUpdate(outboundCallControlId, encodedWithOutbound),
-    ]).then(([inboundRes, outboundRes]) => {
-      if (!inboundRes.ok) {
-        console.warn(
-          JSON.stringify({
-            zing: "telnyx-cc-inbound-client-state-update-failed",
-            inboundCallControlId,
-            error: inboundRes.error,
-          })
-        )
-      }
+    // Await inbound stamp — hangup webhooks must see outboundCallControlId when possible.
+    const inboundRes = await telnyxCallControlClientStateUpdate(inboundCallControlId, encodedWithOutbound)
+    if (!inboundRes.ok) {
+      console.warn(
+        JSON.stringify({
+          zing: "telnyx-cc-inbound-client-state-update-failed",
+          inboundCallControlId,
+          error: inboundRes.error,
+        })
+      )
+    }
+    void telnyxCallControlClientStateUpdate(outboundCallControlId, encodedWithOutbound).then((outboundRes) => {
       if (!outboundRes.ok) {
         console.warn(
           JSON.stringify({
@@ -703,17 +702,55 @@ async function handleCallBridged(
 
 async function hangupCompanionOutboundLeg(
   inboundCallControlId: string,
-  state: TelnyxCallControlClientState | null | undefined
+  state: TelnyxCallControlClientState | null | undefined,
+  callSessionId?: string
 ): Promise<void> {
   const inbound = inboundCallControlId.trim()
   if (!inbound) return
 
-  const outbound =
+  let outbound =
     state?.outboundCallControlId?.trim() ||
-    lookupOutboundDialLeg(inbound) ||
+    (await lookupOutboundDialLeg(inbound)) ||
     ""
 
-  forgetOutboundDialLeg(inbound)
+  await forgetOutboundDialLeg(inbound)
+
+  // Last resort: hang up every other live leg in this call session (covers stale client_state).
+  if ((!outbound || outbound === inbound) && callSessionId?.trim()) {
+    try {
+      const connectionId = await getOrCreateCallControlApp()
+      const active = await telnyxListActiveCalls(connectionId)
+      const siblings = active.filter(
+        (leg) =>
+          leg.callSessionId === callSessionId.trim() &&
+          leg.callControlId &&
+          leg.callControlId !== inbound
+      )
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-cc-hangup-session-siblings",
+          inboundCallControlId: inbound,
+          callSessionId: callSessionId.trim(),
+          siblingCount: siblings.length,
+        })
+      )
+      for (const leg of siblings) {
+        const hangupRes = await telnyxCallControlHangup(leg.callControlId)
+        if (!hangupRes.ok) {
+          console.error(
+            JSON.stringify({
+              zing: "telnyx-cc-hangup-session-sibling-failed",
+              outboundCallControlId: leg.callControlId,
+              error: hangupRes.error,
+            })
+          )
+        }
+      }
+      if (siblings.length > 0) return
+    } catch (e) {
+      console.error("[telnyx-cc] session sibling hangup failed:", e)
+    }
+  }
 
   if (!outbound || outbound === inbound) {
     console.log(
@@ -721,6 +758,7 @@ async function hangupCompanionOutboundLeg(
         zing: "telnyx-cc-hangup-no-outbound-companion",
         inboundCallControlId: inbound,
         hadStateOutbound: Boolean(state?.outboundCallControlId),
+        callSessionId: callSessionId || null,
       })
     )
     return
@@ -762,6 +800,7 @@ async function handleCallHangup(
       hangupCause: event.hangupCause,
       isOutboundLeg: isOutboundDialLegEvent(event),
       outboundFromState: state?.outboundCallControlId ?? null,
+      callSessionId: event.callSessionId || null,
     })
   )
 
@@ -776,7 +815,7 @@ async function handleCallHangup(
       return
     }
 
-    forgetOutboundDialLeg(inboundCallControlId)
+    await forgetOutboundDialLeg(inboundCallControlId)
     await persistCallControlDialNoAnswer(inboundSid, event)
 
     const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
@@ -798,7 +837,7 @@ async function handleCallHangup(
   // Outbound cell leg ended for another reason (answered then hung up, rejected, etc.).
   if (isOutboundDialLegEvent(event)) {
     const inboundCallControlId = state?.inboundCallControlId?.trim() || inboundSid
-    forgetOutboundDialLeg(inboundCallControlId)
+    await forgetOutboundDialLeg(inboundCallControlId)
     console.log(
       JSON.stringify({
         zing: "telnyx-cc-hangup-outbound-leg-done",
@@ -810,10 +849,9 @@ async function handleCallHangup(
   }
 
   // Caller hung up (inbound leg) — immediately terminate any still-ringing / bridged cell leg.
-  await hangupCompanionOutboundLeg(event.callControlId, state)
+  // Also covers greeting-phase hangups where client_state is stale but Dial already started.
+  await hangupCompanionOutboundLeg(event.callControlId, state, event.callSessionId)
 
-  // Original semantics: inbound hangup with inboundCallControlId in state meant an outbound dial existed.
-  // After client_state_update, inbound hangups often carry phase await_dial_end + outboundCallControlId.
   const hadConversation =
     event.hangupCause === "normal_clearing" &&
     state?.phase !== "recording" &&

@@ -4,6 +4,7 @@ import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voi
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
 const TELNYX_CALLS_BASE = "https://api.telnyx.com/v2/calls"
+const TELNYX_API_BASE = "https://api.telnyx.com/v2"
 
 export type TelnyxCallControlActionResult =
   | { ok: true; callControlId?: string }
@@ -135,6 +136,39 @@ export async function telnyxCallControlRecordStart(
 
 export async function telnyxCallControlHangup(callControlId: string): Promise<TelnyxCallControlActionResult> {
   return postCallAction(callControlId, "hangup", {})
+}
+
+/** List live Call Control legs on a connection (used to kill phantom ringing by session). */
+export async function telnyxListActiveCalls(
+  connectionId: string
+): Promise<Array<{ callControlId: string; callSessionId: string }>> {
+  const id = connectionId.trim()
+  if (!id) return []
+  const res = await fetch(`${TELNYX_API_BASE}/connections/${encodeURIComponent(id)}/active_calls`, {
+    method: "GET",
+    headers: telnyxHeaders(),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    console.warn(
+      JSON.stringify({
+        zing: "telnyx-cc-list-active-calls-failed",
+        status: res.status,
+        error:
+          (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
+          JSON.stringify(errBody).slice(0, 200),
+      })
+    )
+    return []
+  }
+  const body = await res.json().catch(() => ({}))
+  const rows = Array.isArray((body as { data?: unknown }).data) ? (body as { data: Record<string, unknown>[] }).data : []
+  return rows
+    .map((row) => ({
+      callControlId: String(row.call_control_id ?? "").trim(),
+      callSessionId: String(row.call_session_id ?? "").trim(),
+    }))
+    .filter((r) => r.callControlId)
 }
 
 /**

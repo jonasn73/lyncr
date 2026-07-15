@@ -324,6 +324,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       recordCallStatusEvent,
       updateCallLog,
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
       isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
       normalizePhoneNumberE164: (p: string) => p,
     }))
@@ -385,6 +388,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
       recordCallStatusEvent: vi.fn(() => Promise.resolve()),
       updateCallLog: vi.fn(() => Promise.resolve()),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve("cc-out-cell")),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
       isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
       normalizePhoneNumberE164: (p: string) => p,
     }))
@@ -402,16 +408,15 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     }))
 
     const { rememberOutboundDialLeg } = await import("@/lib/telnyx-call-control-leg-map")
-    rememberOutboundDialLeg("cc-in-phantom", "cc-out-cell")
+    await rememberOutboundDialLeg("cc-in-phantom", "cc-out-cell")
 
     const state = encodeTelnyxCallControlState({
       v: 1,
-      phase: "await_dial_end",
+      phase: "await_greeting_end",
       userId: "u1",
       businessLineE164: "+15555571219",
       callerE164: "+15026558745",
-      inboundCallControlId: "cc-in-phantom",
-      outboundCallControlId: "cc-out-cell",
+      // Stale greeting state (no outbound id) — lookup must still find the dialed cell.
       dialTargetE164: "+15552602716",
       fallbackType: "voicemail",
     })
@@ -424,6 +429,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
         occurred_at: "2026-06-27T17:30:00.000Z",
         payload: {
           call_control_id: "cc-in-phantom",
+          call_session_id: "sess-phantom",
           from: "+15026558745",
           to: "+15025571219",
           hangup_cause: "originator_cancel",

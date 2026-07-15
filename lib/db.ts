@@ -3164,6 +3164,83 @@ export async function updateUser(
   }
 }
 
+/** Persist inbound → outbound Call Control IDs so hangup can cancel a ringing cell across instances. */
+export async function upsertTelnyxCallLegLink(params: {
+  inboundCallControlId: string
+  outboundCallControlId: string
+  callSessionId?: string | null
+}): Promise<void> {
+  const inbound = params.inboundCallControlId.trim()
+  const outbound = params.outboundCallControlId.trim()
+  if (!inbound || !outbound) return
+  const sql = getSql()
+  const sessionId = params.callSessionId?.trim() || null
+  try {
+    await sql`
+      INSERT INTO telnyx_call_leg_links (
+        inbound_call_control_id, outbound_call_control_id, call_session_id, created_at
+      )
+      VALUES (${inbound}, ${outbound}, ${sessionId}, now())
+      ON CONFLICT (inbound_call_control_id) DO UPDATE SET
+        outbound_call_control_id = EXCLUDED.outbound_call_control_id,
+        call_session_id = COALESCE(EXCLUDED.call_session_id, telnyx_call_leg_links.call_session_id),
+        created_at = now()
+    `
+    // Best-effort prune — keep the table small.
+    await sql`DELETE FROM telnyx_call_leg_links WHERE created_at < now() - interval '2 hours'`
+  } catch (e) {
+    const msg = pgErrorMessage(e)
+    if (msg.includes("telnyx_call_leg_links") && (pgErrorCode(e) === "42P01" || msg.includes("does not exist"))) {
+      console.error(
+        "[telnyx-cc] telnyx_call_leg_links missing — run scripts/104-telnyx-call-leg-links.sql in Neon"
+      )
+      return
+    }
+    throw e
+  }
+}
+
+/** Look up the outbound (cell) dial leg for an inbound Call Control ID. */
+export async function getTelnyxOutboundLegForInbound(inboundCallControlId: string): Promise<string | null> {
+  const inbound = inboundCallControlId.trim()
+  if (!inbound) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT outbound_call_control_id
+      FROM telnyx_call_leg_links
+      WHERE inbound_call_control_id = ${inbound}
+        AND created_at > now() - interval '30 minutes'
+      LIMIT 1
+    `
+    const outbound = String((rows[0] as { outbound_call_control_id?: string } | undefined)?.outbound_call_control_id ?? "").trim()
+    return outbound || null
+  } catch (e) {
+    const msg = pgErrorMessage(e)
+    if (msg.includes("telnyx_call_leg_links") && (pgErrorCode(e) === "42P01" || msg.includes("does not exist"))) {
+      return null
+    }
+    console.error("[telnyx-cc] getTelnyxOutboundLegForInbound failed:", e)
+    return null
+  }
+}
+
+/** Remove the leg link after hangup. */
+export async function deleteTelnyxCallLegLink(inboundCallControlId: string): Promise<void> {
+  const inbound = inboundCallControlId.trim()
+  if (!inbound) return
+  const sql = getSql()
+  try {
+    await sql`DELETE FROM telnyx_call_leg_links WHERE inbound_call_control_id = ${inbound}`
+  } catch (e) {
+    const msg = pgErrorMessage(e)
+    if (msg.includes("telnyx_call_leg_links") && (pgErrorCode(e) === "42P01" || msg.includes("does not exist"))) {
+      return
+    }
+    console.error("[telnyx-cc] deleteTelnyxCallLegLink failed:", e)
+  }
+}
+
 // Insert a call log
 export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Promise<string | null> {
   const sql = getSql()
