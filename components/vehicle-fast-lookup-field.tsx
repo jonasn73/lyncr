@@ -1,10 +1,11 @@
 "use client"
 
 // Prominent plate-or-VIN lookup at the front of intake vehicle selection.
+// Collapsed by default so year/make/model stay primary; expands on demand.
 // Uses unified vin-decode / plate-lookup responses (vehicle + keySpecs in one trip).
 
 import { useEffect, useRef, useState } from "react"
-import { Loader2, Search, Zap } from "lucide-react"
+import { ChevronDown, Loader2, Search, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { normalizeVin } from "@/lib/nhtsa-vpic"
 import { US_PLATE_STATES } from "@/lib/vehicle-plate-lookup"
@@ -42,6 +43,18 @@ type VehicleFastLookupFieldProps = {
 /** True when cleaned input matches a standard 17-character VIN. */
 function looksLikeVin(raw: string): boolean {
   return normalizeVin(raw).length === 17
+}
+
+/**
+ * Hide the State dropdown when the input is clearly VIN-shaped:
+ * exact 17-char VIN, or alphanumeric (no symbols) longer than a typical plate.
+ */
+function shouldHideStateSelector(raw: string): boolean {
+  const cleaned = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
+  if (cleaned.length === 17) return true
+  // Plates are usually ≤8 chars; >10 alphanumeric strongly suggests a VIN paste in progress.
+  if (cleaned.length > 10 && /^[A-Z0-9]+$/.test(cleaned)) return true
+  return false
 }
 
 type UnifiedDecodeData = {
@@ -86,12 +99,15 @@ export function VehicleFastLookupField({
   onVinSuccess,
   disabled,
 }: VehicleFastLookupFieldProps) {
+  // Collapsed by default so manual year/make/model gets the screen space.
+  const [isFastLookupExpanded, setIsFastLookupExpanded] = useState(false)
   // Prefer an existing VIN, otherwise the plate already on the ticket.
   const [query, setQuery] = useState(() => (vehicleVin.trim() || plateNumber.trim()).toUpperCase())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const lastAutoVin = useRef("")
+  const inputRef = useRef<HTMLInputElement>(null)
   // Keep latest callbacks without re-triggering the auto-VIN effect.
   const onVinSuccessRef = useRef(onVinSuccess)
   onVinSuccessRef.current = onVinSuccess
@@ -101,6 +117,7 @@ export function VehicleFastLookupField({
   onPlateSuccessRef.current = onPlateSuccess
 
   const isVin = looksLikeVin(query)
+  const hideState = shouldHideStateSelector(query)
 
   // Keep the field in sync if the parent hydrates plate/VIN later (draft / rescue).
   useEffect(() => {
@@ -108,6 +125,13 @@ export function VehicleFastLookupField({
     if (!seeded) return
     setQuery((prev) => (prev.trim() ? prev : seeded))
   }, [vehicleVin, plateNumber])
+
+  // Focus the plate/VIN field when the accordion opens.
+  useEffect(() => {
+    if (!isFastLookupExpanded) return
+    const t = window.setTimeout(() => inputRef.current?.focus(), 50)
+    return () => window.clearTimeout(t)
+  }, [isFastLookupExpanded])
 
   const runVinDecode = async (vinRaw: string) => {
     const vin = normalizeVin(vinRaw)
@@ -207,7 +231,8 @@ export function VehicleFastLookupField({
   }
 
   const runLookup = () => {
-    if (looksLikeVin(query)) {
+    if (looksLikeVin(query) || hideState) {
+      // VIN-shaped input → decode path (exact 17 required inside runVinDecode).
       void runVinDecode(query)
       return
     }
@@ -216,6 +241,7 @@ export function VehicleFastLookupField({
 
   // Auto-decode as soon as a full VIN is pasted (skip plate path).
   useEffect(() => {
+    if (!isFastLookupExpanded) return
     const vin = normalizeVin(query)
     if (vin.length !== 17 || vin === lastAutoVin.current || disabled || loading) return
     const t = window.setTimeout(() => {
@@ -223,105 +249,141 @@ export function VehicleFastLookupField({
     }, 400)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the query text changes
-  }, [query, disabled])
+  }, [query, disabled, isFastLookupExpanded])
 
   return (
-    <div className="grid gap-2 rounded-xl border border-primary/35 bg-primary/10 p-3 shadow-sm shadow-primary/5">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-primary/35 bg-primary/10 shadow-sm shadow-primary/5">
+      {/* Accordion header — only UI when collapsed */}
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={isFastLookupExpanded}
+        onClick={() => setIsFastLookupExpanded((open) => !open)}
+        className={cn(
+          "flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors",
+          "hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50",
+          isFastLookupExpanded && "border-b border-primary/20"
+        )}
+      >
         <Zap className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+        <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-primary">
           Fast Lookup (Plate or VIN)
-        </p>
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        Paste a 17-digit VIN or enter a plate + state — we fill the vehicle and jump to key specs.
-      </p>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-primary transition-transform duration-200",
+            isFastLookupExpanded && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
 
-      <div className="grid gap-2 sm:grid-cols-[1fr_5.5rem_auto]">
-        <label className="grid min-w-0 gap-1 text-[11px]">
-          <span className="font-medium text-foreground">Plate or VIN</span>
-          <input
+      {isFastLookupExpanded ? (
+        <div className="grid gap-2 p-3 pt-2">
+          <p className="text-[11px] text-muted-foreground">
+            Paste a 17-digit VIN or enter a plate + state — we fill the vehicle and jump to key specs.
+          </p>
+
+          <div
             className={cn(
-              "h-11 w-full rounded-lg border border-border/70 bg-background px-3 font-mono text-sm uppercase tracking-wide text-foreground",
-              "placeholder:normal-case placeholder:tracking-normal placeholder:text-muted-foreground",
-              "focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            )}
-            value={query}
-            disabled={disabled || loading}
-            placeholder="ABC2020 or 17-digit VIN"
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(e) => {
-              const next = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")
-              setQuery(next)
-              setError(null)
-              setStatus(null)
-              lastAutoVin.current = ""
-              if (looksLikeVin(next)) {
-                onVinChange?.(normalizeVin(next))
-              } else {
-                onPlateNumberChange(next)
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                runLookup()
-              }
-            }}
-          />
-        </label>
-
-        <label className="grid gap-1 text-[11px]">
-          <span className="font-medium text-foreground">State</span>
-          <select
-            className="h-11 rounded-lg border border-border/70 bg-background px-1.5 text-sm text-foreground disabled:opacity-50"
-            value={plateState}
-            disabled={disabled || loading || isVin}
-            title={isVin ? "Not needed for VIN lookup" : "Plate registration state"}
-            onChange={(e) => onPlateStateChange(e.target.value)}
-          >
-            <option value="">—</option>
-            {US_PLATE_STATES.map((row) => (
-              <option key={row.code} value={row.code}>
-                {row.code}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="flex items-end">
-          <button
-            type="button"
-            disabled={disabled || loading || !query.trim() || (!isVin && !plateState.trim())}
-            onClick={runLookup}
-            className={cn(
-              "inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/15 px-4 text-xs font-semibold text-primary",
-              "hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              "grid gap-2",
+              hideState ? "sm:grid-cols-[1fr_auto]" : "sm:grid-cols-[1fr_5.5rem_auto]"
             )}
           >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Search className="h-3.5 w-3.5" aria-hidden />
-            )}
-            {loading ? "Looking up…" : "Look up"}
-          </button>
+            <label className="grid min-w-0 gap-1 text-[11px]">
+              <span className="font-medium text-foreground">Plate or VIN</span>
+              <input
+                ref={inputRef}
+                className={cn(
+                  "h-11 w-full rounded-lg border border-border/70 bg-background px-3 font-mono text-sm uppercase tracking-wide text-foreground",
+                  "placeholder:normal-case placeholder:tracking-normal placeholder:text-muted-foreground",
+                  "focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                )}
+                value={query}
+                disabled={disabled || loading}
+                placeholder="ABC2020 or 17-digit VIN"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(e) => {
+                  const next = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")
+                  setQuery(next)
+                  setError(null)
+                  setStatus(null)
+                  lastAutoVin.current = ""
+                  if (looksLikeVin(next) || shouldHideStateSelector(next)) {
+                    if (looksLikeVin(next)) onVinChange?.(normalizeVin(next))
+                  } else {
+                    onPlateNumberChange(next)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    runLookup()
+                  }
+                }}
+              />
+            </label>
+
+            {!hideState ? (
+              <label className="grid gap-1 text-[11px]">
+                <span className="font-medium text-foreground">State</span>
+                <select
+                  className="h-11 rounded-lg border border-border/70 bg-background px-1.5 text-sm text-foreground disabled:opacity-50"
+                  value={plateState}
+                  disabled={disabled || loading}
+                  title="Plate registration state"
+                  onChange={(e) => onPlateStateChange(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {US_PLATE_STATES.map((row) => (
+                    <option key={row.code} value={row.code}>
+                      {row.code}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={
+                  disabled ||
+                  loading ||
+                  !query.trim() ||
+                  (hideState ? !isVin : !plateState.trim())
+                }
+                onClick={runLookup}
+                className={cn(
+                  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/15 px-4 text-xs font-semibold text-primary",
+                  "hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                )}
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Search className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {loading ? "Looking up…" : "Look up"}
+              </button>
+            </div>
+          </div>
+
+          {error ? (
+            <p className="text-[11px] text-amber-200">{error}</p>
+          ) : status ? (
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-emerald-300">
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : null}
+              {status}
+            </p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">
+              Demo plates: KY·ABC2020, TN·HOND18, TX·EQN19 — or paste any 17-digit VIN.
+            </p>
+          )}
         </div>
-      </div>
-
-      {error ? (
-        <p className="text-[11px] text-amber-200">{error}</p>
-      ) : status ? (
-        <p className="inline-flex items-center gap-1.5 text-[11px] text-emerald-300">
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : null}
-          {status}
-        </p>
-      ) : (
-        <p className="text-[10px] text-muted-foreground">
-          Demo plates: KY·ABC2020, TN·HOND18, TX·EQN19 — or paste any 17-digit VIN.
-        </p>
-      )}
+      ) : null}
     </div>
   )
 }
