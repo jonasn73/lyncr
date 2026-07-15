@@ -555,7 +555,7 @@ export function DispatchLiveMap({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              // Re-open the minimized CallAnsweredModal intake drawer.
+              // Re-open the minimized CallAnsweredModal intake drawer + leave Map tab.
               emitReturnToIntakeFromMap()
             }}
             className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"

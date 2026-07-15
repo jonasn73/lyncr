@@ -13,6 +13,9 @@ export type FocusDispatchMapDetail = {
 /** Held until the Map tab mounts (deferUntilVisit can miss the custom event). */
 let pendingFocus: FocusDispatchMapDetail | null = null
 
+/** Held if CallAnsweredModal missed the click (remount / not listening yet). */
+let pendingReturnToIntake = false
+
 export function emitFocusDispatchMap(detail: FocusDispatchMapDetail): void {
   pendingFocus = detail
   if (typeof window === "undefined") return
@@ -28,6 +31,15 @@ export function consumePendingFocusDispatchMap(): FocusDispatchMapDetail | null 
 
 /** Map overlay "Return to Intake Form" — re-opens the intake sheet for the operator. */
 export function emitReturnToIntakeFromMap(): void {
+  // Latch so a late-mounting modal can still expand after the click.
+  pendingReturnToIntake = true
   if (typeof window === "undefined") return
   window.dispatchEvent(new CustomEvent(LYNCR_RETURN_TO_INTAKE_EVENT))
+}
+
+/** Read + clear a return request queued before the intake listener was ready. */
+export function consumePendingReturnToIntake(): boolean {
+  const next = pendingReturnToIntake
+  pendingReturnToIntake = false
+  return next
 }

@@ -78,7 +78,12 @@ import {
   normalizeCallEventPhoneDigits,
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
-import { emitFocusDispatchMap, LYNCR_RETURN_TO_INTAKE_EVENT } from "@/lib/dispatch-map-focus"
+import {
+  consumePendingReturnToIntake,
+  emitFocusDispatchMap,
+  LYNCR_RETURN_TO_INTAKE_EVENT,
+} from "@/lib/dispatch-map-focus"
+import type { PageId } from "@/components/app-shell"
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
@@ -462,6 +467,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [isMinimized, setIsMinimized] = useState(false)
   const isMinimizedRef = useRef(false)
   isMinimizedRef.current = isMinimized
+  // Blocks Sheet onOpenChange(false) while we intentionally re-open after Map return / PiP expand.
+  const suppressSheetDismissRef = useRef(false)
+  const suppressSheetDismissTimerRef = useRef<number | null>(null)
+  // Tab to restore when leaving Map (set in viewOnMapLayout).
+  const intakeReturnTabRef = useRef<PageId>("dashboard")
   const [secondaryIncoming, setSecondaryIncoming] = useState<SecondaryIncomingLeg | null>(null)
   const [lostLeadState, setLostLeadState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [lostLeadError, setLostLeadError] = useState<string | null>(null)
@@ -480,7 +490,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
-  const { activeOrganizationId, setActiveTab } = useDashboardWorkspace()
+  const { activeOrganizationId, activeTab, setActiveTab } = useDashboardWorkspace()
   const lyncEngine = useLyncEngineOptional()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -1667,6 +1677,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     focusIntakePrimaryField()
   }, [effectiveCurrent?.id, currentStep, stepIntake, focusIntakePrimaryField])
 
+  const armSheetDismissSuppress = useCallback((ms = 500) => {
+    // Ignore Radix "close" from the same click that asked us to re-open.
+    suppressSheetDismissRef.current = true
+    if (suppressSheetDismissTimerRef.current) {
+      window.clearTimeout(suppressSheetDismissTimerRef.current)
+    }
+    suppressSheetDismissTimerRef.current = window.setTimeout(() => {
+      suppressSheetDismissRef.current = false
+      suppressSheetDismissTimerRef.current = null
+    }, ms)
+  }, [])
+
   const minimizeIntake = useCallback(() => {
     isMinimizedRef.current = true
     setIsMinimized(true)
@@ -1674,24 +1696,46 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const expandIntake = useCallback(() => {
     // Force the intake sheet back open (map "Return to Intake Form" + PiP tray).
+    armSheetDismissSuppress()
     isMinimizedRef.current = false
     setIsMinimized(false)
-  }, [])
+  }, [armSheetDismissSuppress])
 
-  // Map overlay "← Return to Intake Form" — must register even when sheet is minimized.
-  useEffect(() => {
-    const onReturn = () => {
+  /** Leave Map, restore prior tab, and re-open the intake drawer without wiping form state. */
+  const returnToIntakeFromMap = useCallback(() => {
+    armSheetDismissSuppress(600)
+    // Switch off Map first so the sheet opens over the booking workspace.
+    setActiveTab(intakeReturnTabRef.current || "dashboard")
+    // Defer expand so the map button's click does not count as Sheet "outside" dismiss.
+    window.setTimeout(() => {
       isMinimizedRef.current = false
       setIsMinimized(false)
-      // Radix can swallow a controlled open flip mid-close animation — nudge again next frame.
       window.requestAnimationFrame(() => {
         isMinimizedRef.current = false
         setIsMinimized(false)
       })
+    }, 0)
+  }, [armSheetDismissSuppress, setActiveTab])
+
+  // Map overlay "← Return to Intake Form" — must register even when sheet is minimized.
+  useEffect(() => {
+    const onReturn = () => {
+      consumePendingReturnToIntake()
+      returnToIntakeFromMap()
     }
     window.addEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
-    return () => window.removeEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
-  }, [])
+    // Catch a click that fired before this effect mounted.
+    if (consumePendingReturnToIntake()) {
+      returnToIntakeFromMap()
+    }
+    return () => {
+      window.removeEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
+      if (suppressSheetDismissTimerRef.current) {
+        window.clearTimeout(suppressSheetDismissTimerRef.current)
+        suppressSheetDismissTimerRef.current = null
+      }
+    }
+  }, [returnToIntakeFromMap])
 
   const viewOnMapLayout = useCallback(() => {
     const lat = form.serviceAddress?.lat
@@ -1704,6 +1748,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       })
       return
     }
+    // Remember the tab we left so Return can restore it (usually Routing).
+    intakeReturnTabRef.current = activeTab === "contacts" ? "dashboard" : activeTab
     minimizeIntake()
     emitFocusDispatchMap({
       lat,
@@ -1721,6 +1767,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     form.addressLine1,
     form.city,
     form.postalCode,
+    activeTab,
     minimizeIntake,
     setActiveTab,
     toast,
@@ -1765,6 +1812,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         // Minimizing flips `open` to false — do not dismiss or wipe form state.
         if (!o) {
           if (isMinimizedRef.current) return
+          // Map "Return to Intake" / PiP expand — ignore spurious close from the same click.
+          if (suppressSheetDismissRef.current) return
           dismissOnly()
         }
       }}
@@ -1773,8 +1822,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         side="bottom"
         className="flex h-[85vh] max-h-[750px] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
         onPointerDownOutside={(e) => {
+          if (suppressSheetDismissRef.current) {
+            e.preventDefault()
+            return
+          }
           const target = e.target as HTMLElement | null
           if (target?.closest("[data-address-suggestions]")) e.preventDefault()
+        }}
+        onInteractOutside={(e) => {
+          // Same guard: map return click must not immediately close the reopened sheet.
+          if (suppressSheetDismissRef.current) e.preventDefault()
         }}
       >
         {effectiveCurrent ? (
