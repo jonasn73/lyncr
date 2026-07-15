@@ -356,19 +356,42 @@ async function handleCallInitiated(
       )
     }
 
-    const businessLineE164 = normalizePhoneNumberE164(event.to)
+    const businessLineE164 = normalizePhoneNumberE164(event.to) || event.to
     const callerE164 = event.from.trim() ? normalizePhoneNumberE164(event.from) : "Unknown"
     console.log(
       JSON.stringify({
         zing: "telnyx-cc-initiated-normalized",
         callControlId,
-        businessLineE164: businessLineE164 || event.to,
+        businessLineE164,
         callerE164,
       })
     )
 
-    let routing = await resolveCallControlRouting(event.to)
-    // Absolute last resort — still answer + dial primary cell even with no DB row.
+    // Provisional Answer state — Dial target is refined after routing resolves (and again on call.answered).
+    const provisionalRouting = buildFailsafeRouting({
+      userId: "00000000-0000-0000-0000-000000000000",
+      businessLineE164,
+      ownerPhone: FAILSAFE_PRIMARY_CELL_E164,
+    })
+    const provisionalAnswerState = encodeTelnyxCallControlState(
+      baseState(
+        provisionalRouting,
+        businessLineE164,
+        callerE164,
+        FAILSAFE_PRIMARY_CELL_E164,
+        30,
+        "await_caller_answered"
+      )
+    )
+
+    console.log("Triggering Telnyx Answer API (concurrent with routing)...", { callControlId })
+    const answerPromise = telnyxCallControlAnswer(callControlId, provisionalAnswerState)
+    const routingPromise = resolveCallControlRouting(event.to)
+
+    const [answerRes, routingResult] = await Promise.all([answerPromise, routingPromise])
+
+    // Graceful fallback when DB has no row for this DID.
+    let routing = routingResult
     if (!routing) {
       console.warn(
         JSON.stringify({
@@ -379,7 +402,7 @@ async function handleCallInitiated(
       )
       routing = buildFailsafeRouting({
         userId: "00000000-0000-0000-0000-000000000000",
-        businessLineE164: businessLineE164 || event.to,
+        businessLineE164,
         ownerPhone: FAILSAFE_PRIMARY_CELL_E164,
       })
     }
@@ -436,28 +459,27 @@ async function handleCallInitiated(
       })
     )
 
-    // Call log + Pusher must never block answering the live call.
+    // Fire-and-forget call log — never block Answer / dial-plan updates.
     if (routing.user_id && routing.user_id !== "00000000-0000-0000-0000-000000000000") {
-      try {
-        await insertCallLog({
-          user_id: routing.user_id,
-          provider_call_sid: callControlId,
-          from_number: callerE164,
-          to_number: businessLineE164 || event.to,
-          caller_name: null,
-          call_type: "incoming",
-          status: "ringing",
-          duration_seconds: 0,
-          routed_to_receptionist_id: routing.selected_receptionist_id,
-          routed_to_name: null,
-          has_recording: false,
-          recording_url: null,
-          recording_duration_seconds: null,
+      void insertCallLog({
+        user_id: routing.user_id,
+        provider_call_sid: callControlId,
+        from_number: callerE164,
+        to_number: businessLineE164,
+        caller_name: null,
+        call_type: "incoming",
+        status: "ringing",
+        duration_seconds: 0,
+        routed_to_receptionist_id: routing.selected_receptionist_id,
+        routed_to_name: null,
+        has_recording: false,
+        recording_url: null,
+        recording_duration_seconds: null,
+      })
+        .then(() => {
+          console.log(JSON.stringify({ zing: "telnyx-cc-initiated-call-log-ok", callControlId }))
         })
-        console.log(JSON.stringify({ zing: "telnyx-cc-initiated-call-log-ok", callControlId }))
-      } catch (e) {
-        console.error("[telnyx-cc] call log insert failed:", e)
-      }
+        .catch((e) => console.error("[telnyx-cc] call log insert failed:", e))
     } else {
       console.warn(
         JSON.stringify({
@@ -467,10 +489,10 @@ async function handleCallInitiated(
       )
     }
 
-    const answerState = encodeTelnyxCallControlState(
+    const refinedAnswerState = encodeTelnyxCallControlState(
       baseState(
         routing,
-        businessLineE164 || event.to,
+        businessLineE164,
         callerE164,
         dialTargetE164,
         ringTimeoutSec,
@@ -478,9 +500,19 @@ async function handleCallInitiated(
       )
     )
 
-    console.log("Triggering Telnyx Answer API...", { callControlId })
-    const answerRes = await telnyxCallControlAnswer(callControlId, answerState)
+    // Stamp real routing onto the live leg so call.answered dials the correct cell.
     if (answerRes.ok) {
+      void telnyxCallControlClientStateUpdate(callControlId, refinedAnswerState).then((updateRes) => {
+        if (!updateRes.ok) {
+          console.warn(
+            JSON.stringify({
+              zing: "telnyx-cc-initiated-client-state-refine-failed",
+              callControlId,
+              error: updateRes.error,
+            })
+          )
+        }
+      })
       console.log(
         JSON.stringify({
           zing: "telnyx-cc-answer-ok",
@@ -513,7 +545,7 @@ async function handleCallInitiated(
           v: 1,
           phase: "await_dial_end",
           userId: routing.user_id,
-          businessLineE164: businessLineE164 || event.to,
+          businessLineE164,
           callerE164,
           dialTargetE164,
           ringTimeoutSec,
@@ -578,24 +610,41 @@ async function handleCallAnswered(
     })
   }
 
+  // Prefer freshly resolved routing over provisional Answer client_state (concurrent init path).
+  let dialTargetE164 = resolveDialTargetE164(routing)
+  if (!isReasonablePstnDialString(dialTargetE164)) {
+    dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
+  }
+  const wantsAi = String(routing.fallback_type ?? state.fallbackType ?? "").toLowerCase() === "ai"
+  const ringTimeoutSec = resolveInboundForwardDialTimeoutSeconds(
+    Number(routing.ring_timeout_seconds ?? state.ringTimeoutSec ?? 30) || 30,
+    wantsAi
+  )
+  const enrichedState: TelnyxCallControlClientState = {
+    ...state,
+    userId: routing.user_id || state.userId,
+    dialTargetE164,
+    ringTimeoutSec,
+    fallbackType: routing.fallback_type ?? state.fallbackType,
+  }
+
   const greetingEnabled = isInboundCallerGreetingEnabled(routing)
   if (greetingEnabled) {
     const workspaceName = resolveWorkspaceDisplayName(routing)
     const greetingText = buildInboundCallerGreetingText(workspaceName)
     const nextState = encodeTelnyxCallControlState({
-      ...state,
+      ...enrichedState,
       phase: "await_greeting_end",
-      dialTargetE164: state.dialTargetE164 || resolveDialTargetE164(routing) || FAILSAFE_PRIMARY_CELL_E164,
     })
     const speakRes = await telnyxCallControlSpeak(event.callControlId, greetingText, nextState)
     if (!speakRes.ok) {
       console.error(JSON.stringify({ zing: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
-      await dialTechnicianLeg(event.callControlId, state, routing)
+      await dialTechnicianLeg(event.callControlId, enrichedState, routing)
     }
     return
   }
 
-  await dialTechnicianLeg(event.callControlId, state, routing)
+  await dialTechnicianLeg(event.callControlId, enrichedState, routing)
 }
 
 async function handleSpeakEnded(
@@ -613,7 +662,20 @@ async function handleSpeakEnded(
         ownerPhone: state.dialTargetE164 || FAILSAFE_PRIMARY_CELL_E164,
       })
     }
-    await dialTechnicianLeg(event.callControlId, state, routing)
+    let dialTargetE164 = resolveDialTargetE164(routing)
+    if (!isReasonablePstnDialString(dialTargetE164)) {
+      dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
+    }
+    await dialTechnicianLeg(
+      event.callControlId,
+      {
+        ...state,
+        userId: routing.user_id || state.userId,
+        dialTargetE164,
+        fallbackType: routing.fallback_type ?? state.fallbackType,
+      },
+      routing
+    )
     return
   }
 
