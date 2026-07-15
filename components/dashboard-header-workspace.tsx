@@ -1,8 +1,12 @@
 "use client"
 
 import { Suspense, use, useCallback, useLayoutEffect, useRef } from "react"
+import { Loader2 } from "lucide-react"
 import { OrganizationSwitcher, OrganizationSwitcherPlaceholder } from "@/components/organization-switcher"
-import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
+import {
+  useDashboardBootstrapEffective,
+  useDashboardBootstrapSyncing,
+} from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
@@ -16,6 +20,22 @@ function headerSeedOrganization(name: string): Organization {
     is_default: true,
     created_at: new Date(0).toISOString(),
   }
+}
+
+/** Subtle header cue while stale bootstrap cache is revalidated in the background. */
+function DashboardBootstrapSyncIndicator() {
+  const isSyncing = useDashboardBootstrapSyncing()
+  if (!isSyncing) return null
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium tracking-wide text-muted-foreground/80"
+      aria-live="polite"
+      title="Refreshing dashboard data"
+    >
+      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+      <span className="hidden sm:inline">Syncing</span>
+    </span>
+  )
 }
 
 /** Org switcher from a known org list — no Suspense, no fetch on first paint. */
@@ -185,31 +205,30 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
   const { dashboardMainBootstrapPromise, organizationsPromise } = useDashboardStream()
   const placeholderLabel = sessionBusinessName?.trim() || "Business"
 
-  if (bootstrap?.organizations.length) {
-    return (
-      <HeaderOrganizationsFromData
-        organizations={bootstrap.organizations}
+  const switcher = bootstrap?.organizations.length ? (
+    <HeaderOrganizationsFromData
+      organizations={bootstrap.organizations}
+      sessionBusinessName={sessionBusinessName}
+    />
+  ) : dashboardMainBootstrapPromise ? (
+    <OrganizationSwitcherPlaceholder label={placeholderLabel} />
+  ) : organizationsPromise ? (
+    <Suspense fallback={<OrganizationSwitcherPlaceholder label={placeholderLabel} />}>
+      <HeaderOrganizationsFromStream
+        organizationsPromise={organizationsPromise}
         sessionBusinessName={sessionBusinessName}
       />
-    )
-  }
+    </Suspense>
+  ) : (
+    <HeaderOrganizationsFromWorkspace sessionBusinessName={sessionBusinessName} />
+  )
 
-  if (dashboardMainBootstrapPromise) {
-    return <OrganizationSwitcherPlaceholder label={placeholderLabel} />
-  }
-
-  if (organizationsPromise) {
-    return (
-      <Suspense fallback={<OrganizationSwitcherPlaceholder label={placeholderLabel} />}>
-        <HeaderOrganizationsFromStream
-          organizationsPromise={organizationsPromise}
-          sessionBusinessName={sessionBusinessName}
-        />
-      </Suspense>
-    )
-  }
-
-  return <HeaderOrganizationsFromWorkspace sessionBusinessName={sessionBusinessName} />
+  return (
+    <div className="flex min-w-0 items-center justify-center gap-2">
+      {switcher}
+      <DashboardBootstrapSyncIndicator />
+    </div>
+  )
 }
 
 export { DashboardOrganizationsBootstrap } from "@/components/dashboard-organizations-bootstrap"

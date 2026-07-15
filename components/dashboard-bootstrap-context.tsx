@@ -22,6 +22,8 @@ import {
 } from "@/lib/dashboard-bootstrap-seed"
 
 const DashboardBootstrapContext = createContext<DashboardMainBootstrap | null>(null)
+/** True while a silent background refresh is replacing stale session cache. */
+const DashboardBootstrapSyncingContext = createContext(false)
 
 /** Applies bootstrap to workspace once per snapshot — workspace may already be seeded from layout. */
 function DashboardBootstrapWorkspaceSync({ bootstrap }: { bootstrap: DashboardMainBootstrap }) {
@@ -46,15 +48,22 @@ export function DashboardBootstrapProvider({
   children: ReactNode
 }) {
   return (
-    <DashboardBootstrapContext.Provider value={bootstrap}>
-      <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} />
-      {children}
-    </DashboardBootstrapContext.Provider>
+    <DashboardBootstrapSyncingContext.Provider value={false}>
+      <DashboardBootstrapContext.Provider value={bootstrap}>
+        <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} />
+        {children}
+      </DashboardBootstrapContext.Provider>
+    </DashboardBootstrapSyncingContext.Provider>
   )
 }
 
 export function useDashboardBootstrapOptional(): DashboardMainBootstrap | null {
   return useContext(DashboardBootstrapContext)
+}
+
+/** True when bootstrap is revalidating in the background (stale cache → fresh server data). */
+export function useDashboardBootstrapSyncing(): boolean {
+  return useContext(DashboardBootstrapSyncingContext)
 }
 
 /** Context first, then session cache — stable reference so effects do not loop. */
@@ -89,6 +98,7 @@ function DashboardBootstrapSeededProvider({
   children: ReactNode
 }) {
   const [bootstrap, setBootstrap] = useState(seed)
+  const [isSyncing, setIsSyncing] = useState(() => Boolean(refreshPromise))
 
   useEffect(() => {
     writeDashboardBootstrapCache(seed)
@@ -97,23 +107,33 @@ function DashboardBootstrapSeededProvider({
   }, [])
 
   useEffect(() => {
-    if (!refreshPromise) return
+    if (!refreshPromise) {
+      setIsSyncing(false)
+      return
+    }
     let cancelled = false
-    void Promise.resolve(refreshPromise).then((data) => {
-      if (cancelled) return
-      writeDashboardBootstrapCache(data)
-      setBootstrap((prev) => (dashboardBootstrapEquivalent(prev, data) ? prev : data))
-    })
+    setIsSyncing(true)
+    void Promise.resolve(refreshPromise)
+      .then((data) => {
+        if (cancelled) return
+        writeDashboardBootstrapCache(data)
+        setBootstrap((prev) => (dashboardBootstrapEquivalent(prev, data) ? prev : data))
+      })
+      .finally(() => {
+        if (!cancelled) setIsSyncing(false)
+      })
     return () => {
       cancelled = true
     }
   }, [refreshPromise])
 
   return (
-    <DashboardBootstrapContext.Provider value={bootstrap}>
-      <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} />
-      {children}
-    </DashboardBootstrapContext.Provider>
+    <DashboardBootstrapSyncingContext.Provider value={isSyncing}>
+      <DashboardBootstrapContext.Provider value={bootstrap}>
+        <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} />
+        {children}
+      </DashboardBootstrapContext.Provider>
+    </DashboardBootstrapSyncingContext.Provider>
   )
 }
 
@@ -133,15 +153,24 @@ export function DashboardBootstrapAsyncGate({
     if (parentBootstrap) return parentBootstrap
     return readDashboardBootstrapCache() ?? null
   })
+  const [isSyncing, setIsSyncing] = useState(() => !parentBootstrap)
 
   useEffect(() => {
-    if (parentBootstrap) return
+    if (parentBootstrap) {
+      setIsSyncing(false)
+      return
+    }
     let cancelled = false
-    void Promise.resolve(promise).then((data) => {
-      if (cancelled) return
-      writeDashboardBootstrapCache(data)
-      setBootstrap((prev) => (prev && dashboardBootstrapEquivalent(prev, data) ? prev : data))
-    })
+    setIsSyncing(true)
+    void Promise.resolve(promise)
+      .then((data) => {
+        if (cancelled) return
+        writeDashboardBootstrapCache(data)
+        setBootstrap((prev) => (prev && dashboardBootstrapEquivalent(prev, data) ? prev : data))
+      })
+      .finally(() => {
+        if (!cancelled) setIsSyncing(false)
+      })
     return () => {
       cancelled = true
     }
@@ -152,10 +181,12 @@ export function DashboardBootstrapAsyncGate({
   }
 
   return (
-    <DashboardBootstrapContext.Provider value={bootstrap}>
-      {bootstrap ? <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} /> : null}
-      {children}
-    </DashboardBootstrapContext.Provider>
+    <DashboardBootstrapSyncingContext.Provider value={isSyncing}>
+      <DashboardBootstrapContext.Provider value={bootstrap}>
+        {bootstrap ? <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} /> : null}
+        {children}
+      </DashboardBootstrapContext.Provider>
+    </DashboardBootstrapSyncingContext.Provider>
   )
 }
 
