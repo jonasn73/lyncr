@@ -94,6 +94,7 @@ function runTerminalCallSideEffects(
           answeredAt: snapshot.answered_at,
           endedAt: snapshot.ended_at,
           routedToName: snapshot.routed_to_name,
+          receptionistId: snapshot.routed_to_receptionist_id,
         })
       } catch (e) {
         console.warn("[telnyx-cc] call-completed broadcast failed:", e)

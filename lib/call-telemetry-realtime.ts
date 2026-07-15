@@ -63,6 +63,8 @@ export async function broadcastCallCompleted(params: {
   answeredAt?: string | null
   endedAt?: string | null
   routedToName?: string | null
+  /** Receptionist who took the live leg — used to idle their HUD via `call-ended`. */
+  receptionistId?: string | null
 }): Promise<void> {
   const payload: OwnerCallCompletedPayload = {
     call_sid: params.callSid,
@@ -78,6 +80,18 @@ export async function broadcastCallCompleted(params: {
     routed_to_name: params.routedToName ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-completed", payload)
+
+  // Return the receptionist's live HUD to idle the moment the call ends.
+  const receptionistId = params.receptionistId?.trim() || ""
+  const callLogId = params.callLogId?.trim() || ""
+  if (receptionistId && callLogId) {
+    try {
+      const { handleCallEnded } = await import("@/app/actions/call-events")
+      await handleCallEnded({ receptionistId, callLogId })
+    } catch (e) {
+      console.warn("[call-telemetry] handleCallEnded failed:", e)
+    }
+  }
 
   // Park open photo-request tickets as Pending Info once the live call ends.
   if (params.callLogId?.trim()) {
@@ -140,6 +154,7 @@ export async function broadcastCallCompletedBySid(callSid: string): Promise<void
       answeredAt: snapshot.answered_at,
       endedAt: snapshot.ended_at,
       routedToName: snapshot.routed_to_name,
+      receptionistId: snapshot.routed_to_receptionist_id,
     })
     return
   }

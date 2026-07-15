@@ -3559,6 +3559,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
   answered_at: string | null
   ended_at: string | null
   routed_to_name: string | null
+  routed_to_receptionist_id: string | null
   organization_id: string | null
 } | null> {
   const sid = providerCallSid.trim()
@@ -3567,7 +3568,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
   try {
     const rows = await sql`
       SELECT cl.id, cl.user_id, cl.from_number, cl.to_number, cl.duration_seconds, cl.call_type, cl.status,
-             cl.answered_at, cl.ended_at, cl.routed_to_name, pn.organization_id
+             cl.answered_at, cl.ended_at, cl.routed_to_name, cl.routed_to_receptionist_id, pn.organization_id
       FROM call_logs cl
       LEFT JOIN phone_numbers pn ON pn.user_id = cl.user_id
         AND regexp_replace(coalesce(pn.number, ''), '\\D', '', 'g')
@@ -3588,11 +3589,15 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
       answered_at: row.answered_at ? String(row.answered_at) : null,
       ended_at: row.ended_at ? String(row.ended_at) : null,
       routed_to_name: row.routed_to_name ? String(row.routed_to_name) : null,
+      routed_to_receptionist_id: row.routed_to_receptionist_id
+        ? String(row.routed_to_receptionist_id)
+        : null,
       organization_id: row.organization_id != null ? String(row.organization_id) : null,
     }
   } catch {
     const rows = await sql`
-      SELECT id, user_id, from_number, to_number, duration_seconds, call_type, status, answered_at, ended_at, routed_to_name
+      SELECT id, user_id, from_number, to_number, duration_seconds, call_type, status,
+             answered_at, ended_at, routed_to_name, routed_to_receptionist_id
       FROM call_logs
       WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
       LIMIT 1
@@ -3610,6 +3615,9 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
       answered_at: row.answered_at ? String(row.answered_at) : null,
       ended_at: row.ended_at ? String(row.ended_at) : null,
       routed_to_name: row.routed_to_name ? String(row.routed_to_name) : null,
+      routed_to_receptionist_id: row.routed_to_receptionist_id
+        ? String(row.routed_to_receptionist_id)
+        : null,
       organization_id: null,
     }
   }
