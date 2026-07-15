@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
     const result = await submitSmsRegistrationForOwner(userId, {
       organization_id: body.organization_id,
       legal_business_name: String(body.legal_business_name ?? ""),
+      display_name: body.display_name != null ? String(body.display_name) : undefined,
+      website: body.website != null ? String(body.website) : undefined,
       entity_type: String(body.entity_type ?? ""),
       tax_id_ein: body.tax_id_ein != null ? String(body.tax_id_ein) : undefined,
       street: String(body.street ?? ""),

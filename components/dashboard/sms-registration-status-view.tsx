@@ -187,18 +187,26 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
           <p className="text-[11px] font-semibold uppercase tracking-wide text-red-300">Carrier rejection reason</p>
           <p className="mt-2 text-sm leading-relaxed text-red-100/90">{summary.rejection_reason}</p>
           {isRejected ? (
-            <p className="mt-3 text-xs leading-relaxed text-red-200/70">
-              After updating, resubmit uses the compliant opt-in page at{" "}
-              <a
-                href="/sms-opt-in"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-red-100 underline underline-offset-2 hover:text-white"
-              >
-                /sms-opt-in
-              </a>
-              .
-            </p>
+            <div className="mt-3 space-y-2 text-xs leading-relaxed text-red-200/80">
+              {/710|agency|reseller|non-compliant kyc/i.test(summary.rejection_reason) ? (
+                <p>
+                  Fix for error <strong>710</strong>: register <em>your</em> brand (legal EIN name + your own
+                  website). Do not use lyncr.app as the brand site. Then resubmit.
+                </p>
+              ) : null}
+              <p>
+                After updating, resubmit uses a brand-named opt-in page at{" "}
+                <a
+                  href="/sms-opt-in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-red-100 underline underline-offset-2 hover:text-white"
+                >
+                  /sms-opt-in
+                </a>
+                .
+              </p>
+            </div>
           ) : null}
         </div>
       ) : null}

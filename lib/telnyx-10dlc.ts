@@ -184,11 +184,17 @@ export function buildTenDlcOptoutMessage(businessName: string): string {
   return `${biz}: You are unsubscribed and will receive no further messages. Reply START to resubscribe.`
 }
 
-/** Support contact used in HELP auto-replies (website + email). */
-export function tenDlcSupportContact(): { supportUrl: string; supportEmail: string } {
-  const supportUrl = "https://lyncr.app/support"
+/** Support contact used in HELP auto-replies (prefer brand website when provided). */
+export function tenDlcSupportContact(opts?: { website?: string | null; email?: string | null }): {
+  supportUrl: string
+  supportEmail: string
+} {
+  const brandSite = (opts?.website ?? "").trim()
+  const supportUrl = brandSite || "https://lyncr.app/support"
   const supportEmail =
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@getzingapp.com"
+    opts?.email?.trim() ||
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ||
+    "support@lyncr.app"
   return { supportUrl, supportEmail }
 }
 
@@ -199,9 +205,12 @@ export function buildTenDlcOptinMessage(businessName: string): string {
 }
 
 /** TCR-required auto-reply when a subscriber texts HELP. */
-export function buildTenDlcHelpMessage(businessName: string): string {
+export function buildTenDlcHelpMessage(
+  businessName: string,
+  opts?: { website?: string | null; email?: string | null }
+): string {
   const biz = businessName.trim() || "this business"
-  const { supportUrl, supportEmail } = tenDlcSupportContact()
+  const { supportUrl, supportEmail } = tenDlcSupportContact(opts)
   return `${biz}: Please reach out to us at ${supportUrl} or ${supportEmail} for help. Reply STOP to opt out.`
 }
 

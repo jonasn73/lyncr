@@ -11,6 +11,7 @@ import {
 } from "@/lib/db"
 import {
   mapEntityTypeToTenDlc,
+  normalizeSmsRegistrationWebsite,
   requiresSmsRegistrationEin,
   validateSmsRegistrationInput,
   type SmsRegistrationFormInput,
@@ -115,8 +116,10 @@ export async function submitSmsRegistrationForOwner(
   }
 
   const tenDlcEntity = mapEntityTypeToTenDlc(input.entity_type)
-  const displayName = input.legal_business_name.trim()
-  const copy = defaultCampaignCopy(displayName)
+  const legalName = input.legal_business_name.trim()
+  const displayName = input.display_name?.trim() || legalName
+  const website = normalizeSmsRegistrationWebsite(input.website)
+  const copy = defaultCampaignCopy(displayName, { website })
   const useCase = tenDlcEntity === "SOLE_PROPRIETOR" ? "SOLE_PROPRIETOR" : "LOW_VOLUME"
 
   await prepare10DlcResubmit(ownerUserId, orgUuid)
@@ -125,10 +128,11 @@ export async function submitSmsRegistrationForOwner(
     ownerUserId,
     {
       entity_type: tenDlcEntity,
-      legal_company_name: displayName,
+      legal_company_name: legalName,
       display_name: displayName,
       ein: requiresSmsRegistrationEin(input.entity_type) ? (input.tax_id_ein ?? "").replace(/\D/g, "") : null,
       vertical: "PROFESSIONAL",
+      website,
       email: owner.email,
       phone: owner.phone,
       street: input.street.trim(),

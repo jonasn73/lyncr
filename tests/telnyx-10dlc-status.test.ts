@@ -94,11 +94,19 @@ describe("10DLC compliant opt-in copy", () => {
     const help = buildTenDlcHelpMessage("Key Squad")
     expect(help).toMatch(/lyncr\.app\/support/)
     expect(help.toLowerCase()).toMatch(/@/)
+    const branded = buildTenDlcHelpMessage("Key Squad", {
+      website: "https://keysquad502.com",
+      email: "hello@keysquad502.com",
+    })
+    expect(branded).toMatch(/keysquad502\.com/)
+    expect(branded).toMatch(/hello@keysquad502\.com/)
   })
 
   it("documents the public sms-opt-in form and consent checkbox language", () => {
-    const copy = defaultCampaignCopy("Key Squad")
+    const copy = defaultCampaignCopy("Key Squad", { website: "https://keysquad502.com" })
     expect(copy.messageFlow).toMatch(/sms-opt-in/)
+    expect(copy.messageFlow).toMatch(/brand=Key\+Squad|brand=Key%20Squad/)
+    expect(copy.messageFlow).toMatch(/keysquad502\.com/)
     expect(copy.messageFlow.toLowerCase()).toMatch(/checkbox|consent/)
     expect(copy.messageFlow).toMatch(/Message frequency may vary/)
     expect(copy.sample1).toMatch(/Message frequency may vary/)

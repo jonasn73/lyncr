@@ -44,6 +44,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
   const [forceForm, setForceForm] = useState(false)
 
   const [legalName, setLegalName] = useState("")
+  const [displayName, setDisplayName] = useState("")
+  const [website, setWebsite] = useState("")
   const [entityType, setEntityType] = useState("")
   const [taxId, setTaxId] = useState("")
   const [street, setStreet] = useState("")
@@ -86,6 +88,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     setPending(noticeState === "pending")
     if (reg) {
       setLegalName(reg.legal_business_name)
+      setDisplayName(reg.legal_business_name)
       setEntityType(reg.entity_type)
       setTaxId(reg.tax_id_ein ?? "")
       setStreet(reg.street)
@@ -94,6 +97,13 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
       setPostal(reg.postal_code)
       setUseCase(reg.use_case_description || DEFAULT_USE_CASE)
     }
+    const legacy = data?.legacy_registration as
+      | { website?: string | null; display_name?: string | null; legal_company_name?: string | null }
+      | null
+      | undefined
+    if (legacy?.website?.trim()) setWebsite(legacy.website.trim())
+    if (legacy?.display_name?.trim()) setDisplayName(legacy.display_name.trim())
+    else if (legacy?.legal_company_name?.trim() && !reg) setDisplayName(legacy.legal_company_name.trim())
     setLoading(false)
   }, [resolveOrganizationId])
 
@@ -125,6 +135,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     const payload = {
       organization_id: resolveOrganizationId(),
       legal_business_name: legalName,
+      display_name: displayName || legalName,
+      website,
       entity_type: entityType,
       tax_id_ein: taxId,
       street,
@@ -212,7 +224,9 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
   const identityFields = (
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Legal business name</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          Legal business name (IRS / EIN letter)
+        </span>
         <input
           required
           value={legalName}
@@ -220,6 +234,36 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           placeholder="Key Squad Locksmith LLC"
           className={workspaceFieldClass}
         />
+        <span className="text-[10px] text-zinc-500">
+          Must match the exact legal name on your EIN paperwork — not a nickname or software company.
+        </span>
+      </label>
+      <label className="block space-y-1.5 sm:col-span-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          Customer-facing brand name (optional)
+        </span>
+        <input
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Key Squad 502"
+          className={workspaceFieldClass}
+        />
+      </label>
+      <label className="block space-y-1.5 sm:col-span-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          Business website
+        </span>
+        <input
+          required
+          type="url"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          placeholder="https://yourbusiness.com"
+          className={workspaceFieldClass}
+        />
+        <span className="text-[10px] text-zinc-500">
+          Required. Use your brand site — carriers reject lyncr.app / agency URLs (error 710).
+        </span>
       </label>
       <label className="block space-y-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Business entity type</span>

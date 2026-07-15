@@ -14,6 +14,7 @@ import { resolveActiveLineFor10DlcAssignment } from "@/lib/primary-business-line
 import {
   TEN_DLC_USE_CASES,
   tenDlcUseCaseMeta,
+  buildTenDlcHelpMessage,
   createTelnyx10DlcBrand,
   createTelnyx10DlcCampaign,
   getTelnyx10DlcBrandStatus,
@@ -75,20 +76,27 @@ export type TenDlcActionResult =
   | { ok: true; registration: Messaging10DlcRegistration }
   | { ok: false; error: string }
 
-export function defaultCampaignCopy(displayName: string): {
+export function defaultCampaignCopy(
+  displayName: string,
+  opts?: { website?: string | null }
+): {
   description: string
   sample1: string
   sample2: string
   messageFlow: string
 } {
   const biz = displayName.trim() || "our business"
-  const optInUrl = "https://lyncr.app/sms-opt-in"
-  const privacyUrl = "https://lyncr.app/privacy"
+  const brandSite = (opts?.website ?? "").trim().replace(/\/$/, "")
+  const privacyUrl = brandSite || "https://lyncr.app/privacy"
+  // Brand-named opt-in page — carriers reject flows that only advertise the software platform.
+  const optInParams = new URLSearchParams({ brand: biz })
+  if (brandSite) optInParams.set("website", brandSite)
+  const optInUrl = `https://lyncr.app/sms-opt-in?${optInParams.toString()}`
   return {
-    description: `${biz} sends transactional service notifications, lead alerts, and appointment updates to subscribers who affirmatively opt in to SMS.`,
+    description: `${biz} sends transactional service notifications, lead alerts, and appointment updates to customers who affirmatively opt in to SMS from ${biz}.`,
     sample1: `${biz}: New lead — John D. (555-123-4567) requested a callback about service. Message frequency may vary. Msg&data rates may apply. Reply HELP for help, STOP to opt out.`,
     sample2: `${biz}: Reminder — your appointment is confirmed for 2:00 PM today. Message frequency may vary. Msg&data rates may apply. Reply HELP for help, STOP to unsubscribe.`,
-    messageFlow: `The user navigates to ${biz}'s SMS opt-in page at ${optInUrl} and subscribes via the web form (phone number field plus an unchecked consent checkbox). The opt-in form clearly states: "By providing your phone number and checking the consent box, you agree to receive SMS service notifications, lead alerts, and appointment updates from ${biz}. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase. Your mobile information will not be sold or shared with third parties for promotional or marketing purposes. Privacy policy: ${privacyUrl}." Once the form is submitted, a confirmation SMS is sent with STOP/HELP language and "Message frequency may vary." Subscribers may also text START to the business line to opt in and receive the same confirmation. Screenshot of the opt-in form: ${optInUrl}`,
+    messageFlow: `End customers of ${biz} (not a software reseller) navigate to ${biz}'s branded SMS opt-in page at ${optInUrl} and subscribe via the web form (phone number field plus an unchecked consent checkbox naming ${biz} as the message sender). The opt-in form clearly states: "By providing your phone number and checking the consent box, you agree to receive SMS service notifications, lead alerts, and appointment updates from ${biz}. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase. Your mobile information will not be sold or shared with third parties for promotional or marketing purposes. Privacy policy: ${privacyUrl}." Once the form is submitted, a confirmation SMS is sent from ${biz} with STOP/HELP language and "Message frequency may vary." Subscribers may also text START to ${biz}'s business line to opt in and receive the same confirmation. Screenshot of the opt-in form: ${optInUrl}`,
   }
 }
 
@@ -314,11 +322,15 @@ export async function submitMessaging10DlcToTelnyx(
   if (!meta) return { ok: false, error: "Invalid registration type." }
 
   const displayName = reg.display_name?.trim() || reg.legal_company_name?.trim() || "Business"
-  const copy = defaultCampaignCopy(displayName)
+  const copy = defaultCampaignCopy(displayName, { website: reg.website })
   const campaignDescription = reg.campaign_description?.trim() || copy.description
   const sample1 = reg.sample_message_1?.trim() || copy.sample1
   const sample2 = reg.sample_message_2?.trim() || copy.sample2
-  const messageFlow = reg.message_flow?.trim() || copy.messageFlow
+  // Prefer freshly generated brand-centric flow when website is present (fixes 710 resubmits).
+  const messageFlow =
+    (reg.website?.trim() ? copy.messageFlow : null) ||
+    reg.message_flow?.trim() ||
+    copy.messageFlow
   const resolvedOrgId = orgId ?? reg.organization_id ?? null
   const campaignOnlyFailure = isTelnyxCampaignOnlyFailure(reg.status_detail)
   const staleBrand =
@@ -379,6 +391,10 @@ export async function submitMessaging10DlcToTelnyx(
       sample2,
       messageFlow,
       businessName: displayName,
+      helpMessage: buildTenDlcHelpMessage(displayName, {
+        website: reg.website,
+        email: reg.email,
+      }),
     })
     if (!campaign.ok) {
       if (isTelnyxBrandNotReadyForCampaignError(campaign.error)) {
