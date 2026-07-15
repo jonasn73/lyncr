@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (msg.includes("019-billing-admin-feedback")) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
-    console.error("[Sigo] feedback POST:", e)
+    console.error("[lyncr] feedback POST:", e)
     return NextResponse.json({ error: "Failed to save feedback" }, { status: 500 })
   }
 }

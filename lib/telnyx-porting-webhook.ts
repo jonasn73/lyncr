@@ -1,8 +1,8 @@
 // ============================================
-// Telnyx porting webhook — parse payloads into Sigo rows
+// Telnyx porting webhook — parse payloads into Lyncr rows
 // ============================================
 // Telnyx sends several JSON shapes (event_type at root vs meta, nested porting_order, etc.).
-// We walk the tree for `customer_reference` starting with `zing-` and stable event ids.
+// We walk the tree for `customer_reference` starting with `lyncr-` or legacy `zing-`.
 
 import { cleansePortingHumanComment } from "@/lib/porting-display"
 import {
@@ -29,7 +29,7 @@ export function isTelnyxPortingWebhookEvent(eventType: string): boolean {
   return lower.startsWith("porting_order.") || lower.includes("sub_request")
 }
 
-/** Find `customer_reference` like `zing-<uuid>` anywhere in the payload. */
+/** Find `customer_reference` like `lyncr-<uuid>` (or legacy `zing-<uuid>`) anywhere in the payload. */
 export function findZingCustomerReference(obj: unknown): string | null {
   return findZingCustomerReferenceInPayload(obj)
 }

@@ -29,7 +29,7 @@ export async function PATCH(
     }
     return NextResponse.json({ data: updated })
   } catch (e) {
-    console.error("[Sigo] admin feedback PATCH:", e)
+    console.error("[lyncr] admin feedback PATCH:", e)
     return NextResponse.json({ error: "Failed to update" }, { status: 500 })
   }
 }

@@ -95,7 +95,7 @@ async function handleAiBridge(req: NextRequest, userId: string): Promise<NextRes
       call_type: "incoming",
       status: "ai-handoff",
       routed_to_name: "AI Receptionist",
-    }).catch((e) => console.error("[Sigo] Call log update (ai-bridge connect):", e))
+    }).catch((e) => console.error("[lyncr] Call log update (ai-bridge connect):", e))
   }
   console.log(
     JSON.stringify({

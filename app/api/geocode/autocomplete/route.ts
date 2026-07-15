@@ -106,7 +106,7 @@ async function suggestWithNominatim(
     `&bounded=0&q=${encodeURIComponent(query)}`
   const res = await fetch(url, {
     cache: "no-store",
-    headers: { "User-Agent": "lyncr/1.0 (address autocomplete; support@getzingapp.com)" },
+    headers: { "User-Agent": "lyncr/1.0 (address autocomplete; support@lyncr.app)" },
   })
   if (!res.ok) return []
   const data = (await res.json()) as Array<{

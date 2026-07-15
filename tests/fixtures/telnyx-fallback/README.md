@@ -32,7 +32,7 @@ Edit **`tests/telnyx-fallback.handler.test.ts`** (or add a case to the `scenario
 ## 3. Run tests
 
 ```bash
-cd /path/to/zing
+cd /path/to/Lyncr
 npm run test
 ```
 

@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (e) {
-    console.error("[Sigo] repair-bootstrap-admin:", e)
+    console.error("[lyncr] repair-bootstrap-admin:", e)
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes("DATABASE_URL")) {
       return NextResponse.json({ error: "Database not configured" }, { status: 500 })

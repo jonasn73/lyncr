@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       )
     }
-    console.error("[Sigo] Signup error:", error)
+    console.error("[lyncr] Signup error:", error)
     const safeMessage =
       process.env.NODE_ENV === "development" ? msg || "Failed to create account" : "Failed to create account"
     return NextResponse.json(

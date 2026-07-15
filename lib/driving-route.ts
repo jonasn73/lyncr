@@ -62,7 +62,7 @@ async function routeWithOsrm(from: GeoPoint, to: GeoPoint): Promise<LatLngTuple[
   const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`
   const res = await fetch(url, {
     cache: "no-store",
-    headers: { "User-Agent": "lyncr/1.0 (dispatch routing; support@getzingapp.com)" },
+    headers: { "User-Agent": "lyncr/1.0 (dispatch routing; support@lyncr.app)" },
   })
   if (!res.ok) return null
   const data = (await res.json()) as {

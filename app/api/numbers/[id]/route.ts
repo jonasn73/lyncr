@@ -38,10 +38,10 @@ export async function DELETE(
       return NextResponse.json({ error: result.error, reason: result.reason }, { status })
     }
 
-    console.log(`[Sigo] Released ${result.phone_number} for user ${userId}`)
+    console.log(`[lyncr] Released ${result.phone_number} for user ${userId}`)
     return NextResponse.json({ data: { ok: true, phone_number: result.phone_number } })
   } catch (error) {
-    console.error("[Sigo] DELETE /api/numbers/[id] error:", error)
+    console.error("[lyncr] DELETE /api/numbers/[id] error:", error)
     return NextResponse.json({ error: "Failed to release number" }, { status: 500 })
   }
 }
@@ -85,7 +85,7 @@ export async function PATCH(
     }
     return NextResponse.json({ data: { ok: true, ...patch } }) // Client can refresh local state from echoed fields
   } catch (error) {
-    console.error("[Sigo] PATCH /api/numbers/[id] error:", error) // Log server-side for debugging
+    console.error("[lyncr] PATCH /api/numbers/[id] error:", error) // Log server-side for debugging
     return NextResponse.json({ error: "Failed to update number" }, { status: 500 }) // Malformed JSON or DB error
   }
 }

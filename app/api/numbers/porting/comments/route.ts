@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     )
     return NextResponse.json({ data: { comments: sorted } })
   } catch (e) {
-    console.error("[Sigo] GET porting comments:", e)
+    console.error("[lyncr] GET porting comments:", e)
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to load comments" },
       { status: 500 }
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     await createTelnyxPortingOrderComment(orderId, text)
     return NextResponse.json({ data: { ok: true } })
   } catch (e) {
-    console.error("[Sigo] POST porting comments:", e)
+    console.error("[lyncr] POST porting comments:", e)
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to send comment" },
       { status: 500 }

@@ -48,7 +48,7 @@ export function buildRegistryPlaybook(
 ): string {
   const goal =
     entry.goal ||
-    "Classify the situation, collect the right details, reassure them a team member will follow up, then call **submit_zing_lead** once."
+    "Classify the situation, collect the right details, reassure them a team member will follow up, then call **submit_lyncr_lead** once."
   const intents = intentListFromBranches(entry.branches)
   return `
 ## Role: ${entry.role} (${businessName})
@@ -69,7 +69,7 @@ ${formatBranches(entry.branches)}
 - Collect **callback** (repeat digits), **address** if on-site, **summary**.
 - intent_slug: **other**
 
-### Tool: submit_zing_lead
+### Tool: submit_lyncr_lead
 Required: **callback_number**, **issue_summary**, **intent_slug** (${intents} | other).
 Optional: **service_address**, **caller_name**, **vehicle_make**, **vehicle_model**, **vehicle_year** if relevant.
 

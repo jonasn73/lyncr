@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, message: "Password updated. You can log in now." })
   } catch (error) {
-    console.error("[Sigo] reset-password:", error)
+    console.error("[lyncr] reset-password:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

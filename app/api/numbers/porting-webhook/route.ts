@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("[Sigo] Porting webhook error:", error)
+    console.error("[lyncr] Porting webhook error:", error)
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 }

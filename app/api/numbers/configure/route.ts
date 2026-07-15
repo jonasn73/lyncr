@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, configured: results.length, results })
   } catch (error) {
-    console.error("[Sigo] Configure numbers error:", error)
+    console.error("[lyncr] Configure numbers error:", error)
     return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 }

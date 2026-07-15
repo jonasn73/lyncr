@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (msg.includes("019-billing-admin-feedback")) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
-    console.error("[Sigo] admin user GET:", e)
+    console.error("[lyncr] admin user GET:", e)
     return NextResponse.json({ error: "Failed to load user" }, { status: 500 })
   }
 }
@@ -44,7 +44,7 @@ export async function PATCH(
     if (msg.includes("019-billing-admin-feedback")) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
-    console.error("[Sigo] admin user PATCH:", e)
+    console.error("[lyncr] admin user PATCH:", e)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

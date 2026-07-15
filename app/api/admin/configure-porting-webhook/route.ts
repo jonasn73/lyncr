@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       port_in_target_url: webhookUrl,
     })
   } catch (error) {
-    console.error("[Sigo] Configure porting webhook error:", error)
+    console.error("[lyncr] Configure porting webhook error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Configuration failed" },
       { status: 500 }

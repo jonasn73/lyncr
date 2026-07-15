@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ data })
   } catch (error) {
-    console.error("[Sigo] sync-texml-voice:", error)
+    console.error("[lyncr] sync-texml-voice:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Telnyx sync failed" },
       { status: 500 }

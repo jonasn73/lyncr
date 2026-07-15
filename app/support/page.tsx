@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 }
 
 export default function SupportPage() {
-  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@getzingapp.com"
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@lyncr.app"
 
   return (
     <div className="min-h-dvh bg-background">

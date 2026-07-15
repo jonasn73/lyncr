@@ -345,7 +345,7 @@ async function tryAdminRoutingOverrideDial(params: {
       recording_duration_seconds: null,
     })
   } catch (logErr) {
-    console.error("[Sigo] Call log insert failed (admin override path):", logErr)
+    console.error("[lyncr] Call log insert failed (admin override path):", logErr)
   }
 
   console.log(
@@ -499,7 +499,7 @@ async function tryFastInboundPstnDial(params: {
     recording_url: null,
     recording_duration_seconds: null,
   }).catch((logErr) => {
-    console.error("[Sigo] Call log insert failed (fast path):", logErr)
+    console.error("[lyncr] Call log insert failed (fast path):", logErr)
     return null
   })
 
@@ -636,7 +636,7 @@ async function tryRoutingPoolInboundDial(params: {
     recording_url: null,
     recording_duration_seconds: null,
   }).catch((logErr) => {
-    console.error("[Sigo] Call log insert failed (routing pool path):", logErr)
+    console.error("[lyncr] Call log insert failed (routing pool path):", logErr)
     return null
   })
 
@@ -733,7 +733,7 @@ async function tryFastInboundDirectAiHandoff(params: {
       recording_duration_seconds: null,
     })
   } catch (logErr) {
-    console.error("[Sigo] Call log insert failed (fast AI path):", logErr)
+    console.error("[lyncr] Call log insert failed (fast AI path):", logErr)
   }
 
   console.log(
@@ -767,7 +767,7 @@ async function handleIncomingCall(
   const appUrl = VOICE_WEBHOOK_APP_URL
   const debug = process.env.NODE_ENV !== "production"
 
-  if (debug) console.log(`[Sigo] Incoming call: To=${calledNumber} From=${callerNumber} CallSid=${callSid}`)
+  if (debug) console.log(`[lyncr] Incoming call: To=${calledNumber} From=${callerNumber} CallSid=${callSid}`)
 
   try {
     // E.164 for DB + fallback URL — must match phone_numbers.number (we also match by digits in SQL).
@@ -777,7 +777,7 @@ async function handleIncomingCall(
     const routing = await getIncomingRoutingForVoiceWebhook(calledNumber)
     if (!routing) {
       console.error(
-        "[Sigo] No user/routing for inbound — check phone_numbers or onboarding_profiles.reserved_number matches this line. Detail:",
+        "[lyncr] No user/routing for inbound — check phone_numbers or onboarding_profiles.reserved_number matches this line. Detail:",
         JSON.stringify({
           calledRaw: calledNumber,
           businessLineE164,
@@ -873,7 +873,7 @@ async function handleIncomingCall(
       mightRepeatLeg ? isTelnyxInboundDialCallerLegDone(callSid) : Promise.resolve(false),
       overlayEnabled
         ? getRoutingConfigForNumber(routing.user_id, cfgDid).catch((cfgErr) => {
-            console.error("[Sigo] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
+            console.error("[lyncr] getRoutingConfigForNumber on incoming failed (using SQL join only):", cfgErr)
             return null
           })
         : Promise.resolve(null),
@@ -894,8 +894,8 @@ async function handleIncomingCall(
       return { kind: "raw", xml: buildSuspendedInboundRejectTexml() }
     }
 
-    if (debug) console.log(`[Sigo] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
-    if (debug) console.log(`[Sigo] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
+    if (debug) console.log(`[lyncr] Found user ${routing.user_id} (${routing.user_name}) for number ${calledNumber}`)
+    if (debug) console.log(`[lyncr] Routing config: receptionist=${routing.selected_receptionist_id || "none"}, fallback=${routing.fallback_type || "owner"}`)
 
     if (firstLegDone) {
       console.log(
@@ -1053,7 +1053,7 @@ async function handleIncomingCall(
         recording_duration_seconds: null,
       })
     } catch (logErr) {
-      console.error("[Sigo] Call log insert failed (continuing with routing):", logErr)
+      console.error("[lyncr] Call log insert failed (continuing with routing):", logErr)
     }
 
     // 5. Route: receptionist (per-number or default) → owner's cell as fallback
@@ -1192,7 +1192,7 @@ async function handleIncomingCall(
         return { kind: "raw", xml } // Bypass VoiceResponse builder because helpers return full XML strings
       }
       console.warn(
-        "[Sigo] AI direct path skipped — no assistant id; falling back to <Dial> owner + /fallback webhook."
+        "[lyncr] AI direct path skipped — no assistant id; falling back to <Dial> owner + /fallback webhook."
       )
     }
 
@@ -1320,7 +1320,7 @@ async function handleIncomingCall(
 
     if (hasReceptionist) {
       const recPhone = receptionistDialE164
-      if (debug) console.log(`[Sigo] Routing to receptionist: ${receptionistDisplayName || "Receptionist"} (${recPhone})`)
+      if (debug) console.log(`[lyncr] Routing to receptionist: ${receptionistDisplayName || "Receptionist"} (${recPhone})`)
       const dial = texml.dial(
         buildInboundPstnDialAttributes({
           ...(isReasonablePstnDialString(pstnDialCallerE164) ? { callerId: pstnDialCallerE164 } : {}),
@@ -1359,7 +1359,7 @@ async function handleIncomingCall(
       dial.number({ ...pstnNumberAttrs, url: recvAnswerUrl, method: "POST" }, recPhone)
     } else {
       const ownerPhone = normalizePhoneNumberE164(routing.owner_phone)
-      if (debug) console.log(`[Sigo] No receptionist assigned, routing to owner: ${ownerPhone}`)
+      if (debug) console.log(`[lyncr] No receptionist assigned, routing to owner: ${ownerPhone}`)
       const ownerAnswerUrl = buildReceptionistAnswerUrl({
         appUrl,
         ownerUserId: routing.user_id,
@@ -1390,7 +1390,7 @@ async function handleIncomingCall(
     texml.hangup()
   }
 
-  if (debug) console.log(`[Sigo] TeXML response: ${texml.toString().slice(0, 500)}`)
+  if (debug) console.log(`[lyncr] TeXML response: ${texml.toString().slice(0, 500)}`)
   return { kind: "twiml", texml }
 }
 
@@ -1527,7 +1527,7 @@ async function tryFastInboundReceptionistResponse(
               })
             }
           } catch (logErr) {
-            console.error("[Sigo] Call log insert failed (time capture):", logErr)
+            console.error("[lyncr] Call log insert failed (time capture):", logErr)
             try {
               const { updateCallLog } = await import("@/lib/db")
               await updateCallLog(callSidEarly, {
@@ -1535,7 +1535,7 @@ async function tryFastInboundReceptionistResponse(
                 call_type: initialCallType,
               })
             } catch (e2) {
-              console.error("[Sigo] Call log capture retag failed:", e2)
+              console.error("[lyncr] Call log capture retag failed:", e2)
             }
           }
 
@@ -1795,7 +1795,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
   }
 
   if (process.env.NODE_ENV !== "production") {
-    console.log("[Sigo] Telnyx webhook fields:", JSON.stringify(fields))
+    console.log("[lyncr] Telnyx webhook fields:", JSON.stringify(fields))
   }
 
   const calledNumberRaw = resolveCalledParty(fields)
@@ -1814,7 +1814,7 @@ async function processInboundPost(req: NextRequest, perfStartMs: number): Promis
   const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
   if (!callSidRaw.trim()) {
     console.error(
-      "[Sigo] Telnyx incoming missing CallSid/CallControlId — using synthetic id; confirm webhook fields in Telnyx portal."
+      "[lyncr] Telnyx incoming missing CallSid/CallControlId — using synthetic id; confirm webhook fields in Telnyx portal."
     )
   }
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
@@ -1856,7 +1856,7 @@ export async function GET(req: NextRequest) {
   const callSidRaw = pickField(fields, ["CallSid", "CallControlId", "call_control_id"])
   const callSid = callSidRaw.trim() || `zing-${randomUUID()}`
   if (!callSidRaw.trim()) {
-    console.error("[Sigo] Telnyx incoming (GET) missing CallSid — using synthetic id.")
+    console.error("[lyncr] Telnyx incoming (GET) missing CallSid — using synthetic id.")
   }
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
 

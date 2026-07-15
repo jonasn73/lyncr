@@ -177,7 +177,7 @@ export async function processTelnyxPortingWebhook(body: Record<string, unknown>)
       JSON.stringify({
         zing: "telnyx-porting-webhook-no-owner",
         eventType,
-        hint: `Set customer_reference zing-<userId>--<orgId> on port orders (${SITE_NAME} does this automatically).`,
+        hint: `Set customer_reference lyncr-<userId>--<orgId> (legacy zing-… still accepted) on port orders (${SITE_NAME} does this automatically).`,
       })
     )
     return NextResponse.json({ received: true, stored: false, reason: "no_matching_port_order" })

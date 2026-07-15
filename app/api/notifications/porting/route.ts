@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (e) {
-    console.error("[Sigo] GET /api/notifications/porting:", e)
+    console.error("[lyncr] GET /api/notifications/porting:", e)
     return NextResponse.json({ error: "Failed to load notifications" }, { status: 500 })
   }
 }
@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest) {
     await markPortingNotificationsRead(userId, ids)
     return NextResponse.json({ data: { ok: true } })
   } catch (e) {
-    console.error("[Sigo] PATCH /api/notifications/porting:", e)
+    console.error("[lyncr] PATCH /api/notifications/porting:", e)
     return NextResponse.json({ error: "Failed to update" }, { status: 500 })
   }
 }

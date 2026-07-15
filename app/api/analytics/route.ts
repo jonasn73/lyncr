@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("[Sigo] Error fetching analytics:", error)
+    console.error("[lyncr] Error fetching analytics:", error)
     return NextResponse.json(
       { error: "Failed to fetch analytics" },
       { status: 500 }

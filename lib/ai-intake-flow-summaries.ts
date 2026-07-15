@@ -11,7 +11,7 @@ import { INTAKE_REGISTRY } from "@/lib/ai-intake-field-registry"
 /** One branch the AI may follow after the opening line */
 export type IntakeFlowBranch = {
   title: string // Branch name shown in the UI
-  intent_slug: string // Value passed to submit_zing_lead
+  intent_slug: string // Value passed to submit_lyncr_lead
   bullets: string[] // Short list of what the AI tries to collect
 }
 

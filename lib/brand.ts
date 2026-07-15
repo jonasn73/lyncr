@@ -1,7 +1,8 @@
 // ============================================
 // Public product identity (UI + metadata)
 // ============================================
-// Env vars like ZING_ADMIN_EMAILS and cookie `zing_session` stay as-is for production compatibility.
+// Legacy env vars (ZING_*) and cookie `zing_session` stay for production compatibility;
+// product branding is Lyncr everywhere else.
 
 /** Official product name (lowercase in UI wordmark). */
 export const SITE_NAME = "lyncr"

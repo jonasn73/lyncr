@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       resetUrl,
     })
   } catch (error) {
-    console.error("[Sigo] forgot-password:", error)
+    console.error("[lyncr] forgot-password:", error)
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes("SESSION_SECRET")) {
       return NextResponse.json(

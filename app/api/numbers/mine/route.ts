@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
       organization_id: orgParam,
     })
   } catch (error) {
-    console.error("[Sigo] Error fetching user numbers:", error)
+    console.error("[lyncr] Error fetching user numbers:", error)
     return NextResponse.json({ error: "Failed to load numbers" }, { status: 500 })
   }
 }

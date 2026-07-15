@@ -70,7 +70,7 @@ async function geocodeWithNominatim(address: string): Promise<GeoPoint | null> {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
   const res = await fetch(url, {
     cache: "no-store",
-    headers: { "User-Agent": "lyncr/1.0 (dispatch geofence; support@getzingapp.com)" },
+    headers: { "User-Agent": "lyncr/1.0 (dispatch geofence; support@lyncr.app)" },
   })
   if (!res.ok) return null
   const data = (await res.json()) as Array<{ lat?: string; lon?: string }>

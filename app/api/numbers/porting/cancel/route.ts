@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (deleteRes.ok || deleteRes.status === 204) {
-      console.log(`[Sigo] Deleted draft port order ${orderId}`)
+      console.log(`[lyncr] Deleted draft port order ${orderId}`)
       return NextResponse.json({ success: true })
     }
 
@@ -52,16 +52,16 @@ export async function POST(req: NextRequest) {
     })
 
     if (cancelRes.ok) {
-      console.log(`[Sigo] Cancelled port order ${orderId}`)
+      console.log(`[lyncr] Cancelled port order ${orderId}`)
       return NextResponse.json({ success: true })
     }
 
     const errBody = await cancelRes.json().catch(() => ({}))
     const errMsg = errBody?.errors?.[0]?.detail || `Failed to cancel (HTTP ${cancelRes.status})`
-    console.error(`[Sigo] Cancel failed for order ${orderId}: ${errMsg}`)
+    console.error(`[lyncr] Cancel failed for order ${orderId}: ${errMsg}`)
     return NextResponse.json({ error: errMsg }, { status: cancelRes.status })
   } catch (error: unknown) {
-    console.error("[Sigo] Cancel port error:", error)
+    console.error("[lyncr] Cancel port error:", error)
     return NextResponse.json({ error: "Failed to cancel port order" }, { status: 500 })
   }
 }

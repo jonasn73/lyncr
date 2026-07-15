@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     void primeIncomingRoutingCacheForUser(userId).catch(() => {})
     return NextResponse.json({ config })
   } catch (error) {
-    console.error("[Sigo] Error fetching routing config:", error)
+    console.error("[lyncr] Error fetching routing config:", error)
     return NextResponse.json({ error: "Failed to fetch routing config" }, { status: 500 })
   }
 }
@@ -161,7 +161,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ config: updated, ...(voiceAi ? { voiceAi } : {}) })
   } catch (error) {
-    console.error("[Sigo] Error updating routing config:", error)
+    console.error("[lyncr] Error updating routing config:", error)
     return NextResponse.json({ error: "Failed to update routing config" }, { status: 500 })
   }
 }

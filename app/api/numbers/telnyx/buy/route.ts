@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.error, reason: result.reason }, { status })
     }
 
-    console.log(`[Sigo] Number ${result.phone_number} purchased (order: ${result.order_id})`)
+    console.log(`[lyncr] Number ${result.phone_number} purchased (order: ${result.order_id})`)
 
     return NextResponse.json({
       success: true,

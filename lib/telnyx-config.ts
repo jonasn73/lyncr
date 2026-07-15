@@ -42,7 +42,12 @@ export function telnyxHeaders(): Record<string, string> {
   }
 }
 
-/** @deprecated Use getAppUrl from @/lib/telnyx — kept for any external imports. */
+/** Preferred alias — same as getAppUrl. */
+export function getLyncrAppUrl(): string {
+  return getAppUrl()
+}
+
+/** @deprecated Use getLyncrAppUrl / getAppUrl — kept for any external imports. */
 export function getZingAppUrl(): string {
   return getAppUrl()
 }
@@ -78,10 +83,10 @@ export async function getOrCreateOutboundVoiceProfile(): Promise<string> {
   const createBody = await createRes.json()
   const profileId = createBody?.data?.id
   if (!profileId) {
-    console.error("[Sigo] Failed to create outbound voice profile:", createBody)
+    console.error("[lyncr] Failed to create outbound voice profile:", createBody)
     throw new Error("Failed to create outbound voice profile")
   }
-  console.log(`[Sigo] Created outbound voice profile: ${profileId}`)
+  console.log(`[lyncr] Created outbound voice profile: ${profileId}`)
   return String(profileId)
 }
 
@@ -115,12 +120,12 @@ async function ensureTexmlAppVoiceUrls(appId: string, appUrl: string): Promise<v
     })
     const patchBody = await patchRes.json().catch(() => ({}))
     if (patchRes.ok) {
-      console.log(`[Sigo] TeXML app ${appId} voice_url → ${greetUrl} (fallback → ${routingUrl})`)
+      console.log(`[lyncr] TeXML app ${appId} voice_url → ${greetUrl} (fallback → ${routingUrl})`)
     } else {
-      console.error(`[Sigo] Failed to PATCH TeXML voice_url:`, patchBody)
+      console.error(`[lyncr] Failed to PATCH TeXML voice_url:`, patchBody)
     }
   } catch (err) {
-    console.error("[Sigo] Failed to PATCH TeXML voice_url:", err)
+    console.error("[lyncr] Failed to PATCH TeXML voice_url:", err)
   }
 }
 
@@ -153,12 +158,12 @@ export async function getOrCreateTexmlApp(): Promise<string> {
         })
         const patchBody = await patchRes.json().catch(() => ({}))
         if (patchRes.ok) {
-          console.log(`[Sigo] Assigned outbound voice profile ${profileId} to TeXML app ${existing.id}`)
+          console.log(`[lyncr] Assigned outbound voice profile ${profileId} to TeXML app ${existing.id}`)
         } else {
-          console.error(`[Sigo] Failed to PATCH outbound profile:`, patchBody)
+          console.error(`[lyncr] Failed to PATCH outbound profile:`, patchBody)
         }
       } catch (err) {
-        console.error("[Sigo] Failed to assign outbound voice profile:", err)
+        console.error("[lyncr] Failed to assign outbound voice profile:", err)
       }
     }
     await ensureTexmlAppVoiceUrls(String(existing.id), appUrl)
@@ -187,7 +192,7 @@ export async function getOrCreateTexmlApp(): Promise<string> {
   }
   const appId = createBody?.data?.id
   if (!appId) throw new Error("TeXML app created but no ID returned")
-  console.log(`[Sigo] Created TeXML application ${appId} with outbound profile ${profileId}`)
+  console.log(`[lyncr] Created TeXML application ${appId} with outbound profile ${profileId}`)
   return String(appId)
 }
 
@@ -201,7 +206,7 @@ export async function configureNumberVoice(phoneNumber: string, texmlAppId: stri
       connectionId = await getOrCreateCallControlApp()
     }
   } catch (e) {
-    console.warn("[Sigo] Call Control app resolution failed; using TeXML app:", e)
+    console.warn("[lyncr] Call Control app resolution failed; using TeXML app:", e)
   }
 
   const searchRes = await fetch(
@@ -211,7 +216,7 @@ export async function configureNumberVoice(phoneNumber: string, texmlAppId: stri
   const searchBody = await searchRes.json()
   const numberRecord = searchBody?.data?.[0]
   if (!numberRecord?.id) {
-    console.error(`[Sigo] Could not find Telnyx record for ${phoneNumber}`)
+    console.error(`[lyncr] Could not find Telnyx record for ${phoneNumber}`)
     return
   }
 
@@ -222,9 +227,9 @@ export async function configureNumberVoice(phoneNumber: string, texmlAppId: stri
   })
   if (!patchRes.ok) {
     const patchBody = await patchRes.json().catch(() => ({}))
-    console.error(`[Sigo] Failed to configure voice for ${phoneNumber}:`, patchBody)
+    console.error(`[lyncr] Failed to configure voice for ${phoneNumber}:`, patchBody)
   } else {
-    console.log(`[Sigo] Voice configured for ${phoneNumber} → connection ${connectionId}`)
+    console.log(`[lyncr] Voice configured for ${phoneNumber} → connection ${connectionId}`)
   }
 }
 

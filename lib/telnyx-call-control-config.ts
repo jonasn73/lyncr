@@ -28,13 +28,13 @@ async function ensureCallControlOutboundProfile(appId: string): Promise<void> {
       }),
     })
     if (res.ok) {
-      console.log(`[Sigo] Call Control app ${appId} outbound profile → ${profileId}`)
+      console.log(`[lyncr] Call Control app ${appId} outbound profile → ${profileId}`)
     } else {
       const body = await res.json().catch(() => ({}))
-      console.error(`[Sigo] Failed to PATCH Call Control outbound profile:`, body)
+      console.error(`[lyncr] Failed to PATCH Call Control outbound profile:`, body)
     }
   } catch (e) {
-    console.error("[Sigo] Call Control outbound profile assignment failed:", e)
+    console.error("[lyncr] Call Control outbound profile assignment failed:", e)
   }
 }
 
@@ -87,7 +87,7 @@ export async function getOrCreateCallControlApp(): Promise<string> {
     const errMsg = createBody?.errors?.[0]?.detail || JSON.stringify(createBody)
     throw new Error(`Failed to create Call Control app: ${errMsg}`)
   }
-  console.log(`[Sigo] Created Call Control application ${appId} → ${webhookUrl}`)
+  console.log(`[lyncr] Created Call Control application ${appId} → ${webhookUrl}`)
   return String(appId)
 }
 
@@ -104,12 +104,12 @@ async function patchCallControlAppWebhook(appId: string, webhookUrl: string): Pr
       }),
     })
     if (res.ok) {
-      console.log(`[Sigo] Call Control app ${appId} webhook → ${webhookUrl}`)
+      console.log(`[lyncr] Call Control app ${appId} webhook → ${webhookUrl}`)
     } else {
       const body = await res.json().catch(() => ({}))
-      console.error(`[Sigo] Failed to PATCH Call Control webhook:`, body)
+      console.error(`[lyncr] Failed to PATCH Call Control webhook:`, body)
     }
   } catch (e) {
-    console.error("[Sigo] PATCH Call Control webhook failed:", e)
+    console.error("[lyncr] PATCH Call Control webhook failed:", e)
   }
 }

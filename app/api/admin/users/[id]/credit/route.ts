@@ -38,7 +38,7 @@ export async function POST(
     if (msg.includes("019-billing-admin-feedback")) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
-    console.error("[Sigo] admin credit:", e)
+    console.error("[lyncr] admin credit:", e)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -247,7 +247,7 @@ function persistInboundDialTalkTime(
     call_type: patch.call_type ?? "incoming",
     ...(talkSeconds > 0 ? { duration_seconds: talkSeconds } : {}),
   }).catch((logErr) => {
-    console.error("[Sigo] Call log talk-time update failed:", logErr)
+    console.error("[lyncr] Call log talk-time update failed:", logErr)
   })
 }
 
@@ -435,7 +435,7 @@ export async function handleTelnyxFallbackDialEnded(
     formData.forEach((v, k) => {
       fields[k] = String(v)
     })
-    console.log("[Sigo] Telnyx fallback webhook:", JSON.stringify({ method: req.method, fields }))
+    console.log("[lyncr] Telnyx fallback webhook:", JSON.stringify({ method: req.method, fields }))
   }
 
   const rawStatus =
@@ -838,7 +838,7 @@ export async function handleTelnyxFallbackDialEnded(
         fromNumber: fromDial === "Unknown" ? fromDial : normalizePhoneNumberE164(fromDial),
         toNumber: toDial ? normalizePhoneNumberE164(toDial) : "Unknown",
         routedToReceptionistId: lr && lr.user_id === userId ? lr.selected_receptionist_id : null,
-      }).catch((err) => console.error("[Sigo] ensureCallLogForInboundLeg failed:", err))
+      }).catch((err) => console.error("[lyncr] ensureCallLogForInboundLeg failed:", err))
     }
 
     const origFromSuffix = origFromQuerySuffix(url, formData, fromDial)
