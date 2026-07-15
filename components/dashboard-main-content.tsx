@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, type ReactNode } from "react"
+import { memo, useEffect, useRef, useState, type ReactNode } from "react"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
 import {
@@ -19,6 +19,16 @@ export const DashboardMainContent = memo(function DashboardMainContent({
   activePage: PageId
   routedChildren: ReactNode
 }) {
+  // Only animate after the user changes tabs — never on hard refresh (opacity 0 → 1 blink).
+  const prevPageRef = useRef(activePage)
+  const [enterAnim, setEnterAnim] = useState(false)
+
+  useEffect(() => {
+    if (prevPageRef.current === activePage) return
+    prevPageRef.current = activePage
+    setEnterAnim(true)
+  }, [activePage])
+
   if (isDashboardPresencePage(activePage)) {
     return (
       <DashboardPageView>
@@ -28,7 +38,7 @@ export const DashboardMainContent = memo(function DashboardMainContent({
   }
 
   return (
-    <DashboardPageView animateEnter key={activePage}>
+    <DashboardPageView animateEnter={enterAnim} key={activePage}>
       {routedChildren}
     </DashboardPageView>
   )

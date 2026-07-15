@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, use, useCallback, useLayoutEffect, useRef } from "react"
+import { Suspense, use, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { OrganizationSwitcher, OrganizationSwitcherPlaceholder } from "@/components/organization-switcher"
 import {
@@ -25,7 +25,19 @@ function headerSeedOrganization(name: string): Organization {
 /** Subtle header cue while stale bootstrap cache is revalidated in the background. */
 function DashboardBootstrapSyncIndicator() {
   const isSyncing = useDashboardBootstrapSyncing()
-  if (!isSyncing) return null
+  // Delay so a fast refresh does not flash the Syncing chip on every hard reload.
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    if (!isSyncing) {
+      setShow(false)
+      return
+    }
+    const timer = window.setTimeout(() => setShow(true), 400)
+    return () => window.clearTimeout(timer)
+  }, [isSyncing])
+
+  if (!show) return null
   return (
     <span
       className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium tracking-wide text-muted-foreground/80"

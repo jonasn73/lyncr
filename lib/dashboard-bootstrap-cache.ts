@@ -3,8 +3,11 @@ import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/li
 
 const CACHE_SCOPE = "dashboard-main-bootstrap"
 const CACHE_ID = "default"
-/** Short TTL so a manual refresh rarely paints highly stale routing badges. */
-const DASHBOARD_BOOTSTRAP_MAX_AGE_MS = 120 * 1000
+/**
+ * Keep painting last-known bootstrap on hard refresh for a long window.
+ * Background refresh still replaces it; discarding early caused empty→full blinks.
+ */
+const DASHBOARD_BOOTSTRAP_MAX_AGE_MS = 30 * 60 * 1000
 
 export function dashboardBootstrapCacheKey(): string {
   return persistedCacheKey(CACHE_SCOPE, CACHE_ID)

@@ -137,12 +137,40 @@ export function DashboardWorkspaceProvider({
       activeOrganizationId: string | null
       activeLine: string | null
     }) => {
-      setOrganizations(payload.organizations)
-      setBusinessNumbers(payload.phoneLines)
+      // Skip no-op hydrates so a background refresh with the same data does not blink the UI.
+      setOrganizations((prev) => {
+        if (
+          prev.length === payload.organizations.length &&
+          prev.every(
+            (org, i) =>
+              org.id === payload.organizations[i]?.id &&
+              org.name === payload.organizations[i]?.name
+          )
+        ) {
+          return prev
+        }
+        return payload.organizations
+      })
+      setBusinessNumbers((prev) => {
+        if (
+          prev.length === payload.phoneLines.length &&
+          prev.every(
+            (line, i) =>
+              line.number === payload.phoneLines[i]?.number &&
+              line.status === payload.phoneLines[i]?.status &&
+              line.organization_id === payload.phoneLines[i]?.organization_id
+          )
+        ) {
+          return prev
+        }
+        return payload.phoneLines
+      })
       setBusinessNumbersLoading(false)
-      setActiveOrganizationIdState(payload.activeOrganizationId)
+      setActiveOrganizationIdState((prev) =>
+        prev === payload.activeOrganizationId ? prev : payload.activeOrganizationId
+      )
       if (payload.activeOrganizationId) writeActiveOrganizationId(payload.activeOrganizationId)
-      setActiveLine(payload.activeLine)
+      setActiveLine((prev) => (prev === payload.activeLine ? prev : payload.activeLine))
     },
     []
   )
