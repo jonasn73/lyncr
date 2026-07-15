@@ -557,11 +557,15 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     return () => window.removeEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
   }, [loadActiveRoutingMode])
 
-  // Smart IVR mode, Presence On-Job/Closed, or capacity auto-bypass — automation owns inbound.
+  // Smart IVR / capacity overflow must NOT claim "100% automation" while Available —
+  // Available always rings the cell first; automation is only the unanswered fallback.
+  const presenceIsAvailable = presenceStatus === "AVAILABLE"
   const showIvrDeck =
     activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
-  const ivrMenuLive = activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
-  const automationLive = ivrMenuLive || smartOverflow.overflowActive || autopilotMode
+  // Live "owns first answer" only when presence actually bypasses the cell.
+  const ivrMenuLive = presenceBypass
+  // Capacity overflow is a standby label while Available (not a primary-route takeover).
+  const overflowCardActive = presenceBypass || (!presenceIsAvailable && smartOverflow.overflowActive)
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -571,8 +575,9 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     selectedReceptionistName: selectedReceptionist?.name ?? null,
     selectedReceptionistPhone: selectedReceptionist?.phone ? formatPhoneDisplay(selectedReceptionist.phone) : null,
     ownerPhoneDisplay,
-    autopilotMode: autopilotMode && !ivrMenuLive,
-    ivrMenuLive: activeRoutingMode === "smart_ivr",
+    autopilotMode: autopilotMode && !presenceBypass,
+    // Never treat Smart IVR as cell-bypass while presence is Available.
+    ivrMenuLive: false,
     presenceBypass,
     presenceStatus,
     openWhoAnswers: () => setWhoAnswersOpen(true),
@@ -588,7 +593,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     <SmartOverflowFallbackCard
       compact={isMobile}
       step={String(primaryAndNetworkNodes.length + 2)}
-      overflowActive={automationLive}
+      overflowActive={overflowCardActive}
       presenceDriven={presenceBypass}
       presenceStatus={presenceStatus}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}

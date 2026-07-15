@@ -236,13 +236,19 @@ export function buildIvrBypassDialXml(opts: {
   )
 }
 
-/** Day first ring — 15s Dial, then action URL for unanswered fallback. */
+/**
+ * Day first ring — Dial owner cell, then action URL for unanswered fallback.
+ * Optional numberUrl is fetched the instant the callee answers (opens intake / press-1).
+ */
 export function buildDayCaptureDialXml(opts: {
   ringE164: string
   actionUrl: string
   callerId?: string | null
   timeoutSeconds?: number
+  /** TeXML <Number url> — e.g. receptionist-answer webhook for call-answered + intake. */
+  numberUrl?: string | null
 }): string {
+  // Use configured ring delay when provided; otherwise the historic 15s default.
   const timeout = opts.timeoutSeconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS
   const safeAction = escapeTexml(opts.actionUrl)
   const safeNumber = escapeTexml(opts.ringE164.trim())
@@ -250,14 +256,26 @@ export function buildDayCaptureDialXml(opts: {
     opts.callerId && opts.callerId.trim()
       ? ` callerId="${escapeTexml(opts.callerId.trim())}"`
       : ""
+  // Answer URL lets the dashboard open New Intake as soon as the cell picks up.
+  const numberUrlAttr =
+    opts.numberUrl && opts.numberUrl.trim()
+      ? ` url="${escapeTexml(opts.numberUrl.trim())}" method="POST"`
+      : ""
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
     `<Dial timeout="${timeout}" answerOnBridge="true"${callerAttr} action="${safeAction}" method="POST">` +
-    `<Number>${safeNumber}</Number>` +
+    `<Number${numberUrlAttr}>${safeNumber}</Number>` +
     `</Dial>` +
     `</Response>`
   )
+}
+
+/** Clamp dashboard ring delay into a Telnyx-safe Dial timeout (seconds). */
+export function clampDayCaptureDialTimeoutSeconds(raw: number | null | undefined): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return DAY_CAPTURE_DIAL_TIMEOUT_SECONDS
+  return Math.min(60, Math.max(8, Math.round(n)))
 }
 
 /** Day unanswered → busy Gather (1 = SMS, 2 = hold / voicemail). */
@@ -390,7 +408,10 @@ export type InboundCapturePlan =
  * Presence + calendar drive ring vs SMS (no rigid night clock).
  * CLOSED or any active blockout → no cell ring.
  * ON_JOB → busy IVR + booking link.
- * AVAILABLE (no blockout) → 15s Dial then SMS fallback.
+ * AVAILABLE (no blockout) → Dial primary cell first, then SMS / automation fallback.
+ *
+ * IMPORTANT: AVAILABLE must never return an automation-first kind.
+ * Automation only runs after the owner Dial times out (or when presence is ON_JOB / CLOSED).
  */
 export async function resolveInboundCapturePlan(params: {
   ownerUserId: string | null
@@ -409,11 +430,13 @@ export async function resolveInboundCapturePlan(params: {
     }
   }
 
-  // Manual Closed always wins — never ring.
+  // Manual Closed always wins — never ring the cell.
   if (presenceStatus === "CLOSED") {
     return { kind: "presence_closed" }
   }
 
+  // Calendar blockouts only apply when we are not forcing an Available cell ring.
+  // AVAILABLE still honors active blockouts (owner marked the day busy on the calendar).
   if (params.ownerUserId) {
     try {
       const { dateKey } = localDateTimePartsInZone(now, timeZone)
@@ -443,9 +466,11 @@ export async function resolveInboundCapturePlan(params: {
     }
   }
 
+  // On a live job — automation answers first (no cell ring).
   if (presenceStatus === "ON_JOB") {
     return { kind: "presence_on_job" }
   }
 
+  // Presence AVAILABLE (and no calendar override) → always ring the primary cell first.
   return { kind: "day_dial" }
 }

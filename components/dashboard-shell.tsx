@@ -151,7 +151,9 @@ export function DashboardShell({
   const activePage = getActivePage(pathname)
 
   const popupEnabled = useMemo(
-    () => accountHeader.kind === "ready" && accountHeader.answeredCallCustomerPopupEnabled,
+    // Always listen for inbound rings so New Intake can open live — preference only
+    // gated the sheet historically; operators need the modal on every incoming call.
+    () => accountHeader.kind === "ready",
     [accountHeader]
   )
 

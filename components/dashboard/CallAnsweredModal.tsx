@@ -1010,6 +1010,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             return
           }
         }
+        // Force New Intake open on every inbound ring (even if the sheet was minimized).
+        dismissedRef.current.delete(row.id)
+        if (payload.call_sid) dismissedRef.current.delete(`ring-${payload.call_sid}`)
+        isMinimizedRef.current = false
+        setIsMinimized(false)
         showCallRow(setCurrent, row, dismissedRef.current)
         scheduleRingingLookups()
       })

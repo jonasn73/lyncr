@@ -190,13 +190,19 @@ export function useSmartOverflowAutopilot(
   const overflowActive = hydrated && isSmartOverflowActive(config, confirmedJobsToday)
   const nextSlot = useMemo(() => getNextAvailableSlot(now, events), [now, events])
 
-  // Keep Telnyx routing in sync when capacity auto-bypass trips or clears.
+  // Capacity used to flip ivr_menu_enabled=true and made the dashboard look like
+  // "Automation 100%" even while Presence was Available. Webhook routing is
+  // presence-driven (Available → dial cell first), so do not auto-enable IVR here.
+  // Only clear a stale IVR-on flag when capacity is back under threshold.
   useEffect(() => {
     if (!hydrated) return
-    const enabled = overflowActive
-    if (lastSyncedIvrEnabled.current === enabled) return
-    lastSyncedIvrEnabled.current = enabled
-    void persistIvrMenuEnabled(enabled, routingBusinessNumber)
+    if (overflowActive) {
+      lastSyncedIvrEnabled.current = true
+      return
+    }
+    if (lastSyncedIvrEnabled.current === false) return
+    lastSyncedIvrEnabled.current = false
+    void persistIvrMenuEnabled(false, routingBusinessNumber)
   }, [overflowActive, hydrated, routingBusinessNumber])
 
   useEffect(() => {

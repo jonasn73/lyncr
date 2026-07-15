@@ -52,7 +52,7 @@ describe("inbound time capture", () => {
     expect(xml).toContain("<Redirect")
   })
 
-  it("builds day Dial with 15s timeout", () => {
+  it("builds day Dial with configurable timeout and optional answer url", () => {
     const xml = buildDayCaptureDialXml({
       ringE164: "+15022602716",
       actionUrl: "https://lyncr.app/api/telnyx-capture?step=day-fallback",
@@ -61,6 +61,16 @@ describe("inbound time capture", () => {
     expect(xml).toContain(`timeout="${DAY_CAPTURE_DIAL_TIMEOUT_SECONDS}"`)
     expect(xml).toContain("+15022602716")
     expect(xml).toContain("day-fallback")
+
+    const withAnswer = buildDayCaptureDialXml({
+      ringE164: "+15022602716",
+      actionUrl: "https://lyncr.app/api/telnyx-capture?step=day-fallback",
+      timeoutSeconds: 30,
+      numberUrl: "https://lyncr.app/api/voice/telnyx/receptionist-answer?u=abc",
+    })
+    expect(withAnswer).toContain('timeout="30"')
+    expect(withAnswer).toContain("receptionist-answer")
+    expect(withAnswer).toContain('method="POST"')
   })
 
   it("builds day busy Gather prompt", () => {

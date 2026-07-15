@@ -87,11 +87,13 @@ import {
   buildCalendarFullDayGatherXml,
   buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
+  clampDayCaptureDialTimeoutSeconds,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
 import { getAccountPresence, DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
 import { isHolidayOverrideActive } from "@/lib/ivr-automation-settings"
 import { buildAutomationPresenceGatherXml } from "@/lib/ivr-automation-texml"
+import { broadcastCallInitiated } from "@/lib/call-telemetry-realtime"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -1460,10 +1462,15 @@ async function tryFastInboundReceptionistResponse(
         const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
         const captureBase = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-capture`
         const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id })
+        // Available → always dial primary cell (owner phone, else hardcoded Key Squad cell).
         const ownerDial =
           normalizePhoneNumberE164(routing.owner_phone) ||
           (isReasonablePstnDialString(routing.owner_phone) ? routing.owner_phone.trim() : "") ||
           CAPTURE_DEFAULT_RING_E164
+        // Use dashboard "ring delay before fallback" — not the hardcoded 15s capture default.
+        const dayRingTimeoutSec = clampDayCaptureDialTimeoutSeconds(
+          Number(routing.ring_timeout_seconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
+        )
 
         const initialRoutedName =
           plan.kind === "presence_closed"
@@ -1475,16 +1482,32 @@ async function tryFastInboundReceptionistResponse(
                 : plan.kind === "calendar_partial"
                   ? CAPTURE_STATUS_CALENDAR_BUSY
                   : "Owner"
-        const initialCallType = plan.kind === "day_dial" ? "incoming" : "missed"
+        // Always tag as incoming+ringing so call-initiated telemetry opens New Intake.
+        const initialCallType = "incoming" as const
+        const fromE164Early = fromEarly.trim()
+          ? normalizePhoneNumberE164(fromEarly)
+          : "Unknown"
+
+        // Fire intake popup immediately (do not wait for after() DB insert).
+        if (callSidEarly && routing.user_id) {
+          void broadcastCallInitiated({
+            ownerUserId: routing.user_id,
+            callSid: callSidEarly,
+            callLogId: null,
+            fromNumber: fromE164Early,
+            toNumber: businessLineE164Early,
+            organizationId: null,
+          }).catch((e) => {
+            console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
+          })
+        }
 
         if (callSidEarly && routing.user_id) {
           after(() => {
             void insertCallLog({
               user_id: routing.user_id,
               provider_call_sid: callSidEarly,
-              from_number: fromEarly.trim()
-                ? normalizePhoneNumberE164(fromEarly)
-                : "Unknown",
+              from_number: fromE164Early,
               to_number: businessLineE164Early,
               caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
               call_type: initialCallType,
@@ -1553,11 +1576,23 @@ async function tryFastInboundReceptionistResponse(
         } else if (plan.kind === "calendar_partial") {
           xml = buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
         } else {
+          // Presence AVAILABLE — Dial primary cell first; automation only after ring timeout.
+          const ownerAnswerUrl = buildReceptionistAnswerUrl({
+            appUrl: VOICE_WEBHOOK_APP_URL,
+            ownerUserId: routing.user_id,
+            toNumber: businessLineE164Early,
+            callSid: callSidEarly,
+            businessType: "generic",
+            callerNumber: fromE164Early !== "Unknown" ? fromE164Early : null,
+            callerName: pickField(fields, ["CallerName", "caller_name"]) || null,
+            businessName: resolveWorkspaceDisplayName(routing),
+          })
           xml = buildDayCaptureDialXml({
             ringE164: ownerDial,
             actionUrl: `${captureBase}?step=day-fallback`,
             callerId: businessLineE164Early,
-            timeoutSeconds: DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
+            timeoutSeconds: dayRingTimeoutSec,
+            numberUrl: ownerAnswerUrl,
           })
         }
 
@@ -1570,6 +1605,7 @@ async function tryFastInboundReceptionistResponse(
             callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
             ringTail4: ownerDial.replace(/\D/g, "").slice(-4) || null,
+            dayRingTimeoutSec,
             lookupMs,
             routingSource: memHit ? "memory" : "db",
             routingMode,
