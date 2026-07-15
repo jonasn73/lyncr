@@ -113,10 +113,8 @@ export async function publishOwnerEvent(
 
   if (OWNER_INBOUND_TELEMETRY.has(event)) {
     try {
-      await Promise.all([
-        pusher.trigger(ownerChannel, event, payload),
-        pusher.trigger(accountChannel, event, payload),
-      ])
+      // Single publish on the primary workspace channel — avoids double-firing the intake HUD.
+      await pusher.trigger(accountChannel, event, payload)
       return true
     } catch (e) {
       console.error("[realtime] publishOwnerEvent failed:", e)
