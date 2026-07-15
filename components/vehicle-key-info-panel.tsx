@@ -211,27 +211,120 @@ function manualOptionCardModel(
   }
 }
 
-function KeyThumbnail({ imageUrl, label }: { imageUrl: string | null; label: string }) {
+type KeyIllustrationKind = "proximity" | "high_security" | "transponder"
+
+/** Pick a sample illustration from the card label / variant id when no photo exists. */
+function classifyKeyIllustration(label: string, variantId?: string | null): KeyIllustrationKind {
+  const blob = `${label} ${variantId ?? ""}`.toLowerCase()
+  if (/proximity|smart\s*key|push.?start|\bprox\b/.test(blob)) return "proximity"
+  if (/high.?security|edge.?cut|laser|flip.?blade|mechanical|blade\b/.test(blob)) return "high_security"
+  if (/transponder|remote.?head|315|433|standard/.test(blob)) return "transponder"
+  // Default to classic plastic-head key when the label is ambiguous.
+  return "transponder"
+}
+
+/** Modern rectangular proximity / smart fob with chrome-style border. */
+function ProximitySmartKeySvg() {
+  return (
+    <svg viewBox="0 0 120 72" className="h-14 w-auto" aria-hidden>
+      <rect x="18" y="8" width="84" height="56" rx="10" fill="#0f172a" stroke="#94a3b8" strokeWidth="2.5" />
+      <rect x="24" y="14" width="72" height="44" rx="7" fill="#1e293b" stroke="#cbd5e1" strokeWidth="1.25" />
+      <circle cx="60" cy="30" r="7" fill="none" stroke="#64748b" strokeWidth="1.5" />
+      <circle cx="60" cy="30" r="2.5" fill="#94a3b8" />
+      <rect x="42" y="44" width="12" height="6" rx="2" fill="#334155" />
+      <rect x="58" y="44" width="12" height="6" rx="2" fill="#334155" />
+      <rect x="74" y="44" width="8" height="6" rx="2" fill="#475569" />
+    </svg>
+  )
+}
+
+/** Physical flip / laser-cut blade key profile. */
+function HighSecurityBladeKeySvg() {
+  return (
+    <svg viewBox="0 0 140 56" className="h-12 w-auto" aria-hidden>
+      <path
+        d="M18 28c0-9 7-16 16-16h22c3 0 5 2 5 5v22c0 3-2 5-5 5H34c-9 0-16-7-16-16z"
+        fill="#1e293b"
+        stroke="#94a3b8"
+        strokeWidth="2"
+      />
+      <circle cx="30" cy="28" r="5" fill="#0f172a" stroke="#64748b" strokeWidth="1.5" />
+      <path
+        d="M61 22h58l6 6v8l-6 6H61V22z"
+        fill="#cbd5e1"
+        stroke="#64748b"
+        strokeWidth="1.25"
+      />
+      <path
+        d="M72 28h8M84 28h6M94 28h8M106 28h5"
+        stroke="#475569"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path d="M78 34h10M92 34h8M104 34h6" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/** Traditional plastic-headed transponder / remote-head key. */
+function StandardTransponderKeySvg() {
+  return (
+    <svg viewBox="0 0 140 64" className="h-14 w-auto" aria-hidden>
+      <rect x="14" y="10" width="48" height="44" rx="8" fill="#1e293b" stroke="#94a3b8" strokeWidth="2" />
+      <circle cx="30" cy="32" r="6" fill="#0f172a" stroke="#64748b" strokeWidth="1.5" />
+      <rect x="42" y="20" width="12" height="8" rx="2" fill="#334155" />
+      <rect x="42" y="32" width="12" height="8" rx="2" fill="#334155" />
+      <rect x="42" y="44" width="12" height="5" rx="1.5" fill="#475569" />
+      <path d="M62 28h52v8H62z" fill="#cbd5e1" stroke="#64748b" strokeWidth="1.25" />
+      <path d="M74 28v-4M86 28v-5M98 28v-3M110 28v-4" stroke="#64748b" strokeWidth="2" strokeLinecap="round" />
+      <path d="M74 36v3M86 36v4M98 36v2M110 36v3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function KeyTypeSampleIllustration({ kind }: { kind: KeyIllustrationKind }) {
+  if (kind === "proximity") return <ProximitySmartKeySvg />
+  if (kind === "high_security") return <HighSecurityBladeKeySvg />
+  return <StandardTransponderKeySvg />
+}
+
+function KeyThumbnail({
+  imageUrl,
+  label,
+  variantId,
+}: {
+  imageUrl: string | null
+  label: string
+  variantId?: string | null
+}) {
   const [failed, setFailed] = useState(false)
   const showImage = Boolean(imageUrl) && !failed
+  const illustrationKind = classifyKeyIllustration(label, variantId)
 
   return (
-    <div className="w-full h-32 bg-slate-850 rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
-      {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
-        <img
-          src={imageUrl!}
-          alt={label}
-          loading="lazy"
-          className="h-full w-full object-contain p-2"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div className="flex flex-col items-center gap-1 text-slate-500">
-          <KeyRound className="h-8 w-8 opacity-50" aria-hidden />
-          <span className="text-[10px] font-medium uppercase tracking-wide">Key blank preview</span>
-        </div>
-      )}
+    <div className="w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-850">
+      <div className="flex h-32 items-center justify-center">
+        {showImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
+          <img
+            src={imageUrl!}
+            alt={label}
+            loading="lazy"
+            className="h-full w-full object-contain p-2"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 px-3 py-2 text-slate-400">
+            <KeyTypeSampleIllustration kind={illustrationKind} />
+            <span className="sr-only">{label} layout sample</span>
+          </div>
+        )}
+      </div>
+      {!showImage ? (
+        <p className="border-t border-slate-800/80 px-2 py-1.5 text-center text-[9px] leading-snug text-slate-500">
+          Standard Layout Sample — Verify blade or button configuration with customer.
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -276,7 +369,7 @@ export function KeySelectionCard({
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         ) : null}
-        <KeyThumbnail imageUrl={card.imageUrl} label={card.label} />
+        <KeyThumbnail imageUrl={card.imageUrl} label={card.label} variantId={card.id} />
         <div className="mt-2.5 min-w-0 space-y-2">
           {card.tiSku ? (
             <span className="inline-flex max-w-full truncate text-emerald-400 font-mono text-sm tracking-wider bg-emerald-950/40 border border-emerald-900/50 px-2 py-1 rounded-md">
