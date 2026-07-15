@@ -88,9 +88,26 @@ function buildFailsafeRouting(params: {
  */
 async function resolveCallControlRouting(toRaw: string): Promise<IncomingRoutingRow | null> {
   const businessLineE164 = normalizePhoneNumberE164(toRaw) || toRaw
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-resolve-routing-start",
+      toRaw,
+      businessLineE164,
+    })
+  )
   try {
     const routing = await getIncomingRoutingForVoiceWebhook(businessLineE164 || toRaw)
-    if (routing) return routing
+    if (routing) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-cc-resolve-routing-hit",
+          userId: routing.user_id,
+          organizationName: routing.organization_name,
+        })
+      )
+      return routing
+    }
+    console.log(JSON.stringify({ zing: "telnyx-cc-resolve-routing-miss", businessLineE164 }))
   } catch (error) {
     console.error("Telnyx call.initiated routing lookup failed:", error)
   }
@@ -99,6 +116,12 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
   try {
     const line = await getActivePhoneNumberByE164(businessLineE164 || toRaw)
     if (line?.user_id) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-cc-resolve-routing-line-fallback",
+          userId: line.user_id,
+        })
+      )
       return buildFailsafeRouting({
         userId: line.user_id,
         businessLineE164: line.number || businessLineE164,
@@ -109,6 +132,7 @@ async function resolveCallControlRouting(toRaw: string): Promise<IncomingRouting
     console.error("Telnyx call.initiated line lookup failed:", error)
   }
 
+  console.warn(JSON.stringify({ zing: "telnyx-cc-resolve-routing-null", businessLineE164 }))
   return null
 }
 
@@ -119,6 +143,23 @@ function normalizeDirection(direction: string): string {
 function isInboundDirection(direction: string): boolean {
   const d = normalizeDirection(direction)
   return d === "incoming" || d === "inbound"
+}
+
+/** True only for clearly outbound legs — empty/unknown direction must NOT skip Answer. */
+function isClearlyOutboundDirection(direction: string): boolean {
+  const d = normalizeDirection(direction)
+  return d === "outgoing" || d === "outbound"
+}
+
+function isTelnyxAuthFailureMessage(error: string): boolean {
+  const e = error.toLowerCase()
+  return (
+    e.includes("no key found matching") ||
+    e.includes("authentication failed") ||
+    e.includes("invalid api key") ||
+    e.includes("unauthorized") ||
+    e.includes("401")
+  )
 }
 
 function resolveDialTargetE164(routing: Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>): string {
@@ -215,6 +256,11 @@ async function dialTechnicianLeg(
   })
   if (!dialRes.ok) {
     console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
+    if (isTelnyxAuthFailureMessage(dialRes.error)) {
+      console.error(
+        "[telnyx-cc] CRITICAL: TELNYX_API_KEY auth failure on Dial — update the key in Vercel and redeploy."
+      )
+    }
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
@@ -232,11 +278,51 @@ async function dialTechnicianLeg(
 async function handleCallInitiated(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
+  const callControlId = event.callControlId
+  console.log("Inbound call initiated event received for ID:", callControlId)
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-initiated-start",
+      callControlId,
+      direction: event.direction || "(empty)",
+      from: event.from,
+      to: event.to,
+    })
+  )
+
   try {
-    if (!isInboundDirection(event.direction)) return
+    // Only skip clearly outbound legs. Empty / unknown / "incoming" must proceed to Answer.
+    if (isClearlyOutboundDirection(event.direction)) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-cc-initiated-skip-outbound",
+          callControlId,
+          direction: event.direction,
+        })
+      )
+      return
+    }
+    if (event.direction && !isInboundDirection(event.direction)) {
+      // Unknown non-empty direction — log and CONTINUE (do not silent-exit).
+      console.warn(
+        JSON.stringify({
+          zing: "telnyx-cc-initiated-unknown-direction-continuing",
+          callControlId,
+          direction: event.direction,
+        })
+      )
+    }
 
     const businessLineE164 = normalizePhoneNumberE164(event.to)
     const callerE164 = event.from.trim() ? normalizePhoneNumberE164(event.from) : "Unknown"
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-cc-initiated-normalized",
+        callControlId,
+        businessLineE164: businessLineE164 || event.to,
+        callerE164,
+      })
+    )
 
     let routing = await resolveCallControlRouting(event.to)
     // Absolute last resort — still answer + dial primary cell even with no DB row.
@@ -255,14 +341,40 @@ async function handleCallInitiated(
       })
     }
 
+    console.log("Resolved routing profile:", {
+      userId: routing.user_id,
+      ownerPhoneTail4: String(routing.owner_phone || "")
+        .replace(/\D/g, "")
+        .slice(-4),
+      organizationName: routing.organization_name,
+      accountStatus: routing.account_status,
+      fallbackType: routing.fallback_type,
+      ringTimeoutSeconds: routing.ring_timeout_seconds,
+    })
+
     const accountStatus = parseAccountStatus(routing.account_status)
     if (accountStatus && isAccountRoutingBlocked(accountStatus)) {
-      await telnyxCallControlHangup(event.callControlId)
+      console.warn(
+        JSON.stringify({
+          zing: "telnyx-cc-initiated-account-blocked",
+          callControlId,
+          accountStatus,
+        })
+      )
+      // Suspended lines hang up — intentional, not a silent no-op.
+      await telnyxCallControlHangup(callControlId)
       return
     }
 
     let dialTargetE164 = resolveDialTargetE164(routing)
     if (!isReasonablePstnDialString(dialTargetE164)) {
+      console.warn(
+        JSON.stringify({
+          zing: "telnyx-cc-initiated-empty-dial-target-using-failsafe",
+          callControlId,
+          failsafe: FAILSAFE_PRIMARY_CELL_E164,
+        })
+      )
       dialTargetE164 = FAILSAFE_PRIMARY_CELL_E164
     }
 
@@ -272,12 +384,21 @@ async function handleCallInitiated(
       wantsAi
     )
 
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-cc-initiated-dial-plan",
+        callControlId,
+        dialTargetTail4: dialTargetE164.replace(/\D/g, "").slice(-4),
+        ringTimeoutSec,
+      })
+    )
+
     // Call log + Pusher must never block answering the live call.
     if (routing.user_id && routing.user_id !== "00000000-0000-0000-0000-000000000000") {
       try {
         await insertCallLog({
           user_id: routing.user_id,
-          provider_call_sid: event.callControlId,
+          provider_call_sid: callControlId,
           from_number: callerE164,
           to_number: businessLineE164 || event.to,
           caller_name: null,
@@ -290,9 +411,17 @@ async function handleCallInitiated(
           recording_url: null,
           recording_duration_seconds: null,
         })
+        console.log(JSON.stringify({ zing: "telnyx-cc-initiated-call-log-ok", callControlId }))
       } catch (e) {
         console.error("[telnyx-cc] call log insert failed:", e)
       }
+    } else {
+      console.warn(
+        JSON.stringify({
+          zing: "telnyx-cc-initiated-skip-call-log-no-user",
+          callControlId,
+        })
+      )
     }
 
     const answerState = encodeTelnyxCallControlState(
@@ -305,29 +434,53 @@ async function handleCallInitiated(
         "await_caller_answered"
       )
     )
-    const answerRes = await telnyxCallControlAnswer(event.callControlId, answerState)
-    if (!answerRes.ok) {
-      console.error(JSON.stringify({ zing: "telnyx-cc-answer-failed", error: answerRes.error }))
-      // Best-effort: try dialing primary cell even if answer payload failed oddly.
-      try {
-        await dialTechnicianLeg(
-          event.callControlId,
-          {
-            v: 1,
-            phase: "await_dial_end",
-            userId: routing.user_id,
-            businessLineE164: businessLineE164 || event.to,
-            callerE164,
-            dialTargetE164,
-            ringTimeoutSec,
-            fallbackType: routing.fallback_type,
-            inboundCallControlId: event.callControlId,
-          },
-          routing
-        )
-      } catch (dialErr) {
-        console.error("Telnyx call.initiated failsafe dial failed:", dialErr)
-      }
+
+    console.log("Triggering Telnyx Answer API...", { callControlId })
+    const answerRes = await telnyxCallControlAnswer(callControlId, answerState)
+    if (answerRes.ok) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-cc-answer-ok",
+          callControlId,
+          dialTargetTail4: dialTargetE164.replace(/\D/g, "").slice(-4),
+        })
+      )
+      return
+    }
+
+    console.error(JSON.stringify({ zing: "telnyx-cc-answer-failed", error: answerRes.error }))
+    if (isTelnyxAuthFailureMessage(answerRes.error)) {
+      console.error(
+        "[telnyx-cc] CRITICAL: TELNYX_API_KEY on Vercel is invalid or revoked. " +
+          "Call Control Answer/Dial cannot succeed until you paste a fresh API key " +
+          `(failed key prefix: ${String(process.env.TELNYX_API_KEY || "").slice(0, 12)}…). ` +
+          "Update Vercel → Environment Variables → TELNYX_API_KEY, then redeploy."
+      )
+    }
+
+    // Best-effort: try dialing primary cell even if answer payload failed oddly.
+    console.log("Triggering Telnyx failsafe Dial after Answer failure...", {
+      callControlId,
+      to: dialTargetE164,
+    })
+    try {
+      await dialTechnicianLeg(
+        callControlId,
+        {
+          v: 1,
+          phase: "await_dial_end",
+          userId: routing.user_id,
+          businessLineE164: businessLineE164 || event.to,
+          callerE164,
+          dialTargetE164,
+          ringTimeoutSec,
+          fallbackType: routing.fallback_type,
+          inboundCallControlId: callControlId,
+        },
+        routing
+      )
+    } catch (dialErr) {
+      console.error("Telnyx call.initiated failsafe dial failed:", dialErr)
     }
   } catch (error) {
     console.error("Telnyx call.initiated handler failed:", error)
@@ -341,10 +494,24 @@ async function handleCallInitiated(
         businessLineE164,
         ownerPhone: target,
       })
+      console.log("Triggering Telnyx Answer API (ultimate failsafe)...", { callControlId })
       const answerState = encodeTelnyxCallControlState(
         baseState(failsafe, businessLineE164, callerE164, target, 30, "await_caller_answered")
       )
-      await telnyxCallControlAnswer(event.callControlId, answerState)
+      const answerRes = await telnyxCallControlAnswer(callControlId, answerState)
+      if (!answerRes.ok) {
+        console.error(
+          JSON.stringify({
+            zing: "telnyx-cc-ultimate-failsafe-answer-failed",
+            error: answerRes.error,
+          })
+        )
+        if (isTelnyxAuthFailureMessage(answerRes.error)) {
+          console.error(
+            "[telnyx-cc] CRITICAL: TELNYX_API_KEY auth failure during ultimate failsafe Answer."
+          )
+        }
+      }
     } catch (failsafeErr) {
       console.error("Telnyx call.initiated ultimate failsafe failed:", failsafeErr)
     }

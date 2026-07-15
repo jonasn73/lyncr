@@ -16,16 +16,36 @@ async function postCallAction(
 ): Promise<TelnyxCallControlActionResult> {
   const id = callControlId.trim()
   if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-api-post",
+      action,
+      callControlId: id,
+      apiKeyPrefix: String(process.env.TELNYX_API_KEY || "").slice(0, 12) || "(missing)",
+    })
+  )
   const res = await fetch(`${TELNYX_CALLS_BASE}/${encodeURIComponent(id)}/actions/${action}`, {
     method: "POST",
     headers: telnyxHeaders(),
     body: JSON.stringify(body),
   })
-  if (res.ok) return { ok: true }
+  if (res.ok) {
+    console.log(JSON.stringify({ zing: "telnyx-cc-api-ok", action, callControlId: id }))
+    return { ok: true }
+  }
   const errBody = await res.json().catch(() => ({}))
   const detail =
     (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
     JSON.stringify(errBody).slice(0, 240)
+  console.error(
+    JSON.stringify({
+      zing: "telnyx-cc-api-failed",
+      action,
+      callControlId: id,
+      status: res.status,
+      error: detail || res.statusText,
+    })
+  )
   return { ok: false, status: res.status, error: detail || res.statusText }
 }
 
