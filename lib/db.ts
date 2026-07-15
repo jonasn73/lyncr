@@ -24,6 +24,7 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOverrideE164 } from "@/lib/phone-e164"
 import { SITE_NAME } from "@/lib/brand"
 import { lineMatchesOwnerCell } from "@/lib/owner-cell-line-filter"
+import { normalizeWorkspaceDisplayName } from "@/lib/workspace-organizations"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
 import type {
   CompanyBriefing,
@@ -5863,7 +5864,9 @@ export async function createOrganizationForOwner(
   name: string
 ): Promise<Organization> {
   const sql = getSql()
-  const trimmed = name.trim()
+  // Normalize typos like "Key Squad 5o2" → "Key Squad 502" before insert.
+  const { normalizeWorkspaceDisplayName } = await import("@/lib/workspace-organizations")
+  const trimmed = normalizeWorkspaceDisplayName(name)
   if (trimmed.length < 2) throw new Error("Business name must be at least 2 characters")
   const id = crypto.randomUUID()
   const rows = await sql`
@@ -5883,7 +5886,8 @@ export async function updateOrganizationNameForOwner(
   if (organizationId.startsWith("legacy-")) {
     throw new Error("This workspace cannot be renamed until multi-business migration is applied")
   }
-  const trimmed = name.trim()
+  const { normalizeWorkspaceDisplayName } = await import("@/lib/workspace-organizations")
+  const trimmed = normalizeWorkspaceDisplayName(name)
   if (trimmed.length < 2) throw new Error("Business name must be at least 2 characters")
   const sql = getSql()
   const rows = await sql`

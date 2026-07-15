@@ -1,6 +1,18 @@
 /** localStorage key for the owner's active business workspace (organization) id. */
 export const ACTIVE_ORGANIZATION_STORAGE_KEY = "lyncr_active_organization_id"
 
+/**
+ * Fix common display-name typos so webhook branding and the dashboard switcher match.
+ * Example: "Key Squad 5o2" (letter o) → "Key Squad 502" (digit zero).
+ */
+export function normalizeWorkspaceDisplayName(raw: string): string {
+  // Trim ends so create/rename APIs get a clean name.
+  let name = raw.trim()
+  // Replace letter-o lookalikes next to 5/2 (5o2 / 5O2) with the digit zero.
+  name = name.replace(/\b5[oO]2\b/g, "502")
+  return name
+}
+
 export function readActiveOrganizationId(): string | null {
   if (typeof window === "undefined") return null
   try {

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
+import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -334,17 +335,17 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       }, refetchIntervalMs)
     }
 
-    // LyncEngine missed-call signal — drop cache and refetch Activities immediately.
+    // LyncEngine call-initiated / answered / completed — drop cache and refetch Activities.
     const onActivityRefresh = () => {
       clearOperationsDataCache()
       void loadData(true)
     }
-    window.addEventListener("lyncr-activity-refresh", onActivityRefresh)
+    window.addEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onActivityRefresh)
 
     return () => {
       mounted = false
       if (intervalId) clearInterval(intervalId)
-      window.removeEventListener("lyncr-activity-refresh", onActivityRefresh)
+      window.removeEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onActivityRefresh)
     }
   }, [refetchIntervalMs])
 

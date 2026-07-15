@@ -1064,13 +1064,20 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   filter,
   onFilterChange,
 }: ActivityBodyProps) {
-  const { activeLine } = useDashboardWorkspace()
+  const { activeLine, businessNumbers } = useDashboardWorkspace()
   const isMobile = useIsMobile()
 
+  // Scope by EVERY line in the active workspace — not only the selected DID.
+  // Filtering by activeLine alone hid sister-line calls (e.g. main DID vs cell DID).
   const scopedCalls = useMemo(() => {
+    if (businessNumbers.length > 0) {
+      return calls.filter((c) =>
+        businessNumbers.some((n) => businessNumbersMatch(c.targetLineE164, n.number))
+      )
+    }
     if (!activeLine) return calls
     return calls.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
-  }, [calls, activeLine])
+  }, [calls, businessNumbers, activeLine])
 
   const missedCount = useMemo(
     () => scopedCalls.filter((c) => isMissedActivityCallToday(c)).length,

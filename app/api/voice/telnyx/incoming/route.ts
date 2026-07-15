@@ -9,7 +9,6 @@
 // Falls back to the user's default config if no number-specific config exists.
 
 import { randomUUID } from "crypto"
-import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { SITE_NAME } from "@/lib/brand"
@@ -305,7 +304,7 @@ function inboundWebhookContext(reqUrl: string, fields?: Record<string, string>):
 }
 
 /** When set, dial the admin override PSTN (E.164 + prefix) and skip owner / receptionist / pool routing. */
-function tryAdminRoutingOverrideDial(params: {
+async function tryAdminRoutingOverrideDial(params: {
   routing: IncomingRoutingRowNonNull
   businessLineE164: string
   calledNumber: string
@@ -315,7 +314,7 @@ function tryAdminRoutingOverrideDial(params: {
   appUrl: string
   perfStartMs?: number
   greetingPassDone?: boolean
-}): IncomingCallResult | null {
+}): Promise<IncomingCallResult | null> {
   const built = buildAdminRoutingOverrideDial({
     routing: params.routing,
     businessLineE164: params.businessLineE164,
@@ -328,8 +327,9 @@ function tryAdminRoutingOverrideDial(params: {
   })
   if (!built) return null
 
-  after(() => {
-    void insertCallLog({
+  // Persist before TeXML so Activity still records the ring if dial fails later.
+  try {
+    await insertCallLog({
       user_id: params.routing.user_id,
       provider_call_sid: params.callSid,
       from_number: params.callerNumber.trim() ? normalizePhoneNumberE164(params.callerNumber) : "Unknown",
@@ -343,10 +343,10 @@ function tryAdminRoutingOverrideDial(params: {
       has_recording: false,
       recording_url: null,
       recording_duration_seconds: null,
-    }).catch((logErr) => {
-      console.error("[Sigo] Call log insert failed (admin override path):", logErr)
     })
-  })
+  } catch (logErr) {
+    console.error("[Sigo] Call log insert failed (admin override path):", logErr)
+  }
 
   console.log(
     JSON.stringify({
@@ -715,8 +715,9 @@ async function tryFastInboundDirectAiHandoff(params: {
     xml = buildRedirectOnlyToAiBridgeTeXML(routing.user_id, callSid)
   }
 
-  after(() => {
-    void insertCallLog({
+  // Persist AI handoff row before TeXML so Activity still records the leg.
+  try {
+    await insertCallLog({
       user_id: routing.user_id,
       provider_call_sid: callSid,
       from_number: callerNumber.trim() ? normalizePhoneNumberE164(callerNumber) : "Unknown",
@@ -730,10 +731,10 @@ async function tryFastInboundDirectAiHandoff(params: {
       has_recording: false,
       recording_url: null,
       recording_duration_seconds: null,
-    }).catch((logErr) => {
-      console.error("[Sigo] Call log insert failed (fast AI path):", logErr)
     })
-  })
+  } catch (logErr) {
+    console.error("[Sigo] Call log insert failed (fast AI path):", logErr)
+  }
 
   console.log(
     JSON.stringify({
@@ -813,7 +814,7 @@ async function handleIncomingCall(
       return buildInboundGreetingFirstPassResult(routing, inboundCtx.incomingUrl)
     }
 
-    const adminOverrideDial = tryAdminRoutingOverrideDial({
+    const adminOverrideDial = await tryAdminRoutingOverrideDial({
       routing,
       businessLineE164,
       calledNumber,
@@ -1488,23 +1489,22 @@ async function tryFastInboundReceptionistResponse(
           ? normalizePhoneNumberE164(fromEarly)
           : "Unknown"
 
-        // Fire intake popup immediately (do not wait for after() DB insert).
-        if (callSidEarly && routing.user_id) {
-          void broadcastCallInitiated({
-            ownerUserId: routing.user_id,
-            callSid: callSidEarly,
-            callLogId: null,
-            fromNumber: fromE164Early,
-            toNumber: businessLineE164Early,
-            organizationId: null,
-          }).catch((e) => {
-            console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
-          })
+        // Resolve workspace id from the DID so Activity / Pusher match the dashboard org.
+        let lineOrganizationId: string | null = null
+        try {
+          const { getActivePhoneNumberByE164 } = await import("@/lib/db")
+          const line = await getActivePhoneNumberByE164(businessLineE164Early)
+          lineOrganizationId = line?.organization_id ?? null
+        } catch (e) {
+          console.warn("[telnyx-incoming] line org lookup skipped:", e)
         }
 
+        // FIRST action: persist the call row BEFORE dial/automation TeXML.
+        // Guarantees Activity still has the ring even if later routing crashes.
+        let earlyCallLogId: string | null = null
         if (callSidEarly && routing.user_id) {
-          after(() => {
-            void insertCallLog({
+          try {
+            earlyCallLogId = await insertCallLog({
               user_id: routing.user_id,
               provider_call_sid: callSidEarly,
               from_number: fromE164Early,
@@ -1519,26 +1519,36 @@ async function tryFastInboundReceptionistResponse(
               recording_url: null,
               recording_duration_seconds: null,
             })
-              .then(async (id) => {
-                if (id) return
-                const { updateCallLog } = await import("@/lib/db")
-                await updateCallLog(callSidEarly, {
-                  routed_to_name: initialRoutedName,
-                  call_type: initialCallType,
-                })
+            if (!earlyCallLogId) {
+              const { updateCallLog } = await import("@/lib/db")
+              await updateCallLog(callSidEarly, {
+                routed_to_name: initialRoutedName,
+                call_type: initialCallType,
               })
-              .catch(async (logErr) => {
-                console.error("[Sigo] Call log insert failed (time capture):", logErr)
-                try {
-                  const { updateCallLog } = await import("@/lib/db")
-                  await updateCallLog(callSidEarly, {
-                    routed_to_name: initialRoutedName,
-                    call_type: initialCallType,
-                  })
-                } catch (e2) {
-                  console.error("[Sigo] Call log capture retag failed:", e2)
-                }
+            }
+          } catch (logErr) {
+            console.error("[Sigo] Call log insert failed (time capture):", logErr)
+            try {
+              const { updateCallLog } = await import("@/lib/db")
+              await updateCallLog(callSidEarly, {
+                routed_to_name: initialRoutedName,
+                call_type: initialCallType,
               })
+            } catch (e2) {
+              console.error("[Sigo] Call log capture retag failed:", e2)
+            }
+          }
+
+          // Open New Intake + nudge Activity immediately with the same workspace id.
+          void broadcastCallInitiated({
+            ownerUserId: routing.user_id,
+            callSid: callSidEarly,
+            callLogId: earlyCallLogId,
+            fromNumber: fromE164Early,
+            toNumber: businessLineE164Early,
+            organizationId: lineOrganizationId,
+          }).catch((e) => {
+            console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
           })
         }
 
@@ -1641,7 +1651,7 @@ async function tryFastInboundReceptionistResponse(
   const callerName = pickField(fields, ["CallerName", "CallerIDName"]) || null
   const businessLineE164 = normalizePhoneNumberE164(calledNumberRaw)
 
-  const adminOverrideDial = tryAdminRoutingOverrideDial({
+  const adminOverrideDial = await tryAdminRoutingOverrideDial({
     routing,
     businessLineE164,
     calledNumber: calledNumberRaw,

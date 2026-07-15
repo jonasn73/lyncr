@@ -214,6 +214,10 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       // Fan out metric increment to RealTimeStats via the bus.
       emitLyncEngineBus({ type: "call-initiated", payload: raw })
 
+      // Prepend / refresh Activities feed as soon as the webhook inserts the row.
+      clearOperationsDataCache()
+      window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
+
       setActiveCalls((prev) => {
         if (prev.some((c) => c.callSid === callSid)) return prev
         return [
@@ -252,6 +256,10 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       if (!callSid) return
       const answeredAt = raw.answered_at ?? new Date().toISOString()
       emitLyncEngineBus({ type: "call-answered", payload: raw })
+
+      // Status flip ringing → answered should refresh the Activities row.
+      clearOperationsDataCache()
+      window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
 
       setActiveCalls((prev) => {
         const idx = prev.findIndex((c) => c.callSid === callSid)
@@ -303,10 +311,11 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       emitLyncEngineBus({ type: "onCallDisconnect", payload: raw })
       setActiveCalls((prev) => prev.filter((c) => c.callSid !== callSid))
 
+      // Always refresh Activities on hangup (answered + missed), not only missed.
+      clearOperationsDataCache()
+      window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
       if (isMissedCallTelemetry(raw)) {
         bumpActivityBadge()
-        clearOperationsDataCache()
-        window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
       }
     }
 
