@@ -3,6 +3,7 @@
 import { getAppUrl } from "@/lib/telnyx"
 import {
   telnyxCallControlAnswer,
+  telnyxCallControlClientStateUpdate,
   telnyxCallControlDial,
   telnyxCallControlHangup,
   telnyxCallControlRecordStart,
@@ -13,6 +14,11 @@ import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
 } from "@/lib/telnyx-call-control-state"
+import {
+  forgetOutboundDialLeg,
+  lookupOutboundDialLeg,
+  rememberOutboundDialLeg,
+} from "@/lib/telnyx-call-control-leg-map"
 import {
   buildInboundCallerGreetingText,
   isInboundCallerGreetingEnabled,
@@ -241,11 +247,12 @@ async function dialTechnicianLeg(
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
-  const nextState = encodeTelnyxCallControlState({
+  const nextStatePayload: TelnyxCallControlClientState = {
     ...state,
     phase: "await_dial_end",
     inboundCallControlId,
-  })
+  }
+  const nextState = encodeTelnyxCallControlState(nextStatePayload)
   const dialRes = await telnyxCallControlDial({
     connectionId,
     inboundCallControlId,
@@ -264,15 +271,51 @@ async function dialTechnicianLeg(
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
+
+  const outboundCallControlId = dialRes.callControlId?.trim() || ""
   console.log(
     JSON.stringify({
       zing: "telnyx-cc-dial-started",
       inboundCallControlId,
-      outboundCallControlId: dialRes.callControlId ?? null,
+      outboundCallControlId: outboundCallControlId || null,
       toTail4: target.replace(/\D/g, "").slice(-4),
       fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
     })
   )
+
+  // Track the cell leg so call.hangup on the caller can kill phantom ringing immediately.
+  if (outboundCallControlId) {
+    rememberOutboundDialLeg(inboundCallControlId, outboundCallControlId)
+    const stateWithOutbound: TelnyxCallControlClientState = {
+      ...nextStatePayload,
+      outboundCallControlId,
+    }
+    const encodedWithOutbound = encodeTelnyxCallControlState(stateWithOutbound)
+    // Stamp outbound id onto the inbound leg (for hangup webhooks) and refresh outbound state.
+    void Promise.all([
+      telnyxCallControlClientStateUpdate(inboundCallControlId, encodedWithOutbound),
+      telnyxCallControlClientStateUpdate(outboundCallControlId, encodedWithOutbound),
+    ]).then(([inboundRes, outboundRes]) => {
+      if (!inboundRes.ok) {
+        console.warn(
+          JSON.stringify({
+            zing: "telnyx-cc-inbound-client-state-update-failed",
+            inboundCallControlId,
+            error: inboundRes.error,
+          })
+        )
+      }
+      if (!outboundRes.ok) {
+        console.warn(
+          JSON.stringify({
+            zing: "telnyx-cc-outbound-client-state-update-failed",
+            outboundCallControlId,
+            error: outboundRes.error,
+          })
+        )
+      }
+    })
+  }
 }
 
 async function handleCallInitiated(
@@ -596,11 +639,69 @@ async function handleCallBridged(
   await persistCallControlBridged(inboundSid, state, event.occurredAt)
 }
 
+async function hangupCompanionOutboundLeg(
+  inboundCallControlId: string,
+  state: TelnyxCallControlClientState | null | undefined
+): Promise<void> {
+  const inbound = inboundCallControlId.trim()
+  if (!inbound) return
+
+  const outbound =
+    state?.outboundCallControlId?.trim() ||
+    lookupOutboundDialLeg(inbound) ||
+    ""
+
+  forgetOutboundDialLeg(inbound)
+
+  if (!outbound || outbound === inbound) {
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-cc-hangup-no-outbound-companion",
+        inboundCallControlId: inbound,
+        hadStateOutbound: Boolean(state?.outboundCallControlId),
+      })
+    )
+    return
+  }
+
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-hangup-companion-outbound",
+      inboundCallControlId: inbound,
+      outboundCallControlId: outbound,
+    })
+  )
+
+  // Await hangup so Vercel does not freeze the lambda before the Telnyx POST completes.
+  const hangupRes = await telnyxCallControlHangup(outbound)
+  if (!hangupRes.ok) {
+    console.error(
+      JSON.stringify({
+        zing: "telnyx-cc-hangup-companion-failed",
+        outboundCallControlId: outbound,
+        error: hangupRes.error,
+      })
+    )
+  }
+}
+
 async function handleCallHangup(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
   const state = event.clientState
   const inboundSid = resolveInboundCallLogSid(event)
+
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-hangup-received",
+      callControlId: event.callControlId,
+      inboundSid,
+      phase: state?.phase ?? null,
+      hangupCause: event.hangupCause,
+      isOutboundLeg: isOutboundDialLegEvent(event),
+      outboundFromState: state?.outboundCallControlId ?? null,
+    })
+  )
 
   if (
     state?.phase === "await_dial_end" &&
@@ -613,6 +714,7 @@ async function handleCallHangup(
       return
     }
 
+    forgetOutboundDialLeg(inboundCallControlId)
     await persistCallControlDialNoAnswer(inboundSid, event)
 
     const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
@@ -631,13 +733,30 @@ async function handleCallHangup(
     return
   }
 
-  if (isOutboundDialLegEvent(event)) return
+  // Outbound cell leg ended for another reason (answered then hung up, rejected, etc.).
+  if (isOutboundDialLegEvent(event)) {
+    const inboundCallControlId = state?.inboundCallControlId?.trim() || inboundSid
+    forgetOutboundDialLeg(inboundCallControlId)
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-cc-hangup-outbound-leg-done",
+        callControlId: event.callControlId,
+        inboundCallControlId,
+      })
+    )
+    return
+  }
 
+  // Caller hung up (inbound leg) — immediately terminate any still-ringing / bridged cell leg.
+  await hangupCompanionOutboundLeg(event.callControlId, state)
+
+  // Original semantics: inbound hangup with inboundCallControlId in state meant an outbound dial existed.
+  // After client_state_update, inbound hangups often carry phase await_dial_end + outboundCallControlId.
   const hadConversation =
-    Boolean(state?.inboundCallControlId) &&
     event.hangupCause === "normal_clearing" &&
     state?.phase !== "recording" &&
-    state?.phase !== "await_voicemail_prompt_end"
+    state?.phase !== "await_voicemail_prompt_end" &&
+    (Boolean(state?.inboundCallControlId) || state?.phase === "await_dial_end")
 
   await finalizeCallControlCallLog(inboundSid, event, {
     callType: state?.phase === "recording" ? "voicemail" : undefined,

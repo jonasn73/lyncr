@@ -15,6 +15,8 @@ export type TelnyxCallControlClientState = {
   callerE164: string
   /** Inbound caller leg — used to play voicemail after an outbound dial times out. */
   inboundCallControlId?: string
+  /** Outbound PSTN (cell) dial leg — hang this up when the caller disconnects. */
+  outboundCallControlId?: string
   dialTargetE164?: string
   ringTimeoutSec?: number
   fallbackType?: "voicemail" | "ai" | "owner"

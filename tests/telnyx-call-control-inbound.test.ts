@@ -376,4 +376,65 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(statusCall[1]).toBe("completed")
     expect(statusCall[2]).toBeGreaterThanOrEqual(590)
   })
+
+  it("call.hangup on inbound leg hangs up ringing outbound cell leg", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+    vi.doMock("@/lib/call-telemetry-realtime", () => ({
+      broadcastCallCompleted: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/carrier-credit-alerts", () => ({
+      evaluateLowCarrierCreditFromCallUsage: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/post-call-disposition-sms", () => ({
+      maybeSendPostCallDispositionSms: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/admin-override-dispatch-sms", () => ({
+      maybeSendAdminOverrideDispatchSms: vi.fn(() => Promise.resolve()),
+    }))
+
+    const { rememberOutboundDialLeg } = await import("@/lib/telnyx-call-control-leg-map")
+    rememberOutboundDialLeg("cc-in-phantom", "cc-out-cell")
+
+    const state = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15555571219",
+      callerE164: "+15026558745",
+      inboundCallControlId: "cc-in-phantom",
+      outboundCallControlId: "cc-out-cell",
+      dialTargetE164: "+15552602716",
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.hangup",
+        id: "evt-phantom",
+        occurred_at: "2026-06-27T17:30:00.000Z",
+        payload: {
+          call_control_id: "cc-in-phantom",
+          from: "+15026558745",
+          to: "+15025571219",
+          hangup_cause: "originator_cancel",
+          client_state: state,
+        },
+      },
+    })
+
+    const hangupUrls = fetchMock.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => u.includes("/actions/hangup"))
+    expect(hangupUrls.some((u) => u.includes("cc-out-cell"))).toBe(true)
+  })
 })

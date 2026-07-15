@@ -135,6 +135,49 @@ export async function telnyxCallControlHangup(callControlId: string): Promise<Te
   return postCallAction(callControlId, "hangup", {})
 }
 
+/**
+ * Persist client_state on a live leg so later webhooks (e.g. call.hangup) know the companion dial ID.
+ * Telnyx uses PUT …/actions/client_state_update (not POST).
+ */
+export async function telnyxCallControlClientStateUpdate(
+  callControlId: string,
+  clientState: string
+): Promise<TelnyxCallControlActionResult> {
+  const id = callControlId.trim()
+  if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-api-post",
+      action: "client_state_update",
+      callControlId: id,
+      apiKeyPrefix: String(process.env.TELNYX_API_KEY || "").slice(0, 12) || "(missing)",
+    })
+  )
+  const res = await fetch(`${TELNYX_CALLS_BASE}/${encodeURIComponent(id)}/actions/client_state_update`, {
+    method: "PUT",
+    headers: telnyxHeaders(),
+    body: JSON.stringify({ client_state: clientState }),
+  })
+  if (res.ok) {
+    console.log(JSON.stringify({ zing: "telnyx-cc-api-ok", action: "client_state_update", callControlId: id }))
+    return { ok: true }
+  }
+  const errBody = await res.json().catch(() => ({}))
+  const detail =
+    (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
+    JSON.stringify(errBody).slice(0, 240)
+  console.error(
+    JSON.stringify({
+      zing: "telnyx-cc-api-failed",
+      action: "client_state_update",
+      callControlId: id,
+      status: res.status,
+      error: detail || res.statusText,
+    })
+  )
+  return { ok: false, status: res.status, error: detail || res.statusText }
+}
+
 /** Park an inbound leg on hold (Call Control) — used for secondary-ring intercept. */
 export async function telnyxCallControlHold(callControlId: string): Promise<TelnyxCallControlActionResult> {
   return postCallAction(callControlId, "hold", {})
