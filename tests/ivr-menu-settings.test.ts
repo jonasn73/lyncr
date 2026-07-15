@@ -17,17 +17,18 @@ describe("ivr menu settings", () => {
 
   it("normalizes settings with Key Squad default greeting", () => {
     const settings = normalizeIvrMenuSettings({})
-    expect(settings.ivrGreetingText).toContain("Key Squad 5-0-2")
+    expect(settings.ivrGreetingText).toContain("Key Squad 502")
     expect(settings.ivrGreetingText).toContain("ring our phone")
     expect(settings.ivrOption1Action).toBe("sms_link")
     expect(settings.ivrOption2Action).toBe("ring_phone")
     expect(DEFAULT_IVR_GREETING_TEXT).toContain("Press 1")
   })
 
-  it("injects custom greeting into Gather TeXML", () => {
-    const custom = "Thanks for calling Key Squad 5-0-2. Press 1 now."
+  it("injects custom greeting into Gather TeXML with phonetic TTS", () => {
+    const custom = "Thanks for calling Key Squad 502. Press 1 now."
     const xml = buildTelnyxMenuGatherXml("https://lyncr.app/api/telnyx-menu", custom)
-    expect(xml).toContain(custom)
+    // Spoken XML uses five oh two; stored script stays 502.
+    expect(xml).toContain("Key Squad five oh two")
     expect(xml).toContain("<Gather")
     expect(xml).toContain('voice="alice"')
   })

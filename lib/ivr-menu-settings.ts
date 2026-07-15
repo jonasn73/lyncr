@@ -1,7 +1,7 @@
 // Traditional IVR menu settings — dashboard-controlled greeting + digit actions (no AI).
 
 export const DEFAULT_IVR_GREETING_TEXT =
-  "Thanks for calling Key Squad 5-0-2. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
+  "Thanks for calling Key Squad 502. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
 
 /** Supported keypress actions for Digits 1 / 2. */
 export type IvrMenuAction =

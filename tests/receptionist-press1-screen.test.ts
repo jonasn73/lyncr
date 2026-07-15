@@ -89,7 +89,8 @@ describe("buildReceptionistPress1ScreenTexml", () => {
     expect(xml).toContain('validDigits="1"')
     expect(xml).toContain('timeout="5"')
     expect(xml).toContain("Press 1 to accept this call")
-    expect(xml).toContain("Key Squad 502")
+    // Spoken phonetically; dashboard / DB still use Key Squad 502.
+    expect(xml).toContain("Key Squad five oh two")
   })
 
   it("returns empty response when press 1 accepted", () => {

@@ -1,6 +1,6 @@
 // Raw TeXML for the receptionist / owner "Press 1 to connect" screen (`<Number url="…">`).
 
-import { getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
+import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
 import { escapeXmlAttr } from "@/lib/telnyx-inbound-media-quality"
 
 function escapeXmlText(text: string): string {
@@ -15,8 +15,9 @@ export function buildReceptionistPress1ScreenTexml(
 ): string {
   const attrs = getTexmlSayVoiceAttributes()
   const safeAction = escapeXmlAttr(gateActionUrl)
-  const name = escapeXmlText(businessName.trim() || "your business")
-  const whisper = String(opts?.whisperPhrase ?? "").trim()
+  // Speak "five oh two" while the dashboard still stores "Key Squad 502".
+  const name = escapeXmlText(cleanTextForTTS(businessName.trim() || "your business"))
+  const whisper = cleanTextForTTS(String(opts?.whisperPhrase ?? "").trim())
   const whisperXml = whisper
     ? `<Say voice="${escapeXmlAttr(attrs.voice)}" language="${escapeXmlAttr(attrs.language)}">${escapeXmlText(whisper)}</Say>`
     : ""

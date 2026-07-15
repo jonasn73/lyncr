@@ -5865,7 +5865,6 @@ export async function createOrganizationForOwner(
 ): Promise<Organization> {
   const sql = getSql()
   // Normalize typos like "Key Squad 5o2" → "Key Squad 502" before insert.
-  const { normalizeWorkspaceDisplayName } = await import("@/lib/workspace-organizations")
   const trimmed = normalizeWorkspaceDisplayName(name)
   if (trimmed.length < 2) throw new Error("Business name must be at least 2 characters")
   const id = crypto.randomUUID()
@@ -5886,7 +5885,6 @@ export async function updateOrganizationNameForOwner(
   if (organizationId.startsWith("legacy-")) {
     throw new Error("This workspace cannot be renamed until multi-business migration is applied")
   }
-  const { normalizeWorkspaceDisplayName } = await import("@/lib/workspace-organizations")
   const trimmed = normalizeWorkspaceDisplayName(name)
   if (trimmed.length < 2) throw new Error("Business name must be at least 2 characters")
   const sql = getSql()

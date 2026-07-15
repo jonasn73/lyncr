@@ -4,10 +4,11 @@
 
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
+import { cleanTextForTTS } from "@/lib/texml-say-voice"
 
 /** Default Gather menu — Key Squad multi-step IVR. */
 export const TELNYX_MENU_PROMPT =
-  "Thanks for calling Key Squad 5-0-2. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
+  "Thanks for calling Key Squad 502. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
 
 /**
  * Spoken when the active line's presence_status is ON_JOB.
@@ -76,6 +77,11 @@ export function escapeTexmlText(value: string): string {
     .replace(/'/g, "&apos;")
 }
 
+/** Escape spoken <Say> text after phonetic TTS cleanup (502 → five oh two). */
+export function escapeTexmlSayText(value: string): string {
+  return escapeTexmlText(cleanTextForTTS(value))
+}
+
 /** Secure booking deep-link SMS body — prefers opaque /book/[id] tracking URLs. */
 export function buildTelnyxMenuBookingSms(
   fromE164: string,
@@ -99,7 +105,7 @@ export function buildTelnyxMenuBookingSms(
 
 /** Raw TeXML: polite hangup after SMS / reservation success. */
 export function buildTelnyxMenuSayHangupXml(sayText: string, voice = "alice"): string {
-  const safe = escapeTexmlText(sayText)
+  const safe = escapeTexmlSayText(sayText)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
@@ -133,7 +139,7 @@ export function buildTelnyxMenuGatherXml(
   voice = "alice"
 ): string {
   const safeAction = escapeTexmlText(actionUrl)
-  const safePrompt = escapeTexmlText(greetingText.trim() || TELNYX_MENU_PROMPT)
+  const safePrompt = escapeTexmlSayText(greetingText.trim() || TELNYX_MENU_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
@@ -177,7 +183,7 @@ export function buildTelnyxMenuBusyFallbackGatherXml(
   voice = "alice"
 ): string {
   const safeAction = escapeTexmlText(actionUrl)
-  const safePrompt = escapeTexmlText(prompt.trim() || TELNYX_MENU_BUSY_FALLBACK_PROMPT)
+  const safePrompt = escapeTexmlSayText(prompt.trim() || TELNYX_MENU_BUSY_FALLBACK_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +

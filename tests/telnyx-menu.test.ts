@@ -88,8 +88,9 @@ describe("telnyx menu IVR helpers", () => {
     expect(xml).toContain('action="https://lyncr.app/api/telnyx-menu"')
     expect(xml).toContain("Press 1")
     expect(xml).toContain("Press 2")
-    expect(xml).toContain("Key Squad 5-0-2")
+    expect(xml).toContain("Key Squad five oh two")
     expect(TELNYX_MENU_PROMPT).toContain("ring our phone")
+    expect(TELNYX_MENU_PROMPT).toContain("Key Squad 502")
   })
 
   it("resolves distinct Speak greetings for ON_JOB vs CLOSED presence", () => {

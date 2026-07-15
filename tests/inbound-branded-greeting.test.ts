@@ -49,7 +49,7 @@ describe("buildInboundCallerGreetingOnlyTexml", () => {
       continueUrl
     )
     expect(xml).toContain("<Say ")
-    expect(xml).toContain("Key Squad 502")
+    expect(xml).toContain("Key Squad five oh two")
     expect(xml).toContain("<Redirect")
     expect(xml).toContain(`${INBOUND_GREETING_PASS_PARAM}=1`)
     expect(xml).not.toContain("<Dial")

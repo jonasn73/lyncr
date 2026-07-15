@@ -12,6 +12,7 @@ import {
   TELNYX_MENU_CLOSED_PROMPT,
   TELNYX_MENU_ON_JOB_PROMPT,
 } from "@/lib/telnyx-menu"
+import { cleanTextForTTS } from "@/lib/texml-say-voice"
 
 export const INBOUND_CAPTURE_TIMEZONE = "America/New_York"
 
@@ -46,7 +47,7 @@ export function currentHourInTimeZone(
 
 /** Spoken night Gather — closed office + SMS default + emergency dial. */
 export const NIGHT_CAPTURE_PROMPT =
-  "Thanks for calling Key Squad 5-0-2. Our office is currently closed, but you can book your appointment right now on your phone. Press 1, or stay on the line, to receive an instant booking link via text message. If this is an absolute emergency, press 2 to ring our on-call line."
+  "Thanks for calling Key Squad 502. Our office is currently closed, but you can book your appointment right now on your phone. Press 1, or stay on the line, to receive an instant booking link via text message. If this is an absolute emergency, press 2 to ring our on-call line."
 
 /** Spoken after day Dial times out unanswered (Press 1 = SMS, Press 2 = hold queue). */
 export const DAY_BUSY_FALLBACK_PROMPT =
@@ -117,11 +118,16 @@ function escapeTexml(value: string): string {
     .replace(/'/g, "&apos;")
 }
 
+/** Escape spoken <Say> text after phonetic TTS cleanup (502 → five oh two). */
+function escapeTexmlSay(value: string): string {
+  return escapeTexml(cleanTextForTTS(value))
+}
+
 export function buildCaptureSayHangupXml(sayText: string, voice = "alice"): string {
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="${escapeTexml(voice)}">${escapeTexml(sayText)}</Say>` +
+    `<Say voice="${escapeTexml(voice)}">${escapeTexmlSay(sayText)}</Say>` +
     `<Hangup/>` +
     `</Response>`
   )
@@ -146,7 +152,7 @@ export function buildSmsDefaultGatherXml(
   numDigits = 1
 ): string {
   const safeAction = escapeTexml(actionUrl)
-  const safePrompt = escapeTexml(prompt.trim() || NIGHT_CAPTURE_PROMPT)
+  const safePrompt = escapeTexmlSay(prompt.trim() || NIGHT_CAPTURE_PROMPT)
   const digits = Math.max(1, Math.min(8, Math.floor(numDigits) || 1))
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
@@ -281,7 +287,7 @@ export function clampDayCaptureDialTimeoutSeconds(raw: number | null | undefined
 /** Day unanswered → busy Gather (1 = SMS, 2 = hold / voicemail). */
 export function buildDayBusyFallbackGatherXml(actionUrl: string, voice = "alice"): string {
   const safeAction = escapeTexml(actionUrl)
-  const safePrompt = escapeTexml(DAY_BUSY_FALLBACK_PROMPT)
+  const safePrompt = escapeTexmlSay(DAY_BUSY_FALLBACK_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
@@ -346,7 +352,7 @@ export function buildHoldQueueGatherXml(
 ): string {
   const prompt = buildHoldQueuePrompt(remainingMinutes)
   const safeAction = escapeTexml(actionUrl)
-  const safePrompt = escapeTexml(prompt)
+  const safePrompt = escapeTexmlSay(prompt)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
