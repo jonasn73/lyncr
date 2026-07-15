@@ -59,7 +59,9 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
     ? presenceDriven
       ? "Presence On-Job / Closed — calls skip your cell and hit automation first"
       : "Inbound calls → automated greeting + press 1 / press 2 menu"
-    : "Use Presence (top) for On-Job / Closed, or set the capacity threshold under Textback."
+    : presenceStatus === "AVAILABLE"
+      ? "Available — your cell rings first. Automation only runs if the call is unanswered."
+      : "Use Presence (top) for On-Job / Closed, or set the capacity threshold under Feedback."
   const valueClass = overflowActive
     ? presenceDriven
       ? "animate-pulse text-amber-300"
