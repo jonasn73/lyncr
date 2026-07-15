@@ -237,7 +237,15 @@ export function OrganizationSwitcher({
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error || "Could not rename business")
-      toast.success("Business renamed")
+      const savedName = String(j.data?.organization?.name ?? name).trim()
+      // Server keeps digit-zero "502" (not letter-o "5o2") so listings stay consistent.
+      if (savedName !== name) {
+        toast.success(
+          `Saved as “${savedName}”. Call greetings already say “five oh two” — you don’t need to change 0 to o.`
+        )
+      } else {
+        toast.success("Business renamed")
+      }
       setRenameTarget(null)
       const rows = Array.isArray(j.data?.organizations) ? j.data.organizations : null
       if (rows) applyOrganizations(rows)
@@ -452,7 +460,10 @@ export function OrganizationSwitcher({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Rename business</DialogTitle>
-            <DialogDescription>Update how this workspace appears in your dashboard.</DialogDescription>
+            <DialogDescription>
+              Update how this workspace appears in your dashboard. Call greetings automatically pronounce{" "}
+              <span className="whitespace-nowrap">502</span> as “five oh two” — keep the digit zero in the name.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <Label htmlFor="workspace-rename">Business name</Label>

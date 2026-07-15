@@ -1,6 +1,6 @@
 // Telnyx Call Control REST actions (answer → speak → dial → record).
 
-import { getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
+import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
 const TELNYX_CALLS_BASE = "https://api.telnyx.com/v2/calls"
@@ -64,8 +64,10 @@ export async function telnyxCallControlSpeak(
   clientState: string
 ): Promise<TelnyxCallControlActionResult> {
   const attrs = getTexmlSayVoiceAttributes()
+  // Phoneticize before Speak — DB stays "Key Squad 502", voice says "five oh two".
+  const spoken = cleanTextForTTS(text)
   return postCallAction(callControlId, "speak", {
-    payload: text,
+    payload: spoken,
     payload_type: "text",
     voice: attrs.voice,
     language: attrs.language,
