@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2, ChevronDown, MapPin, Phone, PhoneOff } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
-import { VehiclePlateLookupField } from "@/components/vehicle-plate-lookup-field"
+import { VehicleFastLookupField } from "@/components/vehicle-fast-lookup-field"
 import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
@@ -2128,16 +2128,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Vehicle year · make · model
                               </legend>
-                              <p className="text-[11px] text-primary/90">
-                                Tap year, then make, then model — we advance automatically to key specifics.
-                              </p>
-                              <VehiclePlateLookupField
+                              <VehicleFastLookupField
                                 plateNumber={form.plateNumber}
                                 plateState={form.plateState}
+                                vehicleVin={form.vehicleVin}
                                 onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
                                 onPlateStateChange={(plateState) => patchForm({ plateState })}
-                                onLookupSuccess={handlePlateLookupSuccess}
+                                onVinChange={(vehicleVin) => patchForm({ vehicleVin })}
+                                onPlateSuccess={handlePlateLookupSuccess}
+                                onVinSuccess={handleVehicleFromVin}
                               />
+                              <p className="text-[11px] text-muted-foreground">
+                                Or pick year, make, then model manually — we still advance to key specifics.
+                              </p>
                               <VehiclePickerCascade
                                 variant="sequential"
                                 value={{
@@ -2433,6 +2436,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <p className="text-[11px] text-primary/90">
                       Get the vehicle before the service address. Tap the customer&apos;s answers below.
                     </p>
+                    <VehicleFastLookupField
+                      plateNumber={form.plateNumber}
+                      plateState={form.plateState}
+                      vehicleVin={form.vehicleVin}
+                      onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
+                      onPlateStateChange={(plateState) => patchForm({ plateState })}
+                      onVinChange={(vehicleVin) => patchForm({ vehicleVin })}
+                      onPlateSuccess={handlePlateLookupSuccess}
+                      onVinSuccess={handleVehicleFromVin}
+                    />
                     <VehiclePickerCascade
                       value={{
                         vehicle_year: form.vehicleYear,
@@ -2440,13 +2453,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         vehicle_model: form.vehicleModel,
                       }}
                       onChange={setVehicle}
-                    />
-                    <VehiclePlateLookupField
-                      plateNumber={form.plateNumber}
-                      plateState={form.plateState}
-                      onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
-                      onPlateStateChange={(plateState) => patchForm({ plateState })}
-                      onLookupSuccess={applyPlateLookupResult}
                     />
                     <VehicleIntakeClarificationsPanel
                       year={form.vehicleYear}
