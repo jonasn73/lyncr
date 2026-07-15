@@ -2,6 +2,7 @@
 // Server-only — used by /api/vehicle/fcc-detail (not bundled to the client).
 
 import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
+import { isKeyReferenceCacheOnly } from "@/lib/key-reference-config"
 import { attachLocalBundledPhotos } from "@/lib/local-key-images"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -476,6 +477,9 @@ export type FccRemoteLookupResult = {
 }
 
 async function fetchFccidReplacementHtml(fccClean: string): Promise<string | null> {
+  // Never hit fccid.io when cache-only (default) — prevents production timeouts.
+  if (isKeyReferenceCacheOnly()) return null
+
   const pageUrl = `https://fccid.io/${encodeURIComponent(fccClean)}/Remote-Keyfob-Replacement`
   const userAgents = [
     "Mozilla/5.0 (compatible; lyncr-key-reference/1.1; +https://lyncr.app)",

@@ -2160,6 +2160,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 vehicleTrim={form.vehicleTrim}
                                 factoryOptions={form.factoryOptions}
                                 onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
+                                fccId={form.keyFccId || null}
                                 value={
                                   form.keyFccId
                                     ? {
@@ -2441,6 +2442,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       vehicleTrim={form.vehicleTrim}
                       factoryOptions={form.factoryOptions}
                       onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
+                      fccId={form.keyFccId || null}
                       value={
                         form.keyFccId
                           ? {

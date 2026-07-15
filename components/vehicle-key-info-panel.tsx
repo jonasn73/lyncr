@@ -2,7 +2,7 @@
 
 // Key / remote reference panel — FCC IDs grouped with photos and compatible vehicles per FCC.
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Check, ChevronDown, ExternalLink, Info, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -138,6 +138,11 @@ type VehicleKeyInfoPanelProps = {
   disabled?: boolean
   /** Step back to YMM vehicle picker when manual key lookup has no database match. */
   onBackToVehicleLookup?: () => void
+  /**
+   * Optional FCC ID from the parent intake ticket / draft.
+   * Seeds the FCC search field and runs an FCC-scoped lookup with Year/Make/Model.
+   */
+  fccId?: string | null
 }
 
 function variantCardModel(
@@ -182,7 +187,10 @@ function variantCardModel(
   }
 }
 
-function manualOptionCardModel(option: ManualKeyFrequencyOption): KeySelectionCardModel {
+function manualOptionCardModel(
+  option: ManualKeyFrequencyOption,
+  make: string | null
+): KeySelectionCardModel {
   return {
     id: option.id,
     label: option.label,
@@ -190,7 +198,8 @@ function manualOptionCardModel(option: ManualKeyFrequencyOption): KeySelectionCa
     imageUrl: option.imageUrl,
     programmingMethod: option.programmingMethod,
     tiSku: buildTransponderIslandSku({
-      make: null,
+      // Use the real vehicle make so SKUs are not generic (null → "UNK").
+      make,
       title: option.label,
       keyType: option.label,
       variantId: option.id,
@@ -669,7 +678,7 @@ function ManualFrequencyGrid({
         return (
           <KeySelectionCard
             key={option.id}
-            card={manualOptionCardModel(option)}
+            card={manualOptionCardModel(option, make)}
             selected={selected}
             disabled={disabled}
             onClick={() => onPick(option)}
@@ -692,19 +701,23 @@ export function VehicleKeyInfoPanel({
   onVehicleTrimChange,
   disabled,
   onBackToVehicleLookup,
+  fccId: fccIdProp = null,
 }: VehicleKeyInfoPanelProps) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
   const [error, setError] = useState(false)
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null)
-  const [fccSearchInput, setFccSearchInput] = useState("")
-  const [activeFccQuery, setActiveFccQuery] = useState("")
+  const seededFcc = sanitizeFccIdInput(fccIdProp ?? "")
+  const [fccSearchInput, setFccSearchInput] = useState(() => seededFcc)
+  const [activeFccQuery, setActiveFccQuery] = useState(() => seededFcc)
   const [lookupSource, setLookupSource] = useState<"fcc" | "ymm" | "ymm_fallback" | null>(null)
   const [manualBypassMode, setManualBypassMode] = useState(false)
-  const [fccSearchExpanded, setFccSearchExpanded] = useState(false)
   const [fccSearchFeedback, setFccSearchFeedback] = useState<string | null>(null)
   const [expandedSecondaryFcc, setExpandedSecondaryFcc] = useState<Set<string>>(new Set())
   const [isAllKeysLost, setIsAllKeysLost] = useState(false)
+  // Keep latest ticket FCC without re-running YMM reset when selection writes keyFccId back.
+  const fccIdPropRef = useRef(fccIdProp)
+  fccIdPropRef.current = fccIdProp
 
   const trimProfile = useMemo<VehicleTrimProfile>(
     () => ({
@@ -733,14 +746,23 @@ export function VehicleKeyInfoPanel({
 
   useEffect(() => {
     setSelectedKeyId(null)
-    setFccSearchInput("")
-    setActiveFccQuery("")
     setManualBypassMode(false)
-    setFccSearchExpanded(false)
     setFccSearchFeedback(null)
     setLookupSource(null)
     setExpandedSecondaryFcc(new Set())
+    // Re-seed FCC from the parent ticket when YMM changes (alongside standard lookup).
+    const seeded = sanitizeFccIdInput(fccIdPropRef.current ?? "")
+    setFccSearchInput(seeded)
+    setActiveFccQuery(seeded)
   }, [year, make, model])
+
+  // If the parent later provides a ticket FCC (draft hydrate / rescue) and we have not searched yet, apply it.
+  useEffect(() => {
+    const seeded = sanitizeFccIdInput(fccIdProp ?? "")
+    if (!seeded) return
+    setFccSearchInput((prev) => prev || seeded)
+    setActiveFccQuery((prev) => prev || seeded)
+  }, [fccIdProp])
 
   useEffect(() => {
     setSelectedKeyId(value?.variantId ?? null)
@@ -787,7 +809,6 @@ export function VehicleKeyInfoPanel({
                 ? `No FCC database match for ${sanitizedFcc}. MYKEYS Pro cards below use FCC ${mkpProfile.fccId}.`
                 : `No FCC database match for ${sanitizedFcc}. Pick the closest key type below.`
             )
-            setFccSearchExpanded(true)
           }
           onChange(null)
           return
@@ -914,36 +935,25 @@ export function VehicleKeyInfoPanel({
             <p className="text-[11px] text-muted-foreground">
               MYKEYS Pro profile loaded — pick the key that matches the customer fob.
             </p>
-            {!fccSearchExpanded ? (
-              <button
-                type="button"
+            <div className="grid gap-2 rounded-lg border border-border/50 bg-background/40 p-2">
+              <FccSearchField
+                value={fccSearchInput}
                 disabled={disabled}
-                onClick={() => setFccSearchExpanded(true)}
-                className="text-left text-[11px] font-semibold text-primary underline-offset-2 hover:underline disabled:opacity-40"
-              >
-                Customer has a different FCC ID? Look it up
-              </button>
-            ) : (
-              <div className="grid gap-2 rounded-lg border border-border/50 bg-background/40 p-2">
-                <FccSearchField
-                  value={fccSearchInput}
-                  disabled={disabled}
-                  onChange={setFccSearchInput}
-                  onSearch={runFccSearch}
-                  hint={`MYKEYS expects FCC ${mkpProfile.fccId} for this ${make} ${model}.`}
-                />
-                {fccSearchFeedback ? (
-                  <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
-                    {fccSearchFeedback}
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground">
-                    A match loads real FCC photos from our database. If nothing matches, keep using the MYKEYS cards
-                    below.
-                  </p>
-                )}
-              </div>
-            )}
+                onChange={setFccSearchInput}
+                onSearch={runFccSearch}
+                hint={`MYKEYS expects FCC ${mkpProfile.fccId} for this ${make} ${model}.`}
+              />
+              {fccSearchFeedback ? (
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+                  {fccSearchFeedback}
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  A match loads real FCC photos from our database. If nothing matches, keep using the MYKEYS cards
+                  below.
+                </p>
+              )}
+            </div>
           </>
         ) : (
           <>

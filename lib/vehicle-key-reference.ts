@@ -221,7 +221,8 @@ function profilesWithFuzzyModel(year: number, makeRaw: string, modelRaw: string)
 function dedupeProfiles(profiles: VehicleKeyProfile[]): VehicleKeyProfile[] {
   const deduped = new Map<string, VehicleKeyProfile>()
   for (const p of profiles) {
-    const key = `${p.fcc_id}|${p.frequency ?? ""}|${p.chipset ?? ""}`
+    // Include year/make/model so the same FCC key on different vehicles is kept.
+    const key = `${p.year}|${p.make}|${p.model}|${p.fcc_id}|${p.frequency ?? ""}|${p.chipset ?? ""}`
     if (!deduped.has(key)) deduped.set(key, p)
   }
   return [...deduped.values()]

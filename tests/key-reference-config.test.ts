@@ -9,9 +9,9 @@ describe("isKeyReferenceCacheOnly", () => {
     else process.env.KEY_REFERENCE_CACHE_ONLY = prev
   })
 
-  it("is false by default", () => {
+  it("defaults to true when env is unset (safe cache-only)", () => {
     delete process.env.KEY_REFERENCE_CACHE_ONLY
-    expect(isKeyReferenceCacheOnly()).toBe(false)
+    expect(isKeyReferenceCacheOnly()).toBe(true)
   })
 
   it("is true when env is true or 1", () => {
@@ -19,5 +19,14 @@ describe("isKeyReferenceCacheOnly", () => {
     expect(isKeyReferenceCacheOnly()).toBe(true)
     process.env.KEY_REFERENCE_CACHE_ONLY = "1"
     expect(isKeyReferenceCacheOnly()).toBe(true)
+  })
+
+  it("is false only when explicitly opted out", () => {
+    process.env.KEY_REFERENCE_CACHE_ONLY = "false"
+    expect(isKeyReferenceCacheOnly()).toBe(false)
+    process.env.KEY_REFERENCE_CACHE_ONLY = "0"
+    expect(isKeyReferenceCacheOnly()).toBe(false)
+    process.env.KEY_REFERENCE_CACHE_ONLY = "off"
+    expect(isKeyReferenceCacheOnly()).toBe(false)
   })
 })
