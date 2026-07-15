@@ -3,7 +3,7 @@
 import {
   isVolvoInsertFobikVehicle,
   MANUAL_KEY_FREQUENCY_OPTIONS,
-  VOLVO_FOBIK_5B_OPTION,
+  VOLVO_KEY_VOL_05_OPTIONS,
   type ManualKeyFrequencyOption,
 } from "@/lib/fcc-id-input"
 
@@ -104,7 +104,7 @@ function mykeysRowToOption(
 /**
  * Key cards for manual / MKP fallback — vehicle-specific when the mock DB has a match,
  * otherwise the generic three-option regional list.
- * Classic Volvo insert-start models also get the 5-button Fobik card first.
+ * Classic Volvo models get KEY-VOL-05 prox + insert-to-start cards first.
  */
 export function mykeysProKeyOptions(make: string, model: string): ManualKeyFrequencyOption[] {
   const profile = lookupMykeysProProfile(make, model)
@@ -114,9 +114,10 @@ export function mykeysProKeyOptions(make: string, model: string): ManualKeyFrequ
 
   if (!isVolvoInsertFobikVehicle(make, model)) return base
 
-  // Put the Volvo Fobik first; drop a duplicate if MKP somehow reused the same id.
+  const volvoIds = new Set(VOLVO_KEY_VOL_05_OPTIONS.map((option) => option.id))
+  // Put both KEY-VOL-05 variants first; drop duplicates if MKP reused the same ids.
   return [
-    VOLVO_FOBIK_5B_OPTION,
-    ...base.filter((option) => option.id !== VOLVO_FOBIK_5B_OPTION.id),
+    ...VOLVO_KEY_VOL_05_OPTIONS,
+    ...base.filter((option) => !volvoIds.has(option.id)),
   ]
 }

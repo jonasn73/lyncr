@@ -12,6 +12,7 @@ import {
 } from "@/lib/mykeys-pro-database"
 import {
   isVolvoInsertFobikVehicle,
+  isVolvoKeyVol05OptionId,
   sanitizeFccIdInput,
   type ManualKeyFrequencyOption,
 } from "@/lib/fcc-id-input"
@@ -219,23 +220,28 @@ function manualOptionCardModel(
   option: ManualKeyFrequencyOption,
   make: string | null
 ): KeySelectionCardModel {
+  const specs: Array<{ label: string; value: string }> = []
+  if (option.description) specs.push({ label: "Spec", value: option.description })
+  if (option.supplierSku) specs.push({ label: "Supplier SKU", value: option.supplierSku })
+  if (option.fccId) specs.push({ label: "FCC ID", value: option.fccId })
+
   return {
     id: option.id,
     label: option.label,
     description: option.description,
     imageUrl: option.imageUrl,
     programmingMethod: option.programmingMethod,
-    tiSku: buildTransponderIslandSku({
-      // Use the real vehicle make so SKUs are not generic (null → "UNK").
-      make,
-      title: option.label,
-      keyType: option.label,
-      variantId: option.id,
-    }),
-    specs: option.description
-      ? [{ label: "Spec", value: option.description }]
-      : undefined,
-    fccFootnote: null,
+    // Prefer the real catalog SKU (KEY-VOL-05-PROX) over the generated TI mock code.
+    tiSku: option.catalogSku
+      ? `TI-SKU: ${option.catalogSku}`
+      : buildTransponderIslandSku({
+          make,
+          title: option.label,
+          keyType: option.label,
+          variantId: option.id,
+        }),
+    specs: specs.length > 0 ? specs : undefined,
+    fccFootnote: option.fccId ? `FCC ${option.fccId}` : null,
   }
 }
 
@@ -249,17 +255,25 @@ function classifyKeyIllustration(
   model?: string | null
 ): KeyIllustrationKind {
   const blob = `${label} ${variantId ?? ""}`.toLowerCase()
-  // Explicit Fobik option id / label.
+  // KEY-VOL-05 insert-to-start / legacy Fobik id → Volvo Fobik silhouette.
   if (
+    variantId === "KEY-VOL-05-NONPROX" ||
     variantId === "volvo-fobik-5b" ||
-    /volvo.*fobik|fobik.*5|5.?button.?fobik|insert.?and.?start/.test(blob)
+    /insert.?to.?start|nonprox|volvo.*fobik|fobik.*5|5.?button.?fobik/.test(blob)
   ) {
     return "volvo_fobik"
   }
-  if (/proximity|smart\s*key|push.?start|\bprox\b/.test(blob)) return "proximity"
+  // KEY-VOL-05 smart proximity → rectangular prox fob sample.
+  if (
+    variantId === "KEY-VOL-05-PROX" ||
+    (isVolvoKeyVol05OptionId(variantId) && /prox/.test(blob)) ||
+    /proximity|smart\s*key|push.?start|\bprox\b/.test(blob)
+  ) {
+    return "proximity"
+  }
   if (/high.?security|edge.?cut|laser|flip.?blade|mechanical|blade\b/.test(blob)) return "high_security"
   if (/transponder|remote.?head|315|433|standard/.test(blob)) return "transponder"
-  // Classic Volvo insert-start models in bypass: default sample to the Fobik shape.
+  // Classic Volvo KEY-VOL-05 models in bypass: default sample to the insert Fobik.
   if (make && model && isVolvoInsertFobikVehicle(make, model)) return "volvo_fobik"
   return "transponder"
 }

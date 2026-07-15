@@ -17,26 +17,65 @@ export type ManualKeyFrequencyOption = {
   imageUrl: string | null
   /** FCC id from a MYKEYS Pro vehicle profile (manual MKP picks only). */
   fccId?: string | null
+  /** Catalog SKU shown on the intake card (e.g. KEY-VOL-05-PROX). */
+  catalogSku?: string | null
+  /** Supplier / ordering SKU (e.g. TIK-VOL-13N). */
+  supplierSku?: string | null
 }
 
 /**
- * Classic Volvo insert-and-start dashboard Fobik (C30 / S40 / V50 / C70 era).
- * Shown in manual bypass for those models — not in the generic regional list.
+ * Volvo KEY-VOL-05 split into true chip variants (was a single generic KEY-VOL-05).
+ * Shown in manual bypass for classic Volvo models — not in the generic regional list.
  */
-export const VOLVO_FOBIK_5B_OPTION: ManualKeyFrequencyOption = {
-  id: "volvo-fobik-5b",
-  label: "Volvo 5-Button Fobik Key",
-  keyStyle: "Remote head key",
+export const VOLVO_KEY_VOL_05_PROX: ManualKeyFrequencyOption = {
+  id: "KEY-VOL-05-PROX",
+  label: "Volvo 5-Button Smart Proximity Key",
+  keyStyle: "Push start (smart key)",
   frequency: "315",
-  description: "Insert-and-start dashboard fobik key",
+  description: "Smart proximity / push-start 5-button fob",
   programmingMethod: "OBD2 PROGRAMMING REQUIRED",
   imageUrl: null,
+  fccId: "KR55WK49250",
+  catalogSku: "KEY-VOL-05-PROX",
+  supplierSku: "TIK-VOL-13N",
 }
 
-/** Models that commonly use the 5-button insert Fobik (manual bypass + SVG sample). */
+export const VOLVO_KEY_VOL_05_NONPROX: ManualKeyFrequencyOption = {
+  id: "KEY-VOL-05-NONPROX",
+  label: "Volvo 5-Button Insert-to-Start Key",
+  keyStyle: "Remote head key",
+  frequency: "315",
+  description: "Insert-to-start dashboard fobik key",
+  programmingMethod: "OBD2 PROGRAMMING REQUIRED",
+  imageUrl: null,
+  fccId: "KR55WK49259",
+  catalogSku: "KEY-VOL-05-NONPROX",
+  supplierSku: "TIK-VOL-19N",
+}
+
+/** Both KEY-VOL-05 child options (prox first, then insert-to-start). */
+export const VOLVO_KEY_VOL_05_OPTIONS: readonly ManualKeyFrequencyOption[] = [
+  VOLVO_KEY_VOL_05_PROX,
+  VOLVO_KEY_VOL_05_NONPROX,
+]
+
+/** @deprecated Use VOLVO_KEY_VOL_05_NONPROX — kept for any leftover id checks. */
+export const VOLVO_FOBIK_5B_OPTION = VOLVO_KEY_VOL_05_NONPROX
+
+const VOLVO_KEY_VOL_05_IDS = new Set(
+  VOLVO_KEY_VOL_05_OPTIONS.map((option) => option.id)
+)
+
+/** True when this option id is one of the KEY-VOL-05 child SKUs. */
+export function isVolvoKeyVol05OptionId(id: string | null | undefined): boolean {
+  if (!id) return false
+  return VOLVO_KEY_VOL_05_IDS.has(id) || id === "volvo-fobik-5b"
+}
+
+/** Models that commonly use the KEY-VOL-05 5-button family (manual bypass + SVG sample). */
 const VOLVO_INSERT_FOBIK_MODELS = new Set(["c30", "s40", "v50", "c70"])
 
-/** True when this YMM should offer / illustrate the Volvo 5-button Fobik. */
+/** True when this YMM should offer the KEY-VOL-05 prox / non-prox pair. */
 export function isVolvoInsertFobikVehicle(make: string, model: string): boolean {
   if (make.trim().toLowerCase() !== "volvo") return false
   const normalizedModel = model.trim().toLowerCase().replace(/\s+/g, "")
