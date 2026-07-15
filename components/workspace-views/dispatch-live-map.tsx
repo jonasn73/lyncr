@@ -552,6 +552,11 @@ export function DispatchLiveMap({
           </button>
           <button
             type="button"
+            data-return-to-intake=""
+            onPointerDown={(e) => {
+              // Keep the click; only block bubble so Sheet outside listeners ignore this press.
+              e.stopPropagation()
+            }}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()

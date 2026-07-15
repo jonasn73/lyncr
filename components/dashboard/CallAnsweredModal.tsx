@@ -344,6 +344,40 @@ function phoneDigitsKey(raw: string | null | undefined): string {
   return digits
 }
 
+/**
+ * True when focus is in an input/textarea/select that is NOT the address autocomplete.
+ * Live GPS must not overwrite or steal caret from name, phone, notes, etc.
+ */
+function isFocusedOnNonAddressField(): boolean {
+  if (typeof document === "undefined") return false
+  const el = document.activeElement
+  if (!el || !(el instanceof HTMLElement)) return false
+  // Address search uses data-intake-primary-search — exclude it from "elsewhere".
+  if (el.hasAttribute("data-intake-primary-search")) return false
+  const tag = el.tagName
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true
+  if (el.isContentEditable) return true
+  return false
+}
+
+/** True when the caret is in the service-address autocomplete box. */
+function isFocusedOnAddressSearch(): boolean {
+  if (typeof document === "undefined") return false
+  const el = document.activeElement
+  return Boolean(el instanceof HTMLElement && el.hasAttribute("data-intake-primary-search"))
+}
+
+/**
+ * Skip applying live GPS when the operator is typing elsewhere, editing the
+ * address field, or has already entered an address manually.
+ */
+function shouldSkipLiveGpsAddressUpdate(addressManuallyEdited: boolean): boolean {
+  if (addressManuallyEdited) return true
+  if (isFocusedOnNonAddressField()) return true
+  if (isFocusedOnAddressSearch()) return true
+  return false
+}
+
 function showCallRow(
   setCurrent: Dispatch<SetStateAction<ActiveCallRow | null>>,
   row: ActiveCallRow,
@@ -467,11 +501,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [isMinimized, setIsMinimized] = useState(false)
   const isMinimizedRef = useRef(false)
   isMinimizedRef.current = isMinimized
-  // Blocks Sheet onOpenChange(false) while we intentionally re-open after Map return / PiP expand.
+  // Blocks Sheet onOpenChange(false) while we intentionally re-open (PiP expand).
   const suppressSheetDismissRef = useRef(false)
   const suppressSheetDismissTimerRef = useRef<number | null>(null)
   // Tab to restore when leaving Map (set in viewOnMapLayout).
   const intakeReturnTabRef = useRef<PageId>("dashboard")
+  // Expand intake only after setActiveTab has updated activeTab (no setTimeout reopen).
+  const pendingExpandAfterTabRef = useRef<PageId | null>(null)
   const [secondaryIncoming, setSecondaryIncoming] = useState<SecondaryIncomingLeg | null>(null)
   const [lostLeadState, setLostLeadState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [lostLeadError, setLostLeadError] = useState<string | null>(null)
@@ -490,6 +526,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
+  // Cancels stale live-GPS reverse-geocode when a newer ping arrives.
+  const geocodeAbortControllerRef = useRef<AbortController | null>(null)
+  // Once the operator types/picks an address, live GPS must not clobber it.
+  const addressManuallyEditedRef = useRef(false)
   const { activeOrganizationId, activeTab, setActiveTab } = useDashboardWorkspace()
   const lyncEngine = useLyncEngineOptional()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
@@ -633,6 +673,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setRescueMeta(null)
     setGpsRequestState("idle")
     setDraftRestoredFlash(false)
+    // New call — allow live GPS to fill address until the operator edits it.
+    addressManuallyEditedRef.current = false
   }, [effectiveCurrent?.id])
 
   // When rescue metadata arrives (hydrate or live), autofill name / vehicle into the form.
@@ -1091,6 +1133,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const lat = Number(raw.latitude)
       const lng = Number(raw.longitude)
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      // Do not clobber address while typing elsewhere, in the address box, or after a manual edit.
+      if (shouldSkipLiveGpsAddressUpdate(addressManuallyEditedRef.current)) return
       const formatted =
         (raw.formatted_address != null ? String(raw.formatted_address).trim() : "") ||
         `Live GPS ${lat.toFixed(5)}, ${lng.toFixed(5)}`
@@ -1105,13 +1149,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         lng,
       })
       // Best-effort reverse lookup to fill street/city/ZIP into the address field.
+      geocodeAbortControllerRef.current?.abort()
+      const controller = new AbortController()
+      geocodeAbortControllerRef.current = controller
       void fetch(
-        `/api/geocode/autocomplete?q=${encodeURIComponent(`${lat},${lng}`)}`
+        `/api/geocode/autocomplete?q=${encodeURIComponent(`${lat},${lng}`)}`,
+        { signal: controller.signal }
       )
         .then((r) => (r.ok ? r.json() : null))
         .then((data: { suggestions?: Array<{ formatted?: string; street_number?: string; route?: string; locality?: string; postal_code?: string; admin_area?: string; lat?: number; lng?: number }> } | null) => {
+          if (controller.signal.aborted) return
           const s = data?.suggestions?.[0]
           if (!s?.formatted) return
+          // Reverse geocode can finish after they started typing or locked an address.
+          if (shouldSkipLiveGpsAddressUpdate(addressManuallyEditedRef.current)) return
           setServiceAddressRef.current({
             formatted: s.formatted,
             street_number: s.street_number || "",
@@ -1122,10 +1173,25 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             lat: s.lat ?? lat,
             lng: s.lng ?? lng,
           })
-          window.setTimeout(() => addressSearchRef.current?.focus(), 50)
+          window.setTimeout(() => {
+            // Only nudge focus when still idle (not typing elsewhere / in address / locked).
+            if (shouldSkipLiveGpsAddressUpdate(addressManuallyEditedRef.current)) return
+            addressSearchRef.current?.focus()
+          }, 50)
         })
-        .catch(() => {
-          window.setTimeout(() => addressSearchRef.current?.focus(), 50)
+        .catch((err: unknown) => {
+          // Stale GPS ping cancelled — ignore AbortError.
+          // Never call .focus() here — a failed geocode must not steal the caret.
+          if (
+            controller.signal.aborted ||
+            (err instanceof DOMException && err.name === "AbortError") ||
+            (typeof err === "object" &&
+              err !== null &&
+              "name" in err &&
+              (err as { name: string }).name === "AbortError")
+          ) {
+            return
+          }
         })
     }
 
@@ -1293,6 +1359,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [ownerUserId]
   )
 
+  /** Same queue advance the X dismiss uses — ringing first, then next answered leg. */
+  const advanceToNextQueuedCall = useCallback((closedId: string) => {
+    void fetchFirstUnseenRingingCall(dismissedRef.current).then((ringing) => {
+      if (ringing) {
+        showCallRow(setCurrent, ringing, dismissedRef.current)
+        return
+      }
+      void fetchFirstUnseenAnsweredCall(dismissedRef.current).then((row) => {
+        if (!row || row.id === closedId) return
+        showCallRow(setCurrent, row, dismissedRef.current)
+      })
+    })
+  }, [])
+
   const dismissOnly = useCallback(() => {
     setIsMinimized(false)
     setSecondaryIncoming(null)
@@ -1306,17 +1386,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dismissCallIntake(current)
     const closedId = current.id
     setCurrent(null)
-    void fetchFirstUnseenRingingCall(dismissedRef.current).then((ringing) => {
-      if (ringing) {
-        showCallRow(setCurrent, ringing, dismissedRef.current)
-        return
-      }
-      void fetchFirstUnseenAnsweredCall(dismissedRef.current).then((row) => {
-        if (!row || row.id === closedId) return
-        showCallRow(setCurrent, row, dismissedRef.current)
-      })
-    })
-  }, [current, dismissCallIntake, manualCallRow, clearManualCallRow])
+    advanceToNextQueuedCall(closedId)
+  }, [advanceToNextQueuedCall, current, dismissCallIntake, manualCallRow, clearManualCallRow])
 
   const clearDraftForCurrentCaller = useCallback(() => {
     const phone = (form.phoneNumber.trim() || effectiveCurrent?.from_number || "").trim()
@@ -1347,17 +1418,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dismissOnly()
   }, [clearDraftForCurrentCaller, dismissOnly, resetIntakeUiState])
 
+  /**
+   * After a successful book / save / dispatch — same close + queue advance as the X button
+   * so the next ringing/answered leg opens immediately.
+   */
   const closeIntakeAfterSave = useCallback(() => {
     clearDraftForCurrentCaller()
-    if (manualCallRow) {
-      clearManualCallRow()
-      return
-    }
-    if (current) {
-      dismissCallIntake(current)
-      setCurrent(null)
-    }
-  }, [clearDraftForCurrentCaller, clearManualCallRow, current, dismissCallIntake, manualCallRow])
+    resetIntakeUiState()
+    dismissOnly()
+  }, [clearDraftForCurrentCaller, dismissOnly, resetIntakeUiState])
 
   const confirmAndBook = useCallback(async () => {
     if (!effectiveCurrent) return
@@ -1598,9 +1667,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const handleManualAddressChange = useCallback(
     (addr: StructuredAddress | null) => {
+      // Operator picked or cleared via autocomplete — lock out further live-GPS overwrites.
+      addressManuallyEditedRef.current = true
       setServiceAddress(addr)
     },
     [setServiceAddress]
+  )
+
+  const handleAddressQueryCommit = useCallback(
+    (query: string) => {
+      // Free-typed / pasted address on blur — treat as a manual entry.
+      addressManuallyEditedRef.current = true
+      commitAddressQuery(query)
+    },
+    [commitAddressQuery]
   )
 
   const goBackManualWorkflow = useCallback(
@@ -1678,7 +1758,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   }, [effectiveCurrent?.id, currentStep, stepIntake, focusIntakePrimaryField])
 
   const armSheetDismissSuppress = useCallback((ms = 500) => {
-    // Ignore Radix "close" from the same click that asked us to re-open.
+    // Ignore Radix "close" from the same click that asked us to re-open (PiP tray).
     suppressSheetDismissRef.current = true
     if (suppressSheetDismissTimerRef.current) {
       window.clearTimeout(suppressSheetDismissTimerRef.current)
@@ -1695,27 +1775,44 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   }, [])
 
   const expandIntake = useCallback(() => {
-    // Force the intake sheet back open (map "Return to Intake Form" + PiP tray).
+    // PiP tray expand — same-click outside dismiss still needs a short suppress.
     armSheetDismissSuppress()
     isMinimizedRef.current = false
     setIsMinimized(false)
   }, [armSheetDismissSuppress])
 
-  /** Leave Map, restore prior tab, and re-open the intake drawer without wiping form state. */
+  /** Open the sheet once routing has left Map (activeTab matches the restore target). */
+  const expandIntakeAfterTabReady = useCallback(() => {
+    pendingExpandAfterTabRef.current = null
+    isMinimizedRef.current = false
+    setIsMinimized(false)
+  }, [])
+
+  /**
+   * Leave Map, restore prior tab, then re-open intake.
+   * Sheet open is driven by activeTab — not setTimeout / rAF — so routing and dismiss stay decoupled.
+   */
   const returnToIntakeFromMap = useCallback(() => {
-    armSheetDismissSuppress(600)
-    // Switch off Map first so the sheet opens over the booking workspace.
-    setActiveTab(intakeReturnTabRef.current || "dashboard")
-    // Defer expand so the map button's click does not count as Sheet "outside" dismiss.
-    window.setTimeout(() => {
-      isMinimizedRef.current = false
-      setIsMinimized(false)
-      window.requestAnimationFrame(() => {
-        isMinimizedRef.current = false
-        setIsMinimized(false)
-      })
-    }, 0)
-  }, [armSheetDismissSuppress, setActiveTab])
+    const target = intakeReturnTabRef.current || "dashboard"
+    // Already on the restore tab — open immediately (no navigation race).
+    if (activeTab === target) {
+      expandIntakeAfterTabReady()
+      return
+    }
+    // Stay minimized until the URL/tab switch lands, then expand in the effect below.
+    pendingExpandAfterTabRef.current = target
+    isMinimizedRef.current = true
+    setIsMinimized(true)
+    setActiveTab(target)
+  }, [activeTab, expandIntakeAfterTabReady, setActiveTab])
+
+  // When router/presence updates activeTab to the pending restore tab, open the sheet.
+  useEffect(() => {
+    const pending = pendingExpandAfterTabRef.current
+    if (!pending) return
+    if (activeTab !== pending) return
+    expandIntakeAfterTabReady()
+  }, [activeTab, expandIntakeAfterTabReady])
 
   // Map overlay "← Return to Intake Form" — must register even when sheet is minimized.
   useEffect(() => {
@@ -1750,6 +1847,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
     // Remember the tab we left so Return can restore it (usually Routing).
     intakeReturnTabRef.current = activeTab === "contacts" ? "dashboard" : activeTab
+    // Cancel any in-flight return expand so Map navigation wins.
+    pendingExpandAfterTabRef.current = null
     minimizeIntake()
     emitFocusDispatchMap({
       lat,
@@ -1827,11 +1926,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             return
           }
           const target = e.target as HTMLElement | null
+          // Map "Return to Intake Form" — never treat that control as an outside dismiss.
+          if (target?.closest("[data-return-to-intake]")) {
+            e.preventDefault()
+            return
+          }
           if (target?.closest("[data-address-suggestions]")) e.preventDefault()
         }}
         onInteractOutside={(e) => {
-          // Same guard: map return click must not immediately close the reopened sheet.
-          if (suppressSheetDismissRef.current) e.preventDefault()
+          if (suppressSheetDismissRef.current) {
+            e.preventDefault()
+            return
+          }
+          const target = e.target as HTMLElement | null
+          if (target?.closest("[data-return-to-intake]")) e.preventDefault()
         }}
       >
         {effectiveCurrent ? (
@@ -1923,7 +2031,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           className={cn(
                             MANUAL_STEP_SCROLL,
                             "relative z-10",
-                            currentStep === "KEY_SPECIFICS" && "pb-32"
+                            // Extra bottom space so sticky footer does not cover model chips / key options.
+                            (currentStep === "KEY_SPECIFICS" || currentStep === "VEHICLE_INFO") &&
+                              "pb-32"
                           )}
                         >
                           {currentStep === "SERVICE_SELECT" ? (
@@ -2119,7 +2229,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   ref={addressSearchRef}
                                   value={form.serviceAddress}
                                   onChange={handleManualAddressChange}
-                                  onQueryCommit={commitAddressQuery}
+                                  onQueryCommit={handleAddressQueryCommit}
                                   seedQuery={addressSeedQuery}
                                   placeholder="Start typing street address…"
                                 />
@@ -2360,8 +2470,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <JobAddressAutocomplete
                       ref={addressSearchRef}
                       value={form.serviceAddress}
-                      onChange={setServiceAddress}
-                      onQueryCommit={commitAddressQuery}
+                      onChange={handleManualAddressChange}
+                      onQueryCommit={handleAddressQueryCommit}
                       seedQuery={addressSeedQuery}
                       placeholder="Start typing street address…"
                     />
@@ -2852,10 +2962,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           variant="outline"
                           size="lg"
                           className="h-11 w-full"
-                          onClick={() => {
-                            clearDraftForCurrentCaller()
-                            dismissOnly()
-                          }}
+                          onClick={dismissWithDraftClear}
                         >
                           Done
                         </Button>

@@ -2,7 +2,7 @@
 
 // Year → Make → Model picker (NHTSA vPIC catalog) — dropdown or sequential tap chips.
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2 } from "lucide-react"
 import { vehicleYearOptions } from "@/lib/nhtsa-vpic"
@@ -221,10 +221,22 @@ function VehiclePickerSequential({
   loadingModels: boolean
 }) {
   const [activePicker, setActivePicker] = useState<ActivePicker>(() => activePickerFromValue(value))
+  const optionsListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setActivePicker(activePickerFromValue(value))
   }, [value.vehicle_year, value.vehicle_make, value.vehicle_model])
+
+  // When make → model advances, bring the full model list into the parent scroll view.
+  useEffect(() => {
+    if (activePicker !== "model") return
+    if (loadingModels || models.length === 0) return
+    const el = optionsListRef.current
+    if (!el) return
+    window.requestAnimationFrame(() => {
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    })
+  }, [activePicker, loadingModels, models.length])
 
   const handleYearSelect = (year: string) => {
     onChange({ vehicle_year: year, vehicle_make: "", vehicle_model: "" })
@@ -309,7 +321,12 @@ function VehiclePickerSequential({
                   : "No years available."}
             </p>
           ) : (
-            <div className="grid max-h-56 grid-cols-2 gap-3 overflow-y-auto overscroll-y-contain pr-0.5 sm:grid-cols-3">
+            // No nested max-height scroll — parent intake sheet owns scrolling so the
+            // last model chips are reachable (nested overflow often truncates on mobile).
+            <div
+              ref={optionsListRef}
+              className="grid grid-cols-2 gap-3 pb-2 pr-0.5 sm:grid-cols-3"
+            >
               {pickerOptions.map((option) => {
                 const selected = selectedValue === option
                 return (

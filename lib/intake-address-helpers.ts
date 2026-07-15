@@ -56,39 +56,58 @@ export function listIntakeDispatchBlockers(input: {
 }
 
 /** Resolve the best structured address for a free-text query (autocomplete + place details). */
-export async function resolveStructuredAddressFromQuery(query: string): Promise<StructuredAddress | null> {
+export async function resolveStructuredAddressFromQuery(
+  query: string,
+  opts?: { signal?: AbortSignal }
+): Promise<StructuredAddress | null> {
   const trimmed = query.trim()
   if (trimmed.length < 5) return null
 
-  const res = await fetch(
-    `/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}` +
-      `&lat=${DEFAULT_502_SERVICE_BIAS.lat}&lon=${DEFAULT_502_SERVICE_BIAS.lon}`,
-    {
-    credentials: "include",
-    cache: "no-store",
+  try {
+    const res = await fetch(
+      `/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}` +
+        `&lat=${DEFAULT_502_SERVICE_BIAS.lat}&lon=${DEFAULT_502_SERVICE_BIAS.lon}`,
+      {
+        credentials: "include",
+        cache: "no-store",
+        signal: opts?.signal,
+      }
+    )
+    if (!res.ok) return null
+
+    const json = (await res.json()) as { data?: { suggestions?: AddressSuggestion[] } }
+    const suggestions = Array.isArray(json.data?.suggestions) ? json.data!.suggestions! : []
+
+    for (const s of suggestions) {
+      if (isCompleteStructuredAddress(s)) return s
+    }
+
+    const placeId = suggestions.find((s) => s.place_id?.trim())?.place_id?.trim()
+    if (!placeId) return null
+
+    const detailRes = await fetch(`/api/geocode/place-details?place_id=${encodeURIComponent(placeId)}`, {
+      credentials: "include",
+      cache: "no-store",
+      signal: opts?.signal,
+    })
+    if (!detailRes.ok) return null
+
+    const detailJson = (await detailRes.json()) as { data?: { address?: StructuredAddress } }
+    const addr = detailJson.data?.address
+    return addr && isCompleteStructuredAddress(addr) ? addr : null
+  } catch (err: unknown) {
+    // Caller aborted (new keystroke / unmount) — treat as no result.
+    if (
+      (err instanceof DOMException && err.name === "AbortError") ||
+      (typeof err === "object" &&
+        err !== null &&
+        "name" in err &&
+        (err as { name: string }).name === "AbortError")
+    ) {
+      return null
+    }
+    throw err
   }
-  )
-  if (!res.ok) return null
-
-  const json = (await res.json()) as { data?: { suggestions?: AddressSuggestion[] } }
-  const suggestions = Array.isArray(json.data?.suggestions) ? json.data!.suggestions! : []
-
-  for (const s of suggestions) {
-    if (isCompleteStructuredAddress(s)) return s
-  }
-
-  const placeId = suggestions.find((s) => s.place_id?.trim())?.place_id?.trim()
-  if (!placeId) return null
-
-  const detailRes = await fetch(`/api/geocode/place-details?place_id=${encodeURIComponent(placeId)}`, {
-    credentials: "include",
-    cache: "no-store",
-  })
-  if (!detailRes.ok) return null
-
-  const detailJson = (await detailRes.json()) as { data?: { address?: StructuredAddress } }
-  const addr = detailJson.data?.address
-  return addr && isCompleteStructuredAddress(addr) ? addr : null
 }
 
 /** Best-effort parse when the user typed/pasted an address without picking a suggestion. */

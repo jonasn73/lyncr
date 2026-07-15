@@ -65,6 +65,8 @@ export const JobAddressAutocomplete = forwardRef<
     strategy: "fixed" | "absolute"
   } | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Cancels in-flight autocomplete when the operator keeps typing.
+  const geocodeAbortControllerRef = useRef<AbortController | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLUListElement>(null)
@@ -146,31 +148,57 @@ export const JobAddressAutocomplete = forwardRef<
     const trimmed = query.trim()
     const minLen = /^\d/.test(trimmed) ? 2 : 3
     if (validated || trimmed.length < minLen) {
+      // Drop any stale suggest request when the query is too short or already validated.
+      geocodeAbortControllerRef.current?.abort()
+      geocodeAbortControllerRef.current = null
       if (!validated) setSuggestions([])
       setLoading(false)
       return
     }
     setLoading(true)
     debounceRef.current = setTimeout(() => {
+      // Cancel the previous autocomplete fetch before starting a new one.
+      geocodeAbortControllerRef.current?.abort()
+      const controller = new AbortController()
+      geocodeAbortControllerRef.current = controller
       void fetch(
         `/api/geocode/autocomplete?q=${encodeURIComponent(trimmed)}` +
           `&lat=${DEFAULT_502_SERVICE_BIAS.lat}&lon=${DEFAULT_502_SERVICE_BIAS.lon}`,
         {
-        credentials: "include",
-        cache: "no-store",
-      }
+          credentials: "include",
+          cache: "no-store",
+          signal: controller.signal,
+        }
       )
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error("suggest"))))
         .then((j: { data?: { suggestions?: AddressSuggestion[] } }) => {
+          if (controller.signal.aborted) return
           const list = Array.isArray(j.data?.suggestions) ? j.data!.suggestions! : []
           setSuggestions(list.filter(isSelectableAddressSuggestion))
           setOpen(true)
         })
-        .catch(() => setSuggestions([]))
-        .finally(() => setLoading(false))
+        .catch((err: unknown) => {
+          // Stale request cancelled by a newer keystroke — ignore.
+          if (
+            controller.signal.aborted ||
+            (err instanceof DOMException && err.name === "AbortError") ||
+            (typeof err === "object" &&
+              err !== null &&
+              "name" in err &&
+              (err as { name: string }).name === "AbortError")
+          ) {
+            return
+          }
+          setSuggestions([])
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false)
+        })
     }, 150)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      // Unmount / query change — abort so a late response cannot update state.
+      geocodeAbortControllerRef.current?.abort()
     }
   }, [query, validated])
 
@@ -215,8 +243,13 @@ export const JobAddressAutocomplete = forwardRef<
     }
 
     setResolving(true)
+    // Cancel any leftover suggest fetch; use a fresh signal for blur resolve.
+    geocodeAbortControllerRef.current?.abort()
+    const controller = new AbortController()
+    geocodeAbortControllerRef.current = controller
     try {
-      const addr = await resolveStructuredAddressFromQuery(trimmed)
+      const addr = await resolveStructuredAddressFromQuery(trimmed, { signal: controller.signal })
+      if (controller.signal.aborted) return
       if (addr) {
         setQuery(addr.formatted)
         setValidated(true)
@@ -224,10 +257,20 @@ export const JobAddressAutocomplete = forwardRef<
         setOpen(false)
         return
       }
-    } catch {
+    } catch (err: unknown) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (typeof err === "object" &&
+          err !== null &&
+          "name" in err &&
+          (err as { name: string }).name === "AbortError")
+      ) {
+        return
+      }
       /* fall through to loose commit */
     } finally {
-      setResolving(false)
+      if (!controller.signal.aborted) setResolving(false)
     }
 
     onQueryCommit?.(trimmed)
