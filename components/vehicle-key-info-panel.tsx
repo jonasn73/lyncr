@@ -2,7 +2,7 @@
 
 // Key / remote reference panel — FCC IDs grouped with photos and compatible vehicles per FCC.
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Check, ChevronDown, ExternalLink, Info, KeyRound, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -11,6 +11,7 @@ import {
   mykeysProKeyOptions,
 } from "@/lib/mykeys-pro-database"
 import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
+import { normalizeVin } from "@/lib/nhtsa-vpic"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel, inferProgrammingMethod } from "@/lib/vehicle-key-variant-labels"
 import { buildTransponderIslandSku } from "@/lib/transponder-island-sku"
@@ -143,6 +144,14 @@ type VehicleKeyInfoPanelProps = {
    * Seeds the FCC search field and runs an FCC-scoped lookup with Year/Make/Model.
    */
   fccId?: string | null
+  /** When the universal field gets a 17-digit VIN, parent should update Year/Make/Model. */
+  onVehicleFromVin?: (vehicle: {
+    year: string
+    make: string
+    model: string
+    trim?: string
+    vin: string
+  }) => void
 }
 
 function variantCardModel(
@@ -703,6 +712,7 @@ function FccSearchField({
   onChange,
   onSearch,
   hint,
+  searching,
 }: {
   value: string
   disabled?: boolean
@@ -710,18 +720,24 @@ function FccSearchField({
   onSearch: () => void
   /** Helper shown under the label (e.g. expected MYKEYS FCC). */
   hint?: string
+  /** True while a VIN decode / key lookup is in flight from this field. */
+  searching?: boolean
 }) {
   return (
     <label className="grid gap-1 text-[11px]">
-      <span className="font-medium text-foreground">FCC ID stamped on customer&apos;s key</span>
+      <span className="font-medium text-foreground">Enter FCC ID or Paste 17-digit VIN</span>
       {hint ? <span className="text-[10px] text-muted-foreground">{hint}</span> : null}
       <div className="flex gap-2">
         <input
           className="h-9 min-w-0 flex-1 rounded-lg border border-border/70 bg-background px-2 font-mono text-sm uppercase text-foreground"
           value={value}
-          disabled={disabled}
-          placeholder="KR5TXN1"
-          onChange={(e) => onChange(sanitizeFccIdInput(e.target.value))}
+          disabled={disabled || searching}
+          placeholder="Enter FCC ID or Paste 17-digit VIN"
+          onChange={(e) => {
+            // Allow letters/digits so a pasted VIN is not stripped; FCC path still sanitizes on Look up.
+            const next = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")
+            onChange(next)
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault()
@@ -731,10 +747,11 @@ function FccSearchField({
         />
         <button
           type="button"
-          disabled={disabled || !value.trim()}
+          disabled={disabled || searching || !value.trim()}
           onClick={onSearch}
-          className="shrink-0 rounded-lg border border-primary/40 bg-primary/10 px-3 text-[11px] font-semibold text-primary hover:bg-primary/15 disabled:opacity-40"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 text-[11px] font-semibold text-primary hover:bg-primary/15 disabled:opacity-40"
         >
+          {searching ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           Look up
         </button>
       </div>
@@ -795,6 +812,7 @@ export function VehicleKeyInfoPanel({
   disabled,
   onBackToVehicleLookup,
   fccId: fccIdProp = null,
+  onVehicleFromVin,
 }: VehicleKeyInfoPanelProps) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
@@ -806,11 +824,17 @@ export function VehicleKeyInfoPanel({
   const [lookupSource, setLookupSource] = useState<"fcc" | "ymm" | "ymm_fallback" | null>(null)
   const [manualBypassMode, setManualBypassMode] = useState(false)
   const [fccSearchFeedback, setFccSearchFeedback] = useState<string | null>(null)
+  /** True while /api/vehicle/vin-decode is in flight. */
+  const [vinDecoding, setVinDecoding] = useState(false)
+  /** True from VIN Look up until key-info finishes (keeps the decoding message). */
+  const [vinSpecsPending, setVinSpecsPending] = useState(false)
   const [expandedSecondaryFcc, setExpandedSecondaryFcc] = useState<Set<string>>(new Set())
   const [isAllKeysLost, setIsAllKeysLost] = useState(false)
   // Keep latest ticket FCC without re-running YMM reset when selection writes keyFccId back.
   const fccIdPropRef = useRef(fccIdProp)
   fccIdPropRef.current = fccIdProp
+  const vinSpecsPendingRef = useRef(false)
+  vinSpecsPendingRef.current = vinSpecsPending
 
   const trimProfile = useMemo<VehicleTrimProfile>(
     () => ({
@@ -840,13 +864,20 @@ export function VehicleKeyInfoPanel({
   useEffect(() => {
     setSelectedKeyId(null)
     setManualBypassMode(false)
-    setFccSearchFeedback(null)
+    // Keep "Decoding VIN..." when parent YMM just updated from a VIN decode.
+    if (!vinSpecsPendingRef.current) {
+      setFccSearchFeedback(null)
+    }
     setLookupSource(null)
     setExpandedSecondaryFcc(new Set())
     // Re-seed FCC from the parent ticket when YMM changes (alongside standard lookup).
     const seeded = sanitizeFccIdInput(fccIdPropRef.current ?? "")
-    setFccSearchInput(seeded)
-    setActiveFccQuery(seeded)
+    if (!vinSpecsPendingRef.current) {
+      setFccSearchInput(seeded)
+      setActiveFccQuery(seeded)
+    } else {
+      setActiveFccQuery("")
+    }
   }, [year, make, model])
 
   // If the parent later provides a ticket FCC (draft hydrate / rescue) and we have not searched yet, apply it.
@@ -902,11 +933,15 @@ export function VehicleKeyInfoPanel({
                 ? `No FCC database match for ${sanitizedFcc}. MYKEYS Pro cards below use FCC ${mkpProfile.fccId}.`
                 : `No FCC database match for ${sanitizedFcc}. Pick the closest key type below.`
             )
+          } else if (vinSpecsPendingRef.current) {
+            setFccSearchFeedback(null)
           }
+          setVinSpecsPending(false)
           onChange(null)
           return
         }
         setFccSearchFeedback(null)
+        setVinSpecsPending(false)
         const first = payload.profiles[0]!
         const keepVariant =
           value?.variantId &&
@@ -928,6 +963,7 @@ export function VehicleKeyInfoPanel({
           setError(true)
           setInfo(null)
           setManualBypassMode(true)
+          setVinSpecsPending(false)
           onChange(null)
         }
       })
@@ -960,13 +996,91 @@ export function VehicleKeyInfoPanel({
     onVariantSelected?.(selection)
   }
 
-  const runFccSearch = () => {
-    const sanitized = sanitizeFccIdInput(fccSearchInput)
+  /** Update the universal field; clear FCC "no match" banners when a VIN is pasted. */
+  const handleUniversalInputChange = (next: string) => {
+    setFccSearchInput(next)
+    if (normalizeVin(next).length === 17) {
+      setFccSearchFeedback((prev) =>
+        prev && prev.startsWith("No FCC database match") ? null : prev
+      )
+    }
+  }
+
+  const runUniversalLookup = useCallback(() => {
+    const raw = fccSearchInput.trim()
+    if (!raw) return
+
+    // 17-character VIN → decode YMM, then key specs reload via parent state.
+    const vin = normalizeVin(raw)
+    if (vin.length === 17) {
+      setFccSearchFeedback("Decoding VIN and fetching key specs...")
+      setVinDecoding(true)
+      setVinSpecsPending(true)
+      setManualBypassMode(false)
+      setActiveFccQuery("")
+      void fetch(`/api/vehicle/vin-decode?vin=${encodeURIComponent(vin)}`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+        .then(async (r) => {
+          const j = (await r.json()) as {
+            error?: string
+            data?: {
+              vehicle_year?: string | null
+              vehicle_make?: string | null
+              vehicle_model?: string | null
+              vehicle_trim?: string | null
+            }
+          }
+          if (!r.ok) throw new Error(j.error ?? "VIN lookup failed")
+          const d = j.data
+          if (!d?.vehicle_make) throw new Error(j.error ?? "Could not decode VIN")
+          const nextYear = d.vehicle_year?.trim() || ""
+          const nextMake = d.vehicle_make.trim()
+          const nextModel = d.vehicle_model?.trim() || ""
+          if (!onVehicleFromVin) {
+            setVinSpecsPending(false)
+            setFccSearchFeedback(
+              `Decoded ${[nextYear, nextMake, nextModel].filter(Boolean).join(" ")} — vehicle update is not available here.`
+            )
+            return
+          }
+          onVehicleFromVin({
+            year: nextYear,
+            make: nextMake,
+            model: nextModel,
+            trim: d.vehicle_trim?.trim() || undefined,
+            vin,
+          })
+          setFccSearchInput("")
+          // Same YMM as already selected → key-info effect won't re-run; clear the VIN loading state.
+          const sameVehicle =
+            nextYear === year &&
+            nextMake.toLowerCase() === make.toLowerCase() &&
+            nextModel.toLowerCase() === model.toLowerCase()
+          if (sameVehicle) {
+            setVinSpecsPending(false)
+            setFccSearchFeedback(null)
+          }
+        })
+        .catch((e) => {
+          setVinSpecsPending(false)
+          setFccSearchFeedback(
+            e instanceof Error ? e.message : "Could not decode VIN. Check the number and try again."
+          )
+        })
+        .finally(() => setVinDecoding(false))
+      return
+    }
+
+    // Standard FCC ID path.
+    const sanitized = sanitizeFccIdInput(raw)
     if (!sanitized) return
+    setVinSpecsPending(false)
     setFccSearchFeedback(null)
     setManualBypassMode(false)
     setActiveFccQuery(sanitized)
-  }
+  }, [fccSearchInput, onVehicleFromVin, year, make, model])
 
   const handleReturnToLookup = () => {
     const stuckWithoutDatabaseMatch =
@@ -988,7 +1102,9 @@ export function VehicleKeyInfoPanel({
     return (
       <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-        Looking up key info…
+        {vinSpecsPending || vinDecoding
+          ? "Decoding VIN and fetching key specs..."
+          : "Looking up key info…"}
       </div>
     )
   }
@@ -1032,13 +1148,27 @@ export function VehicleKeyInfoPanel({
               <FccSearchField
                 value={fccSearchInput}
                 disabled={disabled}
-                onChange={setFccSearchInput}
-                onSearch={runFccSearch}
+                searching={vinDecoding || vinSpecsPending}
+                onChange={handleUniversalInputChange}
+                onSearch={runUniversalLookup}
                 hint={`MYKEYS expects FCC ${mkpProfile.fccId} for this ${make} ${model}.`}
               />
               {fccSearchFeedback ? (
-                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
-                  {fccSearchFeedback}
+                <p
+                  className={
+                    vinDecoding || vinSpecsPending
+                      ? "rounded-md border border-primary/30 bg-primary/10 px-2 py-1.5 text-[11px] text-primary"
+                      : "rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100"
+                  }
+                >
+                  {vinDecoding || vinSpecsPending ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                      {fccSearchFeedback}
+                    </span>
+                  ) : (
+                    fccSearchFeedback
+                  )}
                 </p>
               ) : (
                 <p className="text-[10px] text-muted-foreground">
@@ -1053,13 +1183,27 @@ export function VehicleKeyInfoPanel({
             <FccSearchField
               value={fccSearchInput}
               disabled={disabled}
-              onChange={setFccSearchInput}
-              onSearch={runFccSearch}
+              searching={vinDecoding || vinSpecsPending}
+              onChange={handleUniversalInputChange}
+              onSearch={runUniversalLookup}
               hint="Optional — narrows key photos when our FCC database has this ID."
             />
             {fccSearchFeedback ? (
-              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
-                {fccSearchFeedback}
+              <p
+                className={
+                  vinDecoding || vinSpecsPending
+                    ? "rounded-md border border-primary/30 bg-primary/10 px-2 py-1.5 text-[11px] text-primary"
+                    : "rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100"
+                }
+              >
+                {vinDecoding || vinSpecsPending ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                    {fccSearchFeedback}
+                  </span>
+                ) : (
+                  fccSearchFeedback
+                )}
               </p>
             ) : null}
             <p className="text-[11px] text-muted-foreground">
@@ -1169,13 +1313,27 @@ export function VehicleKeyInfoPanel({
       <FccSearchField
         value={fccSearchInput}
         disabled={disabled}
-        onChange={setFccSearchInput}
-        onSearch={runFccSearch}
-        hint="Overrides vehicle lookup — use the FCC ID printed on the customer's fob."
+        searching={vinDecoding || vinSpecsPending}
+        onChange={handleUniversalInputChange}
+        onSearch={runUniversalLookup}
+        hint="Overrides vehicle lookup — use the FCC ID printed on the customer's fob, or paste a 17-digit VIN."
       />
       {fccSearchFeedback ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
-          {fccSearchFeedback}
+        <p
+          className={
+            vinDecoding || vinSpecsPending
+              ? "rounded-md border border-primary/30 bg-primary/10 px-2 py-1.5 text-[11px] text-primary"
+              : "rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100"
+          }
+        >
+          {vinDecoding || vinSpecsPending ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              {fccSearchFeedback}
+            </span>
+          ) : (
+            fccSearchFeedback
+          )}
         </p>
       ) : null}
 

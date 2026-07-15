@@ -1665,6 +1665,25 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setVehicleKeySelection]
   )
 
+  /** FCC field got a 17-digit VIN — fill YMM + VIN, then key specs reload for that car. */
+  const handleVehicleFromVin = useCallback(
+    (decoded: { year: string; make: string; model: string; trim?: string; vin: string }) => {
+      setVehicle({
+        vehicle_year: decoded.year,
+        vehicle_make: decoded.make,
+        vehicle_model: decoded.model,
+      })
+      patchForm({
+        vehicleVin: decoded.vin,
+        ...(decoded.trim ? { vehicleTrim: decoded.trim } : {}),
+      })
+      if (decoded.model.trim()) {
+        setCurrentStep("KEY_SPECIFICS")
+      }
+    },
+    [setVehicle, patchForm]
+  )
+
   const handleManualAddressChange = useCallback(
     (addr: StructuredAddress | null) => {
       // Operator picked or cleared via autocomplete — lock out further live-GPS overwrites.
@@ -2177,6 +2196,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onChange={(sel) => setVehicleKeySelection(sel)}
                                 onVariantSelected={handleManualKeyVariantSelected}
                                 onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
+                                onVehicleFromVin={handleVehicleFromVin}
                               />
                             </fieldset>
                           ) : null}
@@ -2457,6 +2477,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           : null
                       }
                       onChange={(sel) => setVehicleKeySelection(sel)}
+                      onVehicleFromVin={handleVehicleFromVin}
                     />
                   </fieldset>
                 ) : null}
