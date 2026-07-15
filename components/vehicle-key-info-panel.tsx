@@ -127,6 +127,18 @@ type KeyInfoPayload = {
   photo_disclaimer?: string
 }
 
+/** Exported for Fast Lookup / plate+VIN decode preload into this panel. */
+export type VehicleKeyInfoPayload = KeyInfoPayload
+
+/** Preloaded key bundle from unified vin-decode / plate-lookup (skips a second key-info fetch). */
+export type PreloadedVehicleKeyBundle = {
+  year: string
+  make: string
+  model: string
+  key_info: VehicleKeyInfoPayload | null
+  lookup_source: "fcc" | "ymm" | "ymm_fallback" | "none" | null
+}
+
 type VehicleKeyInfoPanelProps = {
   year: string
   make: string
@@ -155,7 +167,10 @@ type VehicleKeyInfoPanelProps = {
     model: string
     trim?: string
     vin: string
+    keyBundle?: PreloadedVehicleKeyBundle | null
   }) => void
+  /** Key specs already returned with VIN/plate decode — skip /api/vehicle/key-info when YMM matches. */
+  preloadedKeyBundle?: PreloadedVehicleKeyBundle | null
 }
 
 function variantCardModel(
@@ -899,6 +914,7 @@ export function VehicleKeyInfoPanel({
   onBackToVehicleLookup,
   fccId: fccIdProp = null,
   onVehicleFromVin,
+  preloadedKeyBundle = null,
 }: VehicleKeyInfoPanelProps) {
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
@@ -989,12 +1005,71 @@ export function VehicleKeyInfoPanel({
     if (manualBypassMode) return
 
     let cancel = false
+    const sanitizedFcc = activeFccQuery ? sanitizeFccIdInput(activeFccQuery) : ""
+
+    // Apply key specs from the same VIN/plate round-trip when YMM matches (no FCC override).
+    const preload =
+      !sanitizedFcc &&
+      preloadedKeyBundle &&
+      preloadedKeyBundle.year === year &&
+      preloadedKeyBundle.make.toLowerCase() === make.toLowerCase() &&
+      preloadedKeyBundle.model.toLowerCase() === model.toLowerCase()
+        ? preloadedKeyBundle
+        : null
+
+    const applyPayload = (
+      payload: KeyInfoPayload | null,
+      source: "fcc" | "ymm" | "ymm_fallback" | "none" | null
+    ) => {
+      if (cancel) return
+      setLookupSource(source === "none" ? null : source)
+      setInfo(payload)
+      if (!payload || payload.profiles.length === 0) {
+        setManualBypassMode(true)
+        if (sanitizedFcc) {
+          setFccSearchFeedback(
+            mkpProfile
+              ? `No FCC database match for ${sanitizedFcc}. MYKEYS Pro cards below use FCC ${mkpProfile.fccId}.`
+              : `No FCC database match for ${sanitizedFcc}. Pick the closest key type below.`
+          )
+        } else if (vinSpecsPendingRef.current) {
+          setFccSearchFeedback(null)
+        }
+        setVinSpecsPending(false)
+        onChange(null)
+        return
+      }
+      setFccSearchFeedback(null)
+      setVinSpecsPending(false)
+      const first = payload.profiles[0]!
+      const keepVariant =
+        value?.variantId &&
+        payload.profiles.some(
+          (profile) =>
+            (profile.id === value.profileId || profile.fcc_id === value.fccId) && value.variantId
+        )
+      onChange({
+        profileId: value?.profileId && keepVariant ? value.profileId : first.id,
+        fccId: value?.fccId && keepVariant ? value.fccId : first.fcc_id,
+        frequency: keepVariant ? value?.frequency ?? first.frequency : first.frequency,
+        chipset: keepVariant ? value?.chipset ?? first.chipset : first.chipset,
+        keyStyle: value?.keyStyle || KEY_STYLE_OPTIONS[5],
+        variantId: keepVariant ? value?.variantId ?? null : null,
+      })
+    }
+
+    if (preload) {
+      setLoading(false)
+      setError(false)
+      applyPayload(preload.key_info, preload.lookup_source)
+      return
+    }
+
     setLoading(true)
     setError(false)
     setInfo(null)
 
     const q = new URLSearchParams({ year, make, model })
-    const sanitizedFcc = activeFccQuery ? sanitizeFccIdInput(activeFccQuery) : ""
     if (sanitizedFcc) q.set("fcc_id", sanitizedFcc)
 
     void fetch(`/api/vehicle/key-info?${q}`, { credentials: "include", cache: "no-store" })
@@ -1004,46 +1079,14 @@ export function VehicleKeyInfoPanel({
           data?: {
             key_info?: KeyInfoPayload | null
             lookup_source?: "fcc" | "ymm" | "ymm_fallback"
-            fcc_matched?: boolean
+            keySpecs?: { key_info?: KeyInfoPayload | null; lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none" }
           }
         }) => {
-        if (cancel) return
-        const payload = j.data?.key_info ?? null
-        setLookupSource(j.data?.lookup_source ?? null)
-        setInfo(payload)
-        if (!payload || payload.profiles.length === 0) {
-          setManualBypassMode(true)
-          if (sanitizedFcc) {
-            setFccSearchFeedback(
-              mkpProfile
-                ? `No FCC database match for ${sanitizedFcc}. MYKEYS Pro cards below use FCC ${mkpProfile.fccId}.`
-                : `No FCC database match for ${sanitizedFcc}. Pick the closest key type below.`
-            )
-          } else if (vinSpecsPendingRef.current) {
-            setFccSearchFeedback(null)
-          }
-          setVinSpecsPending(false)
-          onChange(null)
-          return
+          const payload = j.data?.key_info ?? j.data?.keySpecs?.key_info ?? null
+          const source = j.data?.lookup_source ?? j.data?.keySpecs?.lookup_source ?? null
+          applyPayload(payload, source)
         }
-        setFccSearchFeedback(null)
-        setVinSpecsPending(false)
-        const first = payload.profiles[0]!
-        const keepVariant =
-          value?.variantId &&
-          payload.profiles.some(
-            (profile) =>
-              (profile.id === value.profileId || profile.fcc_id === value.fccId) && value.variantId
-          )
-        onChange({
-          profileId: value?.profileId && keepVariant ? value.profileId : first.id,
-          fccId: value?.fccId && keepVariant ? value.fccId : first.fcc_id,
-          frequency: keepVariant ? value?.frequency ?? first.frequency : first.frequency,
-          chipset: keepVariant ? value?.chipset ?? first.chipset : first.chipset,
-          keyStyle: value?.keyStyle || KEY_STYLE_OPTIONS[5],
-          variantId: keepVariant ? value?.variantId ?? null : null,
-        })
-      })
+      )
       .catch(() => {
         if (!cancel) {
           setError(true)
@@ -1060,8 +1103,8 @@ export function VehicleKeyInfoPanel({
     return () => {
       cancel = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when YMM or FCC query changes
-  }, [year, make, model, ready, activeFccQuery, manualBypassMode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when YMM, FCC, or preload changes
+  }, [year, make, model, ready, activeFccQuery, manualBypassMode, preloadedKeyBundle])
 
   const selectedProfile =
     info?.profiles.find((p) => p.id === value?.profileId || p.fcc_id === value?.fccId) ??
@@ -1116,14 +1159,22 @@ export function VehicleKeyInfoPanel({
               vehicle_make?: string | null
               vehicle_model?: string | null
               vehicle_trim?: string | null
+              vehicle?: { year?: string; make?: string; model?: string; trim?: string | null }
+              keySpecs?: {
+                fccId?: string | null
+                frequency?: string | null
+                key_info?: KeyInfoPayload | null
+                lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none"
+              }
             }
           }
           if (!r.ok) throw new Error(j.error ?? "VIN lookup failed")
           const d = j.data
-          if (!d?.vehicle_make) throw new Error(j.error ?? "Could not decode VIN")
-          const nextYear = d.vehicle_year?.trim() || ""
-          const nextMake = d.vehicle_make.trim()
-          const nextModel = d.vehicle_model?.trim() || ""
+          const nextYear = (d?.vehicle?.year ?? d?.vehicle_year)?.trim() || ""
+          const nextMake = (d?.vehicle?.make ?? d?.vehicle_make)?.trim() || ""
+          const nextModel = (d?.vehicle?.model ?? d?.vehicle_model)?.trim() || ""
+          const nextTrim = (d?.vehicle?.trim ?? d?.vehicle_trim)?.trim() || undefined
+          if (!nextMake) throw new Error(j.error ?? "Could not decode VIN")
           if (!onVehicleFromVin) {
             setVinSpecsPending(false)
             setFccSearchFeedback(
@@ -1131,12 +1182,22 @@ export function VehicleKeyInfoPanel({
             )
             return
           }
+          const keyBundle: PreloadedVehicleKeyBundle | null = d?.keySpecs
+            ? {
+                year: nextYear,
+                make: nextMake,
+                model: nextModel,
+                key_info: d.keySpecs.key_info ?? null,
+                lookup_source: d.keySpecs.lookup_source ?? null,
+              }
+            : null
           onVehicleFromVin({
             year: nextYear,
             make: nextMake,
             model: nextModel,
-            trim: d.vehicle_trim?.trim() || undefined,
+            trim: nextTrim,
             vin,
+            keyBundle,
           })
           setFccSearchInput("")
           // Same YMM as already selected → key-info effect won't re-run; clear the VIN loading state.
@@ -1145,6 +1206,13 @@ export function VehicleKeyInfoPanel({
             nextMake.toLowerCase() === make.toLowerCase() &&
             nextModel.toLowerCase() === model.toLowerCase()
           if (sameVehicle) {
+            if (keyBundle?.key_info) {
+              setInfo(keyBundle.key_info)
+              setLookupSource(
+                keyBundle.lookup_source === "none" ? null : keyBundle.lookup_source
+              )
+              setManualBypassMode(keyBundle.key_info.profiles.length === 0)
+            }
             setVinSpecsPending(false)
             setFccSearchFeedback(null)
           }

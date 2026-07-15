@@ -1,0 +1,168 @@
+// Shared Year/Make/Model → key reference bundle (used by key-info, vin-decode, plate-lookup).
+// Server-only — pulls CSV profiles + FCC remote variant photos.
+
+import { lookupFccRemoteVariants } from "@/lib/fccid-remote-variants"
+import {
+  formatCompatibleVehicleSummary,
+  lookupCompatibleVehiclesForFcc,
+  lookupVehicleKeyInfo,
+  type VehicleKeyLookupSource,
+  type VehicleKeyLookupResult,
+  type VehicleKeyProfile,
+} from "@/lib/vehicle-key-reference"
+
+export type VehicleDecodeVehicle = {
+  year: string
+  make: string
+  model: string
+  trim: string | null
+}
+
+/** One selectable key / remote in the unified decode response. */
+export type VehicleDecodeKeyEntry = {
+  id: string
+  fccId: string
+  frequency: string | null
+  modulation: string | null
+  chipset: string | null
+  variants: Awaited<ReturnType<typeof lookupFccRemoteVariants>>["variants"]
+  compatible_summary: ReturnType<typeof formatCompatibleVehicleSummary>
+}
+
+/**
+ * Compact + full key payload returned alongside VIN/plate decode so the client
+ * does not need a second /api/vehicle/key-info round-trip.
+ */
+export type VehicleDecodeKeySpecs = {
+  fccId: string | null
+  frequency: string | null
+  keys: VehicleDecodeKeyEntry[]
+  /** Full key-info payload (same shape as GET /api/vehicle/key-info). */
+  key_info: (VehicleKeyLookupResult & {
+    profiles: VehicleKeyProfile[]
+    profile_details: Array<{
+      profile: VehicleKeyProfile
+      variants: VehicleDecodeKeyEntry["variants"]
+      compatible_vehicles: ReturnType<typeof lookupCompatibleVehiclesForFcc>
+      compatible_summary: ReturnType<typeof formatCompatibleVehicleSummary>
+    }>
+    photo_disclaimer: string
+  }) | null
+  lookup_source: VehicleKeyLookupSource | "none"
+}
+
+export type UnifiedVehicleDecodePayload = {
+  vehicle: VehicleDecodeVehicle
+  keySpecs: VehicleDecodeKeySpecs
+}
+
+/** Build keySpecs for a decoded Year/Make/Model (optional FCC filter). */
+export async function buildVehicleKeySpecs(
+  yearRaw: string,
+  makeRaw: string,
+  modelRaw: string,
+  fccIdRaw?: string | null
+): Promise<VehicleDecodeKeySpecs> {
+  const year = Number(String(yearRaw).trim())
+  const make = makeRaw.trim()
+  const model = modelRaw.trim()
+
+  if (!Number.isFinite(year) || !make || !model) {
+    return {
+      fccId: null,
+      frequency: null,
+      keys: [],
+      key_info: null,
+      lookup_source: "none",
+    }
+  }
+
+  const result = lookupVehicleKeyInfo(yearRaw, make, model, fccIdRaw ?? null)
+  if (!result || result.profiles.length === 0) {
+    return {
+      fccId: null,
+      frequency: null,
+      keys: [],
+      key_info: null,
+      lookup_source: fccIdRaw ? "ymm_fallback" : "ymm",
+    }
+  }
+
+  const profile_details = await Promise.all(
+    result.profiles.map(async (profile) => {
+      const variants = await lookupFccRemoteVariants({
+        fcc_id: profile.fcc_id,
+        year,
+        make,
+        model,
+      }).then((detail) => detail.variants)
+
+      const compatible_vehicles = lookupCompatibleVehiclesForFcc(profile.fcc_id)
+      const compatible_summary = formatCompatibleVehicleSummary(compatible_vehicles, {
+        year,
+        make,
+        model,
+      })
+
+      return {
+        profile,
+        variants,
+        compatible_vehicles,
+        compatible_summary,
+      }
+    })
+  )
+
+  const anyVariantPhotos = profile_details.some((detail) =>
+    detail.variants.some((variant) => Boolean(variant.image_url))
+  )
+  const visible_profile_details =
+    anyVariantPhotos && profile_details.length > 1
+      ? profile_details.filter((detail) => detail.variants.length > 0)
+      : profile_details
+
+  const hasReferencePhotos = visible_profile_details.some((detail) =>
+    detail.variants.some((variant) => variant.reference_image)
+  )
+
+  const keys: VehicleDecodeKeyEntry[] = visible_profile_details.map((detail) => ({
+    id: detail.profile.id,
+    fccId: detail.profile.fcc_id,
+    frequency: detail.profile.frequency,
+    modulation: detail.profile.modulation,
+    chipset: detail.profile.chipset,
+    variants: detail.variants,
+    compatible_summary: detail.compatible_summary,
+  }))
+
+  const primary = keys[0] ?? null
+
+  return {
+    fccId: primary?.fccId ?? null,
+    frequency: primary?.frequency ?? null,
+    keys,
+    key_info: {
+      ...result,
+      profiles: visible_profile_details.map((d) => d.profile),
+      profile_details: visible_profile_details,
+      photo_disclaimer: hasReferencePhotos
+        ? "Some photos are reference images from the same FCC ID — always confirm the key on the vehicle."
+        : "Photos and titles come from public FCC ID replacement listings. Always confirm the physical key on the vehicle before ordering.",
+    },
+    lookup_source: result.lookup_source,
+  }
+}
+
+/** Unified vehicle + keySpecs block for decode API responses. */
+export async function buildUnifiedVehicleDecode(
+  vehicle: VehicleDecodeVehicle,
+  fccIdRaw?: string | null
+): Promise<UnifiedVehicleDecodePayload> {
+  const keySpecs = await buildVehicleKeySpecs(
+    vehicle.year,
+    vehicle.make,
+    vehicle.model,
+    fccIdRaw
+  )
+  return { vehicle, keySpecs }
+}

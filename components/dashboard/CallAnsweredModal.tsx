@@ -11,7 +11,7 @@ import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { VehicleFastLookupField } from "@/components/vehicle-fast-lookup-field"
 import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
-import { VehicleKeyInfoPanel, type VehicleKeySelection } from "@/components/vehicle-key-info-panel"
+import { VehicleKeyInfoPanel, type VehicleKeySelection, type PreloadedVehicleKeyBundle } from "@/components/vehicle-key-info-panel"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import {
   IntakeJobPhotosPanel,
@@ -516,6 +516,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [highlightConfirmBook, setHighlightConfirmBook] = useState(false)
   const [negotiationStep, setNegotiationStep] = useState(1)
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("SERVICE_SELECT")
+  /** Key specs from unified VIN/plate decode — skips a second key-info fetch. */
+  const [preloadedKeyBundle, setPreloadedKeyBundle] = useState<PreloadedVehicleKeyBundle | null>(null)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
@@ -1639,6 +1641,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const handleManualVehicleChange = useCallback(
     (vehicle: { vehicle_year: string; vehicle_make: string; vehicle_model: string }) => {
+      setPreloadedKeyBundle(null)
       setVehicle(vehicle)
       if (vehicle.vehicle_model.trim()) {
         setCurrentStep("KEY_SPECIFICS")
@@ -1648,9 +1651,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   )
 
   const handlePlateLookupSuccess = useCallback(
-    (result: Parameters<typeof applyPlateLookupResult>[0]) => {
+    (result: Parameters<typeof applyPlateLookupResult>[0] & {
+      keyBundle?: PreloadedVehicleKeyBundle | null
+    }) => {
       applyPlateLookupResult(result)
-      if (result.vehicle_model?.trim()) {
+      if (result.keyBundle) setPreloadedKeyBundle(result.keyBundle)
+      else setPreloadedKeyBundle(null)
+      if (result.vehicle_model?.trim() || result.keyBundle?.model?.trim()) {
         setCurrentStep("KEY_SPECIFICS")
       }
     },
@@ -1665,9 +1672,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setVehicleKeySelection]
   )
 
-  /** FCC field got a 17-digit VIN — fill YMM + VIN, then key specs reload for that car. */
+  /** FCC field / Fast Lookup got a 17-digit VIN — fill YMM + optional preloaded key specs. */
   const handleVehicleFromVin = useCallback(
-    (decoded: { year: string; make: string; model: string; trim?: string; vin: string }) => {
+    (decoded: {
+      year: string
+      make: string
+      model: string
+      trim?: string
+      vin: string
+      keyBundle?: PreloadedVehicleKeyBundle | null
+    }) => {
       setVehicle({
         vehicle_year: decoded.year,
         vehicle_make: decoded.make,
@@ -1677,6 +1691,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         vehicleVin: decoded.vin,
         ...(decoded.trim ? { vehicleTrim: decoded.trim } : {}),
       })
+      if (decoded.keyBundle) setPreloadedKeyBundle(decoded.keyBundle)
+      else setPreloadedKeyBundle(null)
       if (decoded.model.trim()) {
         setCurrentStep("KEY_SPECIFICS")
       }
@@ -2200,6 +2216,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onVariantSelected={handleManualKeyVariantSelected}
                                 onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
                                 onVehicleFromVin={handleVehicleFromVin}
+                                preloadedKeyBundle={preloadedKeyBundle}
                               />
                             </fieldset>
                           ) : null}
@@ -2484,6 +2501,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       }
                       onChange={(sel) => setVehicleKeySelection(sel)}
                       onVehicleFromVin={handleVehicleFromVin}
+                      preloadedKeyBundle={preloadedKeyBundle}
                     />
                   </fieldset>
                 ) : null}

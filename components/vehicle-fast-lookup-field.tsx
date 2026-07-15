@@ -1,6 +1,7 @@
 "use client"
 
 // Prominent plate-or-VIN lookup at the front of intake vehicle selection.
+// Uses unified vin-decode / plate-lookup responses (vehicle + keySpecs in one trip).
 
 import { useEffect, useRef, useState } from "react"
 import { Loader2, Search, Zap } from "lucide-react"
@@ -8,6 +9,10 @@ import { cn } from "@/lib/utils"
 import { normalizeVin } from "@/lib/nhtsa-vpic"
 import { US_PLATE_STATES } from "@/lib/vehicle-plate-lookup"
 import type { PlateLookupResult } from "@/lib/vehicle-plate-lookup"
+import type {
+  PreloadedVehicleKeyBundle,
+  VehicleKeyInfoPayload,
+} from "@/components/vehicle-key-info-panel"
 
 export type FastVinDecodeResult = {
   year: string
@@ -15,6 +20,11 @@ export type FastVinDecodeResult = {
   model: string
   trim?: string
   vin: string
+  keyBundle?: PreloadedVehicleKeyBundle | null
+}
+
+export type FastPlateLookupResult = PlateLookupResult & {
+  keyBundle?: PreloadedVehicleKeyBundle | null
 }
 
 type VehicleFastLookupFieldProps = {
@@ -24,7 +34,7 @@ type VehicleFastLookupFieldProps = {
   onPlateNumberChange: (value: string) => void
   onPlateStateChange: (value: string) => void
   onVinChange?: (vin: string) => void
-  onPlateSuccess: (result: PlateLookupResult) => void
+  onPlateSuccess: (result: FastPlateLookupResult) => void
   onVinSuccess: (result: FastVinDecodeResult) => void
   disabled?: boolean
 }
@@ -32,6 +42,37 @@ type VehicleFastLookupFieldProps = {
 /** True when cleaned input matches a standard 17-character VIN. */
 function looksLikeVin(raw: string): boolean {
   return normalizeVin(raw).length === 17
+}
+
+type UnifiedDecodeData = {
+  vehicle_year?: string | null
+  vehicle_make?: string | null
+  vehicle_model?: string | null
+  vehicle_trim?: string | null
+  trim?: string | null
+  vehicle?: { year?: string; make?: string; model?: string; trim?: string | null }
+  keySpecs?: {
+    fccId?: string | null
+    frequency?: string | null
+    key_info?: VehicleKeyInfoPayload | null
+    lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none"
+  }
+}
+
+function keyBundleFromDecode(
+  year: string,
+  make: string,
+  model: string,
+  data?: UnifiedDecodeData | null
+): PreloadedVehicleKeyBundle | null {
+  if (!data?.keySpecs) return null
+  return {
+    year,
+    make,
+    model,
+    key_info: data.keySpecs.key_info ?? null,
+    lookup_source: data.keySpecs.lookup_source ?? null,
+  }
 }
 
 export function VehicleFastLookupField({
@@ -82,27 +123,29 @@ export function VehicleFastLookupField({
         credentials: "include",
         cache: "no-store",
       })
-      const json = (await res.json()) as {
-        error?: string
-        data?: {
-          vehicle_year?: string | null
-          vehicle_make?: string | null
-          vehicle_model?: string | null
-          vehicle_trim?: string | null
-        }
-      }
+      const json = (await res.json()) as { error?: string; data?: UnifiedDecodeData }
       if (!res.ok) throw new Error(json.error ?? "VIN lookup failed")
       const d = json.data
-      if (!d?.vehicle_make) throw new Error(json.error ?? "Could not decode VIN")
+      const year = (d?.vehicle?.year ?? d?.vehicle_year)?.trim() || ""
+      const make = (d?.vehicle?.make ?? d?.vehicle_make)?.trim() || ""
+      const model = (d?.vehicle?.model ?? d?.vehicle_model)?.trim() || ""
+      const trim = (d?.vehicle?.trim ?? d?.vehicle_trim)?.trim() || undefined
+      if (!make) throw new Error(json.error ?? "Could not decode VIN")
       onVinChangeRef.current?.(vin)
       onVinSuccessRef.current({
-        year: d.vehicle_year?.trim() || "",
-        make: d.vehicle_make.trim(),
-        model: d.vehicle_model?.trim() || "",
-        trim: d.vehicle_trim?.trim() || undefined,
+        year,
+        make,
+        model,
+        trim,
         vin,
+        keyBundle: keyBundleFromDecode(year, make, model, d),
       })
-      setStatus(`Matched ${[d.vehicle_year, d.vehicle_make, d.vehicle_model].filter(Boolean).join(" ")}`)
+      const keyCount = d?.keySpecs?.key_info?.profiles?.length ?? 0
+      setStatus(
+        `Matched ${[year, make, model].filter(Boolean).join(" ")}${
+          keyCount > 0 ? ` · ${keyCount} key profile${keyCount === 1 ? "" : "s"}` : ""
+        }`
+      )
       lastAutoVin.current = vin
     } catch (e) {
       lastAutoVin.current = ""
@@ -133,15 +176,27 @@ export function VehicleFastLookupField({
         credentials: "include",
         cache: "no-store",
       })
-      const json = (await res.json()) as { data?: PlateLookupResult; error?: string }
+      const json = (await res.json()) as {
+        data?: PlateLookupResult & UnifiedDecodeData
+        error?: string
+      }
       if (!res.ok) throw new Error(json.error ?? "Plate lookup failed")
-      if (!json.data?.vehicle_make) throw new Error(json.error ?? "No vehicle found for this plate.")
+      if (!json.data?.vehicle_make && !json.data?.vehicle?.make) {
+        throw new Error(json.error ?? "No vehicle found for this plate.")
+      }
+      const year = (json.data.vehicle?.year ?? json.data.vehicle_year)?.trim() || ""
+      const make = (json.data.vehicle?.make ?? json.data.vehicle_make)?.trim() || ""
+      const model = (json.data.vehicle?.model ?? json.data.vehicle_model)?.trim() || ""
       onPlateNumberChange(plate)
-      onPlateSuccessRef.current(json.data)
+      onPlateSuccessRef.current({
+        ...json.data,
+        keyBundle: keyBundleFromDecode(year, make, model, json.data),
+      })
+      const keyCount = json.data.keySpecs?.key_info?.profiles?.length ?? 0
       setStatus(
-        `Matched ${[json.data.vehicle_year, json.data.vehicle_make, json.data.vehicle_model]
-          .filter(Boolean)
-          .join(" ")}`
+        `Matched ${[year, make, model].filter(Boolean).join(" ")}${
+          keyCount > 0 ? ` · ${keyCount} key profile${keyCount === 1 ? "" : "s"}` : ""
+        }`
       )
     } catch (e) {
       setStatus(null)
