@@ -2343,7 +2343,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 }}
                               />
                               <p className="text-[11px] text-primary/90">
-                                Tap the key layout that matches — we slide forward to location automatically.
+                                Verify button configuration with customer to confirm selection.
                               </p>
                               <VehicleIntakeClarificationsPanel
                                 year={form.vehicleYear}
