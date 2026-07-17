@@ -6,6 +6,11 @@ import {
   VOLVO_KEY_VOL_05_OPTIONS,
   type ManualKeyFrequencyOption,
 } from "@/lib/fcc-id-input"
+import {
+  filterManualOptionsForVehicle,
+  isSubaru2017To2025ProxMap,
+  subaruMappedProxOption,
+} from "@/lib/vehicle-key-mapping"
 
 /** One key row inside a MYKEYS Pro vehicle profile. */
 export type MykeysProKeyRow = {
@@ -114,19 +119,32 @@ function mykeysRowToOption(
  * Key cards for manual / MKP fallback — vehicle-specific when the mock DB has a match,
  * otherwise the generic three-option regional list.
  * Classic Volvo models get KEY-VOL-05 prox + insert-to-start cards first.
+ * 2017–2025 Subaru is forced to the single PROX-SUB-01 / TIK-SUB-37A card.
  */
-export function mykeysProKeyOptions(make: string, model: string): ManualKeyFrequencyOption[] {
+export function mykeysProKeyOptions(
+  make: string,
+  model: string,
+  year?: string | number | null
+): ManualKeyFrequencyOption[] {
+  // Explicit Subaru year map wins over generic MKP / manual fallbacks.
+  if (isSubaru2017To2025ProxMap(year, make)) {
+    return [subaruMappedProxOption()]
+  }
+
   const profile = lookupMykeysProProfile(make, model)
   const base = profile
     ? profile.keys.map((row, index) => mykeysRowToOption(row, profile, index))
     : [...MANUAL_KEY_FREQUENCY_OPTIONS]
 
-  if (!isVolvoInsertFobikVehicle(make, model)) return base
+  if (!isVolvoInsertFobikVehicle(make, model)) {
+    return filterManualOptionsForVehicle(base, year, make)
+  }
 
   const volvoIds = new Set(VOLVO_KEY_VOL_05_OPTIONS.map((option) => option.id))
   // Put both KEY-VOL-05 variants first; drop duplicates if MKP reused the same ids.
-  return [
-    ...VOLVO_KEY_VOL_05_OPTIONS,
-    ...base.filter((option) => !volvoIds.has(option.id)),
-  ]
+  return filterManualOptionsForVehicle(
+    [...VOLVO_KEY_VOL_05_OPTIONS, ...base.filter((option) => !volvoIds.has(option.id))],
+    year,
+    make
+  )
 }

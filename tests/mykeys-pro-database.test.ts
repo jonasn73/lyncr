@@ -29,6 +29,14 @@ describe("mykeys-pro-database", () => {
     expect(options[0]?.supplierSku).toBe("TIK-SUB-37A")
   })
 
+  it("forces TIK-SUB-37A for any 2017–2025 Subaru model (e.g. Forester)", () => {
+    const options = mykeysProKeyOptions("Subaru", "Forester", 2022)
+    expect(options).toHaveLength(1)
+    expect(options[0]?.catalogSku).toBe("PROX-SUB-01")
+    expect(options[0]?.supplierSku).toBe("TIK-SUB-37A")
+    expect(options[0]?.fccId).toBe("HYQ14AHK")
+  })
+
   it("falls back to generic manual options for unknown vehicles", () => {
     const options = mykeysProKeyOptions("Toyota", "Camry")
     expect(options).toHaveLength(3)

@@ -25,6 +25,12 @@ import {
   stripTiSkuPrefix,
 } from "@/lib/transponder-island-sku"
 import {
+  applyVehicleKeyCardOverrides,
+  filterFccVariantsForVehicle,
+  isSubaru2017To2025ProxMap,
+  subaruMappedProxOption,
+} from "@/lib/vehicle-key-mapping"
+import {
   shouldShowAklTrimVerificationBanner,
   variantDisabledByTrim,
   type VehicleFactoryOption,
@@ -233,22 +239,26 @@ function variantCardModel(
     title: variant.title,
     keyType: variant.key_type,
   })
-  return {
-    id: variant.id,
-    label: buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel,
-    description: variant.title,
-    // Prefer operator-captured inventory photo over catalog/scraper image.
-    imageUrl: inventoryPhotoUrl?.trim() || variant.image_url,
-    programmingMethod:
-      variant.programming_method ??
-      inferProgrammingMethod(variant.title, variant.key_type, profile.chipset ?? null),
-    referenceImage: variant.reference_image,
-    referenceNote: variant.reference_note ?? null,
-    tiSku,
-    supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
-    specs,
-    fccFootnote: profile.fcc_id ? `FCC ${profile.fcc_id}` : null,
-  }
+  return applyVehicleKeyCardOverrides(
+    {
+      id: variant.id,
+      label: buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel,
+      description: variant.title,
+      // Prefer operator-captured inventory photo over catalog/scraper image.
+      imageUrl: inventoryPhotoUrl?.trim() || variant.image_url,
+      programmingMethod:
+        variant.programming_method ??
+        inferProgrammingMethod(variant.title, variant.key_type, profile.chipset ?? null),
+      referenceImage: variant.reference_image,
+      referenceNote: variant.reference_note ?? null,
+      tiSku,
+      supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
+      specs,
+      fccFootnote: profile.fcc_id ? `FCC ${profile.fcc_id}` : null,
+    },
+    year,
+    make
+  )
 }
 
 function manualOptionCardModel(
@@ -289,18 +299,22 @@ function manualOptionCardModel(
     if (option.fccId) specs.push({ label: "FCC ID", value: option.fccId })
   }
 
-  return {
-    id: option.id,
-    label: option.label,
-    description: option.description,
-    imageUrl: option.imageUrl,
-    programmingMethod: option.programmingMethod,
-    // Prefer the real catalog SKU (KEY-VOL-05-PROX / PROX-SUB-01) over the generated TI mock code.
-    tiSku,
-    supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
-    specs: specs.length > 0 ? specs : undefined,
-    fccFootnote: option.fccId ? `FCC ${option.fccId}` : null,
-  }
+  return applyVehicleKeyCardOverrides(
+    {
+      id: option.id,
+      label: option.label,
+      description: option.description,
+      imageUrl: option.imageUrl,
+      programmingMethod: option.programmingMethod,
+      // Prefer the real catalog SKU (KEY-VOL-05-PROX / PROX-SUB-01) over the generated TI mock code.
+      tiSku,
+      supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
+      specs: specs.length > 0 ? specs : undefined,
+      fccFootnote: option.fccId ? `FCC ${option.fccId}` : null,
+    },
+    year,
+    make
+  )
 }
 
 type KeyIllustrationKind = "proximity" | "high_security" | "transponder" | "volvo_fobik"
@@ -704,7 +718,10 @@ function VariantFilmstrip({
   /** Operator-captured key photo from KeyInventory for this FCC. */
   inventoryPhotoUrl?: string | null
 }) {
-  if (variants.length === 0) {
+  // Subaru 2017–2025: only PROX-SUB-01; hide KEY-SUB-15 / KEY-SUB-01.
+  const compatibleVariants = filterFccVariantsForVehicle(variants, year, make)
+
+  if (compatibleVariants.length === 0) {
     return (
       <p className="text-[10px] text-muted-foreground">
         No key photos — use key style below.
@@ -713,7 +730,9 @@ function VariantFilmstrip({
   }
 
   const visibleVariants =
-    selectedKeyId === null ? variants : variants.filter((variant) => variant.id === selectedKeyId)
+    selectedKeyId === null
+      ? compatibleVariants
+      : compatibleVariants.filter((variant) => variant.id === selectedKeyId)
 
   if (visibleVariants.length === 0) return null
 
@@ -771,8 +790,14 @@ function pickDefaultKeyVariant(
           compatible_summary: { lines: [] as string[], overflow: 0 },
         }))
 
+  // Respect vehicle mapping filters (e.g. Subaru 2017–2025 → PROX-SUB-01 only).
+  const filteredDetails = details.map((detail) => ({
+    ...detail,
+    variants: filterFccVariantsForVehicle(detail.variants, year, make),
+  }))
+
   // 1) Exact TI ordering match (e.g. Subaru HYQ14AHK → TIK-SUB-37A / PROX-SUB-01).
-  for (const detail of details) {
+  for (const detail of filteredDetails) {
     for (const variant of detail.variants) {
       const tiSku = buildTransponderIslandSku({
         make,
@@ -793,7 +818,7 @@ function pickDefaultKeyVariant(
   }
 
   // 2) First prox / smart / fob layout.
-  for (const detail of details) {
+  for (const detail of filteredDetails) {
     for (const variant of detail.variants) {
       if (isSmartOrProxKeyType(variant.title, variant.id, variant.key_type)) {
         return { profile: detail.profile, variant }
@@ -801,8 +826,8 @@ function pickDefaultKeyVariant(
     }
   }
 
-  // 3) Primary FCC's first layout.
-  const primary = pickPrimaryProfileDetail(details)
+  // 3) Primary FCC's first compatible layout.
+  const primary = pickPrimaryProfileDetail(filteredDetails)
   if (primary?.variants[0]) {
     return { profile: primary.profile, variant: primary.variants[0] }
   }
@@ -983,15 +1008,18 @@ function ManualFrequencyGrid({
   disabled?: boolean
   onPick: (option: ManualKeyFrequencyOption) => void
 }) {
-  const options = useMemo(() => mykeysProKeyOptions(make, model), [make, model])
+  const options = useMemo(() => mykeysProKeyOptions(make, model, year), [make, model, year])
   const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
+  const subaruMapped = isSubaru2017To2025ProxMap(year, make)
 
   return (
     <div className="grid gap-2">
-      {mkpProfile ? (
+      {subaruMapped || mkpProfile ? (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
-          MYKEYS Pro matched this vehicle — FCC{" "}
-          <span className="font-mono font-semibold">{mkpProfile.fccId}</span>
+          {subaruMapped ? "Mapped key for this vehicle — FCC " : "MYKEYS Pro matched this vehicle — FCC "}
+          <span className="font-mono font-semibold">
+            {subaruMapped ? subaruMappedProxOption().fccId : mkpProfile?.fccId}
+          </span>
         </p>
       ) : null}
       {options.map((option) => {
@@ -1263,19 +1291,26 @@ export function VehicleKeyInfoPanel({
     onVariantSelected?.(selection)
   }
 
-  // Manual / MYKEYS path: auto-highlight the mapped key (e.g. PROX-SUB-01 / TIK-SUB-37A).
+  // When only one compatible key remains (e.g. TIK-SUB-37A), auto-select on mount.
   useEffect(() => {
-    if (!manualBypassMode && info && info.profiles.length > 0) return
     if (value?.variantId) return
     if (!ready) return
-    const options = mykeysProKeyOptions(make, model)
+
+    const subaruMapped = isSubaru2017To2025ProxMap(year, make)
+    const fccHasCompatible =
+      info?.profile_details?.some(
+        (detail) => filterFccVariantsForVehicle(detail.variants, year, make).length > 0
+      ) ?? false
+
+    // FCC filmstrip already auto-selects via pickDefaultKeyVariant when a prox variant exists.
+    if (!manualBypassMode && info && info.profiles.length > 0 && fccHasCompatible) return
+
+    const options = mykeysProKeyOptions(make, model, year)
     if (options.length === 0) return
-    const preferred =
-      options.find((option) => option.supplierSku === "TIK-SUB-37A") ||
-      options.find((option) => option.catalogSku === "PROX-SUB-01") ||
-      options.find((option) => isSmartOrProxKeyType(option.label, option.id, option.catalogSku)) ||
-      options[0]
-    if (!preferred) return
+    // Auto-select when a single card remains, or the Subaru year map forces one card.
+    if (options.length !== 1 && !subaruMapped) return
+
+    const preferred = options[0]!
     setSelectedKeyId(preferred.id)
     onChange({
       profileId: "manual",
@@ -1286,7 +1321,7 @@ export function VehicleKeyInfoPanel({
       variantId: preferred.id,
       programmingMethod: preferred.programmingMethod,
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto-highlight when bypass opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto-highlight on mount / YMM change
   }, [manualBypassMode, ready, year, make, model, info, value?.variantId])
 
   const handleReturnToLookup = () => {
@@ -1339,7 +1374,16 @@ export function VehicleKeyInfoPanel({
     )
   }
 
-  if (manualBypassMode || !info || info.profiles.length === 0) {
+  const subaruMapped = isSubaru2017To2025ProxMap(year, make)
+  const fccCompatibleCount =
+    info?.profile_details?.reduce(
+      (sum, detail) => sum + filterFccVariantsForVehicle(detail.variants, year, make).length,
+      0
+    ) ?? 0
+  // Mapped Subaru with only KEY-SUB-* leftovers → show the single TIK-SUB-37A card instead.
+  const forceSubaruMappedCard = subaruMapped && (!info || info.profiles.length === 0 || fccCompatibleCount === 0)
+
+  if (manualBypassMode || !info || info.profiles.length === 0 || forceSubaruMappedCard) {
     return (
       <div className="@container grid w-full min-w-0 gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
         <PanelToolbar
@@ -1347,10 +1391,12 @@ export function VehicleKeyInfoPanel({
           onManualBypass={() => setManualBypassMode(true)}
           onReturnToLookup={handleReturnToLookup}
         />
-        {mkpProfile ? (
+        {subaruMapped || mkpProfile ? (
           <p className="text-[11px] text-muted-foreground">
-            MYKEYS Pro matched this vehicle (FCC{" "}
-            <span className="font-mono font-semibold text-foreground">{mkpProfile.fccId}</span>
+            {subaruMapped ? "Mapped key for this vehicle" : "MYKEYS Pro matched this vehicle"} (FCC{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {subaruMapped ? subaruMappedProxOption().fccId : mkpProfile?.fccId}
+            </span>
             ). Verify button configuration with customer to confirm selection.
           </p>
         ) : (

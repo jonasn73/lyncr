@@ -88,14 +88,15 @@ export function resolveTransponderIslandSupplierSku(params: {
     catalog.startsWith("PROX-SUB") ||
     /proximity|smart|prox|push\s*start/.test(styleBlob)
 
-  // PROX-SUB-01 (and PROX-SUB-* prox family) for 2017–2025 Subaru HYQ14AHK.
+  // PROX-SUB-01 (and PROX-SUB-* prox family) for 2017–2025 Subaru → TIK-SUB-37A.
+  // FCC HYQ14AHK is preferred when known; year+make+prox family is enough to map.
   if (
     Number.isFinite(year) &&
     year >= 2017 &&
     year <= 2025 &&
     make === "subaru" &&
-    fccId === "HYQ14AHK" &&
-    isProxFamily
+    isProxFamily &&
+    (!fccId || fccId === "HYQ14AHK")
   ) {
     return {
       catalogSku: catalog.startsWith("PROX-SUB") ? catalog : "PROX-SUB-01",
