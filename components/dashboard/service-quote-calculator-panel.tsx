@@ -27,6 +27,11 @@ import {
   type ServiceQuoteResult,
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
+import {
+  competitiveBaseTargetDollars,
+  getCompetitorDensity,
+  HIGH_COMPETITION_BASE_FLOOR_DOLLARS,
+} from "@/lib/competitor-density"
 import { estimateTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 import {
@@ -203,6 +208,8 @@ type ServiceQuoteCalculatorPanelProps = {
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
+  /** Appointment ZIP — drives geofenced competitor density / aggressive floors. */
+  postalCode?: string | null
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
   /** Fired when operator edits base/travel — totalCents is the live pitched estimate. */
   onEstimateChange?: (totalCents: number, overridden: boolean) => void
@@ -227,6 +234,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   vehicleYear,
   vehicleMake,
   vehicleModel,
+  postalCode = null,
   onServiceTypeChange,
   onEstimateChange,
   variant = "full",
@@ -242,6 +250,10 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   // System baselines (dollars) — re-sync when the calculator recalculates.
   const baselineBase = Math.round(quote.baseCents / 100)
   const baselineTravel = Math.round(quote.distancePremiumCents / 100)
+  const competitorDensity = getCompetitorDensity(postalCode)
+  const highCompetition = competitorDensity === "high"
+  // Geofenced firm-stage floor (e.g. $75 in 40216) — never higher than the system base.
+  const aggressiveBaseFloor = competitiveBaseTargetDollars(baselineBase, postalCode)
 
   const [priceStage, setPriceStage] = useState<PriceStage>("silent")
   const [customBase, setCustomBase] = useState(baselineBase)
@@ -366,6 +378,24 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     setDiagnosticCushion((on) => !on)
   }
 
+  /** Enter firm stage — in high-competition ZIPs, seed the aggressive floor immediately. */
+  const openFirmStage = () => {
+    if (highCompetition && !baseDirty) {
+      setCustomBase(aggressiveBaseFloor)
+      if (aggressiveBaseFloor !== baselineBase) setBaseDirty(true)
+    }
+    setPriceStage("firm")
+  }
+
+  const competitionBadge = highCompetition ? (
+    <p className="rounded-md border border-orange-500/40 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-semibold leading-snug text-orange-100">
+      🔥 High Competition Area — Aggressive Quote Suggested
+      {postalCode ? (
+        <span className="font-normal text-orange-100/80"> · ZIP {String(postalCode).slice(0, 5)}</span>
+      ) : null}
+    </p>
+  ) : null
+
   return (
     <fieldset
       className={cn(
@@ -400,6 +430,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
           {/* Stage: silent — zero pricing friction */}
           {priceStage === "silent" ? (
             <div className="grid gap-2">
+              {competitionBadge}
               <p className="text-[11px] text-muted-foreground">
                 Skip the price talk if the caller is ready to book — or open a guided pitch.
               </p>
@@ -416,10 +447,18 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
           {/* Stage: starting — soft anchor + script */}
           {priceStage === "starting" ? (
             <div className="grid gap-3">
+              {competitionBadge}
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-semibold text-emerald-100">
-                  Quote Base: Starting at ${baselineBase || 85} + travel
+                  Quote Base: Starting at $
+                  {highCompetition ? aggressiveBaseFloor || HIGH_COMPETITION_BASE_FLOOR_DOLLARS : baselineBase || 85}{" "}
+                  + travel
                   {baselineTravel > 0 ? ` ($${baselineTravel})` : ""}
+                  {highCompetition && aggressiveBaseFloor < baselineBase ? (
+                    <span className="ml-1 text-[11px] font-normal text-orange-200">
+                      (geo floor vs ${baselineBase} card)
+                    </span>
+                  ) : null}
                 </p>
                 <button
                   type="button"
@@ -430,13 +469,14 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 </button>
               </div>
               <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-amber-50">
-                🏷️ Pitch: &ldquo;Our baseline starts at ${baselineBase || 85}. We&apos;ll inspect your
-                vehicle&apos;s specific immobilizer features on-site to give you a final quote before
-                starting.&rdquo;
+                🏷️ Pitch: &ldquo;Our baseline starts at $
+                {highCompetition ? aggressiveBaseFloor || HIGH_COMPETITION_BASE_FLOOR_DOLLARS : baselineBase || 85}.
+                We&apos;ll inspect your vehicle&apos;s specific immobilizer features on-site to give you a
+                final quote before starting.&rdquo;
               </p>
               <button
                 type="button"
-                onClick={() => setPriceStage("firm")}
+                onClick={openFirmStage}
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-500/25"
               >
                 ⚠️ Customer Insists on Exact Price
@@ -447,9 +487,15 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
           {/* Stage: firm — full negotiation workspace */}
           {priceStage === "firm" ? (
             <div className="grid gap-2">
+              {competitionBadge}
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
                   Exact price workspace
+                  {highCompetition ? (
+                    <span className="ml-1.5 normal-case tracking-normal text-orange-200">
+                      · geo target ${aggressiveBaseFloor}
+                    </span>
+                  ) : null}
                 </p>
                 <div className="flex items-center gap-2">
                   {isOverridden ? (

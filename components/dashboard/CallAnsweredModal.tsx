@@ -2338,6 +2338,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 vehicleYear={form.vehicleYear}
                                 vehicleMake={form.vehicleMake}
                                 vehicleModel={form.vehicleModel}
+                                postalCode={form.postalCode || form.serviceAddress?.postal_code}
                                 onServiceTypeChange={handleManualServiceTypeChange}
                                 onEstimateChange={handleQuoteEstimateChange}
                                 variant="breakdown-only"
@@ -2440,6 +2441,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   vehicleYear={form.vehicleYear}
                   vehicleMake={form.vehicleMake}
                   vehicleModel={form.vehicleModel}
+                  postalCode={form.postalCode || form.serviceAddress?.postal_code}
                   onServiceTypeChange={setServiceQuoteTypeId}
                   onEstimateChange={handleQuoteEstimateChange}
                 />
