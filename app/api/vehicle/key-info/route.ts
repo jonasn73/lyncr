@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
-import { buildVehicleKeySpecs } from "@/lib/vehicle-key-specs-bundle"
+import { buildUnifiedVehicleDecode } from "@/lib/vehicle-key-specs-bundle"
 
 export const maxDuration = 30
 
@@ -24,7 +24,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const keySpecs = await buildVehicleKeySpecs(yearRaw, make, model, sanitizedFcc || null)
+    const unified = await buildUnifiedVehicleDecode(
+      { year: yearRaw, make, model, trim: null },
+      { fccIdRaw: sanitizedFcc || null, userId }
+    )
+    const keySpecs = unified.keySpecs
     return NextResponse.json({
       data: {
         key_info: keySpecs.key_info,
@@ -32,12 +36,13 @@ export async function GET(req: NextRequest) {
         fcc_query: sanitizedFcc || null,
         fcc_matched: keySpecs.lookup_source === "fcc",
         // Unified shape (same as vin-decode / plate-lookup).
-        vehicle: { year: yearRaw, make, model, trim: null },
+        vehicle: unified.vehicle,
         keySpecs,
+        inventory: unified.inventory,
       },
     })
   } catch (e) {
     console.error("[vehicle/key-info]", e)
-    return NextResponse.json({ data: { key_info: null } })
+    return NextResponse.json({ data: { key_info: null, inventory: [] } })
   }
 }

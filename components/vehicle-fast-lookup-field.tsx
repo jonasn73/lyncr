@@ -57,6 +57,12 @@ function shouldHideStateSelector(raw: string): boolean {
   return false
 }
 
+type InventoryMatch = {
+  sku?: string
+  totalQuantity?: number
+  lowStock?: boolean
+}
+
 type UnifiedDecodeData = {
   vehicle_year?: string | null
   vehicle_make?: string | null
@@ -70,6 +76,16 @@ type UnifiedDecodeData = {
     key_info?: VehicleKeyInfoPayload | null
     lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none"
   }
+  /** On-hand stock rows from key_inventory (YMM / FCC match). */
+  inventory?: InventoryMatch[]
+}
+
+function inventoryStatusSuffix(inventory?: InventoryMatch[] | null): string {
+  if (!inventory?.length) return ""
+  const totalOnHand = inventory.reduce((sum, row) => sum + (Number(row.totalQuantity) || 0), 0)
+  const low = inventory.some((row) => row.lowStock)
+  const skuHint = inventory.length === 1 && inventory[0]?.sku ? ` (${inventory[0].sku})` : ""
+  return ` · ${totalOnHand} in stock${skuHint}${low ? " · reorder" : ""}`
 }
 
 function keyBundleFromDecode(
@@ -168,7 +184,7 @@ export function VehicleFastLookupField({
       setStatus(
         `Matched ${[year, make, model].filter(Boolean).join(" ")}${
           keyCount > 0 ? ` · ${keyCount} key profile${keyCount === 1 ? "" : "s"}` : ""
-        }`
+        }${inventoryStatusSuffix(d?.inventory)}`
       )
       lastAutoVin.current = vin
     } catch (e) {
@@ -220,7 +236,7 @@ export function VehicleFastLookupField({
       setStatus(
         `Matched ${[year, make, model].filter(Boolean).join(" ")}${
           keyCount > 0 ? ` · ${keyCount} key profile${keyCount === 1 ? "" : "s"}` : ""
-        }`
+        }${inventoryStatusSuffix(json.data.inventory)}`
       )
     } catch (e) {
       setStatus(null)

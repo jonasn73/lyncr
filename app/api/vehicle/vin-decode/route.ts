@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
 
     const unified =
       make && model
-        ? await buildUnifiedVehicleDecode({ year, make, model, trim })
+        ? await buildUnifiedVehicleDecode(
+            { year, make, model, trim },
+            { userId }
+          )
         : {
             vehicle: { year, make, model, trim },
             keySpecs: {
@@ -38,15 +41,17 @@ export async function GET(req: NextRequest) {
               key_info: null,
               lookup_source: "none" as const,
             },
+            inventory: [],
           }
 
     return NextResponse.json({
       data: {
         // Legacy flat fields (VinLookupField / older clients).
         ...result,
-        // Unified vehicle + key specs in one payload.
+        // Unified vehicle + key specs + inventory in one payload.
         vehicle: unified.vehicle,
         keySpecs: unified.keySpecs,
+        inventory: unified.inventory,
       },
     })
   } catch (e) {

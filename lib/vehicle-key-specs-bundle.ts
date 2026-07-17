@@ -1,7 +1,12 @@
 // Shared Year/Make/Model → key reference bundle (used by key-info, vin-decode, plate-lookup).
-// Server-only — pulls CSV profiles + FCC remote variant photos.
+// Server-only — pulls CSV profiles + FCC remote variant photos + Key Inventory stock.
 
 import { lookupFccRemoteVariants } from "@/lib/fccid-remote-variants"
+import {
+  lookupKeyInventoryForVehicle,
+  serializeKeyInventoryForApi,
+  type KeyInventoryApiRow,
+} from "@/lib/key-inventory"
 import {
   formatCompatibleVehicleSummary,
   lookupCompatibleVehiclesForFcc,
@@ -54,6 +59,14 @@ export type VehicleDecodeKeySpecs = {
 export type UnifiedVehicleDecodePayload = {
   vehicle: VehicleDecodeVehicle
   keySpecs: VehicleDecodeKeySpecs
+  /** On-hand blanks/fobs matching YMM and/or profile FCC IDs (empty until migration 105). */
+  inventory: KeyInventoryApiRow[]
+}
+
+export type BuildUnifiedVehicleDecodeOptions = {
+  fccIdRaw?: string | null
+  userId?: string | null
+  organizationId?: string | null
 }
 
 /** Build keySpecs for a decoded Year/Make/Model (optional FCC filter). */
@@ -153,16 +166,44 @@ export async function buildVehicleKeySpecs(
   }
 }
 
-/** Unified vehicle + keySpecs block for decode API responses. */
+/** Unified vehicle + keySpecs + inventory block for decode API responses. */
 export async function buildUnifiedVehicleDecode(
   vehicle: VehicleDecodeVehicle,
-  fccIdRaw?: string | null
+  options?: BuildUnifiedVehicleDecodeOptions | string | null
 ): Promise<UnifiedVehicleDecodePayload> {
+  // Back-compat: second arg used to be fccIdRaw string.
+  const opts: BuildUnifiedVehicleDecodeOptions =
+    typeof options === "string" || options == null
+      ? { fccIdRaw: options ?? null }
+      : options
+
   const keySpecs = await buildVehicleKeySpecs(
     vehicle.year,
     vehicle.make,
     vehicle.model,
-    fccIdRaw
+    opts.fccIdRaw
   )
-  return { vehicle, keySpecs }
+
+  const fccIds = [
+    ...(opts.fccIdRaw ? [opts.fccIdRaw] : []),
+    ...keySpecs.keys.map((k) => k.fccId),
+  ]
+
+  const inventoryRows =
+    opts.userId && vehicle.make && vehicle.model
+      ? await lookupKeyInventoryForVehicle({
+          userId: opts.userId,
+          organizationId: opts.organizationId,
+          year: vehicle.year,
+          make: vehicle.make,
+          model: vehicle.model,
+          fccIds,
+        })
+      : []
+
+  return {
+    vehicle,
+    keySpecs,
+    inventory: serializeKeyInventoryForApi(inventoryRows),
+  }
 }

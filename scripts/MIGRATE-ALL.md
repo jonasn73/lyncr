@@ -107,6 +107,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 102 | `102-ivr-capacity-threshold.sql` | **IVR capacity auto-bypass.** Adds **`ivr_capacity_threshold`** on **`account_settings`** (default 5). Powers Lines → “Auto-Bypass to IVR when confirmed daily jobs reach…” under Missed Call Rescue. |
 | 103 | `103-forward-original-caller-id.sql` | **Forward Caller ID.** Adds **`forward_original_caller_id`** on **`routing_config`** + **`phone_numbers`** (default `false` = show Lyncr business DID on cell). Powers Ring & Backup → “Show Customer's Number on Inbound Calls”. **Required** to save the toggle; dials use business DID until applied. |
 | 104 | `104-telnyx-call-leg-links.sql` | **Call Control leg links.** Adds **`telnyx_call_leg_links`** (inbound → outbound dial Call Control IDs). Stops phantom cell ringing when the caller hangs up mid-ring across Vercel instances. **Required** for reliable hangup of the forwarded cell leg. |
+| 105 | `105-key-inventory.sql` | **Key Inventory.** Creates **`key_inventory`** (SKU, FCC ID, brand, `compatible_vehicles` JSON, van1/van2/shop quantities, reorder alert). Fast Lookup (VIN/plate/key-info) matches stock by YMM JSON or FCC ID. **Required** before inventory matches appear on decode responses. |
 
 ## Platform admin (`admin@lyncr.app`)
 
