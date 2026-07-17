@@ -242,6 +242,8 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const [customTravel, setCustomTravel] = useState(baselineTravel)
   const [baseDirty, setBaseDirty] = useState(false)
   const [travelDirty, setTravelDirty] = useState(false)
+  const [showCompetitorMatch, setShowCompetitorMatch] = useState(false)
+  const [competitorDollars, setCompetitorDollars] = useState("")
   const onEstimateChangeRef = useRef(onEstimateChange)
   onEstimateChangeRef.current = onEstimateChange
   const wasOverriddenRef = useRef(false)
@@ -289,11 +291,17 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const safeBase = Number.isFinite(customBase) && customBase >= 0 ? customBase : 0
   const safeTravel = Number.isFinite(customTravel) && customTravel >= 0 ? customTravel : 0
   const totalEstimateCents = Math.round(safeBase * 100) + Math.round(safeTravel * 100) + otherCents
+  const totalEstimateDollars = Math.round(totalEstimateCents / 100)
+  const rangeLow = Math.round(safeBase)
+  const rangeHigh = Math.round(safeBase + safeTravel)
   const isOverridden =
     baseDirty ||
     travelDirty ||
     Math.round(safeBase) !== baselineBase ||
     Math.round(safeTravel) !== baselineTravel
+
+  const [showCompetitorMatch, setShowCompetitorMatch] = useState(false)
+  const [competitorDollars, setCompetitorDollars] = useState("")
 
   // Push edits (and resets) to the booking form — skip the untouched baseline mount path
   // so negotiation / custom-price overrides are not wiped on open.
@@ -315,7 +323,41 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     setCustomTravel(baselineTravel)
     setBaseDirty(false)
     setTravelDirty(false)
+    setShowCompetitorMatch(false)
   }
+
+  const waiveTravel = () => {
+    setCustomTravel(0)
+    setTravelDirty(true)
+  }
+
+  const applyTenPercentDiscount = () => {
+    // Cut total ~10% by scaling the editable base + travel lines.
+    const nextBase = Math.max(0, Math.round(safeBase * 0.9))
+    const nextTravel = Math.max(0, Math.round(safeTravel * 0.9))
+    setCustomBase(nextBase)
+    setCustomTravel(nextTravel)
+    setBaseDirty(true)
+    setTravelDirty(true)
+  }
+
+  const applyCompetitorMatch = () => {
+    const dollars = Number.parseFloat(competitorDollars.trim())
+    if (!Number.isFinite(dollars) || dollars < 0) return
+    const otherDollars = Math.round(otherCents / 100)
+    // Flat total override: clear travel, put remainder into base (other lines stay).
+    const nextBase = Math.max(0, Math.round(dollars) - otherDollars)
+    setCustomTravel(0)
+    setCustomBase(nextBase)
+    setTravelDirty(true)
+    setBaseDirty(true)
+    setShowCompetitorMatch(false)
+    setCompetitorDollars("")
+  }
+
+  const presetBtnClass =
+    "inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100 transition-colors hover:bg-emerald-500/25 active:scale-[0.98]"
+
 
   return (
     <fieldset
@@ -412,7 +454,14 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             </li>
           ))}
         </ul>
-        <div className="mt-2 flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
+        <p className="mt-2 text-[11px] leading-snug text-emerald-200/80">
+          Suggested Quote Range:{" "}
+          <span className="font-semibold tabular-nums text-emerald-100">
+            ${rangeLow} – ${rangeHigh}
+          </span>
+          <span className="text-muted-foreground"> · start with the low number</span>
+        </p>
+        <div className="mt-1.5 flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
           <span className="text-xs font-medium text-foreground">Total estimate</span>
           <span
             className={cn(
@@ -423,6 +472,67 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             {formatQuoteDollars(totalEstimateCents)}
           </span>
         </div>
+
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button type="button" className={presetBtnClass} onClick={waiveTravel}>
+            Waive Travel
+          </button>
+          <button type="button" className={presetBtnClass} onClick={applyTenPercentDiscount}>
+            10% Discount
+          </button>
+          <button
+            type="button"
+            className={presetBtnClass}
+            onClick={() => {
+              setShowCompetitorMatch((open) => !open)
+              if (!competitorDollars.trim()) {
+                setCompetitorDollars(String(totalEstimateDollars > 0 ? totalEstimateDollars : 95))
+              }
+            }}
+          >
+            Match Competitor
+          </button>
+        </div>
+
+        {showCompetitorMatch ? (
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/5 p-2">
+            <label className="grid min-w-[7rem] flex-1 gap-0.5 text-[10px] text-muted-foreground">
+              <span className="font-medium text-foreground">Competitor quote ($)</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                autoFocus
+                value={competitorDollars}
+                onChange={(e) => setCompetitorDollars(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    applyCompetitorMatch()
+                  }
+                }}
+                className="h-8 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="95"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={applyCompetitorMatch}
+              className="inline-flex h-8 items-center rounded-md border border-primary/40 bg-primary/15 px-3 text-[11px] font-semibold text-primary hover:bg-primary/20"
+            >
+              Apply flat ${competitorDollars.trim() || "—"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCompetitorMatch(false)}
+              className="inline-flex h-8 items-center rounded-md px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : null}
+
         {quote.distanceMiles != null || quote.keyBlankCents > 0 || quote.programmingCents > 0 ? (
           <p className="mt-1 text-[10px] text-muted-foreground">
             System baseline = {formatQuoteDollars(quote.baseCents)} service

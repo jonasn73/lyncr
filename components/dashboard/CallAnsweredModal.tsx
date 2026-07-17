@@ -2927,7 +2927,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             !canAdvanceToCustomerName && "opacity-50"
                           )}
                           disabled={!canAdvanceToCustomerName}
-                          onClick={() => setCurrentStep("CUSTOMER_NAME")}
+                          onClick={() => {
+                            // Flush the quote-card total into the ticket before advancing.
+                            applyCustomPriceToForm()
+                            setCurrentStep("CUSTOMER_NAME")
+                          }}
                         >
                           {canAdvanceToCustomerName
                             ? "Continue to Customer Details →"
