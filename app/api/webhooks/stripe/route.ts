@@ -6,10 +6,11 @@ import {
   handleStripeSubscriptionCreated,
 } from "@/lib/stripe-webhook-sync"
 import { handleStripeCheckoutSessionCompleted } from "@/lib/stripe-billing-sync"
+import { confirmJobPaymentIntent } from "@/lib/job-payments"
 
 export const runtime = "nodejs"
 
-/** Stripe billing webhooks — subscriptions, credit packs, Telnyx provisioning. */
+/** Stripe billing + job PaymentIntent webhooks. */
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
   const signature = req.headers.get("stripe-signature")
@@ -37,6 +38,15 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed":
         await handleStripeCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
         break
+      case "payment_intent.succeeded":
+      case "payment_intent.payment_failed":
+      case "payment_intent.canceled": {
+        const intent = event.data.object as Stripe.PaymentIntent
+        if (intent.metadata?.lyncr_kind === "job_payment") {
+          await confirmJobPaymentIntent(intent.id)
+        }
+        break
+      }
       default:
         break
     }

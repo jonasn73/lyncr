@@ -41,6 +41,12 @@ export function isStripeConfigured(): boolean {
   return Boolean(readStripeSecretKeyFromEnv())
 }
 
+/** Publishable key for Stripe.js / Payment Element (safe in the browser). */
+export function getStripePublishableKey(): string | null {
+  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim()
+  return key || null
+}
+
 let stripeSingleton: Stripe | null = null
 
 export function getStripeClient(): Stripe {

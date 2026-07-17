@@ -241,3 +241,60 @@ export async function settleWalletTransaction(
     throw e
   }
 }
+
+/** Look up a wallet row by Stripe PaymentIntent id (idempotent settle / confirm). */
+export async function findWalletTransactionByPaymentIntent(
+  stripePaymentIntentId: string
+): Promise<WalletTransaction | null> {
+  const sql = getSql()
+  const pi = stripePaymentIntentId.trim()
+  if (!pi) return null
+  try {
+    const rows = await sql`
+      SELECT
+        id, user_id, job_id, amount, status, payment_method,
+        stripe_payment_intent_id, created_at
+      FROM wallet_transactions
+      WHERE stripe_payment_intent_id = ${pi}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingWalletSchemaError(e)) return null
+    throw e
+  }
+}
+
+/** Settle by PaymentIntent id — credits users.balance once when PENDING → COMPLETED. */
+export async function settleWalletTransactionByPaymentIntent(
+  stripePaymentIntentId: string
+): Promise<WalletTransaction | null> {
+  const existing = await findWalletTransactionByPaymentIntent(stripePaymentIntentId)
+  if (!existing) return null
+  return settleWalletTransaction(existing.id, existing.userId)
+}
+
+/** Mark a PaymentIntent-linked row FAILED (card declined / canceled). */
+export async function failWalletTransactionByPaymentIntent(
+  stripePaymentIntentId: string
+): Promise<WalletTransaction | null> {
+  const sql = getSql()
+  const pi = stripePaymentIntentId.trim()
+  if (!pi) return null
+  try {
+    const rows = await sql`
+      UPDATE wallet_transactions
+      SET status = 'FAILED'
+      WHERE stripe_payment_intent_id = ${pi}
+        AND status = 'PENDING'
+      RETURNING
+        id, user_id, job_id, amount, status, payment_method,
+        stripe_payment_intent_id, created_at
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingWalletSchemaError(e)) return null
+    throw e
+  }
+}
