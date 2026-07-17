@@ -65,6 +65,8 @@ export type CreateIntakeJobInput = {
   plateState?: string | null
   /** Key programming method from intake key panel (OBD2, on-board sequence, etc.). */
   programmingMethod?: string | null
+  /** Transponder Island ordering SKU (e.g. TIK-SUB-37A). */
+  tiSku?: string | null
   /** ISO appointment time — sets ai_leads.scheduled_at so hopper jobs are not tentative. */
   scheduledAtIso?: string | null
   /** Most recent negotiation preset applied before booking. */
@@ -344,6 +346,9 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.keyVariantId?.trim() ? { key_variant_id: input.keyVariantId.trim() } : {}),
     ...(input.programmingMethod?.trim()
       ? { programming_method: input.programmingMethod.trim() }
+      : {}),
+    ...(input.tiSku?.trim()
+      ? { ti_sku: input.tiSku.trim().toUpperCase(), tiSku: input.tiSku.trim().toUpperCase() }
       : {}),
     ...(keyStyleRequiresFieldVerification(input.keyStyle)
       ? { field_verification_required: true }

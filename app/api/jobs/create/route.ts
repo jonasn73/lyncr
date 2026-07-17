@@ -34,6 +34,8 @@ type CreateJobBody = {
   plate_number?: string | null
   plate_state?: string | null
   programming_method?: string | null
+  /** Transponder Island ordering SKU (e.g. TIK-SUB-37A). */
+  ti_sku?: string | null
   scheduled_at?: string | null
   customer_lat?: number | null
   customer_lng?: number | null
@@ -100,6 +102,7 @@ export async function POST(req: NextRequest) {
       plateNumber: body.plate_number?.trim() || null,
       plateState: body.plate_state?.trim() || null,
       programmingMethod: body.programming_method?.trim() || null,
+      tiSku: body.ti_sku?.trim() || null,
       scheduledAtIso: body.scheduled_at?.trim() || null,
       pendingCallback: body.pending_callback === true,
       discountApplied: body.discount_applied?.trim() || null,

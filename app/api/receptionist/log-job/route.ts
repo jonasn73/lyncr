@@ -28,6 +28,7 @@ import {
 } from "@/lib/db"
 import { DISPOSITION_LABEL, dispatchStateFor } from "@/lib/call-disposition"
 import { parseScheduledAtFromFields } from "@/lib/scheduler-utils"
+import { sendTechJobAssignedSms } from "@/lib/tech-job-assigned-sms"
 import { publishOwnerEvent, publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 import { onJobStateChange } from "@/lib/sms-pipeline"
 import { persistLeadAddressFromFields } from "@/lib/geocode-persist"
@@ -174,6 +175,11 @@ export async function POST(req: NextRequest) {
         await publishTechnicianEvent(assignedTechId, "job-assigned", { leadId: result.id }).catch((e) =>
           console.error("[receptionist/log-job] tech broadcast failed:", e)
         )
+        await sendTechJobAssignedSms({
+          ownerUserId: ctx.owner_user_id,
+          leadId: result.id,
+          techUserId: assignedTechId,
+        }).catch((e) => console.error("[receptionist/log-job] tech SMS failed:", e))
       }
 
       if (isBooked) {

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { listFieldTechnicians, schedulePoolJobAndAssign } from "@/lib/db"
 import { publishOwnerEvent, publishTechnicianEvent } from "@/lib/realtime/pusher-server"
+import { sendTechJobAssignedSms } from "@/lib/tech-job-assigned-sms"
 
 export const dynamic = "force-dynamic"
 
@@ -50,6 +51,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       leadId: leadId.trim(),
       techUserId: tech.portal_user_id,
     }).catch(() => {})
+    const sms = await sendTechJobAssignedSms({
+      ownerUserId: userId,
+      leadId: leadId.trim(),
+      techUserId: tech.portal_user_id,
+    }).catch((e) => {
+      console.warn("[POST /api/owner/jobs/pool/[id]/schedule] tech SMS failed:", e)
+      return { ok: false as const, reason: "send-failed" }
+    })
+    if (!sms.ok) {
+      console.warn(`[POST /api/owner/jobs/pool/[id]/schedule] tech SMS skipped: ${sms.reason}`)
+    }
     return NextResponse.json({ data: { event } })
   } catch (e) {
     console.error("[POST /api/owner/jobs/pool/[id]/schedule]", e)

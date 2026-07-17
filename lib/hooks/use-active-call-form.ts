@@ -97,6 +97,8 @@ export type ActiveCallFormState = {
   keyProfileId: string
   /** How the selected key is programmed (from key panel variant card). */
   programmingMethod: string
+  /** Transponder Island ordering SKU (e.g. TIK-SUB-37A) for the selected key. */
+  tiSku: string
   /** Appointment date (YYYY-MM-DD) used when booking from intake. */
   scheduledDate: string
   /** Appointment time (HH:mm) used when booking from intake. */
@@ -139,6 +141,7 @@ const EMPTY_FORM: ActiveCallFormState = {
   keyVariantId: "",
   keyProfileId: "",
   programmingMethod: "",
+  tiSku: "",
   scheduledDate: "",
   scheduledTime: "",
   vehicleClarificationAnswers: [],
@@ -227,6 +230,7 @@ export function useActiveCallForm(
       keyVariantId: "",
       keyProfileId: "",
       programmingMethod: "",
+      tiSku: "",
       vehicleClarificationAnswers: [],
     }))
   }, [])
@@ -253,6 +257,7 @@ export function useActiveCallForm(
       keyVariantId: "",
       keyProfileId: "",
       programmingMethod: "",
+      tiSku: "",
       vehicleClarificationAnswers: [],
     }))
   }, [])
@@ -284,6 +289,7 @@ export function useActiveCallForm(
               keyVariantId: "",
               keyProfileId: "",
               programmingMethod: "",
+              tiSku: "",
             }
           : {}),
       }
@@ -300,6 +306,7 @@ export function useActiveCallForm(
         keyStyle: string
         variantId?: string | null
         programmingMethod?: string | null
+        tiSku?: string | null
       } | null
     ) => {
       setForm((prev) => ({
@@ -311,6 +318,7 @@ export function useActiveCallForm(
         keyStyle: sel?.keyStyle ?? "",
         keyVariantId: sel?.variantId ?? "",
         programmingMethod: sel?.programmingMethod?.trim() ?? "",
+        tiSku: sel?.tiSku?.trim() ?? "",
       }))
     },
     []
@@ -689,6 +697,7 @@ export function useActiveCallForm(
             key_style: form.keyStyle || null,
             key_variant_id: form.keyVariantId || null,
             programming_method: form.programmingMethod.trim() || null,
+            ti_sku: form.tiSku.trim() || null,
             field_verification_required: keyStyleRequiresFieldVerification(form.keyStyle),
             vehicle_trim: form.vehicleTrim.trim() || null,
             factory_options: form.factoryOptions.length > 0 ? form.factoryOptions : null,

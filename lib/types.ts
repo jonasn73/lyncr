@@ -206,6 +206,8 @@ export interface SchedulerEvent {
   key_style?: string | null
   key_variant_id?: string | null
   key_profile_id?: string | null
+  /** Transponder Island ordering SKU (e.g. TIK-SUB-37A). */
+  ti_sku?: string | null
   discount_applied?: string | null
   baseline_quoted_price_cents?: number | null
   /** Tech must verify key style / door electronics before cutting. */
@@ -272,6 +274,8 @@ export interface UnassignedPoolJob {
   key_style?: string | null
   key_variant_id?: string | null
   key_profile_id?: string | null
+  /** Transponder Island ordering SKU (e.g. TIK-SUB-37A). */
+  ti_sku?: string | null
   discount_applied?: string | null
   baseline_quoted_price_cents?: number | null
   field_verification_required?: boolean | null

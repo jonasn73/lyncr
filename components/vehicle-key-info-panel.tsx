@@ -74,6 +74,11 @@ export type VehicleKeySelection = {
   variantId?: string | null
   /** How this key is programmed (OBD2, on-board sequence, etc.). */
   programmingMethod?: string | null
+  /**
+   * Exact Transponder Island ordering SKU for the selected blank (e.g. TIK-SUB-37A).
+   * Stored on the booked job and included in tech dispatch SMS.
+   */
+  tiSku?: string | null
 }
 
 type KeyProfile = {
@@ -115,6 +120,21 @@ export type KeySelectionCardModel = {
   specs?: Array<{ label: string; value: string }>
   /** Demoted FCC ID footnote. */
   fccFootnote?: string | null
+}
+
+/** Prefer real ordering SKU (TIK-…) from the card badge / supplier override. */
+function orderingTiSkuFromCard(card: KeySelectionCardModel): string | null {
+  const bare = stripTiSkuPrefix(card.tiSku)
+  if (/^(TIK|TIT)-/i.test(bare)) return bare.toUpperCase()
+  const fromBadge = card.supplierOrderBadge?.match(/\b((?:TIK|TIT)-[A-Z0-9-]+)\b/i)?.[1]
+  if (fromBadge) return fromBadge.toUpperCase()
+  return bare || null
+}
+
+function orderingTiSkuFromManual(option: ManualKeyFrequencyOption): string | null {
+  if (option.supplierSku?.trim()) return option.supplierSku.trim().toUpperCase()
+  if (option.catalogSku?.trim()) return option.catalogSku.trim().toUpperCase()
+  return null
 }
 
 type ProfileDetail = {
@@ -1208,6 +1228,7 @@ export function VehicleKeyInfoPanel({
           ),
           variantId: picked.variant.id,
           programmingMethod: card.programmingMethod,
+          tiSku: orderingTiSkuFromCard(card),
         }
         // Highlight the mapped card only — do not auto-advance past Key Details.
         onChange(selection)
@@ -1286,6 +1307,7 @@ export function VehicleKeyInfoPanel({
       keyStyle: option.keyStyle,
       variantId: option.id,
       programmingMethod: option.programmingMethod,
+      tiSku: orderingTiSkuFromManual(option),
     }
     onChange(selection)
     onVariantSelected?.(selection)
@@ -1320,6 +1342,7 @@ export function VehicleKeyInfoPanel({
       keyStyle: preferred.keyStyle,
       variantId: preferred.id,
       programmingMethod: preferred.programmingMethod,
+      tiSku: orderingTiSkuFromManual(preferred),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto-highlight on mount / YMM change
   }, [manualBypassMode, ready, year, make, model, info, value?.variantId])
@@ -1474,6 +1497,7 @@ export function VehicleKeyInfoPanel({
       ),
       variantId: variant.id,
       programmingMethod: card.programmingMethod,
+      tiSku: orderingTiSkuFromCard(card),
     }
     onChange(selection)
     onVariantSelected?.(selection)

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { assignJobToTech, listFieldTechnicians } from "@/lib/db"
 import { publishTechnicianEvent } from "@/lib/realtime/pusher-server"
+import { sendTechJobAssignedSms } from "@/lib/tech-job-assigned-sms"
 
 export const dynamic = "force-dynamic"
 
@@ -37,6 +38,18 @@ export async function POST(req: NextRequest) {
       // Push the job onto the tech's device. The customer "on the way" text fires later, when the
       // tech actually presses Start Route (EN_ROUTE) — so we never text before they're moving.
       await publishTechnicianEvent(techUserId, "job-assigned", { leadId }).catch(() => {})
+      // Immediate Telnyx SMS with vehicle + REQUIRED PART (TI SKU).
+      const sms = await sendTechJobAssignedSms({
+        ownerUserId: userId,
+        leadId,
+        techUserId,
+      }).catch((e) => {
+        console.warn("[POST /api/owner/jobs/assign] tech SMS failed:", e)
+        return { ok: false as const, reason: "send-failed" }
+      })
+      if (!sms.ok) {
+        console.warn(`[POST /api/owner/jobs/assign] tech SMS skipped: ${sms.reason}`)
+      }
     }
     return NextResponse.json({ data: { leadId, techUserId } })
   } catch (e) {

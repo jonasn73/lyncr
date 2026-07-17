@@ -2370,6 +2370,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                         keyStyle: form.keyStyle || "Not sure yet",
                                         variantId: form.keyVariantId || null,
                                         programmingMethod: form.programmingMethod || null,
+                                        tiSku: form.tiSku || null,
                                       }
                                     : null
                                 }
@@ -2722,6 +2723,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               keyStyle: form.keyStyle || "Not sure yet",
                               variantId: form.keyVariantId || null,
                               programmingMethod: form.programmingMethod || null,
+                              tiSku: form.tiSku || null,
                             }
                           : null
                       }
