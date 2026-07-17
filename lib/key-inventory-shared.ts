@@ -5,6 +5,16 @@ export type KeyInventoryApiRow = {
   sku: string
   fccId: string
   brand: string
+  /** RF frequency label, e.g. "902 MHz". */
+  frequency: string
+  buttonCount: number
+  /** Transponder Island SKU (primary supplier). */
+  tiSku: string | null
+  /** Fallback / non-TI supplier SKU. */
+  altSku: string | null
+  /** Defaults to "Transponder Island". */
+  supplierName: string
+  imageUrl: string | null
   compatibleVehicles: Array<{
     make: string
     model: string
@@ -14,7 +24,12 @@ export type KeyInventoryApiRow = {
   van1Quantity: number
   van2Quantity: number
   shopQuantity: number
+  /** Alias: reorderThreshold (DB minimum_stock_alert). */
   minimumStockAlert: number
+  /** CamelCase aliases for the supplier catalog API. */
+  van1Qty: number
+  shopQty: number
+  reorderThreshold: number
   isSpecialty: boolean
   totalQuantity: number
   vanQuantity: number

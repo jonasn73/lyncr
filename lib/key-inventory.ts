@@ -23,6 +23,12 @@ export type KeyInventoryRow = {
   sku: string
   fccId: string
   brand: string
+  frequency: string
+  buttonCount: number
+  tiSku: string | null
+  altSku: string | null
+  supplierName: string
+  imageUrl: string | null
   compatibleVehicles: KeyInventoryCompatibleVehicle[]
   van1Quantity: number
   van2Quantity: number
@@ -66,6 +72,9 @@ function mapRow(row: Record<string, unknown>): KeyInventoryRow {
   const minAlert = Number(row.minimum_stock_alert ?? 0) || 0
   const total = van1 + van2 + shop
   const vanQuantity = van1 + van2
+  const tiSkuRaw = row.ti_sku != null ? String(row.ti_sku).trim() : ""
+  const altSkuRaw = row.alt_sku != null ? String(row.alt_sku).trim() : ""
+  const imageRaw = row.image_url != null ? String(row.image_url).trim() : ""
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -73,6 +82,12 @@ function mapRow(row: Record<string, unknown>): KeyInventoryRow {
     sku: String(row.sku ?? ""),
     fccId: String(row.fcc_id ?? ""),
     brand: String(row.brand ?? ""),
+    frequency: String(row.frequency ?? ""),
+    buttonCount: Number(row.button_count ?? 0) || 0,
+    tiSku: tiSkuRaw || null,
+    altSku: altSkuRaw || null,
+    supplierName: String(row.supplier_name ?? "Transponder Island").trim() || "Transponder Island",
+    imageUrl: imageRaw || null,
     compatibleVehicles: parseCompatibleVehicles(row.compatible_vehicles),
     van1Quantity: van1,
     van2Quantity: van2,
@@ -183,11 +198,20 @@ export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]): KeyInvento
     sku: row.sku,
     fccId: row.fccId,
     brand: row.brand,
+    frequency: row.frequency,
+    buttonCount: row.buttonCount,
+    tiSku: row.tiSku,
+    altSku: row.altSku,
+    supplierName: row.supplierName,
+    imageUrl: row.imageUrl,
     compatibleVehicles: row.compatibleVehicles,
     van1Quantity: row.van1Quantity,
     van2Quantity: row.van2Quantity,
     shopQuantity: row.shopQuantity,
     minimumStockAlert: row.minimumStockAlert,
+    van1Qty: row.van1Quantity,
+    shopQty: row.shopQuantity,
+    reorderThreshold: row.minimumStockAlert,
     isSpecialty: row.isSpecialty,
     totalQuantity: row.totalQuantity,
     vanQuantity: row.vanQuantity,
@@ -220,7 +244,11 @@ export async function getKeyInventoryBySku(
           SELECT *
           FROM key_inventory
           WHERE user_id = ${userId}::uuid
-            AND upper(trim(sku)) = ${sku}
+            AND (
+              upper(trim(sku)) = ${sku}
+              OR upper(trim(coalesce(ti_sku, ''))) = ${sku}
+              OR upper(trim(coalesce(alt_sku, ''))) = ${sku}
+            )
             AND (
               organization_id = ${orgId}::uuid
               OR organization_id IS NULL
@@ -234,7 +262,11 @@ export async function getKeyInventoryBySku(
           SELECT *
           FROM key_inventory
           WHERE user_id = ${userId}::uuid
-            AND upper(trim(sku)) = ${sku}
+            AND (
+              upper(trim(sku)) = ${sku}
+              OR upper(trim(coalesce(ti_sku, ''))) = ${sku}
+              OR upper(trim(coalesce(alt_sku, ''))) = ${sku}
+            )
           ORDER BY updated_at DESC
           LIMIT 1
         `
@@ -317,6 +349,12 @@ export type CreateKeyInventoryInput = {
   sku: string
   fccId?: string
   brand?: string
+  frequency?: string
+  buttonCount?: number
+  tiSku?: string | null
+  altSku?: string | null
+  supplierName?: string
+  imageUrl?: string | null
   compatibleVehicles?: KeyInventoryCompatibleVehicle[]
   van1Quantity?: number
   van2Quantity?: number
@@ -397,7 +435,9 @@ export async function upsertKeyInventoryVan1Stock(params: {
     van1Quantity: van1,
     van2Quantity: 0,
     shopQuantity: 0,
-    minimumStockAlert: 1,
+    minimumStockAlert: 2,
+    tiSku: sku,
+    supplierName: "Transponder Island",
   })
 }
 
@@ -415,11 +455,21 @@ export async function createKeyInventoryItem(
 
   const fccId = sanitizeFccIdInput(input.fccId ?? "")
   const brand = String(input.brand ?? "").trim()
+  const frequency = String(input.frequency ?? "").trim()
+  const buttonCount = Math.max(0, Math.trunc(input.buttonCount ?? 0))
+  const tiSku = input.tiSku != null ? normalizeInventorySku(String(input.tiSku)) || null : sku
+  const altSku =
+    input.altSku != null && String(input.altSku).trim()
+      ? normalizeInventorySku(String(input.altSku))
+      : null
+  const supplierName =
+    String(input.supplierName ?? "Transponder Island").trim() || "Transponder Island"
+  const imageUrl = input.imageUrl?.trim() || null
   const compatible = JSON.stringify(input.compatibleVehicles ?? [])
   const van1 = Math.max(0, Math.trunc(input.van1Quantity ?? 1))
   const van2 = Math.max(0, Math.trunc(input.van2Quantity ?? 0))
   const shop = Math.max(0, Math.trunc(input.shopQuantity ?? 0))
-  const minAlert = Math.max(0, Math.trunc(input.minimumStockAlert ?? 1))
+  const minAlert = Math.max(0, Math.trunc(input.minimumStockAlert ?? 2))
   const orgId = input.organizationId?.trim() || null
   const notes = input.notes?.trim() || null
 
@@ -428,7 +478,8 @@ export async function createKeyInventoryItem(
     const rows = orgId
       ? await sql`
           INSERT INTO key_inventory (
-            user_id, organization_id, sku, fcc_id, brand, compatible_vehicles,
+            user_id, organization_id, sku, fcc_id, brand, frequency, button_count,
+            ti_sku, alt_sku, supplier_name, image_url, compatible_vehicles,
             van1_quantity, van2_quantity, shop_quantity, minimum_stock_alert, notes
           ) VALUES (
             ${input.userId}::uuid,
@@ -436,6 +487,12 @@ export async function createKeyInventoryItem(
             ${sku},
             ${fccId},
             ${brand},
+            ${frequency},
+            ${buttonCount},
+            ${tiSku},
+            ${altSku},
+            ${supplierName},
+            ${imageUrl},
             ${compatible}::jsonb,
             ${van1},
             ${van2},
@@ -447,13 +504,20 @@ export async function createKeyInventoryItem(
         `
       : await sql`
           INSERT INTO key_inventory (
-            user_id, sku, fcc_id, brand, compatible_vehicles,
+            user_id, sku, fcc_id, brand, frequency, button_count,
+            ti_sku, alt_sku, supplier_name, image_url, compatible_vehicles,
             van1_quantity, van2_quantity, shop_quantity, minimum_stock_alert, notes
           ) VALUES (
             ${input.userId}::uuid,
             ${sku},
             ${fccId},
             ${brand},
+            ${frequency},
+            ${buttonCount},
+            ${tiSku},
+            ${altSku},
+            ${supplierName},
+            ${imageUrl},
             ${compatible}::jsonb,
             ${van1},
             ${van2},

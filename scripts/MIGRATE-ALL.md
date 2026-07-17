@@ -109,6 +109,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 104 | `104-telnyx-call-leg-links.sql` | **Call Control leg links.** Adds **`telnyx_call_leg_links`** (inbound → outbound dial Call Control IDs). Stops phantom cell ringing when the caller hangs up mid-ring across Vercel instances. **Required** for reliable hangup of the forwarded cell leg. |
 | 105 | `105-key-inventory.sql` | **Key Inventory.** Creates **`key_inventory`** (SKU, FCC ID, brand, `compatible_vehicles` JSON, van1/van2/shop quantities, reorder alert). Fast Lookup (VIN/plate/key-info) matches stock by YMM JSON or FCC ID. **Required** before inventory matches appear on decode responses. |
 | 106 | `106-key-inventory-specialty-affiliates.sql` | **Out-of-stock fallback.** Adds **`key_inventory.is_specialty`** (Specialty / Dealer-Only) and **`affiliate_locksmiths`** (partner name, phone, webhook, commission). Powers booking modal Alternative Solutions card. **Required** for specialty flags and Partner Dispatch. |
+| 107 | `107-key-inventory-supplier-catalog.sql` | **TI + alt suppliers.** Adds **`frequency`**, **`button_count`**, **`ti_sku`**, **`alt_sku`**, **`supplier_name`** (default Transponder Island), **`image_url`**; sets **`minimum_stock_alert`** default to **2** (reorderThreshold). Backfills `ti_sku` from legacy `sku`. TypeScript export: `lib/key-inventory-schema.ts`. |
 
 ## Platform admin (`admin@lyncr.app`)
 
