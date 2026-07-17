@@ -12,6 +12,8 @@ import { VehicleFastLookupField } from "@/components/vehicle-fast-lookup-field"
 import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection, type PreloadedVehicleKeyBundle } from "@/components/vehicle-key-info-panel"
+import { OutOfStockFallbackCard } from "@/components/dashboard/out-of-stock-fallback-card"
+import { shouldShowOutOfStockFallback } from "@/lib/key-inventory-shared"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import {
   IntakeJobPhotosPanel,
@@ -924,6 +926,56 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [negotiationDiscountApplied, liveQuote.totalCents, recoveredViaRouteDiscount]
   )
 
+  const stockFallbackIntake = useMemo(
+    () => ({
+      caller_e164: resolvedPhoneNumber || effectiveCurrent?.from_number || "",
+      customer_name: form.displayName.trim(),
+      address_line1: form.addressLine1 || null,
+      address_line2: form.addressLine2 || null,
+      city: form.city || null,
+      region: form.region || null,
+      postal_code: form.postalCode || null,
+      country: form.country || "US",
+      notes: form.notes || null,
+      vehicle_year: form.vehicleYear || null,
+      vehicle_make: form.vehicleMake || null,
+      vehicle_model: form.vehicleModel || null,
+      key_fcc_id: form.keyFccId || null,
+      key_style: form.keyStyle || null,
+      call_log_id:
+        effectiveCurrent && !effectiveCurrent.id.startsWith("manual-")
+          ? effectiveCurrent.id
+          : null,
+      organization_id: activeOrganizationId,
+      quoted_price_cents: form.quotedPriceCents > 0 ? form.quotedPriceCents : null,
+      sku: preloadedKeyBundle?.inventory?.[0]?.sku ?? null,
+    }),
+    [
+      activeOrganizationId,
+      effectiveCurrent,
+      form.addressLine1,
+      form.addressLine2,
+      form.city,
+      form.country,
+      form.displayName,
+      form.keyFccId,
+      form.keyStyle,
+      form.notes,
+      form.postalCode,
+      form.quotedPriceCents,
+      form.region,
+      form.vehicleMake,
+      form.vehicleModel,
+      form.vehicleYear,
+      preloadedKeyBundle?.inventory,
+      resolvedPhoneNumber,
+    ]
+  )
+
+  const vehicleResolvedForStock = Boolean(
+    form.vehicleYear?.trim() && form.vehicleMake?.trim() && form.vehicleModel?.trim()
+  )
+
   const resolveOwnerUserId = useCallback(async (): Promise<string | null> => {
     if (ownerUserId) return ownerUserId
     try {
@@ -1682,9 +1734,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const handleManualKeyVariantSelected = useCallback(
     (selection: VehicleKeySelection) => {
       setVehicleKeySelection(selection)
+      // Stay on key step when out-of-stock / specialty alternatives apply.
+      const stockBlock = shouldShowOutOfStockFallback(preloadedKeyBundle?.inventory)
+      if (stockBlock.show) return
       requestAnimationFrame(() => setCurrentStep("ADDRESS_CONTACT"))
     },
-    [setVehicleKeySelection]
+    [preloadedKeyBundle?.inventory, setVehicleKeySelection]
   )
 
   /** FCC field / Fast Lookup got a 17-digit VIN — fill YMM + optional preloaded key specs. */
@@ -2232,6 +2287,39 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
                                 onVehicleFromVin={handleVehicleFromVin}
                                 preloadedKeyBundle={preloadedKeyBundle}
+                                onInventoryLoaded={(inventory) => {
+                                  setPreloadedKeyBundle((prev) =>
+                                    prev
+                                      ? { ...prev, inventory }
+                                      : {
+                                          year: form.vehicleYear,
+                                          make: form.vehicleMake,
+                                          model: form.vehicleModel,
+                                          key_info: null,
+                                          lookup_source: null,
+                                          inventory,
+                                        }
+                                  )
+                                }}
+                              />
+                              <OutOfStockFallbackCard
+                                inventory={preloadedKeyBundle?.inventory}
+                                vehicleResolved={vehicleResolvedForStock}
+                                intake={stockFallbackIntake}
+                                onSpecialOrderDone={({ earliestServiceDate }) => {
+                                  toast({
+                                    title: "Special order link ready",
+                                    description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
+                                  })
+                                }}
+                                onPartnerLeadDone={({ referralStatus, affiliateName }) => {
+                                  toast({
+                                    title: `Lead sent to ${affiliateName}`,
+                                    description: referralStatus,
+                                  })
+                                  closeIntakeAfterSave()
+                                  router.push("/dashboard/leads")
+                                }}
                               />
                             </fieldset>
                           ) : null}
@@ -2521,6 +2609,39 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       onChange={(sel) => setVehicleKeySelection(sel)}
                       onVehicleFromVin={handleVehicleFromVin}
                       preloadedKeyBundle={preloadedKeyBundle}
+                      onInventoryLoaded={(inventory) => {
+                        setPreloadedKeyBundle((prev) =>
+                          prev
+                            ? { ...prev, inventory }
+                            : {
+                                year: form.vehicleYear,
+                                make: form.vehicleMake,
+                                model: form.vehicleModel,
+                                key_info: null,
+                                lookup_source: null,
+                                inventory,
+                              }
+                        )
+                      }}
+                    />
+                    <OutOfStockFallbackCard
+                      inventory={preloadedKeyBundle?.inventory}
+                      vehicleResolved={vehicleResolvedForStock}
+                      intake={stockFallbackIntake}
+                      onSpecialOrderDone={({ earliestServiceDate }) => {
+                        toast({
+                          title: "Special order link ready",
+                          description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
+                        })
+                      }}
+                      onPartnerLeadDone={({ referralStatus, affiliateName }) => {
+                        toast({
+                          title: `Lead sent to ${affiliateName}`,
+                          description: referralStatus,
+                        })
+                        closeIntakeAfterSave()
+                        router.push("/dashboard/leads")
+                      }}
                     />
                   </fieldset>
                 ) : null}

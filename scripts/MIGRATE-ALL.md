@@ -108,6 +108,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 103 | `103-forward-original-caller-id.sql` | **Forward Caller ID.** Adds **`forward_original_caller_id`** on **`routing_config`** + **`phone_numbers`** (default `false` = show Lyncr business DID on cell). Powers Ring & Backup → “Show Customer's Number on Inbound Calls”. **Required** to save the toggle; dials use business DID until applied. |
 | 104 | `104-telnyx-call-leg-links.sql` | **Call Control leg links.** Adds **`telnyx_call_leg_links`** (inbound → outbound dial Call Control IDs). Stops phantom cell ringing when the caller hangs up mid-ring across Vercel instances. **Required** for reliable hangup of the forwarded cell leg. |
 | 105 | `105-key-inventory.sql` | **Key Inventory.** Creates **`key_inventory`** (SKU, FCC ID, brand, `compatible_vehicles` JSON, van1/van2/shop quantities, reorder alert). Fast Lookup (VIN/plate/key-info) matches stock by YMM JSON or FCC ID. **Required** before inventory matches appear on decode responses. |
+| 106 | `106-key-inventory-specialty-affiliates.sql` | **Out-of-stock fallback.** Adds **`key_inventory.is_specialty`** (Specialty / Dealer-Only) and **`affiliate_locksmiths`** (partner name, phone, webhook, commission). Powers booking modal Alternative Solutions card. **Required** for specialty flags and Partner Dispatch. |
 
 ## Platform admin (`admin@lyncr.app`)
 

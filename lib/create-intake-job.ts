@@ -77,12 +77,24 @@ export type CreateIntakeJobInput = {
   existingLeadId?: string | null
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
+  /**
+   * Out-of-stock / specialty fallback resolution.
+   * Sets job_status + collected metadata (pending deposit or referred partner).
+   */
+  stockFallback?: {
+    kind: "special_order" | "referred_out"
+    checkoutUrl?: string | null
+    holdId?: string | null
+    affiliateId?: string | null
+    affiliateName?: string | null
+    commissionCents?: number | null
+  } | null
 }
 
 export type CreateIntakeJobResult = {
   lead_id: string
-  job_status: "UNASSIGNED"
-  dispatch_status: typeof UNASSIGNED_POOL_STATUS | typeof UNASSIGNED_CALLBACK_STATUS
+  job_status: string
+  dispatch_status: string
   latitude: number | null
   longitude: number | null
   customer_sms_sent: boolean
@@ -191,8 +203,30 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     rateCardSource,
   })
 
-  const dispatchStatus = pendingCallback ? CRM_LEAD_STATUS : UNASSIGNED_POOL_STATUS
-  const disposition = pendingCallback ? "PENDING_TIME" : "BOOKED"
+  const stockFallback = input.stockFallback ?? null
+  const isSpecialOrder = stockFallback?.kind === "special_order"
+  const isReferredOut = stockFallback?.kind === "referred_out"
+  const jobStatusColumn = isSpecialOrder
+    ? "pending_deposit"
+    : isReferredOut
+      ? "referred"
+      : pendingCallback
+        ? CRM_LEAD_STATUS
+        : "UNASSIGNED"
+  const dispatchStatus = isSpecialOrder
+    ? "pending_deposit"
+    : isReferredOut
+      ? "referred"
+      : pendingCallback
+        ? CRM_LEAD_STATUS
+        : UNASSIGNED_POOL_STATUS
+  const disposition = isSpecialOrder
+    ? "PENDING_TIME"
+    : isReferredOut
+      ? "FAILED"
+      : pendingCallback
+        ? "PENDING_TIME"
+        : "BOOKED"
 
   const scheduledAtIso =
     !pendingCallback && input.scheduledAtIso?.trim()
@@ -202,6 +236,15 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         })()
       : null
 
+  const commissionCents =
+    stockFallback?.commissionCents != null && Number.isFinite(stockFallback.commissionCents)
+      ? Math.round(stockFallback.commissionCents)
+      : null
+  const commissionLabel =
+    commissionCents != null
+      ? `$${(commissionCents / 100).toFixed(commissionCents % 100 === 0 ? 0 : 2)}`
+      : null
+
   const collected: Record<string, unknown> = {
     customer_name: customerName,
     company_name: input.companyName?.trim() || null,
@@ -209,14 +252,48 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     business_type: "locksmith",
     disposition,
     dispatch_status: dispatchStatus,
-    status: pendingCallback ? CRM_LEAD_STATUS : "active_booking",
-    job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
+    status: isSpecialOrder
+      ? "pending_deposit"
+      : isReferredOut
+        ? "referred_out"
+        : pendingCallback
+          ? CRM_LEAD_STATUS
+          : "active_booking",
+    job_status: jobStatusColumn,
     is_salvageable: false,
-    source: pendingCallback
-      ? "answered_call_pending_callback"
-      : input.intakeSource?.trim() || "answered_call_intake",
+    source: isSpecialOrder
+      ? "answered_call_special_order"
+      : isReferredOut
+        ? "answered_call_referred_out"
+        : pendingCallback
+          ? "answered_call_pending_callback"
+          : input.intakeSource?.trim() || "answered_call_intake",
     ...(pendingCallback
       ? { pending_callback: true, sales_recovery_stage: "pending_callbacks" }
+      : {}),
+    ...(isSpecialOrder
+      ? {
+          pending_deposit: true,
+          special_order: true,
+          special_order_retainer_cents: 5000,
+          ...(stockFallback?.checkoutUrl
+            ? { special_order_checkout_url: stockFallback.checkoutUrl }
+            : {}),
+          ...(stockFallback?.holdId ? { booking_hold_id: stockFallback.holdId } : {}),
+        }
+      : {}),
+    ...(isReferredOut
+      ? {
+          referred_out: true,
+          referral_status: commissionLabel
+            ? `Referred out - ${commissionLabel} Commission Pending`
+            : "Referred out - Commission Pending",
+          ...(stockFallback?.affiliateId ? { affiliate_id: stockFallback.affiliateId } : {}),
+          ...(stockFallback?.affiliateName
+            ? { affiliate_name: stockFallback.affiliateName }
+            : {}),
+          ...(commissionCents != null ? { referral_commission_cents: commissionCents } : {}),
+        }
       : {}),
     ...(input.callLogId ? { call_log_id: input.callLogId } : {}),
     ...(vehicleYear ? { vehicle_year: vehicleYear, year: vehicleYear } : {}),
@@ -291,7 +368,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
                 summary = ${summary},
                 disposition = ${disposition},
                 dispatch_status = ${dispatchStatus},
-                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                job_status = ${jobStatusColumn},
                 scheduled_at = ${scheduledAtIso}::timestamptz,
                 organization_id = ${orgId}::uuid,
                 collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
@@ -305,7 +382,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
                 summary = ${summary},
                 disposition = ${disposition},
                 dispatch_status = ${dispatchStatus},
-                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                job_status = ${jobStatusColumn},
                 organization_id = ${orgId}::uuid,
                 collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
               WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
@@ -319,7 +396,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
                 summary = ${summary},
                 disposition = ${disposition},
                 dispatch_status = ${dispatchStatus},
-                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                job_status = ${jobStatusColumn},
                 scheduled_at = ${scheduledAtIso}::timestamptz,
                 collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
               WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
@@ -332,12 +409,12 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
                 summary = ${summary},
                 disposition = ${disposition},
                 dispatch_status = ${dispatchStatus},
-                job_status = ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"},
+                job_status = ${jobStatusColumn},
                 collected = coalesce(collected, '{}'::jsonb) || ${collectedJson}::jsonb
               WHERE id = ${existingLeadId} AND user_id = ${input.ownerUserId}
               RETURNING id
             `
-    if (updated.length === 0) {
+    if (!Array.isArray(updated) || updated.length === 0) {
       throw new Error("Lead not found or you do not have access.")
     }
   } else if (orgId) {
@@ -351,7 +428,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         ${id}, ${input.ownerUserId}, ${orgId}::uuid, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
         ${disposition}, ${dispatchStatus}, false,
-        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now(),
+        NULL, ${jobStatusColumn}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now(),
         ${scheduledAtIso}
       )
     `
@@ -366,7 +443,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         ${id}, ${input.ownerUserId}, ${phone},
         'automotive_akl', ${collectedJson}::jsonb, ${summary},
         ${disposition}, ${dispatchStatus}, false,
-        NULL, ${pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED"}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now(),
+        NULL, ${jobStatusColumn}, false, NULL, ${input.callLogId ? `${input.callLogId}-intake-job` : `${id}-intake`}, now(),
         ${scheduledAtIso}
       )
     `
@@ -388,7 +465,8 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     await setLeadCoordinates(id, latitude, longitude)
   }
 
-  const sms = pendingCallback
+  const skipCustomerSms = pendingCallback || isSpecialOrder || isReferredOut
+  const sms = skipCustomerSms
     ? { sent: false, error: null, tracking_url: "" }
     : await sendIntakeBookingCustomerSms({
         ownerUserId: input.ownerUserId,
@@ -396,18 +474,18 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         customerPhoneE164: phone,
         customerName,
       })
-  if (!pendingCallback) {
+  if (!skipCustomerSms) {
     await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
   }
 
   await publishOwnerEvent(
     input.ownerUserId,
-    pendingCallback ? "lead-salvageable" : "job-booked",
+    isReferredOut || pendingCallback || isSpecialOrder ? "lead-salvageable" : "job-booked",
     {
       leadId: id,
       customerName,
       dispatch_status: dispatchStatus,
-      job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
+      job_status: jobStatusColumn,
     }
   ).catch((e) => console.warn("[create-intake-job] intake publish failed:", e))
 
@@ -415,7 +493,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
 
   return {
     lead_id: id,
-    job_status: pendingCallback ? CRM_LEAD_STATUS : "UNASSIGNED",
+    job_status: jobStatusColumn as CreateIntakeJobResult["job_status"],
     dispatch_status: dispatchStatus,
     latitude,
     longitude,

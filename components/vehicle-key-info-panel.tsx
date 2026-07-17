@@ -138,6 +138,8 @@ export type PreloadedVehicleKeyBundle = {
   model: string
   key_info: VehicleKeyInfoPayload | null
   lookup_source: "fcc" | "ymm" | "ymm_fallback" | "none" | null
+  /** Matching key_inventory rows from decode (van/shop stock + specialty). */
+  inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null
 }
 
 type VehicleKeyInfoPanelProps = {
@@ -172,6 +174,10 @@ type VehicleKeyInfoPanelProps = {
   }) => void
   /** Key specs already returned with VIN/plate decode — skip /api/vehicle/key-info when YMM matches. */
   preloadedKeyBundle?: PreloadedVehicleKeyBundle | null
+  /** Inventory rows from key-info / decode — parent uses for out-of-stock fallback. */
+  onInventoryLoaded?: (
+    inventory: import("@/lib/key-inventory-shared").KeyInventoryApiRow[]
+  ) => void
 }
 
 function variantCardModel(
@@ -929,7 +935,10 @@ export function VehicleKeyInfoPanel({
   fccId: fccIdProp = null,
   onVehicleFromVin,
   preloadedKeyBundle = null,
+  onInventoryLoaded,
 }: VehicleKeyInfoPanelProps) {
+  const onInventoryLoadedRef = useRef(onInventoryLoaded)
+  onInventoryLoadedRef.current = onInventoryLoaded
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
   const [error, setError] = useState(false)
@@ -1031,11 +1040,17 @@ export function VehicleKeyInfoPanel({
         ? preloadedKeyBundle
         : null
 
+    if (preload?.inventory) {
+      onInventoryLoadedRef.current?.(preload.inventory)
+    }
+
     const applyPayload = (
       payload: KeyInfoPayload | null,
-      source: "fcc" | "ymm" | "ymm_fallback" | "none" | null
+      source: "fcc" | "ymm" | "ymm_fallback" | "none" | null,
+      inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null
     ) => {
       if (cancel) return
+      if (inventory) onInventoryLoadedRef.current?.(inventory)
       setLookupSource(source === "none" ? null : source)
       setInfo(payload)
       if (!payload || payload.profiles.length === 0) {
@@ -1075,7 +1090,7 @@ export function VehicleKeyInfoPanel({
     if (preload) {
       setLoading(false)
       setError(false)
-      applyPayload(preload.key_info, preload.lookup_source)
+      applyPayload(preload.key_info, preload.lookup_source, preload.inventory ?? [])
       return
     }
 
@@ -1093,12 +1108,13 @@ export function VehicleKeyInfoPanel({
           data?: {
             key_info?: KeyInfoPayload | null
             lookup_source?: "fcc" | "ymm" | "ymm_fallback"
+            inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[]
             keySpecs?: { key_info?: KeyInfoPayload | null; lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none" }
           }
         }) => {
           const payload = j.data?.key_info ?? j.data?.keySpecs?.key_info ?? null
           const source = j.data?.lookup_source ?? j.data?.keySpecs?.lookup_source ?? null
-          applyPayload(payload, source)
+          applyPayload(payload, source, j.data?.inventory ?? [])
         }
       )
       .catch(() => {
@@ -1174,6 +1190,7 @@ export function VehicleKeyInfoPanel({
               vehicle_model?: string | null
               vehicle_trim?: string | null
               vehicle?: { year?: string; make?: string; model?: string; trim?: string | null }
+              inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[]
               keySpecs?: {
                 fccId?: string | null
                 frequency?: string | null
@@ -1203,6 +1220,7 @@ export function VehicleKeyInfoPanel({
                 model: nextModel,
                 key_info: d.keySpecs.key_info ?? null,
                 lookup_source: d.keySpecs.lookup_source ?? null,
+                inventory: Array.isArray(d.inventory) ? d.inventory : [],
               }
             : null
           onVehicleFromVin({

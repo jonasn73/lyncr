@@ -12,6 +12,8 @@ function sqlClient() {
 }
 
 export const DEFAULT_BOOKING_DEPOSIT_CENTS = 2500
+/** Non-refundable special-order retainer when key is out of stock / specialty. */
+export const SPECIAL_ORDER_RETAINER_CENTS = 5000
 
 export async function getUserRequireDeposit(ownerUserId: string): Promise<boolean> {
   const sql = sqlClient()
@@ -80,10 +82,28 @@ export async function createBookingDepositCheckout(params: {
   holdId: string
   amountCents: number
   customerEmail?: string | null
+  /** Special-order $50 retainer vs standard booking hold. */
+  purpose?: "booking_deposit" | "special_order_retainer"
+  productName?: string
+  productDescription?: string
+  successPath?: string
+  cancelPath?: string
 }): Promise<{ url: string; sessionId: string }> {
   const owner = await getUser(params.ownerUserId)
+  void owner
   const appUrl = getAppUrl().replace(/\/$/, "")
   const stripe = getStripeClient()
+  const purpose = params.purpose ?? "booking_deposit"
+  const successPath =
+    params.successPath ??
+    (purpose === "special_order_retainer"
+      ? `/dashboard/leads?deposit=success&hold=${params.holdId}`
+      : `/book?deposit=success&hold=${params.holdId}`)
+  const cancelPath =
+    params.cancelPath ??
+    (purpose === "special_order_retainer"
+      ? `/dashboard/leads?deposit=cancelled&hold=${params.holdId}`
+      : `/book?deposit=cancelled&hold=${params.holdId}`)
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     client_reference_id: params.ownerUserId,
@@ -95,19 +115,27 @@ export async function createBookingDepositCheckout(params: {
           currency: "usd",
           unit_amount: params.amountCents,
           product_data: {
-            name: "Service booking deposit",
-            description: "Holds your appointment slot until payment confirms.",
+            name:
+              params.productName ??
+              (purpose === "special_order_retainer"
+                ? "Special order key retainer"
+                : "Service booking deposit"),
+            description:
+              params.productDescription ??
+              (purpose === "special_order_retainer"
+                ? "Non-refundable $50 retainer to special-order your key (shipping lead time applies)."
+                : "Holds your appointment slot until payment confirms."),
           },
         },
       },
     ],
     metadata: {
-      checkout_type: "booking_deposit",
+      checkout_type: purpose,
       user_id: params.ownerUserId,
       hold_id: params.holdId,
     },
-    success_url: `${appUrl}/book?deposit=success&hold=${params.holdId}`,
-    cancel_url: `${appUrl}/book?deposit=cancelled&hold=${params.holdId}`,
+    success_url: `${appUrl}${successPath.startsWith("/") ? successPath : `/${successPath}`}`,
+    cancel_url: `${appUrl}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}`,
   })
   if (!session.url) throw new Error("Stripe did not return a checkout URL.")
   await attachStripeSessionToHold(params.holdId, session.id)

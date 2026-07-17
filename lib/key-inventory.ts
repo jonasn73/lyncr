@@ -4,6 +4,10 @@
 import { neon } from "@neondatabase/serverless"
 import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
+import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
+
+export type { KeyInventoryApiRow }
+export { shouldShowOutOfStockFallback } from "@/lib/key-inventory-shared"
 
 export type KeyInventoryCompatibleVehicle = {
   make: string
@@ -25,8 +29,12 @@ export type KeyInventoryRow = {
   shopQuantity: number
   minimumStockAlert: number
   notes: string | null
+  /** Specialty / Dealer-Only — not fulfilled from van stock same-day. */
+  isSpecialty: boolean
   /** van1 + van2 + shop */
   totalQuantity: number
+  /** van1 + van2 only (mobile stock). */
+  vanQuantity: number
   /** True when totalQuantity < minimumStockAlert (and alert > 0). */
   lowStock: boolean
 }
@@ -57,6 +65,7 @@ function mapRow(row: Record<string, unknown>): KeyInventoryRow {
   const shop = Number(row.shop_quantity ?? 0) || 0
   const minAlert = Number(row.minimum_stock_alert ?? 0) || 0
   const total = van1 + van2 + shop
+  const vanQuantity = van1 + van2
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -70,7 +79,9 @@ function mapRow(row: Record<string, unknown>): KeyInventoryRow {
     shopQuantity: shop,
     minimumStockAlert: minAlert,
     notes: row.notes != null ? String(row.notes) : null,
+    isSpecialty: row.is_specialty === true || row.is_specialty === "t" || row.is_specialty === 1,
     totalQuantity: total,
+    vanQuantity,
     lowStock: minAlert > 0 && total < minAlert,
   }
 }
@@ -166,7 +177,7 @@ export async function lookupKeyInventoryForVehicle(
 }
 
 /** Compact shape attached to VIN/plate/key-info decode JSON for the intake UI. */
-export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]) {
+export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]): KeyInventoryApiRow[] {
   return rows.map((row) => ({
     id: row.id,
     sku: row.sku,
@@ -177,13 +188,13 @@ export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]) {
     van2Quantity: row.van2Quantity,
     shopQuantity: row.shopQuantity,
     minimumStockAlert: row.minimumStockAlert,
+    isSpecialty: row.isSpecialty,
     totalQuantity: row.totalQuantity,
+    vanQuantity: row.vanQuantity,
     lowStock: row.lowStock,
     notes: row.notes,
   }))
 }
-
-export type KeyInventoryApiRow = ReturnType<typeof serializeKeyInventoryForApi>[number]
 
 export type KeyInventoryStockLocation = "van1" | "van2" | "shop"
 

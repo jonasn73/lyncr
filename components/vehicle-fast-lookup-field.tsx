@@ -14,6 +14,7 @@ import type {
   PreloadedVehicleKeyBundle,
   VehicleKeyInfoPayload,
 } from "@/components/vehicle-key-info-panel"
+import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
 
 export type FastVinDecodeResult = {
   year: string
@@ -57,12 +58,6 @@ function shouldHideStateSelector(raw: string): boolean {
   return false
 }
 
-type InventoryMatch = {
-  sku?: string
-  totalQuantity?: number
-  lowStock?: boolean
-}
-
 type UnifiedDecodeData = {
   vehicle_year?: string | null
   vehicle_make?: string | null
@@ -77,15 +72,18 @@ type UnifiedDecodeData = {
     lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none"
   }
   /** On-hand stock rows from key_inventory (YMM / FCC match). */
-  inventory?: InventoryMatch[]
+  inventory?: KeyInventoryApiRow[]
 }
 
-function inventoryStatusSuffix(inventory?: InventoryMatch[] | null): string {
+function inventoryStatusSuffix(inventory?: KeyInventoryApiRow[] | null): string {
   if (!inventory?.length) return ""
   const totalOnHand = inventory.reduce((sum, row) => sum + (Number(row.totalQuantity) || 0), 0)
   const low = inventory.some((row) => row.lowStock)
+  const specialty = inventory.some((row) => row.isSpecialty)
   const skuHint = inventory.length === 1 && inventory[0]?.sku ? ` (${inventory[0].sku})` : ""
-  return ` · ${totalOnHand} in stock${skuHint}${low ? " · reorder" : ""}`
+  return ` · ${totalOnHand} in stock${skuHint}${low ? " · reorder" : ""}${
+    specialty ? " · specialty" : ""
+  }`
 }
 
 function keyBundleFromDecode(
@@ -101,6 +99,7 @@ function keyBundleFromDecode(
     model,
     key_info: data.keySpecs.key_info ?? null,
     lookup_source: data.keySpecs.lookup_source ?? null,
+    inventory: data.inventory ?? [],
   }
 }
 
