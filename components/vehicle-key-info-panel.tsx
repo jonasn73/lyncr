@@ -19,7 +19,12 @@ import {
 import { normalizeVin } from "@/lib/nhtsa-vpic"
 import { KEY_STYLE_OPTIONS } from "@/lib/vehicle-key-styles"
 import { resolveVariantKeyStyle, variantButtonLabel, variantDisplayLabel, inferProgrammingMethod } from "@/lib/vehicle-key-variant-labels"
-import { buildTransponderIslandSku } from "@/lib/transponder-island-sku"
+import {
+  buildTransponderIslandSku,
+  formatTiSupplierOrderBadge,
+  resolveTransponderIslandSupplierSku,
+  stripTiSkuPrefix,
+} from "@/lib/transponder-island-sku"
 import {
   shouldShowAklTrimVerificationBanner,
   variantDisabledByTrim,
@@ -99,6 +104,8 @@ export type KeySelectionCardModel = {
   referenceNote?: string | null
   /** Transponder Island catalog SKU badge (e.g. TI-SKU: PROX-HON-04). */
   tiSku?: string | null
+  /** Exact ordering SKU badge under TI-SKU (e.g. 🛒 Supplier SKU: TIK-SUB-37A). */
+  supplierOrderBadge?: string | null
   /** Operational specs under the SKU badge. */
   specs?: Array<{ label: string; value: string }>
   /** Demoted FCC ID footnote. */
@@ -194,7 +201,8 @@ function variantCardModel(
   variant: FccVariant,
   profile: KeyProfile,
   make?: string | null,
-  inventoryPhotoUrl?: string | null
+  inventoryPhotoUrl?: string | null,
+  year?: string | null
 ): KeySelectionCardModel {
   const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
   const buttonLabel = variantButtonLabel(
@@ -212,6 +220,20 @@ function variantCardModel(
       profile.modulation && profile.modulation !== "XXX" ? ` ${profile.modulation}` : ""
     specs.push({ label: "Frequency", value: `${profile.frequency} MHz${modulation}` })
   }
+  const tiSku = buildTransponderIslandSku({
+    make,
+    title: variant.title,
+    keyType: variant.key_type,
+    variantId: variant.id,
+  })
+  const supplierOverride = resolveTransponderIslandSupplierSku({
+    year,
+    make,
+    fccId: profile.fcc_id,
+    catalogSku: tiSku,
+    title: variant.title,
+    keyType: variant.key_type,
+  })
   return {
     id: variant.id,
     label: buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel,
@@ -223,12 +245,8 @@ function variantCardModel(
       inferProgrammingMethod(variant.title, variant.key_type, profile.chipset ?? null),
     referenceImage: variant.reference_image,
     referenceNote: variant.reference_note ?? null,
-    tiSku: buildTransponderIslandSku({
-      make,
-      title: variant.title,
-      keyType: variant.key_type,
-      variantId: variant.id,
-    }),
+    tiSku,
+    supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
     specs,
     fccFootnote: profile.fcc_id ? `FCC ${profile.fcc_id}` : null,
   }
@@ -236,12 +254,41 @@ function variantCardModel(
 
 function manualOptionCardModel(
   option: ManualKeyFrequencyOption,
-  make: string | null
+  make: string | null,
+  year?: string | null
 ): KeySelectionCardModel {
   const specs: Array<{ label: string; value: string }> = []
   if (option.description) specs.push({ label: "Spec", value: option.description })
-  if (option.supplierSku) specs.push({ label: "Supplier SKU", value: option.supplierSku })
-  if (option.fccId) specs.push({ label: "FCC ID", value: option.fccId })
+
+  const tiSku = option.catalogSku
+    ? `TI-SKU: ${option.catalogSku}`
+    : buildTransponderIslandSku({
+        make,
+        title: option.label,
+        keyType: option.label,
+        variantId: option.id,
+      })
+  const supplierOverride =
+    option.supplierSku && option.fccId
+      ? {
+          catalogSku: option.catalogSku || stripTiSkuPrefix(tiSku),
+          supplierSku: option.supplierSku,
+          fccId: option.fccId,
+        }
+      : resolveTransponderIslandSupplierSku({
+          year,
+          make,
+          fccId: option.fccId,
+          catalogSku: tiSku,
+          title: option.label,
+          keyType: option.label,
+        })
+
+  // Keep FCC/supplier in specs only when we are not showing the order badge.
+  if (!supplierOverride) {
+    if (option.supplierSku) specs.push({ label: "Supplier SKU", value: option.supplierSku })
+    if (option.fccId) specs.push({ label: "FCC ID", value: option.fccId })
+  }
 
   return {
     id: option.id,
@@ -249,15 +296,9 @@ function manualOptionCardModel(
     description: option.description,
     imageUrl: option.imageUrl,
     programmingMethod: option.programmingMethod,
-    // Prefer the real catalog SKU (KEY-VOL-05-PROX) over the generated TI mock code.
-    tiSku: option.catalogSku
-      ? `TI-SKU: ${option.catalogSku}`
-      : buildTransponderIslandSku({
-          make,
-          title: option.label,
-          keyType: option.label,
-          variantId: option.id,
-        }),
+    // Prefer the real catalog SKU (KEY-VOL-05-PROX / PROX-SUB-01) over the generated TI mock code.
+    tiSku,
+    supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
     specs: specs.length > 0 ? specs : undefined,
     fccFootnote: option.fccId ? `FCC ${option.fccId}` : null,
   }
@@ -519,6 +560,11 @@ export function KeySelectionCard({
               {card.label}
             </span>
           )}
+          {card.supplierOrderBadge ? (
+            <span className="inline-flex max-w-full flex-wrap items-center rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-[11px] font-semibold leading-snug tracking-wide text-sky-100">
+              {card.supplierOrderBadge}
+            </span>
+          ) : null}
           {card.specs && card.specs.length > 0 ? (
             <ul className="space-y-0.5 text-[11px] leading-snug text-slate-300">
               {card.specs.map((spec) => (
@@ -615,6 +661,7 @@ function VariantFilmstrip({
   variants,
   profile,
   make,
+  year,
   selectedVariantId,
   selectedKeyId,
   trimProfile,
@@ -626,6 +673,7 @@ function VariantFilmstrip({
   variants: FccVariant[]
   profile: KeyProfile
   make?: string | null
+  year?: string | null
   selectedVariantId: string | null | undefined
   selectedKeyId: string | null
   trimProfile: VehicleTrimProfile
@@ -663,7 +711,7 @@ function VariantFilmstrip({
           return (
             <KeySelectionCard
               key={variant.id}
-              card={variantCardModel(variant, profile, make, inventoryPhotoUrl)}
+              card={variantCardModel(variant, profile, make, inventoryPhotoUrl, year)}
               selected={selected}
               disabled={cardDisabled}
               disabledReason={trimGate.disabled ? "Feature not supported by vehicle trim" : null}
@@ -691,6 +739,7 @@ function FccProfileSection({
   detail,
   allProfiles,
   make,
+  year,
   selectedProfileId,
   selectedFccId,
   selectedVariantId,
@@ -705,6 +754,7 @@ function FccProfileSection({
   detail: ProfileDetail
   allProfiles: KeyProfile[]
   make?: string | null
+  year?: string | null
   selectedProfileId: string | undefined
   selectedFccId: string | undefined
   selectedVariantId: string | null | undefined
@@ -762,6 +812,7 @@ function FccProfileSection({
         variants={detail.variants}
         profile={p}
         make={make}
+        year={year}
         selectedVariantId={selected ? selectedVariantId : null}
         selectedKeyId={selectedKeyId}
         trimProfile={trimProfile}
@@ -899,12 +950,14 @@ function FccSearchField({
 function ManualFrequencyGrid({
   make,
   model,
+  year,
   selectedVariantId,
   disabled,
   onPick,
 }: {
   make: string
   model: string
+  year?: string
   selectedVariantId: string | null | undefined
   disabled?: boolean
   onPick: (option: ManualKeyFrequencyOption) => void
@@ -925,7 +978,7 @@ function ManualFrequencyGrid({
         return (
           <KeySelectionCard
             key={option.id}
-            card={manualOptionCardModel(option, make)}
+            card={manualOptionCardModel(option, make, year)}
             selected={selected}
             disabled={disabled}
             onClick={() => onPick(option)}
@@ -1327,6 +1380,7 @@ export function VehicleKeyInfoPanel({
         <ManualFrequencyGrid
           make={make}
           model={model}
+          year={year}
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
@@ -1420,6 +1474,7 @@ export function VehicleKeyInfoPanel({
         <ManualFrequencyGrid
           make={make}
           model={model}
+          year={year}
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
@@ -1468,7 +1523,8 @@ export function VehicleKeyInfoPanel({
       variant,
       p,
       make,
-      inventoryPhotoForFcc(preloadedKeyBundle?.inventory, p.fcc_id)
+      inventoryPhotoForFcc(preloadedKeyBundle?.inventory, p.fcc_id),
+      year
     )
     const selection: VehicleKeySelection = {
       profileId: p.id,
@@ -1623,6 +1679,7 @@ export function VehicleKeyInfoPanel({
               variants={selectedVariantDetail.detail.variants}
               profile={selectedVariantDetail.detail.profile}
               make={make}
+              year={year}
               selectedVariantId={selectedKeyId}
               selectedKeyId={selectedKeyId}
               trimProfile={trimProfile}
@@ -1641,6 +1698,7 @@ export function VehicleKeyInfoPanel({
               detail={primaryDetail}
               allProfiles={info.profiles}
               make={make}
+              year={year}
               selectedProfileId={value?.profileId}
               selectedFccId={value?.fccId}
               selectedVariantId={value?.variantId}
@@ -1670,6 +1728,7 @@ export function VehicleKeyInfoPanel({
                       detail={detail}
                       allProfiles={info.profiles}
                       make={make}
+                      year={year}
                       selectedProfileId={value?.profileId}
                       selectedFccId={value?.fccId}
                       selectedVariantId={value?.variantId}

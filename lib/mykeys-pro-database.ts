@@ -12,6 +12,10 @@ export type MykeysProKeyRow = {
   type: string
   method: string
   img: string
+  /** Internal catalog code (e.g. PROX-SUB-01). */
+  catalogSku?: string | null
+  /** Exact Transponder Island ordering SKU (e.g. TIK-SUB-37A). */
+  supplierSku?: string | null
 }
 
 /** Vehicle profile returned by the mock MYKEYS Pro lookup. */
@@ -44,6 +48,9 @@ export const MYKEYS_PRO_DATABASE: Record<string, MykeysProVehicleProfile> = {
         type: "Proximity Smart Key",
         method: "Active Dashboard Turn Sequence",
         img: "/key-images/mykeys/subaru-prox.svg",
+        // Exact TI ordering map for 2017–2025 Subaru HYQ14AHK prox blanks.
+        catalogSku: "PROX-SUB-01",
+        supplierSku: "TIK-SUB-37A",
       },
     ],
   },
@@ -98,6 +105,8 @@ function mykeysRowToOption(
     programmingMethod: row.method,
     imageUrl: row.img,
     fccId: profile.fccId,
+    catalogSku: row.catalogSku ?? null,
+    supplierSku: row.supplierSku ?? null,
   }
 }
 

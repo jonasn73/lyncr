@@ -11,6 +11,10 @@ import {
   deriveCallTimeInventorySku,
   pickPrimaryInventoryRow,
 } from "@/lib/call-time-inventory-sku"
+import {
+  formatTiSupplierOrderBadge,
+  resolveTransponderIslandSupplierSku,
+} from "@/lib/transponder-island-sku"
 import { KeyInventoryCapturePhotoButton } from "@/components/dashboard/key-inventory-capture-photo"
 
 type Props = {
@@ -55,6 +59,19 @@ export function CallTimeInventoryIntake({
   const displayFrequency =
     (selectedFrequency || primary?.frequency || "").trim() || "N/A"
   const displayTiSku = (primary?.tiSku || primary?.sku || "").trim() || "N/A"
+  const supplierOverride = useMemo(
+    () =>
+      resolveTransponderIslandSupplierSku({
+        year,
+        make,
+        model,
+        fccId: selectedFccId || primary?.fccId,
+        catalogSku: primary?.tiSku || primary?.sku || "PROX-SUB-01",
+        title: "Proximity Smart Key",
+        keyType: "Smart Key",
+      }),
+    [year, make, model, selectedFccId, primary?.fccId, primary?.tiSku, primary?.sku]
+  )
   const van1Qty = primary?.van1Qty ?? primary?.van1Quantity ?? 0
   const stockActive = Boolean(primary && van1Qty > 0)
 
@@ -191,6 +208,11 @@ export function CallTimeInventoryIntake({
           <p className="min-w-0 flex-1 text-sm font-medium text-emerald-200">
             <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
             Stock Active: {van1Qty} in Van 1
+            {displayTiSku !== "N/A" ? (
+              <span className="ml-2 font-mono text-[11px] text-emerald-300/90">
+                TI-SKU: {supplierOverride?.catalogSku || displayTiSku}
+              </span>
+            ) : null}
           </p>
           <Button
             type="button"
@@ -202,6 +224,11 @@ export function CallTimeInventoryIntake({
             Adjust
           </Button>
         </div>
+        {supplierOverride ? (
+          <p className="mt-1.5 inline-flex max-w-full flex-wrap rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-[11px] font-semibold tracking-wide text-sky-100">
+            {formatTiSupplierOrderBadge(supplierOverride)}
+          </p>
+        ) : null}
 
         {adjustOpen ? (
           <div className="mt-2 flex items-center gap-2">
@@ -280,9 +307,17 @@ export function CallTimeInventoryIntake({
           <p className="text-xs leading-relaxed text-amber-100/90">
             We need FCC ID:{" "}
             <span className="font-mono font-medium text-amber-50">{displayFcc}</span> (
-            {displayFrequency}) — Supplier SKU:{" "}
-            <span className="font-mono font-medium text-amber-50">{displayTiSku}</span>.
+            {displayFrequency}) — TI-SKU:{" "}
+            <span className="font-mono font-medium text-amber-50">
+              {supplierOverride?.catalogSku || displayTiSku}
+            </span>
+            .
           </p>
+          {supplierOverride ? (
+            <p className="inline-flex max-w-full flex-wrap rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-[11px] font-semibold tracking-wide text-sky-100">
+              {formatTiSupplierOrderBadge(supplierOverride)}
+            </p>
+          ) : null}
         </div>
       </div>
 

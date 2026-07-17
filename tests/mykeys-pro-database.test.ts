@@ -25,6 +25,8 @@ describe("mykeys-pro-database", () => {
     expect(options[0]?.programmingMethod).toBe("Active Dashboard Turn Sequence")
     expect(options[0]?.imageUrl).toBe("/key-images/mykeys/subaru-prox.svg")
     expect(options[0]?.fccId).toBe("HYQ14AHK")
+    expect(options[0]?.catalogSku).toBe("PROX-SUB-01")
+    expect(options[0]?.supplierSku).toBe("TIK-SUB-37A")
   })
 
   it("falls back to generic manual options for unknown vehicles", () => {
