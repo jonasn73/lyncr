@@ -71,6 +71,15 @@ export type CreateIntakeJobInput = {
   discountApplied?: string | null
   /** Auto-calculated quote before negotiation discounts. */
   baselineQuotedPriceCents?: number | null
+  /**
+   * System-built estimate before a flat negotiated lock (cents).
+   * Falls back to baselineQuotedPriceCents / quotedPriceCents when omitted.
+   */
+  calculatedTotalCents?: number | null
+  /** Actual booked price after flat lock (cents). Defaults to quotedPriceCents. */
+  finalBookedTotalCents?: number | null
+  /** True when the operator locked a flat negotiated price. */
+  isPriceOverridden?: boolean
   /** Customer recovered via price-shopper route-match script. */
   recoveredViaRouteDiscount?: boolean
   /** Update an existing ai_leads row (CRM convert → intake complete) instead of inserting. */
@@ -195,8 +204,30 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     input.quotedPriceCents > 0
       ? Math.round(input.quotedPriceCents)
       : quote.totalCents
+  // System estimate (line-item / calculator) vs final booked (may be a flat negotiated lock).
+  const calculatedTotalCents =
+    input.calculatedTotalCents != null &&
+    Number.isFinite(input.calculatedTotalCents) &&
+    input.calculatedTotalCents > 0
+      ? Math.round(input.calculatedTotalCents)
+      : input.baselineQuotedPriceCents != null &&
+          Number.isFinite(input.baselineQuotedPriceCents) &&
+          input.baselineQuotedPriceCents > 0
+        ? Math.round(input.baselineQuotedPriceCents)
+        : quote.totalCents
+  const finalBookedTotalCents =
+    input.finalBookedTotalCents != null &&
+    Number.isFinite(input.finalBookedTotalCents) &&
+    input.finalBookedTotalCents > 0
+      ? Math.round(input.finalBookedTotalCents)
+      : quotedPriceCents
+  const isPriceOverridden =
+    input.isPriceOverridden === true ||
+    (calculatedTotalCents > 0 &&
+      finalBookedTotalCents > 0 &&
+      calculatedTotalCents !== finalBookedTotalCents)
   const pricingMetadata = buildIntakePricingMetadata({
-    quote: { ...quote, totalCents: quotedPriceCents },
+    quote: { ...quote, totalCents: finalBookedTotalCents > 0 ? finalBookedTotalCents : quotedPriceCents },
     vehicleYear,
     vehicleMake,
     vehicleModel,
@@ -335,6 +366,23 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.baselineQuotedPriceCents != null && input.baselineQuotedPriceCents > 0
       ? { baseline_quoted_price_cents: Math.round(input.baselineQuotedPriceCents) }
       : {}),
+    // Flat Price Override — keep cents + dollar floats for negotiation metrics.
+    ...(calculatedTotalCents > 0
+      ? {
+          calculated_total_cents: calculatedTotalCents,
+          calculatedTotal: calculatedTotalCents / 100,
+        }
+      : {}),
+    ...(finalBookedTotalCents > 0
+      ? {
+          final_booked_total_cents: finalBookedTotalCents,
+          finalBookedTotal: finalBookedTotalCents / 100,
+          last_quoted_price_cents: finalBookedTotalCents,
+          quoted_price_cents: finalBookedTotalCents,
+        }
+      : {}),
+    is_price_overridden: isPriceOverridden,
+    isPriceOverridden,
     ...(input.discountApplied?.trim()
       ? {
           discount_applied: input.discountApplied.trim(),
@@ -447,6 +495,23 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         ${scheduledAtIso}
       )
     `
+  }
+
+  // Persist flat-price override columns (ignore if migration 109 not applied yet).
+  try {
+    await sql`
+      UPDATE ai_leads
+      SET
+        calculated_total_cents = ${calculatedTotalCents > 0 ? calculatedTotalCents : null},
+        final_booked_total_cents = ${finalBookedTotalCents > 0 ? finalBookedTotalCents : null},
+        is_price_overridden = ${isPriceOverridden}
+      WHERE id = ${id} AND user_id = ${input.ownerUserId}
+    `
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!msg.includes("calculated_total_cents") && !msg.includes("does not exist")) {
+      console.warn("[create-intake-job] flat price columns update failed:", e)
+    }
   }
 
   await applyLeadDisposition(id, {

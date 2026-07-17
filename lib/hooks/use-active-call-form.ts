@@ -548,6 +548,9 @@ export function useActiveCallForm(
         quotedPriceCents?: number
         discountApplied?: string | null
         baselineQuotedPriceCents?: number | null
+        calculatedTotalCents?: number | null
+        finalBookedTotalCents?: number | null
+        isPriceOverridden?: boolean
         recoveredViaRouteDiscount?: boolean
         existingLeadId?: string | null
       }
@@ -702,6 +705,25 @@ export function useActiveCallForm(
               jobOptions?.baselineQuotedPriceCents != null && jobOptions.baselineQuotedPriceCents > 0
                 ? Math.round(jobOptions.baselineQuotedPriceCents)
                 : null,
+            calculated_total_cents:
+              jobOptions?.calculatedTotalCents != null && jobOptions.calculatedTotalCents > 0
+                ? Math.round(jobOptions.calculatedTotalCents)
+                : null,
+            final_booked_total_cents:
+              jobOptions?.finalBookedTotalCents != null && jobOptions.finalBookedTotalCents > 0
+                ? Math.round(jobOptions.finalBookedTotalCents)
+                : null,
+            is_price_overridden: jobOptions?.isPriceOverridden === true,
+            // CamelCase aliases for negotiation metrics / analytics consumers.
+            calculatedTotal:
+              jobOptions?.calculatedTotalCents != null && jobOptions.calculatedTotalCents > 0
+                ? Math.round(jobOptions.calculatedTotalCents) / 100
+                : null,
+            finalBookedTotal:
+              jobOptions?.finalBookedTotalCents != null && jobOptions.finalBookedTotalCents > 0
+                ? Math.round(jobOptions.finalBookedTotalCents) / 100
+                : null,
+            isPriceOverridden: jobOptions?.isPriceOverridden === true,
             recovered_via_route_discount: jobOptions?.recoveredViaRouteDiscount === true,
             existing_lead_id: existingLeadId,
           }),

@@ -651,6 +651,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const autoTotalDollars =
     liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
   const [customPrice, setCustomPrice] = useState("")
+  /** System line-item estimate vs flat negotiated lock (from Exact Price Workspace). */
+  const [flatPriceMeta, setFlatPriceMeta] = useState<{
+    calculatedCents: number
+    finalCents: number
+    isOverridden: boolean
+  } | null>(null)
   const [negotiationDiscountApplied, setNegotiationDiscountApplied] =
     useState<NegotiationDiscountId | null>(null)
   const [negotiationDiscountsTried, setNegotiationDiscountsTried] = useState<NegotiationDiscountId[]>([])
@@ -817,6 +823,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   useEffect(() => {
     if (!effectiveCurrent) {
       setCustomPrice("")
+      setFlatPriceMeta(null)
       setNegotiationStep(1)
       return
     }
@@ -879,6 +886,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setQuotedPriceDollars, syncQuotedPriceToAuto]
   )
 
+  const handleFlatPriceChange = useCallback(
+    (payload: { calculatedCents: number; finalCents: number; isOverridden: boolean }) => {
+      setFlatPriceMeta(payload)
+      if (payload.isOverridden) {
+        const dollars = Math.round(payload.finalCents / 100)
+        setCustomPrice(String(dollars))
+        setQuotedPriceDollars(dollars)
+      }
+    },
+    [setQuotedPriceDollars]
+  )
+
   const applyRecoveryOffer = useCallback(
     (params: {
       dollars: number
@@ -921,13 +940,35 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   }, [applyRecoveryOffer, step3Price])
 
   const jobCreateExtras = useCallback(
-    (quotedPriceCents: number) => ({
-      quotedPriceCents,
-      discountApplied: negotiationDiscountApplied,
-      baselineQuotedPriceCents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+    (quotedPriceCents: number) => {
+      const calculatedCents =
+        flatPriceMeta?.calculatedCents && flatPriceMeta.calculatedCents > 0
+          ? flatPriceMeta.calculatedCents
+          : liveQuote.totalCents > 0
+            ? liveQuote.totalCents
+            : quotedPriceCents
+      const finalCents =
+        flatPriceMeta?.isOverridden && flatPriceMeta.finalCents > 0
+          ? flatPriceMeta.finalCents
+          : quotedPriceCents > 0
+            ? quotedPriceCents
+            : calculatedCents
+      return {
+        quotedPriceCents: finalCents,
+        discountApplied: negotiationDiscountApplied,
+        baselineQuotedPriceCents: calculatedCents > 0 ? calculatedCents : null,
+        calculatedTotalCents: calculatedCents > 0 ? calculatedCents : null,
+        finalBookedTotalCents: finalCents > 0 ? finalCents : null,
+        isPriceOverridden: Boolean(flatPriceMeta?.isOverridden),
+        recoveredViaRouteDiscount,
+      }
+    },
+    [
+      flatPriceMeta,
+      negotiationDiscountApplied,
+      liveQuote.totalCents,
       recoveredViaRouteDiscount,
-    }),
-    [negotiationDiscountApplied, liveQuote.totalCents, recoveredViaRouteDiscount]
+    ]
   )
 
   const stockFallbackIntake = useMemo(
@@ -2481,6 +2522,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 postalCode={form.postalCode || form.serviceAddress?.postal_code}
                                 onServiceTypeChange={handleManualServiceTypeChange}
                                 onEstimateChange={handleQuoteEstimateChange}
+                                onFlatPriceChange={handleFlatPriceChange}
                                 variant="breakdown-only"
                               />
 
@@ -2584,6 +2626,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   postalCode={form.postalCode || form.serviceAddress?.postal_code}
                   onServiceTypeChange={setServiceQuoteTypeId}
                   onEstimateChange={handleQuoteEstimateChange}
+                  onFlatPriceChange={handleFlatPriceChange}
                 />
 
                 <IntakeJobPhotosPanel

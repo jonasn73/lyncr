@@ -44,6 +44,13 @@ type CreateJobBody = {
   organization_id?: string | null
   discount_applied?: string | null
   baseline_quote_cents?: number | null
+  calculated_total_cents?: number | null
+  final_booked_total_cents?: number | null
+  is_price_overridden?: boolean
+  /** Dollar floats for negotiation metrics (optional; cents fields preferred). */
+  calculatedTotal?: number | null
+  finalBookedTotal?: number | null
+  isPriceOverridden?: boolean
   recovered_via_route_discount?: boolean
   existing_lead_id?: string | null
 }
@@ -100,6 +107,28 @@ export async function POST(req: NextRequest) {
         body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))
           ? Math.round(Number(body.baseline_quote_cents))
           : null,
+      calculatedTotalCents: (() => {
+        if (body.calculated_total_cents != null && Number.isFinite(Number(body.calculated_total_cents))) {
+          return Math.round(Number(body.calculated_total_cents))
+        }
+        if (body.calculatedTotal != null && Number.isFinite(Number(body.calculatedTotal))) {
+          return Math.round(Number(body.calculatedTotal) * 100)
+        }
+        return null
+      })(),
+      finalBookedTotalCents: (() => {
+        if (
+          body.final_booked_total_cents != null &&
+          Number.isFinite(Number(body.final_booked_total_cents))
+        ) {
+          return Math.round(Number(body.final_booked_total_cents))
+        }
+        if (body.finalBookedTotal != null && Number.isFinite(Number(body.finalBookedTotal))) {
+          return Math.round(Number(body.finalBookedTotal) * 100)
+        }
+        return null
+      })(),
+      isPriceOverridden: body.is_price_overridden === true || body.isPriceOverridden === true,
       recoveredViaRouteDiscount: body.recovered_via_route_discount === true,
       existingLeadId: body.existing_lead_id?.trim() || null,
     })

@@ -213,6 +213,15 @@ type ServiceQuoteCalculatorPanelProps = {
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
   /** Fired when operator edits base/travel — totalCents is the live pitched estimate. */
   onEstimateChange?: (totalCents: number, overridden: boolean) => void
+  /**
+   * Fired when line-item estimate and/or flat negotiated lock change.
+   * calculatedCents = system Total estimate; finalCents = locked flat (or calculated when unlocked).
+   */
+  onFlatPriceChange?: (payload: {
+    calculatedCents: number
+    finalCents: number
+    isOverridden: boolean
+  }) => void
   /** selector-only = step 1; breakdown-only = step 3; full = default */
   variant?: "full" | "selector-only" | "breakdown-only"
   /** Tighter layout for manual intake sheets */
@@ -237,6 +246,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   postalCode = null,
   onServiceTypeChange,
   onEstimateChange,
+  onFlatPriceChange,
   variant = "full",
   compact = false,
   className,
@@ -263,10 +273,14 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   // Operator can waive blank / programming when customer already has hardware.
   const [includeKeyBlank, setIncludeKeyBlank] = useState(true)
   const [includeKeyProgramming, setIncludeKeyProgramming] = useState(true)
+  /** Flat negotiated lock (dollars string) — empty means use the system Total estimate. */
+  const [flatLockDollars, setFlatLockDollars] = useState("")
   const [competitorPrice, setCompetitorPrice] = useState("")
   const [diagnosticCushion, setDiagnosticCushion] = useState(false)
   const onEstimateChangeRef = useRef(onEstimateChange)
   onEstimateChangeRef.current = onEstimateChange
+  const onFlatPriceChangeRef = useRef(onFlatPriceChange)
+  onFlatPriceChangeRef.current = onFlatPriceChange
   const wasOverriddenRef = useRef(false)
 
   // New service type → collapse pricing and reset to system numbers.
@@ -278,6 +292,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     setTravelDirty(false)
     setIncludeKeyBlank(true)
     setIncludeKeyProgramming(true)
+    setFlatLockDollars("")
     setCompetitorPrice("")
     setDiagnosticCushion(false)
     wasOverriddenRef.current = false
@@ -336,12 +351,18 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
 
   const safeBase = Number.isFinite(customBase) && customBase >= 0 ? customBase : 0
   const safeTravel = Number.isFinite(customTravel) && customTravel >= 0 ? customTravel : 0
-  const totalEstimateCents =
+  const calculatedEstimateCents =
     Math.round(safeBase * 100) +
     Math.round(safeTravel * 100) +
     otherFixedCents +
     activeBlankCents +
     activeProgrammingCents
+  // Flat lock → displayed / booked total; otherwise the system line-item estimate.
+  const flatLockParsed = Number.parseFloat(flatLockDollars.trim())
+  const flatLockActive =
+    flatLockDollars.trim() !== "" && Number.isFinite(flatLockParsed) && flatLockParsed >= 0
+  const flatLockCents = flatLockActive ? Math.round(flatLockParsed * 100) : 0
+  const totalEstimateCents = flatLockActive ? flatLockCents : calculatedEstimateCents
   // Suggested range: low = Base+Travel; high = Base+Travel+active Blank+active Programming.
   const suggestedRangeLowDollars = Math.round(safeBase + safeTravel)
   const suggestedRangeHighDollars = Math.round(
@@ -351,7 +372,8 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const programmingWaived = Boolean(programmingLine && !includeKeyProgramming)
   const isOverridden =
     priceStage === "firm" &&
-    (baseDirty ||
+    (flatLockActive ||
+      baseDirty ||
       travelDirty ||
       diagnosticCushion ||
       blankWaived ||
@@ -389,17 +411,35 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
       if (wasOverriddenRef.current) {
         wasOverriddenRef.current = false
         onEstimateChangeRef.current?.(quote.totalCents, false)
+        onFlatPriceChangeRef.current?.({
+          calculatedCents: quote.totalCents,
+          finalCents: quote.totalCents,
+          isOverridden: false,
+        })
       }
       return
     }
     if (isOverridden) {
       wasOverriddenRef.current = true
       onEstimateChangeRef.current?.(totalEstimateCents, true)
-      return
+    } else {
+      // Firm but still on baseline numbers — still persist so Continue captures the visible total.
+      onEstimateChangeRef.current?.(totalEstimateCents, false)
     }
-    // Firm but still on baseline numbers — still persist so Continue captures the visible total.
-    onEstimateChangeRef.current?.(totalEstimateCents, false)
-  }, [showBreakdown, priceStage, totalEstimateCents, isOverridden, quote.totalCents])
+    onFlatPriceChangeRef.current?.({
+      calculatedCents: calculatedEstimateCents,
+      finalCents: totalEstimateCents,
+      isOverridden: flatLockActive,
+    })
+  }, [
+    showBreakdown,
+    priceStage,
+    totalEstimateCents,
+    calculatedEstimateCents,
+    flatLockActive,
+    isOverridden,
+    quote.totalCents,
+  ])
 
   const resetToBaseline = () => {
     setCustomBase(baselineBase)
@@ -408,6 +448,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     setTravelDirty(false)
     setIncludeKeyBlank(true)
     setIncludeKeyProgramming(true)
+    setFlatLockDollars("")
     setCompetitorPrice("")
     setDiagnosticCushion(false)
   }
@@ -719,15 +760,53 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
 
               <div className="flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
                 <span className="text-xs font-medium text-foreground">Total estimate</span>
-                <span
-                  className={cn(
-                    "text-lg font-bold tabular-nums",
-                    isOverridden ? "text-amber-200" : "text-emerald-300"
-                  )}
-                >
-                  {formatQuoteDollars(totalEstimateCents)}
+                <span className="inline-flex items-baseline gap-2">
+                  {flatLockActive ? (
+                    <span className="text-sm font-semibold tabular-nums text-muted-foreground line-through decoration-rose-400/80">
+                      {formatQuoteDollars(calculatedEstimateCents)}
+                    </span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "text-lg font-bold tabular-nums",
+                      flatLockActive || isOverridden ? "text-amber-200" : "text-emerald-300"
+                    )}
+                  >
+                    {formatQuoteDollars(totalEstimateCents)}
+                  </span>
                 </span>
               </div>
+
+              <label className="mt-1 grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px]">
+                <span className="font-medium text-amber-50">🔒 Lock Flat Negotiated Price</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-amber-100/80">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    value={flatLockDollars}
+                    onChange={(e) => setFlatLockDollars(e.target.value)}
+                    placeholder="e.g. 375"
+                    aria-label="Lock flat negotiated price in dollars"
+                    className="h-8 w-28 rounded-md border border-amber-500/40 bg-background px-2 text-sm tabular-nums text-foreground focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                  {flatLockActive ? (
+                    <button
+                      type="button"
+                      onClick={() => setFlatLockDollars("")}
+                      className="text-[10px] font-medium text-amber-200 underline-offset-2 hover:underline"
+                    >
+                      Clear lock
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-amber-100/70">
+                      Optional — overrides the system total when you book
+                    </span>
+                  )}
+                </div>
+              </label>
 
               <div className="mt-1 flex flex-wrap gap-1.5">
                 <button type="button" className={dealPillClass} onClick={waiveTravel}>
