@@ -76,6 +76,8 @@ export interface User {
   created_at: string
   /** Prepaid balance in USD cents (requires `019-billing-admin-feedback.sql`). */
   credit_balance_cents: number
+  /** Field-tech wallet available balance in USD (`111-tech-wallet-transactions.sql`). */
+  balance?: number
   /** Entitlements tier key: trial | starter | growth | enterprise */
   billing_plan: string
   /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */

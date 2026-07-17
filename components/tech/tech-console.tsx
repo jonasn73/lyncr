@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route, Inbox, Car, AlertTriangle } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { InvoiceModal } from "@/components/tech/invoice-modal"
+import { TechWalletCard } from "@/components/tech/tech-wallet-card"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import type { TechBadge } from "@/lib/tech-badges"
 import type { DispatchJob, UnassignedPoolJob } from "@/lib/types"
@@ -55,6 +56,8 @@ export function TechConsole(props: {
   const [invoiceJob, setInvoiceJob] = useState<DispatchJob | null>(null)
   const [poolJobs, setPoolJobs] = useState<UnassignedPoolJob[]>([])
   const [claimBusyId, setClaimBusyId] = useState<string | null>(null)
+  /** Bumps so My Wallet refetches after invoice collect / job refresh. */
+  const [walletRefreshToken, setWalletRefreshToken] = useState(0)
   const mounted = useRef(true)
 
   const load = useCallback(async (showSpinner = false) => {
@@ -227,6 +230,8 @@ export function TechConsole(props: {
       </header>
 
       <main className="flex-1 space-y-3 px-4 py-5">
+        {!loading && <TechWalletCard refreshToken={walletRefreshToken} />}
+
         {!loading && <BadgesStrip badges={badges} />}
 
         {!loading && poolJobs.length > 0 ? (
@@ -294,6 +299,7 @@ export function TechConsole(props: {
           onClose={() => setInvoiceJob(null)}
           onCompleted={() => {
             setInvoiceJob(null)
+            setWalletRefreshToken((n) => n + 1)
             load()
           }}
         />

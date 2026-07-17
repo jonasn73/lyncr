@@ -19,6 +19,7 @@ import {
 } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 import { onJobStateChange } from "@/lib/sms-pipeline"
+import { createWalletTransaction, walletStatusFromInvoice } from "@/lib/tech-wallet"
 import type { InvoiceLineItem, JobInvoice } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -97,6 +98,22 @@ export async function POST(req: NextRequest) {
 
     // Completing the invoice closes out the job.
     await setJobStatusForTech(userId, leadId, "completed").catch(() => {})
+
+    // Credit the tech wallet when payment was collected on-site.
+    if (collectNow && method !== "none" && total > 0) {
+      const wallet = walletStatusFromInvoice({
+        paymentStatus,
+        paymentMethod: method,
+      })
+      await createWalletTransaction({
+        userId,
+        jobId: leadId,
+        amountUsd: total / 100,
+        status: wallet.status,
+        paymentMethod: wallet.paymentMethod,
+      }).catch((e) => console.warn("[invoice] wallet transaction failed:", e))
+    }
+
     const ownerId = await getOwnerIdForLead(leadId)
     if (ownerId) {
       await publishOwnerEvent(ownerId, "job-status-updated", {

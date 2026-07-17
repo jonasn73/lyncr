@@ -113,6 +113,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 108 | `108-key-inventory-image-blob.sql` | **Quick Photo Upload.** Adds **`image_data_base64`** + **`image_mime_type`** on **`key_inventory`**. Powers Capture Key Image → `/api/inventory/image` + `/api/inventory/[id]/image`. |
 | 109 | `109-flat-price-override.sql` | **Flat Price Override.** Adds **`calculated_total_cents`**, **`final_booked_total_cents`**, **`is_price_overridden`** on **`ai_leads`**. Powers Exact Price → Lock Flat Negotiated Price + negotiation metrics. |
 | 110 | `110-ti-supplier-catalog.sql` | **TI full catalog.** Creates **`ti_supplier_catalog`** (shared scrape: `ti_sku`, `cross_ref_ti_sku`, `title`, `fcc_id`, `frequency`, `button_count`, `image_url`, `product_url`). Adds **`product_title`**, **`product_url`**, **`cross_ref_ti_sku`** on **`key_inventory`**. Import with `npx tsx scripts/import-ti-catalog.ts` after `npm run scrape:ti`. |
+| 111 | `111-tech-wallet-transactions.sql` | **Tech wallet.** Adds **`users.balance`** (available earnings) and **`wallet_transactions`** (`user_id`, `job_id`, `amount`, `status` PENDING/COMPLETED/FAILED, `payment_method` TAP_TO_PAY/MANUAL_CARD/CASH, optional `stripe_payment_intent_id`). Powers field-tech **My Wallet** on `/tech/dashboard` via `GET /api/tech/wallet`. |
 
 ## Platform admin (`admin@lyncr.app`)
 
