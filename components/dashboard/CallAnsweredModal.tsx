@@ -13,7 +13,11 @@ import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/com
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection, type PreloadedVehicleKeyBundle } from "@/components/vehicle-key-info-panel"
 import { OutOfStockFallbackCard } from "@/components/dashboard/out-of-stock-fallback-card"
-import { shouldShowOutOfStockFallback } from "@/lib/key-inventory-shared"
+import { CallTimeInventoryIntake } from "@/components/dashboard/call-time-inventory-intake"
+import {
+  shouldShowOutOfStockFallback,
+  type KeyInventoryApiRow,
+} from "@/lib/key-inventory-shared"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import {
   IntakeJobPhotosPanel,
@@ -975,6 +979,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const vehicleResolvedForStock = Boolean(
     form.vehicleYear?.trim() && form.vehicleMake?.trim() && form.vehicleModel?.trim()
   )
+
+  const mergeInventoryItem = useCallback((item: KeyInventoryApiRow) => {
+    setPreloadedKeyBundle((prev) => {
+      const base: PreloadedVehicleKeyBundle = prev ?? {
+        year: form.vehicleYear,
+        make: form.vehicleMake,
+        model: form.vehicleModel,
+        key_info: null,
+        lookup_source: null,
+        inventory: [],
+      }
+      const list = [...(base.inventory ?? [])]
+      const idx = list.findIndex(
+        (row) => row.id === item.id || row.sku.toUpperCase() === item.sku.toUpperCase()
+      )
+      if (idx >= 0) list[idx] = item
+      else list.unshift(item)
+      return { ...base, inventory: list }
+    })
+  }, [form.vehicleMake, form.vehicleModel, form.vehicleYear])
 
   const resolveOwnerUserId = useCallback(async (): Promise<string | null> => {
     if (ownerUserId) return ownerUserId
@@ -2251,6 +2275,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     .join(" ")}
                                 </div>
                               ) : null}
+                              <CallTimeInventoryIntake
+                                year={form.vehicleYear}
+                                make={form.vehicleMake}
+                                model={form.vehicleModel}
+                                selectedFccId={form.keyFccId || null}
+                                organizationId={activeOrganizationId}
+                                inventory={preloadedKeyBundle?.inventory}
+                                onInventoryUpdated={mergeInventoryItem}
+                              />
                               <p className="text-[11px] text-primary/90">
                                 Tap the key layout that matches — we slide forward to location automatically.
                               </p>
@@ -2577,6 +2610,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         vehicle_model: form.vehicleModel,
                       }}
                       onChange={setVehicle}
+                    />
+                    {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
+                      <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+                        Selected Vehicle: {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </div>
+                    ) : null}
+                    <CallTimeInventoryIntake
+                      year={form.vehicleYear}
+                      make={form.vehicleMake}
+                      model={form.vehicleModel}
+                      selectedFccId={form.keyFccId || null}
+                      organizationId={activeOrganizationId}
+                      inventory={preloadedKeyBundle?.inventory}
+                      onInventoryUpdated={mergeInventoryItem}
                     />
                     <VehicleIntakeClarificationsPanel
                       year={form.vehicleYear}

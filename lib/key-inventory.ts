@@ -325,6 +325,82 @@ export type CreateKeyInventoryInput = {
   notes?: string | null
 }
 
+/**
+ * Upsert van-1 stock for call-time intake: update existing SKU or insert a new row
+ * with YMM compatibility so future lookups match.
+ */
+export async function upsertKeyInventoryVan1Stock(params: {
+  userId: string
+  organizationId?: string | null
+  sku: string
+  fccId?: string
+  brand?: string
+  van1Quantity: number
+  year?: number | string | null
+  make?: string | null
+  model?: string | null
+}): Promise<{ row: KeyInventoryRow; created: boolean }> {
+  const sku = normalizeInventorySku(params.sku)
+  if (!params.userId || !sku) throw new Error("userId and sku are required")
+  const van1 = Math.max(0, Math.trunc(params.van1Quantity))
+  const fccId = sanitizeFccIdInput(params.fccId ?? "")
+  const brand = String(params.brand ?? "").trim()
+  const yearNum = Number(params.year)
+  const make = String(params.make ?? "").trim()
+  const model = String(params.model ?? "").trim()
+  const compatibleVehicles: KeyInventoryCompatibleVehicle[] =
+    Number.isFinite(yearNum) && make && model
+      ? [{ make, model, yearStart: yearNum, yearEnd: yearNum }]
+      : []
+
+  const existing = await getKeyInventoryBySku(params.userId, sku, params.organizationId)
+  if (existing) {
+    try {
+      const sql = getSql()
+      const compatibleJson = JSON.stringify(
+        existing.compatibleVehicles.length > 0 ? existing.compatibleVehicles : compatibleVehicles
+      )
+      const rows = await sql`
+        UPDATE key_inventory
+        SET
+          van1_quantity = ${van1},
+          fcc_id = CASE WHEN ${fccId} = '' THEN fcc_id ELSE ${fccId} END,
+          brand = CASE WHEN ${brand} = '' THEN brand ELSE ${brand} END,
+          compatible_vehicles = CASE
+            WHEN jsonb_array_length(compatible_vehicles) = 0 AND ${compatibleJson}::jsonb != '[]'::jsonb
+              THEN ${compatibleJson}::jsonb
+            ELSE compatible_vehicles
+          END,
+          updated_at = now()
+        WHERE id = ${existing.id}::uuid
+          AND user_id = ${params.userId}::uuid
+        RETURNING *
+      `
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) throw new Error("Update failed")
+      return { row: mapRow(row), created: false }
+    } catch (error) {
+      if (isMissingTableError(error)) {
+        throw new Error("Key inventory table is missing. Run scripts/105-key-inventory.sql in Neon.")
+      }
+      throw error
+    }
+  }
+
+  return createKeyInventoryItem({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    sku,
+    fccId,
+    brand,
+    compatibleVehicles,
+    van1Quantity: van1,
+    van2Quantity: 0,
+    shopQuantity: 0,
+    minimumStockAlert: 1,
+  })
+}
+
 /** Insert a new inventory SKU (or return existing if SKU already owned). */
 export async function createKeyInventoryItem(
   input: CreateKeyInventoryInput
