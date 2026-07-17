@@ -858,6 +858,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setQuotedPriceDollars]
   )
 
+  const handleQuoteEstimateChange = useCallback(
+    (totalCents: number, overridden: boolean) => {
+      const dollars = Math.round(totalCents / 100)
+      if (overridden) {
+        setCustomPrice(String(dollars))
+        setQuotedPriceDollars(dollars)
+        return
+      }
+      // Operator hit "Reset to baseline" on the quote card.
+      syncQuotedPriceToAuto()
+      setCustomPrice(dollars > 0 ? String(dollars) : "")
+    },
+    [setQuotedPriceDollars, syncQuotedPriceToAuto]
+  )
+
   const applyRecoveryOffer = useCallback(
     (params: {
       dollars: number
@@ -2324,6 +2339,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 vehicleMake={form.vehicleMake}
                                 vehicleModel={form.vehicleModel}
                                 onServiceTypeChange={handleManualServiceTypeChange}
+                                onEstimateChange={handleQuoteEstimateChange}
                                 variant="breakdown-only"
                               />
 
@@ -2425,6 +2441,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   vehicleMake={form.vehicleMake}
                   vehicleModel={form.vehicleModel}
                   onServiceTypeChange={setServiceQuoteTypeId}
+                  onEstimateChange={handleQuoteEstimateChange}
                 />
 
                 <IntakeJobPhotosPanel

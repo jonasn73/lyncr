@@ -2,7 +2,7 @@
 
 // Live service quote breakdown for the answered-call quick booking sheet.
 
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   Building2,
@@ -13,6 +13,7 @@ import {
   KeyRound,
   Lock,
   LockKeyhole,
+  RotateCcw,
   Smartphone,
   Sparkles,
   Vault,
@@ -203,12 +204,17 @@ type ServiceQuoteCalculatorPanelProps = {
   vehicleMake: string
   vehicleModel: string
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
+  /** Fired when operator edits base/travel — totalCents is the live pitched estimate. */
+  onEstimateChange?: (totalCents: number, overridden: boolean) => void
   /** selector-only = step 1; breakdown-only = step 3; full = default */
   variant?: "full" | "selector-only" | "breakdown-only"
   /** Tighter layout for manual intake sheets */
   compact?: boolean
   className?: string
 }
+
+const moneyInputClass =
+  "w-16 border-0 bg-transparent p-0 text-right text-xs tabular-nums text-foreground outline-none ring-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 
 export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
   quote,
@@ -217,6 +223,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   vehicleMake,
   vehicleModel,
   onServiceTypeChange,
+  onEstimateChange,
   variant = "full",
   compact = false,
   className,
@@ -226,6 +233,89 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const selectorOnlyCompact = compact && variant === "selector-only"
   const selectedLabel =
     SERVICE_QUOTE_TYPES.find((t) => t.id === serviceTypeId)?.label ?? "Selected service"
+
+  // System baselines (dollars) — re-sync when the calculator recalculates.
+  const baselineBase = Math.round(quote.baseCents / 100)
+  const baselineTravel = Math.round(quote.distancePremiumCents / 100)
+
+  const [customBase, setCustomBase] = useState(baselineBase)
+  const [customTravel, setCustomTravel] = useState(baselineTravel)
+  const [baseDirty, setBaseDirty] = useState(false)
+  const [travelDirty, setTravelDirty] = useState(false)
+  const onEstimateChangeRef = useRef(onEstimateChange)
+  onEstimateChangeRef.current = onEstimateChange
+  const wasOverriddenRef = useRef(false)
+
+  // New service type → start from the fresh system calculation.
+  useEffect(() => {
+    setCustomBase(Math.round(quote.baseCents / 100))
+    setCustomTravel(Math.round(quote.distancePremiumCents / 100))
+    setBaseDirty(false)
+    setTravelDirty(false)
+    wasOverriddenRef.current = false
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset on service type switches
+  }, [serviceTypeId])
+
+  useEffect(() => {
+    if (!baseDirty) setCustomBase(baselineBase)
+  }, [baselineBase, baseDirty])
+
+  useEffect(() => {
+    if (!travelDirty) setCustomTravel(baselineTravel)
+  }, [baselineTravel, travelDirty])
+
+  // Age / brand / parts / programming stay system-calculated.
+  const otherCents = useMemo(
+    () =>
+      quote.lines
+        .filter((line) => line.kind !== "base_rate" && line.kind !== "distance_travel")
+        .reduce((sum, line) => sum + line.cents, 0),
+    [quote.lines]
+  )
+
+  const otherLines = useMemo(
+    () => quote.lines.filter((line) => line.kind !== "base_rate" && line.kind !== "distance_travel"),
+    [quote.lines]
+  )
+
+  const baseLabel =
+    quote.lines.find((line) => line.kind === "base_rate")?.label ?? `${selectedLabel} base`
+  const travelLabel =
+    quote.lines.find((line) => line.kind === "distance_travel")?.label ??
+    (quote.distanceMiles != null
+      ? `Travel (${quote.distanceMiles.toFixed(1)} mi)`
+      : "Travel fee")
+
+  const safeBase = Number.isFinite(customBase) && customBase >= 0 ? customBase : 0
+  const safeTravel = Number.isFinite(customTravel) && customTravel >= 0 ? customTravel : 0
+  const totalEstimateCents = Math.round(safeBase * 100) + Math.round(safeTravel * 100) + otherCents
+  const isOverridden =
+    baseDirty ||
+    travelDirty ||
+    Math.round(safeBase) !== baselineBase ||
+    Math.round(safeTravel) !== baselineTravel
+
+  // Push edits (and resets) to the booking form — skip the untouched baseline mount path
+  // so negotiation / custom-price overrides are not wiped on open.
+  useEffect(() => {
+    if (!showBreakdown) return
+    if (isOverridden) {
+      wasOverriddenRef.current = true
+      onEstimateChangeRef.current?.(totalEstimateCents, true)
+      return
+    }
+    if (wasOverriddenRef.current) {
+      wasOverriddenRef.current = false
+      onEstimateChangeRef.current?.(totalEstimateCents, false)
+    }
+  }, [showBreakdown, totalEstimateCents, isOverridden])
+
+  const resetToBaseline = () => {
+    setCustomBase(baselineBase)
+    setCustomTravel(baselineTravel)
+    setBaseDirty(false)
+    setTravelDirty(false)
+  }
 
   return (
     <fieldset
@@ -257,11 +347,65 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
         {variant === "breakdown-only" ? (
           <p className="text-[11px] font-medium text-emerald-200/90">{selectedLabel}</p>
         ) : null}
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
-          Baseline quote (transparent)
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
+            Baseline quote (editable)
+          </p>
+          {isOverridden ? (
+            <button
+              type="button"
+              onClick={resetToBaseline}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-emerald-300/90 hover:bg-emerald-500/10 hover:text-emerald-200"
+              title="Restore the system-calculated base and travel fees"
+            >
+              <RotateCcw className="h-3 w-3" aria-hidden />
+              Reset to baseline
+            </button>
+          ) : null}
+        </div>
         <ul className="mt-1 space-y-0.5">
-          {quote.lines.map((line) => (
+          <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span className="min-w-0">{baseLabel}</span>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-foreground">
+              <span className="text-muted-foreground">$</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                aria-label="Service base price dollars"
+                value={Number.isFinite(customBase) ? customBase : ""}
+                onChange={(e) => {
+                  setBaseDirty(true)
+                  setCustomBase(e.target.value === "" ? Number.NaN : Number(e.target.value))
+                }}
+                className={cn(moneyInputClass, baseDirty && Math.round(safeBase) !== baselineBase && "text-amber-200")}
+              />
+            </span>
+          </li>
+          <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span className="min-w-0">{travelLabel}</span>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-foreground">
+              <span className="text-muted-foreground">$</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                aria-label="Travel fee dollars"
+                value={Number.isFinite(customTravel) ? customTravel : ""}
+                onChange={(e) => {
+                  setTravelDirty(true)
+                  setCustomTravel(e.target.value === "" ? Number.NaN : Number(e.target.value))
+                }}
+                className={cn(
+                  moneyInputClass,
+                  travelDirty && Math.round(safeTravel) !== baselineTravel && "text-amber-200"
+                )}
+              />
+            </span>
+          </li>
+          {otherLines.map((line) => (
             <li key={line.label} className="flex justify-between gap-2 text-xs text-muted-foreground">
               <span className="min-w-0">{line.label}</span>
               <span className="shrink-0 tabular-nums text-foreground">{formatQuoteDollars(line.cents)}</span>
@@ -270,13 +414,18 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
         </ul>
         <div className="mt-2 flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
           <span className="text-xs font-medium text-foreground">Total estimate</span>
-          <span className="text-lg font-bold tabular-nums text-emerald-300">
-            {formatQuoteDollars(quote.totalCents)}
+          <span
+            className={cn(
+              "text-lg font-bold tabular-nums",
+              isOverridden ? "text-amber-200" : "text-emerald-300"
+            )}
+          >
+            {formatQuoteDollars(totalEstimateCents)}
           </span>
         </div>
         {quote.distanceMiles != null || quote.keyBlankCents > 0 || quote.programmingCents > 0 ? (
           <p className="mt-1 text-[10px] text-muted-foreground">
-            Auto total = {formatQuoteDollars(quote.baseCents)} service
+            System baseline = {formatQuoteDollars(quote.baseCents)} service
             {quote.distanceMiles != null
               ? ` + ${formatQuoteDollars(quote.distancePremiumCents)} travel (${quote.distanceMiles.toFixed(1)} mi)`
               : ""}
