@@ -39,10 +39,13 @@ export async function GET(req: NextRequest) {
         vehicle: unified.vehicle,
         keySpecs,
         inventory: unified.inventory,
+        // Transponder Island catalog matches for Key Details cards (TIK-*).
+        ti_catalog: unified.tiCatalog,
+        tiCatalog: unified.tiCatalog,
       },
     })
   } catch (e) {
     console.error("[vehicle/key-info]", e)
-    return NextResponse.json({ data: { key_info: null, inventory: [] } })
+    return NextResponse.json({ data: { key_info: null, inventory: [], ti_catalog: [], tiCatalog: [] } })
   }
 }

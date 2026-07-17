@@ -73,6 +73,9 @@ type UnifiedDecodeData = {
   }
   /** On-hand stock rows from key_inventory (YMM / FCC match). */
   inventory?: KeyInventoryApiRow[]
+  /** Transponder Island catalog hits for Key Details. */
+  ti_catalog?: import("@/lib/ti-supplier-catalog-shared").TiCatalogKeyOption[]
+  tiCatalog?: import("@/lib/ti-supplier-catalog-shared").TiCatalogKeyOption[]
 }
 
 function inventoryStatusSuffix(inventory?: KeyInventoryApiRow[] | null): string {
@@ -100,6 +103,7 @@ function keyBundleFromDecode(
     key_info: data.keySpecs.key_info ?? null,
     lookup_source: data.keySpecs.lookup_source ?? null,
     inventory: data.inventory ?? [],
+    tiCatalog: data.ti_catalog ?? data.tiCatalog ?? [],
   }
 }
 

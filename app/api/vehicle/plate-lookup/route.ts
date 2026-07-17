@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
               lookup_source: "none" as const,
             },
             inventory: [],
+            tiCatalog: [],
           }
 
     return NextResponse.json({
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
         vehicle: unified.vehicle,
         keySpecs: unified.keySpecs,
         inventory: unified.inventory,
+        ti_catalog: unified.tiCatalog,
+        tiCatalog: unified.tiCatalog,
       },
     })
   } catch (e) {

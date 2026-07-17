@@ -31,6 +31,10 @@ import {
   subaruMappedProxOption,
 } from "@/lib/vehicle-key-mapping"
 import {
+  tiCatalogHitToManualOption,
+  type TiCatalogKeyOption,
+} from "@/lib/ti-supplier-catalog-shared"
+import {
   shouldShowAklTrimVerificationBanner,
   variantDisabledByTrim,
   type VehicleFactoryOption,
@@ -172,6 +176,8 @@ export type PreloadedVehicleKeyBundle = {
   lookup_source: "fcc" | "ymm" | "ymm_fallback" | "none" | null
   /** Matching key_inventory rows from decode (van/shop stock + specialty). */
   inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null
+  /** Transponder Island catalog hits for this YMM (preferred Key Details cards). */
+  tiCatalog?: TiCatalogKeyOption[] | null
 }
 
 type VehicleKeyInfoPanelProps = {
@@ -287,8 +293,11 @@ function manualOptionCardModel(
   year?: string | null
 ): KeySelectionCardModel {
   const specs: Array<{ label: string; value: string }> = []
+  const brand = option.brand?.trim() || make?.trim() || ""
+  if (brand) specs.push({ label: "Brand", value: brand })
   if (option.description) specs.push({ label: "Spec", value: option.description })
 
+  // Real TI catalog SKUs (TIK-*) become the badge; otherwise generate a mock family code.
   const tiSku = option.catalogSku
     ? `TI-SKU: ${option.catalogSku}`
     : buildTransponderIslandSku({
@@ -1020,6 +1029,8 @@ function ManualFrequencyGrid({
   selectedVariantId,
   disabled,
   onPick,
+  /** When set (TI catalog / preload), these cards replace the mock KEY-/PROX- fallbacks. */
+  catalogOptions,
 }: {
   make: string
   model: string
@@ -1027,14 +1038,23 @@ function ManualFrequencyGrid({
   selectedVariantId: string | null | undefined
   disabled?: boolean
   onPick: (option: ManualKeyFrequencyOption) => void
+  catalogOptions?: ManualKeyFrequencyOption[] | null
 }) {
-  const options = useMemo(() => mykeysProKeyOptions(make, model, year), [make, model, year])
+  const fallbackOptions = useMemo(() => mykeysProKeyOptions(make, model, year), [make, model, year])
+  const options = catalogOptions && catalogOptions.length > 0 ? catalogOptions : fallbackOptions
   const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
   const subaruMapped = isSubaru2017To2025ProxMap(year, make)
+  const fromTiCatalog = Boolean(catalogOptions && catalogOptions.length > 0)
+  const primaryFcc = options[0]?.fccId?.trim() || null
 
   return (
     <div className="grid gap-2">
-      {subaruMapped || mkpProfile ? (
+      {fromTiCatalog && primaryFcc ? (
+        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+          Transponder Island catalog match — FCC{" "}
+          <span className="font-mono font-semibold">{primaryFcc}</span>
+        </p>
+      ) : subaruMapped || mkpProfile ? (
         <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
           {subaruMapped ? "Mapped key for this vehicle — FCC " : "MYKEYS Pro matched this vehicle — FCC "}
           <span className="font-mono font-semibold">
@@ -1082,6 +1102,8 @@ export function VehicleKeyInfoPanel({
   const [info, setInfo] = useState<KeyInfoPayload | null>(null)
   const [error, setError] = useState(false)
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null)
+  // TI supplier catalog hits for this YMM (TIK-* cards).
+  const [tiCatalog, setTiCatalog] = useState<TiCatalogKeyOption[]>([])
   const seededFcc = sanitizeFccIdInput(fccIdProp ?? "")
   // FCC filter from ticket/parent only — no manual FCC/VIN search on this step.
   const [activeFccQuery, setActiveFccQuery] = useState(() => seededFcc)
@@ -1105,6 +1127,11 @@ export function VehicleKeyInfoPanel({
   const ready = Boolean(year && make && model)
 
   const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
+  const tiCatalogOptions = useMemo(
+    () => tiCatalog.map(tiCatalogHitToManualOption),
+    [tiCatalog]
+  )
+  const hasTiCatalogMatch = tiCatalogOptions.length > 0
 
   const trimHelperMessage = useMemo(() => {
     if (!info) return null
@@ -1122,6 +1149,7 @@ export function VehicleKeyInfoPanel({
     setSelectedKeyId(null)
     setManualBypassMode(false)
     setLookupSource(null)
+    setTiCatalog([])
     setExpandedSecondaryFcc(new Set())
     // Re-seed FCC from the parent ticket when YMM changes (alongside standard lookup).
     setActiveFccQuery(sanitizeFccIdInput(fccIdPropRef.current ?? ""))
@@ -1168,12 +1196,34 @@ export function VehicleKeyInfoPanel({
     const applyPayload = (
       payload: KeyInfoPayload | null,
       source: "fcc" | "ymm" | "ymm_fallback" | "none" | null,
-      inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null
+      inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null,
+      catalogHits?: TiCatalogKeyOption[] | null
     ) => {
       if (cancel) return
       if (inventory) onInventoryLoadedRef.current?.(inventory)
+      const hits = catalogHits ?? []
+      setTiCatalog(hits)
       setLookupSource(source === "none" ? null : source)
       setInfo(payload)
+
+      // TI catalog is the preferred Key Details source when the scrape matched this YMM.
+      if (hits.length > 0) {
+        setManualBypassMode(true)
+        const preferred = tiCatalogHitToManualOption(hits[0]!)
+        setSelectedKeyId(preferred.id)
+        onChange({
+          profileId: "ti-catalog",
+          fccId: preferred.fccId?.trim() ?? "",
+          frequency: preferred.frequency,
+          chipset: null,
+          keyStyle: preferred.keyStyle,
+          variantId: preferred.id,
+          programmingMethod: preferred.programmingMethod,
+          tiSku: orderingTiSkuFromManual(preferred),
+        })
+        return
+      }
+
       if (!payload || payload.profiles.length === 0) {
         setManualBypassMode(true)
         onChange(null)
@@ -1248,13 +1298,19 @@ export function VehicleKeyInfoPanel({
     if (preload) {
       setLoading(false)
       setError(false)
-      applyPayload(preload.key_info, preload.lookup_source, preload.inventory ?? [])
+      applyPayload(
+        preload.key_info,
+        preload.lookup_source,
+        preload.inventory ?? [],
+        preload.tiCatalog ?? []
+      )
       return
     }
 
     setLoading(true)
     setError(false)
     setInfo(null)
+    setTiCatalog([])
 
     const q = new URLSearchParams({ year, make, model })
     if (sanitizedFcc) q.set("fcc_id", sanitizedFcc)
@@ -1267,18 +1323,22 @@ export function VehicleKeyInfoPanel({
             key_info?: KeyInfoPayload | null
             lookup_source?: "fcc" | "ymm" | "ymm_fallback"
             inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[]
+            ti_catalog?: TiCatalogKeyOption[]
+            tiCatalog?: TiCatalogKeyOption[]
             keySpecs?: { key_info?: KeyInfoPayload | null; lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none" }
           }
         }) => {
           const payload = j.data?.key_info ?? j.data?.keySpecs?.key_info ?? null
           const source = j.data?.lookup_source ?? j.data?.keySpecs?.lookup_source ?? null
-          applyPayload(payload, source, j.data?.inventory ?? [])
+          const catalogHits = j.data?.ti_catalog ?? j.data?.tiCatalog ?? []
+          applyPayload(payload, source, j.data?.inventory ?? [], catalogHits)
         }
       )
       .catch(() => {
         if (!cancel) {
           setError(true)
           setInfo(null)
+          setTiCatalog([])
           setManualBypassMode(true)
           onChange(null)
         }
@@ -1299,8 +1359,9 @@ export function VehicleKeyInfoPanel({
 
   const applyManualOption = (option: ManualKeyFrequencyOption) => {
     setSelectedKeyId(option.id)
+    const fromTiCatalog = option.id.startsWith("ti-catalog-")
     const selection: VehicleKeySelection = {
-      profileId: "manual",
+      profileId: fromTiCatalog ? "ti-catalog" : "manual",
       fccId: option.fccId?.trim() ?? "",
       frequency: option.frequency,
       chipset: null,
@@ -1317,6 +1378,9 @@ export function VehicleKeyInfoPanel({
   useEffect(() => {
     if (value?.variantId) return
     if (!ready) return
+
+    // TI catalog primary pick is applied in applyPayload.
+    if (hasTiCatalogMatch) return
 
     const subaruMapped = isSubaru2017To2025ProxMap(year, make)
     const fccHasCompatible =
@@ -1345,7 +1409,7 @@ export function VehicleKeyInfoPanel({
       tiSku: orderingTiSkuFromManual(preferred),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto-highlight on mount / YMM change
-  }, [manualBypassMode, ready, year, make, model, info, value?.variantId])
+  }, [manualBypassMode, ready, year, make, model, info, value?.variantId, hasTiCatalogMatch])
 
   const handleReturnToLookup = () => {
     const stuckWithoutDatabaseMatch =
@@ -1371,7 +1435,7 @@ export function VehicleKeyInfoPanel({
     )
   }
 
-  if (error && manualBypassMode) {
+  if (error && manualBypassMode && !hasTiCatalogMatch) {
     return (
       <div className="@container grid w-full min-w-0 gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
         <PanelToolbar
@@ -1392,6 +1456,7 @@ export function VehicleKeyInfoPanel({
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
+          catalogOptions={tiCatalogOptions}
         />
       </div>
     )
@@ -1406,7 +1471,8 @@ export function VehicleKeyInfoPanel({
   // Mapped Subaru with only KEY-SUB-* leftovers → show the single TIK-SUB-37A card instead.
   const forceSubaruMappedCard = subaruMapped && (!info || info.profiles.length === 0 || fccCompatibleCount === 0)
 
-  if (manualBypassMode || !info || info.profiles.length === 0 || forceSubaruMappedCard) {
+  // TI catalog match OR classic manual/FCC-miss path — render selectable key cards.
+  if (hasTiCatalogMatch || manualBypassMode || !info || info.profiles.length === 0 || forceSubaruMappedCard) {
     return (
       <div className="@container grid w-full min-w-0 gap-2 rounded-lg border border-primary/25 bg-primary/5 p-3">
         <PanelToolbar
@@ -1414,7 +1480,12 @@ export function VehicleKeyInfoPanel({
           onManualBypass={() => setManualBypassMode(true)}
           onReturnToLookup={handleReturnToLookup}
         />
-        {subaruMapped || mkpProfile ? (
+        {hasTiCatalogMatch ? (
+          <p className="text-[11px] text-muted-foreground">
+            Transponder Island catalog match for {year} {make} {model}. Verify button configuration with
+            customer to confirm selection.
+          </p>
+        ) : subaruMapped || mkpProfile ? (
           <p className="text-[11px] text-muted-foreground">
             {subaruMapped ? "Mapped key for this vehicle" : "MYKEYS Pro matched this vehicle"} (FCC{" "}
             <span className="font-mono font-semibold text-foreground">
@@ -1435,6 +1506,7 @@ export function VehicleKeyInfoPanel({
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
+          catalogOptions={hasTiCatalogMatch ? tiCatalogOptions : null}
         />
       </div>
     )

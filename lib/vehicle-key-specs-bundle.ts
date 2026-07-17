@@ -8,6 +8,10 @@ import {
   type KeyInventoryApiRow,
 } from "@/lib/key-inventory"
 import {
+  lookupTiSupplierCatalogForVehicle,
+  type TiCatalogKeyOption,
+} from "@/lib/ti-supplier-catalog"
+import {
   formatCompatibleVehicleSummary,
   lookupCompatibleVehiclesForFcc,
   lookupVehicleKeyInfo,
@@ -61,6 +65,8 @@ export type UnifiedVehicleDecodePayload = {
   keySpecs: VehicleDecodeKeySpecs
   /** On-hand blanks/fobs matching YMM and/or profile FCC IDs (empty until migration 105). */
   inventory: KeyInventoryApiRow[]
+  /** Transponder Island catalog hits for this Year/Make/Model (Key Details primary cards). */
+  tiCatalog: TiCatalogKeyOption[]
 }
 
 export type BuildUnifiedVehicleDecodeOptions = {
@@ -201,9 +207,19 @@ export async function buildUnifiedVehicleDecode(
         })
       : []
 
+  const tiCatalog =
+    vehicle.make && vehicle.model
+      ? await lookupTiSupplierCatalogForVehicle({
+          year: vehicle.year,
+          make: vehicle.make,
+          model: vehicle.model,
+        })
+      : []
+
   return {
     vehicle,
     keySpecs,
     inventory: serializeKeyInventoryForApi(inventoryRows),
+    tiCatalog,
   }
 }

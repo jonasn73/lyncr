@@ -21,6 +21,8 @@ export type ManualKeyFrequencyOption = {
   catalogSku?: string | null
   /** Supplier / ordering SKU (e.g. TIK-VOL-13N). */
   supplierSku?: string | null
+  /** Vehicle brand for TI catalog cards (e.g. Nissan). */
+  brand?: string | null
 }
 
 /**
