@@ -44,7 +44,9 @@ export default async function DashboardLayout({
     pathnameFromRequest === "/dashboard/help" ||
     pathnameFromRequest?.startsWith("/dashboard/help/") ||
     pathnameFromRequest === "/dashboard/customers" ||
-    pathnameFromRequest?.startsWith("/dashboard/customers/")
+    pathnameFromRequest?.startsWith("/dashboard/customers/") ||
+    pathnameFromRequest === "/dashboard/inventory" ||
+    pathnameFromRequest?.startsWith("/dashboard/inventory/")
   const isDashboardShellRoute =
     !pathnameFromRequest ||
     pathnameFromRequest === "/dashboard" ||

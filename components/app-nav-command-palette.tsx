@@ -14,6 +14,7 @@ import {
   BarChart3,
   Settings,
   LifeBuoy,
+  Package,
   Hash,
   ExternalLink,
   CalendarDays,
@@ -46,6 +47,7 @@ const JUMP_PAGES = [
   { id: "contacts", label: "Map", href: "/dashboard/contacts", icon: Map },
   { id: "pay", label: "Pay", href: "/dashboard/pay", icon: BarChart3 },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: Settings },
+  { id: "inventory", label: "Key inventory", href: "/dashboard/inventory", icon: Package },
   { id: "help", label: "Help & feedback", href: "/dashboard/help", icon: LifeBuoy },
 ] as const
 

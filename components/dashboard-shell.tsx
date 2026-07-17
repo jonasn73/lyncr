@@ -39,7 +39,18 @@ import {
 } from "@/components/dashboard-session-context"
 import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
 
-const VALID_PAGES: PageId[] = ["dashboard", "activity", "leads", "customers", "contacts", "pay", "settings", "scheduler", "help"]
+const VALID_PAGES: PageId[] = [
+  "dashboard",
+  "activity",
+  "leads",
+  "customers",
+  "contacts",
+  "pay",
+  "settings",
+  "scheduler",
+  "inventory",
+  "help",
+]
 
 function getActivePage(pathname: string): PageId {
   const segment = pathname.replace(/^\/dashboard\/?/, "").trim() || "dashboard"

@@ -184,3 +184,206 @@ export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]) {
 }
 
 export type KeyInventoryApiRow = ReturnType<typeof serializeKeyInventoryForApi>[number]
+
+export type KeyInventoryStockLocation = "van1" | "van2" | "shop"
+
+/** Normalize barcode / typed SKU for lookup (trim + uppercase). */
+export function normalizeInventorySku(raw: string): string {
+  return raw.trim().replace(/\s+/g, " ").toUpperCase()
+}
+
+/** Look up one inventory row by SKU for the signed-in owner. */
+export async function getKeyInventoryBySku(
+  userId: string,
+  skuRaw: string,
+  organizationId?: string | null
+): Promise<KeyInventoryRow | null> {
+  const sku = normalizeInventorySku(skuRaw)
+  if (!userId || !sku) return null
+  const orgId = organizationId?.trim() || null
+
+  try {
+    const sql = getSql()
+    const rows = orgId
+      ? await sql`
+          SELECT *
+          FROM key_inventory
+          WHERE user_id = ${userId}::uuid
+            AND upper(trim(sku)) = ${sku}
+            AND (
+              organization_id = ${orgId}::uuid
+              OR organization_id IS NULL
+            )
+          ORDER BY
+            CASE WHEN organization_id = ${orgId}::uuid THEN 0 ELSE 1 END,
+            updated_at DESC
+          LIMIT 1
+        `
+      : await sql`
+          SELECT *
+          FROM key_inventory
+          WHERE user_id = ${userId}::uuid
+            AND upper(trim(sku)) = ${sku}
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `
+    const row = (rows as Record<string, unknown>[])[0]
+    return row ? mapRow(row) : null
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      console.warn("[key-inventory] table missing — run scripts/105-key-inventory.sql in Neon")
+      return null
+    }
+    throw error
+  }
+}
+
+/**
+ * Adjust stock at one location by ±delta (defaults to van1 for van scans).
+ * Clamps at zero so stock cannot go negative.
+ */
+export async function adjustKeyInventoryQuantity(params: {
+  userId: string
+  id: string
+  delta: number
+  location?: KeyInventoryStockLocation
+}): Promise<KeyInventoryRow | null> {
+  const location = params.location ?? "van1"
+  const delta = Math.trunc(params.delta)
+  if (!params.userId || !params.id || !Number.isFinite(delta) || delta === 0) return null
+
+  const column =
+    location === "van2" ? "van2_quantity" : location === "shop" ? "shop_quantity" : "van1_quantity"
+
+  try {
+    const sql = getSql()
+    // Dynamic column name is constrained to the three known stock fields above.
+    const rows =
+      column === "van2_quantity"
+        ? await sql`
+            UPDATE key_inventory
+            SET
+              van2_quantity = GREATEST(0, van2_quantity + ${delta}),
+              updated_at = now()
+            WHERE id = ${params.id}::uuid
+              AND user_id = ${params.userId}::uuid
+            RETURNING *
+          `
+        : column === "shop_quantity"
+          ? await sql`
+              UPDATE key_inventory
+              SET
+                shop_quantity = GREATEST(0, shop_quantity + ${delta}),
+                updated_at = now()
+              WHERE id = ${params.id}::uuid
+                AND user_id = ${params.userId}::uuid
+              RETURNING *
+            `
+          : await sql`
+              UPDATE key_inventory
+              SET
+                van1_quantity = GREATEST(0, van1_quantity + ${delta}),
+                updated_at = now()
+              WHERE id = ${params.id}::uuid
+                AND user_id = ${params.userId}::uuid
+              RETURNING *
+            `
+
+    const row = (rows as Record<string, unknown>[])[0]
+    return row ? mapRow(row) : null
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      console.warn("[key-inventory] table missing — run scripts/105-key-inventory.sql in Neon")
+      return null
+    }
+    throw error
+  }
+}
+
+export type CreateKeyInventoryInput = {
+  userId: string
+  organizationId?: string | null
+  sku: string
+  fccId?: string
+  brand?: string
+  compatibleVehicles?: KeyInventoryCompatibleVehicle[]
+  van1Quantity?: number
+  van2Quantity?: number
+  shopQuantity?: number
+  minimumStockAlert?: number
+  notes?: string | null
+}
+
+/** Insert a new inventory SKU (or return existing if SKU already owned). */
+export async function createKeyInventoryItem(
+  input: CreateKeyInventoryInput
+): Promise<{ row: KeyInventoryRow; created: boolean }> {
+  const sku = normalizeInventorySku(input.sku)
+  if (!input.userId || !sku) {
+    throw new Error("userId and sku are required")
+  }
+
+  const existing = await getKeyInventoryBySku(input.userId, sku, input.organizationId)
+  if (existing) return { row: existing, created: false }
+
+  const fccId = sanitizeFccIdInput(input.fccId ?? "")
+  const brand = String(input.brand ?? "").trim()
+  const compatible = JSON.stringify(input.compatibleVehicles ?? [])
+  const van1 = Math.max(0, Math.trunc(input.van1Quantity ?? 1))
+  const van2 = Math.max(0, Math.trunc(input.van2Quantity ?? 0))
+  const shop = Math.max(0, Math.trunc(input.shopQuantity ?? 0))
+  const minAlert = Math.max(0, Math.trunc(input.minimumStockAlert ?? 1))
+  const orgId = input.organizationId?.trim() || null
+  const notes = input.notes?.trim() || null
+
+  try {
+    const sql = getSql()
+    const rows = orgId
+      ? await sql`
+          INSERT INTO key_inventory (
+            user_id, organization_id, sku, fcc_id, brand, compatible_vehicles,
+            van1_quantity, van2_quantity, shop_quantity, minimum_stock_alert, notes
+          ) VALUES (
+            ${input.userId}::uuid,
+            ${orgId}::uuid,
+            ${sku},
+            ${fccId},
+            ${brand},
+            ${compatible}::jsonb,
+            ${van1},
+            ${van2},
+            ${shop},
+            ${minAlert},
+            ${notes}
+          )
+          RETURNING *
+        `
+      : await sql`
+          INSERT INTO key_inventory (
+            user_id, sku, fcc_id, brand, compatible_vehicles,
+            van1_quantity, van2_quantity, shop_quantity, minimum_stock_alert, notes
+          ) VALUES (
+            ${input.userId}::uuid,
+            ${sku},
+            ${fccId},
+            ${brand},
+            ${compatible}::jsonb,
+            ${van1},
+            ${van2},
+            ${shop},
+            ${minAlert},
+            ${notes}
+          )
+          RETURNING *
+        `
+
+    const row = (rows as Record<string, unknown>[])[0]
+    if (!row) throw new Error("Insert failed")
+    return { row: mapRow(row), created: true }
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      throw new Error("Key inventory table is missing. Run scripts/105-key-inventory.sql in Neon.")
+    }
+    throw error
+  }
+}

@@ -1,6 +1,7 @@
 "use client"
 
 import { memo, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Bell,
   Building2,
@@ -10,6 +11,8 @@ import {
   LogOut,
   MessageSquare,
   Network,
+  Package,
+  ScanBarcode,
   Shield,
   ShieldCheck,
   Volume2,
@@ -41,6 +44,7 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 import { PlatformNotificationSettings } from "@/components/admin/platform-notification-settings"
+import { KeyInventoryScanner } from "@/components/dashboard/key-inventory-scanner"
 
 type SettingsProfileSummary = {
   name: string
@@ -149,6 +153,9 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 }) {
   const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
   const modals = useSettingsModalActions()
+  const router = useRouter()
+  const { activeOrganizationId } = useDashboardWorkspace()
+  const [scannerOpen, setScannerOpen] = useState(false)
   const initials = profile.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -159,6 +166,11 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   return (
     <WorkspacePage className={cn("gap-6 pb-10", embedded && "gap-4 px-0 pb-4")}>
       {embedded ? null : <WorkspacePageHeader eyebrow="Account" title="Settings" />}
+      <KeyInventoryScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        organizationId={activeOrganizationId}
+      />
 
       <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
         {profileLoading ? (
@@ -251,10 +263,24 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         </SettingsGroupedList>
       </section>
 
-      {/* OPERATIONS — hours + privacy only; Sign out sits alone below */}
+      {/* OPERATIONS — inventory scan, hours, privacy; Sign out sits alone below */}
       <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
         <SettingsGroupedList>
+          <SettingsMenuRow
+            grouped
+            icon={<ScanBarcode className="h-5 w-5 text-emerald-400" aria-hidden />}
+            title="Scan key inventory"
+            subtitle="Barcode scanner for van / shop stock counts."
+            onClick={() => setScannerOpen(true)}
+          />
+          <SettingsMenuRow
+            grouped
+            icon={<Package className="h-5 w-5" aria-hidden />}
+            title="Key inventory"
+            subtitle="Stock hub and scanner shortcuts."
+            onClick={() => router.push("/dashboard/inventory")}
+          />
           <SettingsMenuRow
             grouped
             icon={<Clock className="h-5 w-5" aria-hidden />}

@@ -34,6 +34,7 @@ const PAGE_HREF: Record<PageId, string> = {
   contacts: "/dashboard/contacts",
   pay: "/dashboard/pay",
   settings: "/dashboard/settings",
+  inventory: "/dashboard/inventory",
   help: "/dashboard/help",
 }
 
