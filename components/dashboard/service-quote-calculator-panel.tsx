@@ -213,8 +213,13 @@ type ServiceQuoteCalculatorPanelProps = {
   className?: string
 }
 
+type PriceStage = "silent" | "starting" | "firm"
+
 const moneyInputClass =
-  "w-16 border-0 bg-transparent p-0 text-right text-xs tabular-nums text-foreground outline-none ring-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+  "w-16 border-0 bg-transparent p-0 text-right text-sm font-semibold tabular-nums text-foreground outline-none ring-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+
+const dealPillClass =
+  "inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 text-[10px] font-bold uppercase tracking-wide text-emerald-50 transition-colors hover:bg-emerald-500/35 active:scale-[0.98]"
 
 export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
   quote,
@@ -238,22 +243,26 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const baselineBase = Math.round(quote.baseCents / 100)
   const baselineTravel = Math.round(quote.distancePremiumCents / 100)
 
+  const [priceStage, setPriceStage] = useState<PriceStage>("silent")
   const [customBase, setCustomBase] = useState(baselineBase)
   const [customTravel, setCustomTravel] = useState(baselineTravel)
   const [baseDirty, setBaseDirty] = useState(false)
   const [travelDirty, setTravelDirty] = useState(false)
-  const [showCompetitorMatch, setShowCompetitorMatch] = useState(false)
-  const [competitorDollars, setCompetitorDollars] = useState("")
+  const [competitorPrice, setCompetitorPrice] = useState("")
+  const [diagnosticCushion, setDiagnosticCushion] = useState(false)
   const onEstimateChangeRef = useRef(onEstimateChange)
   onEstimateChangeRef.current = onEstimateChange
   const wasOverriddenRef = useRef(false)
 
-  // New service type → start from the fresh system calculation.
+  // New service type → collapse pricing and reset to system numbers.
   useEffect(() => {
+    setPriceStage("silent")
     setCustomBase(Math.round(quote.baseCents / 100))
     setCustomTravel(Math.round(quote.distancePremiumCents / 100))
     setBaseDirty(false)
     setTravelDirty(false)
+    setCompetitorPrice("")
+    setDiagnosticCushion(false)
     wasOverriddenRef.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset on service type switches
   }, [serviceTypeId])
@@ -291,39 +300,55 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const safeBase = Number.isFinite(customBase) && customBase >= 0 ? customBase : 0
   const safeTravel = Number.isFinite(customTravel) && customTravel >= 0 ? customTravel : 0
   const totalEstimateCents = Math.round(safeBase * 100) + Math.round(safeTravel * 100) + otherCents
-  const totalEstimateDollars = Math.round(totalEstimateCents / 100)
-  const rangeLow = Math.round(safeBase)
-  const rangeHigh = Math.round(safeBase + safeTravel)
   const isOverridden =
-    baseDirty ||
-    travelDirty ||
-    Math.round(safeBase) !== baselineBase ||
-    Math.round(safeTravel) !== baselineTravel
+    priceStage === "firm" &&
+    (baseDirty ||
+      travelDirty ||
+      diagnosticCushion ||
+      Math.round(safeBase) !== baselineBase ||
+      Math.round(safeTravel) !== baselineTravel)
 
-  const [showCompetitorMatch, setShowCompetitorMatch] = useState(false)
-  const [competitorDollars, setCompetitorDollars] = useState("")
+  const competitorNum = Number.parseFloat(competitorPrice.trim())
+  const competitorTarget =
+    Number.isFinite(competitorNum) && competitorNum > 0 ? Math.max(0, Math.round(competitorNum) - 10) : null
 
-  // Push edits (and resets) to the booking form — skip the untouched baseline mount path
-  // so negotiation / custom-price overrides are not wiped on open.
+  // Live competitor match: target = competitor − $10, applied to editable lines.
+  useEffect(() => {
+    if (priceStage !== "firm" || competitorTarget == null) return
+    const otherDollars = Math.round(otherCents / 100)
+    const nextBase = Math.max(0, competitorTarget - otherDollars)
+    setCustomTravel(0)
+    setCustomBase(nextBase)
+    setTravelDirty(true)
+    setBaseDirty(true)
+  }, [competitorTarget, otherCents, priceStage])
+
+  // Sync firm-stage totals into the booking ticket; silent/starting keep system auto-quote.
   useEffect(() => {
     if (!showBreakdown) return
+    if (priceStage !== "firm") {
+      if (wasOverriddenRef.current) {
+        wasOverriddenRef.current = false
+        onEstimateChangeRef.current?.(quote.totalCents, false)
+      }
+      return
+    }
     if (isOverridden) {
       wasOverriddenRef.current = true
       onEstimateChangeRef.current?.(totalEstimateCents, true)
       return
     }
-    if (wasOverriddenRef.current) {
-      wasOverriddenRef.current = false
-      onEstimateChangeRef.current?.(totalEstimateCents, false)
-    }
-  }, [showBreakdown, totalEstimateCents, isOverridden])
+    // Firm but still on baseline numbers — still persist so Continue captures the visible total.
+    onEstimateChangeRef.current?.(totalEstimateCents, false)
+  }, [showBreakdown, priceStage, totalEstimateCents, isOverridden, quote.totalCents])
 
   const resetToBaseline = () => {
     setCustomBase(baselineBase)
     setCustomTravel(baselineTravel)
     setBaseDirty(false)
     setTravelDirty(false)
-    setShowCompetitorMatch(false)
+    setCompetitorPrice("")
+    setDiagnosticCushion(false)
   }
 
   const waiveTravel = () => {
@@ -332,32 +357,14 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   }
 
   const applyTenPercentDiscount = () => {
-    // Cut total ~10% by scaling the editable base + travel lines.
-    const nextBase = Math.max(0, Math.round(safeBase * 0.9))
-    const nextTravel = Math.max(0, Math.round(safeTravel * 0.9))
-    setCustomBase(nextBase)
-    setCustomTravel(nextTravel)
+    // Deduct 10% from the baseline (service base) only.
+    setCustomBase(Math.max(0, Math.round(safeBase * 0.9)))
     setBaseDirty(true)
-    setTravelDirty(true)
   }
 
-  const applyCompetitorMatch = () => {
-    const dollars = Number.parseFloat(competitorDollars.trim())
-    if (!Number.isFinite(dollars) || dollars < 0) return
-    const otherDollars = Math.round(otherCents / 100)
-    // Flat total override: clear travel, put remainder into base (other lines stay).
-    const nextBase = Math.max(0, Math.round(dollars) - otherDollars)
-    setCustomTravel(0)
-    setCustomBase(nextBase)
-    setTravelDirty(true)
-    setBaseDirty(true)
-    setShowCompetitorMatch(false)
-    setCompetitorDollars("")
+  const toggleDiagnosticCushion = () => {
+    setDiagnosticCushion((on) => !on)
   }
-
-  const presetBtnClass =
-    "inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100 transition-colors hover:bg-emerald-500/25 active:scale-[0.98]"
-
 
   return (
     <fieldset
@@ -381,178 +388,252 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
         />
       ) : null}
       {showBreakdown ? (
-      <div
-        className="rounded-lg border border-emerald-500/20 bg-background/40 px-3 py-2"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {variant === "breakdown-only" ? (
-          <p className="text-[11px] font-medium text-emerald-200/90">{selectedLabel}</p>
-        ) : null}
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
-            Baseline quote (editable)
-          </p>
-          {isOverridden ? (
-            <button
-              type="button"
-              onClick={resetToBaseline}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-emerald-300/90 hover:bg-emerald-500/10 hover:text-emerald-200"
-              title="Restore the system-calculated base and travel fees"
-            >
-              <RotateCcw className="h-3 w-3" aria-hidden />
-              Reset to baseline
-            </button>
+        <div
+          className="rounded-lg border border-emerald-500/20 bg-background/40 px-3 py-2.5"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {variant === "breakdown-only" ? (
+            <p className="mb-2 text-[11px] font-medium text-emerald-200/90">{selectedLabel}</p>
+          ) : null}
+
+          {/* Stage: silent — zero pricing friction */}
+          {priceStage === "silent" ? (
+            <div className="grid gap-2">
+              <p className="text-[11px] text-muted-foreground">
+                Skip the price talk if the caller is ready to book — or open a guided pitch.
+              </p>
+              <button
+                type="button"
+                onClick={() => setPriceStage("starting")}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/50 bg-emerald-500/15 text-sm font-semibold text-emerald-50 transition-colors hover:bg-emerald-500/25"
+              >
+                💵 Discuss Pricing
+              </button>
+            </div>
+          ) : null}
+
+          {/* Stage: starting — soft anchor + script */}
+          {priceStage === "starting" ? (
+            <div className="grid gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-emerald-100">
+                  Quote Base: Starting at ${baselineBase || 85} + travel
+                  {baselineTravel > 0 ? ` ($${baselineTravel})` : ""}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPriceStage("silent")}
+                  className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  Hide
+                </button>
+              </div>
+              <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-amber-50">
+                🏷️ Pitch: &ldquo;Our baseline starts at ${baselineBase || 85}. We&apos;ll inspect your
+                vehicle&apos;s specific immobilizer features on-site to give you a final quote before
+                starting.&rdquo;
+              </p>
+              <button
+                type="button"
+                onClick={() => setPriceStage("firm")}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-500/25"
+              >
+                ⚠️ Customer Insists on Exact Price
+              </button>
+            </div>
+          ) : null}
+
+          {/* Stage: firm — full negotiation workspace */}
+          {priceStage === "firm" ? (
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
+                  Exact price workspace
+                </p>
+                <div className="flex items-center gap-2">
+                  {isOverridden ? (
+                    <button
+                      type="button"
+                      onClick={resetToBaseline}
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-emerald-300/90 hover:bg-emerald-500/10"
+                    >
+                      <RotateCcw className="h-3 w-3" aria-hidden />
+                      Reset
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setPriceStage("starting")}
+                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                  >
+                    Soft pitch
+                  </button>
+                </div>
+              </div>
+
+              {diagnosticCushion ? (
+                <div className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2">
+                  <p className="text-sm font-bold tabular-nums text-sky-100">
+                    Entry fee: $29 on-site diagnostic
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-sky-100/85">
+                    Waived when we proceed with key cutting / programming. Full job estimate stays{" "}
+                    <span className="font-semibold tabular-nums">
+                      {formatQuoteDollars(totalEstimateCents)}
+                    </span>
+                    .
+                  </p>
+                </div>
+              ) : null}
+
+              <ul className="space-y-1">
+                <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span className="min-w-0">{baseLabel}</span>
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-foreground">
+                    <span className="text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      aria-label="Service base price dollars"
+                      value={Number.isFinite(customBase) ? customBase : ""}
+                      onChange={(e) => {
+                        setBaseDirty(true)
+                        setCustomBase(e.target.value === "" ? Number.NaN : Number(e.target.value))
+                      }}
+                      className={cn(
+                        moneyInputClass,
+                        baseDirty && Math.round(safeBase) !== baselineBase && "text-amber-200"
+                      )}
+                    />
+                  </span>
+                </li>
+                <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span className="min-w-0">{travelLabel}</span>
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-foreground">
+                    <span className="text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      inputMode="numeric"
+                      aria-label="Travel fee dollars"
+                      value={Number.isFinite(customTravel) ? customTravel : ""}
+                      onChange={(e) => {
+                        setTravelDirty(true)
+                        setCustomTravel(e.target.value === "" ? Number.NaN : Number(e.target.value))
+                      }}
+                      className={cn(
+                        moneyInputClass,
+                        travelDirty && Math.round(safeTravel) !== baselineTravel && "text-amber-200"
+                      )}
+                    />
+                  </span>
+                </li>
+                {otherLines.map((line) => (
+                  <li key={line.label} className="flex justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="min-w-0">{line.label}</span>
+                    <span className="shrink-0 tabular-nums text-foreground">
+                      {formatQuoteDollars(line.cents)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <label className="mt-1 grid gap-1 rounded-md border border-border/40 bg-background/30 p-2 text-[11px]">
+                <span className="font-medium text-foreground">Competitor Price Match</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">They quoted $</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    value={competitorPrice}
+                    onChange={(e) => setCompetitorPrice(e.target.value)}
+                    placeholder="e.g. 150"
+                    className="h-8 w-24 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  {competitorTarget != null ? (
+                    <span className="text-[11px] font-semibold text-emerald-200">
+                      → Beat by $10 → pitch ${competitorTarget}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">
+                      Auto-sets our total $10 under their number
+                    </span>
+                  )}
+                </div>
+              </label>
+
+              <p className="text-[11px] leading-snug text-emerald-200/80">
+                Suggested Quote Range:{" "}
+                <span className="font-semibold tabular-nums text-emerald-100">
+                  ${Math.round(safeBase)} – ${Math.round(safeBase + safeTravel)}
+                </span>
+              </p>
+
+              <div className="flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
+                <span className="text-xs font-medium text-foreground">Total estimate</span>
+                <span
+                  className={cn(
+                    "text-lg font-bold tabular-nums",
+                    isOverridden ? "text-amber-200" : "text-emerald-300"
+                  )}
+                >
+                  {formatQuoteDollars(totalEstimateCents)}
+                </span>
+              </div>
+
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button type="button" className={dealPillClass} onClick={waiveTravel}>
+                  Waive Travel Fee
+                </button>
+                <button type="button" className={dealPillClass} onClick={applyTenPercentDiscount}>
+                  Apply 10% Discount
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    dealPillClass,
+                    diagnosticCushion && "border-sky-400/60 bg-sky-500/25 text-sky-50"
+                  )}
+                  onClick={toggleDiagnosticCushion}
+                >
+                  Add $29 On-Site Diagnostic Cushion
+                </button>
+              </div>
+
+              {(quote.distanceMiles != null ||
+                quote.keyBlankCents > 0 ||
+                quote.programmingCents > 0) && (
+                <p className="text-[10px] text-muted-foreground">
+                  System baseline = {formatQuoteDollars(quote.baseCents)} service
+                  {quote.distanceMiles != null
+                    ? ` + ${formatQuoteDollars(quote.distancePremiumCents)} travel (${quote.distanceMiles.toFixed(1)} mi)`
+                    : ""}
+                  {quote.keyBlankCents > 0
+                    ? ` + ${formatQuoteDollars(quote.keyBlankCents)} parts`
+                    : ""}
+                  {quote.programmingCents > 0
+                    ? ` + ${formatQuoteDollars(quote.programmingCents)} programming`
+                    : ""}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                {quote.dispatchJobTypeLabel}
+                {vehicleYear || vehicleMake || vehicleModel
+                  ? ` · ${[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")}`
+                  : ""}
+                {quote.distanceMiles != null
+                  ? ` · ${quote.distanceMiles.toFixed(1)} mi travel · ~${estimateTravelMinutes(quote.distanceMiles)} min ETA`
+                  : ""}
+              </p>
+            </div>
           ) : null}
         </div>
-        <ul className="mt-1 space-y-0.5">
-          <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span className="min-w-0">{baseLabel}</span>
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-foreground">
-              <span className="text-muted-foreground">$</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                aria-label="Service base price dollars"
-                value={Number.isFinite(customBase) ? customBase : ""}
-                onChange={(e) => {
-                  setBaseDirty(true)
-                  setCustomBase(e.target.value === "" ? Number.NaN : Number(e.target.value))
-                }}
-                className={cn(moneyInputClass, baseDirty && Math.round(safeBase) !== baselineBase && "text-amber-200")}
-              />
-            </span>
-          </li>
-          <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span className="min-w-0">{travelLabel}</span>
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-foreground">
-              <span className="text-muted-foreground">$</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                aria-label="Travel fee dollars"
-                value={Number.isFinite(customTravel) ? customTravel : ""}
-                onChange={(e) => {
-                  setTravelDirty(true)
-                  setCustomTravel(e.target.value === "" ? Number.NaN : Number(e.target.value))
-                }}
-                className={cn(
-                  moneyInputClass,
-                  travelDirty && Math.round(safeTravel) !== baselineTravel && "text-amber-200"
-                )}
-              />
-            </span>
-          </li>
-          {otherLines.map((line) => (
-            <li key={line.label} className="flex justify-between gap-2 text-xs text-muted-foreground">
-              <span className="min-w-0">{line.label}</span>
-              <span className="shrink-0 tabular-nums text-foreground">{formatQuoteDollars(line.cents)}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-[11px] leading-snug text-emerald-200/80">
-          Suggested Quote Range:{" "}
-          <span className="font-semibold tabular-nums text-emerald-100">
-            ${rangeLow} – ${rangeHigh}
-          </span>
-          <span className="text-muted-foreground"> · start with the low number</span>
-        </p>
-        <div className="mt-1.5 flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
-          <span className="text-xs font-medium text-foreground">Total estimate</span>
-          <span
-            className={cn(
-              "text-lg font-bold tabular-nums",
-              isOverridden ? "text-amber-200" : "text-emerald-300"
-            )}
-          >
-            {formatQuoteDollars(totalEstimateCents)}
-          </span>
-        </div>
-
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <button type="button" className={presetBtnClass} onClick={waiveTravel}>
-            Waive Travel
-          </button>
-          <button type="button" className={presetBtnClass} onClick={applyTenPercentDiscount}>
-            10% Discount
-          </button>
-          <button
-            type="button"
-            className={presetBtnClass}
-            onClick={() => {
-              setShowCompetitorMatch((open) => !open)
-              if (!competitorDollars.trim()) {
-                setCompetitorDollars(String(totalEstimateDollars > 0 ? totalEstimateDollars : 95))
-              }
-            }}
-          >
-            Match Competitor
-          </button>
-        </div>
-
-        {showCompetitorMatch ? (
-          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/5 p-2">
-            <label className="grid min-w-[7rem] flex-1 gap-0.5 text-[10px] text-muted-foreground">
-              <span className="font-medium text-foreground">Competitor quote ($)</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                inputMode="numeric"
-                autoFocus
-                value={competitorDollars}
-                onChange={(e) => setCompetitorDollars(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    applyCompetitorMatch()
-                  }
-                }}
-                className="h-8 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="95"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={applyCompetitorMatch}
-              className="inline-flex h-8 items-center rounded-md border border-primary/40 bg-primary/15 px-3 text-[11px] font-semibold text-primary hover:bg-primary/20"
-            >
-              Apply flat ${competitorDollars.trim() || "—"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCompetitorMatch(false)}
-              className="inline-flex h-8 items-center rounded-md px-2 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : null}
-
-        {quote.distanceMiles != null || quote.keyBlankCents > 0 || quote.programmingCents > 0 ? (
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            System baseline = {formatQuoteDollars(quote.baseCents)} service
-            {quote.distanceMiles != null
-              ? ` + ${formatQuoteDollars(quote.distancePremiumCents)} travel (${quote.distanceMiles.toFixed(1)} mi)`
-              : ""}
-            {quote.keyBlankCents > 0 ? ` + ${formatQuoteDollars(quote.keyBlankCents)} parts` : ""}
-            {quote.programmingCents > 0 ? ` + ${formatQuoteDollars(quote.programmingCents)} programming` : ""}
-          </p>
-        ) : null}
-        <p className="mt-1 text-[10px] text-muted-foreground">
-          {quote.dispatchJobTypeLabel}
-          {vehicleYear || vehicleMake || vehicleModel
-            ? ` · ${[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")}`
-            : ""}
-          {quote.distanceMiles != null
-            ? ` · ${quote.distanceMiles.toFixed(1)} mi travel · ~${estimateTravelMinutes(quote.distanceMiles)} min ETA`
-            : ""}
-        </p>
-      </div>
       ) : null}
     </fieldset>
   )
