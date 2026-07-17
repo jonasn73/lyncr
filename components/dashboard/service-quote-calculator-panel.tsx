@@ -260,6 +260,9 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   const [customTravel, setCustomTravel] = useState(baselineTravel)
   const [baseDirty, setBaseDirty] = useState(false)
   const [travelDirty, setTravelDirty] = useState(false)
+  // Operator can waive blank / programming when customer already has hardware.
+  const [includeKeyBlank, setIncludeKeyBlank] = useState(true)
+  const [includeKeyProgramming, setIncludeKeyProgramming] = useState(true)
   const [competitorPrice, setCompetitorPrice] = useState("")
   const [diagnosticCushion, setDiagnosticCushion] = useState(false)
   const onEstimateChangeRef = useRef(onEstimateChange)
@@ -273,6 +276,8 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     setCustomTravel(Math.round(quote.distancePremiumCents / 100))
     setBaseDirty(false)
     setTravelDirty(false)
+    setIncludeKeyBlank(true)
+    setIncludeKeyProgramming(true)
     setCompetitorPrice("")
     setDiagnosticCushion(false)
     wasOverriddenRef.current = false
@@ -287,19 +292,39 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     if (!travelDirty) setCustomTravel(baselineTravel)
   }, [baselineTravel, travelDirty])
 
-  // Age / brand / parts / programming stay system-calculated.
-  const otherCents = useMemo(
+  // Age / brand stay system-calculated; blank + programming are checkbox-gated.
+  const otherFixedCents = useMemo(
     () =>
       quote.lines
-        .filter((line) => line.kind !== "base_rate" && line.kind !== "distance_travel")
+        .filter(
+          (line) =>
+            line.kind !== "base_rate" &&
+            line.kind !== "distance_travel" &&
+            line.kind !== "key_blank" &&
+            line.kind !== "key_programming"
+        )
         .reduce((sum, line) => sum + line.cents, 0),
     [quote.lines]
   )
 
-  const otherLines = useMemo(
-    () => quote.lines.filter((line) => line.kind !== "base_rate" && line.kind !== "distance_travel"),
+  const otherFixedLines = useMemo(
+    () =>
+      quote.lines.filter(
+        (line) =>
+          line.kind !== "base_rate" &&
+          line.kind !== "distance_travel" &&
+          line.kind !== "key_blank" &&
+          line.kind !== "key_programming"
+      ),
     [quote.lines]
   )
+
+  const blankLine = quote.lines.find((line) => line.kind === "key_blank") ?? null
+  const programmingLine = quote.lines.find((line) => line.kind === "key_programming") ?? null
+  // Active (checked) hardware costs — uncheck to drop them from the live total.
+  const activeBlankCents = includeKeyBlank && blankLine ? blankLine.cents : 0
+  const activeProgrammingCents =
+    includeKeyProgramming && programmingLine ? programmingLine.cents : 0
 
   const baseLabel =
     quote.lines.find((line) => line.kind === "base_rate")?.label ?? `${selectedLabel} base`
@@ -311,12 +336,26 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
 
   const safeBase = Number.isFinite(customBase) && customBase >= 0 ? customBase : 0
   const safeTravel = Number.isFinite(customTravel) && customTravel >= 0 ? customTravel : 0
-  const totalEstimateCents = Math.round(safeBase * 100) + Math.round(safeTravel * 100) + otherCents
+  const totalEstimateCents =
+    Math.round(safeBase * 100) +
+    Math.round(safeTravel * 100) +
+    otherFixedCents +
+    activeBlankCents +
+    activeProgrammingCents
+  // Suggested range: low = Base+Travel; high = Base+Travel+active Blank+active Programming.
+  const suggestedRangeLowDollars = Math.round(safeBase + safeTravel)
+  const suggestedRangeHighDollars = Math.round(
+    safeBase + safeTravel + activeBlankCents / 100 + activeProgrammingCents / 100
+  )
+  const blankWaived = Boolean(blankLine && !includeKeyBlank)
+  const programmingWaived = Boolean(programmingLine && !includeKeyProgramming)
   const isOverridden =
     priceStage === "firm" &&
     (baseDirty ||
       travelDirty ||
       diagnosticCushion ||
+      blankWaived ||
+      programmingWaived ||
       Math.round(safeBase) !== baselineBase ||
       Math.round(safeTravel) !== baselineTravel)
 
@@ -327,13 +366,21 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   // Live competitor match: target = competitor − $10, applied to editable lines.
   useEffect(() => {
     if (priceStage !== "firm" || competitorTarget == null) return
-    const otherDollars = Math.round(otherCents / 100)
-    const nextBase = Math.max(0, competitorTarget - otherDollars)
+    const lockedDollars = Math.round(
+      (otherFixedCents + activeBlankCents + activeProgrammingCents) / 100
+    )
+    const nextBase = Math.max(0, competitorTarget - lockedDollars)
     setCustomTravel(0)
     setCustomBase(nextBase)
     setTravelDirty(true)
     setBaseDirty(true)
-  }, [competitorTarget, otherCents, priceStage])
+  }, [
+    competitorTarget,
+    otherFixedCents,
+    activeBlankCents,
+    activeProgrammingCents,
+    priceStage,
+  ])
 
   // Sync firm-stage totals into the booking ticket; silent/starting keep system auto-quote.
   useEffect(() => {
@@ -359,6 +406,8 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
     setCustomTravel(baselineTravel)
     setBaseDirty(false)
     setTravelDirty(false)
+    setIncludeKeyBlank(true)
+    setIncludeKeyProgramming(true)
     setCompetitorPrice("")
     setDiagnosticCushion(false)
   }
@@ -578,7 +627,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     />
                   </span>
                 </li>
-                {otherLines.map((line) => (
+                {otherFixedLines.map((line) => (
                   <li key={line.label} className="flex justify-between gap-2 text-xs text-muted-foreground">
                     <span className="min-w-0">{line.label}</span>
                     <span className="shrink-0 tabular-nums text-foreground">
@@ -586,6 +635,58 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     </span>
                   </li>
                 ))}
+                {blankLine ? (
+                  <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <label className="flex min-w-0 cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={includeKeyBlank}
+                        onChange={(e) => setIncludeKeyBlank(e.target.checked)}
+                        className="h-3.5 w-3.5 shrink-0 rounded border-border accent-emerald-500"
+                        aria-label={`Include ${blankLine.label}`}
+                      />
+                      <span className={cn("min-w-0", !includeKeyBlank && "line-through opacity-60")}>
+                        {blankLine.label} (${Math.round(blankLine.cents / 100)})
+                      </span>
+                    </label>
+                    <span
+                      className={cn(
+                        "shrink-0 tabular-nums",
+                        includeKeyBlank ? "text-foreground" : "text-muted-foreground line-through"
+                      )}
+                    >
+                      {formatQuoteDollars(activeBlankCents)}
+                    </span>
+                  </li>
+                ) : null}
+                {programmingLine ? (
+                  <li className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <label className="flex min-w-0 cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={includeKeyProgramming}
+                        onChange={(e) => setIncludeKeyProgramming(e.target.checked)}
+                        className="h-3.5 w-3.5 shrink-0 rounded border-border accent-emerald-500"
+                        aria-label={`Include ${programmingLine.label}`}
+                      />
+                      <span
+                        className={cn("min-w-0", !includeKeyProgramming && "line-through opacity-60")}
+                      >
+                        {programmingLine.label} (${Math.round(programmingLine.cents / 100)})
+                      </span>
+                    </label>
+                    <span
+                      className={cn(
+                        "shrink-0 tabular-nums",
+                        includeKeyProgramming
+                          ? "text-foreground"
+                          : "text-muted-foreground line-through"
+                      )}
+                    >
+                      {formatQuoteDollars(activeProgrammingCents)}
+                    </span>
+                  </li>
+                ) : null}
               </ul>
 
               <label className="mt-1 grid gap-1 rounded-md border border-border/40 bg-background/30 p-2 text-[11px]">
@@ -617,7 +718,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               <p className="text-[11px] leading-snug text-emerald-200/80">
                 Suggested Quote Range:{" "}
                 <span className="font-semibold tabular-nums text-emerald-100">
-                  ${Math.round(safeBase)} – ${Math.round(safeBase + safeTravel)}
+                  ${suggestedRangeLowDollars} – ${suggestedRangeHighDollars}
                 </span>
               </p>
 
