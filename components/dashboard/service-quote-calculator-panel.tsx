@@ -533,11 +533,11 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             <div className="grid gap-2">
               {competitionBadge}
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
-                  Exact price workspace
-                  {highCompetition ? (
-                    <span className="ml-1.5 normal-case tracking-normal text-orange-200">
-                      · geo target ${aggressiveBaseFloor}
+                <p className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
+                  <span>Exact price workspace</span>
+                  {quote.pricingTier === "tier3" ? (
+                    <span className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-100">
+                      ⚠️ High-Security Vehicle - Specialized Programming Required
                     </span>
                   ) : null}
                 </p>

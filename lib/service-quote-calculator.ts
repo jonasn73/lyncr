@@ -123,8 +123,18 @@ export { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 export type ServiceQuoteBreakdownLine = {
   label: string
   cents: number
-  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel" | "key_blank" | "key_programming"
+  kind:
+    | "base_rate"
+    | "vehicle_age_tier"
+    | "premium_brand"
+    | "distance_travel"
+    | "key_blank"
+    | "key_programming"
+    | "high_security_risk"
 }
+
+/** Vehicle difficulty tier used for dynamic blank / programming / risk fees. */
+export type VehiclePricingTier = "tier1" | "tier2" | "tier3"
 
 export type ServiceQuoteResult = {
   serviceTypeId: ServiceQuoteTypeId
@@ -139,13 +149,88 @@ export type ServiceQuoteResult = {
   keyBlankCents: number
   /** OBD programming overhead when transponder or smart key applies. */
   programmingCents: number
-  /** Base + travel + key blank + programming (primary auto-quote inputs). */
+  /** Tier-3 key-generation risk premium (cents); 0 when not applied. */
+  highSecurityRiskCents: number
+  /** Resolved difficulty tier from year / make / model (+ key style when known). */
+  pricingTier: VehiclePricingTier
+  /** Base + travel + key blank + programming (+ tier-3 risk when applied). */
   autoTotalCents: number
   totalCents: number
   lines: ServiceQuoteBreakdownLine[]
   rateCardSource: "onboarding_profiles.service_rules" | "default"
   /** Straight-line miles used for travel surcharge (null when unknown). */
   distanceMiles: number | null
+}
+
+/** Makes that jump to tier3 for 2018+ smart / prox keys. */
+const TIER3_SMART_MAKES_2018 = new Set(["subaru", "toyota", "lexus", "honda"])
+
+/**
+ * Resolve vehicle difficulty tier for dynamic pricing.
+ * - tier3: year >= 2020, or Subaru/Toyota/Lexus/Honda 2018+ with smart/prox
+ * - tier2: smart/prox that does not meet tier3
+ * - tier1: standard transponder / metal key
+ */
+export function getVehiclePricingTier(
+  year: string | number | null | undefined,
+  make: string | null | undefined,
+  _model?: string | null | undefined,
+  keyStyle?: string | null
+): VehiclePricingTier {
+  const y = typeof year === "number" ? year : Number.parseInt(String(year ?? "").trim(), 10)
+  const yearOk = Number.isFinite(y)
+  const makeKey = String(make ?? "")
+    .trim()
+    .toLowerCase()
+  const style = String(keyStyle ?? "").trim().toLowerCase()
+  const bucket = classifyKeyStyleFromIntake(style)
+  const isSmartOrProx =
+    isSmartKeySelection(bucket, style) ||
+    bucket === "keyless_fob" ||
+    style.includes("prox") ||
+    style.includes("smart key")
+
+  // Late-model / high-security vehicles.
+  if (yearOk && y >= 2020) return "tier3"
+  if (
+    yearOk &&
+    y >= 2018 &&
+    isSmartOrProx &&
+    TIER3_SMART_MAKES_2018.has(makeKey)
+  ) {
+    return "tier3"
+  }
+
+  if (isSmartOrProx) return "tier2"
+  return "tier1"
+}
+
+/** Dollar defaults (as cents) for blank + programming by difficulty tier. */
+export function feesForVehiclePricingTier(tier: VehiclePricingTier): {
+  blankCents: number
+  programmingCents: number
+  highSecurityRiskCents: number
+} {
+  switch (tier) {
+    case "tier3":
+      return {
+        blankCents: 12000, // $120 smart key blank
+        programmingCents: 12500, // $125 OBD / gateway bypass
+        highSecurityRiskCents: 5000, // $50 key-generation premium
+      }
+    case "tier2":
+      return {
+        blankCents: 6000, // $60
+        programmingCents: 6500, // $65
+        highSecurityRiskCents: 0,
+      }
+    default:
+      return {
+        blankCents: 2500, // $25
+        programmingCents: 4500, // $45
+        highSecurityRiskCents: 0,
+      }
+  }
 }
 
 function vehicleAgeYears(year: string): number | null {
@@ -225,6 +310,9 @@ function shouldApplyKeyHardwarePricing(
 function keyHardwareSurcharges(
   params: {
     serviceTypeId: ServiceQuoteTypeId
+    vehicleYear?: string
+    vehicleMake?: string
+    vehicleModel?: string
     keyStyle?: string
     keyChipset?: string
     keyVariantId?: string
@@ -235,42 +323,51 @@ function keyHardwareSurcharges(
   blankLabel: string
   programmingCents: number
   programmingLabel: string
+  pricingTier: VehiclePricingTier
 } {
   const keyStyle = params.keyStyle?.trim() ?? ""
   const keyVariantId = params.keyVariantId?.trim() ?? ""
+  const pricingTier = getVehiclePricingTier(
+    params.vehicleYear,
+    params.vehicleMake,
+    params.vehicleModel,
+    keyStyle
+  )
+
   if (!shouldApplyKeyHardwarePricing(params.serviceTypeId, keyStyle, keyVariantId)) {
     return {
       blankCents: 0,
       blankLabel: rateCard.key_blank_label,
       programmingCents: 0,
       programmingLabel: rateCard.key_programming_label,
+      pricingTier,
     }
   }
 
   const bucket = classifyKeyStyleFromIntake(keyStyle)
   const smartKey = isSmartKeySelection(bucket, keyStyle)
   const hasTransponder = keyStyleHasTransponder(bucket, params.keyChipset?.trim() ?? "")
+  const tierFees = feesForVehiclePricingTier(pricingTier)
 
-  let blankCents = 0
+  // Labels stay descriptive; dollar amounts come from the vehicle difficulty tier.
   let blankLabel = rateCard.key_blank_label
   if (smartKey || bucket === "keyless_fob") {
-    blankCents = rateCard.key_blank_smart_cents
     blankLabel = "Smart key / prox fob blank"
   } else if (bucket === "remote_head" || bucket === "flip") {
-    blankCents = rateCard.key_blank_high_security_cents
     blankLabel = "High-security / remote head blank"
   } else if (bucket === "turn_key" && hasTransponder) {
-    blankCents = rateCard.key_blank_high_security_cents
     blankLabel = "Transponder blade blank"
+  } else if (bucket === "turn_key") {
+    blankLabel = "Metal / blade key blank"
   }
 
-  const programmingCents = smartKey || hasTransponder ? rateCard.key_programming_cents : 0
-
+  // Once a key style/variant is known, apply the full tier blank + programming defaults.
   return {
-    blankCents,
+    blankCents: tierFees.blankCents,
     blankLabel,
-    programmingCents,
+    programmingCents: tierFees.programmingCents,
     programmingLabel: rateCard.key_programming_label,
+    pricingTier,
   }
 }
 
@@ -335,6 +432,9 @@ export function calculateServiceQuote(params: {
   const keyHardware = keyHardwareSurcharges(
     {
       serviceTypeId: normalizedServiceTypeId,
+      vehicleYear: params.vehicleYear,
+      vehicleMake: params.vehicleMake,
+      vehicleModel: params.vehicleModel,
       keyStyle: params.keyStyle,
       keyChipset: params.keyChipset,
       keyVariantId: params.keyVariantId,
@@ -342,9 +442,23 @@ export function calculateServiceQuote(params: {
     rateCard
   )
 
+  // Tier 3 key generation: gateway / immobilizer risk premium on the job base.
+  const tierFees = feesForVehiclePricingTier(keyHardware.pricingTier)
+  const highSecurityRiskCents =
+    keyHardware.pricingTier === "tier3" && normalizedServiceTypeId === "key_generation"
+      ? tierFees.highSecurityRiskCents
+      : 0
+
   const lines: ServiceQuoteBreakdownLine[] = [
     { kind: "base_rate", label: `${spec.label} base`, cents: base },
   ]
+  if (highSecurityRiskCents > 0) {
+    lines.push({
+      kind: "high_security_risk",
+      label: "High-Security Risk Premium",
+      cents: highSecurityRiskCents,
+    })
+  }
   if (ageTier.cents > 0) {
     lines.push({ kind: "vehicle_age_tier", label: ageTier.label, cents: ageTier.cents })
   }
@@ -368,7 +482,8 @@ export function calculateServiceQuote(params: {
   const distancePremiumCents = distanceTier.cents
   const keyBlankCents = keyHardware.blankCents
   const programmingCents = keyHardware.programmingCents
-  const autoTotalCents = base + distancePremiumCents + keyBlankCents + programmingCents
+  const autoTotalCents =
+    base + distancePremiumCents + keyBlankCents + programmingCents + highSecurityRiskCents
   const totalCents = autoTotalCents + ageTier.cents + makeExtra
 
   return {
@@ -383,6 +498,8 @@ export function calculateServiceQuote(params: {
     distancePremiumCents,
     keyBlankCents,
     programmingCents,
+    highSecurityRiskCents,
+    pricingTier: keyHardware.pricingTier,
     autoTotalCents,
     totalCents,
     lines,

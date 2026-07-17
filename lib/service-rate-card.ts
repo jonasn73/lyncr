@@ -55,7 +55,14 @@ export function normalizeServiceQuoteTypeId(raw: string | null | undefined): Ser
 
 /** One line item in a stored pricing_metadata breakdown. */
 export type PricingMetadataLine = {
-  kind: "base_rate" | "vehicle_age_tier" | "premium_brand" | "distance_travel" | "key_blank" | "key_programming"
+  kind:
+    | "base_rate"
+    | "vehicle_age_tier"
+    | "premium_brand"
+    | "distance_travel"
+    | "key_blank"
+    | "key_programming"
+    | "high_security_risk"
   label: string
   cents: number
 }
