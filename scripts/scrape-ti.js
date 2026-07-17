@@ -1,9 +1,14 @@
 /**
- * Transponder Island category scraper (Playwright).
+ * Transponder Island shop scraper (Playwright).
+ *
+ * Default: crawl the entire /shop catalog (~5,500 items) → scripts/ti_catalog.json
  *
  * Usage:
  *   npm run scrape:ti
  *   TI_CATEGORY_URL="https://transponderisland.com/shop/category/by-make-japanese-subaru-198" npm run scrape:ti
+ *
+ * Resume an interrupted run (skips productUrls already in ti_catalog.json):
+ *   TI_RESUME=1 npm run scrape:ti
  *
  * First-time setup (if Chromium is missing):
  *   npx playwright install chromium
@@ -15,14 +20,15 @@ const fs = require("fs")
 const path = require("path")
 const { chromium } = require("playwright")
 
-// Default: Subaru category (112 items). Override with TI_CATEGORY_URL.
-const DEFAULT_CATEGORY_URL =
-  "https://transponderisland.com/shop/category/by-make-japanese-subaru-198"
+// Full shop by default. Override with TI_CATEGORY_URL for a single make/category.
+const DEFAULT_CATEGORY_URL = "https://transponderisland.com/shop"
 const CATEGORY_URL = (process.env.TI_CATEGORY_URL || DEFAULT_CATEGORY_URL).trim()
 const OUTPUT_PATH = path.join(__dirname, "ti_catalog.json")
-const MAX_PAGES = Number(process.env.TI_MAX_PAGES || 50)
-const DETAIL_CONCURRENCY = Number(process.env.TI_DETAIL_CONCURRENCY || 3)
+const MAX_PAGES = Number(process.env.TI_MAX_PAGES || 400)
+const DETAIL_CONCURRENCY = Number(process.env.TI_DETAIL_CONCURRENCY || 5)
+const CHECKPOINT_EVERY = Number(process.env.TI_CHECKPOINT_EVERY || 50)
 const HEADLESS = process.env.TI_HEADED !== "1"
+const RESUME = process.env.TI_RESUME === "1"
 
 /** Checkpoint logger so failures show exactly where the run stopped. */
 function checkpoint(step, detail = "") {
@@ -38,7 +44,6 @@ function cleanImageUrl(raw, baseUrl) {
   if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return null
   try {
     const absolute = new URL(trimmed, baseUrl).toString()
-    // Listing thumbs are often image_128 — bump to image_512 when possible.
     return absolute.replace(/\/image_128(\b|\/|\?)/, "/image_512$1")
   } catch {
     return null
@@ -50,10 +55,7 @@ function extractFccId(text) {
   if (!text) return null
   const blob = String(text)
 
-  // Explicit "FCC ID # HYQ14AHK" / "FCC ID: M3N-..." labels first.
-  const labeled = blob.match(
-    /FCC\s*ID\s*#?\s*:?\s*([A-Z0-9]{3,}(?:-[A-Z0-9]+)?)/i
-  )
+  const labeled = blob.match(/FCC\s*ID\s*#?\s*:?\s*([A-Z0-9]{3,}(?:-[A-Z0-9]+)?)/i)
   if (labeled?.[1]) {
     const id = labeled[1].toUpperCase()
     if (
@@ -65,13 +67,11 @@ function extractFccId(text) {
     }
   }
 
-  // Unlabeled title hits — only known remote/fob FCC families.
   const compact = blob.match(
     /\b((?:HYQ|CWTWB?|CWT|KR5|M3N|GQ4|G8D|OUCG|TAK|HUF|NHVWB?|NHV|ALF)[A-Z0-9]{4,})\b/i
   )
   if (compact?.[1]) return compact[1].toUpperCase()
 
-  // Hyphenated FCC grant IDs only (e.g. M3N-5WY7997, 2AOKM-SB1) — not OE parts.
   const hyphen = blob.match(/\b((?:M3N|2AOKM|GQ4|KR5)-[A-Z0-9]{2,})\b/i)
   if (hyphen?.[1]) return hyphen[1].toUpperCase()
 
@@ -85,18 +85,28 @@ function extractFrequency(text) {
   return match ? `${match[1]} MHz` : null
 }
 
+/** Button count from titles like "4B Trunk" / "4-Button" / "5 Button". */
+function extractButtonCount(text) {
+  if (!text) return 0
+  const match = String(text).match(/\b(\d)\s*-?\s*B(?:utton)?s?\b/i)
+  if (!match) return 0
+  const n = Number(match[1])
+  return Number.isFinite(n) && n > 0 && n <= 8 ? n : 0
+}
+
 /** Primary TI SKU from "SKU: TIK-SUB-37" (or slug fallback). */
 function extractPrimarySku(text, productUrl) {
   const labeled = String(text || "").match(/SKU:\s*([A-Z0-9-]+)/i)
   if (labeled?.[1]) return labeled[1].toUpperCase()
 
-  const tik = String(text || "").match(/\b(TIK-[A-Z]+-\d+[A-Z]?)\b/i)
+  const tik = String(text || "").match(/\b((?:TIK|TIT)-[A-Z0-9]+(?:-[A-Z0-9]+)?)\b/i)
   if (tik?.[1]) return tik[1].toUpperCase()
 
-  // Slug often starts with tik-sub-37-...
-  const fromUrl = String(productUrl || "").match(/\/shop\/(tik-[a-z0-9-]+?)(?:-\d{3,})?(?:\?|$)/i)
+  const fromUrl = String(productUrl || "").match(
+    /\/shop\/((?:tik|tit)-[a-z0-9-]+?)(?:-\d{2,})?(?:\?|$)/i
+  )
   if (fromUrl?.[1]) {
-    const slugSku = fromUrl[1].match(/^(tik-[a-z]+-\d+[a-z]?)/i)
+    const slugSku = fromUrl[1].match(/^((?:tik|tit)-[a-z0-9]+(?:-[a-z0-9]+)?)/i)
     if (slugSku?.[1]) return slugSku[1].toUpperCase()
   }
   return null
@@ -104,9 +114,7 @@ function extractPrimarySku(text, productUrl) {
 
 /** Cross-reference TI SKU when listed separately (e.g. C/R TI → TIK-SUB-37A). */
 function extractCrossRefTiSku(text) {
-  const match = String(text || "").match(
-    /C\/R\s*TI[^\n]*?\b(TIK-[A-Z0-9-]+)\b/i
-  )
+  const match = String(text || "").match(/C\/R\s*TI[^\n]*?\b(TIK-[A-Z0-9-]+)\b/i)
   return match?.[1] ? match[1].toUpperCase() : null
 }
 
@@ -119,6 +127,21 @@ function looksLikeLoginWall(pageText, hasProductGrid) {
   return hasPasswordField && blocked
 }
 
+function writeCatalog(catalog) {
+  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(catalog, null, 2) + "\n", "utf8")
+}
+
+function loadExistingCatalog() {
+  if (!fs.existsSync(OUTPUT_PATH)) return []
+  try {
+    const raw = JSON.parse(fs.readFileSync(OUTPUT_PATH, "utf8"))
+    return Array.isArray(raw) ? raw : []
+  } catch {
+    checkpoint("RESUME_LOAD_FAIL", "Could not parse existing ti_catalog.json — starting fresh")
+    return []
+  }
+}
+
 /** Collect product cards from the current category listing page. */
 async function collectListingCards(page, pageUrl) {
   return page.evaluate((base) => {
@@ -129,7 +152,6 @@ async function collectListingCards(page, pageUrl) {
       if (!link?.href) continue
       const img = el.querySelector("img")
       const text = (el.innerText || "").replace(/\s+/g, " ").trim()
-      // Title is the first line before "Login to see price" / "Add to Cart".
       const title = text
         .replace(/\s*Login to see price.*$/i, "")
         .replace(/\s*Add to Cart.*$/i, "")
@@ -141,13 +163,11 @@ async function collectListingCards(page, pageUrl) {
         listingText: text,
       })
     }
-    // Deduplicate by product URL.
     const seen = new Set()
     return cards.filter((card) => {
       const key = card.productUrl
       if (seen.has(key)) return false
       seen.add(key)
-      // Keep relative→absolute resolution available for callers.
       try {
         card.productUrl = new URL(card.productUrl, base).toString()
       } catch {
@@ -158,38 +178,47 @@ async function collectListingCards(page, pageUrl) {
   }, pageUrl)
 }
 
-/** Discover pagination URLs for the category (page/2, page/3, …). */
+/**
+ * Discover all listing page URLs.
+ * Odoo pagers often only show pages 1–7 — also use "N items" ÷ cards-per-page.
+ */
 async function discoverCategoryPages(page, firstUrl) {
-  const links = await page.evaluate(() => {
-    return [...document.querySelectorAll("ul.pagination a, .o_wsale_products_pager a")]
-      .map((a) => a.href)
-      .filter(Boolean)
+  const meta = await page.evaluate(() => {
+    const text = document.body?.innerText || ""
+    const itemsMatch = text.match(/([\d,]+)\s*items?/i)
+    const itemCount = itemsMatch ? Number(itemsMatch[1].replace(/,/g, "")) : null
+    const cardsPerPage = document.querySelectorAll("[data-publish]").length || 20
+    const pageNums = [
+      ...document.querySelectorAll("ul.pagination a, .o_wsale_products_pager a"),
+    ]
+      .map((a) => {
+        const hrefMatch = (a.href || "").match(/\/page\/(\d+)/)
+        if (hrefMatch) return Number(hrefMatch[1])
+        const label = (a.textContent || "").trim()
+        return /^\d+$/.test(label) ? Number(label) : null
+      })
+      .filter((n) => Number.isFinite(n) && n > 0)
+    return {
+      itemCount: Number.isFinite(itemCount) ? itemCount : null,
+      cardsPerPage,
+      maxPager: pageNums.length ? Math.max(...pageNums) : 1,
+    }
   })
 
-  const pages = new Set([firstUrl.split("?")[0].replace(/\/page\/\d+\/?$/, "")])
-  for (const href of links) {
-    try {
-      const u = new URL(href)
-      pages.add(u.origin + u.pathname.replace(/\/$/, ""))
-    } catch {
-      /* ignore bad href */
-    }
+  const base = firstUrl.split("?")[0].replace(/\/page\/\d+\/?$/, "").replace(/\/$/, "")
+  let totalPages = meta.maxPager || 1
+  if (meta.itemCount && meta.cardsPerPage > 0) {
+    totalPages = Math.max(totalPages, Math.ceil(meta.itemCount / meta.cardsPerPage))
   }
+  totalPages = Math.min(Math.max(totalPages, 1), MAX_PAGES)
 
-  // Ensure numbered pages 1..N when pager only exposes a few links.
-  const base = firstUrl.split("?")[0].replace(/\/page\/\d+\/?$/, "")
-  const maxPageNum = Math.max(
-    1,
-    ...[...pages]
-      .map((u) => {
-        const m = u.match(/\/page\/(\d+)/)
-        return m ? Number(m[1]) : 1
-      })
-      .filter((n) => Number.isFinite(n))
+  checkpoint(
+    "CATEGORY_PAGE_MATH",
+    `items=${meta.itemCount ?? "?"} perPage=${meta.cardsPerPage} pagerMax=${meta.maxPager} → pages=${totalPages}`
   )
 
   const ordered = [base]
-  for (let n = 2; n <= Math.min(maxPageNum, MAX_PAGES); n += 1) {
+  for (let n = 2; n <= totalPages; n += 1) {
     ordered.push(`${base}/page/${n}`)
   }
   return ordered
@@ -209,19 +238,21 @@ async function scrapeProductDetail(context, listingCard) {
         "DETAIL_HTTP_FAIL",
         `${listingCard.productUrl} status=${response?.status() ?? "none"}`
       )
+      const listingBlob = `${listingCard.title} ${listingCard.listingText}`
       return {
         title: listingCard.title,
         tiSku: extractPrimarySku(listingCard.listingText, listingCard.productUrl),
         crossRefTiSku: null,
-        fccId: extractFccId(`${listingCard.title} ${listingCard.listingText}`),
+        fccId: extractFccId(listingBlob),
         frequency: extractFrequency(listingCard.listingText),
+        buttonCount: extractButtonCount(listingBlob),
         imageUrl: cleanImageUrl(listingCard.imageUrl, listingCard.productUrl),
         productUrl: listingCard.productUrl,
         scrapeError: `HTTP ${response?.status() ?? "none"}`,
       }
     }
 
-    await page.waitForTimeout(800)
+    await page.waitForTimeout(500)
 
     const detail = await page.evaluate(() => {
       const h1 = document.querySelector("h1")?.innerText?.trim() || null
@@ -244,6 +275,7 @@ async function scrapeProductDetail(context, listingCard) {
         crossRefTiSku: null,
         fccId: null,
         frequency: null,
+        buttonCount: 0,
         imageUrl: cleanImageUrl(listingCard.imageUrl, listingCard.productUrl),
         productUrl: listingCard.productUrl,
         scrapeError: "login_wall",
@@ -260,6 +292,7 @@ async function scrapeProductDetail(context, listingCard) {
       crossRefTiSku: extractCrossRefTiSku(combinedText),
       fccId: extractFccId(combinedText),
       frequency: extractFrequency(combinedText),
+      buttonCount: extractButtonCount(combinedText),
       imageUrl:
         cleanImageUrl(detail.img, listingCard.productUrl) ||
         cleanImageUrl(listingCard.imageUrl, listingCard.productUrl),
@@ -267,12 +300,14 @@ async function scrapeProductDetail(context, listingCard) {
     }
   } catch (err) {
     checkpoint("DETAIL_ERROR", `${listingCard.productUrl} → ${err.message}`)
+    const listingBlob = `${listingCard.title} ${listingCard.listingText}`
     return {
       title: listingCard.title,
       tiSku: extractPrimarySku(listingCard.listingText, listingCard.productUrl),
       crossRefTiSku: null,
-      fccId: extractFccId(`${listingCard.title} ${listingCard.listingText}`),
+      fccId: extractFccId(listingBlob),
       frequency: extractFrequency(listingCard.listingText),
+      buttonCount: extractButtonCount(listingBlob),
       imageUrl: cleanImageUrl(listingCard.imageUrl, listingCard.productUrl),
       productUrl: listingCard.productUrl,
       scrapeError: err.message,
@@ -282,20 +317,25 @@ async function scrapeProductDetail(context, listingCard) {
   }
 }
 
-/** Run detail scrapes with a small concurrency pool. */
-async function mapPool(items, concurrency, worker) {
+/** Run detail scrapes with a small concurrency pool + periodic JSON checkpoints. */
+async function mapPool(items, concurrency, worker, onProgress) {
   const results = new Array(items.length)
   let nextIndex = 0
+  let completed = 0
 
   async function runOne() {
     while (nextIndex < items.length) {
       const i = nextIndex
       nextIndex += 1
       results[i] = await worker(items[i], i)
+      completed += 1
+      if (onProgress) onProgress(completed, items.length, results)
     }
   }
 
-  const runners = Array.from({ length: Math.min(concurrency, items.length) }, () => runOne())
+  const runners = Array.from({ length: Math.min(concurrency, items.length || 1) }, () =>
+    runOne()
+  )
   await Promise.all(runners)
   return results
 }
@@ -303,6 +343,7 @@ async function mapPool(items, concurrency, worker) {
 async function main() {
   checkpoint("START", `category=${CATEGORY_URL}`)
   checkpoint("OUTPUT", OUTPUT_PATH)
+  checkpoint("CONFIG", `maxPages=${MAX_PAGES} concurrency=${DETAIL_CONCURRENCY} resume=${RESUME}`)
 
   let browser
   try {
@@ -352,7 +393,7 @@ async function main() {
       throw new Error("Product grid did not load")
     }
 
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(800)
 
     const categoryPages = await discoverCategoryPages(page, CATEGORY_URL)
     checkpoint("CATEGORY_PAGES", `${categoryPages.length} page(s) to crawl`)
@@ -376,13 +417,22 @@ async function main() {
           await page.waitForSelector("[data-publish]", { timeout: 20000 })
         } catch {
           checkpoint("CATEGORY_PAGE_EMPTY", pageUrl)
+          // Empty page usually means we went past the last page — stop early.
+          if (i > 10) {
+            checkpoint("CATEGORY_PAGE_STOP", "Empty page — assuming end of catalog")
+            break
+          }
           continue
         }
-        await page.waitForTimeout(600)
+        await page.waitForTimeout(400)
       }
 
       const cards = await collectListingCards(page, pageUrl)
       checkpoint("CATEGORY_PAGE_CARDS", `${cards.length} card(s) on this page`)
+      if (cards.length === 0 && i > 0) {
+        checkpoint("CATEGORY_PAGE_STOP", "Zero cards — assuming end of catalog")
+        break
+      }
       for (const card of cards) {
         if (seenUrls.has(card.productUrl)) continue
         seenUrls.add(card.productUrl)
@@ -395,20 +445,58 @@ async function main() {
       throw new Error("No products found on category pages")
     }
 
-    checkpoint("DETAIL_PASS_START", `${listingCards.length} product(s), concurrency=${DETAIL_CONCURRENCY}`)
-    const catalog = await mapPool(listingCards, DETAIL_CONCURRENCY, (card) =>
-      scrapeProductDetail(context, card)
+    checkpoint("LISTING_TOTAL", `${listingCards.length} unique product URL(s)`)
+
+    const existing = RESUME ? loadExistingCatalog() : []
+    const existingByUrl = new Map(
+      existing.filter((row) => row?.productUrl).map((row) => [row.productUrl, row])
+    )
+    if (RESUME) {
+      checkpoint("RESUME", `${existingByUrl.size} product(s) already in ${OUTPUT_PATH}`)
+    }
+
+    const pendingCards = listingCards.filter((card) => !existingByUrl.has(card.productUrl))
+    checkpoint(
+      "DETAIL_PASS_START",
+      `${pendingCards.length} to fetch (${listingCards.length - pendingCards.length} skipped), concurrency=${DETAIL_CONCURRENCY}`
     )
 
-    // Stable sort by TI SKU then title.
-    catalog.sort((a, b) => {
-      const skuA = a.tiSku || ""
-      const skuB = b.tiSku || ""
-      if (skuA !== skuB) return skuA.localeCompare(skuB)
-      return String(a.title || "").localeCompare(String(b.title || ""))
-    })
+    const catalogByUrl = new Map(existingByUrl)
 
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(catalog, null, 2) + "\n", "utf8")
+    const flush = () => {
+      const merged = [...catalogByUrl.values()]
+      merged.sort((a, b) => {
+        const skuA = a.tiSku || ""
+        const skuB = b.tiSku || ""
+        if (skuA !== skuB) return skuA.localeCompare(skuB)
+        return String(a.title || "").localeCompare(String(b.title || ""))
+      })
+      writeCatalog(merged)
+      return merged
+    }
+
+    if (pendingCards.length > 0) {
+      await mapPool(
+        pendingCards,
+        DETAIL_CONCURRENCY,
+        (card) => scrapeProductDetail(context, card),
+        (completed, total, results) => {
+          for (let i = 0; i < results.length; i += 1) {
+            const row = results[i]
+            if (row?.productUrl) catalogByUrl.set(row.productUrl, row)
+          }
+          if (completed % CHECKPOINT_EVERY === 0 || completed === total) {
+            const merged = flush()
+            checkpoint(
+              "CHECKPOINT_WRITE",
+              `${completed}/${total} new details · catalogSize=${merged.length}`
+            )
+          }
+        }
+      )
+    }
+
+    const catalog = flush()
     checkpoint("WRITE_OK", `${catalog.length} product(s) → ${OUTPUT_PATH}`)
 
     const withSku = catalog.filter((row) => row.tiSku).length

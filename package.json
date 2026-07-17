@@ -13,6 +13,7 @@
     "build:fcc-cache": "npx tsx scripts/build-fcc-remote-cache.ts",
     "mirror:fcc-images": "npx tsx scripts/mirror-fcc-key-images.ts",
     "scrape:ti": "node scripts/scrape-ti.js",
+    "import:ti": "npx tsx scripts/import-ti-catalog.ts",
     "deploy:vercel": "npx vercel@latest deploy --prod --yes --archive=tgz"
   },
   "dependencies": {

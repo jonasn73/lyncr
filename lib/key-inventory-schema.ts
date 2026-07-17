@@ -2,7 +2,7 @@
  * KeyInventory schema (exported TypeScript shape).
  *
  * This project uses Neon Postgres + SQL migrations (not Prisma).
- * SQL source of truth: scripts/105–107 (`key_inventory` table).
+ * SQL source of truth: scripts/105–108 + 110 (`key_inventory` + `ti_supplier_catalog`).
  *
  * CamelCase fields below map 1:1 to API / app usage.
  * Snake_case DB columns are noted in comments.
@@ -58,6 +58,12 @@ export type KeyInventorySchema = {
    * (custom upload or TI scraper link)
    */
   imageUrl: string | null
+  /** TI product title from scrape → `product_title` */
+  productTitle: string | null
+  /** Canonical TI product page → `product_url` */
+  productUrl: string | null
+  /** C/R TI alternate SKU → `cross_ref_ti_sku` */
+  crossRefTiSku: string | null
   /** Van 1 stock → `van1_quantity` @default 0 */
   van1Qty: number
   /** Van 2 stock → `van2_quantity` @default 0 (Lyncr extension) */

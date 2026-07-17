@@ -29,6 +29,9 @@ export type KeyInventoryRow = {
   altSku: string | null
   supplierName: string
   imageUrl: string | null
+  productTitle: string | null
+  productUrl: string | null
+  crossRefTiSku: string | null
   compatibleVehicles: KeyInventoryCompatibleVehicle[]
   van1Quantity: number
   van2Quantity: number
@@ -75,6 +78,9 @@ function mapRow(row: Record<string, unknown>): KeyInventoryRow {
   const tiSkuRaw = row.ti_sku != null ? String(row.ti_sku).trim() : ""
   const altSkuRaw = row.alt_sku != null ? String(row.alt_sku).trim() : ""
   const imageRaw = row.image_url != null ? String(row.image_url).trim() : ""
+  const productTitleRaw = row.product_title != null ? String(row.product_title).trim() : ""
+  const productUrlRaw = row.product_url != null ? String(row.product_url).trim() : ""
+  const crossRefRaw = row.cross_ref_ti_sku != null ? String(row.cross_ref_ti_sku).trim() : ""
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -88,6 +94,9 @@ function mapRow(row: Record<string, unknown>): KeyInventoryRow {
     altSku: altSkuRaw || null,
     supplierName: String(row.supplier_name ?? "Transponder Island").trim() || "Transponder Island",
     imageUrl: imageRaw || null,
+    productTitle: productTitleRaw || null,
+    productUrl: productUrlRaw || null,
+    crossRefTiSku: crossRefRaw || null,
     compatibleVehicles: parseCompatibleVehicles(row.compatible_vehicles),
     van1Quantity: van1,
     van2Quantity: van2,

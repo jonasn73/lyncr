@@ -112,6 +112,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 107 | `107-key-inventory-supplier-catalog.sql` | **TI + alt suppliers.** Adds **`frequency`**, **`button_count`**, **`ti_sku`**, **`alt_sku`**, **`supplier_name`** (default Transponder Island), **`image_url`**; sets **`minimum_stock_alert`** default to **2** (reorderThreshold). Backfills `ti_sku` from legacy `sku`. TypeScript export: `lib/key-inventory-schema.ts`. |
 | 108 | `108-key-inventory-image-blob.sql` | **Quick Photo Upload.** Adds **`image_data_base64`** + **`image_mime_type`** on **`key_inventory`**. Powers Capture Key Image → `/api/inventory/image` + `/api/inventory/[id]/image`. |
 | 109 | `109-flat-price-override.sql` | **Flat Price Override.** Adds **`calculated_total_cents`**, **`final_booked_total_cents`**, **`is_price_overridden`** on **`ai_leads`**. Powers Exact Price → Lock Flat Negotiated Price + negotiation metrics. |
+| 110 | `110-ti-supplier-catalog.sql` | **TI full catalog.** Creates **`ti_supplier_catalog`** (shared scrape: `ti_sku`, `cross_ref_ti_sku`, `title`, `fcc_id`, `frequency`, `button_count`, `image_url`, `product_url`). Adds **`product_title`**, **`product_url`**, **`cross_ref_ti_sku`** on **`key_inventory`**. Import with `npx tsx scripts/import-ti-catalog.ts` after `npm run scrape:ti`. |
 
 ## Platform admin (`admin@lyncr.app`)
 
