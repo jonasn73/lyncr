@@ -12,7 +12,7 @@ import { sendDispatchEnRouteCustomerSms, sendDispatchOnSiteCustomerSms } from "@
 
 export const dynamic = "force-dynamic"
 
-const ALLOWED = new Set(["en_route", "arrived", "completed", "assigned"])
+const ALLOWED = new Set(["en_route", "arrived", "work_complete", "completed", "assigned"])
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))

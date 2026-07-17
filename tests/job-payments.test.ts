@@ -39,6 +39,13 @@ describe("resolveVerifiedChargeCents", () => {
     expect(result.ok).toBe(false)
   })
 
+  it("allows invoice override when tech builds on-site line items", () => {
+    expect(resolveVerifiedChargeCents(baseJob(14999), 375, { allowInvoiceOverride: true })).toEqual({
+      ok: true,
+      chargeCents: 37500,
+    })
+  })
+
   it("allows client amount when job has no stored price", () => {
     expect(resolveVerifiedChargeCents(baseJob(null), 85.5)).toEqual({
       ok: true,

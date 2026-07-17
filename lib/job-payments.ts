@@ -133,10 +133,12 @@ export function normalizeJobPaymentMethod(raw: string): WalletPaymentMethod | nu
 /**
  * Verify client amount against the job's booked price.
  * When the job has no stored price, the client amount is accepted (invoice-style collect).
+ * Pass `allowInvoiceOverride` when the tech built a line-item invoice on-site.
  */
 export function resolveVerifiedChargeCents(
   job: JobPaymentContext,
-  clientAmount: number
+  clientAmount: number,
+  options?: { allowInvoiceOverride?: boolean }
 ): { ok: true; chargeCents: number } | { ok: false; error: string } {
   // Client may send dollars (149.99) or cents (14999). Prefer dollars when < 1000 and fractional.
   let chargeCents: number
@@ -157,7 +159,11 @@ export function resolveVerifiedChargeCents(
     return { ok: false, error: "amount must be at least $0.50" }
   }
 
-  if (job.expectedChargeCents != null && Math.abs(job.expectedChargeCents - chargeCents) > 1) {
+  if (
+    !options?.allowInvoiceOverride &&
+    job.expectedChargeCents != null &&
+    Math.abs(job.expectedChargeCents - chargeCents) > 1
+  ) {
     return {
       ok: false,
       error: `amount does not match job price (expected $${(job.expectedChargeCents / 100).toFixed(2)})`,

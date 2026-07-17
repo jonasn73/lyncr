@@ -9,9 +9,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route, Inbox, Car, AlertTriangle } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
-import { InvoiceModal } from "@/components/tech/invoice-modal"
+import { TechPaymentModal } from "@/components/tech/tech-payment-modal"
 import { TechWalletCard } from "@/components/tech/tech-wallet-card"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
+import { cn } from "@/lib/utils"
 import type { TechBadge } from "@/lib/tech-badges"
 import type { DispatchJob, UnassignedPoolJob } from "@/lib/types"
 
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
   assigned: "Assigned",
   en_route: "En route",
   arrived: "On site",
+  work_complete: "Work complete",
   completed: "Completed",
 }
 
@@ -31,12 +33,15 @@ const STATUS_STYLE: Record<string, string> = {
   assigned: "bg-zinc-700/60 text-zinc-200",
   en_route: "bg-sky-500/20 text-sky-300",
   arrived: "bg-amber-500/20 text-amber-200",
+  work_complete: "bg-violet-500/20 text-violet-200",
   completed: "bg-emerald-500/20 text-emerald-300",
 }
 
 /** Derive the tech's overall live status from their active jobs. */
 function deriveTechStatus(jobs: DispatchJob[]): "idle" | "en_route" | "on_site" {
-  if (jobs.some((j) => j.job_status === "arrived")) return "on_site"
+  if (jobs.some((j) => j.job_status === "arrived" || j.job_status === "work_complete")) {
+    return "on_site"
+  }
   if (jobs.some((j) => j.job_status === "en_route")) return "en_route"
   return "idle"
 }
@@ -45,7 +50,6 @@ export function TechConsole(props: {
   techUserId: string
   techName: string
   businessName: string
-  merchantConfigured: boolean
 }) {
   const router = useRouter()
   const [jobs, setJobs] = useState<DispatchJob[]>([])
@@ -53,7 +57,7 @@ export function TechConsole(props: {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [invoiceJob, setInvoiceJob] = useState<DispatchJob | null>(null)
+  const [paymentJob, setPaymentJob] = useState<DispatchJob | null>(null)
   const [poolJobs, setPoolJobs] = useState<UnassignedPoolJob[]>([])
   const [claimBusyId, setClaimBusyId] = useState<string | null>(null)
   /** Bumps so My Wallet refetches after invoice collect / job refresh. */
@@ -202,6 +206,7 @@ export function TechConsole(props: {
 
   const active = jobs.filter((j) => j.job_status !== "completed")
   const done = jobs.filter((j) => j.job_status === "completed")
+  // work_complete still counts as active until payment finishes.
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
@@ -264,7 +269,8 @@ export function TechConsole(props: {
                 busy={busyId === job.id}
                 onArrived={() => setStatus(job.id, "arrived")}
                 onEnRoute={() => setStatus(job.id, "en_route")}
-                onComplete={() => setInvoiceJob(job)}
+                onWorkComplete={() => setStatus(job.id, "work_complete")}
+                onProceedToPayment={() => setPaymentJob(job)}
               />
             ))}
 
@@ -292,13 +298,12 @@ export function TechConsole(props: {
         )}
       </main>
 
-      {invoiceJob && (
-        <InvoiceModal
-          job={invoiceJob}
-          merchantConfigured={props.merchantConfigured}
-          onClose={() => setInvoiceJob(null)}
+      {paymentJob && (
+        <TechPaymentModal
+          job={paymentJob}
+          onClose={() => setPaymentJob(null)}
           onCompleted={() => {
-            setInvoiceJob(null)
+            setPaymentJob(null)
             setWalletRefreshToken((n) => n + 1)
             load()
           }}
@@ -411,11 +416,14 @@ function JobCard(props: {
   busy: boolean
   onArrived: () => void
   onEnRoute: () => void
-  onComplete: () => void
+  onWorkComplete: () => void
+  onProceedToPayment: () => void
 }) {
   const { job } = props
   const status = job.job_status || "assigned"
   const phoneDigits = (job.customer_phone || "").replace(/[^\d+]/g, "")
+  const workComplete = status === "work_complete"
+  const canMarkWorkComplete = status === "arrived" || status === "work_complete"
 
   return (
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
@@ -475,26 +483,50 @@ function JobCard(props: {
         </p>
       )}
 
-      {/* Status toggle group: Start Route → Arrived → Complete */}
+      {/* Status: Start Route → Arrived → Work Complete → Proceed to Payment */}
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <LeftStatusButton {...props} status={status} />
+        <LeftStatusButton
+          status={status}
+          busy={props.busy}
+          onArrived={props.onArrived}
+          onEnRoute={props.onEnRoute}
+          onWorkComplete={props.onWorkComplete}
+        />
         <button
-          onClick={props.onComplete}
-          className="rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition active:scale-[0.98]"
+          type="button"
+          disabled={!workComplete || props.busy}
+          onClick={props.onProceedToPayment}
+          className={cn(
+            "rounded-xl px-3 py-3 text-sm font-semibold shadow-lg transition active:scale-[0.98]",
+            workComplete
+              ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-900/30"
+              : "cursor-not-allowed bg-zinc-800 text-zinc-500 shadow-none"
+          )}
+          title={
+            workComplete
+              ? "Collect payment and close the job"
+              : "Mark Work Complete before collecting payment"
+          }
         >
-          Complete &amp; Invoice
+          Proceed to Payment
         </button>
       </div>
+      {canMarkWorkComplete && !workComplete ? (
+        <p className="mt-2 text-center text-[10px] text-zinc-600">
+          Mark work complete on the left, then Proceed to Payment unlocks.
+        </p>
+      ) : null}
     </article>
   )
 }
 
-/** The left half of the status toggle advances assigned → en_route → arrived. */
+/** Left status control: assigned → en_route → arrived → work_complete. */
 function LeftStatusButton(props: {
   status: string
   busy: boolean
   onArrived: () => void
   onEnRoute: () => void
+  onWorkComplete: () => void
 }) {
   if (props.busy) {
     return (
@@ -523,13 +555,23 @@ function LeftStatusButton(props: {
       </button>
     )
   }
-  // arrived
+  if (props.status === "arrived") {
+    return (
+      <button
+        onClick={props.onWorkComplete}
+        className="rounded-xl bg-violet-600 px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-violet-500"
+      >
+        Mark Work Complete
+      </button>
+    )
+  }
+  // work_complete (and any other post-site state before paid)
   return (
     <button
       disabled
-      className="rounded-xl bg-amber-500/20 px-3 py-3 text-sm font-semibold text-amber-200 ring-1 ring-amber-500/40"
+      className="rounded-xl bg-violet-500/20 px-3 py-3 text-sm font-semibold text-violet-200 ring-1 ring-violet-500/40"
     >
-      On Site
+      Work Complete
     </button>
   )
 }

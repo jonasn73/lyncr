@@ -31,6 +31,8 @@ type Body = {
   paymentMethod?: "card" | "cash" | "none"
   cardLast4?: string
   collectNow?: boolean
+  /** When true, skip wallet ledger write (Stripe PaymentIntent already credited the tech). */
+  skipWalletCredit?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -99,8 +101,8 @@ export async function POST(req: NextRequest) {
     // Completing the invoice closes out the job.
     await setJobStatusForTech(userId, leadId, "completed").catch(() => {})
 
-    // Credit the tech wallet when payment was collected on-site.
-    if (collectNow && method !== "none" && total > 0) {
+    // Credit the tech wallet when payment was collected on-site (skip if Stripe already settled).
+    if (collectNow && method !== "none" && total > 0 && !body.skipWalletCredit) {
       const wallet = walletStatusFromInvoice({
         paymentStatus,
         paymentMethod: method,

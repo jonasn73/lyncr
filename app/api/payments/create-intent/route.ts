@@ -19,6 +19,9 @@ type Body = {
   jobId?: string
   amount?: number
   paymentMethodType?: string
+  /** When true / line items present, allow on-site invoice total instead of booked quote. */
+  invoiceOverride?: boolean
+  lineItems?: { label?: string; amountCents?: number }[]
 }
 
 export async function POST(req: NextRequest) {
@@ -69,7 +72,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Assign a technician before collecting payment" }, { status: 400 })
   }
 
-  const verified = resolveVerifiedChargeCents(job, amount)
+  const hasLineItems = Array.isArray(body.lineItems) && body.lineItems.length > 0
+  const verified = resolveVerifiedChargeCents(job, amount, {
+    allowInvoiceOverride: Boolean(body.invoiceOverride) || hasLineItems,
+  })
   if (!verified.ok) {
     return NextResponse.json({ error: verified.error }, { status: 400 })
   }

@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/server-session-user"
 import { getFieldTechContext, isFieldTechUser } from "@/lib/field-tech-auth"
-import { getOwnerMerchantConfigured } from "@/lib/db"
 import { TechConsole } from "@/components/tech/tech-console"
 
 export const dynamic = "force-dynamic"
@@ -30,14 +29,11 @@ export default async function TechDashboardPage() {
     )
   }
 
-  const merchantConfigured = await getOwnerMerchantConfigured(ctx.owner_user_id)
-
   return (
     <TechConsole
       techUserId={user.id}
       techName={ctx.technician.name || user.name || "Technician"}
       businessName={ctx.business_name}
-      merchantConfigured={merchantConfigured}
     />
   )
 }
