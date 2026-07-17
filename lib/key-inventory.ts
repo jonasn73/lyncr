@@ -373,6 +373,9 @@ export async function upsertKeyInventoryVan1Stock(params: {
   sku: string
   fccId?: string
   brand?: string
+  frequency?: string
+  tiSku?: string | null
+  supplierName?: string
   van1Quantity: number
   year?: number | string | null
   make?: string | null
@@ -383,6 +386,13 @@ export async function upsertKeyInventoryVan1Stock(params: {
   const van1 = Math.max(0, Math.trunc(params.van1Quantity))
   const fccId = sanitizeFccIdInput(params.fccId ?? "")
   const brand = String(params.brand ?? "").trim()
+  const frequency = String(params.frequency ?? "").trim()
+  const tiSku =
+    params.tiSku != null && String(params.tiSku).trim()
+      ? normalizeInventorySku(String(params.tiSku))
+      : sku
+  const supplierName =
+    String(params.supplierName ?? "Transponder Island").trim() || "Transponder Island"
   const yearNum = Number(params.year)
   const make = String(params.make ?? "").trim()
   const model = String(params.model ?? "").trim()
@@ -404,6 +414,12 @@ export async function upsertKeyInventoryVan1Stock(params: {
           van1_quantity = ${van1},
           fcc_id = CASE WHEN ${fccId} = '' THEN fcc_id ELSE ${fccId} END,
           brand = CASE WHEN ${brand} = '' THEN brand ELSE ${brand} END,
+          frequency = CASE WHEN ${frequency} = '' THEN frequency ELSE ${frequency} END,
+          ti_sku = CASE WHEN ${tiSku} = '' THEN ti_sku ELSE ${tiSku} END,
+          supplier_name = CASE
+            WHEN ${supplierName} = '' THEN supplier_name
+            ELSE ${supplierName}
+          END,
           compatible_vehicles = CASE
             WHEN jsonb_array_length(compatible_vehicles) = 0 AND ${compatibleJson}::jsonb != '[]'::jsonb
               THEN ${compatibleJson}::jsonb
@@ -431,13 +447,14 @@ export async function upsertKeyInventoryVan1Stock(params: {
     sku,
     fccId,
     brand,
+    frequency,
     compatibleVehicles,
     van1Quantity: van1,
     van2Quantity: 0,
     shopQuantity: 0,
     minimumStockAlert: 2,
-    tiSku: sku,
-    supplierName: "Transponder Island",
+    tiSku,
+    supplierName,
   })
 }
 

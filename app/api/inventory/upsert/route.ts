@@ -35,6 +35,14 @@ export async function PUT(req: NextRequest) {
       sku,
       fccId: body.fccId != null ? String(body.fccId) : body.fcc_id != null ? String(body.fcc_id) : "",
       brand: body.brand != null ? String(body.brand) : "",
+      frequency: body.frequency != null ? String(body.frequency) : "",
+      tiSku: body.tiSku != null ? String(body.tiSku) : body.ti_sku != null ? String(body.ti_sku) : null,
+      supplierName:
+        body.supplierName != null
+          ? String(body.supplierName)
+          : body.supplier_name != null
+            ? String(body.supplier_name)
+            : "Transponder Island",
       van1Quantity,
       year: body.year != null ? String(body.year) : null,
       make: body.make != null ? String(body.make) : null,

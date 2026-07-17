@@ -1,11 +1,10 @@
 "use client"
 
-// Call-time Dynamic Inventory Intake — stock badge / stock-check loop under vehicle header.
+// Call-time inventory auditing loop — Key Details step (FCC + frequency → stock check).
 
 import { useEffect, useMemo, useState } from "react"
-import { Check, Loader2, Minus, Plus, Search, X } from "lucide-react"
+import { Download, Loader2, Minus, Plus, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
 import {
@@ -17,12 +16,14 @@ type Props = {
   year: string
   make: string
   model: string
+  /** Identified FCC ID from key selection / decode. */
   selectedFccId?: string | null
+  /** Identified frequency (e.g. "434 MHz") from key profile. */
+  selectedFrequency?: string | null
   organizationId?: string | null
   inventory: KeyInventoryApiRow[] | null | undefined
-  /** Parent merges the updated row into decode inventory so fallback cards stay in sync. */
   onInventoryUpdated: (item: KeyInventoryApiRow) => void
-  /** Operator confirmed no van stock — keep alternatives visible. */
+  /** After Out of Stock — parent keeps Alternative Solutions visible. */
   onMarkedOutOfStock?: () => void
   className?: string
 }
@@ -32,6 +33,7 @@ export function CallTimeInventoryIntake({
   make,
   model,
   selectedFccId,
+  selectedFrequency,
   organizationId,
   inventory,
   onInventoryUpdated,
@@ -39,31 +41,37 @@ export function CallTimeInventoryIntake({
   className,
 }: Props) {
   const vehicleReady = Boolean(year?.trim() && make?.trim() && model?.trim())
+  const fccReady = Boolean(selectedFccId?.trim())
+  // Trigger stock audit once vehicle + FCC are known (frequency shown when available).
+  const auditReady = vehicleReady && fccReady
+
   const primary = useMemo(
     () => pickPrimaryInventoryRow(inventory, selectedFccId),
     [inventory, selectedFccId]
   )
-  const van1 = primary?.van1Quantity ?? 0
-  const stockConfirmed = Boolean(primary && van1 > 0)
 
-  const [modifyOpen, setModifyOpen] = useState(false)
+  const displayFcc = (selectedFccId || primary?.fccId || "").trim() || "N/A"
+  const displayFrequency =
+    (selectedFrequency || primary?.frequency || "").trim() || "N/A"
+  const displayTiSku = (primary?.tiSku || primary?.sku || "").trim() || "N/A"
+  const van1Qty = primary?.van1Qty ?? primary?.van1Quantity ?? 0
+  const stockActive = Boolean(primary && van1Qty > 0)
+
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const [stepperBusy, setStepperBusy] = useState(false)
   const [checkPhase, setCheckPhase] = useState<"ask" | "yes_qty">("ask")
-  const [qtyDraft, setQtyDraft] = useState("1")
+  const [qtyDraft, setQtyDraft] = useState(1)
   const [saveBusy, setSaveBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [operatorMarkedOos, setOperatorMarkedOos] = useState(false)
 
-  // Reset local check UI when the vehicle / key context changes.
   useEffect(() => {
-    setModifyOpen(false)
+    setAdjustOpen(false)
     setCheckPhase("ask")
-    setQtyDraft("1")
+    setQtyDraft(1)
     setError(null)
-    setOperatorMarkedOos(false)
-  }, [year, make, model, selectedFccId])
+  }, [year, make, model, selectedFccId, selectedFrequency])
 
-  if (!vehicleReady) return null
+  if (!auditReady) return null
 
   const sku = deriveCallTimeInventorySku({
     inventory,
@@ -72,6 +80,10 @@ export function CallTimeInventoryIntake({
     make,
     model,
   })
+  const tiSkuForSave =
+    primary?.tiSku?.trim() ||
+    (displayTiSku !== "N/A" ? displayTiSku : null) ||
+    (sku.startsWith("TIK-") ? sku : null)
 
   const upsertVan1 = async (quantity: number): Promise<KeyInventoryApiRow | null> => {
     const res = await fetch("/api/inventory/upsert", {
@@ -79,10 +91,13 @@ export function CallTimeInventoryIntake({
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sku,
+        sku: tiSkuForSave || sku,
+        tiSku: tiSkuForSave || sku,
         van1Quantity: quantity,
         fccId: selectedFccId || primary?.fccId || "",
+        frequency: selectedFrequency || primary?.frequency || "",
         brand: primary?.brand || "",
+        supplierName: primary?.supplierName || "Transponder Island",
         year,
         make,
         model,
@@ -98,11 +113,15 @@ export function CallTimeInventoryIntake({
   }
 
   const adjustByDelta = async (delta: 1 | -1) => {
-    if (!primary) return
+    if (!primary?.id) {
+      // No row yet — upsert absolute quantity from stepper draft.
+      const next = Math.max(0, qtyDraft + delta)
+      setQtyDraft(next)
+      return
+    }
     setStepperBusy(true)
     setError(null)
     try {
-      // Prefer id-based adjust when we already have a row.
       const res = await fetch(`/api/inventory/${primary.id}/adjust`, {
         method: "PATCH",
         credentials: "include",
@@ -122,8 +141,8 @@ export function CallTimeInventoryIntake({
     }
   }
 
-  const saveYesInStock = async () => {
-    const qty = Math.max(0, Math.trunc(Number(qtyDraft)))
+  const saveYesIHaveIt = async () => {
+    const qty = Math.max(0, Math.trunc(qtyDraft))
     if (!Number.isFinite(qty) || qty < 1) {
       setError("Enter how many you have (at least 1).")
       return
@@ -135,7 +154,7 @@ export function CallTimeInventoryIntake({
       if (item) {
         onInventoryUpdated(item)
         setCheckPhase("ask")
-        setOperatorMarkedOos(false)
+        setAdjustOpen(false)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save inventory")
@@ -150,7 +169,6 @@ export function CallTimeInventoryIntake({
     try {
       const item = await upsertVan1(0)
       if (item) onInventoryUpdated(item)
-      setOperatorMarkedOos(true)
       onMarkedOutOfStock?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not mark out of stock")
@@ -159,8 +177,8 @@ export function CallTimeInventoryIntake({
     }
   }
 
-  // Confirmed stock path
-  if (stockConfirmed && primary) {
+  // —— Known stock (van1Qty > 0) ——
+  if (stockActive && primary) {
     return (
       <div
         className={cn(
@@ -171,33 +189,28 @@ export function CallTimeInventoryIntake({
         <div className="flex flex-wrap items-center gap-2">
           <p className="min-w-0 flex-1 text-sm font-medium text-emerald-200">
             <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
-            Stock Confirmed: {primary.van1Quantity} available in Van 1
-            {primary.sku ? (
-              <span className="ml-1.5 font-mono text-[11px] text-emerald-200/70">
-                · {primary.sku}
-              </span>
-            ) : null}
+            Stock Active: {van1Qty} in Van 1
           </p>
           <Button
             type="button"
             size="sm"
             variant="secondary"
             className="h-8 border border-emerald-500/30 bg-emerald-950/40 text-emerald-100 hover:bg-emerald-900/50"
-            onClick={() => setModifyOpen((v) => !v)}
+            onClick={() => setAdjustOpen((v) => !v)}
           >
-            Modify Count
+            Adjust
           </Button>
         </div>
 
-        {modifyOpen ? (
+        {adjustOpen ? (
           <div className="mt-2 flex items-center gap-2">
             <Button
               type="button"
               size="icon"
               variant="secondary"
               className="h-9 w-9 border border-emerald-500/30"
-              disabled={stepperBusy || primary.van1Quantity <= 0}
-              aria-label="Remove one from Van 1"
+              disabled={stepperBusy || van1Qty <= 0}
+              aria-label="Subtract one key from Van 1"
               onClick={() => void adjustByDelta(-1)}
             >
               {stepperBusy ? (
@@ -207,7 +220,7 @@ export function CallTimeInventoryIntake({
               )}
             </Button>
             <span className="min-w-[2.5rem] text-center text-base font-semibold tabular-nums text-emerald-100">
-              {primary.van1Quantity}
+              {van1Qty}
             </span>
             <Button
               type="button"
@@ -215,7 +228,7 @@ export function CallTimeInventoryIntake({
               variant="secondary"
               className="h-9 w-9 border border-emerald-500/30"
               disabled={stepperBusy}
-              aria-label="Add one to Van 1"
+              aria-label="Add one key to Van 1"
               onClick={() => void adjustByDelta(1)}
             >
               {stepperBusy ? (
@@ -224,7 +237,7 @@ export function CallTimeInventoryIntake({
                 <Plus className="h-4 w-4" aria-hidden />
               )}
             </Button>
-            <span className="text-[11px] text-emerald-200/70">Van 1</span>
+            <span className="text-[11px] text-emerald-200/70">Van 1 (e.g. after programming)</span>
           </div>
         ) : null}
 
@@ -233,11 +246,12 @@ export function CallTimeInventoryIntake({
     )
   }
 
-  // Stock check required (no row, zero van stock, or operator just marked OOS)
+  // —— Unknown or 0 — Stock Verification Required ——
   return (
     <div
+      id="call-time-stock-verification"
       className={cn(
-        "rounded-xl border-2 border-amber-400/60 bg-amber-500/15 px-3 py-3 shadow-sm shadow-amber-950/30",
+        "rounded-xl border-2 border-amber-400/70 bg-amber-500/15 px-3 py-3 shadow-sm shadow-amber-950/30",
         className
       )}
     >
@@ -245,13 +259,13 @@ export function CallTimeInventoryIntake({
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-500/20 text-amber-100">
           <Search className="h-4 w-4" aria-hidden />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-amber-50">Stock Check Required</p>
-          <p className="mt-0.5 text-xs leading-snug text-amber-100/80">
-            {operatorMarkedOos || (primary && van1 <= 0)
-              ? "No Van 1 stock on file for this key. Confirm what you have in the van."
-              : "No inventory row (or zero stock) for this vehicle key. Confirm Van 1 count before booking."}
-            <span className="mt-0.5 block font-mono text-[10px] text-amber-100/60">SKU {sku}</span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-sm font-semibold text-amber-50">Stock Verification Required</p>
+          <p className="text-xs leading-relaxed text-amber-100/90">
+            We need FCC ID:{" "}
+            <span className="font-mono font-medium text-amber-50">{displayFcc}</span> (
+            {displayFrequency}) — Supplier SKU:{" "}
+            <span className="font-mono font-medium text-amber-50">{displayTiSku}</span>.
           </p>
         </div>
       </div>
@@ -270,7 +284,7 @@ export function CallTimeInventoryIntake({
             ) : (
               <X className="h-4 w-4" aria-hidden />
             )}
-            No, Out of Stock
+            Out of Stock
           </Button>
           <Button
             type="button"
@@ -278,39 +292,50 @@ export function CallTimeInventoryIntake({
             disabled={saveBusy}
             onClick={() => {
               setCheckPhase("yes_qty")
-              setQtyDraft(primary && primary.van1Quantity > 0 ? String(primary.van1Quantity) : "1")
+              setQtyDraft(van1Qty > 0 ? van1Qty : 1)
               setError(null)
             }}
           >
-            <Check className="h-4 w-4" aria-hidden />
-            Yes, In Stock
+            <Download className="h-4 w-4" aria-hidden />
+            Yes, I Have It
           </Button>
         </div>
       ) : (
         <div className="mt-3 space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-950/30 p-2.5">
-          <label htmlFor="call-time-qty" className="text-xs font-medium text-emerald-100">
-            How many do you have?
-          </label>
-          <div className="flex gap-2">
-            <Input
-              id="call-time-qty"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              value={qtyDraft}
-              onChange={(e) => setQtyDraft(e.target.value)}
-              className="h-10 border-emerald-500/30 bg-zinc-950/60 font-mono text-emerald-50"
-            />
+          <p className="text-xs font-medium text-emerald-100">How many do you have on hand?</p>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="h-10 shrink-0 bg-emerald-600 hover:bg-emerald-500"
-              disabled={saveBusy}
-              onClick={() => void saveYesInStock()}
+              size="icon"
+              variant="secondary"
+              className="h-10 w-10 border border-emerald-500/30"
+              disabled={saveBusy || qtyDraft <= 1}
+              aria-label="Decrease quantity"
+              onClick={() => setQtyDraft((n) => Math.max(1, n - 1))}
             >
-              {saveBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : null}
+              <Minus className="h-4 w-4" aria-hidden />
+            </Button>
+            <span className="min-w-[2.75rem] text-center text-lg font-semibold tabular-nums text-emerald-50">
+              {qtyDraft}
+            </span>
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              className="h-10 w-10 border border-emerald-500/30"
+              disabled={saveBusy}
+              aria-label="Increase quantity"
+              onClick={() => setQtyDraft((n) => n + 1)}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              className="h-10 flex-1 bg-emerald-600 hover:bg-emerald-500 sm:flex-none"
+              disabled={saveBusy}
+              onClick={() => void saveYesIHaveIt()}
+            >
+              {saveBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               Save to Inventory
             </Button>
           </div>

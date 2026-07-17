@@ -2280,9 +2280,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 make={form.vehicleMake}
                                 model={form.vehicleModel}
                                 selectedFccId={form.keyFccId || null}
+                                selectedFrequency={form.keyFrequency || null}
                                 organizationId={activeOrganizationId}
                                 inventory={preloadedKeyBundle?.inventory}
                                 onInventoryUpdated={mergeInventoryItem}
+                                onMarkedOutOfStock={() => {
+                                  // Quantity set to 0 — Alternative Solutions card appears below.
+                                  requestAnimationFrame(() => {
+                                    document
+                                      .getElementById("key-details-alternative-solutions")
+                                      ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                                  })
+                                }}
                               />
                               <p className="text-[11px] text-primary/90">
                                 Tap the key layout that matches — we slide forward to location automatically.
@@ -2335,25 +2344,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   )
                                 }}
                               />
-                              <OutOfStockFallbackCard
-                                inventory={preloadedKeyBundle?.inventory}
-                                vehicleResolved={vehicleResolvedForStock}
-                                intake={stockFallbackIntake}
-                                onSpecialOrderDone={({ earliestServiceDate }) => {
-                                  toast({
-                                    title: "Special order link ready",
-                                    description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
-                                  })
-                                }}
-                                onPartnerLeadDone={({ referralStatus, affiliateName }) => {
-                                  toast({
-                                    title: `Lead sent to ${affiliateName}`,
-                                    description: referralStatus,
-                                  })
-                                  closeIntakeAfterSave()
-                                  router.push("/dashboard/leads")
-                                }}
-                              />
+                              <div id="key-details-alternative-solutions">
+                                <OutOfStockFallbackCard
+                                  inventory={preloadedKeyBundle?.inventory}
+                                  vehicleResolved={vehicleResolvedForStock}
+                                  intake={stockFallbackIntake}
+                                  onSpecialOrderDone={({ earliestServiceDate }) => {
+                                    toast({
+                                      title: "Special order link ready",
+                                      description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
+                                    })
+                                  }}
+                                  onPartnerLeadDone={({ referralStatus, affiliateName }) => {
+                                    toast({
+                                      title: `Lead sent to ${affiliateName}`,
+                                      description: referralStatus,
+                                    })
+                                    closeIntakeAfterSave()
+                                    router.push("/dashboard/leads")
+                                  }}
+                                />
+                              </div>
                             </fieldset>
                           ) : null}
 
@@ -2623,9 +2634,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       make={form.vehicleMake}
                       model={form.vehicleModel}
                       selectedFccId={form.keyFccId || null}
+                      selectedFrequency={form.keyFrequency || null}
                       organizationId={activeOrganizationId}
                       inventory={preloadedKeyBundle?.inventory}
                       onInventoryUpdated={mergeInventoryItem}
+                      onMarkedOutOfStock={() => {
+                        requestAnimationFrame(() => {
+                          document
+                            .getElementById("key-details-alternative-solutions-flat")
+                            ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                        })
+                      }}
                     />
                     <VehicleIntakeClarificationsPanel
                       year={form.vehicleYear}
@@ -2673,25 +2692,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         )
                       }}
                     />
-                    <OutOfStockFallbackCard
-                      inventory={preloadedKeyBundle?.inventory}
-                      vehicleResolved={vehicleResolvedForStock}
-                      intake={stockFallbackIntake}
-                      onSpecialOrderDone={({ earliestServiceDate }) => {
-                        toast({
-                          title: "Special order link ready",
-                          description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
-                        })
-                      }}
-                      onPartnerLeadDone={({ referralStatus, affiliateName }) => {
-                        toast({
-                          title: `Lead sent to ${affiliateName}`,
-                          description: referralStatus,
-                        })
-                        closeIntakeAfterSave()
-                        router.push("/dashboard/leads")
-                      }}
-                    />
+                    <div id="key-details-alternative-solutions-flat">
+                      <OutOfStockFallbackCard
+                        inventory={preloadedKeyBundle?.inventory}
+                        vehicleResolved={vehicleResolvedForStock}
+                        intake={stockFallbackIntake}
+                        onSpecialOrderDone={({ earliestServiceDate }) => {
+                          toast({
+                            title: "Special order link ready",
+                            description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
+                          })
+                        }}
+                        onPartnerLeadDone={({ referralStatus, affiliateName }) => {
+                          toast({
+                            title: `Lead sent to ${affiliateName}`,
+                            description: referralStatus,
+                          })
+                          closeIntakeAfterSave()
+                          router.push("/dashboard/leads")
+                        }}
+                      />
+                    </div>
                   </fieldset>
                 ) : null}
 
