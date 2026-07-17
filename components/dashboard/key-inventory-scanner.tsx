@@ -16,7 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { KeyInventoryCapturePhotoButton } from "@/components/dashboard/key-inventory-capture-photo"
 import { cn } from "@/lib/utils"
+import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
 
 /** Client-safe shape matching /api/inventory responses (avoid importing Neon helpers). */
 type InventoryItem = {
@@ -24,6 +26,7 @@ type InventoryItem = {
   sku: string
   fccId: string
   brand: string
+  frequency?: string
   van1Quantity: number
   van2Quantity: number
   shopQuantity: number
@@ -31,6 +34,7 @@ type InventoryItem = {
   totalQuantity: number
   lowStock: boolean
   notes: string | null
+  imageUrl?: string | null
 }
 
 type StockLocation = "van1" | "van2" | "shop"
@@ -579,6 +583,31 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
               Add 1
             </Button>
           </div>
+
+          {item ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+              <KeyInventoryCapturePhotoButton
+                inventoryId={item.id}
+                sku={item.sku}
+                fccId={item.fccId}
+                frequency={item.frequency || ""}
+                organizationId={organizationId}
+                imageUrl={item.imageUrl}
+                onUploaded={(row: KeyInventoryApiRow) => {
+                  setItem((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          imageUrl: row.imageUrl,
+                          fccId: row.fccId || prev.fccId,
+                          frequency: row.frequency || prev.frequency,
+                        }
+                      : prev
+                  )
+                }}
+              />
+            </div>
+          ) : null}
 
           {statusMsg && phase === "found" ? (
             <p className="text-center text-xs text-rose-300">{statusMsg}</p>

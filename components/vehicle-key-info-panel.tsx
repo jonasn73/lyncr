@@ -180,10 +180,21 @@ type VehicleKeyInfoPanelProps = {
   ) => void
 }
 
+function inventoryPhotoForFcc(
+  inventory: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null | undefined,
+  fccId: string | null | undefined
+): string | null {
+  if (!inventory?.length || !fccId) return null
+  const key = sanitizeFccIdInput(fccId)
+  const hit = inventory.find((row) => sanitizeFccIdInput(row.fccId) === key && row.imageUrl)
+  return hit?.imageUrl?.trim() || null
+}
+
 function variantCardModel(
   variant: FccVariant,
   profile: KeyProfile,
-  make?: string | null
+  make?: string | null,
+  inventoryPhotoUrl?: string | null
 ): KeySelectionCardModel {
   const styleLabel = variantDisplayLabel(variant.title, variant.key_type)
   const buttonLabel = variantButtonLabel(
@@ -205,7 +216,8 @@ function variantCardModel(
     id: variant.id,
     label: buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel,
     description: variant.title,
-    imageUrl: variant.image_url,
+    // Prefer operator-captured inventory photo over catalog/scraper image.
+    imageUrl: inventoryPhotoUrl?.trim() || variant.image_url,
     programmingMethod:
       variant.programming_method ??
       inferProgrammingMethod(variant.title, variant.key_type, profile.chipset ?? null),
@@ -609,6 +621,7 @@ function VariantFilmstrip({
   isAllKeysLost,
   disabled,
   onPick,
+  inventoryPhotoUrl,
 }: {
   variants: FccVariant[]
   profile: KeyProfile
@@ -619,6 +632,8 @@ function VariantFilmstrip({
   isAllKeysLost: boolean
   disabled?: boolean
   onPick: (variant: FccVariant) => void
+  /** Operator-captured key photo from KeyInventory for this FCC. */
+  inventoryPhotoUrl?: string | null
 }) {
   if (variants.length === 0) {
     return (
@@ -648,7 +663,7 @@ function VariantFilmstrip({
           return (
             <KeySelectionCard
               key={variant.id}
-              card={variantCardModel(variant, profile, make)}
+              card={variantCardModel(variant, profile, make, inventoryPhotoUrl)}
               selected={selected}
               disabled={cardDisabled}
               disabledReason={trimGate.disabled ? "Feature not supported by vehicle trim" : null}
@@ -685,6 +700,7 @@ function FccProfileSection({
   disabled,
   onSelectProfile,
   onPickVariant,
+  inventoryPhotoUrl,
 }: {
   detail: ProfileDetail
   allProfiles: KeyProfile[]
@@ -698,6 +714,7 @@ function FccProfileSection({
   disabled?: boolean
   onSelectProfile: (profile: KeyProfile) => void
   onPickVariant: (profile: KeyProfile, variant: FccVariant) => void
+  inventoryPhotoUrl?: string | null
 }) {
   const p = detail.profile
   const selected = selectedProfileId === p.id || selectedFccId === p.fcc_id
@@ -751,6 +768,7 @@ function FccProfileSection({
         isAllKeysLost={isAllKeysLost}
         disabled={disabled}
         onPick={(variant) => onPickVariant(p, variant)}
+        inventoryPhotoUrl={inventoryPhotoUrl}
       />
     </section>
   )
@@ -1446,7 +1464,12 @@ export function VehicleKeyInfoPanel({
 
   const applyVariant = (p: KeyProfile, variant: FccVariant) => {
     setSelectedKeyId(variant.id)
-    const card = variantCardModel(variant, p, make)
+    const card = variantCardModel(
+      variant,
+      p,
+      make,
+      inventoryPhotoForFcc(preloadedKeyBundle?.inventory, p.fcc_id)
+    )
     const selection: VehicleKeySelection = {
       profileId: p.id,
       fccId: p.fcc_id,
@@ -1606,6 +1629,10 @@ export function VehicleKeyInfoPanel({
               isAllKeysLost={isAllKeysLost}
               disabled={disabled}
               onPick={(variant) => applyVariant(selectedVariantDetail.detail.profile, variant)}
+              inventoryPhotoUrl={inventoryPhotoForFcc(
+                preloadedKeyBundle?.inventory,
+                selectedVariantDetail.detail.profile.fcc_id
+              )}
             />
           </section>
         ) : (
@@ -1623,6 +1650,10 @@ export function VehicleKeyInfoPanel({
               disabled={disabled}
               onSelectProfile={selectProfile}
               onPickVariant={applyVariant}
+              inventoryPhotoUrl={inventoryPhotoForFcc(
+                preloadedKeyBundle?.inventory,
+                primaryDetail.profile.fcc_id
+              )}
             />
             {secondaryDetails.map((detail) => {
               const expanded = expandedSecondaryFcc.has(detail.profile.id)
@@ -1648,6 +1679,10 @@ export function VehicleKeyInfoPanel({
                       disabled={disabled}
                       onSelectProfile={selectProfile}
                       onPickVariant={applyVariant}
+                      inventoryPhotoUrl={inventoryPhotoForFcc(
+                        preloadedKeyBundle?.inventory,
+                        detail.profile.fcc_id
+                      )}
                     />
                   ) : null}
                 </div>

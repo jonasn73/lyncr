@@ -11,6 +11,7 @@ import {
   deriveCallTimeInventorySku,
   pickPrimaryInventoryRow,
 } from "@/lib/call-time-inventory-sku"
+import { KeyInventoryCapturePhotoButton } from "@/components/dashboard/key-inventory-capture-photo"
 
 type Props = {
   year: string
@@ -241,6 +242,21 @@ export function CallTimeInventoryIntake({
           </div>
         ) : null}
 
+        <div className="mt-2.5 border-t border-emerald-500/20 pt-2.5">
+          <KeyInventoryCapturePhotoButton
+            inventoryId={primary.id}
+            sku={sku}
+            fccId={selectedFccId || primary.fccId}
+            frequency={selectedFrequency || primary.frequency}
+            year={year}
+            make={make}
+            model={model}
+            organizationId={organizationId}
+            imageUrl={primary.imageUrl}
+            onUploaded={onInventoryUpdated}
+          />
+        </div>
+
         {error ? <p className="mt-1.5 text-xs text-rose-300">{error}</p> : null}
       </div>
     )
@@ -268,6 +284,21 @@ export function CallTimeInventoryIntake({
             <span className="font-mono font-medium text-amber-50">{displayTiSku}</span>.
           </p>
         </div>
+      </div>
+
+      <div className="mt-3">
+        <KeyInventoryCapturePhotoButton
+          inventoryId={primary?.id}
+          sku={sku}
+          fccId={selectedFccId}
+          frequency={selectedFrequency}
+          year={year}
+          make={make}
+          model={model}
+          organizationId={organizationId}
+          imageUrl={primary?.imageUrl}
+          onUploaded={onInventoryUpdated}
+        />
       </div>
 
       {checkPhase === "ask" ? (

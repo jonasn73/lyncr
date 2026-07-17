@@ -222,6 +222,110 @@ export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]): KeyInvento
 
 export type KeyInventoryStockLocation = "van1" | "van2" | "shop"
 
+/** Public-ish path used in `image_url` (session-auth when fetched). */
+export function keyInventoryImagePath(id: string, cacheBust?: string | number): string {
+  const base = `/api/inventory/${id}/image`
+  return cacheBust != null ? `${base}?v=${cacheBust}` : base
+}
+
+/** Persist operator-captured key photo bytes and set image_url. */
+export async function updateKeyInventoryImage(params: {
+  userId: string
+  id: string
+  mimeType: string
+  dataBase64: string
+}): Promise<KeyInventoryRow | null> {
+  const mime = params.mimeType.startsWith("image/") ? params.mimeType : "image/jpeg"
+  const raw = params.dataBase64.replace(/^data:image\/\w+;base64,/, "").trim()
+  if (!params.userId || !params.id || !raw || raw.length < 32) return null
+  if (raw.length > 3_500_000) {
+    throw new Error("Image too large — try a smaller photo.")
+  }
+  const imageUrl = keyInventoryImagePath(params.id, Date.now())
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      UPDATE key_inventory
+      SET
+        image_data_base64 = ${raw},
+        image_mime_type = ${mime},
+        image_url = ${imageUrl},
+        updated_at = now()
+      WHERE id = ${params.id}::uuid
+        AND user_id = ${params.userId}::uuid
+      RETURNING *
+    `
+    const row = (rows as Record<string, unknown>[])[0]
+    return row ? mapRow(row) : null
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      throw new Error(
+        "Key inventory image columns missing — run scripts/108-key-inventory-image-blob.sql in Neon."
+      )
+    }
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes("image_data_base64") || msg.includes("image_mime_type")) {
+      throw new Error(
+        "Key inventory image columns missing — run scripts/108-key-inventory-image-blob.sql in Neon."
+      )
+    }
+    throw error
+  }
+}
+
+/** Load binary image for GET /api/inventory/[id]/image. */
+export async function getKeyInventoryImageBinary(
+  userId: string,
+  id: string
+): Promise<{ mimeType: string; dataBase64: string } | null> {
+  if (!userId || !id) return null
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT image_data_base64, image_mime_type, image_url
+      FROM key_inventory
+      WHERE id = ${id}::uuid
+        AND user_id = ${userId}::uuid
+      LIMIT 1
+    `
+    const row = (rows as Record<string, unknown>[])[0]
+    if (!row) return null
+    const data = row.image_data_base64 != null ? String(row.image_data_base64).trim() : ""
+    if (data) {
+      return {
+        mimeType: String(row.image_mime_type || "image/jpeg"),
+        dataBase64: data.replace(/^data:image\/\w+;base64,/, ""),
+      }
+    }
+    return null
+  } catch (error) {
+    if (isMissingTableError(error)) return null
+    throw error
+  }
+}
+
+export async function getKeyInventoryById(
+  userId: string,
+  id: string
+): Promise<KeyInventoryRow | null> {
+  if (!userId || !id) return null
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT *
+      FROM key_inventory
+      WHERE id = ${id}::uuid
+        AND user_id = ${userId}::uuid
+      LIMIT 1
+    `
+    const row = (rows as Record<string, unknown>[])[0]
+    return row ? mapRow(row) : null
+  } catch (error) {
+    if (isMissingTableError(error)) return null
+    throw error
+  }
+}
+
 /** Normalize barcode / typed SKU for lookup (trim + uppercase). */
 export function normalizeInventorySku(raw: string): string {
   return raw.trim().replace(/\s+/g, " ").toUpperCase()
