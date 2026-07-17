@@ -16,6 +16,7 @@ import {
 /** Env vars that may hold a verified outbound SMS DID (first non-empty wins in order). */
 function readEnvMessagingFromCandidates(): string[] {
   const keys = [
+    "TELNYX_OUTBOUND_NUMBER",
     "TELNYX_MESSAGING_FROM_E164",
     "TELNYX_PHONE_NUMBER",
     "TELNYX_FROM_NUMBER",
