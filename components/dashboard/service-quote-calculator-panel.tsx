@@ -503,11 +503,6 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                   {highCompetition ? aggressiveBaseFloor || HIGH_COMPETITION_BASE_FLOOR_DOLLARS : baselineBase || 85}{" "}
                   + travel
                   {baselineTravel > 0 ? ` ($${baselineTravel})` : ""}
-                  {highCompetition && aggressiveBaseFloor < baselineBase ? (
-                    <span className="ml-1 text-[11px] font-normal text-orange-200">
-                      (geo floor vs ${baselineBase} card)
-                    </span>
-                  ) : null}
                 </p>
                 <button
                   type="button"
