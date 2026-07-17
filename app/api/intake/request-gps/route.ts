@@ -6,28 +6,36 @@ import { isReasonablePstnDialString, normalizePhoneNumberE164 } from "@/lib/db"
 import { createLiveGpsLocateToken } from "@/lib/live-gps-locate"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { toE164 } from "@/lib/phone-e164"
+import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser()
+  const user = await getSessionUser() // Must be signed in
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const userId = user.id
 
-  let body: { phone?: string; call_log_id?: string }
+  let body: { phone?: string; call_log_id?: string; organization_id?: string | null }
   try {
     body = (await req.json()) as typeof body
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
+  // Normalize customer phone to E.164 for Telnyx "to".
   const phone =
     normalizePhoneNumberE164(body.phone || "") || toE164(body.phone || "") || ""
   if (!isReasonablePstnDialString(phone)) {
     return NextResponse.json({ error: "Valid customer phone required" }, { status: 400 })
+  }
+
+  // Resolve this workspace's active outbound DID (multi-tenant caller ID).
+  const sender = await resolveWorkspaceSmsSender(userId, body.organization_id ?? null)
+  if (!sender.ok) {
+    return NextResponse.json({ error: sender.message }, { status: 502 })
   }
 
   const created = await createLiveGpsLocateToken({
@@ -43,10 +51,23 @@ export async function POST(req: NextRequest) {
   }
 
   const text = `Key Squad here — tap this secure link to share your live GPS so we can find you faster: ${created.url}`
-  const sent = await sendTelnyxSms({ toE164: phone, text, userId })
+
+  // Explicit `from` = verified business line so Telnyx does not reject "Invalid source number".
+  const sent = await sendTelnyxSms({
+    toE164: phone,
+    text,
+    userId,
+    fromE164: sender.from_e164,
+  })
   if (!sent.ok) {
     return NextResponse.json({ error: sent.error || "SMS failed" }, { status: 502 })
   }
 
-  return NextResponse.json({ data: { token_id: created.id, url: created.url } })
+  return NextResponse.json({
+    data: {
+      token_id: created.id,
+      url: created.url,
+      from: sent.from,
+    },
+  })
 }

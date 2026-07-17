@@ -1707,6 +1707,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         body: JSON.stringify({
           phone,
           call_log_id: effectiveCurrent?.id ?? null,
+          organization_id: activeOrganizationId ?? null,
         }),
       })
       const json = (await res.json().catch(() => ({}))) as { error?: string }
@@ -1728,7 +1729,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setGpsRequestState("error")
       toast({ title: "GPS text failed", description: "Network error.", variant: "destructive" })
     }
-  }, [effectiveCurrent?.from_number, effectiveCurrent?.id, form.phoneNumber, resolvedPhoneNumber, toast])
+  }, [
+    activeOrganizationId,
+    effectiveCurrent?.from_number,
+    effectiveCurrent?.id,
+    form.phoneNumber,
+    resolvedPhoneNumber,
+    toast,
+  ])
 
   const handleManualVehicleChange = useCallback(
     (vehicle: { vehicle_year: string; vehicle_make: string; vehicle_model: string }) => {
