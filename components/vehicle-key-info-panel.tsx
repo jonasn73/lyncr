@@ -178,6 +178,11 @@ export type PreloadedVehicleKeyBundle = {
   inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null
   /** Transponder Island catalog hits for this YMM (preferred Key Details cards). */
   tiCatalog?: TiCatalogKeyOption[] | null
+  /**
+   * True when multiple FCC IDs remain after TI/profile compare —
+   * wait for Ask-the-customer before auto-picking a key card.
+   */
+  needsFccClarification?: boolean
 }
 
 type VehicleKeyInfoPanelProps = {
@@ -1191,11 +1196,11 @@ export function VehicleKeyInfoPanel({
     setActiveFccQuery(sanitizeFccIdInput(fccIdPropRef.current ?? ""))
   }, [year, make, model])
 
-  // If the parent later provides a ticket FCC (draft hydrate / rescue) and we have not searched yet, apply it.
+  // Sync ticket / clarification FCC into the key-info lookup (pins the correct blank).
   useEffect(() => {
     const seeded = sanitizeFccIdInput(fccIdProp ?? "")
     if (!seeded) return
-    setActiveFccQuery((prev) => prev || seeded)
+    setActiveFccQuery(seeded)
   }, [fccIdProp])
 
   useEffect(() => {
@@ -1233,11 +1238,19 @@ export function VehicleKeyInfoPanel({
       payload: KeyInfoPayload | null,
       source: "fcc" | "ymm" | "ymm_fallback" | "none" | null,
       inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[] | null,
-      catalogHits?: TiCatalogKeyOption[] | null
+      catalogHits?: TiCatalogKeyOption[] | null,
+      needsFccClarification = false
     ) => {
       if (cancel) return
       if (inventory) onInventoryLoadedRef.current?.(inventory)
-      const hits = catalogHits ?? []
+      let hits = catalogHits ?? []
+      // If the parent already pinned an FCC (clarification answer), prefer that blank.
+      if (sanitizedFcc && hits.length > 0) {
+        const matched = hits.filter(
+          (hit) => sanitizeFccIdInput(hit.fccId || "") === sanitizedFcc
+        )
+        if (matched.length > 0) hits = matched
+      }
       setTiCatalog(hits)
       setLookupSource(source === "none" ? null : source)
       setInfo(payload)
@@ -1245,6 +1258,17 @@ export function VehicleKeyInfoPanel({
       // TI catalog is the preferred Key Details source when the scrape matched this YMM.
       if (hits.length > 0) {
         setManualBypassMode(true)
+        const uniqueFccs = new Set(
+          hits.map((hit) => sanitizeFccIdInput(hit.fccId || "")).filter(Boolean)
+        )
+        // Wait for Ask-the-customer when multiple FCCs remain unresolved.
+        const waitForClarification =
+          needsFccClarification && !sanitizedFcc && uniqueFccs.size > 1
+        if (waitForClarification) {
+          setSelectedKeyId(null)
+          onChange(null)
+          return
+        }
         const preferred = tiCatalogHitToManualOption(hits[0]!)
         setSelectedKeyId(preferred.id)
         onChange({
@@ -1338,7 +1362,8 @@ export function VehicleKeyInfoPanel({
         preload.key_info,
         preload.lookup_source,
         preload.inventory ?? [],
-        preload.tiCatalog ?? []
+        preload.tiCatalog ?? [],
+        Boolean(preload.needsFccClarification)
       )
       return
     }
@@ -1361,13 +1386,18 @@ export function VehicleKeyInfoPanel({
             inventory?: import("@/lib/key-inventory-shared").KeyInventoryApiRow[]
             ti_catalog?: TiCatalogKeyOption[]
             tiCatalog?: TiCatalogKeyOption[]
+            fcc_resolution?: { needs_clarification?: boolean } | null
+            fccResolution?: { needsClarification?: boolean } | null
             keySpecs?: { key_info?: KeyInfoPayload | null; lookup_source?: "fcc" | "ymm" | "ymm_fallback" | "none" }
           }
         }) => {
           const payload = j.data?.key_info ?? j.data?.keySpecs?.key_info ?? null
           const source = j.data?.lookup_source ?? j.data?.keySpecs?.lookup_source ?? null
           const catalogHits = j.data?.ti_catalog ?? j.data?.tiCatalog ?? []
-          applyPayload(payload, source, j.data?.inventory ?? [], catalogHits)
+          const needsClarify = Boolean(
+            j.data?.fcc_resolution?.needs_clarification ?? j.data?.fccResolution?.needsClarification
+          )
+          applyPayload(payload, source, j.data?.inventory ?? [], catalogHits, needsClarify)
         }
       )
       .catch(() => {

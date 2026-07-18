@@ -77,7 +77,7 @@ export function VehicleIntakeClarificationsPanel({
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-100">Ask the customer</p>
           <p className="mt-0.5 text-[11px] text-amber-100/80">
-            Nail down the exact vehicle before relying on key photos or FCC IDs.
+            Answer these to lock the correct key / FCC before ordering.
           </p>
         </div>
       </div>

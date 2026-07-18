@@ -1,13 +1,6 @@
 // Call-script questions when year/make/model alone is not enough to pick the right key reference.
 // Safe for client + server (no filesystem).
 
-export type VehicleKeyLookupHint = {
-  match_type: "exact" | "family"
-  matched_model: string
-  model: string
-  profiles: Array<{ modulation: string | null }>
-}
-
 export type VehicleClarificationOption = {
   id: string
   /** Button label in the intake sheet */
@@ -19,6 +12,14 @@ export type VehicleClarificationOption = {
   make?: string
   /** Stored on the job when this option is chosen */
   note?: string
+  /** Pin Key Details to this FCC after the customer answers */
+  fccId?: string
+  /** Preferred TI order blank (usually …A aftermarket) for this answer */
+  tiSku?: string
+  /** Key style hint for the form (smart / remote head / …) */
+  keyStyle?: string
+  /** Digits-only frequency when known from catalog */
+  frequency?: string
 }
 
 export type VehicleClarificationPrompt = {
@@ -28,6 +29,22 @@ export type VehicleClarificationPrompt = {
   /** Full question to ask the customer on the phone */
   askScript: string
   options: VehicleClarificationOption[]
+}
+
+export type VehicleKeyLookupHint = {
+  match_type: "exact" | "family"
+  matched_model: string
+  model: string
+  profiles: Array<{
+    fcc_id?: string
+    modulation: string | null
+    frequency?: string | null
+  }>
+  /**
+   * Pre-built multi-FCC resolution prompt from server-side TI + FCC compare.
+   * When set, replaces the generic ignition-only multi-FCC prompt.
+   */
+  fccResolveClarification?: VehicleClarificationPrompt | null
 }
 
 export type VehicleIntakeContext = {
@@ -342,9 +359,13 @@ function lookupFamilyPrompt(
 
 function multipleFccIgnitionPrompt(lookup: VehicleKeyLookupHint): VehicleClarificationPrompt | null {
   if (lookup.profiles.length < 2) return null
-  const hasSmart = lookup.profiles.some((p) => /fsk/i.test(p.modulation ?? "") && !/ask/i.test(p.modulation ?? ""))
-  const hasRemoteHead = lookup.profiles.some((p) => /ask/i.test(p.modulation ?? ""))
-  if (!hasSmart || !hasRemoteHead) return null
+  const smartProfiles = lookup.profiles.filter(
+    (p) => /fsk/i.test(p.modulation ?? "") && !/\bask\b/i.test(p.modulation ?? "")
+  )
+  const askProfiles = lookup.profiles.filter((p) => /\bask\b/i.test(p.modulation ?? ""))
+  if (smartProfiles.length === 0 || askProfiles.length === 0) return null
+  const smartFcc = smartProfiles[0]?.fcc_id?.trim() || undefined
+  const askFcc = askProfiles[0]?.fcc_id?.trim() || undefined
   return {
     id: "multiple-fcc-ignition",
     question: "Push-button or turn-key?",
@@ -354,12 +375,20 @@ function multipleFccIgnitionPrompt(lookup: VehicleKeyLookupHint): VehicleClarifi
       {
         id: "multi-fcc-push",
         label: "Push-button / smart key",
-        note: "Customer confirmed push-button smart key",
+        fccId: smartFcc,
+        keyStyle: "Push start (smart key)",
+        note: smartFcc
+          ? `Customer confirmed push-button smart key (FCC ${smartFcc})`
+          : "Customer confirmed push-button smart key",
       },
       {
         id: "multi-fcc-turn-key",
         label: "Turn-key / remote head key",
-        note: "Customer confirmed turn-key remote head",
+        fccId: askFcc,
+        keyStyle: "Remote head key",
+        note: askFcc
+          ? `Customer confirmed turn-key remote head (FCC ${askFcc})`
+          : "Customer confirmed turn-key remote head",
       },
     ],
   }
@@ -434,10 +463,17 @@ export function getVehicleIntakeClarifications(
       seen.add(family.id)
       out.push(family)
     }
-    const multi = multipleFccIgnitionPrompt(lookup)
-    if (multi && !answeredIds.has(multi.id) && !seen.has(multi.id)) {
-      seen.add(multi.id)
-      out.push(multi)
+    // Prefer the TI+FCC compare prompt when the server already built one.
+    const resolvedPrompt = lookup.fccResolveClarification ?? null
+    if (resolvedPrompt && !answeredIds.has(resolvedPrompt.id) && !seen.has(resolvedPrompt.id)) {
+      seen.add(resolvedPrompt.id)
+      out.push(resolvedPrompt)
+    } else {
+      const multi = multipleFccIgnitionPrompt(lookup)
+      if (multi && !answeredIds.has(multi.id) && !seen.has(multi.id)) {
+        seen.add(multi.id)
+        out.push(multi)
+      }
     }
   }
 

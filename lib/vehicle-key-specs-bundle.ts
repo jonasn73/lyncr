@@ -12,6 +12,12 @@ import {
   type TiCatalogKeyOption,
 } from "@/lib/ti-supplier-catalog"
 import {
+  extractButtonCountFromTitle,
+  orderTiCatalogByPreferredFcc,
+  resolveVehicleKeyFcc,
+  type VehicleKeyFccResolveResult,
+} from "@/lib/vehicle-key-fcc-resolve"
+import {
   formatCompatibleVehicleSummary,
   lookupCompatibleVehiclesForFcc,
   lookupVehicleKeyInfo,
@@ -19,6 +25,7 @@ import {
   type VehicleKeyLookupResult,
   type VehicleKeyProfile,
 } from "@/lib/vehicle-key-reference"
+import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 
 export type VehicleDecodeVehicle = {
   year: string
@@ -67,6 +74,8 @@ export type UnifiedVehicleDecodePayload = {
   inventory: KeyInventoryApiRow[]
   /** Transponder Island catalog hits for this Year/Make/Model (Key Details primary cards). */
   tiCatalog: TiCatalogKeyOption[]
+  /** Multi-FCC compare result (auto-pick or ask-the-customer). */
+  fccResolution: VehicleKeyFccResolveResult | null
 }
 
 export type BuildUnifiedVehicleDecodeOptions = {
@@ -207,7 +216,7 @@ export async function buildUnifiedVehicleDecode(
         })
       : []
 
-  const tiCatalog =
+  let tiCatalog =
     vehicle.make && vehicle.model
       ? await lookupTiSupplierCatalogForVehicle({
           year: vehicle.year,
@@ -216,10 +225,85 @@ export async function buildUnifiedVehicleDecode(
         })
       : []
 
+  // Cross-check CSV FCC profiles against TI catalog FCC/button data.
+  const fccResolution =
+    keySpecs.keys.length > 0 || tiCatalog.some((hit) => hit.fccId?.trim())
+      ? resolveVehicleKeyFcc({
+          profiles: keySpecs.keys.map((key) => ({
+            fccId: key.fccId,
+            frequency: key.frequency,
+            modulation: key.modulation,
+            variantCount: key.variants.length,
+            buttonCountsFromVariants: key.variants
+              .map((variant) => extractButtonCountFromTitle(variant.title ?? ""))
+              .filter((n): n is number => n != null && n > 0),
+          })),
+          tiHits: tiCatalog.map((hit) => ({
+            fccId: hit.fccId,
+            tiSku: hit.tiSku,
+            title: hit.title,
+            buttonCount: hit.buttonCount,
+            frequency: hit.frequency,
+            score: hit.score,
+          })),
+        })
+      : null
+
+  // When evidence picks one FCC, put that TI blank first (strict = only that FCC).
+  const preferredFcc =
+    opts.fccIdRaw?.trim() ||
+    (fccResolution && !fccResolution.needsClarification ? fccResolution.resolvedFccId : null)
+  if (preferredFcc) {
+    tiCatalog = orderTiCatalogByPreferredFcc(tiCatalog, preferredFcc, true)
+  }
+
+  // Re-order keySpecs so the resolved FCC is primary for the filmstrip path.
+  let nextKeySpecs = keySpecs
+  if (preferredFcc && keySpecs.keys.length > 1) {
+    const want = sanitizeFccIdInput(preferredFcc)
+    const matching = keySpecs.keys.filter((key) => sanitizeFccIdInput(key.fccId) === want)
+    const rest = keySpecs.keys.filter((key) => sanitizeFccIdInput(key.fccId) !== want)
+    if (matching.length > 0) {
+      const orderedKeys = [...matching, ...rest]
+      const primary = orderedKeys[0]!
+      nextKeySpecs = {
+        ...keySpecs,
+        fccId: primary.fccId,
+        frequency: primary.frequency,
+        keys: orderedKeys,
+        key_info: keySpecs.key_info
+          ? {
+              ...keySpecs.key_info,
+              profiles: orderedKeys.map((key) => {
+                const detail = keySpecs.key_info!.profile_details.find(
+                  (row) => sanitizeFccIdInput(row.profile.fcc_id) === sanitizeFccIdInput(key.fccId)
+                )
+                return detail?.profile ?? keySpecs.key_info!.profiles[0]!
+              }),
+              profile_details: orderedKeys.map((key) => {
+                const detail = keySpecs.key_info!.profile_details.find(
+                  (row) => sanitizeFccIdInput(row.profile.fcc_id) === sanitizeFccIdInput(key.fccId)
+                )
+                return (
+                  detail ?? {
+                    profile: keySpecs.key_info!.profiles[0]!,
+                    variants: key.variants,
+                    compatible_vehicles: [],
+                    compatible_summary: key.compatible_summary,
+                  }
+                )
+              }),
+            }
+          : null,
+      }
+    }
+  }
+
   return {
     vehicle,
-    keySpecs,
+    keySpecs: nextKeySpecs,
     inventory: serializeKeyInventoryForApi(inventoryRows),
     tiCatalog,
+    fccResolution,
   }
 }

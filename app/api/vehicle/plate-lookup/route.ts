@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
             },
             inventory: [],
             tiCatalog: [],
+            fccResolution: null,
           }
 
     return NextResponse.json({
@@ -58,6 +59,8 @@ export async function GET(req: NextRequest) {
         inventory: unified.inventory,
         ti_catalog: unified.tiCatalog,
         tiCatalog: unified.tiCatalog,
+        fcc_resolution: unified.fccResolution,
+        fccResolution: unified.fccResolution,
       },
     })
   } catch (e) {

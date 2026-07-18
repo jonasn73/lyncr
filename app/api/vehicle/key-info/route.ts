@@ -42,10 +42,21 @@ export async function GET(req: NextRequest) {
         // Transponder Island catalog matches for Key Details cards (TIK-*).
         ti_catalog: unified.tiCatalog,
         tiCatalog: unified.tiCatalog,
+        fcc_resolution: unified.fccResolution,
+        fccResolution: unified.fccResolution,
       },
     })
   } catch (e) {
     console.error("[vehicle/key-info]", e)
-    return NextResponse.json({ data: { key_info: null, inventory: [], ti_catalog: [], tiCatalog: [] } })
+    return NextResponse.json({
+      data: {
+        key_info: null,
+        inventory: [],
+        ti_catalog: [],
+        tiCatalog: [],
+        fcc_resolution: null,
+        fccResolution: null,
+      },
+    })
   }
 }

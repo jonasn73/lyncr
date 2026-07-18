@@ -274,13 +274,17 @@ export function useActiveCallForm(
             ? `${prev.notes.trim()} · ${noteLine}`
             : noteLine
           : prev.notes
+      const fccId = option.fccId?.trim() || ""
+      const tiSku = option.tiSku?.trim() || ""
+      // Model/make change clears key selection so YMM reloads; FCC answers pin the key instead.
+      const clearsKey = Boolean(option.model || option.make) && !fccId
       return {
         ...prev,
         vehicleClarificationAnswers: nextAnswers,
         vehicleMake: option.make?.trim() || prev.vehicleMake,
         vehicleModel: option.model?.trim() || prev.vehicleModel,
         notes,
-        ...(option.model || option.make
+        ...(clearsKey
           ? {
               keyFccId: "",
               keyFrequency: "",
@@ -290,6 +294,17 @@ export function useActiveCallForm(
               keyProfileId: "",
               programmingMethod: "",
               tiSku: "",
+            }
+          : {}),
+        ...(fccId
+          ? {
+              keyFccId: fccId,
+              keyFrequency: option.frequency?.trim() || prev.keyFrequency,
+              keyStyle: option.keyStyle?.trim() || prev.keyStyle,
+              keyProfileId: tiSku ? "ti-catalog" : prev.keyProfileId,
+              keyVariantId: tiSku ? `ti-catalog-${tiSku}` : prev.keyVariantId,
+              tiSku: tiSku || prev.tiSku,
+              programmingMethod: tiSku ? "OBD2 Programming Required" : prev.programmingMethod,
             }
           : {}),
       }

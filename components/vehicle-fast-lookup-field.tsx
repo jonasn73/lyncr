@@ -76,6 +76,8 @@ type UnifiedDecodeData = {
   /** Transponder Island catalog hits for Key Details. */
   ti_catalog?: import("@/lib/ti-supplier-catalog-shared").TiCatalogKeyOption[]
   tiCatalog?: import("@/lib/ti-supplier-catalog-shared").TiCatalogKeyOption[]
+  fcc_resolution?: { needs_clarification?: boolean; needsClarification?: boolean } | null
+  fccResolution?: { needsClarification?: boolean; needs_clarification?: boolean } | null
 }
 
 function inventoryStatusSuffix(inventory?: KeyInventoryApiRow[] | null): string {
@@ -104,6 +106,12 @@ function keyBundleFromDecode(
     lookup_source: data.keySpecs.lookup_source ?? null,
     inventory: data.inventory ?? [],
     tiCatalog: data.ti_catalog ?? data.tiCatalog ?? [],
+    needsFccClarification: Boolean(
+      data.fcc_resolution?.needs_clarification ??
+        data.fcc_resolution?.needsClarification ??
+        data.fccResolution?.needsClarification ??
+        data.fccResolution?.needs_clarification
+    ),
   }
 }
 
