@@ -15,6 +15,8 @@ type JobSpecSource = {
   key_style?: string | null
   key_chipset?: string | null
   key_fcc_id?: string | null
+  fcc_id?: string | null
+  ti_sku?: string | null
   programming_method?: string | null
   service_quote_type_id?: string | null
   job_type?: string | null
@@ -49,7 +51,10 @@ export function buildJobTechnicalSpecBlocks(source: JobSpecSource): JobSpecBlock
   const chipset = (source.key_chipset ?? "").trim()
   if (chipset) blocks.push({ label: "Chip", value: chipset })
 
-  const fcc = (source.key_fcc_id ?? "").trim()
+  const tiSku = (source.ti_sku ?? "").trim()
+  if (tiSku) blocks.push({ label: "TI SKU", value: tiSku })
+
+  const fcc = (source.key_fcc_id ?? source.fcc_id ?? "").trim()
   if (fcc) blocks.push({ label: "FCC ID", value: fcc })
 
   const programming = (source.programming_method ?? "").trim()

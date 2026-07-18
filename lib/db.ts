@@ -7978,9 +7978,12 @@ export async function getOwnerSchedulerEventById(
 ): Promise<import("@/lib/types").SchedulerEvent | null> {
   const sql = getSql()
   try {
+    // Include flat-price columns so Active Job billing balance matches the booked quote.
     const rows = await sql`
       SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
-             l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
+             l.assigned_tech_id, l.job_status, l.dispatch_status,
+             l.final_booked_total_cents, l.calculated_total_cents,
+             t.name AS assigned_tech_name
       FROM ai_leads l
       LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
       WHERE l.id = ${leadId} AND l.user_id = ${ownerUserId}
@@ -7989,17 +7992,37 @@ export async function getOwnerSchedulerEventById(
     if (rows.length === 0) return null
     return schedulerEventFromRow(rows[0] as Record<string, unknown>)
   } catch (e) {
-    if (isMissingSchedulerColumnError(e)) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const missingFlatPrice =
+      msg.includes("final_booked_total_cents") || msg.includes("calculated_total_cents")
+    if (isMissingSchedulerColumnError(e) || missingFlatPrice || pgErrorCode(e) === "42703") {
       try {
         const rows = await sql`
-          SELECT id, caller_e164, collected, summary, disposition, created_at
-          FROM ai_leads
-          WHERE id = ${leadId} AND user_id = ${ownerUserId}
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.id = ${leadId} AND l.user_id = ${ownerUserId}
           LIMIT 1
         `
         if (rows.length === 0) return null
         return schedulerEventFromRow(rows[0] as Record<string, unknown>)
       } catch (e2) {
+        if (isMissingSchedulerColumnError(e2) || pgErrorCode(e2) === "42703") {
+          try {
+            const rows = await sql`
+              SELECT id, caller_e164, collected, summary, disposition, created_at
+              FROM ai_leads
+              WHERE id = ${leadId} AND user_id = ${ownerUserId}
+              LIMIT 1
+            `
+            if (rows.length === 0) return null
+            return schedulerEventFromRow(rows[0] as Record<string, unknown>)
+          } catch (e3) {
+            if (isUndefinedRelationError(e3, "ai_leads")) return null
+            throw e3
+          }
+        }
         if (isUndefinedRelationError(e2, "ai_leads")) return null
         throw e2
       }

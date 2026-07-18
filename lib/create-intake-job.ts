@@ -111,6 +111,9 @@ export type CreateIntakeJobResult = {
   customer_sms_sent: boolean
   customer_sms_error: string | null
   tracking_url: string
+  /** Persisted booked balance (cents) — Active Job must display this. */
+  quoted_price_cents: number | null
+  billing_balance_cents: number | null
 }
 
 let cachedSql: ReturnType<typeof neon> | null = null
@@ -578,6 +581,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
 
   void getUser(input.ownerUserId)
 
+  const bookedCents = quotedPriceCents > 0 ? quotedPriceCents : null
   return {
     lead_id: id,
     job_status: jobStatusColumn as CreateIntakeJobResult["job_status"],
@@ -587,5 +591,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     customer_sms_sent: sms.sent,
     customer_sms_error: sms.error,
     tracking_url: sms.tracking_url,
+    quoted_price_cents: bookedCents,
+    billing_balance_cents: bookedCents,
   }
 }

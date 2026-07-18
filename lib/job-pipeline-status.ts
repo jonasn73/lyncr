@@ -58,6 +58,22 @@ export function pipelineStatusLabel(status: JobPipelineStatusId): string {
   return JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status
 }
 
+/** Short pill label for the Active Job header. */
+export function pipelineStatusPillLabel(status: JobPipelineStatusId): string {
+  switch (status) {
+    case "unassigned_pool":
+      return "Waiting Pool"
+    case "DISPATCHED":
+      return "Dispatched"
+    case "awaiting_time":
+      return "Needs Follow Up"
+    case "salvage_pending":
+      return "Price Denied"
+    default:
+      return pipelineStatusLabel(status)
+  }
+}
+
 /** Tailwind badge classes for pipeline-specific overview chips. */
 export const PIPELINE_STATUS_BADGE_STYLE: Record<JobPipelineStatusId, string> = {
   unassigned_pool: "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/30",

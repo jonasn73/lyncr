@@ -33,7 +33,6 @@ import {
   scheduledDateInputFromIso,
   scheduledTimeInputFromIso,
 } from "@/lib/scheduler-utils"
-import { negotiationDiscountLabel } from "@/lib/price-negotiation"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import { keyStyleRequiresFieldVerification } from "@/lib/vehicle-trim-features"
 import {
@@ -46,7 +45,7 @@ import {
   serviceQuoteTypeFromJobType,
 } from "@/lib/job-intake-fields"
 import {
-  resolveJobBaselineDollars,
+  billingBalanceDollarsFromJob,
   resolveJobBillingBalanceCents,
 } from "@/lib/job-billing-balance"
 import { type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
@@ -88,11 +87,16 @@ export function JobDetailDrawer({
   onScheduleCommitted,
   editIntentTick = 0,
 }: JobDetailDrawerProps) {
-  const source = scheduledEvent ?? poolJob
-  const jobId = source?.id ?? ""
+  const listSource = scheduledEvent ?? poolJob
+  const jobId = listSource?.id ?? ""
   const onDeletedRef = useRef(onDeleted)
   onDeletedRef.current = onDeleted
 
+  /** Fresh Neon row for Active Job — wins over stale SWR pool/bootstrap cache. */
+  const [hydratedEvent, setHydratedEvent] = useState<SchedulerEvent | null>(null)
+  const [hydrating, setHydrating] = useState(false)
+
+  const source = hydratedEvent ?? listSource
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [serviceQuoteTypeId, setServiceQuoteTypeId] = useState<ServiceQuoteTypeId>("lockout")
@@ -140,12 +144,48 @@ export function JobDetailDrawer({
     )
   }, [jobLat, jobLng, dispatcherLocation.lat, dispatcherLocation.lng])
 
+  // Overview billing: persisted API amount only (never client calculator).
+  const billingBalanceDollars = billingBalanceDollarsFromJob(source)
+
   const resolveQuotedPriceCents = useCallback(() => {
+    // Edit mode may change the price field; still fall back to the saved DB quote only.
     return resolveJobBillingBalanceCents({
       editablePriceDollars: editablePrice,
-      savedQuotedPriceCents: source?.quoted_price_cents,
+      savedQuotedPriceCents: source?.quoted_price_cents ?? source?.billing_balance_cents,
     })
-  }, [editablePrice, source?.quoted_price_cents])
+  }, [editablePrice, source?.quoted_price_cents, source?.billing_balance_cents])
+
+  useEffect(() => {
+    if (!open || !jobId) {
+      setHydratedEvent(null)
+      setHydrating(false)
+      return
+    }
+    let cancelled = false
+    setHydrating(true)
+    void fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (!res.ok) return null
+        const json = (await res.json().catch(() => ({}))) as {
+          data?: { event?: SchedulerEvent }
+        }
+        return json.data?.event ?? null
+      })
+      .then((event) => {
+        if (cancelled || !event) return
+        setHydratedEvent(event)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setHydrating(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, jobId])
 
   const buildSaveBody = useCallback((): Record<string, unknown> => {
     const quotedPriceCents = resolveQuotedPriceCents()
@@ -305,6 +345,7 @@ export function JobDetailDrawer({
   const canSave = customerName.trim().length > 0 && customerPhone.trim().length > 0
 
   const applySavedEvent = useCallback((event: SchedulerEvent) => {
+    setHydratedEvent(event)
     setLocalJobStatus(event.job_status ?? null)
     setCustomerName(event.customer_name ?? "")
     setCustomerPhone(event.customer_phone ?? "")
@@ -479,12 +520,6 @@ export function JobDetailDrawer({
     }
   }
 
-  const quotedPriceDollars =
-    resolveQuotedPriceCents() > 0 ? Math.round(resolveQuotedPriceCents() / 100) : 0
-  // Baseline is the intake snapshot only — never a live vehicle recalculation.
-  const baselineQuotedDollars = resolveJobBaselineDollars(source?.baseline_quoted_price_cents)
-  const discountLabel = negotiationDiscountLabel(negotiationDiscountApplied)
-
   const requestClose = useCallback(() => {
     onClose()
   }, [onClose])
@@ -507,14 +542,13 @@ export function JobDetailDrawer({
               poolJob={poolJob}
               technicians={technicians}
               activePipelineJobs={activePipelineJobs}
-              quotedPriceDollars={quotedPriceDollars}
-              baselineQuotedDollars={baselineQuotedDollars}
-              discountLabel={discountLabel}
+              billingBalanceDollars={billingBalanceDollars}
               jobNotes={jobNotes}
               pipelineStatus={pipelineStatus}
               assignedTechId={assignedTechId}
               pipelineDirty={pipelineDirty}
               saving={saving}
+              hydrating={hydrating}
               error={error}
               onEdit={() => setViewMode("edit")}
               onPipelineStatusChange={(status) => {

@@ -64,3 +64,16 @@ export function pickPersistedJobQuoteCents(fields: {
   }
   return null
 }
+
+/**
+ * Active Job overview billing balance — dollars from the persisted API job only.
+ * Never invents a calculator total when an explicit amount is saved.
+ */
+export function billingBalanceDollarsFromJob(job: {
+  quoted_price_cents?: number | null
+  billing_balance_cents?: number | null
+} | null | undefined): number {
+  const cents = job?.billing_balance_cents ?? job?.quoted_price_cents
+  if (cents == null || !Number.isFinite(cents) || cents <= 0) return 0
+  return Math.round(cents / 100)
+}

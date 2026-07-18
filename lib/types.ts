@@ -198,6 +198,8 @@ export interface SchedulerEvent {
   completed_at?: string | null
   /** Last quoted price in cents (from collected.last_quoted_price_cents). */
   quoted_price_cents?: number | null
+  /** Explicit booked balance alias used by Active Job (same as quoted_price_cents). */
+  billing_balance_cents?: number | null
   /** Service quote calculator id (lockout, key_gen, …). */
   service_quote_type_id?: string | null
   key_fcc_id?: string | null
@@ -267,6 +269,8 @@ export interface UnassignedPoolJob {
   latitude: number | null
   longitude: number | null
   quoted_price_cents?: number | null
+  /** Explicit booked balance alias used by Active Job (same as quoted_price_cents). */
+  billing_balance_cents?: number | null
   service_quote_type_id?: string | null
   key_fcc_id?: string | null
   /** Alias for key_fcc_id (automotive intake / API payloads). */

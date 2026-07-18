@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  billingBalanceDollarsFromJob,
   pickPersistedJobQuoteCents,
   resolveJobBaselineDollars,
   resolveJobBillingBalanceCents,
@@ -51,5 +52,13 @@ describe("pickPersistedJobQuoteCents", () => {
         quotedPriceCents: 8500,
       })
     ).toBe(33500)
+  })
+})
+
+describe("billingBalanceDollarsFromJob", () => {
+  it("reads persisted cents only", () => {
+    expect(billingBalanceDollarsFromJob({ quoted_price_cents: 18500 })).toBe(185)
+    expect(billingBalanceDollarsFromJob({ billing_balance_cents: 33500 })).toBe(335)
+    expect(billingBalanceDollarsFromJob({ quoted_price_cents: null })).toBe(0)
   })
 })

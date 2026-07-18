@@ -1,11 +1,14 @@
 // ============================================
-// PATCH /api/owner/scheduler/[id]
+// GET/PATCH/DELETE /api/owner/scheduler/[id]
 // ============================================
-// Owner reschedules a job (scheduled_at only) or edits full job details from the drawer.
+// GET — hydrate Active Job drawer with persisted billing balance from Neon.
+// PATCH — reschedule or edit full job details from the drawer.
+// DELETE — remove a job from the scheduler / hopper.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
+  getOwnerSchedulerEventById,
   isReasonablePstnDialString,
   listFieldTechnicians,
   normalizePhoneNumberE164,
@@ -21,6 +24,35 @@ import type { SchedulerEvent } from "@/lib/types"
 export const dynamic = "force-dynamic"
 
 type RouteContext = { params: Promise<{ id: string }> }
+
+/** Fresh job row for Active Job — billing_balance_cents mirrors quoted_price_cents. */
+export async function GET(_req: NextRequest, context: RouteContext) {
+  const userId = getUserIdFromRequest(_req.headers.get("cookie"))
+  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  const { id: leadId } = await context.params
+  if (!leadId?.trim()) return NextResponse.json({ error: "Missing lead id" }, { status: 400 })
+
+  try {
+    const event = await getOwnerSchedulerEventById(userId, leadId.trim())
+    if (!event) return NextResponse.json({ error: "Job not found" }, { status: 404 })
+    const billingBalanceCents =
+      event.quoted_price_cents != null && event.quoted_price_cents > 0
+        ? Math.round(event.quoted_price_cents)
+        : null
+    return NextResponse.json({
+      data: {
+        event: {
+          ...event,
+          billing_balance_cents: billingBalanceCents,
+        },
+      },
+    })
+  } catch (e) {
+    console.error("[GET /api/owner/scheduler/[id]]", e)
+    return NextResponse.json({ error: "Failed to load job" }, { status: 500 })
+  }
+}
 
 type PatchSchedulerBody = {
   scheduled_at?: string | null
