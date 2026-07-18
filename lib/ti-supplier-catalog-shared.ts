@@ -430,13 +430,22 @@ export function buildTiCatalogSpecDescription(row: {
 }
 
 /**
+ * True for aftermarket order blanks: SKU ends with A (TIK-MAZ-46A) or title says AFTERMARKET.
+ * These are what shops order — always prefer them over OEM twin SKUs.
+ */
+export function isTiAftermarketSku(tiSku: string, title = ""): boolean {
+  if (/aftermarket/i.test(title)) return true
+  return /A$/i.test(tiSku.trim())
+}
+
+/**
  * Score a catalog title for the requested Year/Make/Model.
- * Higher score = better primary option (e.g. TIK-NIS-85A for 2022 Nissan Altima).
+ * Higher score = better option. Ranking also hard-prefers A-suffix aftermarket SKUs.
  *
  * Match tiers:
  * 1) Exact year + make + model alias
  * 2) Exact year + make platform smart/prox key (no conflicting sibling model)
- * 3) Near-year (±2) + make + model alias (covers CX-3 rows that end one year early)
+ * 3) Near-year (+1–2 after printed end) + make + model alias
  */
 export function scoreTiCatalogTitle(
   title: string,
@@ -465,22 +474,17 @@ export function scoreTiCatalogTitle(
   if (!modelHit && yq !== "exact") return -1
 
   // Base: model+exact > platform+exact > model+near.
-  // Keep near-year clearly below exact-year platform so a 2019 CX-3 prefers
-  // "2019-2025 Mazda Smart Key" over "2012-2018 … CX-3" aftermarket blanks.
-  let score = modelHit ? (yq === "exact" ? 100 : 55) : 90
+  let score = modelHit ? (yq === "exact" ? 100 : 70) : 85
   if (yq === "near" && modelHit) {
-    score -= yearDistanceOutside(year, years.start, years.end) * 10
+    score -= yearDistanceOutside(year, years.start, years.end) * 8
   }
 
   const span = years.end - years.start
   score += Math.max(0, 20 - span)
 
-  // Prefer aftermarket SKUs on exact-year hits only (near-year A-suffix must not leapfrog).
-  if (
-    yq === "exact" &&
-    (/aftermarket/i.test(title) || /[A-Z]$/i.test(tiSku.replace(/[^A-Za-z0-9-]/g, "")))
-  ) {
-    score += 25
+  // Aftermarket A-suffix / AFTERMARKET title — strong boost on every valid hit.
+  if (isTiAftermarketSku(tiSku, title)) {
+    score += 100
   }
   if (/smart|prox|proximity/i.test(title)) score += 30
 
@@ -524,7 +528,7 @@ export function scoreTiCatalogTitle(
   return score
 }
 
-/** Rank + filter raw catalog rows for a vehicle. */
+/** Rank + filter raw catalog rows for a vehicle. Aftermarket A-suffix always sorts first. */
 export function rankTiCatalogRows(
   rows: TiSupplierCatalogRow[],
   year: number,
@@ -552,11 +556,12 @@ export function rankTiCatalogRows(
     })
   }
 
+  // 1) Aftermarket A-suffix first (TIK-*-*A), 2) higher score, 3) stable SKU order.
   scored.sort((a, b) => {
+    const aAfter = isTiAftermarketSku(a.tiSku, a.title) ? 1 : 0
+    const bAfter = isTiAftermarketSku(b.tiSku, b.title) ? 1 : 0
+    if (bAfter !== aAfter) return bAfter - aAfter
     if (b.score !== a.score) return b.score - a.score
-    const aAfter = /A$/i.test(a.tiSku) ? 0 : 1
-    const bAfter = /A$/i.test(b.tiSku) ? 0 : 1
-    if (aAfter !== bAfter) return aAfter - bAfter
     return a.tiSku.localeCompare(b.tiSku)
   })
 

@@ -17,6 +17,7 @@ export {
   compactVehicleToken,
   expandMakeSearchAliases,
   expandModelSearchAliases,
+  isTiAftermarketSku,
   normalizeVehicleToken,
   parseTiTitleYearRange,
   rankTiCatalogRows,

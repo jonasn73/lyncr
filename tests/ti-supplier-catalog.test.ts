@@ -3,6 +3,7 @@ import {
   buildTiCatalogSpecDescription,
   expandMakeSearchAliases,
   expandModelSearchAliases,
+  isTiAftermarketSku,
   parseTiTitleYearRange,
   rankTiCatalogRows,
   scoreTiCatalogTitle,
@@ -349,18 +350,28 @@ describe("rankTiCatalogRows for 2019 Mazda CX-3", () => {
     },
   ]
 
-  it("prefers 2019-2025 Mazda platform smart keys over 2012-2018 near-year CX-3 rows", () => {
+  it("prefers aftermarket TIK-MAZ-46A as the single primary for 2019 CX-3", () => {
     const ranked = rankTiCatalogRows(rows, 2019, "Mazda", "CX-3")
     expect(ranked.length).toBeGreaterThan(0)
-    expect(ranked[0]!.tiSku).toMatch(/^TIK-MAZ-6[46]$/)
+    expect(ranked[0]!.tiSku).toBe("TIK-MAZ-46A")
+    expect(isTiAftermarketSku(ranked[0]!.tiSku, ranked[0]!.title)).toBe(true)
     expect(ranked.map((r) => r.tiSku)).toContain("TIK-MAZ-66")
     expect(ranked.map((r) => r.tiSku)).not.toContain("TIK-MAZ-56")
     expect(ranked.map((r) => r.tiSku)).not.toContain("TIK-MAZ-65")
   })
 
-  it("still surfaces the near-year model-named CX-3 key as a secondary option", () => {
+  it("keeps OEM twins behind the A-suffix primary", () => {
     const ranked = rankTiCatalogRows(rows, 2019, "MAZDA", "CX3")
-    expect(ranked.some((r) => r.tiSku.startsWith("TIK-MAZ-46"))).toBe(true)
+    expect(ranked[0]!.tiSku).toBe("TIK-MAZ-46A")
+    expect(ranked.findIndex((r) => r.tiSku === "TIK-MAZ-46")).toBeGreaterThan(0)
+  })
+})
+
+describe("isTiAftermarketSku", () => {
+  it("detects trailing A and AFTERMARKET titles", () => {
+    expect(isTiAftermarketSku("TIK-MAZ-46A")).toBe(true)
+    expect(isTiAftermarketSku("TIK-MAZ-46")).toBe(false)
+    expect(isTiAftermarketSku("TIK-MAZ-66", "2019 Mazda Smart Key - AFTERMARKET")).toBe(true)
   })
 })
 

@@ -1046,23 +1046,49 @@ function ManualFrequencyGrid({
   const subaruMapped = isSubaru2017To2025ProxMap(year, make)
   const fromTiCatalog = Boolean(catalogOptions && catalogOptions.length > 0)
   const primaryFcc = options[0]?.fccId?.trim() || null
+  const primarySku = options[0]?.catalogSku?.trim() || null
+
+  // TI catalog: show the primary (usually …A aftermarket) only; expand for alternates.
+  const [showMoreKeys, setShowMoreKeys] = useState(false)
+  const selectedIsHidden = useMemo(
+    () =>
+      fromTiCatalog &&
+      options.length > 1 &&
+      options.slice(1).some((option) => option.id === selectedVariantId),
+    [fromTiCatalog, options, selectedVariantId]
+  )
+  const expanded = showMoreKeys || selectedIsHidden
+  const visibleOptions =
+    fromTiCatalog && options.length > 1 && !expanded ? options.slice(0, 1) : options
+  const hiddenCount = fromTiCatalog ? Math.max(0, options.length - 1) : 0
 
   return (
     <div className="grid gap-2">
-      {fromTiCatalog && primaryFcc ? (
-        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
-          Transponder Island catalog match — FCC{" "}
-          <span className="font-mono font-semibold">{primaryFcc}</span>
+      {fromTiCatalog && (primarySku || primaryFcc) ? (
+        <p className="text-[11px] text-muted-foreground">
+          Recommended order blank
+          {primarySku ? (
+            <>
+              :{" "}
+              <span className="font-mono font-semibold text-foreground">{primarySku}</span>
+            </>
+          ) : null}
+          {primaryFcc ? (
+            <>
+              {" "}
+              · FCC <span className="font-mono font-semibold text-foreground">{primaryFcc}</span>
+            </>
+          ) : null}
         </p>
       ) : subaruMapped || mkpProfile ? (
-        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
-          {subaruMapped ? "Mapped key for this vehicle — FCC " : "MYKEYS Pro matched this vehicle — FCC "}
-          <span className="font-mono font-semibold">
+        <p className="text-[11px] text-muted-foreground">
+          {subaruMapped ? "Mapped key — FCC " : "MYKEYS Pro — FCC "}
+          <span className="font-mono font-semibold text-foreground">
             {subaruMapped ? subaruMappedProxOption().fccId : mkpProfile?.fccId}
           </span>
         </p>
       ) : null}
-      {options.map((option) => {
+      {visibleOptions.map((option) => {
         const selected = selectedVariantId === option.id
         return (
           <KeySelectionCard
@@ -1076,6 +1102,16 @@ function ManualFrequencyGrid({
           />
         )
       })}
+      {fromTiCatalog && hiddenCount > 0 && (!expanded || !selectedIsHidden) ? (
+        <button
+          type="button"
+          onClick={() => setShowMoreKeys((prev) => !prev)}
+          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
+        >
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+          {expanded ? "Show less" : `Show ${hiddenCount} more option${hiddenCount === 1 ? "" : "s"}`}
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -1482,21 +1518,15 @@ export function VehicleKeyInfoPanel({
         />
         {hasTiCatalogMatch ? (
           <p className="text-[11px] text-muted-foreground">
-            Transponder Island catalog match for {year} {make} {model}. Verify button configuration with
-            customer to confirm selection.
+            Confirm buttons with the customer before ordering.
           </p>
         ) : subaruMapped || mkpProfile ? (
           <p className="text-[11px] text-muted-foreground">
-            {subaruMapped ? "Mapped key for this vehicle" : "MYKEYS Pro matched this vehicle"} (FCC{" "}
-            <span className="font-mono font-semibold text-foreground">
-              {subaruMapped ? subaruMappedProxOption().fccId : mkpProfile?.fccId}
-            </span>
-            ). Verify button configuration with customer to confirm selection.
+            Confirm buttons with the customer before ordering.
           </p>
         ) : (
           <p className="text-[11px] text-muted-foreground">
-            No database match for this vehicle — pick the closest key type. Verify button configuration
-            with customer to confirm selection.
+            No database match — pick the closest key type and confirm buttons with the customer.
           </p>
         )}
         <ManualFrequencyGrid
