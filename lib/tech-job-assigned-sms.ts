@@ -101,11 +101,20 @@ export async function sendTechJobAssignedSms(params: {
     tiSku: pickCollected(collected, ["ti_sku", "tiSku", "supplier_sku", "required_part"]),
   })
 
-  const sent = await sendTelnyxSms({
-    toE164,
-    text,
-    userId: params.ownerUserId,
-  })
-  if (!sent.ok) return { ok: false, reason: sent.error }
-  return { ok: true, to: toE164 }
+  try {
+    const sent = await sendTelnyxSms({
+      toE164,
+      text,
+      userId: params.ownerUserId,
+    })
+    if (!sent.ok) {
+      console.warn("[tech-job-assigned-sms] send failed:", sent.error)
+      return { ok: false, reason: sent.error }
+    }
+    return { ok: true, to: toE164 }
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e)
+    console.error("[tech-job-assigned-sms] unexpected failure:", detail)
+    return { ok: false, reason: detail }
+  }
 }

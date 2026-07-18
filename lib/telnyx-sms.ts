@@ -188,6 +188,7 @@ export async function resolveTelnyxMessagingFromE164(userId?: string): Promise<s
 /**
  * Send a plain SMS via Telnyx REST API.
  * Returns ok:true when Telnyx accepts the message (not guaranteed phone delivery).
+ * Never throws — callers get { ok: false } on carrier/config failures.
  */
 export async function sendTelnyxSms(params: {
   toE164: string
@@ -195,117 +196,135 @@ export async function sendTelnyxSms(params: {
   userId?: string
   fromE164?: string
 }): Promise<TelnyxSmsSendResult> {
-  const apiKey = process.env.TELNYX_API_KEY?.trim()
-  if (!apiKey) return { ok: false, error: "TELNYX_API_KEY missing" }
-
-  // Explicit caller ID first, then workspace/account resolver — always E.164 with '+'.
-  let from = normalizePhoneNumberE164(
-    params.fromE164?.trim() || (await resolveTelnyxMessagingFromE164(params.userId)) || ""
-  )
-  if (!from) {
-    return {
-      ok: false,
-      error:
-        "No Telnyx SMS sender — buy a Telnyx number with SMS or set TELNYX_MESSAGING_FROM_E164 / TELNYX_PHONE_NUMBER in Vercel",
-    }
-  }
-
-  if (!(await isTelnyxOwnedNumber(from))) {
-    const fallback = await resolveTelnyxMessagingFromE164(params.userId)
-    if (fallback && fallback !== from) from = fallback
-  }
-
-  const toE164 = normalizePhoneNumberE164(params.toE164)
-
-  const sendOnce = async (fromE164: string, messagingProfileId: string | null) => {
-    const body: Record<string, string> = {
-      from: fromE164, // Verified outbound virtual number (source caller ID)
-      to: toE164,
-      text: params.text,
-    }
-    if (messagingProfileId) body.messaging_profile_id = messagingProfileId
-
-    return fetch("https://api.telnyx.com/v2/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    })
-  }
-
-  const successResult = async (
-    res: Response,
-    fromE164: string
-  ): Promise<TelnyxSmsSendResult> => {
-    const successBody = await res.json().catch(() => ({}))
-    const messageId = (successBody as { data?: { id?: string } })?.data?.id ?? null
-    const delivery_warning = await buildDeliveryWarning(fromE164)
-    return {
-      ok: true,
-      message_id: messageId,
-      from: fromE164,
-      to: toE164,
-      delivery_warning,
-    }
-  }
-
-  let messagingProfileId: string | null = null
   try {
-    messagingProfileId = await getOrCreateMessagingProfile()
-    await configureNumberMessaging(from)
-  } catch (e) {
-    console.error("[Telnyx SMS] pre-send messaging setup:", e)
-  }
-
-  let res = await sendOnce(from, messagingProfileId)
-  if (!res.ok) {
-    let errText = await res.text().catch(() => res.statusText)
-    if (isMissingWhitelistError(errText) && messagingProfileId) {
-      try {
-        await ensureMessagingProfileWhitelisted(messagingProfileId)
-        res = await sendOnce(from, messagingProfileId)
-        if (res.ok) return successResult(res, from)
-        errText = await res.text().catch(() => res.statusText)
-      } catch (whitelistErr) {
-        const msg = whitelistErr instanceof Error ? whitelistErr.message : String(whitelistErr)
-        return { ok: false, error: msg }
+    const apiKey = process.env.TELNYX_API_KEY?.trim()
+    if (!apiKey) {
+      console.warn("Telnyx SMS skipped: Missing local environment variables")
+      return {
+        ok: false,
+        error: "Telnyx SMS skipped: Missing local environment variables (TELNYX_API_KEY)",
       }
     }
-    if (isInvalidFromAddressError(errText)) {
-      // Repair messaging profile, then try other owner/env DIDs (same account only).
-      const candidates: string[] = []
-      for (const n of [from, ...(await listOwnerSmsFromCandidates(params.userId))]) {
-        if (!candidates.includes(n)) candidates.push(n)
+
+    // Explicit caller ID first, then workspace/account resolver — always E.164 with '+'.
+    let from = normalizePhoneNumberE164(
+      params.fromE164?.trim() || (await resolveTelnyxMessagingFromE164(params.userId)) || ""
+    )
+    if (!from) {
+      console.warn("Telnyx SMS skipped: Missing local environment variables")
+      return {
+        ok: false,
+        error:
+          "Telnyx SMS skipped: Missing local environment variables (TELNYX_PHONE_NUMBER / TELNYX_MESSAGING_FROM_E164) or no SMS-ready business line",
       }
-      for (const candidate of candidates) {
+    }
+
+    if (!(await isTelnyxOwnedNumber(from))) {
+      const fallback = await resolveTelnyxMessagingFromE164(params.userId)
+      if (fallback && fallback !== from) from = fallback
+    }
+
+    const toE164 = normalizePhoneNumberE164(params.toE164)
+    if (!toE164) {
+      console.error("[Telnyx SMS] invalid destination number:", params.toE164)
+      return { ok: false, error: "Invalid destination phone number" }
+    }
+
+    const sendOnce = async (fromE164: string, messagingProfileId: string | null) => {
+      const body: Record<string, string> = {
+        from: fromE164, // Verified outbound virtual number (source caller ID)
+        to: toE164,
+        text: params.text,
+      }
+      if (messagingProfileId) body.messaging_profile_id = messagingProfileId
+
+      return fetch("https://api.telnyx.com/v2/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      })
+    }
+
+    const successResult = async (
+      res: Response,
+      fromE164: string
+    ): Promise<TelnyxSmsSendResult> => {
+      const successBody = await res.json().catch(() => ({}))
+      const messageId = (successBody as { data?: { id?: string } })?.data?.id ?? null
+      const delivery_warning = await buildDeliveryWarning(fromE164)
+      return {
+        ok: true,
+        message_id: messageId,
+        from: fromE164,
+        to: toE164,
+        delivery_warning,
+      }
+    }
+
+    let messagingProfileId: string | null = null
+    try {
+      messagingProfileId = await getOrCreateMessagingProfile()
+      await configureNumberMessaging(from)
+    } catch (e) {
+      console.error("[Telnyx SMS] pre-send messaging setup:", e)
+    }
+
+    let res = await sendOnce(from, messagingProfileId)
+    if (!res.ok) {
+      let errText = await res.text().catch(() => res.statusText)
+      if (isMissingWhitelistError(errText) && messagingProfileId) {
         try {
-          await configureNumberMessaging(candidate)
-          if (!messagingProfileId) {
-            messagingProfileId = await getOrCreateMessagingProfile()
-          }
-          res = await sendOnce(candidate, messagingProfileId)
-          if (res.ok) {
-            from = candidate
-            return successResult(res, from)
-          }
+          await ensureMessagingProfileWhitelisted(messagingProfileId)
+          res = await sendOnce(from, messagingProfileId)
+          if (res.ok) return successResult(res, from)
           errText = await res.text().catch(() => res.statusText)
-          if (!isInvalidFromAddressError(errText)) break
-        } catch (repairErr) {
-          console.warn("[Telnyx SMS] skip invalid from candidate:", candidate, repairErr)
+        } catch (whitelistErr) {
+          const msg = whitelistErr instanceof Error ? whitelistErr.message : String(whitelistErr)
+          console.error("[Telnyx SMS] whitelist repair failed:", msg)
+          return { ok: false, error: msg }
         }
       }
+      if (isInvalidFromAddressError(errText)) {
+        // Repair messaging profile, then try other owner/env DIDs (same account only).
+        const candidates: string[] = []
+        for (const n of [from, ...(await listOwnerSmsFromCandidates(params.userId))]) {
+          if (!candidates.includes(n)) candidates.push(n)
+        }
+        for (const candidate of candidates) {
+          try {
+            await configureNumberMessaging(candidate)
+            if (!messagingProfileId) {
+              messagingProfileId = await getOrCreateMessagingProfile()
+            }
+            res = await sendOnce(candidate, messagingProfileId)
+            if (res.ok) {
+              from = candidate
+              return successResult(res, from)
+            }
+            errText = await res.text().catch(() => res.statusText)
+            if (!isInvalidFromAddressError(errText)) break
+          } catch (repairErr) {
+            console.warn("[Telnyx SMS] skip invalid from candidate:", candidate, repairErr)
+          }
+        }
+      }
+      const classified = classifyTelnyxSmsError(errText)
+      console.error("[Telnyx SMS] send rejected:", {
+        to: toE164,
+        from,
+        errorType: classified.errorType,
+        detail: errText.slice(0, 500),
+      })
+      return { ok: false, error: classified.message, errorType: classified.errorType }
     }
-    const classified = classifyTelnyxSmsError(errText)
-    console.error("[Telnyx SMS] send rejected:", {
-      to: toE164,
-      from,
-      errorType: classified.errorType,
-      detail: errText.slice(0, 500),
-    })
-    return { ok: false, error: classified.message, errorType: classified.errorType }
-  }
 
-  return successResult(res, from)
+    return successResult(res, from)
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e)
+    console.error("[Telnyx SMS] unexpected send failure:", detail)
+    return { ok: false, error: detail.slice(0, 240) }
+  }
 }

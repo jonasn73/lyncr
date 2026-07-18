@@ -46,9 +46,13 @@ export async function sendDispatchEnRouteCustomerSms(params: {
   const businessName = owner?.business_name?.trim() || brandLabel()
   const text = `${businessName}: Our technician is now en route to your location. You can track real-time status updates from your dispatch console.`
 
-  const res = await sendTelnyxSms({ toE164, text, userId: ctx.owner_user_id })
-  if (!res.ok) {
-    console.warn("[dispatch-customer-sms] en_route send failed:", res.error)
+  try {
+    const res = await sendTelnyxSms({ toE164, text, userId: ctx.owner_user_id })
+    if (!res.ok) {
+      console.warn("[dispatch-customer-sms] en_route send failed:", res.error)
+    }
+  } catch (e) {
+    console.error("[dispatch-customer-sms] en_route unexpected failure:", e)
   }
 }
 
@@ -69,8 +73,12 @@ export async function sendDispatchOnSiteCustomerSms(params: {
   const vehicle = await resolveVehicleLine(params.leadId, ctx.owner_user_id)
   const text = `${businessName}: Our technician has arrived on-site and is beginning service on your ${vehicle}.`
 
-  const res = await sendTelnyxSms({ toE164, text, userId: ctx.owner_user_id })
-  if (!res.ok) {
-    console.warn("[dispatch-customer-sms] on_site send failed:", res.error)
+  try {
+    const res = await sendTelnyxSms({ toE164, text, userId: ctx.owner_user_id })
+    if (!res.ok) {
+      console.warn("[dispatch-customer-sms] on_site send failed:", res.error)
+    }
+  } catch (e) {
+    console.error("[dispatch-customer-sms] on_site unexpected failure:", e)
   }
 }

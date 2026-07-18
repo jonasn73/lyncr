@@ -29,6 +29,24 @@ export function buildLocateUrl(tokenId: string): string {
   return `${base}/locate?c=${encodeURIComponent(tokenId)}`
 }
 
+/**
+ * Customer-facing SMS link. Uses /track-location?jobId=…&c=… (token `c` is required for security).
+ * `jobId` is optional display/context (call log or lead id).
+ */
+export function buildTrackLocationUrl(tokenId: string, jobId?: string | null): string {
+  const base = getAppUrl().replace(/\/+$/, "")
+  const params = new URLSearchParams()
+  const job = jobId?.trim()
+  if (job) params.set("jobId", job)
+  params.set("c", tokenId)
+  return `${base}/track-location?${params.toString()}`
+}
+
+/** SMS body for Request Live GPS. */
+export function buildLiveGpsRequestSmsText(trackUrl: string): string {
+  return `Lyncr: Your locksmith is requesting your live location to find your vehicle. Please tap the secure link to share your GPS coordinates: ${trackUrl}`
+}
+
 export async function createLiveGpsLocateToken(params: {
   ownerUserId: string
   callLogId?: string | null
