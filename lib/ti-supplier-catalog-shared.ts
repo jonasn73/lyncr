@@ -255,6 +255,7 @@ const KNOWN_NAMED_MODELS: string[] = [
   "pathfinder",
   "murano",
   "versa",
+  "kicks",
   "frontier",
   "titan",
   "gt-r",

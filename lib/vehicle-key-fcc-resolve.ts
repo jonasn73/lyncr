@@ -3,7 +3,11 @@
 // When still ambiguous, build an Ask-the-customer clarification prompt.
 
 import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
-import { isTiAftermarketSku } from "@/lib/ti-supplier-catalog-shared"
+import {
+  isTiAftermarketSku,
+  tiTitleLooksSmart,
+  tiTitleLooksTurnKey,
+} from "@/lib/ti-supplier-catalog-shared"
 import type { VehicleClarificationPrompt } from "@/lib/vehicle-intake-clarifications"
 
 /** One FCC row from the locksmith CSV / key-info profiles. */
@@ -71,6 +75,41 @@ function isSmartModulation(modulation: string | null | undefined): boolean {
 
 function isAskModulation(modulation: string | null | undefined): boolean {
   return /\bask\b/i.test(modulation ?? "")
+}
+
+/**
+ * True when CSV (or TI titles) still leave push-start vs turn-key open.
+ * Never auto-pick / strict-trim FCC in that case — Ask-the-customer first.
+ */
+function needsIgnitionStyleClarification(
+  profiles: FccResolveProfile[],
+  tiHits: FccResolveTiHit[]
+): boolean {
+  let hasSmartMod = false
+  let hasAskMod = false
+  for (const profile of profiles) {
+    if (isSmartModulation(profile.modulation)) hasSmartMod = true
+    if (isAskModulation(profile.modulation)) hasAskMod = true
+  }
+  if (hasSmartMod && hasAskMod) return true
+
+  const smartFccs = new Set<string>()
+  const turnFccs = new Set<string>()
+  for (const hit of tiHits) {
+    const fccId = sanitizeFccIdInput(hit.fccId)
+    if (!fccId) continue
+    if (tiTitleLooksSmart(hit.title)) smartFccs.add(fccId)
+    else if (tiTitleLooksTurnKey(hit.title)) turnFccs.add(fccId)
+  }
+  if (smartFccs.size === 0 || turnFccs.size === 0) return false
+  // Same FCC listed as both styles is rare; different FCCs means ask.
+  for (const fccId of smartFccs) {
+    if (!turnFccs.has(fccId)) return true
+  }
+  for (const fccId of turnFccs) {
+    if (!smartFccs.has(fccId)) return true
+  }
+  return false
 }
 
 /** Pull a button count from TI / variant titles ("3B", "5-Button"). */
@@ -377,6 +416,18 @@ export function resolveVehicleKeyFcc(input: {
       clarification: null,
       preferredTiSku: bestTiForFcc(input.tiHits, only.fccId)?.tiSku ?? null,
       needsClarification: false,
+    }
+  }
+
+  // Push vs turn still open (e.g. 2018 Sentra ASK + FSK) — never auto-pick smart.
+  if (needsIgnitionStyleClarification(input.profiles, input.tiHits)) {
+    return {
+      resolvedFccId: null,
+      confidence: "low",
+      ranked,
+      clarification: buildFccClarification(ranked, input.profiles, input.tiHits),
+      preferredTiSku: null,
+      needsClarification: true,
     }
   }
 

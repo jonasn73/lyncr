@@ -43,6 +43,15 @@ describe("mykeys-pro-database", () => {
     expect(options[0]?.id).toBe("manual-315-transponder")
   })
 
+  it("hides proximity mock cards after turn-key clarification", () => {
+    const options = mykeysProKeyOptions("Nissan", "Sentra", 2018, "Remote head key")
+    expect(options.map((option) => option.id)).toEqual([
+      "manual-315-transponder",
+      "manual-high-security-edge",
+    ])
+    expect(options.some((option) => /prox|smart/i.test(option.keyStyle))).toBe(false)
+  })
+
   it("prepends KEY-VOL-05 prox and insert-to-start variants for classic Volvo models", () => {
     const options = mykeysProKeyOptions("Volvo", "C30")
     expect(options[0]?.id).toBe("KEY-VOL-05-PROX")

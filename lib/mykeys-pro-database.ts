@@ -1,6 +1,7 @@
 // MYKEYS Pro mock matrix — vehicle-specific key profiles for manual intake fallback.
 
 import {
+  filterManualOptionsByKeyStyle,
   isVolvoInsertFobikVehicle,
   MANUAL_KEY_FREQUENCY_OPTIONS,
   VOLVO_KEY_VOL_05_OPTIONS,
@@ -124,11 +125,13 @@ function mykeysRowToOption(
 export function mykeysProKeyOptions(
   make: string,
   model: string,
-  year?: string | number | null
+  year?: string | number | null,
+  /** When set (push vs turn), hide mock cards that contradict the answer. */
+  keyStyle?: string | null
 ): ManualKeyFrequencyOption[] {
   // Explicit Subaru year map wins over generic MKP / manual fallbacks.
   if (isSubaru2017To2025ProxMap(year, make)) {
-    return [subaruMappedProxOption()]
+    return filterManualOptionsByKeyStyle([subaruMappedProxOption()], keyStyle)
   }
 
   const profile = lookupMykeysProProfile(make, model)
@@ -137,14 +140,20 @@ export function mykeysProKeyOptions(
     : [...MANUAL_KEY_FREQUENCY_OPTIONS]
 
   if (!isVolvoInsertFobikVehicle(make, model)) {
-    return filterManualOptionsForVehicle(base, year, make)
+    return filterManualOptionsByKeyStyle(
+      filterManualOptionsForVehicle(base, year, make),
+      keyStyle
+    )
   }
 
   const volvoIds = new Set(VOLVO_KEY_VOL_05_OPTIONS.map((option) => option.id))
   // Put both KEY-VOL-05 variants first; drop duplicates if MKP reused the same ids.
-  return filterManualOptionsForVehicle(
-    [...VOLVO_KEY_VOL_05_OPTIONS, ...base.filter((option) => !volvoIds.has(option.id))],
-    year,
-    make
+  return filterManualOptionsByKeyStyle(
+    filterManualOptionsForVehicle(
+      [...VOLVO_KEY_VOL_05_OPTIONS, ...base.filter((option) => !volvoIds.has(option.id))],
+      year,
+      make
+    ),
+    keyStyle
   )
 }

@@ -1046,6 +1046,7 @@ function ManualFrequencyGrid({
   make,
   model,
   year,
+  keyStyle,
   selectedVariantId,
   disabled,
   onPick,
@@ -1055,12 +1056,17 @@ function ManualFrequencyGrid({
   make: string
   model: string
   year?: string
+  /** Push vs turn from Ask-the-customer — filters mock KEY-/PROX- cards. */
+  keyStyle?: string | null
   selectedVariantId: string | null | undefined
   disabled?: boolean
   onPick: (option: ManualKeyFrequencyOption) => void
   catalogOptions?: ManualKeyFrequencyOption[] | null
 }) {
-  const fallbackOptions = useMemo(() => mykeysProKeyOptions(make, model, year), [make, model, year])
+  const fallbackOptions = useMemo(
+    () => mykeysProKeyOptions(make, model, year, keyStyle),
+    [make, model, year, keyStyle]
+  )
   const options = catalogOptions && catalogOptions.length > 0 ? catalogOptions : fallbackOptions
   const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
   const subaruMapped = isSubaru2017To2025ProxMap(year, make)
@@ -1201,6 +1207,15 @@ export function VehicleKeyInfoPanel({
     setActiveFccQuery(seeded)
   }, [fccIdProp])
 
+  // After Ask-the-customer answers (or the gate lifts), leave bypass so real TI blanks can load.
+  useEffect(() => {
+    const clarificationPinned =
+      Boolean(sanitizeFccIdInput(fccIdProp ?? "")) || Boolean(value?.keyStyle?.trim())
+    if (!holdForClarification || clarificationPinned) {
+      setManualBypassMode(false)
+    }
+  }, [holdForClarification, fccIdProp, value?.keyStyle])
+
   useEffect(() => {
     setSelectedKeyId(value?.variantId ?? null)
   }, [value?.variantId])
@@ -1216,11 +1231,17 @@ export function VehicleKeyInfoPanel({
     if (manualBypassMode) return
 
     let cancel = false
-    const sanitizedFcc = activeFccQuery ? sanitizeFccIdInput(activeFccQuery) : ""
+    // Prefer live clarification FCC over lagged activeFccQuery state.
+    const sanitizedFcc =
+      sanitizeFccIdInput(fccIdProp ?? "") ||
+      (activeFccQuery ? sanitizeFccIdInput(activeFccQuery) : "")
+
+    const styleHint = value?.keyStyle?.trim() || null
 
     // Apply key specs from the same VIN/plate round-trip when YMM matches (no FCC override).
     const preload =
       !sanitizedFcc &&
+      !styleHint &&
       preloadedKeyBundle &&
       preloadedKeyBundle.year === year &&
       preloadedKeyBundle.make.toLowerCase() === make.toLowerCase() &&
@@ -1231,8 +1252,6 @@ export function VehicleKeyInfoPanel({
     if (preload?.inventory) {
       onInventoryLoadedRef.current?.(preload.inventory)
     }
-
-    const styleHint = value?.keyStyle?.trim() || null
 
     const applyPayload = (
       payload: KeyInfoPayload | null,
@@ -1245,11 +1264,11 @@ export function VehicleKeyInfoPanel({
       if (inventory) onInventoryLoadedRef.current?.(inventory)
       const rawHits = catalogHits ?? []
       // Hold all blanks until push/turn (or multi-FCC) is answered above.
+      // Do not enter manualBypassMode here — that blocked TI refetch after the answer.
       if (holdForClarification && !sanitizedFcc && !styleHint) {
         setTiCatalog([])
         setLookupSource(source === "none" ? null : source)
         setInfo(payload)
-        setManualBypassMode(true)
         setSelectedKeyId(null)
         onChange(null)
         return
@@ -1451,6 +1470,7 @@ export function VehicleKeyInfoPanel({
     model,
     ready,
     activeFccQuery,
+    fccIdProp,
     manualBypassMode,
     preloadedKeyBundle,
     holdForClarification,
@@ -1495,7 +1515,7 @@ export function VehicleKeyInfoPanel({
     // FCC filmstrip already auto-selects via pickDefaultKeyVariant when a prox variant exists.
     if (!manualBypassMode && info && info.profiles.length > 0 && fccHasCompatible) return
 
-    const options = mykeysProKeyOptions(make, model, year)
+    const options = mykeysProKeyOptions(make, model, year, value?.keyStyle)
     if (options.length === 0) return
     // Auto-select when a single card remains, or the Subaru year map forces one card.
     if (options.length !== 1 && !subaruMapped) return
@@ -1513,7 +1533,17 @@ export function VehicleKeyInfoPanel({
       tiSku: orderingTiSkuFromManual(preferred),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot auto-highlight on mount / YMM change
-  }, [manualBypassMode, ready, year, make, model, info, value?.variantId, hasTiCatalogMatch])
+  }, [
+    manualBypassMode,
+    ready,
+    year,
+    make,
+    model,
+    info,
+    value?.variantId,
+    value?.keyStyle,
+    hasTiCatalogMatch,
+  ])
 
   const handleReturnToLookup = () => {
     const stuckWithoutDatabaseMatch =
@@ -1571,6 +1601,7 @@ export function VehicleKeyInfoPanel({
           make={make}
           model={model}
           year={year}
+          keyStyle={value?.keyStyle}
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}
@@ -1615,6 +1646,7 @@ export function VehicleKeyInfoPanel({
           make={make}
           model={model}
           year={year}
+          keyStyle={value?.keyStyle}
           selectedVariantId={value?.variantId}
           disabled={disabled}
           onPick={applyManualOption}

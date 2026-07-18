@@ -114,3 +114,27 @@ export const MANUAL_KEY_FREQUENCY_OPTIONS: readonly ManualKeyFrequencyOption[] =
     imageUrl: null,
   },
 ] as const
+
+/**
+ * Drop mock KEY-/PROX- cards that contradict Ask-the-customer (push vs turn).
+ * Never show a proximity fob after the caller said turn-key.
+ */
+export function filterManualOptionsByKeyStyle(
+  options: readonly ManualKeyFrequencyOption[],
+  keyStyle: string | null | undefined
+): ManualKeyFrequencyOption[] {
+  const style = (keyStyle ?? "").toLowerCase()
+  if (!style.trim()) return [...options]
+  const wantsSmart = /push|smart|prox/.test(style)
+  const wantsTurn = /turn|remote\s*head|blade|flip/.test(style)
+  if (wantsSmart && !wantsTurn) {
+    return options.filter((option) => /push|smart|prox/i.test(option.keyStyle))
+  }
+  if (wantsTurn && !wantsSmart) {
+    return options.filter(
+      (option) =>
+        /turn|remote|blade|flip/i.test(option.keyStyle) && !/push|smart|prox/i.test(option.keyStyle)
+    )
+  }
+  return [...options]
+}

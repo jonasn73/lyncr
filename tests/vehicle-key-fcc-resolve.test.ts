@@ -107,6 +107,37 @@ describe("resolveVehicleKeyFcc", () => {
     expect(result.clarification?.options[0]?.fccId).toBe("SMART1")
     expect(result.clarification?.options[1]?.fccId).toBe("TURN1")
   })
+
+  it("does not auto-pick smart when ASK + FSK exist even if smart TI scores higher", () => {
+    // Mirrors 2018 Nissan Sentra: smart aftermarket outscores remote-head, but both are valid.
+    const result = resolveVehicleKeyFcc({
+      profiles: [
+        { fccId: "CWTWB1U751", frequency: "315", modulation: "ASK", variantCount: 2 },
+        { fccId: "CWTWB1U840", frequency: "315", modulation: "FSK", variantCount: 2 },
+      ],
+      tiHits: [
+        {
+          fccId: "CWTWB1U840",
+          tiSku: "TIK-NIS-52A",
+          title: "2013 - 2019 Nissan Sentra Versa Smart Prox Key - AFTERMARKET",
+          buttonCount: 4,
+          frequency: "315 MHz",
+          score: 220,
+        },
+        {
+          fccId: "CWTWB1U751",
+          tiSku: "TIK-NIS-17A",
+          title: "2013 - 2019 Nissan Remote Head Key 4B Trunk - AFTERMARKET",
+          buttonCount: 4,
+          frequency: "315 MHz",
+          score: 160,
+        },
+      ],
+    })
+    expect(result.needsClarification).toBe(true)
+    expect(result.resolvedFccId).toBeNull()
+    expect(result.clarification?.id).toBe("multiple-fcc-ignition")
+  })
 })
 
 describe("orderTiCatalogByPreferredFcc", () => {
