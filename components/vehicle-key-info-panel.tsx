@@ -1159,6 +1159,8 @@ export function VehicleKeyInfoPanel({
   // Keep latest ticket FCC without re-running YMM reset when selection writes keyFccId back.
   const fccIdPropRef = useRef(fccIdProp)
   fccIdPropRef.current = fccIdProp
+  /** Last YMM+FCC+style pin we successfully applied — blocks load↔onChange loops. */
+  const appliedCatalogPinRef = useRef("")
 
   const trimProfile = useMemo<VehicleTrimProfile>(
     () => ({
@@ -1196,6 +1198,7 @@ export function VehicleKeyInfoPanel({
     setLookupSource(null)
     setTiCatalog([])
     setExpandedSecondaryFcc(new Set())
+    appliedCatalogPinRef.current = ""
     // Re-seed FCC from the parent ticket when YMM changes (alongside standard lookup).
     setActiveFccQuery(sanitizeFccIdInput(fccIdPropRef.current ?? ""))
   }, [year, make, model])
@@ -1207,15 +1210,6 @@ export function VehicleKeyInfoPanel({
     setActiveFccQuery(seeded)
   }, [fccIdProp])
 
-  // After Ask-the-customer answers (or the gate lifts), leave bypass so real TI blanks can load.
-  useEffect(() => {
-    const clarificationPinned =
-      Boolean(sanitizeFccIdInput(fccIdProp ?? "")) || Boolean(value?.keyStyle?.trim())
-    if (!holdForClarification || clarificationPinned) {
-      setManualBypassMode(false)
-    }
-  }, [holdForClarification, fccIdProp, value?.keyStyle])
-
   useEffect(() => {
     setSelectedKeyId(value?.variantId ?? null)
   }, [value?.variantId])
@@ -1224,11 +1218,8 @@ export function VehicleKeyInfoPanel({
     if (!ready) {
       setInfo(null)
       setError(false)
-      onChange(null)
       return
     }
-
-    if (manualBypassMode) return
 
     let cancel = false
     // Prefer live clarification FCC over lagged activeFccQuery state.
@@ -1237,6 +1228,17 @@ export function VehicleKeyInfoPanel({
       (activeFccQuery ? sanitizeFccIdInput(activeFccQuery) : "")
 
     const styleHint = value?.keyStyle?.trim() || null
+    const catalogPin = [
+      year,
+      make,
+      model,
+      sanitizedFcc,
+      styleHint ?? "",
+      holdForClarification ? "hold" : "open",
+    ].join("|")
+
+    // Same pin already applied (e.g. after onChange wrote FCC/style back) — do not reload.
+    if (manualBypassMode && appliedCatalogPinRef.current === catalogPin) return
 
     // Apply key specs from the same VIN/plate round-trip when YMM matches (no FCC override).
     const preload =
@@ -1270,7 +1272,8 @@ export function VehicleKeyInfoPanel({
         setLookupSource(source === "none" ? null : source)
         setInfo(payload)
         setSelectedKeyId(null)
-        onChange(null)
+        // Mark the hold pin so we don't re-enter and thrash parent state.
+        appliedCatalogPinRef.current = catalogPin
         return
       }
 
@@ -1294,20 +1297,34 @@ export function VehicleKeyInfoPanel({
           uniqueFccs.size > 1
         if (waitForClarification) {
           setSelectedKeyId(null)
-          onChange(null)
+          appliedCatalogPinRef.current = catalogPin
           return
         }
         const preferred = tiCatalogHitToManualOption(hits[0]!)
+        const nextFcc = preferred.fccId?.trim() || sanitizedFcc || ""
+        const nextStyle = styleHint || preferred.keyStyle
+        const nextVariantId = preferred.id
+        const nextTiSku = orderingTiSkuFromManual(preferred)
         setSelectedKeyId(preferred.id)
+        appliedCatalogPinRef.current = catalogPin
+        // Skip parent write when selection is already pinned (prevents update loops).
+        if (
+          value?.variantId === nextVariantId &&
+          (value?.fccId || "") === nextFcc &&
+          (value?.keyStyle || "") === nextStyle &&
+          (value?.tiSku || "") === (nextTiSku || "")
+        ) {
+          return
+        }
         onChange({
           profileId: "ti-catalog",
-          fccId: preferred.fccId?.trim() ?? sanitizedFcc ?? "",
+          fccId: nextFcc,
           frequency: preferred.frequency,
           chipset: null,
-          keyStyle: styleHint || preferred.keyStyle,
-          variantId: preferred.id,
+          keyStyle: nextStyle,
+          variantId: nextVariantId,
           programmingMethod: preferred.programmingMethod,
-          tiSku: orderingTiSkuFromManual(preferred),
+          tiSku: nextTiSku,
         })
         return
       }
@@ -1316,6 +1333,7 @@ export function VehicleKeyInfoPanel({
       if (sanitizedFcc || styleHint) {
         setManualBypassMode(true)
         setSelectedKeyId(null)
+        appliedCatalogPinRef.current = catalogPin
         onChange(
           sanitizedFcc || styleHint
             ? {
@@ -1333,7 +1351,7 @@ export function VehicleKeyInfoPanel({
 
       if (!payload || payload.profiles.length === 0) {
         setManualBypassMode(true)
-        onChange(null)
+        appliedCatalogPinRef.current = catalogPin
         return
       }
       const first = payload.profiles[0]!
@@ -1345,15 +1363,7 @@ export function VehicleKeyInfoPanel({
         )
       if (keepVariant && value?.variantId) {
         setSelectedKeyId(value.variantId)
-        onChange({
-          profileId: value.profileId || first.id,
-          fccId: value.fccId || first.fcc_id,
-          frequency: value.frequency ?? first.frequency,
-          chipset: value.chipset ?? first.chipset,
-          keyStyle: value.keyStyle || KEY_STYLE_OPTIONS[5],
-          variantId: value.variantId,
-          programmingMethod: value.programmingMethod ?? null,
-        })
+        appliedCatalogPinRef.current = catalogPin
         return
       }
 
@@ -1387,11 +1397,13 @@ export function VehicleKeyInfoPanel({
           programmingMethod: card.programmingMethod,
           tiSku: orderingTiSkuFromCard(card),
         }
+        appliedCatalogPinRef.current = catalogPin
         // Highlight the mapped card only — do not auto-advance past Key Details.
         onChange(selection)
         return
       }
 
+      appliedCatalogPinRef.current = catalogPin
       onChange({
         profileId: first.id,
         fccId: first.fcc_id,
@@ -1453,7 +1465,7 @@ export function VehicleKeyInfoPanel({
           setInfo(null)
           setTiCatalog([])
           setManualBypassMode(true)
-          onChange(null)
+          appliedCatalogPinRef.current = catalogPin
         }
       })
       .finally(() => {

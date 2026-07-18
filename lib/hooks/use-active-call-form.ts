@@ -327,17 +327,32 @@ export function useActiveCallForm(
         tiSku?: string | null
       } | null
     ) => {
-      setForm((prev) => ({
-        ...prev,
-        keyProfileId: sel?.profileId ?? "",
-        keyFccId: sel?.fccId ?? "",
-        keyFrequency: sel?.frequency ?? "",
-        keyChipset: sel?.chipset ?? "",
-        keyStyle: sel?.keyStyle ?? "",
-        keyVariantId: sel?.variantId ?? "",
-        programmingMethod: sel?.programmingMethod?.trim() ?? "",
-        tiSku: sel?.tiSku?.trim() ?? "",
-      }))
+      setForm((prev) => {
+        const next = {
+          keyProfileId: sel?.profileId ?? "",
+          keyFccId: sel?.fccId ?? "",
+          keyFrequency: sel?.frequency ?? "",
+          keyChipset: sel?.chipset ?? "",
+          keyStyle: sel?.keyStyle ?? "",
+          keyVariantId: sel?.variantId ?? "",
+          programmingMethod: sel?.programmingMethod?.trim() ?? "",
+          tiSku: sel?.tiSku?.trim() ?? "",
+        }
+        // Bail out when nothing changed — avoids parent↔child update loops.
+        if (
+          prev.keyProfileId === next.keyProfileId &&
+          prev.keyFccId === next.keyFccId &&
+          prev.keyFrequency === next.keyFrequency &&
+          prev.keyChipset === next.keyChipset &&
+          prev.keyStyle === next.keyStyle &&
+          prev.keyVariantId === next.keyVariantId &&
+          prev.programmingMethod === next.programmingMethod &&
+          prev.tiSku === next.tiSku
+        ) {
+          return prev
+        }
+        return { ...prev, ...next }
+      })
     },
     []
   )
