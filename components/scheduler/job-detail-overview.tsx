@@ -1,8 +1,17 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { Loader2, Phone, Pencil } from "lucide-react"
+import {
+  Car,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  Pencil,
+  Phone,
+  ExternalLink,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
 import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interaction"
@@ -21,6 +30,9 @@ import {
   buildDepositSmsStagingTemplate,
   createMockSecureDepositLink,
 } from "@/lib/secure-deposit-link"
+import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   SCHEDULER_FIELD_STACK,
@@ -60,6 +72,13 @@ type JobDetailOverviewProps = {
   onClose: () => void
 }
 
+const QUICK_SMS_TEMPLATES = [
+  "Stuck on a job, text you right back!",
+  "On my way — give me 10 minutes.",
+  "Got your call. What's the address?",
+  "Tech is en route — please stay near the vehicle.",
+] as const
+
 function telHref(phone: string): string | null {
   const trimmed = phone.trim()
   if (!trimmed) return null
@@ -71,6 +90,9 @@ function telHref(phone: string): string | null {
 
 const SECTION_LABEL =
   "text-[10px] uppercase font-bold tracking-widest text-slate-500"
+
+const CONTACT_BTN =
+  "inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
 
 const ACTION_BTN =
   "flex min-h-[44px] items-center justify-center rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors disabled:opacity-50"
@@ -97,21 +119,22 @@ export function JobDetailOverview({
   onQuickLifecycleAction,
   onClose,
 }: JobDetailOverviewProps) {
+  const { toast } = useToast()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const customerName = (source.customer_name ?? "").trim() || "Customer"
   const customerPhone = (source.customer_phone ?? "").trim()
   const phoneHref = telHref(customerPhone)
+  const serviceAddress = (source.location ?? "").trim()
   const specBlocks = buildJobTechnicalSpecBlocks(source)
   const vehicleBlock = specBlocks.find((block) => block.label === "Vehicle")
-  const addressBlock = specBlocks.find((block) => block.label === "Address")
+  const serviceBlock = specBlocks.find((block) => block.label === "Service")
   const keyBlocks = specBlocks.filter(
     (block) =>
       block.label === "Key" ||
       block.label === "TI SKU" ||
       block.label === "FCC ID" ||
       block.label === "Chip" ||
-      block.label === "Frequency" ||
-      block.label === "Programming" ||
-      block.label === "Service"
+      block.label === "Programming"
   )
   const scheduledAtIso = resolveJobScheduledAtIso(
     scheduledEvent ?? { scheduled_at: source.scheduled_at ?? null }
@@ -126,7 +149,11 @@ export function JobDetailOverview({
   const appointmentDelayed = appointmentPhase === "overdue"
   const statusPill = pipelineStatusPillLabel(pipelineStatus)
 
+  const vehicleSummary = [vehicleBlock?.value, serviceBlock?.value].filter(Boolean).join(" — ")
+
   const [depositSmsStaging, setDepositSmsStaging] = useState<string | null>(null)
+  const [smsOpen, setSmsOpen] = useState(false)
+  const [smsSending, setSmsSending] = useState(false)
 
   const handleSecureDepositLink = useCallback(() => {
     const depositUrl = createMockSecureDepositLink(source.id)
@@ -143,9 +170,52 @@ export function JobDetailOverview({
     )
   }, [source.id, billingBalanceDollars, customerName])
 
+  const sendQuickSms = useCallback(
+    async (text: string) => {
+      if (!customerPhone) {
+        toast({
+          title: "No phone on file",
+          description: "Add a customer phone before sending SMS.",
+          variant: "destructive",
+        })
+        return
+      }
+      setSmsSending(true)
+      try {
+        const res = await fetch("/api/messaging/send", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: customerPhone,
+            text,
+            organization_id:
+              activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
+                ? activeOrganizationId
+                : undefined,
+          }),
+        })
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        if (!res.ok) {
+          toast({
+            title: "SMS failed",
+            description: json.error || "Could not send the quick text.",
+            variant: "destructive",
+          })
+          return
+        }
+        toast({ title: "SMS sent", description: text })
+        setSmsOpen(false)
+      } finally {
+        setSmsSending(false)
+      }
+    },
+    [activeOrganizationId, customerPhone, toast]
+  )
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* TOP ROW HEADER */}
+      {/* HEADER — name, status, edit */}
       <header className="relative shrink-0 border-b border-border/50 px-5 py-4 pr-14">
         <div className="flex flex-wrap items-center gap-2.5">
           <h2 className="min-w-0 truncate text-xl font-semibold tracking-tight text-foreground">
@@ -171,39 +241,144 @@ export function JobDetailOverview({
             Edit Job Details
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <p className="font-mono text-sm text-muted-foreground">
-            {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
-          </p>
+
+        {/* Phone + contact actions */}
+        <p className="mt-2 font-mono text-sm text-slate-300">
+          {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-2">
           {phoneHref ? (
-            <Button asChild size="sm" variant="secondary" className="h-8 gap-1.5">
-              <a href={phoneHref}>
-                <Phone className="h-3.5 w-3.5" aria-hidden />
-                Call
-              </a>
-            </Button>
-          ) : null}
+            <a href={phoneHref} className={cn(CONTACT_BTN, "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20")}>
+              <Phone className="h-3.5 w-3.5" aria-hidden />
+              Call Customer
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className={cn(CONTACT_BTN, "border-slate-800 bg-slate-950/40 text-slate-500")}
+            >
+              <Phone className="h-3.5 w-3.5" aria-hidden />
+              Call Customer
+            </button>
+          )}
+          <Popover open={smsOpen} onOpenChange={setSmsOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                disabled={!customerPhone || smsSending}
+                className={cn(
+                  CONTACT_BTN,
+                  "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                )}
+              >
+                {smsSending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                )}
+                Quick SMS
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-80 border-slate-800 bg-slate-950 p-2"
+              sideOffset={6}
+            >
+              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                One-tap texts via Telnyx
+              </p>
+              <ul className="flex flex-col gap-1">
+                {QUICK_SMS_TEMPLATES.map((template) => (
+                  <li key={template}>
+                    <button
+                      type="button"
+                      disabled={smsSending}
+                      onClick={() => void sendQuickSms(template)}
+                      className="w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-200 hover:bg-slate-900 disabled:opacity-50"
+                    >
+                      {template}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
         </div>
       </header>
 
       <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4", SCHEDULER_STACK)}>
-        {/* PRICE HIGHLIGHT — DB billing balance only */}
-        <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-transparent px-4 py-3">
-          <p className={cn(SECTION_LABEL, "text-emerald-500/80")}>Billing balance</p>
-          <p className="mt-0.5 text-2xl font-bold tabular-nums tracking-tight text-emerald-300">
-            {billingBalanceDollars > 0 ? `$${billingBalanceDollars}` : "—"}
-          </p>
+        {/* Vehicle summary subtitle */}
+        <section className="flex items-start gap-3 rounded-2xl border border-border/50 bg-slate-950/45 px-4 py-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-300">
+            <Car className="h-4 w-4" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p className={SECTION_LABEL}>Vehicle &amp; service</p>
+            <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
+              {vehicleSummary || "No vehicle / service on file yet"}
+            </p>
+          </div>
+        </section>
+
+        {/* Location + Google Maps */}
+        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-3")}>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+            <p className={SECTION_LABEL}>Location</p>
+          </div>
+          {serviceAddress ? (
+            <>
+              <p className="text-sm leading-relaxed text-slate-100">{serviceAddress}</p>
+              <a
+                href={googleMapsSearchUrl(serviceAddress)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                Open in Google Maps
+              </a>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No service address saved — use Edit Job Details to add one.
+            </p>
+          )}
+        </section>
+
+        {/* Billing + Appointment side-by-side */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-3">
+            <p className={cn(SECTION_LABEL, "text-emerald-500/80")}>Billing balance</p>
+            <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-300">
+              {billingBalanceDollars > 0 ? `$${billingBalanceDollars}` : "—"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/50 bg-slate-950/40 px-3 py-3">
+            <p className={SECTION_LABEL}>Appointment</p>
+            <p
+              className={cn(
+                "mt-1 text-sm font-semibold leading-snug",
+                appointmentDelayed ? "text-rose-400" : "text-slate-100"
+              )}
+            >
+              {scheduledAtIso ? (
+                <>
+                  <span className="block">{scheduledDateLabel}</span>
+                  <span className="block text-xs font-medium text-slate-400">{scheduledTimeLabel}</span>
+                </>
+              ) : (
+                "Not scheduled"
+              )}
+            </p>
+          </div>
         </div>
 
-        {/* SECTION A — Vehicle & key */}
-        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-3")}>
-          <p className={SECTION_LABEL}>Vehicle &amp; key specifics</p>
-          {vehicleBlock ? (
-            <p className="text-base font-semibold text-foreground">{vehicleBlock.value}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">No vehicle on file yet.</p>
-          )}
-          {keyBlocks.length > 0 ? (
+        {/* Key specs (compact) */}
+        {keyBlocks.length > 0 ? (
+          <section className={cn(SCHEDULER_GLASS_CARD, "space-y-2")}>
+            <p className={SECTION_LABEL}>Key specifics</p>
             <div className="grid grid-cols-2 gap-2">
               {keyBlocks.map((block) => (
                 <div
@@ -222,37 +397,16 @@ export function JobDetailOverview({
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-500">
-              No TI SKU / key specs yet — use Edit Job Details to add them.
-            </p>
-          )}
-          {addressBlock ? (
-            <div className="rounded-xl border border-border/40 bg-slate-950/30 px-3 py-2">
-              <p className={SCHEDULER_METADATA_LABEL}>Address</p>
-              <p className="mt-0.5 text-sm text-slate-200">{addressBlock.value}</p>
-            </div>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
 
-        {/* Appointment + pipeline status */}
+        {/* Pipeline controls */}
         <section className={cn(SCHEDULER_GLASS_CARD, SCHEDULER_STACK)}>
-          <div className={SCHEDULER_FIELD_STACK}>
-            <span className={SECTION_LABEL}>Appointment</span>
-            <span
-              className={cn(
-                "text-sm font-medium",
-                appointmentDelayed ? "text-rose-400" : "text-slate-200"
-              )}
-            >
-              {scheduledAtIso ? `${scheduledDateLabel} at ${scheduledTimeLabel}` : "Not scheduled yet"}
-            </span>
-          </div>
-
+          <p className={SECTION_LABEL}>Pipeline controls</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className={SCHEDULER_FIELD_STACK}>
               <label htmlFor="job-pipeline-status" className={SECTION_LABEL}>
-                Pipeline status
+                Status
               </label>
               <select
                 id="job-pipeline-status"
@@ -284,7 +438,7 @@ export function JobDetailOverview({
           </div>
         </section>
 
-        {/* SECTION B — Action center */}
+        {/* Action center */}
         <section className={cn(SCHEDULER_GLASS_CARD, "space-y-3")}>
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Action center</p>
@@ -355,7 +509,7 @@ export function JobDetailOverview({
           ) : null}
         </section>
 
-        {/* SECTION C — Internal dispatch notes (chat-like) */}
+        {/* Dispatch notes */}
         <section className={cn(SCHEDULER_GLASS_CARD, "space-y-2")}>
           <label htmlFor="internal-dispatch-notes" className={SECTION_LABEL}>
             Internal dispatch notes
