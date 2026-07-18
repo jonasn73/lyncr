@@ -302,35 +302,46 @@ function manualOptionCardModel(
   if (brand) specs.push({ label: "Brand", value: brand })
   if (option.description) specs.push({ label: "Spec", value: option.description })
 
-  // Real TI catalog SKUs (TIK-*) become the badge; otherwise generate a mock family code.
-  const tiSku = option.catalogSku
-    ? `TI-SKU: ${option.catalogSku}`
+  // Real TI catalog SKUs (TIK-*) become the single badge; otherwise generate a mock family code.
+  const bareCatalog = (option.catalogSku || option.supplierSku || "").trim().toUpperCase()
+  const tiSku = bareCatalog
+    ? `TI-SKU: ${bareCatalog}`
     : buildTransponderIslandSku({
         make,
         title: option.label,
         keyType: option.label,
         variantId: option.id,
       })
+  const badgeSku = stripTiSkuPrefix(tiSku).toUpperCase()
+  const supplierSku = (option.supplierSku || "").trim().toUpperCase()
+  // Only show a second supplier badge when it differs from the primary TI blank.
+  const supplierDiffers = Boolean(supplierSku && supplierSku !== badgeSku)
   const supplierOverride =
-    option.supplierSku && option.fccId
+    supplierDiffers && option.fccId
       ? {
-          catalogSku: option.catalogSku || stripTiSkuPrefix(tiSku),
-          supplierSku: option.supplierSku,
+          catalogSku: badgeSku,
+          supplierSku,
           fccId: option.fccId,
         }
-      : resolveTransponderIslandSupplierSku({
-          year,
-          make,
-          fccId: option.fccId,
-          catalogSku: tiSku,
-          title: option.label,
-          keyType: option.label,
-        })
+      : !bareCatalog
+        ? resolveTransponderIslandSupplierSku({
+            year,
+            make,
+            fccId: option.fccId,
+            catalogSku: tiSku,
+            title: option.label,
+            keyType: option.label,
+          })
+        : null
+  const supplierBadgeSku = supplierOverride?.supplierSku?.trim().toUpperCase() || ""
+  const showSupplierBadge = Boolean(
+    supplierOverride && supplierBadgeSku && supplierBadgeSku !== badgeSku
+  )
 
-  // Keep FCC/supplier in specs only when we are not showing the order badge.
-  if (!supplierOverride) {
-    if (option.supplierSku) specs.push({ label: "Supplier SKU", value: option.supplierSku })
-    if (option.fccId) specs.push({ label: "FCC ID", value: option.fccId })
+  // Spec already includes FCC — never repeat it in a footnote or second row.
+  const fccInSpec = /FCC\s*ID\s*:/i.test(option.description || "")
+  if (!fccInSpec && option.fccId) {
+    specs.push({ label: "FCC ID", value: option.fccId })
   }
 
   return applyVehicleKeyCardOverrides(
@@ -340,11 +351,10 @@ function manualOptionCardModel(
       description: option.description,
       imageUrl: option.imageUrl,
       programmingMethod: option.programmingMethod,
-      // Prefer the real catalog SKU (KEY-VOL-05-PROX / PROX-SUB-01) over the generated TI mock code.
       tiSku,
-      supplierOrderBadge: supplierOverride ? formatTiSupplierOrderBadge(supplierOverride) : null,
+      supplierOrderBadge: showSupplierBadge ? formatTiSupplierOrderBadge(supplierOverride!) : null,
       specs: specs.length > 0 ? specs : undefined,
-      fccFootnote: option.fccId ? `FCC ${option.fccId}` : null,
+      fccFootnote: null,
     },
     year,
     make
@@ -1050,8 +1060,6 @@ function ManualFrequencyGrid({
   const mkpProfile = useMemo(() => lookupMykeysProProfile(make, model), [make, model])
   const subaruMapped = isSubaru2017To2025ProxMap(year, make)
   const fromTiCatalog = Boolean(catalogOptions && catalogOptions.length > 0)
-  const primaryFcc = options[0]?.fccId?.trim() || null
-  const primarySku = options[0]?.catalogSku?.trim() || null
 
   // TI catalog: show the primary (usually …A aftermarket) only; expand for alternates.
   const [showMoreKeys, setShowMoreKeys] = useState(false)
@@ -1069,23 +1077,7 @@ function ManualFrequencyGrid({
 
   return (
     <div className="grid gap-2">
-      {fromTiCatalog && (primarySku || primaryFcc) ? (
-        <p className="text-[11px] text-muted-foreground">
-          Recommended order blank
-          {primarySku ? (
-            <>
-              :{" "}
-              <span className="font-mono font-semibold text-foreground">{primarySku}</span>
-            </>
-          ) : null}
-          {primaryFcc ? (
-            <>
-              {" "}
-              · FCC <span className="font-mono font-semibold text-foreground">{primaryFcc}</span>
-            </>
-          ) : null}
-        </p>
-      ) : subaruMapped || mkpProfile ? (
+      {!fromTiCatalog && (subaruMapped || mkpProfile) ? (
         <p className="text-[11px] text-muted-foreground">
           {subaruMapped ? "Mapped key — FCC " : "MYKEYS Pro — FCC "}
           <span className="font-mono font-semibold text-foreground">

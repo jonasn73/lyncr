@@ -2324,27 +2324,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     .join(" ")}
                                 </div>
                               ) : null}
-                              <CallTimeInventoryIntake
-                                year={form.vehicleYear}
-                                make={form.vehicleMake}
-                                model={form.vehicleModel}
-                                selectedFccId={form.keyFccId || null}
-                                selectedFrequency={form.keyFrequency || null}
-                                organizationId={activeOrganizationId}
-                                inventory={preloadedKeyBundle?.inventory}
-                                onInventoryUpdated={mergeInventoryItem}
-                                onMarkedOutOfStock={() => {
-                                  // Quantity set to 0 — Alternative Solutions card appears below.
-                                  requestAnimationFrame(() => {
-                                    document
-                                      .getElementById("key-details-alternative-solutions")
-                                      ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
-                                  })
-                                }}
-                              />
-                              <p className="text-[11px] text-primary/90">
-                                Verify button configuration with customer to confirm selection.
-                              </p>
                               <VehicleIntakeClarificationsPanel
                                 year={form.vehicleYear}
                                 make={form.vehicleMake}
@@ -2392,6 +2371,24 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                           inventory,
                                         }
                                   )
+                                }}
+                              />
+                              <CallTimeInventoryIntake
+                                year={form.vehicleYear}
+                                make={form.vehicleMake}
+                                model={form.vehicleModel}
+                                selectedFccId={form.keyFccId || null}
+                                selectedFrequency={form.keyFrequency || null}
+                                selectedTiSku={form.tiSku || null}
+                                organizationId={activeOrganizationId}
+                                inventory={preloadedKeyBundle?.inventory}
+                                onInventoryUpdated={mergeInventoryItem}
+                                onMarkedOutOfStock={() => {
+                                  requestAnimationFrame(() => {
+                                    document
+                                      .getElementById("key-details-alternative-solutions")
+                                      ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                                  })
                                 }}
                               />
                               <div id="key-details-alternative-solutions">
@@ -2681,23 +2678,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           .join(" ")}
                       </div>
                     ) : null}
-                    <CallTimeInventoryIntake
-                      year={form.vehicleYear}
-                      make={form.vehicleMake}
-                      model={form.vehicleModel}
-                      selectedFccId={form.keyFccId || null}
-                      selectedFrequency={form.keyFrequency || null}
-                      organizationId={activeOrganizationId}
-                      inventory={preloadedKeyBundle?.inventory}
-                      onInventoryUpdated={mergeInventoryItem}
-                      onMarkedOutOfStock={() => {
-                        requestAnimationFrame(() => {
-                          document
-                            .getElementById("key-details-alternative-solutions-flat")
-                            ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
-                        })
-                      }}
-                    />
                     <VehicleIntakeClarificationsPanel
                       year={form.vehicleYear}
                       make={form.vehicleMake}
@@ -2743,6 +2723,24 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 inventory,
                               }
                         )
+                      }}
+                    />
+                    <CallTimeInventoryIntake
+                      year={form.vehicleYear}
+                      make={form.vehicleMake}
+                      model={form.vehicleModel}
+                      selectedFccId={form.keyFccId || null}
+                      selectedFrequency={form.keyFrequency || null}
+                      selectedTiSku={form.tiSku || null}
+                      organizationId={activeOrganizationId}
+                      inventory={preloadedKeyBundle?.inventory}
+                      onInventoryUpdated={mergeInventoryItem}
+                      onMarkedOutOfStock={() => {
+                        requestAnimationFrame(() => {
+                          document
+                            .getElementById("key-details-alternative-solutions-flat")
+                            ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                        })
                       }}
                     />
                     <div id="key-details-alternative-solutions-flat">

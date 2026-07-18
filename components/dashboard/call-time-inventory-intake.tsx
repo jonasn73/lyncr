@@ -1,9 +1,9 @@
 "use client"
 
-// Call-time inventory auditing loop — Key Details step (FCC + frequency → stock check).
+// Call-time inventory — compact stock row on Key Details (Add to inventory / Adjust).
 
 import { useEffect, useMemo, useState } from "react"
-import { Download, Loader2, Minus, Plus, Search, X } from "lucide-react"
+import { Camera, Loader2, Minus, PackagePlus, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
@@ -11,10 +11,6 @@ import {
   deriveCallTimeInventorySku,
   pickPrimaryInventoryRow,
 } from "@/lib/call-time-inventory-sku"
-import {
-  formatTiSupplierOrderBadge,
-  resolveTransponderIslandSupplierSku,
-} from "@/lib/transponder-island-sku"
 import { KeyInventoryCapturePhotoButton } from "@/components/dashboard/key-inventory-capture-photo"
 
 type Props = {
@@ -25,6 +21,8 @@ type Props = {
   selectedFccId?: string | null
   /** Identified frequency (e.g. "434 MHz") from key profile. */
   selectedFrequency?: string | null
+  /** Selected TI order blank (e.g. TIK-MAZ-46A) — preferred over FCC-… fallback. */
+  selectedTiSku?: string | null
   organizationId?: string | null
   inventory: KeyInventoryApiRow[] | null | undefined
   onInventoryUpdated: (item: KeyInventoryApiRow) => void
@@ -39,6 +37,7 @@ export function CallTimeInventoryIntake({
   model,
   selectedFccId,
   selectedFrequency,
+  selectedTiSku,
   organizationId,
   inventory,
   onInventoryUpdated,
@@ -47,7 +46,6 @@ export function CallTimeInventoryIntake({
 }: Props) {
   const vehicleReady = Boolean(year?.trim() && make?.trim() && model?.trim())
   const fccReady = Boolean(selectedFccId?.trim())
-  // Trigger stock audit once vehicle + FCC are known (frequency shown when available).
   const auditReady = vehicleReady && fccReady
 
   const primary = useMemo(
@@ -55,53 +53,56 @@ export function CallTimeInventoryIntake({
     [inventory, selectedFccId]
   )
 
-  const displayFcc = (selectedFccId || primary?.fccId || "").trim() || "N/A"
-  const displayFrequency =
-    (selectedFrequency || primary?.frequency || "").trim() || "N/A"
-  const displayTiSku = (primary?.tiSku || primary?.sku || "").trim() || "N/A"
-  const supplierOverride = useMemo(
-    () =>
-      resolveTransponderIslandSupplierSku({
-        year,
-        make,
-        model,
-        fccId: selectedFccId || primary?.fccId,
-        catalogSku: primary?.tiSku || primary?.sku || "PROX-SUB-01",
-        title: "Proximity Smart Key",
-        keyType: "Smart Key",
-      }),
-    [year, make, model, selectedFccId, primary?.fccId, primary?.tiSku, primary?.sku]
-  )
+  const displaySku = useMemo(() => {
+    const fromSelection = selectedTiSku?.trim()
+    if (fromSelection) return fromSelection.toUpperCase()
+    const fromRow = (primary?.tiSku || primary?.sku || "").trim()
+    if (fromRow) return fromRow.toUpperCase()
+    return deriveCallTimeInventorySku({
+      inventory,
+      selectedFccId,
+      selectedTiSku,
+      year,
+      make,
+      model,
+    })
+  }, [selectedTiSku, primary?.tiSku, primary?.sku, inventory, selectedFccId, year, make, model])
+
   const van1Qty = primary?.van1Qty ?? primary?.van1Quantity ?? 0
   const stockActive = Boolean(primary && van1Qty > 0)
 
   const [adjustOpen, setAdjustOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
   const [stepperBusy, setStepperBusy] = useState(false)
-  const [checkPhase, setCheckPhase] = useState<"ask" | "yes_qty">("ask")
   const [qtyDraft, setQtyDraft] = useState(1)
   const [saveBusy, setSaveBusy] = useState(false)
+  const [showCapture, setShowCapture] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setAdjustOpen(false)
-    setCheckPhase("ask")
+    setAddOpen(false)
+    setShowCapture(false)
     setQtyDraft(1)
     setError(null)
-  }, [year, make, model, selectedFccId, selectedFrequency])
+  }, [year, make, model, selectedFccId, selectedFrequency, selectedTiSku])
 
   if (!auditReady) return null
 
   const sku = deriveCallTimeInventorySku({
     inventory,
     selectedFccId,
+    selectedTiSku,
     year,
     make,
     model,
   })
   const tiSkuForSave =
+    selectedTiSku?.trim() ||
     primary?.tiSku?.trim() ||
-    (displayTiSku !== "N/A" ? displayTiSku : null) ||
-    (sku.startsWith("TIK-") ? sku : null)
+    (displaySku.startsWith("TIK-") || displaySku.startsWith("TIT-") ? displaySku : null) ||
+    (sku.startsWith("TIK-") || sku.startsWith("TIT-") ? sku : null) ||
+    sku
 
   const upsertVan1 = async (quantity: number): Promise<KeyInventoryApiRow | null> => {
     const res = await fetch("/api/inventory/upsert", {
@@ -114,7 +115,7 @@ export function CallTimeInventoryIntake({
         van1Quantity: quantity,
         fccId: selectedFccId || primary?.fccId || "",
         frequency: selectedFrequency || primary?.frequency || "",
-        brand: primary?.brand || "",
+        brand: primary?.brand || make || "",
         supplierName: primary?.supplierName || "Transponder Island",
         year,
         make,
@@ -132,7 +133,6 @@ export function CallTimeInventoryIntake({
 
   const adjustByDelta = async (delta: 1 | -1) => {
     if (!primary?.id) {
-      // No row yet — upsert absolute quantity from stepper draft.
       const next = Math.max(0, qtyDraft + delta)
       setQtyDraft(next)
       return
@@ -171,7 +171,7 @@ export function CallTimeInventoryIntake({
       const item = await upsertVan1(qty)
       if (item) {
         onInventoryUpdated(item)
-        setCheckPhase("ask")
+        setAddOpen(false)
         setAdjustOpen(false)
       }
     } catch (e) {
@@ -188,6 +188,7 @@ export function CallTimeInventoryIntake({
       const item = await upsertVan1(0)
       if (item) onInventoryUpdated(item)
       onMarkedOutOfStock?.()
+      setAddOpen(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not mark out of stock")
     } finally {
@@ -200,35 +201,34 @@ export function CallTimeInventoryIntake({
     return (
       <div
         className={cn(
-          "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5",
+          "rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-2",
           className
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <p className="min-w-0 flex-1 text-sm font-medium text-emerald-200">
-            <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
-            Stock Active: {van1Qty} in Van 1
-            {displayTiSku !== "N/A" ? (
-              <span className="ml-2 font-mono text-[11px] text-emerald-300/90">
-                TI-SKU: {supplierOverride?.catalogSku || displayTiSku}
-              </span>
-            ) : null}
+          <p className="min-w-0 flex-1 text-xs font-medium text-emerald-200">
+            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+            {van1Qty} in van
+            <span className="ml-1.5 font-mono text-[10px] text-emerald-300/80">{displaySku}</span>
           </p>
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 border border-emerald-500/30 bg-emerald-950/40 text-emerald-100 hover:bg-emerald-900/50"
+            className="h-7 border border-emerald-500/30 bg-emerald-950/40 px-2 text-[11px] text-emerald-100 hover:bg-emerald-900/50"
             onClick={() => setAdjustOpen((v) => !v)}
           >
             Adjust
           </Button>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-emerald-200/80 hover:bg-emerald-500/15 hover:text-emerald-100"
+            aria-label="Capture key image"
+            onClick={() => setShowCapture((v) => !v)}
+          >
+            <Camera className="h-3.5 w-3.5" aria-hidden />
+          </button>
         </div>
-        {supplierOverride ? (
-          <p className="mt-1.5 inline-flex max-w-full flex-wrap rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-[11px] font-semibold tracking-wide text-sky-100">
-            {formatTiSupplierOrderBadge(supplierOverride)}
-          </p>
-        ) : null}
 
         {adjustOpen ? (
           <div className="mt-2 flex items-center gap-2">
@@ -236,186 +236,170 @@ export function CallTimeInventoryIntake({
               type="button"
               size="icon"
               variant="secondary"
-              className="h-9 w-9 border border-emerald-500/30"
+              className="h-8 w-8 border border-emerald-500/30"
               disabled={stepperBusy || van1Qty <= 0}
               aria-label="Subtract one key from Van 1"
               onClick={() => void adjustByDelta(-1)}
             >
               {stepperBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               ) : (
-                <Minus className="h-4 w-4" aria-hidden />
+                <Minus className="h-3.5 w-3.5" aria-hidden />
               )}
             </Button>
-            <span className="min-w-[2.5rem] text-center text-base font-semibold tabular-nums text-emerald-100">
+            <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums text-emerald-100">
               {van1Qty}
             </span>
             <Button
               type="button"
               size="icon"
               variant="secondary"
-              className="h-9 w-9 border border-emerald-500/30"
+              className="h-8 w-8 border border-emerald-500/30"
               disabled={stepperBusy}
               aria-label="Add one key to Van 1"
               onClick={() => void adjustByDelta(1)}
             >
               {stepperBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               ) : (
-                <Plus className="h-4 w-4" aria-hidden />
+                <Plus className="h-3.5 w-3.5" aria-hidden />
               )}
             </Button>
-            <span className="text-[11px] text-emerald-200/70">Van 1 (e.g. after programming)</span>
           </div>
         ) : null}
 
-        <div className="mt-2.5 border-t border-emerald-500/20 pt-2.5">
-          <KeyInventoryCapturePhotoButton
-            inventoryId={primary.id}
-            sku={sku}
-            fccId={selectedFccId || primary.fccId}
-            frequency={selectedFrequency || primary.frequency}
-            year={year}
-            make={make}
-            model={model}
-            organizationId={organizationId}
-            imageUrl={primary.imageUrl}
-            onUploaded={onInventoryUpdated}
-          />
-        </div>
+        {showCapture ? (
+          <div className="mt-2 border-t border-emerald-500/20 pt-2">
+            <KeyInventoryCapturePhotoButton
+              inventoryId={primary.id}
+              sku={sku}
+              fccId={selectedFccId || primary.fccId}
+              frequency={selectedFrequency || primary.frequency}
+              year={year}
+              make={make}
+              model={model}
+              organizationId={organizationId}
+              imageUrl={primary.imageUrl}
+              onUploaded={onInventoryUpdated}
+            />
+          </div>
+        ) : null}
 
         {error ? <p className="mt-1.5 text-xs text-rose-300">{error}</p> : null}
       </div>
     )
   }
 
-  // —— Unknown or 0 — Stock Verification Required ——
+  // —— Unknown or 0 — compact Add to inventory ——
   return (
     <div
       id="call-time-stock-verification"
       className={cn(
-        "rounded-xl border-2 border-amber-400/70 bg-amber-500/15 px-3 py-3 shadow-sm shadow-amber-950/30",
+        "rounded-lg border border-border/70 bg-muted/20 px-2.5 py-2",
         className
       )}
     >
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-500/20 text-amber-100">
-          <Search className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-semibold text-amber-50">Stock Verification Required</p>
-          <p className="text-xs leading-relaxed text-amber-100/90">
-            We need FCC ID:{" "}
-            <span className="font-mono font-medium text-amber-50">{displayFcc}</span> (
-            {displayFrequency}) — TI-SKU:{" "}
-            <span className="font-mono font-medium text-amber-50">
-              {supplierOverride?.catalogSku || displayTiSku}
-            </span>
-            .
-          </p>
-          {supplierOverride ? (
-            <p className="inline-flex max-w-full flex-wrap rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-[11px] font-semibold tracking-wide text-sky-100">
-              {formatTiSupplierOrderBadge(supplierOverride)}
-            </p>
-          ) : null}
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+          Not in van
+          <span className="ml-1.5 font-mono text-[10px] text-foreground/80">{displaySku}</span>
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 gap-1 bg-emerald-600 px-2.5 text-[11px] text-white hover:bg-emerald-500"
+          disabled={saveBusy}
+          onClick={() => {
+            setAddOpen(true)
+            setQtyDraft(van1Qty > 0 ? van1Qty : 1)
+            setError(null)
+          }}
+        >
+          <PackagePlus className="h-3.5 w-3.5" aria-hidden />
+          Add to inventory
+        </Button>
+        <button
+          type="button"
+          className="text-[11px] font-medium text-rose-300/90 underline-offset-2 hover:underline disabled:opacity-50"
+          disabled={saveBusy}
+          onClick={() => void markOutOfStock()}
+        >
+          {saveBusy ? "…" : "Out of stock"}
+        </button>
       </div>
 
-      <div className="mt-3">
-        <KeyInventoryCapturePhotoButton
-          inventoryId={primary?.id}
-          sku={sku}
-          fccId={selectedFccId}
-          frequency={selectedFrequency}
-          year={year}
-          make={make}
-          model={model}
-          organizationId={organizationId}
-          imageUrl={primary?.imageUrl}
-          onUploaded={onInventoryUpdated}
-        />
-      </div>
-
-      {checkPhase === "ask" ? (
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button
-            type="button"
-            variant="secondary"
-            className="h-11 border border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
-            disabled={saveBusy}
-            onClick={() => void markOutOfStock()}
-          >
-            {saveBusy ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <X className="h-4 w-4" aria-hidden />
-            )}
-            Out of Stock
-          </Button>
-          <Button
-            type="button"
-            className="h-11 bg-emerald-600 text-white hover:bg-emerald-500"
-            disabled={saveBusy}
-            onClick={() => {
-              setCheckPhase("yes_qty")
-              setQtyDraft(van1Qty > 0 ? van1Qty : 1)
-              setError(null)
-            }}
-          >
-            <Download className="h-4 w-4" aria-hidden />
-            Yes, I Have It
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-3 space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-950/30 p-2.5">
-          <p className="text-xs font-medium text-emerald-100">How many do you have on hand?</p>
+      {addOpen ? (
+        <div className="mt-2 space-y-2 rounded-md border border-emerald-500/25 bg-emerald-950/25 p-2">
+          <p className="text-[11px] font-medium text-emerald-100">How many on hand?</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="icon"
               variant="secondary"
-              className="h-10 w-10 border border-emerald-500/30"
+              className="h-8 w-8 border border-emerald-500/30"
               disabled={saveBusy || qtyDraft <= 1}
               aria-label="Decrease quantity"
               onClick={() => setQtyDraft((n) => Math.max(1, n - 1))}
             >
-              <Minus className="h-4 w-4" aria-hidden />
+              <Minus className="h-3.5 w-3.5" aria-hidden />
             </Button>
-            <span className="min-w-[2.75rem] text-center text-lg font-semibold tabular-nums text-emerald-50">
+            <span className="min-w-[2rem] text-center text-base font-semibold tabular-nums text-emerald-50">
               {qtyDraft}
             </span>
             <Button
               type="button"
               size="icon"
               variant="secondary"
-              className="h-10 w-10 border border-emerald-500/30"
+              className="h-8 w-8 border border-emerald-500/30"
               disabled={saveBusy}
               aria-label="Increase quantity"
               onClick={() => setQtyDraft((n) => n + 1)}
             >
-              <Plus className="h-4 w-4" aria-hidden />
+              <Plus className="h-3.5 w-3.5" aria-hidden />
             </Button>
             <Button
               type="button"
-              className="h-10 flex-1 bg-emerald-600 hover:bg-emerald-500 sm:flex-none"
+              className="h-8 flex-1 bg-emerald-600 text-[11px] hover:bg-emerald-500 sm:flex-none"
               disabled={saveBusy}
               onClick={() => void saveYesIHaveIt()}
             >
-              {saveBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              Save to Inventory
+              {saveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+              Save
             </Button>
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => setAddOpen(false)}
+            >
+              Cancel
+            </button>
           </div>
           <button
             type="button"
-            className="text-[11px] text-amber-100/70 underline-offset-2 hover:underline"
-            onClick={() => setCheckPhase("ask")}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => setShowCapture((v) => !v)}
           >
-            Back
+            <Camera className="h-3 w-3" aria-hidden />
+            {showCapture ? "Hide photo" : "Capture key image"}
           </button>
+          {showCapture ? (
+            <KeyInventoryCapturePhotoButton
+              inventoryId={primary?.id}
+              sku={sku}
+              fccId={selectedFccId}
+              frequency={selectedFrequency}
+              year={year}
+              make={make}
+              model={model}
+              organizationId={organizationId}
+              imageUrl={primary?.imageUrl}
+              onUploaded={onInventoryUpdated}
+            />
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {error ? <p className="mt-2 text-center text-xs text-rose-300">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs text-rose-300">{error}</p> : null}
     </div>
   )
 }
