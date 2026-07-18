@@ -88,12 +88,10 @@ export function smsNoticeMessage(view: SmsComplianceView, state: SmsNoticeState)
   const detail = failureDetailText(view)
   if (state === "rejected") {
     if (detail) {
-      const clipped = detail.length > 140 ? `${detail.slice(0, 139)}…` : detail
-      return clipped.toLowerCase().startsWith("carrier")
-        ? clipped
-        : `Carrier rejection: ${clipped}`
+      const clipped = detail.length > 160 ? `${detail.slice(0, 159)}…` : detail
+      return `❌ 10DLC Registration Action Required: Your brand was rejected due to ${clipped}. Click here to update your business details and re-submit.`
     }
-    return "Your 10DLC registration failed at the carrier. Update and resubmit to unlock business texts."
+    return "❌ 10DLC Registration Action Required: Your brand was rejected. Click here to update your business details and re-submit."
   }
   if (state === "pending") {
     return "SMS business registration is undergoing carrier review. Alerts will unlock shortly."

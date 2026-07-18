@@ -26,7 +26,7 @@ function ownerEventKind(event: OwnerChannelEvent): "inbound" | "disposition" | "
   ) {
     return "disposition"
   }
-  if (event === "porting-update") return "system"
+  if (event === "porting-update" || event === "10dlc-update") return "system"
   return "other"
 }
 
@@ -38,6 +38,10 @@ export function isSevereOwnerRoutingException(
   if (event === "porting-update") {
     const status = String(payload.status ?? payload.telnyx_status ?? "").toLowerCase()
     if (status === "rejected" || status === "action_required") return true
+  }
+  if (event === "10dlc-update") {
+    const outcome = String(payload.outcome ?? payload.status ?? "").toLowerCase()
+    if (outcome === "rejected") return true
   }
   return false
 }

@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react"
 import { MessageSquareWarning, X } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { openCarrierRegistrationModal } from "@/lib/settings-modals-events"
+import {
+  CARRIER_REGISTRATION_UPDATED_EVENT,
+  openCarrierRegistrationModal,
+} from "@/lib/settings-modals-events"
 import {
   fetchSmsComplianceView,
   resolveSmsNoticeState,
@@ -40,7 +43,11 @@ export function SmsAlertBanner() {
       void loadCompliance(readActiveOrganizationId())
     }
     window.addEventListener("lyncr-organization-changed", onOrgChanged)
-    return () => window.removeEventListener("lyncr-organization-changed", onOrgChanged)
+    window.addEventListener(CARRIER_REGISTRATION_UPDATED_EVENT, onOrgChanged)
+    return () => {
+      window.removeEventListener("lyncr-organization-changed", onOrgChanged)
+      window.removeEventListener(CARRIER_REGISTRATION_UPDATED_EVENT, onOrgChanged)
+    }
   }, [loadCompliance])
 
   if (!view || view.sms_ready) return null
@@ -59,15 +66,18 @@ export function SmsAlertBanner() {
   }
 
   const tone = needsAttention
-    ? "border-red-500/30 bg-red-500/10 text-red-100"
+    ? "border-red-500/40 bg-red-600/20 text-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.25)]"
     : isPending
       ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
       : "border-violet-500/30 bg-violet-500/10 text-violet-100"
 
   return (
-    <div className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${tone}`}>
+    <div
+      className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${tone}`}
+      role={needsAttention ? "alert" : "status"}
+    >
       <MessageSquareWarning className="h-5 w-5 shrink-0" aria-hidden />
-      <p className="min-w-0 flex-1 text-sm">{smsNoticeMessage(view, smsState)}</p>
+      <p className="min-w-0 flex-1 text-sm font-medium">{smsNoticeMessage(view, smsState)}</p>
       <button
         type="button"
         onClick={() => openCarrierRegistrationModal({ edit: needsAttention })}

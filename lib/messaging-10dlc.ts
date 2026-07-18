@@ -17,6 +17,7 @@ import {
   buildTenDlcHelpMessage,
   createTelnyx10DlcBrand,
   createTelnyx10DlcCampaign,
+  ensureTelnyx10DlcBrandWebhook,
   getTelnyx10DlcBrandStatus,
   assignNumberToTelnyx10DlcCampaign,
   getTelnyx10DlcRegistrationFeeCents,
@@ -162,7 +163,7 @@ async function activeLineFor10Dlc(
 }
 
 /** Keep dashboard sms_registrations + org flag aligned when Telnyx rejects a campaign. */
-async function markWorkspaceSmsRegistrationRejected(
+export async function markWorkspaceSmsRegistrationRejected(
   ownerUserId: string,
   organizationId: string
 ): Promise<void> {
@@ -183,6 +184,31 @@ async function markWorkspaceSmsRegistrationRejected(
     status: "REJECTED",
   }).catch((e) => {
     console.warn("[10dlc] sms_registrations reject sync failed:", e)
+  })
+}
+
+/** Keep dashboard sms_registrations + org flag aligned when Telnyx approves brand/campaign. */
+export async function markWorkspaceSmsRegistrationApproved(
+  ownerUserId: string,
+  organizationId: string
+): Promise<void> {
+  await setOrganizationSmsRegistrationStatus(organizationId, ownerUserId, "APPROVED").catch(() => {})
+  const smsReg = await getSmsRegistrationForOwner(ownerUserId, organizationId)
+  if (!smsReg) return
+  await upsertSmsRegistration({
+    owner_user_id: ownerUserId,
+    organization_id: organizationId,
+    legal_business_name: smsReg.legal_business_name,
+    entity_type: smsReg.entity_type,
+    tax_id_ein: smsReg.tax_id_ein,
+    street: smsReg.street,
+    city: smsReg.city,
+    state: smsReg.state,
+    postal_code: smsReg.postal_code,
+    use_case_description: smsReg.use_case_description,
+    status: "APPROVED",
+  }).catch((e) => {
+    console.warn("[10dlc] sms_registrations approve sync failed:", e)
   })
 }
 
@@ -364,6 +390,9 @@ export async function submitMessaging10DlcToTelnyx(
     }
     brandId = brand.brandId
     await upsert10(userId, resolvedOrgId, { brand_id: brandId })
+  } else {
+    // Existing brands created before webhook wiring — attach Lyncr URL for status updates.
+    await ensureTelnyx10DlcBrandWebhook(brandId)
   }
 
   const brandStatus = await getTelnyx10DlcBrandStatus(brandId)

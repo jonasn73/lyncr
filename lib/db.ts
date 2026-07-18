@@ -13846,3 +13846,45 @@ export async function upsertMessaging10DlcRegistration(
   return saved
 }
 
+/** Find a 10DLC registration by Telnyx/TCR brand id (webhook lookup). */
+export async function getMessaging10DlcRegistrationByBrandId(
+  brandId: string
+): Promise<Messaging10DlcRegistration | null> {
+  const id = brandId.trim()
+  if (!id) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM messaging_10dlc_registrations
+      WHERE brand_id = ${id}
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `
+    return rows[0] ? parse10DlcRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissing10DlcTableError(e)) return null
+    throw e
+  }
+}
+
+/** Find a 10DLC registration by Telnyx/TCR campaign id (webhook lookup). */
+export async function getMessaging10DlcRegistrationByCampaignId(
+  campaignId: string
+): Promise<Messaging10DlcRegistration | null> {
+  const id = campaignId.trim()
+  if (!id) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM messaging_10dlc_registrations
+      WHERE campaign_id = ${id}
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `
+    return rows[0] ? parse10DlcRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissing10DlcTableError(e)) return null
+    throw e
+  }
+}
+

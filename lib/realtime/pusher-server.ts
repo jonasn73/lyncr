@@ -84,6 +84,7 @@ export type OwnerChannelEvent =
   | "call-completed"
   | "call-recording-ready"
   | "porting-update"
+  | "10dlc-update"
   | "live-gps"
   | "ticket.photos_updated"
   | "notification.photo_uploaded"

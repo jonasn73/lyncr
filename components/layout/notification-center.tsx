@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   Bell,
+  CheckCircle2,
   Loader2,
   MessageSquare,
   MessageSquareWarning,
@@ -11,6 +12,7 @@ import {
   Truck,
   type LucideIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
@@ -168,6 +170,12 @@ export const NotificationCenter = memo(function NotificationCenter() {
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [smsView, setSmsView] = useState<SmsComplianceView | null>(null)
   const [smsDismissed, setSmsDismissed] = useState(true)
+  /** Transient success banner after a live 10DLC approval webhook. */
+  const [tenDlcFlash, setTenDlcFlash] = useState<{
+    title: string
+    message: string
+    outcome: "approved" | "rejected"
+  } | null>(null)
 
   const loadSession = useCallback(() => {
     fetch("/api/auth/session", { credentials: "include" })
@@ -269,12 +277,63 @@ export const NotificationCenter = memo(function NotificationCenter() {
       }
     }
 
+    const onTenDlcUpdate = (payload: {
+      organization_id?: string | null
+      outcome?: string
+      title?: string
+      message?: string
+      failure_reason?: string | null
+      action?: string
+    }) => {
+      const orgId = readActiveOrganizationId() ?? activeOrganizationId
+      if (
+        orgId &&
+        !orgId.startsWith("legacy-") &&
+        payload.organization_id &&
+        payload.organization_id !== orgId
+      ) {
+        return
+      }
+
+      const outcome = String(payload.outcome ?? "").toLowerCase()
+      const title = payload.title?.trim() || "10DLC update"
+      const message =
+        payload.message?.trim() ||
+        (outcome === "approved"
+          ? "Your 10DLC brand registration has been approved."
+          : "Your 10DLC registration needs attention.")
+
+      if (outcome === "approved" || outcome === "rejected") {
+        setTenDlcFlash({
+          title,
+          message,
+          outcome: outcome === "approved" ? "approved" : "rejected",
+        })
+        if (outcome === "approved") {
+          toast.success(title, { description: message, duration: 10_000 })
+        } else {
+          toast.error(title, { description: message, duration: 12_000 })
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(smsDismissStorageKey(orgId))
+            setSmsDismissed(false)
+          }
+        }
+      }
+
+      void loadSms(orgId)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(CARRIER_REGISTRATION_UPDATED_EVENT))
+      }
+    }
+
     channel.bind("porting-update", onPortingUpdate)
+    channel.bind("10dlc-update", onTenDlcUpdate)
     return () => {
       channel.unbind("porting-update", onPortingUpdate)
+      channel.unbind("10dlc-update", onTenDlcUpdate)
       pusher.unsubscribe(`owner-${ownerUserId}`)
     }
-  }, [ownerUserId, activeOrganizationId, refreshPorting])
+  }, [ownerUserId, activeOrganizationId, refreshPorting, loadSms])
 
   useEffect(() => {
     const onChanged = () => {
@@ -391,10 +450,25 @@ export const NotificationCenter = memo(function NotificationCenter() {
       })
     }
 
+    if (tenDlcFlash?.outcome === "approved") {
+      list.push({
+        id: "sms-10dlc-approved-flash",
+        tone: "success",
+        icon: CheckCircle2,
+        title: tenDlcFlash.title,
+        message: tenDlcFlash.message,
+        actionLabel: "Dismiss",
+        onAction: () => setTenDlcFlash(null),
+        priority: 95,
+      })
+    }
+
     if (smsView && !smsView.sms_ready) {
       const smsState = resolveSmsNoticeState(smsView)
       const isPending = smsState === "pending"
       const needsAttention = smsState === "rejected"
+      const flashRejected =
+        tenDlcFlash?.outcome === "rejected" ? tenDlcFlash.message : null
 
       if (!(isPending && smsDismissed && !needsAttention)) {
         list.push({
@@ -402,7 +476,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
           tone: needsAttention ? "critical" : isPending ? "warning" : "info",
           icon: MessageSquareWarning,
           title: needsAttention ? "SMS registration failed" : "SMS registration",
-          message: smsNoticeMessage(smsView, smsState),
+          message: flashRejected || smsNoticeMessage(smsView, smsState),
           actionLabel: needsAttention ? "Fix registration" : isPending ? "View status" : "Set up SMS",
           onAction: () => {
             setOpen(false)
@@ -410,7 +484,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
               openCarrierRegistrationModal({ edit: needsAttention })
             })
           },
-          priority: needsAttention ? 85 : isPending ? 45 : 40,
+          priority: needsAttention ? 95 : isPending ? 45 : 40,
         })
       }
     }
@@ -425,6 +499,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
     unreadPortingAlerts,
     smsView,
     smsDismissed,
+    tenDlcFlash,
   ])
 
   const dismissSmsPending = () => {

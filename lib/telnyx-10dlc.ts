@@ -5,9 +5,15 @@
 // Docs: https://developers.telnyx.com/docs/messaging/10dlc
 
 import { getTelnyxApiKey, telnyxHeaders, findTelnyxPhoneNumberId } from "@/lib/telnyx-config"
+import { getAppUrl } from "@/lib/telnyx"
 import type { TenDlcEntityType } from "@/lib/types"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
+
+/** Public webhook URL Telnyx should hit for brand/campaign status updates. */
+export function telnyx10DlcWebhookUrl(): string {
+  return `${getAppUrl().replace(/\/$/, "")}/api/webhooks/telnyx`
+}
 
 /** Use-case options surfaced to businesses during onboarding. */
 export type TenDlcUseCaseKey = "SOLE_PROPRIETOR" | "LOW_VOLUME"
@@ -131,6 +137,8 @@ export async function createTelnyx10DlcBrand(
     vertical: input.vertical,
     email: input.email,
     country: input.country?.trim() || "US",
+    // Telnyx delivers brand.vetted / 10dlc.brand.update here.
+    webhookURL: telnyx10DlcWebhookUrl(),
   }
   if (input.legalCompanyName) body.companyName = input.legalCompanyName
   if (input.ein) body.ein = input.ein.replace(/\D/g, "")
@@ -159,6 +167,26 @@ export async function createTelnyx10DlcBrand(
     return { ok: false, error: "Telnyx accepted the brand but returned no brandId." }
   }
   return { ok: true, brandId: String(brandId) }
+}
+
+/** Point an existing brand's status webhooks at Lyncr (best-effort; never throws). */
+export async function ensureTelnyx10DlcBrandWebhook(brandId: string): Promise<void> {
+  const id = brandId.trim()
+  if (!id) return
+  try {
+    getTelnyxApiKey()
+  } catch {
+    return
+  }
+  try {
+    await fetch(`${TELNYX_BASE}/10dlc/brand/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: telnyxHeaders(),
+      body: JSON.stringify({ webhookURL: telnyx10DlcWebhookUrl() }),
+    })
+  } catch (e) {
+    console.warn("[10dlc] ensure brand webhookURL failed:", e)
+  }
 }
 
 export type CreateCampaignInput = {
@@ -258,6 +286,8 @@ export async function createTelnyx10DlcCampaign(
     subscriberHelp: true,
     embeddedLink: true,
     embeddedPhone: true,
+    // Campaign ACTIVE / SUSPENDED / VERIFIED events land on the same router.
+    webhookURL: telnyx10DlcWebhookUrl(),
   }
   if (input.sample2) body.sample2 = input.sample2
   if (input.useCase === "LOW_VOLUME") {
@@ -515,7 +545,12 @@ export async function getTelnyx10DlcBrandStatus(brandId: string): Promise<TenDlc
   }
   const data = (json as { data?: Record<string, unknown> }).data ?? (json as Record<string, unknown>)
   const raw = String(data.identityStatus ?? data.status ?? "UNKNOWN")
-  return { raw, normalized: normalizeRegistryStatus(raw), detail: null }
+  const detail =
+    formatTelnyxRegistryText(data.failureReasons) ||
+    formatTelnyxRegistryText(data.failureReason) ||
+    formatTelnyxRegistryText(data.reasons) ||
+    null
+  return { raw, normalized: normalizeRegistryStatus(raw), detail }
 }
 
 /** GET /10dlc/campaign/{id} — current registry status of a campaign. */
