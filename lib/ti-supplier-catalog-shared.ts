@@ -36,24 +36,87 @@ export function normalizeVehicleToken(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
+/** Canonical brand key → all catalog / intake spellings we should search for. */
+const VEHICLE_MAKE_ALIAS_GROUPS: string[][] = [
+  ["chevrolet", "chevy", "chev"],
+  ["volkswagen", "vw", "volkswagon"],
+  ["mercedes-benz", "mercedes", "mercedes benz", "benz"],
+  ["land rover", "landrover"],
+  ["alfa romeo", "alfa"],
+  ["rolls-royce", "rolls royce", "rollsroyce"],
+  ["aston martin", "aston"],
+  // RAM / Dodge titles are often interchangeable in supplier catalogs.
+  ["ram", "dodge", "dodge ram"],
+  ["gmc"],
+  ["mini", "mini cooper"],
+  ["citroen", "citroën"],
+]
+
 /**
- * Parse a leading year or year range from a TI product title.
- * Supports "2019 - 2024 …", "2019–2024 …", and single "2022 …".
+ * Expand a make into every alias spelling we should try against TI titles / SQL ILIKE.
+ * Always includes the original trimmed make (case-preserved for display elsewhere).
+ */
+export function expandMakeSearchAliases(make: string): string[] {
+  const raw = make.trim()
+  if (!raw) return []
+  const key = normalizeVehicleToken(raw)
+  const out: string[] = []
+  const seen = new Set<string>()
+
+  const push = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    const norm = normalizeVehicleToken(trimmed)
+    if (!norm || seen.has(norm)) return
+    seen.add(norm)
+    out.push(trimmed)
+  }
+
+  push(raw)
+
+  for (const group of VEHICLE_MAKE_ALIAS_GROUPS) {
+    const norms = group.map(normalizeVehicleToken)
+    if (!norms.includes(key)) continue
+    for (const alias of group) push(alias)
+  }
+
+  return out
+}
+
+/** True when a 4-digit number looks like a vehicle model year (not a frequency like 315/434). */
+function isPlausibleModelYear(year: number): boolean {
+  return Number.isFinite(year) && year >= 1985 && year <= 2035
+}
+
+/**
+ * Parse a year or year range from a TI product title.
+ * Supports leading ranges ("2019 - 2024 …") and mid-title ranges
+ * ("Strattec 2010 - 2018 Chevrolet Equinox …").
  */
 export function parseTiTitleYearRange(title: string): { start: number; end: number } | null {
-  const range = title.match(/^\s*(\d{4})\s*[-–—]\s*(\d{4})\b/)
-  if (range) {
-    const start = Number(range[1])
-    const end = Number(range[2])
-    if (Number.isFinite(start) && Number.isFinite(end) && start <= end) {
+  // Prefer an explicit range anywhere in the title (catalog often prefixes "Strattec").
+  const rangeGlobal = title.match(/(\d{4})\s*[-–—]\s*(\d{4})\b/)
+  if (rangeGlobal) {
+    const start = Number(rangeGlobal[1])
+    const end = Number(rangeGlobal[2])
+    if (isPlausibleModelYear(start) && isPlausibleModelYear(end) && start <= end) {
       return { start, end }
     }
   }
-  const single = title.match(/^\s*(\d{4})\b/)
-  if (single) {
-    const year = Number(single[1])
-    if (Number.isFinite(year)) return { start: year, end: year }
+
+  // Single year near the start (after an optional brand/vendor word).
+  const singleLead = title.match(/^(?:\s*[A-Za-z][\w.-]*\s+)?(\d{4})\b/)
+  if (singleLead) {
+    const year = Number(singleLead[1])
+    if (isPlausibleModelYear(year)) return { start: year, end: year }
   }
+
+  // Last resort: first plausible 4-digit year in the title.
+  for (const match of title.matchAll(/\b(\d{4})\b/g)) {
+    const year = Number(match[1])
+    if (isPlausibleModelYear(year)) return { start: year, end: year }
+  }
+
   return null
 }
 
@@ -63,6 +126,11 @@ export function titleHasVehicleToken(haystack: string, needle: string): boolean 
   if (!n) return false
   const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, "i").test(haystack)
+}
+
+/** True when the title mentions the make or any of its brand aliases. */
+export function titleMatchesMake(title: string, make: string): boolean {
+  return expandMakeSearchAliases(make).some((alias) => titleHasVehicleToken(title, alias))
 }
 
 /** Infer push-start / remote-head / blade style from the TI title. */
@@ -112,8 +180,9 @@ export function scoreTiCatalogTitle(
 ): number {
   const years = parseTiTitleYearRange(title)
   if (!years) return -1
+  // Year must fall inside the catalog range (e.g. 2016 inside 2010–2018).
   if (year < years.start || year > years.end) return -1
-  if (!titleHasVehicleToken(title, make)) return -1
+  if (!titleMatchesMake(title, make)) return -1
   if (!titleHasVehicleToken(title, model)) return -1
 
   let score = 100
@@ -125,12 +194,29 @@ export function scoreTiCatalogTitle(
     score += 25
   }
   if (/smart|prox|proximity/i.test(title)) score += 30
-  const afterMake = title.toLowerCase().split(normalizeVehicleToken(make))[1] ?? ""
-  const modelIdx = afterMake.indexOf(normalizeVehicleToken(model))
-  if (modelIdx >= 0) {
-    const afterModel = afterMake.slice(modelIdx + normalizeVehicleToken(model).length, modelIdx + 40)
-    if (/^\s*(smart|prox|key|5b|4b|3b|2b|-|,)/i.test(afterModel)) score += 15
+
+  // Prefer titles where the model sits right after a recognized make alias.
+  const titleLower = title.toLowerCase()
+  const modelNorm = normalizeVehicleToken(model)
+  for (const alias of expandMakeSearchAliases(make)) {
+    const aliasNorm = normalizeVehicleToken(alias)
+    const makeIdx = titleLower.indexOf(aliasNorm)
+    if (makeIdx < 0) continue
+    const afterMake = titleLower.slice(makeIdx + aliasNorm.length)
+    const modelIdx = afterMake.indexOf(modelNorm)
+    if (modelIdx < 0) continue
+    const afterModel = afterMake.slice(modelIdx + modelNorm.length, modelIdx + modelNorm.length + 40)
+    if (/^\s*(smart|prox|key|5b|4b|3b|2b|-|,|sonic|spark|cruze|camaro)/i.test(afterModel)) {
+      score += 15
+      break
+    }
+    // Model present after make is still a good signal.
+    if (modelIdx < 48) {
+      score += 8
+      break
+    }
   }
+
   if (/^TIK-/i.test(tiSku)) score += 10
   return score
 }
