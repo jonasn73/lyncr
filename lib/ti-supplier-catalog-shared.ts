@@ -1,7 +1,7 @@
 // Client-safe Transponder Island catalog helpers (no Neon / server imports).
 // Matching + card shaping for Key Details; DB fetch lives in ti-supplier-catalog.ts.
 
-import type { ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
+import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
 
 /** One row from the shared TI scrape table. */
 export type TiSupplierCatalogRow = {
@@ -257,6 +257,13 @@ const KNOWN_NAMED_MODELS: string[] = [
   "versa",
   "frontier",
   "titan",
+  "gt-r",
+  "gtr",
+  "370z",
+  "350z",
+  "leaf",
+  "armada",
+  "quest",
   "camry",
   "corolla",
   "rav4",
@@ -330,6 +337,11 @@ const KNOWN_NAMED_MODELS: string[] = [
  */
 function extractTitleModelMarkers(title: string): string[] {
   const markers = new Set<string>()
+
+  // GT-R / 370Z style tokens (must catch before generic letter+digit).
+  if (/\bgt[\s\-]?r\b/i.test(title)) markers.add("gtr")
+  if (/\b370z\b/i.test(title)) markers.add("370z")
+  if (/\b350z\b/i.test(title)) markers.add("350z")
 
   // Only well-known alphanumeric model families (avoids "Key 3B" → key3b false positives).
   for (const match of title.matchAll(
@@ -526,6 +538,56 @@ export function scoreTiCatalogTitle(
 
   if (/^TIK-/i.test(tiSku)) score += 10
   return score
+}
+
+/** True when a TI title looks like push-start / proximity (not remote-head / blade). */
+export function tiTitleLooksSmart(title: string): boolean {
+  return /smart|prox|proximity|push.?start|keyless\s*go/i.test(title)
+}
+
+/** True when a TI title looks like turn-key / remote-head (not smart prox). */
+export function tiTitleLooksTurnKey(title: string): boolean {
+  if (tiTitleLooksSmart(title)) return false
+  return /remote\s*head|flip\s*key|rhk|blade|transponder|edge\s*cut/i.test(title)
+}
+
+/**
+ * Match a TI hit to a clarification key style (push-start vs turn-key).
+ * Used when the customer answers Ask-the-customer before we show Key Details.
+ */
+export function tiHitMatchesKeyStyle(
+  hit: { title: string; fccId?: string },
+  keyStyle: string | null | undefined
+): boolean {
+  const style = (keyStyle ?? "").toLowerCase()
+  if (!style.trim()) return true
+  const wantsSmart = /push|smart|prox/.test(style)
+  const wantsTurn = /turn|remote\s*head|blade|flip/.test(style)
+  if (wantsSmart && !wantsTurn) return tiTitleLooksSmart(hit.title)
+  if (wantsTurn && !wantsSmart) return tiTitleLooksTurnKey(hit.title)
+  return true
+}
+
+/**
+ * Narrow TI hits after a clarification pins an FCC and/or key style.
+ * Prefer FCC match; if none, fall back to key-style (never keep the wrong smart blank).
+ */
+export function filterTiCatalogForClarification<
+  T extends { title: string; fccId: string; tiSku: string; score: number },
+>(hits: T[], fccId: string | null | undefined, keyStyle: string | null | undefined): T[] {
+  if (!hits.length) return hits
+  const wantFcc = fccId ? sanitizeFccIdInput(fccId) : ""
+  if (wantFcc) {
+    const byFcc = hits.filter((hit) => sanitizeFccIdInput(hit.fccId) === wantFcc)
+    if (byFcc.length > 0) return byFcc
+  }
+  if (keyStyle?.trim()) {
+    const byStyle = hits.filter((hit) => tiHitMatchesKeyStyle(hit, keyStyle))
+    if (byStyle.length > 0) return byStyle
+  }
+  // Clarification pinned something we cannot match — return empty rather than wrong key.
+  if (wantFcc || keyStyle?.trim()) return []
+  return hits
 }
 
 /** Rank + filter raw catalog rows for a vehicle. Aftermarket A-suffix always sorts first. */

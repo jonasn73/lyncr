@@ -276,8 +276,10 @@ export function useActiveCallForm(
           : prev.notes
       const fccId = option.fccId?.trim() || ""
       const tiSku = option.tiSku?.trim() || ""
-      // Model/make change clears key selection so YMM reloads; FCC answers pin the key instead.
-      const clearsKey = Boolean(option.model || option.make) && !fccId
+      const keyStyle = option.keyStyle?.trim() || ""
+      // Model/make change clears key selection so YMM reloads; FCC / style answers pin the key.
+      const clearsKey = Boolean(option.model || option.make) && !fccId && !keyStyle
+      const pinsKey = Boolean(fccId || keyStyle || tiSku)
       return {
         ...prev,
         vehicleClarificationAnswers: nextAnswers,
@@ -296,15 +298,16 @@ export function useActiveCallForm(
               tiSku: "",
             }
           : {}),
-        ...(fccId
+        ...(pinsKey
           ? {
-              keyFccId: fccId,
+              keyFccId: fccId || prev.keyFccId,
               keyFrequency: option.frequency?.trim() || prev.keyFrequency,
-              keyStyle: option.keyStyle?.trim() || prev.keyStyle,
-              keyProfileId: tiSku ? "ti-catalog" : prev.keyProfileId,
-              keyVariantId: tiSku ? `ti-catalog-${tiSku}` : prev.keyVariantId,
-              tiSku: tiSku || prev.tiSku,
-              programmingMethod: tiSku ? "OBD2 Programming Required" : prev.programmingMethod,
+              keyStyle: keyStyle || prev.keyStyle,
+              // Clear prior blank so Key Details re-picks from the filtered catalog.
+              keyProfileId: tiSku ? "ti-catalog" : "",
+              keyVariantId: tiSku ? `ti-catalog-${tiSku}` : "",
+              tiSku: tiSku || "",
+              programmingMethod: tiSku ? "OBD2 Programming Required" : "",
             }
           : {}),
       }

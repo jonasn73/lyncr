@@ -524,6 +524,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("SERVICE_SELECT")
   /** Key specs from unified VIN/plate decode — skips a second key-info fetch. */
   const [preloadedKeyBundle, setPreloadedKeyBundle] = useState<PreloadedVehicleKeyBundle | null>(null)
+  /** True while push/turn or multi-FCC Ask-the-customer is unanswered — hide key blanks. */
+  const [keyClarificationPending, setKeyClarificationPending] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
@@ -2330,6 +2332,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 model={form.vehicleModel}
                                 answeredIds={new Set(answeredClarificationIds)}
                                 onAnswer={applyVehicleClarification}
+                                onPendingKeyClarificationChange={setKeyClarificationPending}
                               />
                               <VehicleKeyInfoPanel
                                 year={form.vehicleYear}
@@ -2339,8 +2342,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 factoryOptions={form.factoryOptions}
                                 onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
                                 fccId={form.keyFccId || null}
+                                holdForClarification={keyClarificationPending}
                                 value={
-                                  form.keyFccId
+                                  form.keyFccId || form.keyStyle
                                     ? {
                                         profileId: form.keyProfileId,
                                         fccId: form.keyFccId,
@@ -2684,6 +2688,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       model={form.vehicleModel}
                       answeredIds={new Set(answeredClarificationIds)}
                       onAnswer={applyVehicleClarification}
+                      onPendingKeyClarificationChange={setKeyClarificationPending}
                     />
                     <VehicleKeyInfoPanel
                       year={form.vehicleYear}
@@ -2693,8 +2698,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       factoryOptions={form.factoryOptions}
                       onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
                       fccId={form.keyFccId || null}
+                      holdForClarification={keyClarificationPending}
                       value={
-                        form.keyFccId
+                        form.keyFccId || form.keyStyle
                           ? {
                               profileId: form.keyProfileId,
                               fccId: form.keyFccId,

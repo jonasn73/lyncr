@@ -31,6 +31,7 @@ import {
   subaruMappedProxOption,
 } from "@/lib/vehicle-key-mapping"
 import {
+  filterTiCatalogForClarification,
   tiCatalogHitToManualOption,
   type TiCatalogKeyOption,
 } from "@/lib/ti-supplier-catalog-shared"
@@ -206,6 +207,10 @@ type VehicleKeyInfoPanelProps = {
    * Scopes the Year/Make/Model key-info lookup when present.
    */
   fccId?: string | null
+  /**
+   * When true, hide key blanks until Ask-the-customer (push vs turn / multi-FCC) is answered.
+   */
+  holdForClarification?: boolean
   /** Kept for parent compatibility (VIN decode happens on Fast Lookup, not Key Details). */
   onVehicleFromVin?: (vehicle: {
     year: string
@@ -1126,6 +1131,7 @@ export function VehicleKeyInfoPanel({
   disabled,
   onBackToVehicleLookup,
   fccId: fccIdProp = null,
+  holdForClarification = false,
   preloadedKeyBundle = null,
   onInventoryLoaded,
 }: VehicleKeyInfoPanelProps) {
@@ -1226,6 +1232,8 @@ export function VehicleKeyInfoPanel({
       onInventoryLoadedRef.current?.(preload.inventory)
     }
 
+    const styleHint = value?.keyStyle?.trim() || null
+
     const applyPayload = (
       payload: KeyInfoPayload | null,
       source: "fcc" | "ymm" | "ymm_fallback" | "none" | null,
@@ -1235,14 +1243,20 @@ export function VehicleKeyInfoPanel({
     ) => {
       if (cancel) return
       if (inventory) onInventoryLoadedRef.current?.(inventory)
-      let hits = catalogHits ?? []
-      // If the parent already pinned an FCC (clarification answer), prefer that blank.
-      if (sanitizedFcc && hits.length > 0) {
-        const matched = hits.filter(
-          (hit) => sanitizeFccIdInput(hit.fccId || "") === sanitizedFcc
-        )
-        if (matched.length > 0) hits = matched
+      const rawHits = catalogHits ?? []
+      // Hold all blanks until push/turn (or multi-FCC) is answered above.
+      if (holdForClarification && !sanitizedFcc && !styleHint) {
+        setTiCatalog([])
+        setLookupSource(source === "none" ? null : source)
+        setInfo(payload)
+        setManualBypassMode(true)
+        setSelectedKeyId(null)
+        onChange(null)
+        return
       }
+
+      // Clarification pins FCC and/or key style — never keep a mismatched smart blank.
+      let hits = filterTiCatalogForClarification(rawHits, sanitizedFcc || null, styleHint)
       setTiCatalog(hits)
       setLookupSource(source === "none" ? null : source)
       setInfo(payload)
@@ -1255,7 +1269,10 @@ export function VehicleKeyInfoPanel({
         )
         // Wait for Ask-the-customer when multiple FCCs remain unresolved.
         const waitForClarification =
-          needsFccClarification && !sanitizedFcc && uniqueFccs.size > 1
+          (holdForClarification || needsFccClarification) &&
+          !sanitizedFcc &&
+          !styleHint &&
+          uniqueFccs.size > 1
         if (waitForClarification) {
           setSelectedKeyId(null)
           onChange(null)
@@ -1265,14 +1282,33 @@ export function VehicleKeyInfoPanel({
         setSelectedKeyId(preferred.id)
         onChange({
           profileId: "ti-catalog",
-          fccId: preferred.fccId?.trim() ?? "",
+          fccId: preferred.fccId?.trim() ?? sanitizedFcc ?? "",
           frequency: preferred.frequency,
           chipset: null,
-          keyStyle: preferred.keyStyle,
+          keyStyle: styleHint || preferred.keyStyle,
           variantId: preferred.id,
           programmingMethod: preferred.programmingMethod,
           tiSku: orderingTiSkuFromManual(preferred),
         })
+        return
+      }
+
+      // Clarification answered but no TI blank matched — stay in manual mode without a false smart pick.
+      if (sanitizedFcc || styleHint) {
+        setManualBypassMode(true)
+        setSelectedKeyId(null)
+        onChange(
+          sanitizedFcc || styleHint
+            ? {
+                profileId: "",
+                fccId: sanitizedFcc || "",
+                frequency: null,
+                chipset: null,
+                keyStyle: styleHint || KEY_STYLE_OPTIONS[5],
+                variantId: null,
+              }
+            : null
+        )
         return
       }
 
@@ -1408,8 +1444,18 @@ export function VehicleKeyInfoPanel({
     return () => {
       cancel = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when YMM, FCC, or preload changes
-  }, [year, make, model, ready, activeFccQuery, manualBypassMode, preloadedKeyBundle])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when YMM, FCC, style, or clarification gate changes
+  }, [
+    year,
+    make,
+    model,
+    ready,
+    activeFccQuery,
+    manualBypassMode,
+    preloadedKeyBundle,
+    holdForClarification,
+    value?.keyStyle,
+  ])
 
   const selectedProfile =
     info?.profiles.find((p) => p.id === value?.profileId || p.fcc_id === value?.fccId) ??
@@ -1489,6 +1535,20 @@ export function VehicleKeyInfoPanel({
       <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
         Looking up key info…
+      </div>
+    )
+  }
+
+  // Do not show a smart (or any) blank until push vs turn / multi-FCC is answered.
+  const waitingOnClarification =
+    holdForClarification &&
+    !sanitizeFccIdInput(fccIdProp ?? "") &&
+    !value?.keyStyle?.trim()
+  if (waitingOnClarification) {
+    return (
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-[12px] leading-relaxed text-amber-50/95">
+        Answer <span className="font-semibold">push-button vs turn-key</span> above first. We’ll show
+        the matching order blank after you choose — so we don’t pick the wrong key type for you.
       </div>
     )
   }

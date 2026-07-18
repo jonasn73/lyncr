@@ -134,11 +134,13 @@ const STATIC_CLARIFICATION_RULES: Array<{
           {
             id: "yaris-push-start",
             label: "Push-button start",
+            keyStyle: "Push start (smart key)",
             note: "Customer confirmed push-button start",
           },
           {
             id: "yaris-turn-key",
             label: "Turn-key ignition",
+            keyStyle: "Remote head key",
             note: "Customer confirmed turn-key ignition",
           },
         ],
@@ -286,11 +288,13 @@ const STATIC_CLARIFICATION_RULES: Array<{
           {
             id: "civic-push",
             label: "Push-button start",
+            keyStyle: "Push start (smart key)",
             note: "Civic with push-button start",
           },
           {
             id: "civic-turn-key",
             label: "Turn-key ignition",
+            keyStyle: "Remote head key",
             note: "Civic with turn-key ignition",
           },
         ],
@@ -309,11 +313,13 @@ const STATIC_CLARIFICATION_RULES: Array<{
           {
             id: "altima-push",
             label: "Push-button start",
+            keyStyle: "Push start (smart key)",
             note: "Altima with push-button start",
           },
           {
             id: "altima-turn-key",
             label: "Turn-key ignition",
+            keyStyle: "Remote head key",
             note: "Altima with turn-key ignition",
           },
         ],
@@ -478,6 +484,15 @@ export function getVehicleIntakeClarifications(
   }
 
   return out
+}
+
+/**
+ * True when this prompt must be answered before Key Details shows a blank.
+ * (Ignition type / multi-FCC / button count — not model family renames alone.)
+ */
+export function clarificationGatesKeySelection(prompt: VehicleClarificationPrompt): boolean {
+  if (/^(multiple-fcc|fcc-|.*push-vs|.*ignition)/i.test(prompt.id)) return true
+  return prompt.options.some((option) => Boolean(option.fccId?.trim() || option.keyStyle?.trim()))
 }
 
 /** YMM combos that must always offer at least one clarification prompt (regression). */
