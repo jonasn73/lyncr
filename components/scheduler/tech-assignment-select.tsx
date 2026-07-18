@@ -91,13 +91,23 @@ export function TechAssignmentSelect({
         disabled={disabled}
         onValueChange={(next) => onChange(next === "__unassigned__" ? "" : next)}
       >
-        <SelectTrigger className={cn(SCHEDULER_INPUT, "h-10 w-full")}>
-          <SelectValue placeholder="Unassigned — select when scheduled">
-            {selectedTech ? selectedTech.name : "Unassigned — select when scheduled"}
+        <SelectTrigger
+          className={cn(
+            SCHEDULER_INPUT,
+            "h-10 w-full",
+            disabled && "opacity-55"
+          )}
+        >
+          <SelectValue placeholder={disabled ? "Set status to Scheduled first" : "Select a tech"}>
+            {selectedTech
+              ? selectedTech.name
+              : disabled
+                ? "Set status to Scheduled first"
+                : "Select a tech"}
           </SelectValue>
         </SelectTrigger>
         <SelectContent className="border-slate-800/80 bg-slate-900/95 backdrop-blur-md">
-          <SelectItem value="__unassigned__">Unassigned — select when scheduled</SelectItem>
+          <SelectItem value="__unassigned__">Unassigned</SelectItem>
           {techsByProximity.map((tech) => {
             const techUserId = tech.portal_user_id!
             const isBestMatch = bestMatchTechId === techUserId

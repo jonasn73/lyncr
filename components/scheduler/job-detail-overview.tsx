@@ -2,13 +2,18 @@
 
 import { useCallback, useState } from "react"
 import {
+  Ban,
   Car,
+  CheckCircle2,
+  ExternalLink,
+  Link2,
   Loader2,
   MapPin,
   MessageSquare,
   Pencil,
   Phone,
-  ExternalLink,
+  Share2,
+  UserRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -37,7 +42,6 @@ import { cn } from "@/lib/utils"
 import {
   SCHEDULER_FIELD_STACK,
   SCHEDULER_GLASS_CARD,
-  SCHEDULER_INPUT,
   SCHEDULER_METADATA_LABEL,
   SCHEDULER_STACK,
 } from "@/lib/scheduler-ui-tokens"
@@ -95,7 +99,15 @@ const CONTACT_BTN =
   "inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
 
 const ACTION_BTN =
-  "flex min-h-[44px] items-center justify-center rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors disabled:opacity-50"
+  "flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-xl border px-2.5 py-2.5 text-[11px] font-semibold leading-tight transition-colors disabled:opacity-50"
+
+/** Short mobile-friendly labels for the status control (full labels stay in the menu). */
+const PIPELINE_STATUS_SHORT: Record<JobPipelineStatusId, string> = {
+  unassigned_pool: "Waiting Pool",
+  DISPATCHED: "Scheduled",
+  awaiting_time: "Needs Follow Up",
+  salvage_pending: "Price Denied",
+}
 
 export function JobDetailOverview({
   source,
@@ -307,7 +319,12 @@ export function JobDetailOverview({
         </div>
       </header>
 
-      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4", SCHEDULER_STACK)}>
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-6",
+          SCHEDULER_STACK
+        )}
+      }>
         {/* Vehicle summary subtitle */}
         <section className="flex items-start gap-3 rounded-2xl border border-border/50 bg-slate-950/45 px-4 py-3">
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-300">
@@ -400,98 +417,149 @@ export function JobDetailOverview({
           </section>
         ) : null}
 
-        {/* Pipeline controls */}
-        <section className={cn(SCHEDULER_GLASS_CARD, SCHEDULER_STACK)}>
-          <p className={SECTION_LABEL}>Pipeline controls</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className={SCHEDULER_FIELD_STACK}>
-              <label htmlFor="job-pipeline-status" className={SECTION_LABEL}>
-                Status
-              </label>
-              <select
-                id="job-pipeline-status"
-                disabled={saving}
-                value={pipelineStatus}
-                onChange={(e) => onPipelineStatusChange(e.target.value as JobPipelineStatusId)}
-                className={cn(SCHEDULER_INPUT, "disabled:opacity-60")}
-              >
-                {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className={SCHEDULER_FIELD_STACK}>
-              <label htmlFor="job-pipeline-tech" className={SECTION_LABEL}>
-                Tech assignment
-              </label>
-              <TechAssignmentSelect
-                technicians={technicians}
-                value={assignedTechId}
-                disabled={saving || pipelineStatus !== "DISPATCHED"}
-                job={source as UnassignedPoolJob | ActivePipelineJob}
-                activePipelineJobs={activePipelineJobs}
-                onChange={onAssignedTechChange}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Action center */}
-        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-3")}>
+        {/* Dispatch controls — status, tech, quick actions */}
+        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-4")}>
           <div className="flex items-center justify-between gap-2">
-            <p className={SECTION_LABEL}>Action center</p>
+            <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
             ) : null}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => onQuickLifecycleAction("cancelled")}
-              className={cn(
-                ACTION_BTN,
-                "border-rose-500/40 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
-              )}
+
+          {/* Status chips — readable on mobile (no truncated native select) */}
+          <div className={SCHEDULER_FIELD_STACK}>
+            <p className={SECTION_LABEL}>Status</p>
+            <div
+              className="grid grid-cols-2 gap-1.5"
+              role="radiogroup"
+              aria-label="Job pipeline status"
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => onQuickLifecycleAction("referred")}
-              className={cn(
-                ACTION_BTN,
-                "border-violet-500/40 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
-              )}
-            >
-              Mark Referred
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => onQuickLifecycleAction("completed")}
-              className={cn(
-                ACTION_BTN,
-                "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
-              )}
-            >
-              Complete
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleSecureDepositLink}
-              className={cn(
-                ACTION_BTN,
-                "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
-              )}
-            >
-              Secure Deposit Link
-            </button>
+              {JOB_PIPELINE_STATUS_OPTIONS.map((option) => {
+                const selected = pipelineStatus === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    disabled={saving}
+                    title={option.label}
+                    aria-checked={selected}
+                    onClick={() => onPipelineStatusChange(option.id)}
+                    className={cn(
+                      "min-h-[42px] rounded-xl border px-2.5 py-2 text-left text-[11px] font-semibold leading-snug transition-colors disabled:opacity-50",
+                      selected
+                        ? cn(
+                            "ring-1",
+                            PIPELINE_STATUS_BADGE_STYLE[option.id],
+                            "border-transparent"
+                          )
+                        : "border-border/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60"
+                    )}
+                  >
+                    {PIPELINE_STATUS_SHORT[option.id]}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] leading-snug text-slate-500">
+              {JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === pipelineStatus)?.label}
+            </p>
           </div>
+
+          <div className={SCHEDULER_FIELD_STACK}>
+            <div className="flex items-center gap-1.5">
+              <UserRound className="h-3 w-3 text-slate-500" aria-hidden />
+              <p className={SECTION_LABEL}>Tech assignment</p>
+            </div>
+            <TechAssignmentSelect
+              technicians={technicians}
+              value={assignedTechId}
+              disabled={saving || pipelineStatus !== "DISPATCHED"}
+              job={source as UnassignedPoolJob | ActivePipelineJob}
+              activePipelineJobs={activePipelineJobs}
+              onChange={onAssignedTechChange}
+            />
+            {pipelineStatus !== "DISPATCHED" ? (
+              <p className="text-[11px] leading-snug text-slate-500">
+                Set status to <span className="font-medium text-slate-300">Scheduled</span> to assign
+                a tech.
+              </p>
+            ) : null}
+          </div>
+
+          {pipelineDirty ? (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={saving}
+              onClick={onSavePipeline}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                  Saving…
+                </>
+              ) : (
+                "Save status & tech"
+              )}
+            </Button>
+          ) : null}
+
+          <div className="border-t border-border/40 pt-3">
+            <p className={cn(SECTION_LABEL, "mb-2")}>Quick actions</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onQuickLifecycleAction("cancelled")}
+                className={cn(
+                  ACTION_BTN,
+                  "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                )}
+              >
+                <Ban className="h-4 w-4 opacity-90" aria-hidden />
+                Cancel job
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onQuickLifecycleAction("referred")}
+                className={cn(
+                  ACTION_BTN,
+                  "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
+                )}
+              >
+                <Share2 className="h-4 w-4 opacity-90" aria-hidden />
+                Mark referred
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onQuickLifecycleAction("completed")}
+                className={cn(
+                  ACTION_BTN,
+                  "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+                )}
+              >
+                <CheckCircle2 className="h-4 w-4 opacity-90" aria-hidden />
+                Complete
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleSecureDepositLink}
+                className={cn(
+                  ACTION_BTN,
+                  "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                )}
+              >
+                <Link2 className="h-4 w-4 opacity-90" aria-hidden />
+                Deposit link
+              </button>
+            </div>
+          </div>
+
           {depositSmsStaging != null ? (
             <div className="space-y-1.5">
               <label htmlFor="deposit-sms-staging" className={SECTION_LABEL}>
@@ -517,34 +585,24 @@ export function JobDetailOverview({
           <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-1 shadow-inner">
             <textarea
               id="internal-dispatch-notes"
-              rows={4}
+              rows={3}
               disabled={saving}
               value={jobNotes}
               placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
               onChange={(e) => onJobNotesChange(e.target.value)}
               onBlur={() => onSaveJobNotes()}
-              className="min-h-[96px] w-full resize-y rounded-xl bg-transparent px-3 py-2.5 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
+              className="min-h-[80px] w-full resize-y rounded-xl bg-transparent px-3 py-2.5 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
             />
           </div>
         </section>
 
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+        {/* Spacer so the sticky Close footer never covers the last controls */}
+        <div className="h-2 shrink-0" aria-hidden />
       </div>
 
-      <footer className="mb-6 shrink-0 space-y-2 border-t border-border/50 bg-card/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
-        {pipelineDirty ? (
-          <Button type="button" className="w-full" disabled={saving} onClick={onSavePipeline}>
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                Saving…
-              </>
-            ) : (
-              "Save pipeline changes"
-            )}
-          </Button>
-        ) : null}
-        <Button type="button" variant="outline" className="w-full" onClick={onClose}>
+      <footer className="shrink-0 space-y-2 border-t border-border/50 bg-card/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
+        <Button type="button" variant="outline" className="h-11 w-full" onClick={onClose}>
           Close
         </Button>
       </footer>
