@@ -35,6 +35,7 @@ import {
 import { estimateTravelMinutes } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 import {
+  AUTOMOTIVE_JOB_TYPE_IDS,
   SERVICE_IDS_BY_SECTOR,
   SERVICE_SECTOR_LABELS,
   SERVICE_SECTOR_ORDER,
@@ -75,22 +76,48 @@ const SERVICE_CARD_TAGS: Partial<Record<ServiceQuoteTypeId, string>> = {
   lockout: "Fast",
 }
 
-function servicesForSector(sector: ServiceSector): (typeof SERVICE_QUOTE_TYPES)[number][] {
+function servicesForSector(
+  sector: ServiceSector,
+  /** Hide AKL/Spare/etc. on first Service screen — chosen after YMM on JOB_TYPE. */
+  deferAutomotiveKeyTypes = false
+): (typeof SERVICE_QUOTE_TYPES)[number][] {
+  const deferred = new Set<ServiceQuoteTypeId>(AUTOMOTIVE_JOB_TYPE_IDS)
   const ids = new Set<ServiceQuoteTypeId>([...SERVICE_IDS_BY_SECTOR[sector], "other"])
-  return SERVICE_QUOTE_TYPES.filter((service) => ids.has(service.id))
+  return SERVICE_QUOTE_TYPES.filter((service) => {
+    if (!ids.has(service.id)) return false
+    if (deferAutomotiveKeyTypes && sector === "automotive" && deferred.has(service.id)) return false
+    return true
+  })
 }
 
 type ServiceSectorSelectorProps = {
   serviceTypeId: ServiceQuoteTypeId
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
   compact?: boolean
+  /**
+   * Automotive Service screen: show Lockout + “Car key / fob” instead of AKL vs Spare.
+   * Used by step intake so year/make/model comes before job type.
+   */
+  deferAutomotiveKeyTypes?: boolean
 }
 
-function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: ServiceSectorSelectorProps) {
+function ServiceSectorSelector({
+  serviceTypeId,
+  onServiceTypeChange,
+  compact,
+  deferAutomotiveKeyTypes = false,
+}: ServiceSectorSelectorProps) {
   const [activeSector, setActiveSector] = useState<ServiceSector>(() => serviceSectorForType(serviceTypeId))
   const [sectorDirection, setSectorDirection] = useState(1)
 
-  const visibleServices = useMemo(() => servicesForSector(activeSector), [activeSector])
+  const visibleServices = useMemo(
+    () => servicesForSector(activeSector, deferAutomotiveKeyTypes),
+    [activeSector, deferAutomotiveKeyTypes]
+  )
+  const carKeyFobActive =
+    deferAutomotiveKeyTypes &&
+    activeSector === "automotive" &&
+    (AUTOMOTIVE_JOB_TYPE_IDS as readonly string[]).includes(serviceTypeId)
 
   /** Keep the sector pill aligned when a phone-keyed draft restores a saved service type. */
   useEffect(() => {
@@ -153,6 +180,49 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
           transition={{ duration: 0.16 }}
           className="relative z-10 grid grid-cols-2 gap-2"
         >
+          {deferAutomotiveKeyTypes && activeSector === "automotive" ? (
+            <button
+              type="button"
+              data-intake-primary-option=""
+              onClick={() => onServiceTypeChange("key_generation")}
+              onKeyDown={(event) =>
+                onOptionRowKeyDown(event, () => onServiceTypeChange("key_generation"))
+              }
+              className={cn(
+                WS_ROW,
+                "touch-manipulation active:scale-[0.98]",
+                compact ? "gap-2 p-3 text-xs" : "",
+                carKeyFobActive ? WS_OPTION_ROW_ACTIVE : WS_OPTION_ROW
+              )}
+              aria-pressed={carKeyFobActive}
+            >
+              <Key
+                className={cn(
+                  carKeyFobActive ? WS_ICON_ACTIVE : WS_ICON_INACTIVE,
+                  compact && "h-3.5 w-3.5"
+                )}
+                aria-hidden
+              />
+              <span
+                className={cn(
+                  "min-w-0 flex-1 leading-snug",
+                  compact ? "text-xs font-medium" : "",
+                  carKeyFobActive ? WS_TEXT_ACTIVE : WS_TEXT
+                )}
+              >
+                Car key / fob
+              </span>
+              <span
+                className={cn(
+                  WS_METADATA,
+                  "shrink-0 normal-case",
+                  carKeyFobActive ? "text-emerald-400/70" : ""
+                )}
+              >
+                YMM first
+              </span>
+            </button>
+          ) : null}
           {visibleServices.map((service, index) => {
             const Icon = SERVICE_CARD_ICONS[service.id] ?? Wrench
             const tag = SERVICE_CARD_TAGS[service.id]
@@ -161,7 +231,9 @@ function ServiceSectorSelector({ serviceTypeId, onServiceTypeChange, compact }: 
               <button
                 key={service.id}
                 type="button"
-                data-intake-primary-option={index === 0 ? "" : undefined}
+                data-intake-primary-option={
+                  !deferAutomotiveKeyTypes && index === 0 ? "" : undefined
+                }
                 onClick={() => onServiceTypeChange(service.id)}
                 onKeyDown={(event) =>
                   onOptionRowKeyDown(event, () => onServiceTypeChange(service.id))
@@ -226,6 +298,8 @@ type ServiceQuoteCalculatorPanelProps = {
   variant?: "full" | "selector-only" | "breakdown-only"
   /** Tighter layout for manual intake sheets */
   compact?: boolean
+  /** Defer AKL/Spare to JOB_TYPE after vehicle YMM (step intake Service screen). */
+  deferAutomotiveKeyTypes?: boolean
   className?: string
 }
 
@@ -249,6 +323,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   onFlatPriceChange,
   variant = "full",
   compact = false,
+  deferAutomotiveKeyTypes = false,
   className,
 }: ServiceQuoteCalculatorPanelProps) {
   const showSelector = variant === "full" || variant === "selector-only"
@@ -505,6 +580,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
           serviceTypeId={serviceTypeId}
           onServiceTypeChange={onServiceTypeChange}
           compact={compact}
+          deferAutomotiveKeyTypes={deferAutomotiveKeyTypes}
         />
       ) : null}
       {showBreakdown ? (

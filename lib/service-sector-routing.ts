@@ -26,6 +26,26 @@ export const SERVICE_IDS_BY_SECTOR: Record<ServiceSector, readonly ServiceQuoteT
   commercial: ["commercial_hardware", "master_key_system", "door_closer_repair"],
 }
 
+/**
+ * Automotive job types chosen AFTER year/make/model (AKL vs Spare, etc.).
+ * Hidden from the first Service screen when intake defers them.
+ */
+export const AUTOMOTIVE_JOB_TYPE_IDS: readonly ServiceQuoteTypeId[] = [
+  "key_generation",
+  "key_duplication",
+  "programming_diagnostics",
+  "ignition_repair",
+  "key_extraction",
+]
+
+/**
+ * True when intake should ask AKL/Spare (etc.) after Vehicle, before Key details.
+ * Only automotive key jobs require vehicle — lockout / home / re-key never hit this step.
+ */
+export function serviceNeedsJobTypeStep(serviceTypeId: ServiceQuoteTypeId): boolean {
+  return serviceTypeRequiresVehicle(serviceTypeId)
+}
+
 /** Resolve which sector pill should be active for a saved or selected service type. */
 export function serviceSectorForType(serviceTypeId: ServiceQuoteTypeId): ServiceSector {
   if (SERVICE_IDS_BY_SECTOR.commercial.includes(serviceTypeId)) return "commercial"

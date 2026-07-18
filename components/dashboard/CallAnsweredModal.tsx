@@ -55,9 +55,16 @@ import {
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { manualIntakeStepAfterService } from "@/lib/service-sector-routing"
+import {
+  AUTOMOTIVE_JOB_TYPE_IDS,
+  manualIntakeStepAfterService,
+  serviceNeedsJobTypeStep,
+} from "@/lib/service-sector-routing"
 import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
-import type { ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
+import {
+  SERVICE_QUOTE_TYPES,
+  type ServiceQuoteTypeId,
+} from "@/lib/service-quote-calculator"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
 import {
   negotiationDiscountLabel,
@@ -116,6 +123,7 @@ import { cn } from "@/lib/utils"
 type WorkflowStep =
   | "SERVICE_SELECT"
   | "VEHICLE_INFO"
+  | "JOB_TYPE"
   | "KEY_SPECIFICS"
   | "ADDRESS_CONTACT"
   | "SCHEDULE_TIME"
@@ -125,6 +133,7 @@ type WorkflowStep =
 const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   SERVICE_SELECT: "Service",
   VEHICLE_INFO: "Vehicle",
+  JOB_TYPE: "Job type",
   KEY_SPECIFICS: "Key details",
   ADDRESS_CONTACT: "Location",
   SCHEDULE_TIME: "Schedule",
@@ -132,15 +141,28 @@ const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   BOOKING_COMPLETE: "Done",
 }
 
+/** Automotive key jobs: Service → YMM → AKL/Spare → Key details → … */
 function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
   const path: WorkflowStep[] = ["SERVICE_SELECT"]
   if (serviceTypeRequiresVehicle(serviceTypeId)) {
-    path.push("VEHICLE_INFO", "KEY_SPECIFICS")
+    path.push("VEHICLE_INFO")
+    if (serviceNeedsJobTypeStep(serviceTypeId)) {
+      path.push("JOB_TYPE")
+    }
+    path.push("KEY_SPECIFICS")
   }
   // Location → Time blocks → Customer name → Booking summary
   path.push("ADDRESS_CONTACT", "SCHEDULE_TIME", "CUSTOMER_NAME", "BOOKING_COMPLETE")
   return path
 }
+
+function nextStepAfterVehicleInfo(serviceTypeId: ServiceQuoteTypeId): WorkflowStep {
+  return serviceNeedsJobTypeStep(serviceTypeId) ? "JOB_TYPE" : "KEY_SPECIFICS"
+}
+
+const AUTOMOTIVE_JOB_TYPE_OPTIONS = SERVICE_QUOTE_TYPES.filter((service) =>
+  (AUTOMOTIVE_JOB_TYPE_IDS as readonly string[]).includes(service.id)
+)
 
 function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): WorkflowStep | null {
   const idx = path.indexOf(current)
@@ -1720,6 +1742,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setServiceQuoteTypeId]
   )
 
+  /** JOB_TYPE step — AKL vs Spare (etc.) after YMM; then Key details. */
+  const handleJobTypeChange = useCallback(
+    (serviceType: ServiceQuoteTypeId) => {
+      setServiceQuoteTypeId(serviceType)
+      setCurrentStep("KEY_SPECIFICS")
+    },
+    [setServiceQuoteTypeId]
+  )
+
   const handleRapidTemplate = useCallback(
     (template: "vehicle_lockout" | "home_lockout" | "rekey") => {
       applyRapidLocksmithTemplate(template)
@@ -1786,10 +1817,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setPreloadedKeyBundle(null)
       setVehicle(vehicle)
       if (vehicle.vehicle_model.trim()) {
-        setCurrentStep("KEY_SPECIFICS")
+        const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+        setCurrentStep(nextStepAfterVehicleInfo(activeType))
       }
     },
-    [setVehicle]
+    [form.serviceQuoteTypeId, setVehicle]
   )
 
   const handlePlateLookupSuccess = useCallback(
@@ -1800,10 +1832,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       if (result.keyBundle) setPreloadedKeyBundle(result.keyBundle)
       else setPreloadedKeyBundle(null)
       if (result.vehicle_model?.trim() || result.keyBundle?.model?.trim()) {
-        setCurrentStep("KEY_SPECIFICS")
+        const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+        setCurrentStep(nextStepAfterVehicleInfo(activeType))
       }
     },
-    [applyPlateLookupResult]
+    [applyPlateLookupResult, form.serviceQuoteTypeId]
   )
 
   const handleManualKeyVariantSelected = useCallback(
@@ -1839,10 +1872,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       if (decoded.keyBundle) setPreloadedKeyBundle(decoded.keyBundle)
       else setPreloadedKeyBundle(null)
       if (decoded.model.trim()) {
-        setCurrentStep("KEY_SPECIFICS")
+        const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+        setCurrentStep(nextStepAfterVehicleInfo(activeType))
       }
     },
-    [setVehicle, patchForm]
+    [form.serviceQuoteTypeId, setVehicle, patchForm]
   )
 
   const handleManualAddressChange = useCallback(
@@ -2212,7 +2246,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             MANUAL_STEP_SCROLL,
                             "relative z-10",
                             // Extra bottom space so sticky footer does not cover model chips / key options.
-                            (currentStep === "KEY_SPECIFICS" || currentStep === "VEHICLE_INFO") &&
+                            (currentStep === "KEY_SPECIFICS" ||
+                              currentStep === "VEHICLE_INFO" ||
+                              currentStep === "JOB_TYPE") &&
                               "pb-32"
                           )}
                         >
@@ -2266,6 +2302,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onServiceTypeChange={handleManualServiceTypeChange}
                                 variant="selector-only"
                                 compact
+                                deferAutomotiveKeyTypes
                               />
                               <IntakeJobPhotosPanel
                                 compact
@@ -2300,7 +2337,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onVinSuccess={handleVehicleFromVin}
                               />
                               <p className="text-[11px] text-muted-foreground">
-                                Or pick year, make, then model manually — we still advance to key specifics.
+                                Or pick year, make, then model manually — next we confirm all keys lost vs spare.
                               </p>
                               <VehiclePickerCascade
                                 variant="sequential"
@@ -2311,6 +2348,46 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 }}
                                 onChange={handleManualVehicleChange}
                               />
+                            </fieldset>
+                          ) : null}
+
+                          {currentStep === "JOB_TYPE" ? (
+                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
+                              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                                What do they need?
+                              </legend>
+                              {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
+                                <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+                                  {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                </div>
+                              ) : null}
+                              <p className="text-sm text-muted-foreground">
+                                All keys lost, or do they need a spare?
+                              </p>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {AUTOMOTIVE_JOB_TYPE_OPTIONS.map((service, index) => {
+                                  const active = serviceTypeId === service.id
+                                  return (
+                                    <button
+                                      key={service.id}
+                                      type="button"
+                                      data-intake-primary-option={index === 0 ? "" : undefined}
+                                      onClick={() => handleJobTypeChange(service.id)}
+                                      className={cn(
+                                        "rounded-lg border px-3 py-3 text-left text-sm font-semibold transition-colors",
+                                        active
+                                          ? "border-primary/50 bg-primary/15 text-primary"
+                                          : "border-border bg-card/40 text-foreground hover:bg-muted/50"
+                                      )}
+                                      aria-pressed={active}
+                                    >
+                                      {service.label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
                             </fieldset>
                           ) : null}
 
@@ -2359,7 +2436,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 }
                                 onChange={(sel) => setVehicleKeySelection(sel)}
                                 onVariantSelected={handleManualKeyVariantSelected}
-                                onBackToVehicleLookup={() => setCurrentStep("VEHICLE_INFO")}
+                                onBackToVehicleLookup={() =>
+                                  setCurrentStep(
+                                    previousWorkflowStep(manualPath, "KEY_SPECIFICS") ?? "VEHICLE_INFO"
+                                  )
+                                }
                                 onVehicleFromVin={handleVehicleFromVin}
                                 preloadedKeyBundle={preloadedKeyBundle}
                                 onInventoryLoaded={(inventory) => {
@@ -3107,6 +3188,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               <div className="sticky bottom-0 shrink-0 space-y-1.5 border-t border-slate-800 bg-slate-900 p-2">
                 {stepIntake ? (
                   <>
+                    {currentStep === "JOB_TYPE" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="h-11 w-full"
+                        onClick={() => goBackManualWorkflow(manualPath)}
+                      >
+                        Back to vehicle
+                      </Button>
+                    ) : null}
                     {currentStep === "KEY_SPECIFICS" ? (
                       <div className="flex gap-2">
                         <Button
@@ -3286,7 +3378,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         </Button>
                       </div>
                     ) : null}
-                    {(currentStep === "VEHICLE_INFO" || currentStep === "SERVICE_SELECT") &&
+                    {(currentStep === "VEHICLE_INFO" ||
+                      currentStep === "JOB_TYPE" ||
+                      currentStep === "SERVICE_SELECT") &&
                     previousWorkflowStep(manualPath, currentStep) ? (
                       <Button
                         type="button"
@@ -3306,9 +3400,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         type="button"
                         size="lg"
                         className="h-11 w-full"
-                        onClick={() => setCurrentStep("KEY_SPECIFICS")}
+                        onClick={() => setCurrentStep(nextStepAfterVehicleInfo(serviceTypeId))}
                       >
-                        Next: Key details
+                        {serviceNeedsJobTypeStep(serviceTypeId)
+                          ? "Next: Job type"
+                          : "Next: Key details"}
                       </Button>
                     ) : null}
                     <div className="flex items-center justify-between gap-2 pt-0.5">

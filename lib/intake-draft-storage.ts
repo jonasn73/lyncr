@@ -6,6 +6,7 @@ import type { ActiveCallFormState } from "@/lib/hooks/use-active-call-form"
 export type IntakeDraftWorkflowStep =
   | "SERVICE_SELECT"
   | "VEHICLE_INFO"
+  | "JOB_TYPE"
   | "KEY_SPECIFICS"
   | "ADDRESS_CONTACT"
   | "SCHEDULE_TIME"
@@ -60,6 +61,7 @@ function isWorkflowStep(value: unknown): value is IntakeDraftWorkflowStep {
   return (
     value === "SERVICE_SELECT" ||
     value === "VEHICLE_INFO" ||
+    value === "JOB_TYPE" ||
     value === "KEY_SPECIFICS" ||
     value === "ADDRESS_CONTACT" ||
     value === "SCHEDULE_TIME" ||
