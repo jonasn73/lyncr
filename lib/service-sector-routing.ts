@@ -59,3 +59,14 @@ export function manualIntakeStepAfterService(
 ): "VEHICLE_INFO" | "ADDRESS_CONTACT" {
   return serviceTypeRequiresVehicle(serviceTypeId) ? "VEHICLE_INFO" : "ADDRESS_CONTACT"
 }
+
+/** Primary AKL / Spare choices on the JOB_TYPE step (others under “More”). */
+export const PRIMARY_JOB_TYPE_IDS: readonly ServiceQuoteTypeId[] = [
+  "key_generation",
+  "key_duplication",
+]
+
+/** Remaining automotive job types collapsed under “More…” on JOB_TYPE. */
+export const SECONDARY_JOB_TYPE_IDS: readonly ServiceQuoteTypeId[] = AUTOMOTIVE_JOB_TYPE_IDS.filter(
+  (id) => !(PRIMARY_JOB_TYPE_IDS as readonly string[]).includes(id)
+) as ServiceQuoteTypeId[]

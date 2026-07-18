@@ -107,6 +107,7 @@ export const AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS = [
   "key_duplication",
   "programming_diagnostics",
   "ignition_repair",
+  "key_extraction",
 ] as const satisfies readonly ServiceQuoteTypeId[]
 
 /** True when the selected service needs vehicle identity fields in the scheduler edit form. */

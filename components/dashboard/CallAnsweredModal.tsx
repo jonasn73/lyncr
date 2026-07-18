@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
-import { Loader2, ChevronDown, MapPin, Phone, PhoneOff } from "lucide-react"
+import { Loader2, ChevronDown, MapPin, Phone } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
 import { VehicleFastLookupField } from "@/components/vehicle-fast-lookup-field"
 import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
@@ -31,6 +31,10 @@ import {
   type SecondaryIncomingLeg,
 } from "@/components/dashboard/secondary-call-intercept-banner"
 import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
+import {
+  FAILURE_REASON_NEUTRAL,
+  PriceShopperRecoveryPanel,
+} from "@/components/dashboard/price-shopper-recovery-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -54,26 +58,20 @@ import {
   type ActiveCallRow,
   type ManualCallStatus,
 } from "@/lib/hooks/use-active-call-form"
-import { useIsMobile } from "@/hooks/use-mobile"
 import {
-  AUTOMOTIVE_JOB_TYPE_IDS,
   manualIntakeStepAfterService,
+  PRIMARY_JOB_TYPE_IDS,
+  SECONDARY_JOB_TYPE_IDS,
   serviceNeedsJobTypeStep,
 } from "@/lib/service-sector-routing"
 import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
 import {
+  formatQuoteDollars,
   SERVICE_QUOTE_TYPES,
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
-import {
-  negotiationDiscountLabel,
-  parseQuoteDollars,
-  recoveryStepPrices,
-  routeMatchRecoveryScript,
-  aftermarketRecoveryScript,
-  managementFloorRecoveryScript,
-} from "@/lib/price-negotiation"
+import { parseQuoteDollars, recoveryStepPrices } from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import {
   LYNCR_FOCUS_INTAKE_EVENT,
@@ -141,8 +139,14 @@ const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   BOOKING_COMPLETE: "Done",
 }
 
-/** Automotive key jobs: Service → YMM → AKL/Spare → Key details → … */
-function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
+/**
+ * Automotive key jobs: Service → YMM → Job type → Key details → …
+ * Vehicle lockout: Service → Vehicle (light) → Location → … (no AKL / key blanks).
+ */
+function manualWorkflowPath(
+  serviceTypeId: ServiceQuoteTypeId,
+  vehicleLockoutIntake = false
+): WorkflowStep[] {
   const path: WorkflowStep[] = ["SERVICE_SELECT"]
   if (serviceTypeRequiresVehicle(serviceTypeId)) {
     path.push("VEHICLE_INFO")
@@ -150,18 +154,27 @@ function manualWorkflowPath(serviceTypeId: ServiceQuoteTypeId): WorkflowStep[] {
       path.push("JOB_TYPE")
     }
     path.push("KEY_SPECIFICS")
+  } else if (vehicleLockoutIntake) {
+    path.push("VEHICLE_INFO")
   }
   // Location → Time blocks → Customer name → Booking summary
   path.push("ADDRESS_CONTACT", "SCHEDULE_TIME", "CUSTOMER_NAME", "BOOKING_COMPLETE")
   return path
 }
 
-function nextStepAfterVehicleInfo(serviceTypeId: ServiceQuoteTypeId): WorkflowStep {
+function nextStepAfterVehicleInfo(
+  serviceTypeId: ServiceQuoteTypeId,
+  vehicleLockoutIntake = false
+): WorkflowStep {
+  if (vehicleLockoutIntake || serviceTypeId === "lockout") return "ADDRESS_CONTACT"
   return serviceNeedsJobTypeStep(serviceTypeId) ? "JOB_TYPE" : "KEY_SPECIFICS"
 }
 
-const AUTOMOTIVE_JOB_TYPE_OPTIONS = SERVICE_QUOTE_TYPES.filter((service) =>
-  (AUTOMOTIVE_JOB_TYPE_IDS as readonly string[]).includes(service.id)
+const PRIMARY_JOB_TYPE_OPTIONS = SERVICE_QUOTE_TYPES.filter((service) =>
+  (PRIMARY_JOB_TYPE_IDS as readonly string[]).includes(service.id)
+)
+const SECONDARY_JOB_TYPE_OPTIONS = SERVICE_QUOTE_TYPES.filter((service) =>
+  (SECONDARY_JOB_TYPE_IDS as readonly string[]).includes(service.id)
 )
 
 function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): WorkflowStep | null {
@@ -355,8 +368,6 @@ const RINGING_FAST_POLL_MS = 250
 const RINGING_FAST_POLL_MAX_MS = 90_000
 /** Safety net when Pusher is slow — only while the dashboard tab is visible. */
 const ANSWERED_VISIBILITY_POLL_MS = 800
-/** Blank failure-reason value — Radix Select cannot use an empty string. */
-const FAILURE_REASON_NEUTRAL = "__neutral__"
 
 /** True when intake is mid-call (answered / on hold) — secondary rings should not steal the sheet. */
 function isIntakeCallActive(row: ActiveCallRow | null): boolean {
@@ -548,6 +559,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [preloadedKeyBundle, setPreloadedKeyBundle] = useState<PreloadedVehicleKeyBundle | null>(null)
   /** True while push/turn or multi-FCC Ask-the-customer is unanswered — hide key blanks. */
   const [keyClarificationPending, setKeyClarificationPending] = useState(false)
+  /** Rapid Vehicle Lockout — insert a light Vehicle step before Location. */
+  const [vehicleLockoutIntake, setVehicleLockoutIntake] = useState(false)
+  /** JOB_TYPE: show programming / ignition / extraction under More. */
+  const [showMoreJobTypes, setShowMoreJobTypes] = useState(false)
+  /** Soft-gate: second tap skips Key details without a blank (non-AKL). */
+  const [keySkipArmed, setKeySkipArmed] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
@@ -705,6 +722,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setHighlightConfirmBook(false)
     setNegotiationStep(1)
     setCurrentStep("SERVICE_SELECT")
+    setVehicleLockoutIntake(false)
+    setShowMoreJobTypes(false)
+    setKeySkipArmed(false)
     lastLoadedDraftPhoneRef.current = null
     // Reset attachments when a new call / ticket opens.
     setJobPhotos([])
@@ -766,6 +786,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setFailureReason(draft.failureReason || FAILURE_REASON_NEUTRAL)
     setRecoveredViaRouteDiscount(draft.recoveredViaRouteDiscount)
     setNegotiationStep(draft.negotiationStep)
+    // Resume vehicle-lockout branch when notes mark it.
+    setVehicleLockoutIntake(
+      draft.form.serviceQuoteTypeId === "lockout" &&
+        /vehicle\s*lockout/i.test(draft.form.notes || "")
+    )
     setDraftRestoredFlash(true)
     if (draftRestoredTimerRef.current) window.clearTimeout(draftRestoredTimerRef.current)
     draftRestoredTimerRef.current = window.setTimeout(() => setDraftRestoredFlash(false), 4200)
@@ -1736,6 +1761,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const handleManualServiceTypeChange = useCallback(
     (serviceType: ServiceQuoteTypeId) => {
+      setVehicleLockoutIntake(false)
+      setShowMoreJobTypes(false)
+      setKeySkipArmed(false)
       setServiceQuoteTypeId(serviceType)
       setCurrentStep(manualIntakeStepAfterService(serviceType))
     },
@@ -1745,6 +1773,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   /** JOB_TYPE step — AKL vs Spare (etc.) after YMM; then Key details. */
   const handleJobTypeChange = useCallback(
     (serviceType: ServiceQuoteTypeId) => {
+      setKeySkipArmed(false)
       setServiceQuoteTypeId(serviceType)
       setCurrentStep("KEY_SPECIFICS")
     },
@@ -1754,10 +1783,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const handleRapidTemplate = useCallback(
     (template: "vehicle_lockout" | "home_lockout" | "rekey") => {
       applyRapidLocksmithTemplate(template)
+      setShowMoreJobTypes(false)
+      setKeySkipArmed(false)
+      if (template === "vehicle_lockout") {
+        // Ask year/make/model before location so the tech knows the car.
+        setVehicleLockoutIntake(true)
+        setCurrentStep("VEHICLE_INFO")
+        return
+      }
+      setVehicleLockoutIntake(false)
       const nextType =
         template === "rekey" ? ("rekey" as ServiceQuoteTypeId) : ("lockout" as ServiceQuoteTypeId)
       setCurrentStep(manualIntakeStepAfterService(nextType))
-      // Jump focus to address as soon as the address step is shown.
+      // Home lockout / re-key jump straight to address.
       window.setTimeout(() => {
         setCurrentStep("ADDRESS_CONTACT")
         window.setTimeout(() => addressSearchRef.current?.focus(), 80)
@@ -1818,10 +1856,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setVehicle(vehicle)
       if (vehicle.vehicle_model.trim()) {
         const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
-        setCurrentStep(nextStepAfterVehicleInfo(activeType))
+        setCurrentStep(nextStepAfterVehicleInfo(activeType, vehicleLockoutIntake))
       }
     },
-    [form.serviceQuoteTypeId, setVehicle]
+    [form.serviceQuoteTypeId, setVehicle, vehicleLockoutIntake]
   )
 
   const handlePlateLookupSuccess = useCallback(
@@ -1833,14 +1871,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       else setPreloadedKeyBundle(null)
       if (result.vehicle_model?.trim() || result.keyBundle?.model?.trim()) {
         const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
-        setCurrentStep(nextStepAfterVehicleInfo(activeType))
+        setCurrentStep(nextStepAfterVehicleInfo(activeType, vehicleLockoutIntake))
       }
     },
-    [applyPlateLookupResult, form.serviceQuoteTypeId]
+    [applyPlateLookupResult, form.serviceQuoteTypeId, vehicleLockoutIntake]
   )
 
   const handleManualKeyVariantSelected = useCallback(
     (selection: VehicleKeySelection) => {
+      setKeySkipArmed(false)
       setVehicleKeySelection(selection)
       // Stay on key step when out-of-stock / specialty alternatives apply.
       const stockBlock = shouldShowOutOfStockFallback(preloadedKeyBundle?.inventory)
@@ -1873,10 +1912,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       else setPreloadedKeyBundle(null)
       if (decoded.model.trim()) {
         const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
-        setCurrentStep(nextStepAfterVehicleInfo(activeType))
+        setCurrentStep(nextStepAfterVehicleInfo(activeType, vehicleLockoutIntake))
       }
     },
-    [form.serviceQuoteTypeId, setVehicle, patchForm]
+    [form.serviceQuoteTypeId, setVehicle, patchForm, vehicleLockoutIntake]
   )
 
   const handleManualAddressChange = useCallback(
@@ -1906,11 +1945,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   )
 
   const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
-  const manualPath = useMemo(() => manualWorkflowPath(serviceTypeId), [serviceTypeId])
+  const manualPath = useMemo(
+    () => manualWorkflowPath(serviceTypeId, vehicleLockoutIntake),
+    [serviceTypeId, vehicleLockoutIntake]
+  )
   const isManual = Boolean(effectiveCurrent?.isManual)
-  const isMobile = useIsMobile()
-  /** Step-by-step intake on manual walk-ins and on mobile for real answered calls. */
-  const stepIntake = isManual || isMobile
+  /** One step wizard for everyone — keeps negotiation / lost-lead / ops on the same path. */
+  const stepIntake = true
+  const vehicleYmmComplete = Boolean(
+    form.vehicleYear.trim() && form.vehicleMake.trim() && form.vehicleModel.trim()
+  )
+  const hasKeyBlank = Boolean(form.keyVariantId.trim() || form.tiSku.trim())
+  /** All-keys-lost requires a blank before location. */
+  const keyBlankRequired = serviceTypeId === "key_generation"
 
   const incomingPhone = form.phoneNumber || effectiveCurrent?.from_number || ""
   const repeatUrgency = useRepeatCallerUrgency(incomingPhone, effectiveCurrent?.id ?? null)
@@ -2092,7 +2139,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     effectiveCurrent != null &&
     (effectiveCurrent.manualCallStatus === "ringing" ||
       (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
-  const isPriceTooHigh = failureReason === "Price too high"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
   const intakePhoneDisplay = formatPhoneDisplay(
@@ -2337,7 +2383,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onVinSuccess={handleVehicleFromVin}
                               />
                               <p className="text-[11px] text-muted-foreground">
-                                Or pick year, make, then model manually — next we confirm all keys lost vs spare.
+                                {vehicleLockoutIntake
+                                  ? "Optional but recommended — year / make / model help the tech on site. You can skip to location."
+                                  : "Or pick year, make, then model manually — next we confirm all keys lost vs spare."}
                               </p>
                               <VehiclePickerCascade
                                 variant="sequential"
@@ -2367,7 +2415,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 All keys lost, or do they need a spare?
                               </p>
                               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {AUTOMOTIVE_JOB_TYPE_OPTIONS.map((service, index) => {
+                                {PRIMARY_JOB_TYPE_OPTIONS.map((service, index) => {
                                   const active = serviceTypeId === service.id
                                   return (
                                     <button
@@ -2376,18 +2424,55 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                       data-intake-primary-option={index === 0 ? "" : undefined}
                                       onClick={() => handleJobTypeChange(service.id)}
                                       className={cn(
-                                        "rounded-lg border px-3 py-3 text-left text-sm font-semibold transition-colors",
+                                        "rounded-lg border px-3 py-3.5 text-left text-sm font-semibold transition-colors",
                                         active
                                           ? "border-primary/50 bg-primary/15 text-primary"
                                           : "border-border bg-card/40 text-foreground hover:bg-muted/50"
                                       )}
                                       aria-pressed={active}
                                     >
-                                      {service.label}
+                                      {service.id === "key_generation"
+                                        ? "All keys lost (AKL)"
+                                        : "Need a spare"}
+                                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                                        {service.label}
+                                      </span>
                                     </button>
                                   )
                                 })}
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowMoreJobTypes((open) => !open)}
+                                className="text-left text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                              >
+                                {showMoreJobTypes
+                                  ? "Hide other job types"
+                                  : "More — programming, ignition, extraction…"}
+                              </button>
+                              {showMoreJobTypes ? (
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                  {SECONDARY_JOB_TYPE_OPTIONS.map((service) => {
+                                    const active = serviceTypeId === service.id
+                                    return (
+                                      <button
+                                        key={service.id}
+                                        type="button"
+                                        onClick={() => handleJobTypeChange(service.id)}
+                                        className={cn(
+                                          "rounded-lg border px-3 py-3 text-left text-sm font-semibold transition-colors",
+                                          active
+                                            ? "border-primary/50 bg-primary/15 text-primary"
+                                            : "border-border bg-card/40 text-foreground hover:bg-muted/50"
+                                        )}
+                                        aria-pressed={active}
+                                      >
+                                        {service.label}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              ) : null}
                             </fieldset>
                           ) : null}
 
@@ -2396,13 +2481,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Key specifics
                               </legend>
-                              {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
-                                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-emerald-400">
-                                  Selected Vehicle: {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                                </div>
-                              ) : null}
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
+                                  <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+                                    Selected Vehicle:{" "}
+                                    {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
+                                      .filter(Boolean)
+                                      .join(" ")}
+                                  </div>
+                                ) : (
+                                  <span />
+                                )}
+                                {liveQuote.totalCents > 0 ? (
+                                  <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-emerald-200">
+                                    {liveQuote.dispatchJobTypeLabel} ·{" "}
+                                    {formatQuoteDollars(
+                                      parseQuoteDollars(customPrice, liveQuote.totalCents) * 100
+                                    )}
+                                  </span>
+                                ) : null}
+                              </div>
                               <VehicleIntakeClarificationsPanel
                                 year={form.vehicleYear}
                                 make={form.vehicleMake}
@@ -2565,6 +2663,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   jobLat={form.serviceAddress?.lat ?? null}
                                   jobLng={form.serviceAddress?.lng ?? null}
                                 />
+                                <IntakeJobPhotosPanel
+                                  compact
+                                  callLogId={effectiveCurrent?.id ?? null}
+                                  customerPhone={
+                                    resolvedPhoneNumber ||
+                                    form.phoneNumber ||
+                                    effectiveCurrent?.from_number ||
+                                    ""
+                                  }
+                                  photos={jobPhotos}
+                                  onPhotosChange={setJobPhotos}
+                                  rescueMeta={rescueMeta}
+                                  onRescueMetaChange={setRescueMeta}
+                                />
                                 <Button
                                   type="button"
                                   size="lg"
@@ -2607,6 +2719,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 onEstimateChange={handleQuoteEstimateChange}
                                 onFlatPriceChange={handleFlatPriceChange}
                                 variant="breakdown-only"
+                              />
+
+                              <PriceNegotiationHelperPanel
+                                baselineCents={liveQuote.totalCents}
+                                currentPriceDollars={customPrice}
+                                onApplyPrice={handleNegotiationApply}
                               />
 
                               <div className="grid grid-cols-2 gap-3">
@@ -2659,6 +2777,23 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   autoFocus
                                 />
                               </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="manual-ac-quote" className="text-xs">
+                                  Pitched quote ($)
+                                </Label>
+                                <Input
+                                  id="manual-ac-quote"
+                                  inputMode="decimal"
+                                  value={customPrice}
+                                  onChange={(e) => setCustomPrice(e.target.value)}
+                                  placeholder={
+                                    liveQuote.totalCents > 0
+                                      ? String(Math.round(liveQuote.totalCents / 100))
+                                      : "0"
+                                  }
+                                  className="h-11 font-mono text-base tabular-nums"
+                                />
+                              </div>
                               <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                                 <p>
                                   {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
@@ -2669,6 +2804,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   {form.scheduledDate} · {form.scheduledTime}
                                 </p>
                               </div>
+                              <PriceShopperRecoveryPanel
+                                compact
+                                customPrice={customPrice}
+                                baselineTotalCents={liveQuote.totalCents}
+                                negotiationDiscountApplied={negotiationDiscountApplied}
+                                quotedPriceOverridden={form.quotedPriceOverridden}
+                                failureReason={failureReason}
+                                onFailureReasonChange={setFailureReason}
+                                negotiationStep={negotiationStep}
+                                onNegotiationStepChange={setNegotiationStep}
+                                step1Price={step1Price}
+                                step2Price={step2Price}
+                                step3Price={step3Price}
+                                customerName={form.displayName}
+                                recoveredViaRouteDiscount={recoveredViaRouteDiscount}
+                                onApplyRouteMatch={handleApplyRouteMatchDiscount}
+                                onApplyAftermarket={handleApplyAftermarketRecovery}
+                                onApplyManagementFloor={handleApplyManagementFloor}
+                                lostLeadState={lostLeadState}
+                                lostLeadError={lostLeadError}
+                                canLogLostLead={canLogLostLead}
+                                onLogLostLead={() => void logLostLead()}
+                              />
                             </fieldset>
                           ) : null}
 
@@ -3023,164 +3181,28 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </div>
                 </fieldset>
 
-                <fieldset className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                  <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-                    Price-shopper recovery
-                  </legend>
-                  {negotiationDiscountApplied || form.quotedPriceOverridden ? (
-                    <p className="text-[11px] text-amber-100/90">
-                      Last pitched quote: ${parseQuoteDollars(customPrice, liveQuote.totalCents)}
-                      {negotiationDiscountApplied
-                        ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
-                        : ""}
-                      {liveQuote.totalCents > 0
-                        ? ` · baseline was $${Math.round(liveQuote.totalCents / 100)}`
-                        : ""}
-                    </p>
-                  ) : null}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="failure-reason" className="text-xs">
-                      Failure reason
-                    </Label>
-                    <Select value={failureReason} onValueChange={setFailureReason}>
-                      <SelectTrigger id="failure-reason" className="h-9">
-                        <SelectValue placeholder="Select failure reason" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={FAILURE_REASON_NEUTRAL}>— Select reason —</SelectItem>
-                        <SelectItem value="Price too high">Price too high</SelectItem>
-                        <SelectItem value="Abrupt hang-up">Abrupt hang-up</SelectItem>
-                        <SelectItem value="Shopping competitors">Shopping competitors</SelectItem>
-                        <SelectItem value="Will call back later">Will call back later</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {isPriceTooHigh ? (
-                    <div className="mt-3 space-y-3 rounded-lg border border-orange-500/30 bg-slate-950 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
-                          Save the deal — read verbatim
-                        </p>
-                        <span className="shrink-0 text-[10px] font-medium text-orange-400/80">
-                          Step {negotiationStep} of 3
-                        </span>
-                      </div>
-
-                      {negotiationStep === 1 ? (
-                        <>
-                          <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
-                            <span className="mr-1" aria-hidden>
-                              💬
-                            </span>
-                            &ldquo;{routeMatchRecoveryScript(step1Price)}&rdquo;
-                          </p>
-                          <Button
-                            type="button"
-                            size="lg"
-                            className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
-                            onClick={handleApplyRouteMatchDiscount}
-                          >
-                            Apply Router Match Discount (${step1Price})
-                          </Button>
-                          <button
-                            type="button"
-                            className="w-full text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
-                            onClick={() => setNegotiationStep(2)}
-                          >
-                            Customer declined this but is still negotiating →
-                          </button>
-                          {recoveredViaRouteDiscount ? (
-                            <p className="text-[11px] text-emerald-300">
-                              Route discount applied — confirm the job below when the customer accepts.
-                            </p>
-                          ) : null}
-                        </>
-                      ) : null}
-
-                      {negotiationStep === 2 ? (
-                        <>
-                          <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
-                            <span className="mr-1" aria-hidden>
-                              💬
-                            </span>
-                            &ldquo;{aftermarketRecoveryScript(step2Price)}&rdquo;
-                          </p>
-                          <Button
-                            type="button"
-                            size="lg"
-                            className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
-                            onClick={handleApplyAftermarketRecovery}
-                          >
-                            Apply Aftermarket Hardware Swap (${step2Price})
-                          </Button>
-                          <div className="flex flex-col gap-1.5">
-                            <button
-                              type="button"
-                              className="text-left text-xs text-slate-400 hover:text-slate-200"
-                              onClick={() => setNegotiationStep(1)}
-                            >
-                              ← Go Back
-                            </button>
-                            <button
-                              type="button"
-                              className="text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
-                              onClick={() => setNegotiationStep(3)}
-                            >
-                              Still too high but wants to book →
-                            </button>
-                          </div>
-                        </>
-                      ) : null}
-
-                      {negotiationStep === 3 ? (
-                        <>
-                          <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
-                            <span className="mr-1" aria-hidden>
-                              💬
-                            </span>
-                            &ldquo;{managementFloorRecoveryScript(form.displayName, step3Price)}&rdquo;
-                          </p>
-                          <Button
-                            type="button"
-                            size="lg"
-                            className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
-                            onClick={handleApplyManagementFloor}
-                          >
-                            Apply Final Management Floor (${step3Price})
-                          </Button>
-                          <button
-                            type="button"
-                            className="text-left text-xs text-slate-400 hover:text-slate-200"
-                            onClick={() => setNegotiationStep(2)}
-                          >
-                            ← Go Back
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    className="w-full gap-2 border-amber-500/40 text-amber-100 hover:bg-amber-500/10"
-                    disabled={lostLeadState === "saving" || !canLogLostLead}
-                    onClick={() => void logLostLead()}
-                  >
-                    {lostLeadState === "saving" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : (
-                      <PhoneOff className="h-4 w-4 shrink-0" aria-hidden />
-                    )}
-                    Customer declined price / hang up
-                  </Button>
-                  {lostLeadState === "saved" ? (
-                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                      Lost lead logged — recovery SMS will queue after 20 minutes.
-                    </p>
-                  ) : null}
-                  {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
-                </fieldset>
+                <PriceShopperRecoveryPanel
+                  customPrice={customPrice}
+                  baselineTotalCents={liveQuote.totalCents}
+                  negotiationDiscountApplied={negotiationDiscountApplied}
+                  quotedPriceOverridden={form.quotedPriceOverridden}
+                  failureReason={failureReason}
+                  onFailureReasonChange={setFailureReason}
+                  negotiationStep={negotiationStep}
+                  onNegotiationStepChange={setNegotiationStep}
+                  step1Price={step1Price}
+                  step2Price={step2Price}
+                  step3Price={step3Price}
+                  customerName={form.displayName}
+                  recoveredViaRouteDiscount={recoveredViaRouteDiscount}
+                  onApplyRouteMatch={handleApplyRouteMatchDiscount}
+                  onApplyAftermarket={handleApplyAftermarketRecovery}
+                  onApplyManagementFloor={handleApplyManagementFloor}
+                  lostLeadState={lostLeadState}
+                  lostLeadError={lostLeadError}
+                  canLogLostLead={canLogLostLead}
+                  onLogLostLead={() => void logLostLead()}
+                />
                   </>
                 )}
               </div>
@@ -3212,14 +3234,37 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         </Button>
                         <Button
                           type="button"
-                          variant={form.keyVariantId.trim() ? "outline" : "default"}
+                          variant={hasKeyBlank ? "outline" : "default"}
                           size="lg"
                           className="h-11 min-w-0 flex-1"
-                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                          disabled={keyBlankRequired && !hasKeyBlank}
+                          onClick={() => {
+                            if (keyBlankRequired && !hasKeyBlank) {
+                              toast({
+                                title: "Pick a key blank",
+                                description: "All-keys-lost jobs need a blank before location.",
+                              })
+                              return
+                            }
+                            if (!hasKeyBlank && !keySkipArmed) {
+                              setKeySkipArmed(true)
+                              toast({
+                                title: "No key selected",
+                                description: "Tap Continue again to skip, or pick a blank first.",
+                              })
+                              return
+                            }
+                            setKeySkipArmed(false)
+                            setCurrentStep("ADDRESS_CONTACT")
+                          }}
                         >
-                          {form.keyVariantId.trim()
+                          {hasKeyBlank
                             ? "Continue to location"
-                            : "Next: Location & Contact"}
+                            : keyBlankRequired
+                              ? "Select a key blank first"
+                              : keySkipArmed
+                                ? "Skip key — go to location"
+                                : "Next: Location & Contact"}
                         </Button>
                       </div>
                     ) : null}
@@ -3392,15 +3437,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         Back
                       </Button>
                     ) : null}
+                    {currentStep === "VEHICLE_INFO" && vehicleLockoutIntake ? (
+                      <Button
+                        type="button"
+                        size="lg"
+                        variant={vehicleYmmComplete ? "default" : "outline"}
+                        className="h-11 w-full"
+                        onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                      >
+                        {vehicleYmmComplete
+                          ? "Next: Location"
+                          : "Skip vehicle — go to location"}
+                      </Button>
+                    ) : null}
                     {currentStep === "VEHICLE_INFO" &&
-                    form.vehicleYear.trim() &&
-                    form.vehicleMake.trim() &&
-                    form.vehicleModel.trim() ? (
+                    !vehicleLockoutIntake &&
+                    vehicleYmmComplete ? (
                       <Button
                         type="button"
                         size="lg"
                         className="h-11 w-full"
-                        onClick={() => setCurrentStep(nextStepAfterVehicleInfo(serviceTypeId))}
+                        onClick={() =>
+                          setCurrentStep(nextStepAfterVehicleInfo(serviceTypeId, vehicleLockoutIntake))
+                        }
                       >
                         {serviceNeedsJobTypeStep(serviceTypeId)
                           ? "Next: Job type"
