@@ -324,7 +324,7 @@ export function JobDetailOverview({
           "min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-6",
           SCHEDULER_STACK
         )}
-      }>
+      >
         {/* Vehicle summary subtitle */}
         <section className="flex items-start gap-3 rounded-2xl border border-border/50 bg-slate-950/45 px-4 py-3">
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-300">
