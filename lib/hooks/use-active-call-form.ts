@@ -578,6 +578,11 @@ export function useActiveCallForm(
           : form.quotedPriceCents > 0
             ? form.quotedPriceCents
             : 0
+      if (!pendingCallback && quotedPriceCents <= 0) {
+        setJobState("error")
+        setJobError("Enter the quoted job price before booking. The saved balance cannot be blank.")
+        return { ok: false }
+      }
       if (!pendingCallback && !isIntakeAddressReady(form)) {
         setJobState("error")
         setJobError("Enter a service street address and city (pick a suggestion if you can).")

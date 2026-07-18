@@ -7724,11 +7724,28 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
         ? String(row.dispatch_status)
         : pick(["dispatch_status"]),
     completed_at: pick(["completed_at"]),
-    quoted_price_cents:
-      pickNum(["last_quoted_price_cents", "quoted_price_cents"]) ??
-      (pricingMeta?.quoted_price_cents != null && Number.isFinite(Number(pricingMeta.quoted_price_cents))
-        ? Number(pricingMeta.quoted_price_cents)
-        : null),
+    quoted_price_cents: (() => {
+      // Prefer final booked total so Active Job matches the intake quote, not a later recalc.
+      const fromCollected = pickNum([
+        "final_booked_total_cents",
+        "last_quoted_price_cents",
+        "quoted_price_cents",
+      ])
+      if (fromCollected != null && fromCollected > 0) return fromCollected
+      const fromColumn =
+        row.final_booked_total_cents != null && Number.isFinite(Number(row.final_booked_total_cents))
+          ? Number(row.final_booked_total_cents)
+          : null
+      if (fromColumn != null && fromColumn > 0) return fromColumn
+      if (
+        pricingMeta?.quoted_price_cents != null &&
+        Number.isFinite(Number(pricingMeta.quoted_price_cents)) &&
+        Number(pricingMeta.quoted_price_cents) > 0
+      ) {
+        return Number(pricingMeta.quoted_price_cents)
+      }
+      return null
+    })(),
     service_quote_type_id:
       pick(["service_quote_type_id"]) ??
       (pricingMeta?.service_type_id != null ? String(pricingMeta.service_type_id) : null),
@@ -7741,7 +7758,15 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     key_profile_id: pick(["key_profile_id"]),
     ti_sku: pick(["ti_sku", "tiSku"]),
     discount_applied: pick(["discount_applied"]),
-    baseline_quoted_price_cents: pickNum(["baseline_quoted_price_cents"]),
+    baseline_quoted_price_cents: (() => {
+      const fromCollected = pickNum(["baseline_quoted_price_cents", "calculated_total_cents"])
+      if (fromCollected != null && fromCollected > 0) return fromCollected
+      const fromColumn =
+        row.calculated_total_cents != null && Number.isFinite(Number(row.calculated_total_cents))
+          ? Number(row.calculated_total_cents)
+          : null
+      return fromColumn != null && fromColumn > 0 ? fromColumn : null
+    })(),
     field_verification_required: pickBool(["field_verification_required"]),
   }
 }
@@ -8148,9 +8173,13 @@ export async function updateOwnerSchedulerJob(params: {
     collectedPatch.programming_method = params.programmingMethod?.trim() || null
   }
   if (params.quotedPriceCents != null && params.quotedPriceCents > 0) {
-    collectedPatch.last_quoted_price_cents = Math.round(params.quotedPriceCents)
-    collectedPatch.quoted_price_cents = Math.round(params.quotedPriceCents)
+    const booked = Math.round(params.quotedPriceCents)
+    collectedPatch.last_quoted_price_cents = booked
+    collectedPatch.quoted_price_cents = booked
+    collectedPatch.final_booked_total_cents = booked
+    collectedPatch.finalBookedTotal = booked / 100
   }
+  // Only persist an explicit baseline snapshot — never invent one from a live recalc.
   if (params.baselineQuotedPriceCents != null && params.baselineQuotedPriceCents > 0) {
     collectedPatch.baseline_quoted_price_cents = Math.round(params.baselineQuotedPriceCents)
   }

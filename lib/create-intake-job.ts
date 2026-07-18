@@ -200,12 +200,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     keyChipset: input.keyChipset ?? undefined,
     keyVariantId: input.keyVariantId ?? undefined,
   })
-  const quotedPriceCents =
+  // Prefer the intake-quoted total. Never silently invent a lockout default when intake sent a price.
+  const intakeQuotedCents =
     input.quotedPriceCents != null &&
     Number.isFinite(input.quotedPriceCents) &&
     input.quotedPriceCents > 0
       ? Math.round(input.quotedPriceCents)
-      : quote.totalCents
+      : null
   // System estimate (line-item / calculator) vs final booked (may be a flat negotiated lock).
   const calculatedTotalCents =
     input.calculatedTotalCents != null &&
@@ -216,20 +217,39 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
           Number.isFinite(input.baselineQuotedPriceCents) &&
           input.baselineQuotedPriceCents > 0
         ? Math.round(input.baselineQuotedPriceCents)
-        : quote.totalCents
+        : quote.totalCents > 0
+          ? quote.totalCents
+          : null
   const finalBookedTotalCents =
     input.finalBookedTotalCents != null &&
     Number.isFinite(input.finalBookedTotalCents) &&
     input.finalBookedTotalCents > 0
       ? Math.round(input.finalBookedTotalCents)
-      : quotedPriceCents
+      : intakeQuotedCents != null
+        ? intakeQuotedCents
+        : calculatedTotalCents != null && calculatedTotalCents > 0
+          ? calculatedTotalCents
+          : quote.totalCents
+  // Billing balance written on the job — always the final booked quote from intake.
+  const quotedPriceCents = finalBookedTotalCents > 0 ? finalBookedTotalCents : quote.totalCents
+  const baselineQuotedPriceCents =
+    input.baselineQuotedPriceCents != null &&
+    Number.isFinite(input.baselineQuotedPriceCents) &&
+    input.baselineQuotedPriceCents > 0
+      ? Math.round(input.baselineQuotedPriceCents)
+      : calculatedTotalCents != null && calculatedTotalCents > 0
+        ? calculatedTotalCents
+        : quotedPriceCents > 0
+          ? quotedPriceCents
+          : null
   const isPriceOverridden =
     input.isPriceOverridden === true ||
-    (calculatedTotalCents > 0 &&
+    (baselineQuotedPriceCents != null &&
+      baselineQuotedPriceCents > 0 &&
       finalBookedTotalCents > 0 &&
-      calculatedTotalCents !== finalBookedTotalCents)
+      baselineQuotedPriceCents !== finalBookedTotalCents)
   const pricingMetadata = buildIntakePricingMetadata({
-    quote: { ...quote, totalCents: finalBookedTotalCents > 0 ? finalBookedTotalCents : quotedPriceCents },
+    quote: { ...quote, totalCents: quotedPriceCents },
     vehicleYear,
     vehicleMake,
     vehicleModel,
@@ -361,29 +381,24 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(input.plateNumber?.trim() ? { plate_number: input.plateNumber.trim() } : {}),
     ...(input.plateState?.trim() ? { plate_state: input.plateState.trim() } : {}),
     service_quote_type_id: serviceTypeId,
+    // Always persist the booked balance + baseline snapshot so Active Job never falls back to $85.
     ...(quotedPriceCents > 0
       ? {
           last_quoted_price_cents: quotedPriceCents,
           quoted_price_cents: quotedPriceCents,
+          final_booked_total_cents: quotedPriceCents,
+          finalBookedTotal: quotedPriceCents / 100,
           pricing_metadata: pricingMetadata,
         }
       : {}),
-    ...(input.baselineQuotedPriceCents != null && input.baselineQuotedPriceCents > 0
-      ? { baseline_quoted_price_cents: Math.round(input.baselineQuotedPriceCents) }
+    ...(baselineQuotedPriceCents != null && baselineQuotedPriceCents > 0
+      ? { baseline_quoted_price_cents: baselineQuotedPriceCents }
       : {}),
     // Flat Price Override — keep cents + dollar floats for negotiation metrics.
-    ...(calculatedTotalCents > 0
+    ...(calculatedTotalCents != null && calculatedTotalCents > 0
       ? {
           calculated_total_cents: calculatedTotalCents,
           calculatedTotal: calculatedTotalCents / 100,
-        }
-      : {}),
-    ...(finalBookedTotalCents > 0
-      ? {
-          final_booked_total_cents: finalBookedTotalCents,
-          finalBookedTotal: finalBookedTotalCents / 100,
-          last_quoted_price_cents: finalBookedTotalCents,
-          quoted_price_cents: finalBookedTotalCents,
         }
       : {}),
     is_price_overridden: isPriceOverridden,
@@ -507,8 +522,10 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     await sql`
       UPDATE ai_leads
       SET
-        calculated_total_cents = ${calculatedTotalCents > 0 ? calculatedTotalCents : null},
-        final_booked_total_cents = ${finalBookedTotalCents > 0 ? finalBookedTotalCents : null},
+        calculated_total_cents = ${
+          calculatedTotalCents != null && calculatedTotalCents > 0 ? calculatedTotalCents : null
+        },
+        final_booked_total_cents = ${quotedPriceCents > 0 ? quotedPriceCents : null},
         is_price_overridden = ${isPriceOverridden}
       WHERE id = ${id} AND user_id = ${input.ownerUserId}
     `

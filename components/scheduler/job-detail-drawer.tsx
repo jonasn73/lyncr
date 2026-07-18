@@ -45,9 +45,12 @@ import {
   dispatchJobTypeFromServiceQuoteTypeId,
   serviceQuoteTypeFromJobType,
 } from "@/lib/job-intake-fields"
-import { calculateServiceQuote, type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
+import {
+  resolveJobBaselineDollars,
+  resolveJobBillingBalanceCents,
+} from "@/lib/job-billing-balance"
+import { type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
-import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
@@ -105,11 +108,8 @@ export function JobDetailDrawer({
   const [keyProfileId, setKeyProfileId] = useState("")
   const [programmingMethod, setProgrammingMethod] = useState("")
   const [editablePrice, setEditablePrice] = useState("")
-  const [priceOverridden, setPriceOverridden] = useState(false)
   const [negotiationDiscountApplied, setNegotiationDiscountApplied] =
     useState<NegotiationDiscountId | null>(null)
-  const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
-  const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const [location, setLocation] = useState("")
   const [jobNotes, setJobNotes] = useState("")
   const [scheduledDate, setScheduledDate] = useState("")
@@ -140,49 +140,22 @@ export function JobDetailDrawer({
     )
   }, [jobLat, jobLng, dispatcherLocation.lat, dispatcherLocation.lng])
 
-  const liveQuote = useMemo(
-    () =>
-      calculateServiceQuote({
-        serviceTypeId: serviceQuoteTypeId,
-        vehicleYear,
-        vehicleMake,
-        vehicleModel,
-        rateCard,
-        rateCardSource,
-        distanceMiles: travelDistanceMilesValue,
-        keyStyle,
-        keyChipset,
-        keyVariantId,
-      }),
-    [
-      serviceQuoteTypeId,
-      vehicleYear,
-      vehicleMake,
-      vehicleModel,
-      rateCard,
-      rateCardSource,
-      travelDistanceMilesValue,
-      keyStyle,
-      keyChipset,
-      keyVariantId,
-    ]
-  )
-
-  const autoTotalDollars =
-    liveQuote.totalCents > 0 ? Math.round(liveQuote.totalCents / 100) : 0
-
   const resolveQuotedPriceCents = useCallback(() => {
-    const raw = editablePrice.trim()
-    if (!raw) return liveQuote.totalCents
-    const dollars = Number.parseFloat(raw)
-    if (Number.isFinite(dollars) && dollars >= 0) return Math.round(dollars * 100)
-    return liveQuote.totalCents
-  }, [editablePrice, liveQuote.totalCents])
+    return resolveJobBillingBalanceCents({
+      editablePriceDollars: editablePrice,
+      savedQuotedPriceCents: source?.quoted_price_cents,
+    })
+  }, [editablePrice, source?.quoted_price_cents])
 
   const buildSaveBody = useCallback((): Record<string, unknown> => {
     const quotedPriceCents = resolveQuotedPriceCents()
     const pipelinePatch = pipelineStatusPatch(pipelineStatus)
     const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
+    // Keep the intake baseline snapshot — do not rewrite it from a live vehicle recalc.
+    const persistedBaseline =
+      source?.baseline_quoted_price_cents != null && source.baseline_quoted_price_cents > 0
+        ? Math.round(source.baseline_quoted_price_cents)
+        : null
     return {
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
@@ -208,7 +181,7 @@ export function JobDetailDrawer({
       key_profile_id: keyProfileId.trim() || null,
       programming_method: programmingMethod.trim() || null,
       discount_applied: negotiationDiscountApplied,
-      baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+      baseline_quote_cents: persistedBaseline,
       field_verification_required: keyStyleRequiresFieldVerification(keyStyle),
       ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
     }
@@ -227,7 +200,7 @@ export function JobDetailDrawer({
     programmingMethod,
     location,
     negotiationDiscountApplied,
-    liveQuote.totalCents,
+    source?.baseline_quoted_price_cents,
     pipelineStatus,
     resolveQuotedPriceCents,
     scheduledDate,
@@ -242,7 +215,6 @@ export function JobDetailDrawer({
 
   const handleServiceTypeChange = useCallback((id: ServiceQuoteTypeId) => {
     setServiceQuoteTypeId(id)
-    setPriceOverridden(false)
   }, [])
 
   const poolWithTech = poolJob as (UnassignedPoolJob & {
@@ -282,7 +254,6 @@ export function JobDetailDrawer({
     setProgrammingMethod(source.programming_method ?? "")
     const savedCents = source.quoted_price_cents ?? 0
     setEditablePrice(savedCents > 0 ? String(Math.round(savedCents / 100)) : "")
-    setPriceOverridden(savedCents > 0)
     setNegotiationDiscountApplied(
       (source.discount_applied as NegotiationDiscountId | null) ?? null
     )
@@ -321,33 +292,6 @@ export function JobDetailDrawer({
   }, [open, editIntentTick])
 
   useEffect(() => {
-    if (!open || !jobId) return
-    let cancel = false
-    void fetch("/api/service-quote/rate-card", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : { data: null }))
-      .then((data: { data?: { rate_card?: ServiceRateCard; source?: string } }) => {
-        if (cancel) return
-        if (data.data?.rate_card) {
-          setRateCard(data.data.rate_card)
-          setRateCardSource(
-            data.data.source === "onboarding_profiles.service_rules"
-              ? "onboarding_profiles.service_rules"
-              : "default"
-          )
-        }
-      })
-      .catch(() => {})
-    return () => {
-      cancel = true
-    }
-  }, [open, jobId])
-
-  useEffect(() => {
-    if (!source || priceOverridden) return
-    setEditablePrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
-  }, [source, autoTotalDollars, priceOverridden, serviceQuoteTypeId, vehicleYear, vehicleMake, vehicleModel, keyStyle, keyChipset, keyVariantId])
-
-  useEffect(() => {
     // Stamp open time once per job open — do not depend on `source` object identity
     // (parent re-renders were resetting this and blocking the X close button).
     if (open && jobId) openedAtRef.current = Date.now()
@@ -381,7 +325,6 @@ export function JobDetailDrawer({
     setKeyProfileId(event.key_profile_id ?? "")
     const savedCents = event.quoted_price_cents ?? 0
     setEditablePrice(savedCents > 0 ? String(Math.round(savedCents / 100)) : "")
-    setPriceOverridden(savedCents > 0)
     setNegotiationDiscountApplied((event.discount_applied as NegotiationDiscountId | null) ?? null)
     setLocation(event.location ?? "")
     setJobNotes(event.job_notes ?? "")
@@ -538,12 +481,8 @@ export function JobDetailDrawer({
 
   const quotedPriceDollars =
     resolveQuotedPriceCents() > 0 ? Math.round(resolveQuotedPriceCents() / 100) : 0
-  const baselineQuotedDollars =
-    source?.baseline_quoted_price_cents != null && source.baseline_quoted_price_cents > 0
-      ? Math.round(source.baseline_quoted_price_cents / 100)
-      : liveQuote.totalCents > 0
-        ? Math.round(liveQuote.totalCents / 100)
-        : null
+  // Baseline is the intake snapshot only — never a live vehicle recalculation.
+  const baselineQuotedDollars = resolveJobBaselineDollars(source?.baseline_quoted_price_cents)
   const discountLabel = negotiationDiscountLabel(negotiationDiscountApplied)
 
   const requestClose = useCallback(() => {
@@ -625,10 +564,7 @@ export function JobDetailDrawer({
               onVehicleMakeChange={setVehicleMake}
               onVehicleModelChange={setVehicleModel}
               onVehicleVinChange={setVehicleVin}
-              onEditablePriceChange={(value) => {
-                setEditablePrice(value)
-                setPriceOverridden(true)
-              }}
+              onEditablePriceChange={setEditablePrice}
               onSave={() => handleSave()}
               onSaveSuccess={() => setViewMode("overview")}
               onDeleteRequest={() => setDeleteConfirmOpen(true)}
