@@ -7241,8 +7241,14 @@ function isMissingAssignedTechColumnError(e: unknown): boolean {
 
 function isMissingFieldTechOrganizationColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
-  const msg = pgErrorMessage(e)
-  return msg.includes("organization_id") && msg.includes("field_technicians")
+  const msg = pgErrorMessage(e).toLowerCase()
+  // Neon/Postgres may say "ft.organization_id" (alias) or "field_technicians.organization_id".
+  return (
+    msg.includes("organization_id") &&
+    (msg.includes("field_technicians") ||
+      msg.includes("ft.organization_id") ||
+      msg.includes("column ft.organization_id"))
+  )
 }
 
 function parseFieldTechnicianRow(row: Record<string, unknown>): FieldTechnician {

@@ -317,13 +317,13 @@ export function DispatchLiveMap({
 
     void Promise.all([
       // Never reject the whole load if one endpoint fails — keep whatever we can plot.
-      fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" }).then((r) =>
-        r.ok ? r.json() : { data: { jobs: [], technicians: [], techLocations: [] } }
-      ),
+      fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { data: { jobs: [], technicians: [], techLocations: [] } }))
+        .catch(() => ({ data: { jobs: [], technicians: [], techLocations: [] } })),
       // Hopper pool runs geocode enrichment — same pins the Scheduler job pool uses.
-      fetch(`/api/owner/jobs/pool${orgQs}`, { credentials: "include", cache: "no-store" }).then(
-        (r) => (r.ok ? r.json() : { data: { jobs: [] } })
-      ),
+      fetch(`/api/owner/jobs/pool${orgQs}`, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { data: { jobs: [] } }))
+        .catch(() => ({ data: { jobs: [] } })),
     ])
       .then(
         ([bookedJson, poolJson]: [
