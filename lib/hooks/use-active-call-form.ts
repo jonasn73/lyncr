@@ -314,6 +314,42 @@ export function useActiveCallForm(
     })
   }, [])
 
+  /**
+   * Pin a server-resolved FCC without adding an Ask-the-customer answer id.
+   * Used when HO03-style variants are equivalent and we skip the banner.
+   */
+  const applyFccAutoResolved = useCallback((option: VehicleClarificationOption) => {
+    const fccId = option.fccId?.trim() || ""
+    if (!fccId) return
+    setForm((prev) => {
+      // Do not overwrite a dispatcher who already chose a different FCC.
+      if (prev.keyFccId.trim() && prev.keyFccId.trim().toUpperCase() !== fccId.toUpperCase()) {
+        return prev
+      }
+      const tiSku = option.tiSku?.trim() || ""
+      const noteLine = option.note?.trim()
+      const notes =
+        noteLine && !prev.notes.includes(noteLine)
+          ? prev.notes.trim()
+            ? `${prev.notes.trim()} · ${noteLine}`
+            : noteLine
+          : prev.notes
+      return {
+        ...prev,
+        notes,
+        keyFccId: fccId,
+        keyFrequency: option.frequency?.trim() || prev.keyFrequency,
+        keyStyle: option.keyStyle?.trim() || prev.keyStyle,
+        keyProfileId: tiSku ? "ti-catalog" : prev.keyProfileId,
+        keyVariantId: tiSku ? `ti-catalog-${tiSku}` : prev.keyVariantId,
+        tiSku: tiSku || prev.tiSku,
+        programmingMethod: tiSku
+          ? prev.programmingMethod || "OBD2 Programming Required"
+          : prev.programmingMethod,
+      }
+    })
+  }, [])
+
   const setVehicleKeySelection = useCallback(
     (
       sel: {
@@ -586,6 +622,8 @@ export function useActiveCallForm(
       organizationId?: string | null,
       jobOptions?: {
         pendingCallback?: boolean
+        /** Hang-up after quoting — skip name/address/schedule; tag lead for phone match. */
+        quoteLead?: boolean
         quotedPriceCents?: number
         discountApplied?: string | null
         baselineQuotedPriceCents?: number | null
@@ -598,13 +636,24 @@ export function useActiveCallForm(
     ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
       if (!current) return { ok: false }
       const phone = resolvedPhoneNumber || current.from_number
-      const name = form.displayName.trim()
+      const pendingCallback = Boolean(jobOptions?.pendingCallback)
+      const quoteLead = Boolean(jobOptions?.quoteLead)
+      // Quote / callback leads may skip the name step — phone + quote are enough to match later.
+      const name =
+        form.displayName.trim() ||
+        (pendingCallback || quoteLead ? "Quote lead" : "")
       if (!name) {
         setJobState("error")
         setJobError("Enter the caller name before sending to dispatch.")
         return { ok: false }
       }
-      const pendingCallback = Boolean(jobOptions?.pendingCallback)
+      const quoteTag = "Price Quoted / Lead Only"
+      const notesForJob =
+        quoteLead && !form.notes.includes(quoteTag)
+          ? form.notes.trim()
+            ? `${form.notes.trim()} · ${quoteTag}`
+            : quoteTag
+          : form.notes
       const quotedPriceCents =
         jobOptions?.quotedPriceCents != null && jobOptions.quotedPriceCents > 0
           ? Math.round(jobOptions.quotedPriceCents)
@@ -721,7 +770,7 @@ export function useActiveCallForm(
             region: form.region,
             postal_code: form.postalCode,
             country: form.country,
-            notes: form.notes,
+            notes: notesForJob,
             vehicle_year: form.vehicleYear,
             vehicle_make: form.vehicleMake,
             vehicle_model: form.vehicleModel,
@@ -802,6 +851,10 @@ export function useActiveCallForm(
   const canDispatch = Boolean(form.displayName.trim() && addressReady)
   const canSavePendingLead = Boolean(
     form.displayName.trim() && hasCompleteIntakePhone(resolvedPhoneNumber || current?.from_number || "")
+  )
+  /** Quote lead only needs a dialable phone — name / address / schedule are optional. */
+  const canSaveQuoteLead = hasCompleteIntakePhone(
+    resolvedPhoneNumber || current?.from_number || ""
   )
   const dispatchBlockers = listIntakeDispatchBlockers(form)
   const addressSeedQuery =
@@ -907,6 +960,7 @@ export function useActiveCallForm(
     setVehicle,
     applyPlateLookupResult,
     applyVehicleClarification,
+    applyFccAutoResolved,
     setVehicleKeySelection,
     setServiceAddress,
     commitAddressQuery,
@@ -918,6 +972,7 @@ export function useActiveCallForm(
     createJob,
     canDispatch,
     canSavePendingLead,
+    canSaveQuoteLead,
     addressReady,
     dispatchBlockers,
     addressSeedQuery,

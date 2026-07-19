@@ -548,6 +548,20 @@ export function resolveVehicleKeyFcc(input: {
     }
   }
 
+  // HO03 / HO03-PT style: same frequency, modulation, buttons, and order blank → pick best.
+  // Dispatchers should not be blocked when variants are the same key profile.
+  if (fccCandidatesAreOrderEquivalent(ranked, input.profiles, input.tiHits)) {
+    addScore(top, 15, "equivalent FCC variants — same key profile")
+    return {
+      resolvedFccId: top.fccId,
+      confidence: "high",
+      ranked: rankedAll,
+      clarification: null,
+      preferredTiSku: bestTiForFcc(input.tiHits, top.fccId)?.tiSku ?? null,
+      needsClarification: false,
+    }
+  }
+
   return {
     resolvedFccId: null,
     confidence: "low",
@@ -556,6 +570,104 @@ export function resolveVehicleKeyFcc(input: {
     preferredTiSku: null,
     needsClarification: true,
   }
+}
+
+/** Digits-only radio frequency for apples-to-apples compares. */
+function normalizeResolveFrequency(value: string | null | undefined): string {
+  return (value ?? "").replace(/[^\d]/g, "")
+}
+
+/** Collapse modulation to ask / fsk / other. */
+function normalizeResolveModulation(value: string | null | undefined): string {
+  const raw = (value ?? "").toLowerCase()
+  if (/\bask\b/.test(raw)) return "ask"
+  if (/fsk/.test(raw)) return "fsk"
+  return raw.replace(/[^a-z0-9]+/g, "") || "unknown"
+}
+
+/**
+ * Strip common OEM variant suffixes so HO03PT and HO03 share a family key.
+ * Keeps the core FCC stem dispatchers care about for ordering.
+ */
+export function fccOrderFamilyKey(fccId: string): string {
+  const id = sanitizeFccIdInput(fccId)
+  if (!id) return ""
+  return id
+    .replace(/[-_]?PT$/i, "")
+    .replace(/[-_]?A$/i, "")
+    .replace(/[-_]?OEM$/i, "")
+}
+
+/** Button-count signature for one FCC (TI title first, then photo variants). */
+function buttonSignatureForFcc(
+  fccId: string,
+  profiles: FccResolveProfile[],
+  tiHits: FccResolveTiHit[]
+): number {
+  const ti = bestTiForFcc(tiHits, fccId)
+  const fromTi =
+    ti && ti.buttonCount > 0 ? ti.buttonCount : ti ? extractButtonCountFromTitle(ti.title) : null
+  const profile = profiles.find((p) => sanitizeFccIdInput(p.fccId) === sanitizeFccIdInput(fccId))
+  const fromVariants = profile?.buttonCountsFromVariants?.find((n) => n > 0) ?? null
+  return fromTi ?? fromVariants ?? 0
+}
+
+/** True when trunk vs hatch still differs across the top FCC list. */
+function hasTrunkHatchSplit(ranked: FccRankedCandidate[], tiHits: FccResolveTiHit[]): boolean {
+  const trunk = new Set<string>()
+  const hatch = new Set<string>()
+  for (const hit of tiHits) {
+    const id = sanitizeFccIdInput(hit.fccId)
+    if (!id) continue
+    if (!ranked.some((c) => c.fccId === id)) continue
+    if (/trunk/i.test(hit.title)) trunk.add(id)
+    if (/hatch/i.test(hit.title)) hatch.add(id)
+  }
+  return trunk.size > 0 && hatch.size > 0
+}
+
+/**
+ * True when remaining FCC candidates order the same blank / key profile.
+ * Used to skip Ask-the-customer for repetitive HO03-style variant rows.
+ */
+export function fccCandidatesAreOrderEquivalent(
+  ranked: FccRankedCandidate[],
+  profiles: FccResolveProfile[],
+  tiHits: FccResolveTiHit[]
+): boolean {
+  if (ranked.length < 2) return true
+  if (needsIgnitionStyleClarification(profiles, tiHits)) return false
+  if (hasTrunkHatchSplit(ranked, tiHits)) return false
+
+  const signatures = ranked.map((candidate) => {
+    const profile = profiles.find(
+      (row) => sanitizeFccIdInput(row.fccId) === sanitizeFccIdInput(candidate.fccId)
+    )
+    const ti = bestTiForFcc(tiHits, candidate.fccId)
+    return {
+      freq:
+        normalizeResolveFrequency(profile?.frequency) ||
+        normalizeResolveFrequency(ti?.frequency),
+      mod: normalizeResolveModulation(profile?.modulation),
+      buttons: buttonSignatureForFcc(candidate.fccId, profiles, tiHits),
+      family: fccOrderFamilyKey(candidate.fccId),
+      tiSku: (ti?.tiSku ?? "").trim().toUpperCase(),
+    }
+  })
+
+  const first = signatures[0]!
+  const sameProfile = signatures.every(
+    (row) =>
+      row.freq === first.freq &&
+      row.mod === first.mod &&
+      row.buttons === first.buttons
+  )
+  const sameFamily =
+    first.family.length >= 3 && signatures.every((row) => row.family === first.family)
+  const sameTiBlank =
+    Boolean(first.tiSku) && signatures.every((row) => row.tiSku && row.tiSku === first.tiSku)
+
+  return sameProfile || sameFamily || sameTiBlank
 }
 
 /**

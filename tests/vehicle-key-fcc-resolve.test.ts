@@ -147,6 +147,37 @@ describe("resolveVehicleKeyFcc", () => {
     expect(result.clarification?.options.map((o) => o.fccId).sort()).toEqual(["AAA111", "BBB222"])
   })
 
+  it("auto-picks when FCC variants share the same key profile (HO03-style)", () => {
+    const result = resolveVehicleKeyFcc({
+      profiles: [
+        { fccId: "HO03", frequency: "313.85", modulation: "ASK", variantCount: 2 },
+        { fccId: "HO03PT", frequency: "313.85", modulation: "ASK", variantCount: 2 },
+      ],
+      tiHits: [
+        {
+          fccId: "HO03",
+          tiSku: "TIK-HON-01A",
+          title: "2003 - 2007 Honda Accord Remote Head Key 3B - AFTERMARKET",
+          buttonCount: 3,
+          frequency: "313.85 MHz",
+          score: 140,
+        },
+        {
+          fccId: "HO03PT",
+          tiSku: "TIK-HON-01A",
+          title: "2003 - 2007 Honda Accord Remote Head Key 3B - AFTERMARKET",
+          buttonCount: 3,
+          frequency: "313.85 MHz",
+          score: 130,
+        },
+      ],
+    })
+    expect(result.needsClarification).toBe(false)
+    expect(result.resolvedFccId).toBeTruthy()
+    expect(["HO03", "HO03PT"]).toContain(result.resolvedFccId)
+    expect(result.preferredTiSku).toBe("TIK-HON-01A")
+  })
+
   it("asks push vs turn-key when FSK and ASK profiles both score closely", () => {
     const result = resolveVehicleKeyFcc({
       profiles: [

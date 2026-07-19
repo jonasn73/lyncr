@@ -619,6 +619,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setVehicle,
     applyPlateLookupResult,
     applyVehicleClarification,
+    applyFccAutoResolved,
     setVehicleKeySelection,
     setServiceAddress,
     commitAddressQuery,
@@ -630,6 +631,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     createJob,
     canDispatch,
     canSavePendingLead,
+    canSaveQuoteLead,
     addressReady,
     dispatchBlockers,
     addressSeedQuery,
@@ -1735,6 +1737,49 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     router,
   ])
 
+  /**
+   * Save phone + quoted price + vehicle as a CRM quote lead without name / address / schedule.
+   * Used when the customer hangs up after pricing and may call back later.
+   */
+  const saveQuoteLead = useCallback(async () => {
+    if (!effectiveCurrent) return
+    if (!canSaveQuoteLead) {
+      setJobState("error")
+      setJobError("Need a valid phone number to save a quote lead for call-back matching.")
+      return
+    }
+    const userId = await resolveOwnerUserId()
+    if (!userId) {
+      setJobState("error")
+      setJobError("Could not verify your account. Refresh the page and try again.")
+      return
+    }
+    const quotedPriceCents = applyCustomPriceToForm()
+    const result = await createJob(activeOrganizationId, {
+      pendingCallback: true,
+      quoteLead: true,
+      ...jobCreateExtras(quotedPriceCents),
+    })
+    if (!result.ok) return
+    toast({
+      title: "Quote lead saved",
+      description: "If they call back, this phone number will match the quoted price and vehicle.",
+    })
+    closeIntakeAfterSave()
+    router.push("/dashboard/leads")
+  }, [
+    activeOrganizationId,
+    applyCustomPriceToForm,
+    canSaveQuoteLead,
+    closeIntakeAfterSave,
+    createJob,
+    effectiveCurrent,
+    jobCreateExtras,
+    resolveOwnerUserId,
+    router,
+    toast,
+  ])
+
   const logLostLead = useCallback(async () => {
     if (!effectiveCurrent || !ownerUserId) return
     setLostLeadState("saving")
@@ -2545,6 +2590,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 model={form.vehicleModel}
                                 answeredIds={answeredClarificationSet}
                                 onAnswer={applyVehicleClarification}
+                                onFccAutoResolved={applyFccAutoResolved}
                                 onPendingKeyClarificationChange={setKeyClarificationPending}
                               />
                               <VehicleKeyInfoPanel
@@ -2953,6 +2999,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       model={form.vehicleModel}
                       answeredIds={answeredClarificationSet}
                       onAnswer={applyVehicleClarification}
+                      onFccAutoResolved={applyFccAutoResolved}
                       onPendingKeyClarificationChange={setKeyClarificationPending}
                     />
                     <VehicleKeyInfoPanel
@@ -3235,107 +3282,152 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       </Button>
                     ) : null}
                     {currentStep === "KEY_SPECIFICS" ? (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="h-11 shrink-0"
+                            onClick={() => goBackManualWorkflow(manualPath)}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={hasKeyBlank ? "outline" : "default"}
+                            size="lg"
+                            className="h-11 min-w-0 flex-1"
+                            disabled={keyBlankRequired && !hasKeyBlank}
+                            onClick={() => {
+                              if (keyBlankRequired && !hasKeyBlank) {
+                                toast({
+                                  title: "Pick a key blank",
+                                  description: "All-keys-lost jobs need a blank before location.",
+                                })
+                                return
+                              }
+                              if (!hasKeyBlank && !keySkipArmed) {
+                                setKeySkipArmed(true)
+                                toast({
+                                  title: "No key selected",
+                                  description: "Tap Continue again to skip, or pick a blank first.",
+                                })
+                                return
+                              }
+                              setKeySkipArmed(false)
+                              setCurrentStep("ADDRESS_CONTACT")
+                            }}
+                          >
+                            {hasKeyBlank
+                              ? "Continue to location"
+                              : keyBlankRequired
+                                ? "Select a key blank first"
+                                : keySkipArmed
+                                  ? "Skip key — go to location"
+                                  : "Next: Location & Contact"}
+                          </Button>
+                        </div>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="secondary"
                           size="lg"
-                          className="h-11 shrink-0"
-                          onClick={() => goBackManualWorkflow(manualPath)}
+                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                          disabled={jobState === "creating" || !canSaveQuoteLead}
+                          onClick={() => void saveQuoteLead()}
                         >
-                          Back
+                          {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
                         </Button>
-                        <Button
-                          type="button"
-                          variant={hasKeyBlank ? "outline" : "default"}
-                          size="lg"
-                          className="h-11 min-w-0 flex-1"
-                          disabled={keyBlankRequired && !hasKeyBlank}
-                          onClick={() => {
-                            if (keyBlankRequired && !hasKeyBlank) {
-                              toast({
-                                title: "Pick a key blank",
-                                description: "All-keys-lost jobs need a blank before location.",
-                              })
-                              return
-                            }
-                            if (!hasKeyBlank && !keySkipArmed) {
-                              setKeySkipArmed(true)
-                              toast({
-                                title: "No key selected",
-                                description: "Tap Continue again to skip, or pick a blank first.",
-                              })
-                              return
-                            }
-                            setKeySkipArmed(false)
-                            setCurrentStep("ADDRESS_CONTACT")
-                          }}
-                        >
-                          {hasKeyBlank
-                            ? "Continue to location"
-                            : keyBlankRequired
-                              ? "Select a key blank first"
-                              : keySkipArmed
-                                ? "Skip key — go to location"
-                                : "Next: Location & Contact"}
-                        </Button>
+                        {!canSaveQuoteLead ? (
+                          <p className="text-center text-[10px] text-amber-200/90">
+                            Need a phone number to save a quote lead for call-back matching.
+                          </p>
+                        ) : (
+                          <p className="text-center text-[10px] text-slate-500">
+                            Skips name, address, and schedule — keeps phone, vehicle, and quoted price.
+                          </p>
+                        )}
                       </div>
                     ) : null}
                     {currentStep === "ADDRESS_CONTACT" ? (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="h-11 shrink-0"
+                            onClick={() => goBackManualWorkflow(manualPath)}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className={cn(
+                              "h-11 min-w-0 flex-1 font-semibold",
+                              !canAdvanceToSchedule && "opacity-50"
+                            )}
+                            disabled={!canAdvanceToSchedule}
+                            onClick={() => setCurrentStep("SCHEDULE_TIME")}
+                          >
+                            {canAdvanceToSchedule
+                              ? "Continue to Schedule →"
+                              : "Enter a Service Address to Continue"}
+                          </Button>
+                        </div>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="secondary"
                           size="lg"
-                          className="h-11 shrink-0"
-                          onClick={() => goBackManualWorkflow(manualPath)}
+                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                          disabled={jobState === "creating" || !canSaveQuoteLead}
+                          onClick={() => void saveQuoteLead()}
                         >
-                          Back
-                        </Button>
-                        <Button
-                          type="button"
-                          size="lg"
-                          className={cn(
-                            "h-11 min-w-0 flex-1 font-semibold",
-                            !canAdvanceToSchedule && "opacity-50"
-                          )}
-                          disabled={!canAdvanceToSchedule}
-                          onClick={() => setCurrentStep("SCHEDULE_TIME")}
-                        >
-                          {canAdvanceToSchedule
-                            ? "Continue to Schedule →"
-                            : "Enter a Service Address to Continue"}
+                          {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
                         </Button>
                       </div>
                     ) : null}
                     {currentStep === "SCHEDULE_TIME" ? (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="h-11 shrink-0"
+                            onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className={cn(
+                              "h-11 min-w-0 flex-1 font-semibold",
+                              !canAdvanceToCustomerName && "opacity-50"
+                            )}
+                            disabled={!canAdvanceToCustomerName}
+                            onClick={() => {
+                              // Flush the quote-card total into the ticket before advancing.
+                              applyCustomPriceToForm()
+                              setCurrentStep("CUSTOMER_NAME")
+                            }}
+                          >
+                            {canAdvanceToCustomerName
+                              ? "Continue to Customer Details →"
+                              : "Pick Date & Time to Advance"}
+                          </Button>
+                        </div>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="secondary"
                           size="lg"
-                          className="h-11 shrink-0"
-                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                          disabled={jobState === "creating" || !canSaveQuoteLead}
+                          onClick={() => void saveQuoteLead()}
                         >
-                          Back
-                        </Button>
-                        <Button
-                          type="button"
-                          size="lg"
-                          className={cn(
-                            "h-11 min-w-0 flex-1 font-semibold",
-                            !canAdvanceToCustomerName && "opacity-50"
-                          )}
-                          disabled={!canAdvanceToCustomerName}
-                          onClick={() => {
-                            // Flush the quote-card total into the ticket before advancing.
-                            applyCustomPriceToForm()
-                            setCurrentStep("CUSTOMER_NAME")
-                          }}
-                        >
-                          {canAdvanceToCustomerName
-                            ? "Continue to Customer Details →"
-                            : "Pick Date & Time to Advance"}
+                          {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
                         </Button>
                       </div>
                     ) : null}
