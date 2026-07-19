@@ -2688,20 +2688,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   jobLat={form.serviceAddress?.lat ?? null}
                                   jobLng={form.serviceAddress?.lng ?? null}
                                 />
-                                <IntakeJobPhotosPanel
-                                  compact
-                                  callLogId={effectiveCurrent?.id ?? null}
-                                  customerPhone={
-                                    resolvedPhoneNumber ||
-                                    form.phoneNumber ||
-                                    effectiveCurrent?.from_number ||
-                                    ""
-                                  }
-                                  photos={jobPhotos}
-                                  onPhotosChange={setJobPhotos}
-                                  rescueMeta={rescueMeta}
-                                  onRescueMetaChange={setRescueMeta}
-                                />
                                 <Button
                                   type="button"
                                   size="lg"
@@ -2716,6 +2702,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     ? "Continue to Schedule →"
                                     : "Enter a Service Address to Continue"}
                                 </Button>
+                                {/* Rare-use photos sit below the primary Continue CTA. */}
+                                <IntakeJobPhotosPanel
+                                  compact
+                                  callLogId={effectiveCurrent?.id ?? null}
+                                  customerPhone={
+                                    resolvedPhoneNumber ||
+                                    form.phoneNumber ||
+                                    effectiveCurrent?.from_number ||
+                                    ""
+                                  }
+                                  photos={jobPhotos}
+                                  onPhotosChange={setJobPhotos}
+                                  rescueMeta={rescueMeta}
+                                  onRescueMetaChange={setRescueMeta}
+                                />
                               </div>
                             </fieldset>
                           ) : null}

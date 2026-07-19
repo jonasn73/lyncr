@@ -152,6 +152,10 @@ export interface DispatchJob {
   created_at: string
   /** Tech must verify key style / door electronics before cutting. */
   field_verification_required?: boolean | null
+  /** Optional vehicle YMM from intake `collected` (for map proximity cards). */
+  vehicle_year?: string | null
+  vehicle_make?: string | null
+  vehicle_model?: string | null
 }
 
 /** Owner calendar event derived from ai_leads (BOOKED / PENDING_TIME). */

@@ -177,6 +177,48 @@ function keyStyleForFcc(
   return undefined
 }
 
+/** Label an FCC option with which source(s) listed it (CSV vs TI). */
+function sourceLabelForFcc(
+  fccId: string,
+  csvFccs: Set<string>,
+  tiFccs: Set<string>
+): string {
+  const inCsv = csvFccs.has(fccId)
+  const inTi = tiFccs.has(fccId)
+  if (inCsv && inTi) return `Agreed FCC ${fccId}`
+  if (inCsv) return `Reference FCC ${fccId}`
+  if (inTi) return `TI catalog FCC ${fccId}`
+  return `FCC ${fccId}`
+}
+
+/** Ask when CSV and TI list different FCC IDs for the same vehicle. */
+function buildSourceConflictClarification(
+  ranked: FccRankedCandidate[],
+  profiles: FccResolveProfile[],
+  tiHits: FccResolveTiHit[],
+  csvFccs: Set<string>,
+  tiFccs: Set<string>
+): VehicleClarificationPrompt {
+  const top = ranked.slice(0, 4)
+  return {
+    id: "fcc-source-conflict",
+    question: "Which FCC ID matches the customer's key?",
+    askScript:
+      "Our reference database and Transponder Island list different FCC IDs — check the sticker on the customer's key or remote.",
+    options: top.map((candidate) => {
+      const ti = bestTiForFcc(tiHits, candidate.fccId)
+      return {
+        id: `fcc-source-${candidate.fccId}`,
+        label: sourceLabelForFcc(candidate.fccId, csvFccs, tiFccs),
+        fccId: candidate.fccId,
+        tiSku: ti?.tiSku,
+        keyStyle: keyStyleForFcc(candidate.fccId, profiles, tiHits),
+        note: `Customer matched ${sourceLabelForFcc(candidate.fccId, csvFccs, tiFccs)}`,
+      }
+    }),
+  }
+}
+
 /** Build the best clarifying question from what still differs across top FCC candidates. */
 function buildFccClarification(
   ranked: FccRankedCandidate[],
@@ -321,17 +363,21 @@ function buildFccClarification(
 
 /**
  * Compare FCC candidates against TI catalog + profile metadata.
- * Returns one FCC when evidence is strong; otherwise an Ask-the-customer prompt.
+ * When both CSV and TI list FCC IDs, auto-pick only from the intersection
+ * (they must agree). Disjoint sources always ask the customer.
  */
 export function resolveVehicleKeyFcc(input: {
   profiles: FccResolveProfile[]
   tiHits: FccResolveTiHit[]
 }): VehicleKeyFccResolveResult {
   const byFcc = new Map<string, FccRankedCandidate>()
+  const csvFccs = new Set<string>()
+  const tiFccs = new Set<string>()
 
   for (const profile of input.profiles) {
     const fccId = sanitizeFccIdInput(profile.fccId)
     if (!fccId) continue
+    csvFccs.add(fccId)
     const row = ensureCandidate(byFcc, fccId)
     addScore(row, 10, "in reference database")
     const variants = profile.variantCount ?? 0
@@ -343,6 +389,7 @@ export function resolveVehicleKeyFcc(input: {
   for (const hit of input.tiHits) {
     const fccId = sanitizeFccIdInput(hit.fccId)
     if (!fccId) continue
+    tiFccs.add(fccId)
     const row = ensureCandidate(byFcc, fccId)
     addScore(row, 45, "listed on Transponder Island for this vehicle")
     if (isTiAftermarketSku(hit.tiSku, hit.title)) {
@@ -350,6 +397,14 @@ export function resolveVehicleKeyFcc(input: {
     }
     // Higher TI match score → stronger FCC evidence.
     addScore(row, Math.min(25, Math.round(hit.score / 8)), "strong TI title match")
+  }
+
+  const bothSources = csvFccs.size > 0 && tiFccs.size > 0
+  if (bothSources) {
+    for (const fccId of csvFccs) {
+      if (!tiFccs.has(fccId)) continue
+      addScore(ensureCandidate(byFcc, fccId), 40, "CSV and TI agree on FCC")
+    }
   }
 
   // Frequency consensus across CSV profiles.
@@ -391,28 +446,52 @@ export function resolveVehicleKeyFcc(input: {
     }
   }
 
-  const ranked = [...byFcc.values()].sort((a, b) => {
+  const rankedAll = [...byFcc.values()].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     return a.fccId.localeCompare(b.fccId)
   })
 
-  if (ranked.length === 0) {
+  if (rankedAll.length === 0) {
     return {
       resolvedFccId: null,
       confidence: "low",
-      ranked,
+      ranked: rankedAll,
       clarification: null,
       preferredTiSku: null,
       needsClarification: false,
     }
   }
 
+  // Dual-source: only auto-pick from the CSV ∩ TI intersection.
+  const agreed = bothSources
+    ? rankedAll.filter((row) => csvFccs.has(row.fccId) && tiFccs.has(row.fccId))
+    : rankedAll
+
+  if (bothSources && agreed.length === 0) {
+    return {
+      resolvedFccId: null,
+      confidence: "low",
+      ranked: rankedAll,
+      clarification: buildSourceConflictClarification(
+        rankedAll,
+        input.profiles,
+        input.tiHits,
+        csvFccs,
+        tiFccs
+      ),
+      preferredTiSku: null,
+      needsClarification: true,
+    }
+  }
+
+  const ranked = agreed
+
   if (ranked.length === 1) {
     const only = ranked[0]!
     return {
       resolvedFccId: only.fccId,
-      confidence: "single",
-      ranked,
+      confidence: bothSources ? "high" : "single",
+      ranked: rankedAll,
       clarification: null,
       preferredTiSku: bestTiForFcc(input.tiHits, only.fccId)?.tiSku ?? null,
       needsClarification: false,
@@ -424,14 +503,14 @@ export function resolveVehicleKeyFcc(input: {
     return {
       resolvedFccId: null,
       confidence: "low",
-      ranked,
+      ranked: rankedAll,
       clarification: buildFccClarification(ranked, input.profiles, input.tiHits),
       preferredTiSku: null,
       needsClarification: true,
     }
   }
 
-  // All aftermarket TI hits agree on one FCC → trust that blank.
+  // All aftermarket TI hits agree on one FCC → trust only when that FCC is allowed.
   const aftermarketFccs = [
     ...new Set(
       input.tiHits
@@ -442,24 +521,27 @@ export function resolveVehicleKeyFcc(input: {
   ]
   if (aftermarketFccs.length === 1) {
     const fccId = aftermarketFccs[0]!
-    return {
-      resolvedFccId: fccId,
-      confidence: "high",
-      ranked,
-      clarification: null,
-      preferredTiSku: bestTiForFcc(input.tiHits, fccId)?.tiSku ?? null,
-      needsClarification: false,
+    // When both sources exist, aftermarket must also appear in the CSV.
+    if (!bothSources || csvFccs.has(fccId)) {
+      return {
+        resolvedFccId: fccId,
+        confidence: "high",
+        ranked: rankedAll,
+        clarification: null,
+        preferredTiSku: bestTiForFcc(input.tiHits, fccId)?.tiSku ?? null,
+        needsClarification: false,
+      }
     }
   }
 
-  // Clear score gap between #1 and #2.
+  // Clear score gap between #1 and #2 among allowed candidates.
   const top = ranked[0]!
   const second = ranked[1]!
   if (top.score >= second.score + 35) {
     return {
       resolvedFccId: top.fccId,
       confidence: "high",
-      ranked,
+      ranked: rankedAll,
       clarification: null,
       preferredTiSku: bestTiForFcc(input.tiHits, top.fccId)?.tiSku ?? null,
       needsClarification: false,
@@ -469,7 +551,7 @@ export function resolveVehicleKeyFcc(input: {
   return {
     resolvedFccId: null,
     confidence: "low",
-    ranked,
+    ranked: rankedAll,
     clarification: buildFccClarification(ranked, input.profiles, input.tiHits),
     preferredTiSku: null,
     needsClarification: true,

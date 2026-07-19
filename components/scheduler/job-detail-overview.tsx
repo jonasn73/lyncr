@@ -5,6 +5,7 @@ import {
   Ban,
   Car,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   Link2,
   Loader2,
@@ -14,9 +15,9 @@ import {
   Phone,
   Share2,
   UserRound,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
 import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interaction"
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils"
 import {
   SCHEDULER_FIELD_STACK,
   SCHEDULER_GLASS_CARD,
+  SCHEDULER_INPUT,
   SCHEDULER_METADATA_LABEL,
   SCHEDULER_STACK,
 } from "@/lib/scheduler-ui-tokens"
@@ -101,14 +103,6 @@ const CONTACT_BTN =
 const ACTION_BTN =
   "flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-xl border px-2.5 py-2.5 text-[11px] font-semibold leading-tight transition-colors disabled:opacity-50"
 
-/** Short mobile-friendly labels for the status control (full labels stay in the menu). */
-const PIPELINE_STATUS_SHORT: Record<JobPipelineStatusId, string> = {
-  unassigned_pool: "Waiting Pool",
-  DISPATCHED: "Scheduled",
-  awaiting_time: "Needs Follow Up",
-  salvage_pending: "Price Denied",
-}
-
 export function JobDetailOverview({
   source,
   scheduledEvent,
@@ -164,7 +158,9 @@ export function JobDetailOverview({
   const vehicleSummary = [vehicleBlock?.value, serviceBlock?.value].filter(Boolean).join(" — ")
 
   const [depositSmsStaging, setDepositSmsStaging] = useState<string | null>(null)
-  const [smsOpen, setSmsOpen] = useState(false)
+  // Inline Telnyx SMS composer (popover was z-50 and opened behind this z-[1410] drawer).
+  const [smsComposerOpen, setSmsComposerOpen] = useState(false)
+  const [smsDraft, setSmsDraft] = useState("")
   const [smsSending, setSmsSending] = useState(false)
 
   const handleSecureDepositLink = useCallback(() => {
@@ -217,13 +213,26 @@ export function JobDetailOverview({
           return
         }
         toast({ title: "SMS sent", description: text })
-        setSmsOpen(false)
+        setSmsDraft("")
+        setSmsComposerOpen(false)
       } finally {
         setSmsSending(false)
       }
     },
     [activeOrganizationId, customerPhone, toast]
   )
+
+  const openSmsComposer = useCallback(() => {
+    if (!customerPhone) {
+      toast({
+        title: "No phone on file",
+        description: "Add a customer phone before sending SMS.",
+        variant: "destructive",
+      })
+      return
+    }
+    setSmsComposerOpen((open) => !open)
+  }, [customerPhone, toast])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -274,54 +283,99 @@ export function JobDetailOverview({
               Call Customer
             </button>
           )}
-          <Popover open={smsOpen} onOpenChange={setSmsOpen}>
-            <PopoverTrigger asChild>
+          <button
+            type="button"
+            disabled={!customerPhone || smsSending}
+            aria-expanded={smsComposerOpen}
+            onClick={openSmsComposer}
+            className={cn(
+              CONTACT_BTN,
+              smsComposerOpen
+                ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
+                : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+            )}
+          >
+            {smsSending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+            )}
+            Quick SMS
+          </button>
+        </div>
+
+        {/* Telnyx SMS composer — lives in the drawer so it is never clipped by z-index */}
+        {smsComposerOpen ? (
+          <div className="mt-3 space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
+                  Telnyx SMS
+                </p>
+                <p className="mt-0.5 truncate font-mono text-xs text-sky-100">
+                  To {formatPhoneDisplay(customerPhone)}
+                </p>
+              </div>
               <button
                 type="button"
-                disabled={!customerPhone || smsSending}
-                className={cn(
-                  CONTACT_BTN,
-                  "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
-                )}
+                aria-label="Close SMS composer"
+                onClick={() => setSmsComposerOpen(false)}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+            <ul className="flex flex-col gap-1">
+              {QUICK_SMS_TEMPLATES.map((template) => (
+                <li key={template}>
+                  <button
+                    type="button"
+                    disabled={smsSending}
+                    onClick={() => void sendQuickSms(template)}
+                    className="w-full rounded-lg border border-sky-500/20 bg-slate-950/50 px-2.5 py-2 text-left text-xs font-medium text-slate-100 hover:border-sky-400/40 hover:bg-slate-900 disabled:opacity-50"
+                  >
+                    {template}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="space-y-1.5 pt-1">
+              <label htmlFor="active-job-sms-draft" className="sr-only">
+                Custom SMS message
+              </label>
+              <textarea
+                id="active-job-sms-draft"
+                rows={2}
+                value={smsDraft}
+                disabled={smsSending}
+                onChange={(e) => setSmsDraft(e.target.value)}
+                placeholder="Or type a custom message…"
+                className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
+              />
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                disabled={smsSending || !smsDraft.trim()}
+                onClick={() => void sendQuickSms(smsDraft.trim())}
               >
                 {smsSending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+                    Sending…
+                  </>
                 ) : (
-                  <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                  "Send SMS"
                 )}
-                Quick SMS
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="w-80 border-slate-800 bg-slate-950 p-2"
-              sideOffset={6}
-            >
-              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                One-tap texts via Telnyx
-              </p>
-              <ul className="flex flex-col gap-1">
-                {QUICK_SMS_TEMPLATES.map((template) => (
-                  <li key={template}>
-                    <button
-                      type="button"
-                      disabled={smsSending}
-                      onClick={() => void sendQuickSms(template)}
-                      className="w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-200 hover:bg-slate-900 disabled:opacity-50"
-                    >
-                      {template}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </PopoverContent>
-          </Popover>
-        </div>
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-6",
+          "min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-12",
           SCHEDULER_STACK
         )}
       >
@@ -426,44 +480,36 @@ export function JobDetailOverview({
             ) : null}
           </div>
 
-          {/* Status chips — readable on mobile (no truncated native select) */}
+          {/* Single status selector — replaces the old chip grid + duplicate label */}
           <div className={SCHEDULER_FIELD_STACK}>
-            <p className={SECTION_LABEL}>Status</p>
-            <div
-              className="grid grid-cols-2 gap-1.5"
-              role="radiogroup"
-              aria-label="Job pipeline status"
-            >
-              {JOB_PIPELINE_STATUS_OPTIONS.map((option) => {
-                const selected = pipelineStatus === option.id
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="radio"
-                    disabled={saving}
-                    title={option.label}
-                    aria-checked={selected}
-                    onClick={() => onPipelineStatusChange(option.id)}
-                    className={cn(
-                      "min-h-[42px] rounded-xl border px-2.5 py-2 text-left text-[11px] font-semibold leading-snug transition-colors disabled:opacity-50",
-                      selected
-                        ? cn(
-                            "ring-1",
-                            PIPELINE_STATUS_BADGE_STYLE[option.id],
-                            "border-transparent"
-                          )
-                        : "border-border/60 bg-slate-950/40 text-slate-300 hover:border-slate-600 hover:bg-slate-900/60"
-                    )}
-                  >
-                    {PIPELINE_STATUS_SHORT[option.id]}
-                  </button>
-                )
-              })}
+            <label htmlFor="active-job-pipeline-status" className={SECTION_LABEL}>
+              Status
+            </label>
+            <div className="relative">
+              <select
+                id="active-job-pipeline-status"
+                disabled={saving}
+                value={pipelineStatus}
+                onChange={(e) =>
+                  onPipelineStatusChange(e.target.value as JobPipelineStatusId)
+                }
+                className={cn(
+                  SCHEDULER_INPUT,
+                  "min-h-[44px] w-full appearance-none py-2.5 pr-10 text-sm font-medium"
+                )}
+                aria-label="Job pipeline status"
+              >
+                {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
             </div>
-            <p className="text-[11px] leading-snug text-slate-500">
-              {JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === pipelineStatus)?.label}
-            </p>
           </div>
 
           <div className={SCHEDULER_FIELD_STACK}>
@@ -597,14 +643,19 @@ export function JobDetailOverview({
         </section>
 
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-        {/* Spacer so the sticky Close footer never covers the last controls */}
-        <div className="h-2 shrink-0" aria-hidden />
+        {/* Extra room so Cancel / Referred / Complete stay clear of the Close footer */}
+        <div className="h-8 shrink-0" aria-hidden />
       </div>
 
-      <footer className="shrink-0 space-y-2 border-t border-border/50 bg-card/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
-        <Button type="button" variant="outline" className="h-11 w-full" onClick={onClose}>
+      <footer className="shrink-0 border-t border-border/40 bg-card/90 px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+        >
+          <X className="h-4 w-4 opacity-70" aria-hidden />
           Close
-        </Button>
+        </button>
       </footer>
     </div>
   )

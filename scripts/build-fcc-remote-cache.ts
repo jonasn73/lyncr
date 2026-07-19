@@ -45,7 +45,12 @@ async function fetchHtml(fccId: string): Promise<string | null> {
     })
     if (!res.ok) return null
     const html = await res.text()
-    return html.includes("remote-key-thumb") ? html : null
+    return html.includes("remote-key-thumb") ||
+      html.includes("remote-key-card") ||
+      html.includes("remote-key-table") ||
+      html.includes("remote-key-hero")
+      ? html
+      : null
   } catch {
     return null
   }

@@ -1,10 +1,10 @@
 "use client"
 
-// Intake "Request Job Photos" → Pending Info Intake SMS + live rescue gallery.
+// Optional "Request Job Photos" — collapsed by default (rarely needed on calls).
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Camera, Loader2 } from "lucide-react"
+import { Camera, ChevronDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type IntakeJobPhoto = {
@@ -53,7 +53,7 @@ function PhotoGrid({
         {title} ({photos.length})
       </p>
       {photos.length === 0 ? (
-        <div className="grid min-h-[72px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-3 text-center text-[10px] text-slate-500">
+        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-[10px] text-slate-500">
           Waiting…
         </div>
       ) : (
@@ -88,7 +88,8 @@ export function IntakeJobPhotosPanel({
 }: IntakeJobPhotosPanelProps) {
   const [requestState, setRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle")
   const [hint, setHint] = useState<string | null>(null)
-  const [galleryOpen, setGalleryOpen] = useState(photos.length > 0 || Boolean(rescueMeta?.ticket_status))
+  // Collapsed by default — this feature is rarely used during intake.
+  const [expanded, setExpanded] = useState(false)
 
   const damagePhotos = useMemo(
     () => photos.filter((p) => !p.category || p.category === "damage" || p.category === "other"),
@@ -100,6 +101,7 @@ export function IntakeJobPhotosPanel({
   )
 
   const infoReceived = rescueMeta?.ticket_status === "info_received"
+  const hasActivity = photos.length > 0 || infoReceived || requestState === "sent"
   const vehicleLine = [
     rescueMeta?.vehicle_year,
     rescueMeta?.vehicle_make,
@@ -109,8 +111,9 @@ export function IntakeJobPhotosPanel({
     .filter(Boolean)
     .join(" ")
 
+  // Auto-open only when something actually arrived (not for the empty placeholder).
   useEffect(() => {
-    if (photos.length > 0 || infoReceived) setGalleryOpen(true)
+    if (photos.length > 0 || infoReceived) setExpanded(true)
   }, [photos.length, infoReceived])
 
   // Hydrate rescue package when reopening the same call ticket.
@@ -162,6 +165,7 @@ export function IntakeJobPhotosPanel({
     if (!customerPhone.trim()) {
       setRequestState("error")
       setHint("Enter the caller phone first.")
+      setExpanded(true)
       return
     }
     setRequestState("sending")
@@ -183,8 +187,8 @@ export function IntakeJobPhotosPanel({
         return
       }
       setRequestState("sent")
-      setHint("Pending Info Intake link texted — gallery updates when they submit.")
-      setGalleryOpen(true)
+      setHint("Link texted — gallery updates when they submit.")
+      setExpanded(true)
     } catch {
       setRequestState("error")
       setHint("Network error sending intake SMS.")
@@ -192,7 +196,8 @@ export function IntakeJobPhotosPanel({
   }, [callLogId, customerPhone])
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-1.5", className)}>
+      {/* Critical dispatch banners stay visible even when the tools stay collapsed. */}
       {infoReceived ? (
         <div className="space-y-2">
           <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center">
@@ -210,97 +215,127 @@ export function IntakeJobPhotosPanel({
         </div>
       ) : null}
 
+      {/* One quiet row — no empty gallery box until the user asks for it. */}
       <button
         type="button"
-        onClick={() => void requestPhotos()}
-        disabled={requestState === "sending"}
+        onClick={() => setExpanded((open) => !open)}
         className={cn(
-          "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/50 bg-sky-500/15 font-bold text-sky-100 transition-colors hover:bg-sky-500/25 disabled:opacity-50",
-          compact ? "px-3 py-2.5 text-xs" : "px-4 py-3 text-sm"
+          "inline-flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground",
+          compact ? "text-[11px]" : "text-xs"
         )}
-        title="Text customer a Pending Info Intake link"
+        aria-expanded={expanded}
       >
-        {requestState === "sending" ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        ) : (
-          <Camera className="h-4 w-4" aria-hidden />
-        )}
-        [ 📷 Request Job Photos ]
+        <Camera className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {hasActivity
+            ? photos.length > 0
+              ? `Job photos (${photos.length})`
+              : requestState === "sent"
+                ? "Photos requested — waiting…"
+                : "Job photos"
+            : "Need photos? (optional)"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 opacity-60 transition-transform",
+            expanded && "rotate-180"
+          )}
+          aria-hidden
+        />
       </button>
 
-      {hint ? (
-        <p
-          className={cn(
-            "text-[10px]",
-            requestState === "error" ? "text-red-400" : "text-sky-300/90"
-          )}
-        >
-          {hint}
-        </p>
-      ) : null}
-
       <AnimatePresence initial={false}>
-        {galleryOpen ? (
+        {expanded ? (
           <motion.div
-            key="job-attachments"
+            key="job-photos-tools"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="space-y-2 rounded-xl border border-slate-700/80 bg-slate-900/40 p-2.5">
-              {vehicleLine || rescueMeta?.vehicle_vin || rescueMeta?.customer_name ? (
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
-                  {rescueMeta?.customer_name ? (
-                    <p className="text-xs font-semibold text-emerald-100">
-                      {rescueMeta.customer_name}
-                    </p>
-                  ) : null}
-                  {vehicleLine ? (
-                    <p className="text-xs text-emerald-200/90">{vehicleLine}</p>
-                  ) : null}
-                  {rescueMeta?.vehicle_vin ? (
-                    <p className="mt-0.5 font-mono text-[10px] text-slate-400">
-                      VIN {rescueMeta.vehicle_vin}
-                    </p>
-                  ) : null}
-                  {rescueMeta?.special_notes ? (
-                    <p className="mt-1 text-[11px] text-slate-300">{rescueMeta.special_notes}</p>
-                  ) : null}
-                </div>
+            <div className="space-y-2 pt-0.5">
+              <button
+                type="button"
+                onClick={() => void requestPhotos()}
+                disabled={requestState === "sending"}
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-muted/30 font-semibold text-foreground transition-colors hover:bg-muted/50 disabled:opacity-50",
+                  compact ? "px-3 py-2 text-[11px]" : "px-3 py-2.5 text-xs"
+                )}
+                title="Text customer a Pending Info Intake link"
+              >
+                {requestState === "sending" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Camera className="h-3.5 w-3.5" aria-hidden />
+                )}
+                Request photos from customer
+              </button>
+
+              {hint ? (
+                <p
+                  className={cn(
+                    "text-[10px]",
+                    requestState === "error" ? "text-red-400" : "text-sky-300/90"
+                  )}
+                >
+                  {hint}
+                </p>
               ) : null}
 
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-                Job Attachments ({photos.length})
-              </p>
-                <div className="flex gap-2">
-                <PhotoGrid title="Damage" photos={damagePhotos} />
-                {rescueMeta?.verify_on_arrival ? (
-                  <div className="min-w-0 flex-1">
-                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
-                      ID / Registration
-                    </p>
-                    <div className="grid min-h-[72px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-3 text-center text-[10px] font-semibold text-amber-100">
-                      Verify ID on site
+              {hasActivity ? (
+                <div className="space-y-2 rounded-xl border border-slate-700/80 bg-slate-900/40 p-2.5">
+                  {vehicleLine || rescueMeta?.vehicle_vin || rescueMeta?.customer_name ? (
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+                      {rescueMeta?.customer_name ? (
+                        <p className="text-xs font-semibold text-emerald-100">
+                          {rescueMeta.customer_name}
+                        </p>
+                      ) : null}
+                      {vehicleLine ? (
+                        <p className="text-xs text-emerald-200/90">{vehicleLine}</p>
+                      ) : null}
+                      {rescueMeta?.vehicle_vin ? (
+                        <p className="mt-0.5 font-mono text-[10px] text-slate-400">
+                          VIN {rescueMeta.vehicle_vin}
+                        </p>
+                      ) : null}
+                      {rescueMeta?.special_notes ? (
+                        <p className="mt-1 text-[11px] text-slate-300">
+                          {rescueMeta.special_notes}
+                        </p>
+                      ) : null}
                     </div>
+                  ) : null}
+
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                    Job Attachments ({photos.length})
+                  </p>
+                  <div className="flex gap-2">
+                    <PhotoGrid title="Damage" photos={damagePhotos} />
+                    {rescueMeta?.verify_on_arrival ? (
+                      <div className="min-w-0 flex-1">
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+                          ID / Registration
+                        </p>
+                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-2 text-center text-[10px] font-semibold text-amber-100">
+                          Verify ID on site
+                        </div>
+                      </div>
+                    ) : (
+                      <PhotoGrid title="ID / Registration" photos={idPhotos} />
+                    )}
                   </div>
-                ) : (
-                  <PhotoGrid title="ID / Registration" photos={idPhotos} />
-                )}
-              </div>
+                </div>
+              ) : (
+                <p className="px-0.5 text-[10px] text-muted-foreground">
+                  Texts a link so the customer can send damage / ID photos. Skip unless you need them.
+                </p>
+              )}
             </div>
           </motion.div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-slate-700/70 bg-slate-950/30 p-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Job Attachments (0)
-            </p>
-            <div className="mt-2 grid min-h-[56px] place-items-center text-[11px] text-slate-600">
-              Empty — request photos to open the gallery
-            </div>
-          </div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   )

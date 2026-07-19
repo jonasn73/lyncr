@@ -79,3 +79,116 @@
 .lyncr-map-hover-tooltip__line {
   color: #d4d4d8;
 }
+
+/* Live dispatcher “You are here” pulsing locator */
+.lyncr-you-are-here-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.lyncr-you-are-here {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.lyncr-you-are-here__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.55);
+  animation: lyncr-you-pulse 1.8s ease-out infinite;
+}
+
+.lyncr-you-are-here__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 9999px;
+  background: #38bdf8;
+  border: 2px solid #f0f9ff;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.9);
+}
+
+@keyframes lyncr-you-pulse {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.95;
+  }
+  70% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+.leaflet-tooltip.lyncr-you-are-here-label {
+  background: rgba(8, 47, 73, 0.95) !important;
+  border: 1px solid rgba(56, 189, 248, 0.55) !important;
+  color: #e0f2fe !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  padding: 4px 8px !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45) !important;
+}
+
+.leaflet-tooltip.lyncr-you-are-here-label::before {
+  border-top-color: rgba(8, 47, 73, 0.95) !important;
+}
+
+/* Proximity radar popup body inside Leaflet content */
+.lyncr-proximity-popup {
+  padding: 12px 14px 14px;
+  color: #e4e4e7;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.lyncr-proximity-popup__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fafafa;
+  margin: 0 0 4px;
+}
+
+.lyncr-proximity-popup__address {
+  color: #a1a1aa;
+  margin: 0 0 8px;
+}
+
+.lyncr-proximity-popup__miles {
+  color: #7dd3fc;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.lyncr-proximity-popup__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.15);
+  color: #e0f2fe !important;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none !important;
+}
+
+.lyncr-proximity-popup__nav:hover {
+  background: rgba(14, 165, 233, 0.28);
+  color: #f0f9ff !important;
+}

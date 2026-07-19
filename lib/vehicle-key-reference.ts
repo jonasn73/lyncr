@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
+import { isVehicleYearMakeModelValid } from "@/lib/vehicle-model-year-ranges"
 
 export type VehicleKeyProfile = {
   /** Row index in the reference file (stable id for UI selection). */
@@ -43,6 +44,10 @@ function normalizeToken(value: string): string {
 function equivalentMakeTokens(makeRaw: string): string[] {
   const key = normalizeToken(makeRaw)
   if (key === "ram" || key === "dodge") return ["ram", "dodge"]
+  // NHTSA picker uses VOLKSWAGEN; callers sometimes type VW.
+  if (key === "volkswagen" || key === "vw" || key === "volkswagon") {
+    return ["volkswagen", "vw", "volkswagon"]
+  }
   return [key]
 }
 
@@ -265,6 +270,8 @@ export function lookupVehicleKeyProfiles(
   const make = makeRaw.trim()
   const model = modelRaw.trim()
   if (!Number.isFinite(year) || year < 1980 || !make || !model) return null
+  // Block curated discontinuations (NHTSA ghosts) before fuzzy / family fallbacks invent a key.
+  if (!isVehicleYearMakeModelValid(year, make, model)) return null
 
   let profiles = profilesForYearMakeModel(year, make, model)
   let matchedModel = model

@@ -1,5 +1,12 @@
 // NHTSA vPIC vehicle catalog helpers (free, no API key).
 // Used by owner scheduler + receptionist intake for Year → Make → Model.
+// Model lists are post-filtered against FCC/curated year ranges so discontinued
+// vehicles (e.g. 2022 Cruze) never appear for years they were not sold.
+
+import {
+  filterMakesForYear,
+  filterModelsForYear,
+} from "@/lib/vehicle-model-year-ranges"
 
 const VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles"
 
@@ -97,15 +104,17 @@ async function fetchMakesForVehicleType(vehicleType: string): Promise<string[]> 
 }
 
 /** Car / truck / SUV makes for automotive field-service intake (locksmith, detailing, repair). */
-export async function fetchPassengerVehicleMakes(): Promise<string[]> {
-  if (makesCache && Date.now() - makesCache.at < CACHE_MS) return makesCache.makes
+export async function fetchPassengerVehicleMakes(year?: number): Promise<string[]> {
+  if (makesCache && Date.now() - makesCache.at < CACHE_MS) {
+    return year != null ? filterMakesForYear(year, makesCache.makes) : makesCache.makes
+  }
 
   const batches = await Promise.all(PASSENGER_VEHICLE_TYPES.map((type) => fetchMakesForVehicleType(type)))
   const merged = uniqueSorted(batches.flat())
   const makes = sortMakesForFieldService(merged)
 
   makesCache = { at: Date.now(), makes }
-  return makes
+  return year != null ? filterMakesForYear(year, makes) : makes
 }
 
 /** @deprecated alias — use fetchPassengerVehicleMakes */
@@ -123,11 +132,14 @@ export async function fetchModelsForMakeYear(make: string, year: number): Promis
   if (!res.ok) return []
 
   const data = (await res.json()) as { Results?: Array<{ Model_Name?: string }> }
-  const models = uniqueSorted(
+  const raw = uniqueSorted(
     (data.Results ?? [])
       .map((r) => r.Model_Name?.trim())
       .filter((m): m is string => Boolean(m) && isConsumerVehicleModel(m))
   ).sort((a, b) => a.localeCompare(b))
+
+  // Drop models our FCC/curated table knows were not sold this year.
+  const models = filterModelsForYear(make, year, raw)
 
   MODELS_CACHE.set(key, { at: Date.now(), models })
   return models

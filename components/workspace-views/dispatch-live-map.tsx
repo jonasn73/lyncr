@@ -20,7 +20,8 @@ import {
 } from "@/lib/dispatch-map-focus"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 import { calculateTechETA } from "@/lib/dispatch-eta"
-import { estimateTravelMinutes, travelDistanceMiles } from "@/lib/geo"
+import { estimateTravelMinutes, formatDistanceMiles, travelDistanceMiles } from "@/lib/geo"
+import { googleMapsDirectionsUrl } from "@/lib/google-maps-search-url"
 import { cn } from "@/lib/utils"
 
 // Status → dot color for tech live markers.
@@ -47,14 +48,81 @@ function isMobileMapViewport(L?: LeafletModule): boolean {
   return window.matchMedia("(max-width: 767px)").matches
 }
 
-/** Branded HTML marker icons (no external image assets → no bundler icon-path issues). */
-function jobIcon(L: LeafletModule) {
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+/** Green = scheduled/assigned · Red = unassigned / intake pool. */
+function jobIcon(L: LeafletModule, assigned: boolean) {
+  const fill = assigned ? "#10b981" : "#f43f5e"
+  const border = assigned ? "#064e3b" : "#881337"
+  const glow = assigned ? "rgba(16,185,129,0.25)" : "rgba(244,63,94,0.35)"
   return L.divIcon({
     className: "",
-    html: `<span style="display:block;width:16px;height:16px;border-radius:50% 50% 50% 0;background:#10b981;border:2px solid #064e3b;transform:rotate(-45deg);box-shadow:0 0 0 2px rgba(16,185,129,0.25)"></span>`,
+    html: `<span style="display:block;width:16px;height:16px;border-radius:50% 50% 50% 0;background:${fill};border:2px solid ${border};transform:rotate(-45deg);box-shadow:0 0 0 2px ${glow}"></span>`,
     iconSize: [16, 16],
     iconAnchor: [8, 16],
   })
+}
+
+/** Pulsing neon-blue locator for the logged-in dispatcher/tech. */
+function youAreHereIcon(L: LeafletModule) {
+  return L.divIcon({
+    className: "lyncr-you-are-here-marker",
+    html:
+      `<span class="lyncr-you-are-here" aria-hidden="true">` +
+      `<span class="lyncr-you-are-here__pulse"></span>` +
+      `<span class="lyncr-you-are-here__dot"></span>` +
+      `</span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  })
+}
+
+function vehicleLineFromJob(job: DispatchJob): string | null {
+  const parts = [job.vehicle_year, job.vehicle_make, job.vehicle_model]
+    .map((part) => (part ?? "").trim())
+    .filter(Boolean)
+  if (parts.length) return parts.join(" ")
+  const summary = (job.summary ?? "").trim()
+  return summary || null
+}
+
+/** Proximity radar popup HTML for a job pin. */
+function jobProximityPopupHtml(
+  job: DispatchJob,
+  userLocation: { lat: number; lng: number } | null
+): string {
+  const name = (job.customer_name ?? "").trim() || "Customer"
+  const vehicle = vehicleLineFromJob(job)
+  const title = vehicle ? `${name} — ${vehicle}` : name
+  const address = (job.location ?? "").trim() || "No service address on file"
+  const lat = job.latitude as number
+  const lng = job.longitude as number
+  let milesLine = "📐 Distance unavailable — enable location to see proximity"
+  if (userLocation) {
+    const miles = travelDistanceMiles(userLocation, { lat, lng })
+    milesLine = `📐 approx. ${formatDistanceMiles(miles)} away from you`
+  }
+  const navHref = googleMapsDirectionsUrl({
+    toLat: lat,
+    toLng: lng,
+    fromLat: userLocation?.lat ?? null,
+    fromLng: userLocation?.lng ?? null,
+    destinationLabel: job.location,
+  })
+  return (
+    `<div class="lyncr-proximity-popup">` +
+    `<p class="lyncr-proximity-popup__title">${escapeHtml(title)}</p>` +
+    `<p class="lyncr-proximity-popup__address">${escapeHtml(address)}</p>` +
+    `<p class="lyncr-proximity-popup__miles">${escapeHtml(milesLine)}</p>` +
+    `<a class="lyncr-proximity-popup__nav" href="${escapeHtml(navHref)}" target="_blank" rel="noopener noreferrer">[ 🗺️ Navigate to Job ]</a>` +
+    `</div>`
+  )
 }
 
 function techIcon(L: LeafletModule, status: string | null) {
@@ -92,7 +160,9 @@ export function DispatchLiveMap({
   const jobMarkers = useRef<Map<string, Marker>>(new Map())
   const techMarkers = useRef<Map<string, Marker>>(new Map())
   const destinationMarkerRef = useRef<Marker | null>(null)
+  const userMarkerRef = useRef<Marker | null>(null)
   const didFit = useRef(false)
+  const didCenterOnUser = useRef(false)
 
   const [ready, setReady] = useState(false)
   const [jobs, setJobs] = useState<DispatchJob[]>([])
@@ -103,24 +173,31 @@ export function DispatchLiveMap({
   const [savingId, setSavingId] = useState<string | null>(null)
   const [destination, setDestination] = useState<FocusDispatchMapDetail | null>(null)
 
-  // Ask the browser for the operator's GPS while an intake pin is on the map.
-  const dispatcherLocation = useDispatcherLocation(Boolean(destination))
+  // Always track the logged-in operator on the Dispatch Map (proximity radar).
+  const dispatcherLocation = useDispatcherLocation(true)
 
-  // Prefer live GPS; fall back to the business home city (Louisville 502) baseline.
-  const originPoint = useMemo(() => {
+  const userLocation = useMemo(() => {
     if (
       dispatcherLocation.status === "ready" &&
       dispatcherLocation.lat != null &&
       dispatcherLocation.lng != null
     ) {
-      return { lat: dispatcherLocation.lat, lng: dispatcherLocation.lng, source: "gps" as const }
+      return { lat: dispatcherLocation.lat, lng: dispatcherLocation.lng }
+    }
+    return null
+  }, [dispatcherLocation.lat, dispatcherLocation.lng, dispatcherLocation.status])
+
+  // Prefer live GPS; fall back to the business home city (Louisville 502) baseline.
+  const originPoint = useMemo(() => {
+    if (userLocation) {
+      return { lat: userLocation.lat, lng: userLocation.lng, source: "gps" as const }
     }
     return {
       lat: DEFAULT_502_SERVICE_BIAS.lat,
       lng: DEFAULT_502_SERVICE_BIAS.lon,
       source: "business" as const,
     }
-  }, [dispatcherLocation.lat, dispatcherLocation.lng, dispatcherLocation.status])
+  }, [userLocation])
 
   // Straight-line miles + rough drive minutes from origin → intake target.
   const travelMetrics = useMemo(() => {
@@ -300,6 +377,11 @@ export function DispatchLiveMap({
         destinationMarkerRef.current.remove()
         destinationMarkerRef.current = null
       }
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+        userMarkerRef.current = null
+      }
+      didCenterOnUser.current = false
     }
   }, [])
 
@@ -343,7 +425,7 @@ export function DispatchLiveMap({
     }
   }, [ownerUserId, load])
 
-  // Sync markers whenever data changes.
+  // Sync markers whenever data / live GPS changes.
   useEffect(() => {
     const L = leafletRef.current
     const map = mapRef.current
@@ -351,17 +433,23 @@ export function DispatchLiveMap({
 
     const plottableJobs = jobs.filter((j) => j.latitude != null && j.longitude != null)
 
-    // Booked-job pins.
+    // Booked-job pins (green = assigned, red = unassigned) + proximity popups.
     const seenJobs = new Set<string>()
     for (const job of plottableJobs) {
       seenJobs.add(job.id)
+      const assigned = Boolean(job.assigned_tech_id?.trim())
       const pos: [number, number] = [job.latitude as number, job.longitude as number]
+      const popupHtml = jobProximityPopupHtml(job, userLocation)
       const existing = jobMarkers.current.get(job.id)
       if (existing) {
         existing.setLatLng(pos)
+        existing.setIcon(jobIcon(L, assigned))
+        existing.setPopupContent(popupHtml)
       } else {
         const jobId = job.id
-        const m = L.marker(pos, { icon: jobIcon(L) }).addTo(map)
+        const m = L.marker(pos, { icon: jobIcon(L, assigned) })
+          .addTo(map)
+          .bindPopup(popupHtml, { maxWidth: 300 })
         // Click a job pin → open the inline dispatch/assign panel for that job.
         m.on("click", () => setSelectedJobId(jobId))
         jobMarkers.current.set(job.id, m)
@@ -420,7 +508,37 @@ export function DispatchLiveMap({
       destinationMarkerRef.current = null
     }
 
-    // Frame pins once when they appear; with zero live coords stay on home service city.
+    // Live “You are here” locator for the logged-in dispatcher/tech.
+    if (userLocation) {
+      const pos: [number, number] = [userLocation.lat, userLocation.lng]
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng(pos)
+      } else {
+        userMarkerRef.current = L.marker(pos, {
+          icon: youAreHereIcon(L),
+          zIndexOffset: 1000,
+        })
+          .addTo(map)
+          .bindTooltip("Your Location (You)", {
+            permanent: true,
+            direction: "top",
+            offset: [0, -16],
+            className: "lyncr-you-are-here-label",
+            opacity: 1,
+          })
+      }
+      // First GPS fix: center the map on the operator so closest jobs are obvious.
+      if (!didCenterOnUser.current) {
+        map.setView(pos, 13)
+        didCenterOnUser.current = true
+        didFit.current = true
+      }
+    } else if (userMarkerRef.current) {
+      userMarkerRef.current.remove()
+      userMarkerRef.current = null
+    }
+
+    // Frame pins once when they appear (skip if we already centered on the user).
     if (!didFit.current) {
       const pts: [number, number][] = [
         ...plottableJobs.map((j) => [j.latitude as number, j.longitude as number] as [number, number]),
@@ -441,7 +559,7 @@ export function DispatchLiveMap({
         didFit.current = true
       }
     }
-  }, [ready, jobs, techs, destination])
+  }, [ready, jobs, techs, destination, userLocation])
 
   const plottableCount =
     jobs.filter((j) => j.latitude != null && j.longitude != null).length +
@@ -627,21 +745,45 @@ export function DispatchLiveMap({
     </div>
   )
 
+  const legend = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400">
+      <span className="flex items-center gap-1.5">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-sky-400" />
+        </span>
+        You
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Assigned
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unassigned
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/80" /> Intake target
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Tech
+      </span>
+    </div>
+  )
+
+  const locationHint =
+    dispatcherLocation.status === "denied" ? (
+      <p className="mt-2 text-center text-xs text-amber-400/90">
+        Location permission blocked — allow GPS to see proximity miles on job pins.
+      </p>
+    ) : dispatcherLocation.status === "requesting" && !userLocation ? (
+      <p className="mt-2 text-center text-xs text-slate-500">Locating you…</p>
+    ) : null
+
   if (fullViewport) {
     return (
       <section className={cn("w-full", className)} aria-label="Operational dispatch map">
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/80" /> Intake target
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Job
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Tech
-          </span>
-        </div>
+        <div className="mb-3">{legend}</div>
         {mapCanvas}
+        {locationHint}
         {plottableCount === 0 ? (
           <p className="mt-2 text-center text-xs text-slate-500">
             Waiting for live tech GPS or booked job pins — intake destinations still drop here.
@@ -659,21 +801,14 @@ export function DispatchLiveMap({
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Live dispatch map</h2>
-          <p className="text-xs text-zinc-500">Booked jobs and your techs&apos; real-time positions.</p>
+          <p className="text-xs text-zinc-500">
+            Your live position, booked jobs, and tech GPS — tap a pin for proximity.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400 sm:ml-auto">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Job
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> En route
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> On site
-          </span>
-        </div>
+        <div className="sm:ml-auto">{legend}</div>
       </div>
       {mapCanvas}
+      {locationHint}
     </WorkspacePanel>
   )
 }

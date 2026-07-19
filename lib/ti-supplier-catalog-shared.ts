@@ -2,6 +2,7 @@
 // Matching + card shaping for Key Details; DB fetch lives in ti-supplier-catalog.ts.
 
 import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
+import { isVehicleYearMakeModelValid } from "@/lib/vehicle-model-year-ranges"
 
 /** One row from the shared TI scrape table. */
 export type TiSupplierCatalogRow = {
@@ -599,6 +600,9 @@ export function rankTiCatalogRows(
   model: string,
   limit = 8
 ): TiCatalogKeyOption[] {
+  // Never invent keys for known-impossible Year/Make/Model (e.g. 2022 Cruze).
+  if (!isVehicleYearMakeModelValid(year, make, model)) return []
+
   const brand = make.trim() || "Unknown"
   const scored: TiCatalogKeyOption[] = []
 

@@ -27,10 +27,63 @@ describe("resolveVehicleKeyFcc", () => {
         },
       ],
     })
-    expect(result.confidence).toBe("single")
+    expect(result.confidence).toBe("high")
     expect(result.resolvedFccId).toBe("KR5TXN4")
     expect(result.needsClarification).toBe(false)
     expect(result.preferredTiSku).toBe("TIK-NIS-85A")
+    expect(result.ranked[0]?.reasons).toContain("CSV and TI agree on FCC")
+  })
+
+  it("auto-picks from CSV alone when TI has no hits", () => {
+    const result = resolveVehicleKeyFcc({
+      profiles: [{ fccId: "NBGFS93N", frequency: "315", modulation: "FSK", variantCount: 2 }],
+      tiHits: [],
+    })
+    expect(result.needsClarification).toBe(false)
+    expect(result.resolvedFccId).toBe("NBGFS93N")
+    expect(result.confidence).toBe("single")
+  })
+
+  it("auto-picks from TI alone when CSV has no profiles", () => {
+    const result = resolveVehicleKeyFcc({
+      profiles: [],
+      tiHits: [
+        {
+          fccId: "KR5TXN4",
+          tiSku: "TIK-NIS-85A",
+          title: "2019 - 2024 Nissan Altima Smart Key 5B - AFTERMARKET",
+          buttonCount: 5,
+          frequency: "434 MHz",
+          score: 160,
+        },
+      ],
+    })
+    expect(result.needsClarification).toBe(false)
+    expect(result.resolvedFccId).toBe("KR5TXN4")
+    expect(result.confidence).toBe("single")
+  })
+
+  it("asks when CSV and TI list different FCC IDs", () => {
+    const result = resolveVehicleKeyFcc({
+      profiles: [{ fccId: "NBGFS93N", frequency: "315", modulation: "FSK", variantCount: 1 }],
+      tiHits: [
+        {
+          fccId: "WRONGFCC1",
+          tiSku: "TIK-VW-99A",
+          title: "2018 Volkswagen Jetta Smart Key - AFTERMARKET",
+          buttonCount: 4,
+          frequency: "315 MHz",
+          score: 200,
+        },
+      ],
+    })
+    expect(result.needsClarification).toBe(true)
+    expect(result.resolvedFccId).toBeNull()
+    expect(result.clarification?.id).toBe("fcc-source-conflict")
+    expect(result.clarification?.options.map((o) => o.fccId).sort()).toEqual([
+      "NBGFS93N",
+      "WRONGFCC1",
+    ])
   })
 
   it("auto-picks the FCC that aftermarket TI blanks agree on", () => {

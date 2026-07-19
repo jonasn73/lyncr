@@ -426,17 +426,47 @@ export function VehiclePickerCascade({
   const [loadingModels, setLoadingModels] = useState(false)
   const years = vehicleYearOptions()
 
+  // Keep latest onChange without re-fetching whenever the parent recreates the callback.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
   useEffect(() => {
     if (!value.vehicle_year) {
       setMakes([])
       return
     }
+    let cancelled = false
     setLoadingMakes(true)
-    void fetch("/api/vehicle/makes", { credentials: "include", cache: "no-store" })
+    void fetch(`/api/vehicle/makes?year=${encodeURIComponent(value.vehicle_year)}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("makes"))))
-      .then((j: { data?: { makes?: string[] } }) => setMakes(Array.isArray(j.data?.makes) ? j.data!.makes! : []))
-      .catch(() => setMakes([]))
-      .finally(() => setLoadingMakes(false))
+      .then((j: { data?: { makes?: string[] } }) => {
+        if (cancelled) return
+        const next = Array.isArray(j.data?.makes) ? j.data!.makes! : []
+        setMakes(next)
+        // Clear make/model if the selected make is not sold in this year.
+        const make = value.vehicle_make
+        if (make && !next.some((m) => m.toLowerCase() === make.toLowerCase())) {
+          onChangeRef.current({
+            vehicle_year: value.vehicle_year,
+            vehicle_make: "",
+            vehicle_model: "",
+          })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMakes([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMakes(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // Only re-fetch when year changes; make is checked against the fresh list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: year drives makes
   }, [value.vehicle_year])
 
   useEffect(() => {
@@ -444,15 +474,37 @@ export function VehiclePickerCascade({
       setModels([])
       return
     }
+    let cancelled = false
     setLoadingModels(true)
     void fetch(
       `/api/vehicle/models?make=${encodeURIComponent(value.vehicle_make)}&year=${encodeURIComponent(value.vehicle_year)}`,
       { credentials: "include", cache: "no-store" }
     )
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("models"))))
-      .then((j: { data?: { models?: string[] } }) => setModels(Array.isArray(j.data?.models) ? j.data!.models! : []))
-      .catch(() => setModels([]))
-      .finally(() => setLoadingModels(false))
+      .then((j: { data?: { models?: string[] } }) => {
+        if (cancelled) return
+        const next = Array.isArray(j.data?.models) ? j.data!.models! : []
+        setModels(next)
+        // Clear model if it is not valid for this year/make (e.g. 2022 Cruze).
+        const model = value.vehicle_model
+        if (model && !next.some((m) => m.toLowerCase() === model.toLowerCase())) {
+          onChangeRef.current({
+            vehicle_year: value.vehicle_year,
+            vehicle_make: value.vehicle_make,
+            vehicle_model: "",
+          })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setModels([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingModels(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- year+make drive models; model cleared if missing
   }, [value.vehicle_year, value.vehicle_make])
 
   const sharedProps = {

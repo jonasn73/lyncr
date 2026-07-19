@@ -1383,6 +1383,8 @@ export function VehicleKeyInfoPanel({
         appliedCatalogPinRef.current = catalogPin
         return
       }
+      // TI empty but CSV/reference profiles hit — use the filmstrip path (not generic cards).
+      setManualBypassMode(false)
       const first = payload.profiles[0]!
       const currentValue = valueRef.current
       const keepVariant =
@@ -1818,6 +1820,11 @@ export function VehicleKeyInfoPanel({
       <p className="text-[11px] text-muted-foreground">
         Verify button configuration with customer to confirm selection.
       </p>
+      {!hasTiCatalogMatch ? (
+        <p className="text-[11px] text-muted-foreground">
+          Reference database (TI catalog had no blank) — confirm FCC ID on the customer&apos;s key.
+        </p>
+      ) : null}
 
       {lookupSource === "ymm_fallback" && activeFccQuery ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">

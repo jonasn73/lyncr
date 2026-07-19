@@ -7572,6 +7572,9 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     longitude: lng != null && Math.abs(lng) <= 180 ? lng : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     field_verification_required: pickBool(["field_verification_required"]),
+    vehicle_year: pick(["vehicle_year", "year"]),
+    vehicle_make: pick(["vehicle_make", "make"]),
+    vehicle_model: pick(["vehicle_model", "model"]),
   }
 }
 

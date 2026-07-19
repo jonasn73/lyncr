@@ -1,0 +1,3229 @@
+{
+  "generatedAt": "2026-07-19T15:39:33.237Z",
+  "source": "data/vehicle-key-fcc-reference.csv + curated US hard discontinuations",
+  "note": "Only rows with hard:true are used to hide Year→Make→Model options. fccStart/fccEnd are last-seen key data years and must not be treated as discontinuation.",
+  "ranges": [
+    {
+      "make": "ACURA",
+      "model": "ILX",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2022
+    },
+    {
+      "make": "ACURA",
+      "model": "MDX",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2020
+    },
+    {
+      "make": "ACURA",
+      "model": "RDX",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2021
+    },
+    {
+      "make": "ACURA",
+      "model": "RL",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2013
+    },
+    {
+      "make": "ACURA",
+      "model": "RLX",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2020
+    },
+    {
+      "make": "ACURA",
+      "model": "TL",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2014
+    },
+    {
+      "make": "ACURA",
+      "model": "TLX",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2023
+    },
+    {
+      "make": "ACURA",
+      "model": "TSX",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2008
+    },
+    {
+      "make": "BUICK",
+      "model": "ALLURE",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2012
+    },
+    {
+      "make": "BUICK",
+      "model": "CASCADA",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2019
+    },
+    {
+      "make": "BUICK",
+      "model": "ENCLAVE",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2021
+    },
+    {
+      "make": "BUICK",
+      "model": "ENCORE",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2021
+    },
+    {
+      "make": "BUICK",
+      "model": "ENVISION",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2020
+    },
+    {
+      "make": "BUICK",
+      "model": "LACROSSE",
+      "start": 2005,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2005,
+      "fccEnd": 2019
+    },
+    {
+      "make": "BUICK",
+      "model": "LESABRE",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 1999
+    },
+    {
+      "make": "BUICK",
+      "model": "LUCERNE",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2011
+    },
+    {
+      "make": "BUICK",
+      "model": "PARK AVE",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 1999
+    },
+    {
+      "make": "BUICK",
+      "model": "RAINIER",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2007
+    },
+    {
+      "make": "BUICK",
+      "model": "REGAL",
+      "start": 2011,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2011,
+      "fccEnd": 2021
+    },
+    {
+      "make": "BUICK",
+      "model": "TERRAZA",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2007
+    },
+    {
+      "make": "BUICK",
+      "model": "VERANO",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2017
+    },
+    {
+      "make": "CADILLAC",
+      "model": "ATS",
+      "start": 2013,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2013,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CADILLAC",
+      "model": "CATERA",
+      "start": 1997,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1997,
+      "fccEnd": 1999
+    },
+    {
+      "make": "CADILLAC",
+      "model": "CT4",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "CADILLAC",
+      "model": "CT5",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "CADILLAC",
+      "model": "CT6",
+      "start": 2016,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2016,
+      "fccEnd": 2020
+    },
+    {
+      "make": "CADILLAC",
+      "model": "CTS",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CADILLAC",
+      "model": "DEVILLE",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 2003
+    },
+    {
+      "make": "CADILLAC",
+      "model": "DTS",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2011
+    },
+    {
+      "make": "CADILLAC",
+      "model": "ELDORADO",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 2002
+    },
+    {
+      "make": "CADILLAC",
+      "model": "ELR",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2014
+    },
+    {
+      "make": "CADILLAC",
+      "model": "ESCALADE",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2022
+    },
+    {
+      "make": "CADILLAC",
+      "model": "SEVILLE",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 2004
+    },
+    {
+      "make": "CADILLAC",
+      "model": "SRX",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2016
+    },
+    {
+      "make": "CADILLAC",
+      "model": "STS",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2011
+    },
+    {
+      "make": "CADILLAC",
+      "model": "XT4",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CADILLAC",
+      "model": "XT5",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CADILLAC",
+      "model": "XT6",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CADILLAC",
+      "model": "XTS",
+      "start": 2013,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2013,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "AVALANCHE",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2015
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "BLAZER",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "BOLT",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2020
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "CAMARO",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "CAPTIVA SPORT",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2015
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "COBALT",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2013
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "COLORADO",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "CORVETTE",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "CRUZE",
+      "start": 2010,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2010,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "CRUZE LIMITED",
+      "start": 2016,
+      "end": 2016,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "CRUZE XL8",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "EQUINOX",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "EXPRESS",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "HHR",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2011
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "IMPALA",
+      "start": 2000,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2000,
+      "fccEnd": 2020
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "MALIBU",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2022
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "MONTE CARLO",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2012
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "SAVANA",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "SILVERADO",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "SONIC",
+      "start": 2012,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2012,
+      "fccEnd": 2020
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "SPARK",
+      "start": 2013,
+      "end": 2022,
+      "hard": true,
+      "fccStart": 2013,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "SS",
+      "start": 2014,
+      "end": 2017,
+      "hard": true,
+      "fccStart": 2014,
+      "fccEnd": 2017
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "SUBURBAN",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2022
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "TAHOE",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2022
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "TRAILBLAZER",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "TRAVERSE",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2020
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "TRAX",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "UPLANDER",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2008
+    },
+    {
+      "make": "CHEVROLET",
+      "model": "VOLT",
+      "start": 2011,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2011,
+      "fccEnd": 2019
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "200",
+      "start": 2011,
+      "end": 2017,
+      "hard": true,
+      "fccStart": 2011,
+      "fccEnd": 2017
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "300",
+      "start": 2005,
+      "end": 2023,
+      "hard": true,
+      "fccStart": 2005,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "ASPEN",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2009
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "PACIFICA",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2021
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "PT CRUISER",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2010
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "SEBRING",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2014
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "TOWN & COUNTRY",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2016
+    },
+    {
+      "make": "CHRYSLER",
+      "model": "VOYAGER",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "AVENGER",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2014
+    },
+    {
+      "make": "DODGE",
+      "model": "CALIBER",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2012
+    },
+    {
+      "make": "DODGE",
+      "model": "CARAVAN",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2020
+    },
+    {
+      "make": "DODGE",
+      "model": "CHALLENGER",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "CHALLENGER SRT",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "CHARGER",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "CHARGER SRT",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "DART",
+      "start": 2013,
+      "end": 2016,
+      "hard": true,
+      "fccStart": 2012,
+      "fccEnd": 2017
+    },
+    {
+      "make": "DODGE",
+      "model": "DURANGO",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "DURANGO SRT",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2020
+    },
+    {
+      "make": "DODGE",
+      "model": "DURANGO SRT SMART",
+      "start": 2021,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2021,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "GRAND CARAVAN",
+      "start": 2008,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2008,
+      "fccEnd": 2020
+    },
+    {
+      "make": "DODGE",
+      "model": "JOURNEY",
+      "start": 2009,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2008,
+      "fccEnd": 2020
+    },
+    {
+      "make": "DODGE",
+      "model": "MAGNUM",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2008
+    },
+    {
+      "make": "DODGE",
+      "model": "NITRO",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2012
+    },
+    {
+      "make": "DODGE",
+      "model": "RAM",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "RAM 1500",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2021
+    },
+    {
+      "make": "DODGE",
+      "model": "RAM 2500",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2022
+    },
+    {
+      "make": "DODGE",
+      "model": "RAM 3500",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2022
+    },
+    {
+      "make": "DODGE",
+      "model": "RAM 4500",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2022
+    },
+    {
+      "make": "DODGE",
+      "model": "RAM 5500",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FIAT",
+      "model": "500",
+      "start": 2012,
+      "end": 2019,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "FORD",
+      "model": "BRONCO",
+      "start": 2021,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2021,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "C-MAX",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2019
+    },
+    {
+      "make": "FORD",
+      "model": "CROWN VICTORIA",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2008
+    },
+    {
+      "make": "FORD",
+      "model": "ECONOLINE",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2016
+    },
+    {
+      "make": "FORD",
+      "model": "ECOSPORT",
+      "start": 2018,
+      "end": 2022,
+      "hard": true,
+      "fccStart": 2018,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "EDGE",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "EDGE ST",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "ESCAPE",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "ESCORT",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2003
+    },
+    {
+      "make": "FORD",
+      "model": "EXCURSION",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2006
+    },
+    {
+      "make": "FORD",
+      "model": "EXPEDITION",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "EXPLORER",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "EXPLORER SPORT",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2003
+    },
+    {
+      "make": "FORD",
+      "model": "EXPLORER ST",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "F150",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "F150 RAPTOR",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2020
+    },
+    {
+      "make": "FORD",
+      "model": "F250",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "F350",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "F450",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "F550",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "F650",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2020
+    },
+    {
+      "make": "FORD",
+      "model": "F750",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2020
+    },
+    {
+      "make": "FORD",
+      "model": "FIESTA",
+      "start": 2011,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2011,
+      "fccEnd": 2019
+    },
+    {
+      "make": "FORD",
+      "model": "FIVE HUNDRED",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2011
+    },
+    {
+      "make": "FORD",
+      "model": "FLEX",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2019
+    },
+    {
+      "make": "FORD",
+      "model": "FOCUS",
+      "start": 2000,
+      "end": 2018,
+      "hard": true,
+      "fccStart": 2000,
+      "fccEnd": 2019
+    },
+    {
+      "make": "FORD",
+      "model": "FREESTAR",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2007
+    },
+    {
+      "make": "FORD",
+      "model": "FREESTYLE",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2007
+    },
+    {
+      "make": "FORD",
+      "model": "FUSION",
+      "start": 2006,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2006,
+      "fccEnd": 2021
+    },
+    {
+      "make": "FORD",
+      "model": "MAVERICK",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "MUSTANG",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "RANGER",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "RANGER STX",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "TAURUS",
+      "start": 2008,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 1998,
+      "fccEnd": 2019
+    },
+    {
+      "make": "FORD",
+      "model": "TAURUS X",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2009
+    },
+    {
+      "make": "FORD",
+      "model": "THUNDERBIRD",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2006
+    },
+    {
+      "make": "FORD",
+      "model": "TRANSIT",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2022
+    },
+    {
+      "make": "FORD",
+      "model": "TRANSIT CONNECT",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2017
+    },
+    {
+      "make": "FORD",
+      "model": "TRIBUTE",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2011
+    },
+    {
+      "make": "FORD",
+      "model": "WINDSTAR",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2004
+    },
+    {
+      "make": "GMC",
+      "model": "ACADIA",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2022
+    },
+    {
+      "make": "GMC",
+      "model": "CANYON",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2022
+    },
+    {
+      "make": "GMC",
+      "model": "ENVOY",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2009
+    },
+    {
+      "make": "GMC",
+      "model": "SAVANA",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2019
+    },
+    {
+      "make": "GMC",
+      "model": "SIERRA",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2020
+    },
+    {
+      "make": "GMC",
+      "model": "TERRAIN",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2022
+    },
+    {
+      "make": "GMC",
+      "model": "YUKON",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2022
+    },
+    {
+      "make": "HONDA",
+      "model": "ACCORD",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2022
+    },
+    {
+      "make": "HONDA",
+      "model": "ACCORD CROSSTOUR",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2012
+    },
+    {
+      "make": "HONDA",
+      "model": "ACCORD SEDAN",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2012
+    },
+    {
+      "make": "HONDA",
+      "model": "CIVIC",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HONDA",
+      "model": "CLARITY",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HONDA",
+      "model": "CR-V",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HONDA",
+      "model": "CR-Z",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2015
+    },
+    {
+      "make": "HONDA",
+      "model": "CROSSTOUR",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2015
+    },
+    {
+      "make": "HONDA",
+      "model": "ELEMENT",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2011
+    },
+    {
+      "make": "HONDA",
+      "model": "FIT",
+      "start": 2007,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2007,
+      "fccEnd": 2020
+    },
+    {
+      "make": "HONDA",
+      "model": "HR-V",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2022
+    },
+    {
+      "make": "HONDA",
+      "model": "INSIGHT",
+      "start": 2019,
+      "end": 2022,
+      "hard": true,
+      "fccStart": 2010,
+      "fccEnd": 2020
+    },
+    {
+      "make": "HONDA",
+      "model": "ODYSSEY",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HONDA",
+      "model": "PASSPORT",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HONDA",
+      "model": "PILOT",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HONDA",
+      "model": "RIDGELINE",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2019
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "ACCENT",
+      "start": 2000,
+      "end": 2022,
+      "hard": true,
+      "fccStart": 2014,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "AZERA",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2017
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "ELANTRA",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2020
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "ELANTRA GT",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2019
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "ELANTRA GT HATCHBACK",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2015
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "ELANTRA TOURING",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2012
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "EQUUS",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2014
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "GENESIS",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2013
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "GENESIS COUPE",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2016
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "GENESIS SEDAN",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2016
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "KONA",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "PALISADE",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "SANTA FE",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "SONATA",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2020
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "TUCSON",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "VELOSTER",
+      "start": 2012,
+      "end": 2022,
+      "hard": true,
+      "fccStart": 2011,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "VENUE",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2021
+    },
+    {
+      "make": "HYUNDAI",
+      "model": "VERACRUZ",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2012
+    },
+    {
+      "make": "INFINITI",
+      "model": "EX35",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2012
+    },
+    {
+      "make": "INFINITI",
+      "model": "EX37",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "FX35",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "FX37",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "FX45",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2008
+    },
+    {
+      "make": "INFINITI",
+      "model": "FX50",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "G25",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2012
+    },
+    {
+      "make": "INFINITI",
+      "model": "G35",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2008
+    },
+    {
+      "make": "INFINITI",
+      "model": "G37",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "JX35",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "M35",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "M37",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "M45",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2010
+    },
+    {
+      "make": "INFINITI",
+      "model": "M56",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "Q40",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2015
+    },
+    {
+      "make": "INFINITI",
+      "model": "Q50",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2022
+    },
+    {
+      "make": "INFINITI",
+      "model": "Q60",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2022
+    },
+    {
+      "make": "INFINITI",
+      "model": "Q70",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2019
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX4",
+      "start": 1997,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1997,
+      "fccEnd": 2003
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX50",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2021
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX55",
+      "start": 2022,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2022,
+      "fccEnd": 2022
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX56",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2013
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX60",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2020
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX70",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2017
+    },
+    {
+      "make": "INFINITI",
+      "model": "QX80",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2022
+    },
+    {
+      "make": "JEEP",
+      "model": "CHEROKEE",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2021
+    },
+    {
+      "make": "JEEP",
+      "model": "CHEROKEE TRAILHAWK",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2018
+    },
+    {
+      "make": "JEEP",
+      "model": "COMMANDER",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2007
+    },
+    {
+      "make": "JEEP",
+      "model": "COMPASS",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2023
+    },
+    {
+      "make": "JEEP",
+      "model": "GLADIATOR",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "JEEP",
+      "model": "GRAND CHEROKEE",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2022
+    },
+    {
+      "make": "JEEP",
+      "model": "GRAND CHEROKEE L",
+      "start": 2021,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2021,
+      "fccEnd": 2023
+    },
+    {
+      "make": "JEEP",
+      "model": "GRAND CHEROKEE SRT",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2021
+    },
+    {
+      "make": "JEEP",
+      "model": "GRAND WAGONEER",
+      "start": 2021,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2021,
+      "fccEnd": 2023
+    },
+    {
+      "make": "JEEP",
+      "model": "LIBERTY",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2012
+    },
+    {
+      "make": "JEEP",
+      "model": "PATRIOT",
+      "start": 2007,
+      "end": 2017,
+      "hard": true,
+      "fccStart": 2007,
+      "fccEnd": 2017
+    },
+    {
+      "make": "JEEP",
+      "model": "RENEGADE",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2021
+    },
+    {
+      "make": "JEEP",
+      "model": "WAGONEER",
+      "start": 2021,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2021,
+      "fccEnd": 2023
+    },
+    {
+      "make": "JEEP",
+      "model": "WRANGLER",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2021
+    },
+    {
+      "make": "KIA",
+      "model": "BORREGO",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2012
+    },
+    {
+      "make": "KIA",
+      "model": "CADENZA",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2019
+    },
+    {
+      "make": "KIA",
+      "model": "FORTE",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2022
+    },
+    {
+      "make": "KIA",
+      "model": "FORTE5",
+      "start": 2011,
+      "end": 2018,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "KIA",
+      "model": "K900",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2017
+    },
+    {
+      "make": "KIA",
+      "model": "NIRO",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2020
+    },
+    {
+      "make": "KIA",
+      "model": "OPTIMA",
+      "start": 2001,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2010,
+      "fccEnd": 2020
+    },
+    {
+      "make": "KIA",
+      "model": "RIO",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2021
+    },
+    {
+      "make": "KIA",
+      "model": "SEDONA",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "KIA",
+      "model": "SORENTO",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2020
+    },
+    {
+      "make": "KIA",
+      "model": "SOUL",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2021
+    },
+    {
+      "make": "KIA",
+      "model": "SPORTAGE",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2022
+    },
+    {
+      "make": "KIA",
+      "model": "STINGER",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2021
+    },
+    {
+      "make": "KIA",
+      "model": "TELLURIDE",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "CT200H",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2017
+    },
+    {
+      "make": "LEXUS",
+      "model": "ES300H",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2018
+    },
+    {
+      "make": "LEXUS",
+      "model": "ES350",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2018
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS200T",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2018
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS300",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2008
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS300T",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2017
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS350",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS430",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2008
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS450H",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2018
+    },
+    {
+      "make": "LEXUS",
+      "model": "GS460",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2011
+    },
+    {
+      "make": "LEXUS",
+      "model": "HS250",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2012
+    },
+    {
+      "make": "LEXUS",
+      "model": "IS200",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2017
+    },
+    {
+      "make": "LEXUS",
+      "model": "IS200T",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2017
+    },
+    {
+      "make": "LEXUS",
+      "model": "IS250",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2016
+    },
+    {
+      "make": "LEXUS",
+      "model": "IS300",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "IS350",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "ISC",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2011
+    },
+    {
+      "make": "LEXUS",
+      "model": "LS460",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2014
+    },
+    {
+      "make": "LEXUS",
+      "model": "LS600H",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2014
+    },
+    {
+      "make": "LEXUS",
+      "model": "LX570",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "NX200",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "NX200T",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "NX300",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "NX300H",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "RC200T",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2017
+    },
+    {
+      "make": "LEXUS",
+      "model": "RC300",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "RC350",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "RX350",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LEXUS",
+      "model": "RX450H",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LINCOLN",
+      "model": "AVIATOR",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "LINCOLN",
+      "model": "CONTINENTAL",
+      "start": 2017,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2017,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LINCOLN",
+      "model": "CORSAIR",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2022
+    },
+    {
+      "make": "LINCOLN",
+      "model": "MKC",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2021
+    },
+    {
+      "make": "LINCOLN",
+      "model": "MKS",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2016
+    },
+    {
+      "make": "LINCOLN",
+      "model": "MKT",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2020
+    },
+    {
+      "make": "LINCOLN",
+      "model": "MKX",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2019
+    },
+    {
+      "make": "LINCOLN",
+      "model": "MKZ",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2021
+    },
+    {
+      "make": "LINCOLN",
+      "model": "NAUTILUS",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2022
+    },
+    {
+      "make": "LINCOLN",
+      "model": "NAVIGATOR",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2022
+    },
+    {
+      "make": "MAZDA",
+      "model": "2",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2014
+    },
+    {
+      "make": "MAZDA",
+      "model": "3",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2021
+    },
+    {
+      "make": "MAZDA",
+      "model": "3 HATCHBACK",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MAZDA",
+      "model": "3 HATCHBACK 5 DOOR",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2018
+    },
+    {
+      "make": "MAZDA",
+      "model": "3 SEDAN",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2018
+    },
+    {
+      "make": "MAZDA",
+      "model": "3 SPEED",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2013
+    },
+    {
+      "make": "MAZDA",
+      "model": "5",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2015
+    },
+    {
+      "make": "MAZDA",
+      "model": "6",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MAZDA",
+      "model": "6 SPEED",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2007
+    },
+    {
+      "make": "MAZDA",
+      "model": "CX-3",
+      "start": 2016,
+      "end": 2021,
+      "hard": true,
+      "fccStart": 2016,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MAZDA",
+      "model": "CX-30",
+      "start": 2020,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2020,
+      "fccEnd": 2021
+    },
+    {
+      "make": "MAZDA",
+      "model": "CX-5",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2021
+    },
+    {
+      "make": "MAZDA",
+      "model": "CX-7",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2012
+    },
+    {
+      "make": "MAZDA",
+      "model": "CX-9",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MAZDA",
+      "model": "MX-5 MIATA",
+      "start": 2006,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2006,
+      "fccEnd": 2019
+    },
+    {
+      "make": "MAZDA",
+      "model": "SPEED 3",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2014
+    },
+    {
+      "make": "MITSUBISHI",
+      "model": "ECLIPSE CROSS",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MITSUBISHI",
+      "model": "LANCER",
+      "start": 2002,
+      "end": 2017,
+      "hard": true,
+      "fccStart": 2008,
+      "fccEnd": 2017
+    },
+    {
+      "make": "MITSUBISHI",
+      "model": "MIRAGE",
+      "start": 2014,
+      "end": 2024,
+      "hard": true,
+      "fccStart": 2014,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MITSUBISHI",
+      "model": "OUTLANDER",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2020
+    },
+    {
+      "make": "MITSUBISHI",
+      "model": "OUTLANDER SPORT",
+      "start": 2010,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2010,
+      "fccEnd": 2020
+    },
+    {
+      "make": "NISSAN",
+      "model": "200SX",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 1998
+    },
+    {
+      "make": "NISSAN",
+      "model": "350Z",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2006
+    },
+    {
+      "make": "NISSAN",
+      "model": "370Z",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2018
+    },
+    {
+      "make": "NISSAN",
+      "model": "ALTIMA",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "ARMADA",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2022
+    },
+    {
+      "make": "NISSAN",
+      "model": "CUBE",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2014
+    },
+    {
+      "make": "NISSAN",
+      "model": "FRONTIER",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2018
+    },
+    {
+      "make": "NISSAN",
+      "model": "JUKE",
+      "start": 2011,
+      "end": 2017,
+      "hard": true,
+      "fccStart": 2011,
+      "fccEnd": 2017
+    },
+    {
+      "make": "NISSAN",
+      "model": "KICKS",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "LEAF",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2017
+    },
+    {
+      "make": "NISSAN",
+      "model": "MAXIMA",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "MURANO",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "NV",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2018
+    },
+    {
+      "make": "NISSAN",
+      "model": "PATHFINDER",
+      "start": 1996,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1996,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "QUEST",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2017
+    },
+    {
+      "make": "NISSAN",
+      "model": "ROGUE",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "SENTRA",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "TITAN",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2021
+    },
+    {
+      "make": "NISSAN",
+      "model": "VERSA",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2022
+    },
+    {
+      "make": "NISSAN",
+      "model": "VERSA NOTE",
+      "start": 2014,
+      "end": 2019,
+      "hard": true,
+      "fccStart": 2015,
+      "fccEnd": 2019
+    },
+    {
+      "make": "NISSAN",
+      "model": "X-TERRA",
+      "start": 2002,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2002,
+      "fccEnd": 2011
+    },
+    {
+      "make": "NISSAN",
+      "model": "XTERRA",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2000
+    },
+    {
+      "make": "SCION",
+      "model": "IA",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2016
+    },
+    {
+      "make": "SCION",
+      "model": "IQ",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2015
+    },
+    {
+      "make": "SCION",
+      "model": "TC",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2015
+    },
+    {
+      "make": "SCION",
+      "model": "XB",
+      "start": 2004,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2004,
+      "fccEnd": 2015
+    },
+    {
+      "make": "SCION",
+      "model": "XD",
+      "start": 2008,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2008,
+      "fccEnd": 2012
+    },
+    {
+      "make": "SMART",
+      "model": "FORTWO",
+      "start": 2008,
+      "end": 2019,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "SUBARU",
+      "model": "ASCENT",
+      "start": 2019,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2019,
+      "fccEnd": 2021
+    },
+    {
+      "make": "SUBARU",
+      "model": "BRZ",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2018
+    },
+    {
+      "make": "SUBARU",
+      "model": "FORESTER",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2021
+    },
+    {
+      "make": "SUBARU",
+      "model": "IMPREZA",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2021
+    },
+    {
+      "make": "SUBARU",
+      "model": "LEGACY",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2021
+    },
+    {
+      "make": "SUBARU",
+      "model": "OUTBACK",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2021
+    },
+    {
+      "make": "SUBARU",
+      "model": "STI",
+      "start": 2015,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2015,
+      "fccEnd": 2020
+    },
+    {
+      "make": "SUBARU",
+      "model": "TRIBECA",
+      "start": 2005,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2005,
+      "fccEnd": 2010
+    },
+    {
+      "make": "SUBARU",
+      "model": "WRX",
+      "start": 2011,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2011,
+      "fccEnd": 2020
+    },
+    {
+      "make": "SUBARU",
+      "model": "XV CROSSTREK",
+      "start": 2013,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2013,
+      "fccEnd": 2020
+    },
+    {
+      "make": "TOYOTA",
+      "model": "4RUNNER",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2022
+    },
+    {
+      "make": "TOYOTA",
+      "model": "AVALON",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2018
+    },
+    {
+      "make": "TOYOTA",
+      "model": "C-HR",
+      "start": 2018,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2018,
+      "fccEnd": 2024
+    },
+    {
+      "make": "TOYOTA",
+      "model": "CAMRY",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2022
+    },
+    {
+      "make": "TOYOTA",
+      "model": "CELICA",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2006
+    },
+    {
+      "make": "TOYOTA",
+      "model": "COROLLA",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2021
+    },
+    {
+      "make": "TOYOTA",
+      "model": "COROLLA CROSS",
+      "start": 2022,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2022,
+      "fccEnd": 2024
+    },
+    {
+      "make": "TOYOTA",
+      "model": "ECHO",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2005
+    },
+    {
+      "make": "TOYOTA",
+      "model": "FJ CRUISER",
+      "start": 2007,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2007,
+      "fccEnd": 2008
+    },
+    {
+      "make": "TOYOTA",
+      "model": "HIGHLANDER",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2019
+    },
+    {
+      "make": "TOYOTA",
+      "model": "HIGHLANDER LIMITED",
+      "start": 2014,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2014,
+      "fccEnd": 2019
+    },
+    {
+      "make": "TOYOTA",
+      "model": "LAND CRUISER",
+      "start": 2016,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2016,
+      "fccEnd": 2018
+    },
+    {
+      "make": "TOYOTA",
+      "model": "MATRIX",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2014
+    },
+    {
+      "make": "TOYOTA",
+      "model": "PRIUS",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2021
+    },
+    {
+      "make": "TOYOTA",
+      "model": "PRIUS C",
+      "start": 2012,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2012,
+      "fccEnd": 2021
+    },
+    {
+      "make": "TOYOTA",
+      "model": "RAV4",
+      "start": 2001,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2001,
+      "fccEnd": 2021
+    },
+    {
+      "make": "TOYOTA",
+      "model": "SCION TC",
+      "start": 2005,
+      "end": 2016,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "TOYOTA",
+      "model": "SEQUOIA",
+      "start": 2003,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2003,
+      "fccEnd": 2021
+    },
+    {
+      "make": "TOYOTA",
+      "model": "SIENNA",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2020
+    },
+    {
+      "make": "TOYOTA",
+      "model": "SOLARA",
+      "start": 1999,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1999,
+      "fccEnd": 2009
+    },
+    {
+      "make": "TOYOTA",
+      "model": "TACOMA",
+      "start": 1998,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 1998,
+      "fccEnd": 2022
+    },
+    {
+      "make": "TOYOTA",
+      "model": "TUNDRA",
+      "start": 2000,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2000,
+      "fccEnd": 2021
+    },
+    {
+      "make": "TOYOTA",
+      "model": "VENZA",
+      "start": 2009,
+      "end": 2099,
+      "hard": false,
+      "fccStart": 2009,
+      "fccEnd": 2016
+    },
+    {
+      "make": "TOYOTA",
+      "model": "YARIS",
+      "start": 2007,
+      "end": 2020,
+      "hard": true,
+      "fccStart": 2007,
+      "fccEnd": 2019
+    },
+    {
+      "make": "TOYOTA",
+      "model": "YARIS IA",
+      "start": 2016,
+      "end": 2018,
+      "hard": true,
+      "fccStart": 2017,
+      "fccEnd": 2020
+    },
+    {
+      "make": "VOLKSWAGEN",
+      "model": "BEETLE",
+      "start": 2012,
+      "end": 2019,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "VOLKSWAGEN",
+      "model": "CC",
+      "start": 2009,
+      "end": 2017,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    },
+    {
+      "make": "VOLKSWAGEN",
+      "model": "GOLF",
+      "start": 2010,
+      "end": 2021,
+      "hard": true,
+      "fccStart": null,
+      "fccEnd": null
+    }
+  ]
+}

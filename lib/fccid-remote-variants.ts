@@ -405,46 +405,123 @@ function scoreVariant(v: FccRemoteVariant, year: number): number {
   return score
 }
 
-/** Parse fccid.io replacement table rows from cached HTML. Exported for tests. */
+function pushParsedVariant(
+  variants: FccRemoteVariant[],
+  opts: {
+    title: string
+    imageUrl: string | null
+    keyType: string | null
+    buttons: string | null
+    batteryRaw: string
+    fitsText: string | null
+    sourceUrl: string | null
+  }
+): void {
+  const title = opts.title.trim()
+  if (!title) return
+  const battery =
+    opts.batteryRaw &&
+    /^[A-Z]{1,3}\d{3,4}[A-Z]?$/i.test(opts.batteryRaw.trim()) &&
+    opts.batteryRaw.length <= 12
+      ? opts.batteryRaw.trim()
+      : null
+  const partNumbers = title.match(/Part number:\s*(.+)$/i)?.[1]?.trim() ?? null
+  const cleanTitle = title.replace(/\s*Part number:\s*.+$/i, "").trim()
+  const image_url = opts.imageUrl ? absoluteImageUrl(opts.imageUrl) : null
+  variants.push({
+    id: variantId(cleanTitle, image_url),
+    title: cleanTitle,
+    image_url,
+    key_type: opts.keyType,
+    buttons: opts.buttons,
+    battery,
+    part_numbers: partNumbers,
+    fits_text: opts.fitsText,
+    source_url: opts.sourceUrl,
+    suggested_key_style: suggestKeyStyle(opts.keyType, cleanTitle),
+    programming_method: inferProgrammingMethod(cleanTitle, opts.keyType, null),
+  })
+}
+
+/** Parse fccid.io replacement listings (legacy thumb table + current card/table markup). */
 export function parseFccidReplacementHtml(html: string): FccRemoteVariant[] {
   const variants: FccRemoteVariant[] = []
+
+  // Hero image on modern pages — attach to the first listing if rows have no thumbs.
+  const heroImg =
+    html.match(
+      /remote-key-hero[\s\S]{0,400}?<img[^>]+src="([^"]+)"/i
+    )?.[1] ??
+    html.match(
+      /<img[^>]+src="(https:\/\/cdn\.shopify\.com[^"]+)"[^>]*alt="[^"]*FCC ID/i
+    )?.[1] ??
+    null
+
+  // Legacy table rows with remote-key-thumb.
   const rowRe = /<tr>([\s\S]*?)<\/tr>/gi
   let rowMatch: RegExpExecArray | null
   while ((rowMatch = rowRe.exec(html))) {
     const row = rowMatch[1]!
-    if (!row.includes("remote-key-thumb")) continue
+    const hasLegacyThumb = row.includes("remote-key-thumb")
+    const hasMatchedRemote = /data-label="Remote"/i.test(row) && /data-label="Fits"/i.test(row)
+    if (!hasLegacyThumb && !hasMatchedRemote) continue
 
-    const imgMatch = row.match(/<img[^>]+src="([^"]+)"[^>]*(?:alt="([^"]*)")?/i)
+    const imgMatch = row.match(/<img[^>]+src="([^"]+)"/i)
     const title = cellValue(row, "Remote")
     if (!title) continue
-
     const details = cellValue(row, "Details")
     const keyType =
       details.match(/Type:\s*([^]+?)(?=Buttons:|Frequency:|Condition:|IC:|$)/i)?.[1]?.trim() ?? null
-    const buttons = details.match(/Buttons:\s*([^]+?)(?=Type:|Frequency:|Condition:|IC:|$)/i)?.[1]?.trim() ?? null
-    const batteryRaw = cellValue(row, "Battery")
-    const battery =
-      batteryRaw &&
-      /^[A-Z]{1,3}\d{3,4}[A-Z]?$/i.test(batteryRaw.trim()) &&
-      batteryRaw.length <= 12
-        ? batteryRaw.trim()
-        : null
-    const partNumbers = title.match(/Part number:\s*(.+)$/i)?.[1]?.trim() ?? null
-    const cleanTitle = title.replace(/\s*Part number:\s*.+$/i, "").trim()
+    const buttons =
+      details.match(/Buttons:\s*([^]+?)(?=Type:|Frequency:|Condition:|IC:|$)/i)?.[1]?.trim() ?? null
     const sourceMatch = row.match(/data-label="Source"[^>]*>[\s\S]*?href="([^"]+)"/i)
-
-    variants.push({
-      id: variantId(cleanTitle, imgMatch ? absoluteImageUrl(imgMatch[1]!) : null),
-      title: cleanTitle,
-      image_url: imgMatch ? absoluteImageUrl(imgMatch[1]!) : null,
-      key_type: keyType,
+    pushParsedVariant(variants, {
+      title,
+      imageUrl: imgMatch?.[1] ?? (variants.length === 0 ? heroImg : null),
+      keyType,
       buttons,
-      battery,
-      part_numbers: partNumbers,
-      fits_text: cellValue(row, "Fits") || null,
-      source_url: sourceMatch?.[1] ?? null,
-      suggested_key_style: suggestKeyStyle(keyType, cleanTitle),
-      programming_method: inferProgrammingMethod(cleanTitle, keyType, null),
+      batteryRaw: cellValue(row, "Battery"),
+      fitsText: cellValue(row, "Fits") || null,
+      sourceUrl: sourceMatch?.[1] ?? null,
+    })
+  }
+
+  // Modern card grid (no per-row thumbs).
+  const cardRe = /<article class="remote-key-card">([\s\S]*?)<\/article>/gi
+  let cardMatch: RegExpExecArray | null
+  while ((cardMatch = cardRe.exec(html))) {
+    const card = cardMatch[1]!
+    const title =
+      card.match(/<h4>\s*<a[^>]*>([\s\S]*?)<\/a>/i)?.[1]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() ??
+      ""
+    if (!title) continue
+    const keyType =
+      card.match(/<strong>Type:<\/strong>\s*([^<]+)/i)?.[1]?.trim() ?? null
+    const batteryRaw = card.match(/<strong>Battery:<\/strong>\s*([^<]+)/i)?.[1]?.trim() ?? ""
+    const fitsText = card.match(/<strong>Fits:<\/strong>\s*([^<]+)/i)?.[1]?.trim() ?? null
+    const partNumbers = card.match(/<strong>Part number:<\/strong>\s*([^<]+)/i)?.[1]?.trim() ?? null
+    const fullTitle = partNumbers ? `${title} Part number: ${partNumbers}` : title
+    pushParsedVariant(variants, {
+      title: fullTitle,
+      imageUrl: variants.length === 0 ? heroImg : null,
+      keyType,
+      buttons: null,
+      batteryRaw,
+      fitsText,
+      sourceUrl: null,
+    })
+  }
+
+  // If we only got a hero image and no listings, still expose one reference card.
+  if (variants.length === 0 && heroImg) {
+    pushParsedVariant(variants, {
+      title: "FCC key fob replacement listing",
+      imageUrl: heroImg,
+      keyType: null,
+      buttons: null,
+      batteryRaw: "",
+      fitsText: null,
+      sourceUrl: null,
     })
   }
 
@@ -498,7 +575,15 @@ async function fetchFccidReplacementHtml(fccClean: string): Promise<string | nul
       })
       if (!res.ok) continue
       const html = await res.text()
-      if (html.includes("remote-key-thumb")) return html
+      // Legacy thumb table or current card/matched-remote markup.
+      if (
+        html.includes("remote-key-thumb") ||
+        html.includes("remote-key-card") ||
+        html.includes("remote-key-table") ||
+        html.includes("remote-key-hero")
+      ) {
+        return html
+      }
     } catch (e) {
       console.warn("[fccid-remote-variants] fetch failed", fccClean, e)
     }

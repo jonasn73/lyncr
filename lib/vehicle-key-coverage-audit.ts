@@ -42,11 +42,18 @@ export const MUST_RESOLVE_VEHICLE_KEYS: Array<{ year: number; make: string; mode
   { year: 2018, make: "CHEVROLET", model: "Silverado" },
   { year: 2018, make: "GMC", model: "Sierra" },
   { year: 2022, make: "RAM", model: "2500" },
+  // European TI-empty backup seed (CSV reference).
+  { year: 2018, make: "VOLKSWAGEN", model: "Jetta" },
+  { year: 2019, make: "VOLKSWAGEN", model: "Passat" },
+  { year: 2015, make: "VOLKSWAGEN", model: "Tiguan" },
+  { year: 2016, make: "AUDI", model: "A3" },
+  { year: 2010, make: "BMW", model: "3 Series" },
 ]
 
 /** Known gaps in the open FCC reference — lookup may legitimately return null. */
 export const EXPECTED_KEY_LOOKUP_MISSES: Array<{ year: number; make: string; model: string }> = [
   { year: 2020, make: "TESLA", model: "Model 3" },
+  // Newer BMW comfort-access years not in the CAS3 seed window.
   { year: 2016, make: "BMW", model: "3 Series" },
 ]
 
