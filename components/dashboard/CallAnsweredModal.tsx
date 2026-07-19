@@ -877,7 +877,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       return
     }
     if (!form.quotedPriceOverridden) {
-      setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
+      const next = autoTotalDollars > 0 ? String(autoTotalDollars) : ""
+      // Avoid re-render loops when the quote string is already in sync.
+      setCustomPrice((prev) => (prev === next ? prev : next))
     }
   }, [effectiveCurrent, autoTotalDollars, form.quotedPriceOverridden])
 
@@ -1068,6 +1070,42 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const vehicleResolvedForStock = Boolean(
     form.vehicleYear?.trim() && form.vehicleMake?.trim() && form.vehicleModel?.trim()
+  )
+
+  /** Stable Set for clarifications — `new Set(...)` inline was recreating every render. */
+  const answeredClarificationSet = useMemo(
+    () => new Set(answeredClarificationIds),
+    [answeredClarificationIds]
+  )
+
+  const handleInventoryLoaded = useCallback(
+    (inventory: KeyInventoryApiRow[]) => {
+      setPreloadedKeyBundle((prev) => {
+        const prevList = prev?.inventory ?? []
+        // Skip no-op updates so Key Details does not re-enter its load effect.
+        if (
+          prevList.length === inventory.length &&
+          prevList.every(
+            (row, index) =>
+              row.id === inventory[index]?.id &&
+              row.sku === inventory[index]?.sku &&
+              row.quantity === inventory[index]?.quantity
+          )
+        ) {
+          return prev
+        }
+        if (prev) return { ...prev, inventory }
+        return {
+          year: form.vehicleYear,
+          make: form.vehicleMake,
+          model: form.vehicleModel,
+          key_info: null,
+          lookup_source: null,
+          inventory,
+        }
+      })
+    },
+    [form.vehicleMake, form.vehicleModel, form.vehicleYear]
   )
 
   const mergeInventoryItem = useCallback((item: KeyInventoryApiRow) => {
@@ -2505,7 +2543,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 year={form.vehicleYear}
                                 make={form.vehicleMake}
                                 model={form.vehicleModel}
-                                answeredIds={new Set(answeredClarificationIds)}
+                                answeredIds={answeredClarificationSet}
                                 onAnswer={applyVehicleClarification}
                                 onPendingKeyClarificationChange={setKeyClarificationPending}
                               />
@@ -2532,7 +2570,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                       }
                                     : null
                                 }
-                                onChange={(sel) => setVehicleKeySelection(sel)}
+                                onChange={setVehicleKeySelection}
                                 onVariantSelected={handleManualKeyVariantSelected}
                                 onBackToVehicleLookup={() =>
                                   setCurrentStep(
@@ -2541,20 +2579,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 }
                                 onVehicleFromVin={handleVehicleFromVin}
                                 preloadedKeyBundle={preloadedKeyBundle}
-                                onInventoryLoaded={(inventory) => {
-                                  setPreloadedKeyBundle((prev) =>
-                                    prev
-                                      ? { ...prev, inventory }
-                                      : {
-                                          year: form.vehicleYear,
-                                          make: form.vehicleMake,
-                                          model: form.vehicleModel,
-                                          key_info: null,
-                                          lookup_source: null,
-                                          inventory,
-                                        }
-                                  )
-                                }}
+                                onInventoryLoaded={handleInventoryLoaded}
                               />
                               <CallTimeInventoryIntake
                                 year={form.vehicleYear}
@@ -2925,7 +2950,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       year={form.vehicleYear}
                       make={form.vehicleMake}
                       model={form.vehicleModel}
-                      answeredIds={new Set(answeredClarificationIds)}
+                      answeredIds={answeredClarificationSet}
                       onAnswer={applyVehicleClarification}
                       onPendingKeyClarificationChange={setKeyClarificationPending}
                     />
@@ -2952,23 +2977,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             }
                           : null
                       }
-                      onChange={(sel) => setVehicleKeySelection(sel)}
+                      onChange={setVehicleKeySelection}
                       onVehicleFromVin={handleVehicleFromVin}
                       preloadedKeyBundle={preloadedKeyBundle}
-                      onInventoryLoaded={(inventory) => {
-                        setPreloadedKeyBundle((prev) =>
-                          prev
-                            ? { ...prev, inventory }
-                            : {
-                                year: form.vehicleYear,
-                                make: form.vehicleMake,
-                                model: form.vehicleModel,
-                                key_info: null,
-                                lookup_source: null,
-                                inventory,
-                              }
-                        )
-                      }}
+                      onInventoryLoaded={handleInventoryLoaded}
                     />
                     <CallTimeInventoryIntake
                       year={form.vehicleYear}

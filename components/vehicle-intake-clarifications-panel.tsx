@@ -2,7 +2,7 @@
 
 // Ask-the-customer prompts when year/make/model is ambiguous for key reference.
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -91,8 +91,11 @@ export function VehicleIntakeClarificationsPanel({
   // Gate keys while clarifications load, and while any key-gating prompt is still open.
   const keyGatePending =
     (ready && !serverReady) || prompts.some(clarificationGatesKeySelection)
+  const lastPendingRef = useRef<boolean | null>(null)
 
   useEffect(() => {
+    if (lastPendingRef.current === keyGatePending) return
+    lastPendingRef.current = keyGatePending
     onPendingKeyClarificationChange?.(keyGatePending)
   }, [keyGatePending, onPendingKeyClarificationChange])
 
