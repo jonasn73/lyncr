@@ -309,6 +309,18 @@ export function DispatchLiveMap({
     return best
   }, [destination, techs])
 
+  const plottableJobCount = useMemo(
+    () =>
+      jobs.filter(
+        (j) => coerceCoord(j.latitude) != null && coerceCoord(j.longitude) != null
+      ).length,
+    [jobs]
+  )
+  const plottableCount = plottableJobCount + techs.length + (destination ? 1 : 0)
+  // Activities embeds this map only when pins exist; Map tab always mounts the canvas.
+  // Leaflet must init *after* that container is in the DOM (not on the empty first paint).
+  const mapShellVisible = fullViewport || plottableCount > 0
+
   const load = useCallback(() => {
     const orgQs =
       activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
@@ -430,8 +442,11 @@ export function DispatchLiveMap({
     return () => window.removeEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, onFocus)
   }, [])
 
-  // Create the Leaflet map once, client-side only.
+  // Create the Leaflet map when the map shell is actually mounted in the DOM.
+  // Activities hides the shell until jobs load — init must wait for that, or you get a blank gray box.
   useEffect(() => {
+    if (!mapShellVisible) return
+
     let cancelled = false
     let created: LeafletMap | null = null
     let media: MediaQueryList | null = null
@@ -451,6 +466,7 @@ export function DispatchLiveMap({
         map.dragging.enable()
         map.scrollWheelZoom.enable()
       }
+      map.invalidateSize()
     }
     void (async () => {
       const L = await loadLeafletClient()
@@ -480,6 +496,10 @@ export function DispatchLiveMap({
       attachBaseMapTiles(L, created)
       mapRef.current = created
       setReady(true)
+      // Container often gains its real size one frame after mount — force Leaflet to paint tiles.
+      requestAnimationFrame(() => {
+        if (!cancelled) created?.invalidateSize()
+      })
       media = window.matchMedia("(max-width: 767px)")
       media.addEventListener("change", onViewportChange)
     })()
@@ -488,6 +508,7 @@ export function DispatchLiveMap({
       media?.removeEventListener("change", onViewportChange)
       if (created) created.remove()
       mapRef.current = null
+      leafletRef.current = null
       jobMarkers.current.clear()
       techMarkers.current.clear()
       if (destinationMarkerRef.current) {
@@ -499,8 +520,10 @@ export function DispatchLiveMap({
         userMarkerRef.current = null
       }
       didCenterOnUser.current = false
+      didFit.current = false
+      setReady(false)
     }
-  }, [])
+  }, [mapShellVisible])
 
   // Live tech moves: nudge the matching dot the instant a tech streams a new position.
   useEffect(() => {
@@ -694,14 +717,10 @@ export function DispatchLiveMap({
     }
   }, [ready, jobs, techs, destination, userLocation])
 
-  const plottableJobCount = jobs.filter(
-    (j) => coerceCoord(j.latitude) != null && coerceCoord(j.longitude) != null
-  ).length
-  const plottableCount = plottableJobCount + techs.length + (destination ? 1 : 0)
   const selectedJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) ?? null : null
 
   // Embedded on Team/routing — hide when empty. Map tab always shows the canvas.
-  if (!fullViewport && plottableCount === 0) return null
+  if (!mapShellVisible) return null
 
   const mapCanvas = (
     <div className="relative">
