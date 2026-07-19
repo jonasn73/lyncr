@@ -28,12 +28,17 @@ export const HOPPER_DISPATCH_STATUSES = [UNASSIGNED_POOL_STATUS] as const
 /** dispatch_status after a tech is assigned or claims a job. */
 export const DISPATCHED_STATUS = "DISPATCHED"
 
-/** Pull a neighborhood label from a full street address (city/locality segment). */
+/** Pull a city / neighborhood label from a full street address. */
 export function neighborhoodFromLocation(location: string | null | undefined): string | null {
   const raw = location?.trim()
   if (!raw) return null
   const parts = raw.split(",").map((p) => p.trim()).filter(Boolean)
-  if (parts.length >= 3) return parts[parts.length - 2]
+  if (parts.length === 0) return null
+  // "Street, City, State, ZIP" → City (not State).
+  if (parts.length >= 4) return parts[parts.length - 3]
+  // "Street, City, State" or "Street, City, ZIP" → City.
+  if (parts.length === 3) return parts[1]
+  // "City, State" → City.
   if (parts.length === 2) return parts[0]
   return parts[0] ?? null
 }

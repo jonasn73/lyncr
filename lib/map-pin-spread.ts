@@ -95,6 +95,12 @@ export function geocodeQueryForPoolLocation(location: string | null | undefined)
   if (!raw) return null
   if (/^\d{5}(-\d{4})?$/.test(raw)) return `${raw}, Louisville, KY`
   if (raw.length <= 6 && /^\d+$/.test(raw)) return `${raw}, Louisville, KY`
+  // "Kentucky 40217" / "Louisville KY 40217" — pull the ZIP and bias to Louisville.
+  const embeddedZip = raw.match(/\b(\d{5})(?:-\d{4})?\b/)
+  if (embeddedZip && !/\d+\s+\w+/.test(raw.split(",")[0] ?? "")) {
+    // No street number in the first segment — treat as area/ZIP label.
+    return `${embeddedZip[1]}, Louisville, KY`
+  }
   return raw
 }
 
