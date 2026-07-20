@@ -62,13 +62,16 @@ export async function POST(req: NextRequest) {
   const job = await getJobPaymentContext(jobId)
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 })
 
-  // Only the assigned tech or the job's business owner may charge the customer.
+  // Assigned tech or business owner may charge. Owner can collect on the go even before assign.
   const isTech = job.assignedTechId === userId
-  const isOwner = job.ownerUserId === userId && user.account_role === "owner"
+  const isOwner = job.ownerUserId === userId
   if (!isTech && !isOwner) {
     return NextResponse.json({ error: "Not allowed to charge this job" }, { status: 403 })
   }
-  if (!job.assignedTechId) {
+  // On-the-go owner collect: credit the owner's wallet when no tech is assigned yet.
+  const jobForCharge =
+    !job.assignedTechId && isOwner ? { ...job, assignedTechId: userId } : job
+  if (!jobForCharge.assignedTechId) {
     return NextResponse.json({ error: "Assign a technician before collecting payment" }, { status: 400 })
   }
 
@@ -82,7 +85,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await createJobPaymentIntent({
-      job,
+      job: jobForCharge,
       chargeCents: verified.chargeCents,
       walletMethod,
       actingUserId: userId,

@@ -126,14 +126,15 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
       disabled
       aria-busy="true"
       aria-label="Loading account"
-      className="h-11 w-[2.75rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem]"
+      className="h-11 min-w-[2.75rem] flex-col gap-0 border-border/80 bg-card/80 px-2 py-1 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:flex-row sm:gap-2 sm:py-0"
     >
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
         <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
       </span>
+      <span className="h-2 w-8 animate-pulse rounded bg-muted/70 sm:hidden" aria-hidden />
       <span className="hidden min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex">
         <span className="h-3 w-20 animate-pulse rounded bg-muted/80" aria-hidden />
-        <span className="h-2.5 w-28 animate-pulse rounded bg-muted/60" aria-hidden />
+        <span className="h-2.5 w-24 animate-pulse rounded bg-emerald-500/20" aria-hidden />
       </span>
       <ChevronDown className="hidden h-4 w-4 shrink-0 opacity-40 sm:block" aria-hidden />
     </Button>

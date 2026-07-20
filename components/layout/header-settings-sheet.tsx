@@ -1,11 +1,11 @@
 "use client"
 
-// Profile avatar opens the Settings list in a sliding sheet (replaces mobile Settings tab).
+// Profile avatar opens Settings; shows today’s collected $ and a Collect Payment shortcut.
 
-import { memo, useState, Suspense } from "react"
+import { memo, useCallback, useEffect, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ChevronDown, LifeBuoy, Loader2, LogOut } from "lucide-react"
+import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -14,6 +14,16 @@ import { DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { OwnerCollectPaymentSheet } from "@/components/dashboard/owner-collect-payment-sheet"
+
+/** Client-safe currency label for the header chip. */
+function formatCollectedDollars(cents: number): string {
+  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  })
+}
 
 const SettingsWorkspaceView = dynamic(
   () =>
@@ -46,32 +56,83 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   email: string
 }) {
   const [open, setOpen] = useState(false)
+  const [collectOpen, setCollectOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [todayCents, setTodayCents] = useState<number | null>(null)
   const isMobile = useIsMobile()
+
+  const refreshCollected = useCallback(() => {
+    fetch("/api/owner/collected", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data?: { todayCents?: number } } | null) => {
+        if (typeof j?.data?.todayCents === "number") setTodayCents(j.data.todayCents)
+      })
+      .catch(() => {
+        /* keep last known */
+      })
+  }, [])
+
+  useEffect(() => {
+    refreshCollected()
+    const id = window.setInterval(refreshCollected, 60_000)
+    return () => window.clearInterval(id)
+  }, [refreshCollected])
+
+  const collectedLabel =
+    todayCents == null ? "…" : formatCollectedDollars(todayCents)
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setOpen(true)}
-        className="h-11 w-[2.75rem] gap-2 border-border/80 bg-card/80 px-2 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem]"
-        aria-label="Open settings"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <Avatar className="h-7 w-7">
-          <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
-            {initialsFromName(name)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="hidden min-w-0 flex-1 flex-col items-start text-left sm:flex">
-          <span className="w-full truncate text-xs font-medium text-foreground">{name}</span>
-          <span className="w-full truncate text-[10px] text-muted-foreground">{email}</span>
-        </span>
-        <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />
-      </Button>
+      <div className="flex items-center gap-1.5">
+        {/* One-tap collect — always visible on phones for on-the-go charging */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setCollectOpen(true)}
+          className="h-11 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 sm:h-9"
+          aria-label="Collect payment"
+          title="Collect payment"
+        >
+          <CreditCard className="h-4 w-4" aria-hidden />
+          <span className="hidden text-xs font-semibold sm:inline">Collect</span>
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className="h-11 min-w-[2.75rem] flex-col gap-0 border-border/80 bg-card/80 px-2 py-1 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:flex-row sm:gap-2 sm:py-0"
+          aria-label="Open settings"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <Avatar className="h-7 w-7">
+            <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
+              {initialsFromName(name)}
+            </AvatarFallback>
+          </Avatar>
+          {/* Mobile: amount under the avatar initials */}
+          <span className="max-w-[3.25rem] truncate text-[9px] font-semibold tabular-nums text-emerald-400 sm:hidden">
+            {collectedLabel}
+          </span>
+          {/* Desktop: name + amount collected (replaces email in the compact chip) */}
+          <span className="hidden min-w-0 flex-1 flex-col items-start text-left sm:flex">
+            <span className="w-full truncate text-xs font-medium text-foreground">{name}</span>
+            <span className="w-full truncate text-[10px] font-semibold tabular-nums text-emerald-400">
+              {todayCents === 0 ? "Collected $0 today" : `${collectedLabel} today`}
+            </span>
+          </span>
+          <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />
+        </Button>
+      </div>
+
+      <OwnerCollectPaymentSheet
+        open={collectOpen}
+        onOpenChange={setCollectOpen}
+        onCollected={refreshCollected}
+      />
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
@@ -89,15 +150,31 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <div className="min-w-0">
                 <SheetTitle className="text-base text-slate-100">Settings</SheetTitle>
                 <p className="truncate text-xs text-slate-500">{email}</p>
+                <p className="mt-1 text-[11px] font-semibold tabular-nums text-emerald-400">
+                  Collected today: {collectedLabel}
+                </p>
               </div>
-              <Link
-                href={DASHBOARD_PAGE_HREF.help}
-                onClick={() => setOpen(false)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-900"
-              >
-                <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
-                Help
-              </Link>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    setCollectOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
+                >
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden />
+                  Collect
+                </button>
+                <Link
+                  href={DASHBOARD_PAGE_HREF.help}
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-900"
+                >
+                  <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
+                  Help
+                </Link>
+              </div>
             </div>
           </SheetHeader>
 
@@ -114,19 +191,22 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             </Suspense>
           </div>
 
-          {/* Extra sign-out escape hatch if the nested Settings list is scrolled away */}
           <div className="shrink-0 border-t border-slate-850 px-4 py-3">
             <button
               type="button"
               disabled={busy}
               onClick={() => {
                 setBusy(true)
-                void signOutAndGoToLogin().finally(() => setBusy(false))
+                void signOutAndGoToLogin()
               }}
-              className="flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-rose-400 hover:text-rose-300 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-rose-900/50 bg-rose-950/30 px-3 py-2.5 text-sm font-semibold text-rose-300 hover:bg-rose-950/50 disabled:opacity-50"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LogOut className="h-4 w-4" aria-hidden />}
-              {busy ? "Signing out…" : "Sign out"}
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="h-4 w-4" aria-hidden />
+              )}
+              Sign out
             </button>
           </div>
         </SheetContent>
