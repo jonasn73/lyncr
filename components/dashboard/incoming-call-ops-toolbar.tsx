@@ -3,8 +3,7 @@
 // Incoming-call context row + Decline / Quick SMS action toolbar.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, MessageSquare, PhoneOff } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Loader2, MessageSquare, PhoneOff, X } from "lucide-react"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import {
@@ -81,6 +80,7 @@ export function IncomingCallOpsToolbar({
   const [lookup, setLookup] = useState<SchedulerPhoneLookupResult | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [declining, setDeclining] = useState(false)
+  // Inline panel (not Radix Popover) — Popover portals at z-50 and hides under Sheet z-[110].
   const [smsOpen, setSmsOpen] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
 
@@ -248,44 +248,27 @@ export function IncomingCallOpsToolbar({
           Decline / Voicemail
         </button>
 
-        <Popover open={smsOpen} onOpenChange={setSmsOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                BTN,
-                "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
-              )}
-              aria-label="Quick SMS templates"
-            >
-              <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-              Quick SMS
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-72 border-slate-850 bg-slate-950 p-2"
-            sideOffset={6}
-          >
-            <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              One-tap texts
-            </p>
-            <ul className="flex flex-col gap-1">
-              {QUICK_SMS_TEMPLATES.map((template) => (
-                <li key={template}>
-                  <button
-                    type="button"
-                    disabled={smsSending}
-                    onClick={() => void sendQuickSms(template)}
-                    className="w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-200 hover:bg-slate-900 disabled:opacity-50"
-                  >
-                    {template}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </PopoverContent>
-        </Popover>
+        <button
+          type="button"
+          disabled={smsSending || !phoneE164.trim()}
+          aria-expanded={smsOpen}
+          aria-controls="incoming-quick-sms-panel"
+          onClick={() => setSmsOpen((open) => !open)}
+          className={cn(
+            BTN,
+            smsOpen
+              ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
+              : "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+          )}
+          aria-label="Quick SMS templates"
+        >
+          {smsSending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+          )}
+          Quick SMS
+        </button>
 
         {isRinging ? (
           <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
@@ -293,6 +276,43 @@ export function IncomingCallOpsToolbar({
           </span>
         ) : null}
       </div>
+
+      {/* Lives inside the sheet — never clipped / buried by portal z-index */}
+      {smsOpen ? (
+        <div
+          id="incoming-quick-sms-panel"
+          data-quick-sms
+          className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5"
+        >
+          <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
+              One-tap texts
+            </p>
+            <button
+              type="button"
+              aria-label="Close Quick SMS"
+              onClick={() => setSmsOpen(false)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {QUICK_SMS_TEMPLATES.map((template) => (
+              <li key={template}>
+                <button
+                  type="button"
+                  disabled={smsSending}
+                  onClick={() => void sendQuickSms(template)}
+                  className="w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                >
+                  {template}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }
