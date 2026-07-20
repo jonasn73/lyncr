@@ -1,5 +1,6 @@
-// Owner Activity panel: booked jobs with an "Assign Tech" dropdown. Selecting a tech runs the
+// Activities Dispatch Board: booked jobs with an "Assign Tech" dropdown. Selecting a tech runs the
 // parameterized assignment update and pushes the job to that tech's device in real time.
+// Spatial pins live on the Map tab — this panel is list-only.
 
 "use client"
 
@@ -93,7 +94,9 @@ export function DispatchJobsPanel() {
         </span>
         <div>
           <h2 className="text-sm font-semibold text-foreground">Dispatch board</h2>
-          <p className="text-xs text-zinc-500">Assign booked jobs to your field technicians.</p>
+          <p className="text-xs text-zinc-500">
+            Assign booked jobs to field techs. Live pins are on the Map tab.
+          </p>
         </div>
       </div>
 

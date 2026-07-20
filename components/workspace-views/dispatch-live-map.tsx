@@ -76,6 +76,16 @@ function jobIcon(L: LeafletModule, assigned: boolean) {
   })
 }
 
+/** Amber diamond for CRM quote / callback leads (Show Leads layer). */
+function leadIcon(L: LeafletModule) {
+  return L.divIcon({
+    className: "",
+    html: `<span style="display:block;width:14px;height:14px;border-radius:2px;background:#f59e0b;border:2px solid #78350f;transform:rotate(45deg);box-shadow:0 0 0 2px rgba(245,158,11,0.3)"></span>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  })
+}
+
 /** Pulsing neon-blue locator for the logged-in dispatcher/tech. */
 function youAreHereIcon(L: LeafletModule) {
   return L.divIcon({
@@ -155,14 +165,47 @@ function destinationIcon(L: LeafletModule) {
   })
 }
 
+export type DispatchMapLayers = {
+  /** Active / unassigned field job pins (default on). */
+  jobs: boolean
+  /** Live tech GPS dots (default on). */
+  techs: boolean
+  /** Logged-in dispatcher "You" pin (default on). */
+  you: boolean
+  /** CRM quote / callback lead pins (default off). */
+  leads: boolean
+}
+
+const DEFAULT_LAYERS: DispatchMapLayers = {
+  jobs: true,
+  techs: true,
+  you: true,
+  leads: false,
+}
+
 export function DispatchLiveMap({
   fullViewport = false,
   className,
+  layers: layersProp,
+  focusJobId = null,
+  onFocusJobConsumed,
+  hideChrome = false,
+  fillParent = false,
 }: {
   /** Map tab: tall full-bleed canvas that always mounts (even with no pins yet). */
   fullViewport?: boolean
   className?: string
+  /** Layer visibility toggles from the unified Map tab. */
+  layers?: Partial<DispatchMapLayers>
+  /** When set, pan/zoom the map to this job pin (Job Pool click). */
+  focusJobId?: string | null
+  onFocusJobConsumed?: () => void
+  /** Hide legend / empty-state copy — Map tab draws its own chrome. */
+  hideChrome?: boolean
+  /** Stretch to fill a parent flex container (unified Map tab). */
+  fillParent?: boolean
 }) {
+  const layers: DispatchMapLayers = { ...DEFAULT_LAYERS, ...layersProp }
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const leafletRef = useRef<LeafletModule | null>(null)
@@ -189,6 +232,7 @@ export function DispatchLiveMap({
   const technicians = mapData?.technicians ?? []
   const ownerUserId = mapData?.ownerUserId ?? null
   const techs = mapData?.techs ?? []
+  const leadJobs = mapData?.leadJobs ?? []
   const jobs = useMemo(() => {
     const base = mapData?.jobs ?? []
     if (Object.keys(jobOverrides).length === 0) return base
@@ -197,6 +241,19 @@ export function DispatchLiveMap({
       return patch ? { ...job, ...patch } : job
     })
   }, [mapData?.jobs, jobOverrides])
+
+  /** Pins currently allowed by layer toggles. */
+  const visibleJobs = useMemo(() => {
+    const out: DispatchJob[] = []
+    if (layers.jobs) out.push(...jobs)
+    if (layers.leads) {
+      const activeIds = new Set(jobs.map((j) => j.id))
+      for (const lead of leadJobs) {
+        if (!activeIds.has(lead.id)) out.push(lead)
+      }
+    }
+    return out
+  }, [jobs, leadJobs, layers.jobs, layers.leads])
 
   // Always track the logged-in operator on the Dispatch Map (proximity radar).
   const dispatcherLocation = useDispatcherLocation(true)
@@ -255,19 +312,19 @@ export function DispatchLiveMap({
 
   const plottableJobCount = useMemo(
     () =>
-      jobs.filter(
+      visibleJobs.filter(
         (j) => coerceMapCoord(j.latitude) != null && coerceMapCoord(j.longitude) != null
       ).length,
-    [jobs]
+    [visibleJobs]
   )
-  const plottableCount = plottableJobCount + techs.length + (destination ? 1 : 0)
-  // Activities embeds this map only when pins exist; Map tab always mounts the canvas.
-  // Leaflet must init *after* that container is in the DOM (not on the empty first paint).
-  const mapShellVisible = fullViewport || plottableCount > 0
+  const plottableTechCount = layers.techs ? techs.length : 0
+  const plottableCount = plottableJobCount + plottableTechCount + (destination ? 1 : 0)
+  // Map tab always mounts; embedded modes wait until something is plottable.
+  const mapShellVisible = fullViewport || fillParent || plottableCount > 0
 
   // Unlock camera when the shared active-pin set changes.
   useEffect(() => {
-    const pinSig = jobs
+    const pinSig = visibleJobs
       .filter(
         (j) => coerceMapCoord(j.latitude) != null && coerceMapCoord(j.longitude) != null
       )
@@ -279,7 +336,29 @@ export function DispatchLiveMap({
       // Keep a shared camera if the user already panned on the other tab.
       if (!getSharedDispatchMapView()) didFit.current = false
     }
-  }, [jobs])
+  }, [visibleJobs])
+
+  // Job Pool drawer click → center map on that pin.
+  useEffect(() => {
+    if (!focusJobId || !ready) return
+    const map = mapRef.current
+    const job = visibleJobs.find((j) => j.id === focusJobId) ?? jobs.find((j) => j.id === focusJobId)
+    if (!map || !job) {
+      onFocusJobConsumed?.()
+      return
+    }
+    const lat = coerceMapCoord(job.latitude)
+    const lng = coerceMapCoord(job.longitude)
+    if (lat == null || lng == null) {
+      onFocusJobConsumed?.()
+      return
+    }
+    map.setView([lat, lng], 15)
+    setSharedDispatchMapView([lat, lng], 15)
+    setSelectedJobId(job.id)
+    didFit.current = true
+    onFocusJobConsumed?.()
+  }, [focusJobId, ready, visibleJobs, jobs, onFocusJobConsumed])
 
   // Assign (or clear) a tech straight from a map pin — same endpoint as the dispatch board.
   const assign = useCallback(
@@ -343,6 +422,7 @@ export function DispatchLiveMap({
     let cancelled = false
     let created: LeafletMap | null = null
     let media: MediaQueryList | null = null
+    let resizeObserver: ResizeObserver | null = null
     const onViewportChange = () => {
       const map = mapRef.current
       const L = leafletRef.current
@@ -408,12 +488,20 @@ export function DispatchLiveMap({
       requestAnimationFrame(() => {
         if (!cancelled) created?.invalidateSize()
       })
+      // Unified Map tab: redraw when the drawer resizes the map pane.
+      if (fillParent && containerRef.current && typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(() => {
+          created?.invalidateSize({ animate: false })
+        })
+        resizeObserver.observe(containerRef.current)
+      }
       media = window.matchMedia("(max-width: 767px)")
       media.addEventListener("change", onViewportChange)
     })()
     return () => {
       cancelled = true
       media?.removeEventListener("change", onViewportChange)
+      resizeObserver?.disconnect()
       if (created) {
         created.off("moveend")
         created.off("zoomend")
@@ -435,7 +523,7 @@ export function DispatchLiveMap({
       didFit.current = false
       setReady(false)
     }
-  }, [mapShellVisible])
+  }, [mapShellVisible, fillParent])
 
   // Live tech moves: nudge the matching dot the instant a tech streams a new position.
   useEffect(() => {
@@ -492,29 +580,32 @@ export function DispatchLiveMap({
     const map = mapRef.current
     if (!ready || !L || !map) return
 
-    const plottableJobs = jobs.filter(
+    const plottableJobs = visibleJobs.filter(
       (j) =>
         coerceMapCoord(j.latitude) != null &&
         coerceMapCoord(j.longitude) != null
     )
 
-    // Job pins (green = assigned, red = unassigned / pool) + proximity popups.
+    // Job / lead pins + proximity popups (icons differ by layer).
+    const leadIds = new Set(leadJobs.map((j) => j.id))
     const seenJobs = new Set<string>()
     for (const job of plottableJobs) {
       seenJobs.add(job.id)
+      const isLead = leadIds.has(job.id) && !jobs.some((j) => j.id === job.id)
       const assigned = Boolean(job.assigned_tech_id?.trim())
       const lat = coerceMapCoord(job.latitude)!
       const lng = coerceMapCoord(job.longitude)!
       const pos: [number, number] = [lat, lng]
       const popupHtml = jobProximityPopupHtml(job, userLocation)
+      const icon = isLead ? leadIcon(L) : jobIcon(L, assigned)
       const existing = jobMarkers.current.get(job.id)
       if (existing) {
         existing.setLatLng(pos)
-        existing.setIcon(jobIcon(L, assigned))
+        existing.setIcon(icon)
         existing.setPopupContent(popupHtml)
       } else {
         const jobId = job.id
-        const m = L.marker(pos, { icon: jobIcon(L, assigned) })
+        const m = L.marker(pos, { icon })
           .addTo(map)
           .bindPopup(popupHtml, { maxWidth: 300 })
         // Click a job pin → open the inline dispatch/assign panel for that job.
@@ -529,20 +620,22 @@ export function DispatchLiveMap({
       }
     }
 
-    // Live tech dots.
+    // Live tech dots (respect Show Techs layer toggle).
     const seenTechs = new Set<string>()
-    for (const tech of techs) {
-      seenTechs.add(tech.tech_user_id)
-      const pos: [number, number] = [tech.latitude, tech.longitude]
-      const label = `${tech.name}${tech.status ? `<br/><span style="opacity:.7">${tech.status.replace("_", " ")}</span>` : ""}`
-      const existing = techMarkers.current.get(tech.tech_user_id)
-      if (existing) {
-        existing.setLatLng(pos)
-        existing.setIcon(techIcon(L, tech.status))
-        existing.setPopupContent(label)
-      } else {
-        const m = L.marker(pos, { icon: techIcon(L, tech.status) }).addTo(map).bindPopup(label)
-        techMarkers.current.set(tech.tech_user_id, m)
+    if (layers.techs) {
+      for (const tech of techs) {
+        seenTechs.add(tech.tech_user_id)
+        const pos: [number, number] = [tech.latitude, tech.longitude]
+        const label = `${tech.name}${tech.status ? `<br/><span style="opacity:.7">${tech.status.replace("_", " ")}</span>` : ""}`
+        const existing = techMarkers.current.get(tech.tech_user_id)
+        if (existing) {
+          existing.setLatLng(pos)
+          existing.setIcon(techIcon(L, tech.status))
+          existing.setPopupContent(label)
+        } else {
+          const m = L.marker(pos, { icon: techIcon(L, tech.status) }).addTo(map).bindPopup(label)
+          techMarkers.current.set(tech.tech_user_id, m)
+        }
       }
     }
     for (const [id, marker] of techMarkers.current) {
@@ -575,8 +668,8 @@ export function DispatchLiveMap({
       destinationMarkerRef.current = null
     }
 
-    // Live “You are here” locator for the logged-in dispatcher/tech.
-    if (userLocation) {
+    // Live “You are here” locator (respect Show You layer toggle).
+    if (layers.you && userLocation) {
       const pos: [number, number] = [userLocation.lat, userLocation.lng]
       if (userMarkerRef.current) {
         userMarkerRef.current.setLatLng(pos)
@@ -611,7 +704,7 @@ export function DispatchLiveMap({
         const lng = coerceMapCoord(j.longitude)!
         return [lat, lng] as [number, number]
       }),
-      ...techs.map((t) => [t.latitude, t.longitude] as [number, number]),
+      ...(layers.techs ? techs.map((t) => [t.latitude, t.longitude] as [number, number]) : []),
     ]
     if (destination) workPts.push([destination.lat, destination.lng])
 
@@ -626,7 +719,7 @@ export function DispatchLiveMap({
         // Leave didFit false so the first real work pin(s) still trigger a fit.
       } else {
         const pts: [number, number][] = [...workPts]
-        if (userLocation) pts.push([userLocation.lat, userLocation.lng])
+        if (layers.you && userLocation) pts.push([userLocation.lat, userLocation.lng])
         if (pts.length === 1) {
           map.setView(pts[0], 14)
         } else {
@@ -638,22 +731,31 @@ export function DispatchLiveMap({
         setSharedDispatchMapView([center.lat, center.lng], map.getZoom())
       }
     }
-  }, [ready, jobs, techs, destination, userLocation])
+  }, [ready, visibleJobs, jobs, leadJobs, techs, destination, userLocation, layers.techs, layers.you])
 
-  const selectedJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) ?? null : null
+  const selectedJob =
+    selectedJobId
+      ? visibleJobs.find((j) => j.id === selectedJobId) ??
+        jobs.find((j) => j.id === selectedJobId) ??
+        null
+      : null
 
   // Embedded on Team/routing — hide when empty. Map tab always shows the canvas.
   if (!mapShellVisible) return null
 
   const mapCanvas = (
-    <div className="relative">
+    <div className={cn("relative", fillParent && "h-full min-h-0 flex-1")}>
       <div
         ref={containerRef}
         className={cn(
           "w-full overflow-hidden border border-zinc-800 bg-zinc-900",
           // One-finger vertical swipes scroll the page; pinch still zooms the map.
           "touch-pan-y",
-          fullViewport ? "h-[min(70vh,34rem)] rounded-2xl" : "h-72 rounded-xl"
+          fillParent
+            ? "h-full min-h-[20rem] rounded-none border-0"
+            : fullViewport
+              ? "h-[min(70vh,34rem)] rounded-2xl"
+              : "h-72 rounded-xl"
         )}
       />
 
@@ -853,6 +955,18 @@ export function DispatchLiveMap({
       <p className="mt-2 text-center text-xs text-slate-500">Locating you…</p>
     ) : null
 
+  // Unified Map tab — canvas only; parent owns layer toggles + drawers.
+  if (fillParent || hideChrome) {
+    return (
+      <section
+        className={cn("flex h-full min-h-0 w-full flex-col", className)}
+        aria-label="Operational dispatch map"
+      >
+        {mapCanvas}
+      </section>
+    )
+  }
+
   if (fullViewport) {
     return (
       <section className={cn("w-full", className)} aria-label="Operational dispatch map">
@@ -879,7 +993,7 @@ export function DispatchLiveMap({
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Live dispatch map</h2>
           <p className="text-xs text-zinc-500">
-            Active dispatch pins only (same data as the Map tab) — tap a pin for proximity.
+            Active dispatch pins — tap a pin for proximity.
           </p>
         </div>
         <div className="sm:ml-auto">{legend}</div>

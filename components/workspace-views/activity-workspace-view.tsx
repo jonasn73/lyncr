@@ -15,7 +15,6 @@ import {
   CAPTURE_STATUS_FULL_DAY_LINK,
   CAPTURE_STATUS_NIGHT_LINK,
 } from "@/lib/inbound-time-capture"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
@@ -44,7 +43,6 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 import { DispatchJobsPanel } from "@/components/workspace-views/dispatch-jobs-panel"
-import dynamic from "next/dynamic"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
@@ -60,15 +58,6 @@ import {
   resolveBusinessLineLabel,
   type LineLabelEntry,
 } from "@/lib/line-display"
-
-/** Leaflet map — only loaded when Activity tab mounts. */
-const DispatchLiveMap = dynamic(
-  () =>
-    import("@/components/workspace-views/dispatch-live-map").then((m) => ({
-      default: m.DispatchLiveMap,
-    })),
-  { ssr: false }
-)
 
 function formatDuration(seconds: number): string {
   if (seconds <= 0) return "—"
@@ -1065,7 +1054,6 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   onFilterChange,
 }: ActivityBodyProps) {
   const { activeLine, businessNumbers } = useDashboardWorkspace()
-  const isMobile = useIsMobile()
 
   // Scope by EVERY line in the active workspace — not only the selected DID.
   // Filtering by activeLine alone hid sister-line calls (e.g. main DID vs cell DID).
@@ -1098,39 +1086,10 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     return groupConsecutiveCallsByPhone(sorted)
   }, [scopedCalls, filter])
 
-  const showMapFirst = !isMobile || filter !== "missed"
-
-  const callList = (
-    <>
-      <ActivityCallFilterBar filter={filter} missedCount={missedCount} onChange={onFilterChange} />
-      {filter === "missed" && rows.length === 0 && !loading ? (
-        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
-          <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
-          <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
-          <p className="mt-1 text-xs text-zinc-500">This list resets at midnight. Yesterday’s missed calls stay in All calls.</p>
-        </div>
-      ) : null}
-      {loading && calls.length === 0 ? (
-        <ActivityTableSkeleton />
-      ) : loadError && calls.length === 0 ? (
-        <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
-      ) : (
-        <ActivityCallsTable rows={rows} lineLabelMap={lineLabelMap} />
-      )}
-    </>
-  )
-
-  const mapSection = (
-    <>
-      <DispatchLiveMap />
-      <DispatchJobsPanel />
-    </>
-  )
-
   return (
     <WorkspacePage>
       <WorkspacePageHeader
-        eyebrow="Live"
+        eyebrow="Dispatch board"
         title={filter === "missed" ? "Missed calls today" : "Activities"}
         action={
           <div className="flex flex-wrap items-center gap-3">
@@ -1150,16 +1109,24 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         }
       />
 
-      {showMapFirst ? (
-        <>
-          {mapSection}
-          {callList}
-        </>
+      {/* Text dispatch board: assign jobs + call history (map lives on the Map tab). */}
+      <DispatchJobsPanel />
+      <ActivityCallFilterBar filter={filter} missedCount={missedCount} onChange={onFilterChange} />
+      {filter === "missed" && rows.length === 0 && !loading ? (
+        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
+          <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
+          <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            This list resets at midnight. Yesterday’s missed calls stay in All calls.
+          </p>
+        </div>
+      ) : null}
+      {loading && calls.length === 0 ? (
+        <ActivityTableSkeleton />
+      ) : loadError && calls.length === 0 ? (
+        <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
       ) : (
-        <>
-          {callList}
-          {mapSection}
-        </>
+        <ActivityCallsTable rows={rows} lineLabelMap={lineLabelMap} />
       )}
     </WorkspacePage>
   )

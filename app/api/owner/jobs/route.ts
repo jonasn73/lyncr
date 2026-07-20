@@ -7,7 +7,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { listFieldTechnicians, listOwnerBookedJobs, listTechLiveLocations } from "@/lib/db"
+import {
+  listFieldTechnicians,
+  listOwnerBookedJobs,
+  listOwnerMapLeadPins,
+  listTechLiveLocations,
+} from "@/lib/db"
 import { flushDueScheduledSms } from "@/lib/sms-pipeline"
 
 export const dynamic = "force-dynamic"
@@ -18,10 +23,13 @@ export async function GET(req: NextRequest) {
 
   const scope = req.nextUrl.searchParams.get("scope")?.trim().toLowerCase() || "all"
   const activeOnly = scope === "map"
+  const leadsOnly = scope === "leads"
 
   // Isolate failures: a missing tech column must never wipe booked job pins.
   const [jobsResult, techniciansResult, techLocationsResult] = await Promise.allSettled([
-    listOwnerBookedJobs(userId, 50, { activeOnly }),
+    leadsOnly
+      ? listOwnerMapLeadPins(userId)
+      : listOwnerBookedJobs(userId, 50, { activeOnly }),
     listFieldTechnicians(userId),
     listTechLiveLocations(userId),
   ])

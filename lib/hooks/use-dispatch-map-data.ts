@@ -1,6 +1,6 @@
 "use client"
 
-// Shared SWR feed for Live Dispatch Map — Activities + Map tab read the same cache.
+// Shared SWR feed for the unified Dispatch Map tab.
 
 import useSWR from "swr"
 import type { DispatchJob, FieldTechnician, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
@@ -8,6 +8,8 @@ import { mergeDispatchMapJobs } from "@/lib/dispatch-map-jobs"
 
 export type DispatchMapData = {
   jobs: DispatchJob[]
+  /** CRM quote / callback leads with coordinates (optional layer). */
+  leadJobs: DispatchJob[]
   techs: TechLiveLocation[]
   technicians: FieldTechnician[]
   ownerUserId: string | null
@@ -20,7 +22,7 @@ function orgQuery(organizationId: string | null | undefined): string {
   return "?scope=hopper"
 }
 
-/** Stable SWR key — both map instances must use this exact key. */
+/** Stable SWR key for the single Dispatch Map page. */
 export function dispatchMapDataKey(organizationId: string | null | undefined): string {
   const org =
     organizationId && !organizationId.startsWith("legacy-") ? organizationId : "all"
@@ -30,7 +32,7 @@ export function dispatchMapDataKey(organizationId: string | null | undefined): s
 async function fetchDispatchMapData(
   organizationId: string | null | undefined
 ): Promise<DispatchMapData> {
-  const [bookedJson, poolJson] = await Promise.all([
+  const [bookedJson, poolJson, leadsJson] = await Promise.all([
     // Active booked / assigned field jobs (+ tech GPS roster).
     fetch("/api/owner/jobs?scope=map", { credentials: "include", cache: "no-store" })
       .then((r) =>
@@ -44,6 +46,10 @@ async function fetchDispatchMapData(
     })
       .then((r) => (r.ok ? r.json() : { data: { jobs: [] } }))
       .catch(() => ({ data: { jobs: [] } })),
+    // Optional "Show Leads" layer — quote / callback pins with coords.
+    fetch("/api/owner/jobs?scope=leads", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { data: { jobs: [] } }))
+      .catch(() => ({ data: { jobs: [] } })),
   ])
 
   const booked = Array.isArray(bookedJson.data?.jobs)
@@ -52,9 +58,13 @@ async function fetchDispatchMapData(
   const pool = Array.isArray(poolJson.data?.jobs)
     ? (poolJson.data.jobs as UnassignedPoolJob[])
     : []
+  const leadJobs = Array.isArray(leadsJson.data?.jobs)
+    ? (leadsJson.data.jobs as DispatchJob[])
+    : []
 
   return {
     jobs: mergeDispatchMapJobs(booked, pool),
+    leadJobs,
     techs: Array.isArray(bookedJson.data?.techLocations)
       ? (bookedJson.data.techLocations as TechLiveLocation[])
       : [],
@@ -66,7 +76,7 @@ async function fetchDispatchMapData(
   }
 }
 
-/** One shared poll for every Live Dispatch Map on the page. */
+/** One shared poll for the Dispatch Map page. */
 export function useDispatchMapData(organizationId: string | null | undefined) {
   return useSWR(
     dispatchMapDataKey(organizationId),

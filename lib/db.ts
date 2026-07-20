@@ -7585,6 +7585,46 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
 }
 
 /**
+ * CRM quote / callback leads that still have a geocoded site — optional Map layer only.
+ * Not shown in the default active-dispatch pin set.
+ */
+export async function listOwnerMapLeadPins(
+  ownerUserId: string,
+  limit = 50
+): Promise<DispatchJob[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+             t.name AS assigned_tech_name
+      FROM ai_leads l
+      LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+      WHERE l.user_id = ${ownerUserId}
+        AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), ''), '')
+          IN (${CRM_LEAD_STATUS}, ${LOST_LEAD_STATUS}, ${UNASSIGNED_CALLBACK_STATUS})
+        AND (
+          l.collected->>'customer_lat' IS NOT NULL
+          OR l.collected->>'lat' IS NOT NULL
+          OR l.collected->>'latitude' IS NOT NULL
+        )
+        AND (
+          l.collected->>'customer_lng' IS NOT NULL
+          OR l.collected->>'lng' IS NOT NULL
+          OR l.collected->>'longitude' IS NOT NULL
+        )
+      ORDER BY l.created_at DESC
+      LIMIT ${lim}
+    `
+    return rows.map(dispatchJobFromRow)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    if (pgErrorCode(e) === "42703") return []
+    throw e
+  }
+}
+
+/**
  * Booked jobs for the owner's dispatch feed, with any current tech assignment.
  * When `activeOnly` is true (Live Dispatch Map), skip completed/cancelled history and CRM quote leads.
  */
