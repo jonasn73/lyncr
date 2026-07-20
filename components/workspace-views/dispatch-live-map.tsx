@@ -480,13 +480,14 @@ export function DispatchLiveMap({
       // Force cooperative single-finger scroll on phones (dragging={!L.Browser.mobile}).
       const mobile = isMobileMapViewport(L)
       // Default to the business home service city (Louisville 502), not the full US.
-      // Prefer the shared camera from the other tab (Map ↔ Activities).
+      // Prefer the shared camera from the other tab — ignore stale street-level zooms.
       const shared = getSharedDispatchMapView()
-      const startCenter: [number, number] = shared?.center ?? [
-        DEFAULT_502_SERVICE_BIAS.lat,
-        DEFAULT_502_SERVICE_BIAS.lon,
-      ]
-      const startZoom = shared?.zoom ?? HOME_SERVICE_CITY_ZOOM
+      const sharedOk = shared != null && shared.zoom <= AUTO_FIT_MAX_ZOOM + 0.5
+      if (shared && !sharedOk) clearSharedDispatchMapView()
+      const startCenter: [number, number] = sharedOk
+        ? shared!.center
+        : [DEFAULT_502_SERVICE_BIAS.lat, DEFAULT_502_SERVICE_BIAS.lon]
+      const startZoom = sharedOk ? shared!.zoom : HOME_SERVICE_CITY_ZOOM
       created = L.map(containerRef.current, {
         zoomControl: true,
         attributionControl: true,
@@ -496,7 +497,7 @@ export function DispatchLiveMap({
         // Pinch-to-zoom still works when dragging is off.
         touchZoom: true,
       }).setView(startCenter, startZoom)
-      if (shared) {
+      if (sharedOk) {
         didFit.current = true
         didCenterOnUser.current = true
       }
@@ -715,23 +716,28 @@ export function DispatchLiveMap({
     }
 
     // Live “You are here” locator (respect Show You layer toggle).
+    // Label only on hover — keep the pin clean otherwise.
     if (layers.you && userLocation) {
       const pos: [number, number] = [userLocation.lat, userLocation.lng]
+      const youTooltipOpts = {
+        permanent: false as const,
+        direction: "top" as const,
+        offset: [0, -14] as [number, number],
+        opacity: 1,
+        sticky: true,
+        className: "lyncr-map-hover-tooltip",
+      }
       if (userMarkerRef.current) {
         userMarkerRef.current.setLatLng(pos)
+        userMarkerRef.current.unbindTooltip()
+        userMarkerRef.current.bindTooltip("Your Location (You)", youTooltipOpts)
       } else {
         userMarkerRef.current = L.marker(pos, {
           icon: youAreHereIcon(L),
           zIndexOffset: 1000,
         })
           .addTo(map)
-          .bindTooltip("Your Location (You)", {
-            permanent: true,
-            direction: "top",
-            offset: [0, -16],
-            className: "lyncr-you-are-here-label",
-            opacity: 1,
-          })
+          .bindTooltip("Your Location (You)", youTooltipOpts)
       }
       // First GPS fix only when nothing else is plottable yet — never lock didFit on You alone.
       if (!didCenterOnUser.current && plottableJobs.length === 0 && !destination) {
