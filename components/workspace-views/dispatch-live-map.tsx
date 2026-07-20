@@ -11,14 +11,20 @@ import "@/app/leaflet-popup-overrides.css"
 import type { Map as LeafletMap, Marker } from "leaflet"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
-import type { DispatchJob, FieldTechnician, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
+import type { DispatchJob } from "@/lib/types"
 import {
   LYNCR_FOCUS_DISPATCH_MAP_EVENT,
   consumePendingFocusDispatchMap,
   emitReturnToIntakeFromMap,
   type FocusDispatchMapDetail,
 } from "@/lib/dispatch-map-focus"
+import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
+import {
+  getSharedDispatchMapView,
+  setSharedDispatchMapView,
+} from "@/lib/dispatch-map-view"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
+import { useDispatchMapData } from "@/lib/hooks/use-dispatch-map-data"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { calculateTechETA } from "@/lib/dispatch-eta"
 import { estimateTravelMinutes, formatDistanceMiles, travelDistanceMiles } from "@/lib/geo"
@@ -93,80 +99,6 @@ function vehicleLineFromJob(job: DispatchJob): string | null {
   // Summary often looks like "Key replacement — … — 2019 MAZDA CX-3 — Harrison"
   const ymm = summary.match(/\b(19|20)\d{2}\s+[A-Z][A-Z0-9 \-]+/i)
   return ymm?.[0]?.trim() || summary || null
-}
-
-/** Coerce API lat/lng (number or numeric string) into finite coordinates. */
-function coerceCoord(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value
-  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
-    return Number(value)
-  }
-  return null
-}
-
-function normalizeDispatchJob(job: DispatchJob): DispatchJob | null {
-  const latitude = coerceCoord(job.latitude)
-  const longitude = coerceCoord(job.longitude)
-  return {
-    ...job,
-    latitude,
-    longitude,
-  }
-}
-
-/** Hopper / pool row → DispatchJob shape for map pins. */
-function poolJobToDispatchJob(job: UnassignedPoolJob): DispatchJob {
-  return {
-    id: job.id,
-    customer_name: job.customer_name,
-    customer_phone: job.customer_phone,
-    location: job.location,
-    summary: job.summary,
-    job_status: "UNASSIGNED",
-    assigned_tech_id: null,
-    assigned_tech_name: null,
-    latitude: coerceCoord(job.latitude),
-    longitude: coerceCoord(job.longitude),
-    created_at: job.created_at,
-    vehicle_year: job.vehicle_year,
-    vehicle_make: job.vehicle_make,
-    vehicle_model: job.vehicle_model,
-  }
-}
-
-/** Merge booked + hopper jobs; prefer rows that already have coordinates. */
-function mergeDispatchJobs(booked: DispatchJob[], pool: UnassignedPoolJob[]): DispatchJob[] {
-  const byId = new Map<string, DispatchJob>()
-  for (const raw of booked) {
-    const job = normalizeDispatchJob(raw)
-    if (job) byId.set(job.id, job)
-  }
-  for (const raw of pool) {
-    const job = poolJobToDispatchJob(raw)
-    const prev = byId.get(job.id)
-    if (!prev) {
-      byId.set(job.id, job)
-      continue
-    }
-    // Prefer whichever side has plottable coords; keep pool vehicle fields when booked lacks them.
-    const preferPool =
-      (prev.latitude == null || prev.longitude == null) &&
-      job.latitude != null &&
-      job.longitude != null
-    byId.set(job.id, {
-      ...prev,
-      ...(preferPool
-        ? { latitude: job.latitude, longitude: job.longitude }
-        : {}),
-      vehicle_year: prev.vehicle_year || job.vehicle_year,
-      vehicle_make: prev.vehicle_make || job.vehicle_make,
-      vehicle_model: prev.vehicle_model || job.vehicle_model,
-      location: prev.location || job.location,
-      assigned_tech_id: prev.assigned_tech_id,
-      assigned_tech_name: prev.assigned_tech_name,
-    })
-  }
-  return [...byId.values()]
 }
 
 /** Proximity radar popup HTML for a job pin. */
@@ -244,15 +176,27 @@ export function DispatchLiveMap({
   const lastJobPinSig = useRef("")
 
   const [ready, setReady] = useState(false)
-  const [jobs, setJobs] = useState<DispatchJob[]>([])
-  const [techs, setTechs] = useState<TechLiveLocation[]>([])
-  const [technicians, setTechnicians] = useState<FieldTechnician[]>([])
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [destination, setDestination] = useState<FocusDispatchMapDetail | null>(null)
+  /** Optimistic assign overrides until SWR revalidates. */
+  const [jobOverrides, setJobOverrides] = useState<Record<string, Partial<DispatchJob>>>({})
 
   const { activeOrganizationId } = useDashboardWorkspace()
+
+  // Shared SWR cache — Map tab and Activities embed show the same active pins.
+  const { data: mapData, mutate: mutateMapData } = useDispatchMapData(activeOrganizationId)
+  const technicians = mapData?.technicians ?? []
+  const ownerUserId = mapData?.ownerUserId ?? null
+  const techs = mapData?.techs ?? []
+  const jobs = useMemo(() => {
+    const base = mapData?.jobs ?? []
+    if (Object.keys(jobOverrides).length === 0) return base
+    return base.map((job) => {
+      const patch = jobOverrides[job.id]
+      return patch ? { ...job, ...patch } : job
+    })
+  }, [mapData?.jobs, jobOverrides])
 
   // Always track the logged-in operator on the Dispatch Map (proximity radar).
   const dispatcherLocation = useDispatcherLocation(true)
@@ -312,7 +256,7 @@ export function DispatchLiveMap({
   const plottableJobCount = useMemo(
     () =>
       jobs.filter(
-        (j) => coerceCoord(j.latitude) != null && coerceCoord(j.longitude) != null
+        (j) => coerceMapCoord(j.latitude) != null && coerceMapCoord(j.longitude) != null
       ).length,
     [jobs]
   )
@@ -321,80 +265,35 @@ export function DispatchLiveMap({
   // Leaflet must init *after* that container is in the DOM (not on the empty first paint).
   const mapShellVisible = fullViewport || plottableCount > 0
 
-  const load = useCallback(() => {
-    const orgQs =
-      activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
-        ? `?organization_id=${encodeURIComponent(activeOrganizationId)}&scope=hopper`
-        : "?scope=hopper"
-
-    void Promise.all([
-      // Never reject the whole load if one endpoint fails — keep whatever we can plot.
-      fetch("/api/owner/jobs", { credentials: "include", cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : { data: { jobs: [], technicians: [], techLocations: [] } }))
-        .catch(() => ({ data: { jobs: [], technicians: [], techLocations: [] } })),
-      // Hopper pool runs geocode enrichment — same pins the Scheduler job pool uses.
-      fetch(`/api/owner/jobs/pool${orgQs}`, { credentials: "include", cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : { data: { jobs: [] } }))
-        .catch(() => ({ data: { jobs: [] } })),
-    ])
-      .then(
-        ([bookedJson, poolJson]: [
-          {
-            data?: {
-              jobs?: DispatchJob[]
-              technicians?: FieldTechnician[]
-              techLocations?: TechLiveLocation[]
-              ownerUserId?: string
-            }
-          },
-          { data?: { jobs?: UnassignedPoolJob[] } },
-        ]) => {
-          const booked = Array.isArray(bookedJson.data?.jobs) ? bookedJson.data!.jobs! : []
-          const pool = Array.isArray(poolJson.data?.jobs) ? poolJson.data!.jobs! : []
-          const merged = mergeDispatchJobs(booked, pool)
-          setJobs(merged)
-          setTechs(
-            Array.isArray(bookedJson.data?.techLocations) ? bookedJson.data!.techLocations! : []
-          )
-          setTechnicians(
-            Array.isArray(bookedJson.data?.technicians) ? bookedJson.data!.technicians! : []
-          )
-          if (bookedJson.data?.ownerUserId) setOwnerUserId(bookedJson.data.ownerUserId)
-
-          // Unlock camera only when the set of plottable job pins changes (not every 25s poll).
-          const pinSig = merged
-            .filter(
-              (j) => coerceCoord(j.latitude) != null && coerceCoord(j.longitude) != null
-            )
-            .map((j) => `${j.id}:${j.latitude},${j.longitude}`)
-            .sort()
-            .join("|")
-          if (pinSig !== lastJobPinSig.current) {
-            lastJobPinSig.current = pinSig
-            didFit.current = false
-          }
-        }
+  // Unlock camera when the shared active-pin set changes.
+  useEffect(() => {
+    const pinSig = jobs
+      .filter(
+        (j) => coerceMapCoord(j.latitude) != null && coerceMapCoord(j.longitude) != null
       )
-      .catch(() => {})
-  }, [activeOrganizationId])
+      .map((j) => `${j.id}:${j.latitude},${j.longitude}`)
+      .sort()
+      .join("|")
+    if (pinSig !== lastJobPinSig.current) {
+      lastJobPinSig.current = pinSig
+      // Keep a shared camera if the user already panned on the other tab.
+      if (!getSharedDispatchMapView()) didFit.current = false
+    }
+  }, [jobs])
 
   // Assign (or clear) a tech straight from a map pin — same endpoint as the dispatch board.
   const assign = useCallback(
     async (jobId: string, techUserId: string) => {
       const next = techUserId || null
       setSavingId(jobId)
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.id === jobId
-            ? {
-                ...j,
-                assigned_tech_id: next,
-                assigned_tech_name: technicians.find((t) => t.portal_user_id === next)?.name ?? null,
-                job_status: next ? j.job_status || "assigned" : null,
-              }
-            : j
-        )
-      )
+      setJobOverrides((prev) => ({
+        ...prev,
+        [jobId]: {
+          assigned_tech_id: next,
+          assigned_tech_name: technicians.find((t) => t.portal_user_id === next)?.name ?? null,
+          job_status: next ? "assigned" : "UNASSIGNED",
+        },
+      }))
       try {
         await fetch("/api/owner/jobs/assign", {
           method: "POST",
@@ -406,18 +305,12 @@ export function DispatchLiveMap({
         /* poll will reconcile */
       } finally {
         setSavingId(null)
-        load()
+        setJobOverrides({})
+        void mutateMapData()
       }
     },
-    [technicians, load]
+    [technicians, mutateMapData]
   )
-
-  // Initial fetch + polling safety net.
-  useEffect(() => {
-    load()
-    const t = setInterval(load, 25_000)
-    return () => clearInterval(t)
-  }, [load])
 
   // Intake "View on Map Layout" — drop / refresh the high-contrast destination pin.
   useEffect(() => {
@@ -475,6 +368,13 @@ export function DispatchLiveMap({
       // Force cooperative single-finger scroll on phones (dragging={!L.Browser.mobile}).
       const mobile = isMobileMapViewport(L)
       // Default to the business home service city (Louisville 502), not the full US.
+      // Prefer the shared camera from the other tab (Map ↔ Activities).
+      const shared = getSharedDispatchMapView()
+      const startCenter: [number, number] = shared?.center ?? [
+        DEFAULT_502_SERVICE_BIAS.lat,
+        DEFAULT_502_SERVICE_BIAS.lon,
+      ]
+      const startZoom = shared?.zoom ?? HOME_SERVICE_CITY_ZOOM
       created = L.map(containerRef.current, {
         zoomControl: true,
         attributionControl: true,
@@ -485,15 +385,23 @@ export function DispatchLiveMap({
         touchZoom: true,
         // Disable fast-click / tap hijacking that blocks page scroll on mobile.
         tap: false,
-      }).setView(
-        [DEFAULT_502_SERVICE_BIAS.lat, DEFAULT_502_SERVICE_BIAS.lon],
-        HOME_SERVICE_CITY_ZOOM
-      )
+      }).setView(startCenter, startZoom)
+      if (shared) {
+        didFit.current = true
+        didCenterOnUser.current = true
+      }
       // Let the browser own one-finger vertical scroll over the map canvas.
       if (mobile && containerRef.current) {
         containerRef.current.style.touchAction = "pan-y"
       }
       attachBaseMapTiles(L, created)
+      // Keep Map tab + Activities embed on the same center/zoom after pan.
+      const persistView = () => {
+        const center = created!.getCenter()
+        setSharedDispatchMapView([center.lat, center.lng], created!.getZoom())
+      }
+      created.on("moveend", persistView)
+      created.on("zoomend", persistView)
       mapRef.current = created
       setReady(true)
       // Container often gains its real size one frame after mount — force Leaflet to paint tiles.
@@ -506,7 +414,11 @@ export function DispatchLiveMap({
     return () => {
       cancelled = true
       media?.removeEventListener("change", onViewportChange)
-      if (created) created.remove()
+      if (created) {
+        created.off("moveend")
+        created.off("zoomend")
+        created.remove()
+      }
       mapRef.current = null
       leafletRef.current = null
       jobMarkers.current.clear()
@@ -539,20 +451,29 @@ export function DispatchLiveMap({
       longitude?: number
       status?: string
     }) => {
-      if (!data?.techUserId || typeof data.latitude !== "number" || typeof data.longitude !== "number") return
-      setTechs((prev) => {
-        const next = prev.filter((t) => t.tech_user_id !== data.techUserId)
-        next.push({
-          tech_user_id: data.techUserId!,
-          name: data.name || "Technician",
-          status: data.status || null,
-          latitude: data.latitude!,
-          longitude: data.longitude!,
-        })
-        return next
-      })
+      if (!data?.techUserId || typeof data.latitude !== "number" || typeof data.longitude !== "number") {
+        return
+      }
+      // Patch shared SWR cache so both map instances move the same tech pin.
+      void mutateMapData(
+        (prev) => {
+          if (!prev) return prev
+          const nextTechs = prev.techs.filter((t) => t.tech_user_id !== data.techUserId)
+          nextTechs.push({
+            tech_user_id: data.techUserId!,
+            name: data.name || "Technician",
+            status: data.status || null,
+            latitude: data.latitude!,
+            longitude: data.longitude!,
+          })
+          return { ...prev, techs: nextTechs }
+        },
+        { revalidate: false }
+      )
     }
-    const onJobStatus = () => load()
+    const onJobStatus = () => {
+      void mutateMapData()
+    }
 
     channel.bind("tech-location-updated", onTechMove)
     channel.bind("job-status-updated", onJobStatus)
@@ -563,7 +484,7 @@ export function DispatchLiveMap({
       channel.unbind("job-booked", onJobStatus)
       pusher.unsubscribe(`owner-${ownerUserId}`)
     }
-  }, [ownerUserId, load])
+  }, [ownerUserId, mutateMapData])
 
   // Sync markers whenever data / live GPS changes.
   useEffect(() => {
@@ -573,8 +494,8 @@ export function DispatchLiveMap({
 
     const plottableJobs = jobs.filter(
       (j) =>
-        coerceCoord(j.latitude) != null &&
-        coerceCoord(j.longitude) != null
+        coerceMapCoord(j.latitude) != null &&
+        coerceMapCoord(j.longitude) != null
     )
 
     // Job pins (green = assigned, red = unassigned / pool) + proximity popups.
@@ -582,8 +503,8 @@ export function DispatchLiveMap({
     for (const job of plottableJobs) {
       seenJobs.add(job.id)
       const assigned = Boolean(job.assigned_tech_id?.trim())
-      const lat = coerceCoord(job.latitude)!
-      const lng = coerceCoord(job.longitude)!
+      const lat = coerceMapCoord(job.latitude)!
+      const lng = coerceMapCoord(job.longitude)!
       const pos: [number, number] = [lat, lng]
       const popupHtml = jobProximityPopupHtml(job, userLocation)
       const existing = jobMarkers.current.get(job.id)
@@ -686,8 +607,8 @@ export function DispatchLiveMap({
     // Frame work pins (jobs / techs / intake). You-alone must not lock the camera forever.
     const workPts: [number, number][] = [
       ...plottableJobs.map((j) => {
-        const lat = coerceCoord(j.latitude)!
-        const lng = coerceCoord(j.longitude)!
+        const lat = coerceMapCoord(j.latitude)!
+        const lng = coerceMapCoord(j.longitude)!
         return [lat, lng] as [number, number]
       }),
       ...techs.map((t) => [t.latitude, t.longitude] as [number, number]),
@@ -713,6 +634,8 @@ export function DispatchLiveMap({
         }
         didFit.current = true
         didCenterOnUser.current = true
+        const center = map.getCenter()
+        setSharedDispatchMapView([center.lat, center.lng], map.getZoom())
       }
     }
   }, [ready, jobs, techs, destination, userLocation])
@@ -939,8 +862,8 @@ export function DispatchLiveMap({
         {plottableJobCount === 0 ? (
           <p className="mt-2 text-center text-xs text-slate-500">
             {jobs.length === 0
-              ? "No jobs in the pool or on the schedule yet — intake destinations still drop here."
-              : "Jobs are loaded but need a street address (or ZIP) before they can pin on the map."}
+              ? "No active dispatch jobs yet — open hopper jobs and assigned field work pin here (quote leads stay on Leads)."
+              : "Active jobs are loaded but need a street address (or ZIP) before they can pin on the map."}
           </p>
         ) : null}
       </section>
@@ -956,7 +879,7 @@ export function DispatchLiveMap({
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Live dispatch map</h2>
           <p className="text-xs text-zinc-500">
-            Your live position, booked jobs, and tech GPS — tap a pin for proximity.
+            Active dispatch pins only (same data as the Map tab) — tap a pin for proximity.
           </p>
         </div>
         <div className="sm:ml-auto">{legend}</div>

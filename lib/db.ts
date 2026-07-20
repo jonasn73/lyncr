@@ -7584,21 +7584,49 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
   }
 }
 
-/** Booked jobs for the owner's dispatch feed, with any current tech assignment. */
-export async function listOwnerBookedJobs(ownerUserId: string, limit = 50): Promise<DispatchJob[]> {
+/**
+ * Booked jobs for the owner's dispatch feed, with any current tech assignment.
+ * When `activeOnly` is true (Live Dispatch Map), skip completed/cancelled history and CRM quote leads.
+ */
+export async function listOwnerBookedJobs(
+  ownerUserId: string,
+  limit = 50,
+  options?: { activeOnly?: boolean }
+): Promise<DispatchJob[]> {
   const sql = getSql()
   const lim = Math.min(Math.max(limit, 1), 100)
+  const activeOnly = options?.activeOnly === true
   try {
-    const rows = await sql`
-      SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
-             t.name AS assigned_tech_name
-      FROM ai_leads l
-      LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
-      WHERE l.user_id = ${ownerUserId}
-        AND (l.disposition = 'BOOKED' OR l.collected->>'disposition' = 'BOOKED')
-      ORDER BY l.created_at DESC
-      LIMIT ${lim}
-    `
+    const rows = activeOnly
+      ? await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+                 t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${ownerUserId}
+            AND (l.disposition = 'BOOKED' OR l.collected->>'disposition' = 'BOOKED')
+            AND (
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN (
+                'completed', 'cancelled', 'canceled', 'unresolved', 'referred', 'lead', 'lost_lead'
+              )
+            )
+            AND coalesce(nullif(trim(l.dispatch_status), ''), nullif(trim(l.collected->>'dispatch_status'), ''), '')
+              NOT IN (${CRM_LEAD_STATUS}, ${LOST_LEAD_STATUS}, ${UNASSIGNED_CALLBACK_STATUS})
+            AND coalesce(l.collected->>'pending_callback', '') NOT IN ('true', 't', '1')
+          ORDER BY l.created_at DESC
+          LIMIT ${lim}
+        `
+      : await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+                 t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${ownerUserId}
+            AND (l.disposition = 'BOOKED' OR l.collected->>'disposition' = 'BOOKED')
+          ORDER BY l.created_at DESC
+          LIMIT ${lim}
+        `
     return rows.map(dispatchJobFromRow)
   } catch (e) {
     // Pre-061 (no assigned_tech_id/job_status) or pre-058 (no disposition col) → fall back to JSONB-only.
@@ -7609,6 +7637,42 @@ export async function listOwnerBookedJobs(ownerUserId: string, limit = 50): Prom
           FROM ai_leads
           WHERE user_id = ${ownerUserId} AND collected->>'disposition' = 'BOOKED'
           ORDER BY created_at DESC
+          LIMIT ${lim}
+        `
+        const mapped = rows.map(dispatchJobFromRow)
+        if (!activeOnly) return mapped
+        // Client-side filter when older schemas lack dispatch_status / job_status columns.
+        return mapped.filter((job) => {
+          const status = (job.job_status ?? "").trim().toLowerCase()
+          return !["completed", "cancelled", "canceled", "unresolved", "referred", "lead", "lost_lead"].includes(
+            status
+          )
+        })
+      } catch (e2) {
+        if (isUndefinedRelationError(e2, "ai_leads")) return []
+        throw e2
+      }
+    }
+    // Missing dispatch_status column — retry without CRM lead filters.
+    if (activeOnly && pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("dispatch_status")) {
+      try {
+        const rows = await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+                 t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${ownerUserId}
+            AND (l.disposition = 'BOOKED' OR l.collected->>'disposition' = 'BOOKED')
+            AND (
+              l.job_status IS NULL
+              OR LOWER(TRIM(l.job_status)) NOT IN (
+                'completed', 'cancelled', 'canceled', 'unresolved', 'referred', 'lead', 'lost_lead'
+              )
+            )
+            AND coalesce(l.collected->>'pending_callback', '') NOT IN ('true', 't', '1')
+            AND coalesce(l.collected->>'dispatch_status', '')
+              NOT IN (${CRM_LEAD_STATUS}, ${LOST_LEAD_STATUS}, ${UNASSIGNED_CALLBACK_STATUS})
+          ORDER BY l.created_at DESC
           LIMIT ${lim}
         `
         return rows.map(dispatchJobFromRow)

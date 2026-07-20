@@ -14,7 +14,8 @@ export const MapWorkspaceView = memo(function MapWorkspaceView() {
       <header className="px-1">
         <h1 className="text-lg font-semibold tracking-tight text-slate-100">Dispatch Map</h1>
         <p className="text-xs text-slate-500">
-          Your live location, closest unassigned jobs, tech GPS, and intake pins.
+          Same active pins as Activities — open hopper jobs, assigned field work, tech GPS, and intake
+          targets (quote leads stay on Leads).
         </p>
       </header>
 

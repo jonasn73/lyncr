@@ -2,6 +2,7 @@
 // GET /api/owner/jobs
 // ============================================
 // Booked jobs for the owner's dispatch feed + the active technician roster (for the Assign dropdown).
+// Query: scope=map → active field jobs only (no completed history / CRM quote leads).
 
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
@@ -15,9 +16,12 @@ export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
+  const scope = req.nextUrl.searchParams.get("scope")?.trim().toLowerCase() || "all"
+  const activeOnly = scope === "map"
+
   // Isolate failures: a missing tech column must never wipe booked job pins.
   const [jobsResult, techniciansResult, techLocationsResult] = await Promise.allSettled([
-    listOwnerBookedJobs(userId),
+    listOwnerBookedJobs(userId, 50, { activeOnly }),
     listFieldTechnicians(userId),
     listTechLiveLocations(userId),
   ])
@@ -53,7 +57,7 @@ export async function GET(req: NextRequest) {
     techLocationsResult.status === "rejected"
 
   return NextResponse.json({
-    data: { jobs, technicians: assignable, techLocations, ownerUserId: userId },
+    data: { jobs, technicians: assignable, techLocations, ownerUserId: userId, scope },
     ...(degraded ? { degraded: true } : {}),
   })
 }
