@@ -42,7 +42,6 @@ import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
-import { DispatchJobsPanel } from "@/components/workspace-views/dispatch-jobs-panel"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
@@ -1094,7 +1093,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   return (
     <WorkspacePage>
       <WorkspacePageHeader
-        eyebrow="Dispatch board"
+        eyebrow="Call history"
         title={filter === "missed" ? "Missed calls today" : "Activities"}
         action={
           <div className="flex flex-wrap items-center gap-3">
@@ -1103,6 +1102,12 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
                 Refreshing…
               </p>
             ) : null}
+            <Link
+              href="/dashboard/contacts"
+              className="hidden items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200 sm:inline-flex"
+            >
+              Dispatch Map
+            </Link>
             <Link
               href="/dashboard/scheduler"
               className="hidden items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300 sm:inline-flex"
@@ -1114,8 +1119,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         }
       />
 
-      {/* Text dispatch board: assign jobs + call history (map lives on the Map tab). */}
-      <DispatchJobsPanel />
+      {/* Call activity only — assign / pins live on Map + Scheduler. */}
       <ActivityCallFilterBar filter={filter} missedCount={missedCount} onChange={onFilterChange} />
       {filter === "missed" && rows.length === 0 && !loading ? (
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
