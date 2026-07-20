@@ -222,7 +222,7 @@ export function MapTab() {
         "sm:h-[calc(100dvh-6.5rem)] sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
       )}
     >
-      {/* Compact header */}
+      {/* Compact header — Job Pool toggle lives here so it never floats over the map */}
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
@@ -232,15 +232,31 @@ export function MapTab() {
             Jobs, techs, and your location — one map for dispatch.
           </p>
         </div>
-        {/* Desktop-only panel toggle (phones use the bottom sheet handle). */}
         <button
           type="button"
           onClick={() => setDrawerOpen((o) => !o)}
-          className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 md:inline-flex"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
           aria-expanded={drawerOpen}
-          aria-controls="dispatch-map-drawer"
+          aria-controls="dispatch-map-drawer dispatch-map-sheet"
         >
-          {drawerOpen ? "Hide panel" : "Job Pool & Roster"}
+          {drawerOpen ? (
+            <>
+              <ChevronDown className="h-3.5 w-3.5 md:hidden" aria-hidden />
+              <span className="md:hidden">Close</span>
+              <span className="hidden md:inline">Hide panel</span>
+            </>
+          ) : (
+            <>
+              <ChevronUp className="h-3.5 w-3.5 md:hidden" aria-hidden />
+              <span className="md:hidden">Pool</span>
+              <span className="hidden md:inline">Job Pool & Roster</span>
+              {sortedPool.length > 0 ? (
+                <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                  {sortedPool.length}
+                </span>
+              ) : null}
+            </>
+          )}
         </button>
       </header>
 
@@ -255,14 +271,9 @@ export function MapTab() {
           className="absolute inset-0 h-full w-full"
         />
 
-        {/* Layer chips — keep them above the bottom sheet on mobile */}
+        {/* Layer chips — top of map only (never float mid-screen) */}
         <div
-          className={cn(
-            "pointer-events-auto absolute left-2 right-2 z-[2000] flex flex-wrap items-center gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur",
-            // Sit under the top edge; when sheet is open leave room above it.
-            drawerOpen ? "bottom-[min(46dvh,20rem)] top-auto md:bottom-auto md:top-3" : "top-2",
-            "md:left-3 md:right-auto md:top-3 md:max-w-none"
-          )}
+          className="pointer-events-auto absolute left-2 right-2 top-2 z-[2000] flex flex-wrap items-center gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur md:left-3 md:right-auto md:top-3 md:max-w-none"
           role="group"
           aria-label="Map layers"
         >
@@ -293,27 +304,8 @@ export function MapTab() {
           })}
         </div>
 
-        {/* —— Mobile: bottom sheet (map stays full width above) —— */}
+        {/* —— Mobile: bottom sheet (opened from header “Pool” button) —— */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2100] flex flex-col md:hidden">
-          {/* Collapsed grabber when sheet is closed */}
-          {!drawerOpen ? (
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="pointer-events-auto mx-auto mb-2 flex items-center gap-1.5 rounded-full border border-zinc-700 bg-slate-950/95 px-4 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur"
-              aria-expanded={false}
-              aria-controls="dispatch-map-sheet"
-            >
-              <ChevronUp className="h-3.5 w-3.5" aria-hidden />
-              Job Pool & Roster
-              {sortedPool.length > 0 ? (
-                <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
-                  {sortedPool.length}
-                </span>
-              ) : null}
-            </button>
-          ) : null}
-
           <aside
             id="dispatch-map-sheet"
             className={cn(
