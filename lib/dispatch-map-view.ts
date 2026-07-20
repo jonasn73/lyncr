@@ -17,3 +17,8 @@ export function setSharedDispatchMapView(center: [number, number], zoom: number)
   if (!Number.isFinite(center[0]) || !Number.isFinite(center[1]) || !Number.isFinite(zoom)) return
   sharedView = { center: [center[0], center[1]], zoom }
 }
+
+/** Drop a stale over-zoomed camera (e.g. leftover street-level view from an older build). */
+export function clearSharedDispatchMapView(): void {
+  sharedView = null
+}

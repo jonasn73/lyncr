@@ -20,6 +20,7 @@ import {
 } from "@/lib/dispatch-map-focus"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import {
+  clearSharedDispatchMapView,
   getSharedDispatchMapView,
   setSharedDispatchMapView,
 } from "@/lib/dispatch-map-view"
@@ -44,8 +45,12 @@ import { DEFAULT_502_SERVICE_BIAS } from "@/lib/geocode-service-bias"
 
 type LeafletModule = typeof import("leaflet")
 
-/** City-level zoom when no live pins are on the map yet. */
-const HOME_SERVICE_CITY_ZOOM = 11
+/** City / metro overview — avoid street-level zoom for dispatch (was feeling too tight). */
+const HOME_SERVICE_CITY_ZOOM = 12
+/** Cap auto-fit so You + nearby job pins don’t slam into block-level zoom. */
+const AUTO_FIT_MAX_ZOOM = 12
+/** Zoom when focusing a single job from the Job Pool (still tighter than overview). */
+const FOCUS_JOB_ZOOM = 13
 
 /** True for phone-width viewports OR Leaflet's mobile UA — single-finger drag traps page scroll. */
 function isMobileMapViewport(L?: LeafletModule): boolean {
@@ -380,8 +385,8 @@ export function DispatchLiveMap({
       onFocusJobConsumed?.()
       return
     }
-    map.setView([lat, lng], 15)
-    setSharedDispatchMapView([lat, lng], 15)
+    map.setView([lat, lng], FOCUS_JOB_ZOOM)
+    setSharedDispatchMapView([lat, lng], FOCUS_JOB_ZOOM)
     setSelectedJobId(job.id)
     didFit.current = true
     onFocusJobConsumed?.()
@@ -730,7 +735,7 @@ export function DispatchLiveMap({
       }
       // First GPS fix only when nothing else is plottable yet — never lock didFit on You alone.
       if (!didCenterOnUser.current && plottableJobs.length === 0 && !destination) {
-        map.setView(pos, 13)
+        map.setView(pos, HOME_SERVICE_CITY_ZOOM)
         didCenterOnUser.current = true
       }
     } else if (userMarkerRef.current) {
@@ -762,9 +767,13 @@ export function DispatchLiveMap({
         const pts: [number, number][] = [...workPts]
         if (layers.you && userLocation) pts.push([userLocation.lat, userLocation.lng])
         if (pts.length === 1) {
-          map.setView(pts[0], 14)
+          map.setView(pts[0], HOME_SERVICE_CITY_ZOOM)
         } else {
-          map.fitBounds(L.latLngBounds(pts), { padding: [48, 48], maxZoom: 14 })
+          // Wide padding + low maxZoom keeps a city overview when pins are close together.
+          map.fitBounds(L.latLngBounds(pts), {
+            padding: [72, 72],
+            maxZoom: AUTO_FIT_MAX_ZOOM,
+          })
         }
         didFit.current = true
         didCenterOnUser.current = true
