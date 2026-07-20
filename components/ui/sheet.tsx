@@ -39,7 +39,8 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        'fixed inset-0 z-[100]',
+        // Above Map tab overlays (z-[2000–2100]) and Leaflet panes so Settings never sits under the map.
+        'fixed inset-0 z-[6000]',
         variant === 'drawer'
           ? 'sigo-sheet-drawer-overlay bg-zinc-950/70 transform-gpu will-change-[opacity] backface-hidden'
           : 'bg-black/60 transform-gpu will-change-[opacity] backface-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -70,7 +71,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          'bg-background fixed z-[110] flex flex-col',
+          'bg-background fixed z-[6010] flex flex-col',
           isDrawer
             ? cn(
                 'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-lg transform-gpu will-change-transform backface-hidden',

@@ -42,16 +42,20 @@ export async function getOwnerCollectedSummary(
   const monthStart = startOfLocalMonthIso()
 
   try {
+    // Job payments (via ai_leads owner) + walk-up / ad-hoc charges on the owner's wallet.
     const rows = await sql`
       SELECT
         COALESCE(SUM(wt.amount) FILTER (WHERE wt.created_at >= ${dayStart}::timestamptz), 0)::float8 AS today_usd,
         COALESCE(SUM(wt.amount) FILTER (WHERE wt.created_at >= ${monthStart}::timestamptz), 0)::float8 AS month_usd,
         COALESCE(COUNT(*) FILTER (WHERE wt.created_at >= ${dayStart}::timestamptz), 0)::int AS today_count
       FROM wallet_transactions wt
-      INNER JOIN ai_leads al ON al.id = wt.job_id
-      WHERE al.user_id = ${uid}
-        AND wt.status = 'COMPLETED'
+      LEFT JOIN ai_leads al ON al.id = wt.job_id
+      WHERE wt.status = 'COMPLETED'
         AND wt.amount > 0
+        AND (
+          al.user_id = ${uid}
+          OR (wt.job_id IS NULL AND wt.user_id = ${uid})
+        )
     `
     const row = rows[0] as
       | { today_usd?: number; month_usd?: number; today_count?: number }

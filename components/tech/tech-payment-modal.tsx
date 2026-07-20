@@ -253,7 +253,7 @@ export function TechPaymentModal(props: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
       {tapListening ? (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#0b0b12]/95 px-8 text-center">
           <div className="relative mb-6 flex h-28 w-28 items-center justify-center">

@@ -273,7 +273,7 @@ export function MapTab() {
 
         {/* Layer chips — top of map only (never float mid-screen) */}
         <div
-          className="pointer-events-auto absolute left-2 right-2 top-2 z-[2000] flex flex-wrap items-center gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur md:left-3 md:right-auto md:top-3 md:max-w-none"
+          className="pointer-events-auto absolute left-2 right-2 top-2 z-[20] flex flex-wrap items-center gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur md:left-3 md:right-auto md:top-3 md:max-w-none"
           role="group"
           aria-label="Map layers"
         >
@@ -305,7 +305,7 @@ export function MapTab() {
         </div>
 
         {/* —— Mobile: bottom sheet (opened from header “Pool” button) —— */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2100] flex flex-col md:hidden">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] flex flex-col md:hidden">
           <aside
             id="dispatch-map-sheet"
             className={cn(
@@ -337,7 +337,7 @@ export function MapTab() {
         <aside
           id="dispatch-map-drawer"
           className={cn(
-            "pointer-events-auto absolute bottom-0 right-0 top-0 z-[2000] hidden w-80 max-w-[40%] flex-col border-l border-zinc-800 bg-slate-950/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out md:flex",
+            "pointer-events-auto absolute bottom-0 right-0 top-0 z-[30] hidden w-80 max-w-[40%] flex-col border-l border-zinc-800 bg-slate-950/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out md:flex",
             drawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
           )}
           aria-hidden={!drawerOpen}

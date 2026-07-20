@@ -113,14 +113,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
-          {/* Mobile: amount under the avatar initials */}
-          <span className="max-w-[3.25rem] truncate text-[9px] font-semibold tabular-nums text-emerald-400 sm:hidden">
+          {/* Mobile: bright chip under avatar so $ is readable on dark headers */}
+          <span className="max-w-[3.5rem] truncate rounded-md bg-emerald-500/25 px-1 py-px text-[10px] font-bold tabular-nums text-emerald-300 ring-1 ring-emerald-400/40 sm:hidden">
             {collectedLabel}
           </span>
-          {/* Desktop: name + amount collected (replaces email in the compact chip) */}
+          {/* Desktop: name + amount collected */}
           <span className="hidden min-w-0 flex-1 flex-col items-start text-left sm:flex">
             <span className="w-full truncate text-xs font-medium text-foreground">{name}</span>
-            <span className="w-full truncate text-[10px] font-semibold tabular-nums text-emerald-400">
+            <span className="w-full truncate text-[11px] font-bold tabular-nums text-emerald-300">
               {todayCents === 0 ? "Collected $0 today" : `${collectedLabel} today`}
             </span>
           </span>

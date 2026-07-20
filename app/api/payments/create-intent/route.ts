@@ -1,11 +1,12 @@
 // POST /api/payments/create-intent
-// Create a Stripe PaymentIntent for a job charge + PENDING tech wallet transaction.
+// Create a Stripe PaymentIntent for a job charge or walk-up (no job) collect.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
+  createAdhocPaymentIntent,
   createJobPaymentIntent,
   getJobPaymentContext,
   normalizeJobPaymentMethod,
@@ -22,6 +23,10 @@ type Body = {
   /** When true / line items present, allow on-site invoice total instead of booked quote. */
   invoiceOverride?: boolean
   lineItems?: { label?: string; amountCents?: number }[]
+  /** Walk-up / no-job charge note. */
+  note?: string
+  /** Explicit ad-hoc flag (also implied when jobId is missing). */
+  adhoc?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -42,8 +47,8 @@ export async function POST(req: NextRequest) {
   const jobId = String(body.jobId ?? "").trim()
   const amount = Number(body.amount)
   const paymentMethodType = String(body.paymentMethodType ?? "").trim()
+  const wantAdhoc = Boolean(body.adhoc) || !jobId
 
-  if (!jobId) return NextResponse.json({ error: "jobId is required" }, { status: 400 })
   if (!Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json({ error: "amount must be a positive USD amount" }, { status: 400 })
   }
@@ -59,16 +64,56 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // —— Walk-up / no-job collect ——
+  if (wantAdhoc && !jobId) {
+    if (user.account_role === "field_tech") {
+      return NextResponse.json(
+        { error: "Walk-up payments are for the business account — use a job charge instead." },
+        { status: 403 }
+      )
+    }
+    // Client sends USD dollars (e.g. 85 or 85.50).
+    const cents = Math.round(amount * 100)
+    if (cents < 50) {
+      return NextResponse.json({ error: "amount must be at least $0.50" }, { status: 400 })
+    }
+
+    try {
+      const result = await createAdhocPaymentIntent({
+        ownerUserId: userId,
+        chargeCents: cents,
+        walletMethod,
+        note: body.note,
+      })
+      return NextResponse.json({
+        data: {
+          client_secret: result.clientSecret,
+          clientSecret: result.clientSecret,
+          paymentIntentId: result.paymentIntentId,
+          chargeCents: result.chargeCents,
+          commissionCents: result.commissionCents,
+          transactionId: result.transaction?.id ?? null,
+          publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,
+          adhoc: true,
+        },
+      })
+    } catch (e) {
+      console.error("[payments/create-intent adhoc]", e)
+      const message = e instanceof Error ? e.message : "Could not create payment intent"
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
+  }
+
+  if (!jobId) return NextResponse.json({ error: "jobId is required" }, { status: 400 })
+
   const job = await getJobPaymentContext(jobId)
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 })
 
-  // Assigned tech or business owner may charge. Owner can collect on the go even before assign.
   const isTech = job.assignedTechId === userId
   const isOwner = job.ownerUserId === userId
   if (!isTech && !isOwner) {
     return NextResponse.json({ error: "Not allowed to charge this job" }, { status: 403 })
   }
-  // On-the-go owner collect: credit the owner's wallet when no tech is assigned yet.
   const jobForCharge =
     !job.assignedTechId && isOwner ? { ...job, assignedTechId: userId } : job
   if (!jobForCharge.assignedTechId) {

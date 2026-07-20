@@ -240,6 +240,62 @@ export async function createJobPaymentIntent(params: {
   }
 }
 
+/**
+ * Quick charge with no booked job — owner on-the-go / walk-up customers.
+ * Credits the acting owner's wallet ledger (job_id null).
+ */
+export async function createAdhocPaymentIntent(params: {
+  ownerUserId: string
+  chargeCents: number
+  walletMethod: WalletPaymentMethod
+  note?: string | null
+}): Promise<CreateJobPaymentIntentResult> {
+  if (!isStripeConfigured()) {
+    throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
+  }
+  if (params.chargeCents < 50) {
+    throw new Error("amount must be at least $0.50")
+  }
+
+  const note = (params.note ?? "").trim().slice(0, 120) || "Walk-up payment"
+  const stripe = getStripeClient()
+  const intent = await stripe.paymentIntents.create({
+    amount: params.chargeCents,
+    currency: "usd",
+    automatic_payment_methods: { enabled: true },
+    metadata: {
+      lyncr_kind: "adhoc_payment",
+      owner_user_id: params.ownerUserId,
+      acting_user_id: params.ownerUserId,
+      commission_cents: String(params.chargeCents),
+      payment_method: params.walletMethod,
+      note,
+    },
+    description: `Lyncr · ${note}`,
+  })
+
+  if (!intent.client_secret) {
+    throw new Error("Stripe did not return a client_secret")
+  }
+
+  const transaction = await createWalletTransaction({
+    userId: params.ownerUserId,
+    jobId: null,
+    amountUsd: params.chargeCents / 100,
+    status: "PENDING",
+    paymentMethod: params.walletMethod,
+    stripePaymentIntentId: intent.id,
+  })
+
+  return {
+    clientSecret: intent.client_secret,
+    paymentIntentId: intent.id,
+    chargeCents: params.chargeCents,
+    commissionCents: params.chargeCents,
+    transaction,
+  }
+}
+
 /** Mark job completed (owner or assigned tech path). */
 export async function markJobCompletedForPayment(job: JobPaymentContext): Promise<void> {
   const sql = getSql()
@@ -279,14 +335,14 @@ export async function confirmJobPaymentIntent(
   const jobId = intent.metadata?.job_id?.trim() || null
   const kind = intent.metadata?.lyncr_kind
 
-  if (kind && kind !== "job_payment") {
-    throw new Error("PaymentIntent is not a Lyncr job payment")
+  if (kind && kind !== "job_payment" && kind !== "adhoc_payment") {
+    throw new Error("PaymentIntent is not a Lyncr collectible payment")
   }
 
   if (intent.status === "succeeded") {
     const existing = await findWalletTransactionByPaymentIntent(intent.id)
     if (existing?.status === "COMPLETED") {
-      if (jobId) {
+      if (jobId && kind !== "adhoc_payment") {
         const job = await getJobPaymentContext(jobId)
         if (job && job.jobStatus !== "completed") await markJobCompletedForPayment(job)
       }
@@ -299,7 +355,7 @@ export async function confirmJobPaymentIntent(
     }
 
     const transaction = await settleWalletTransactionByPaymentIntent(intent.id)
-    if (jobId) {
+    if (jobId && kind !== "adhoc_payment") {
       const job = await getJobPaymentContext(jobId)
       if (job) await markJobCompletedForPayment(job)
     }

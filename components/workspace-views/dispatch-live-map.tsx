@@ -817,7 +817,7 @@ export function DispatchLiveMap({
 
       {destination ? (
         <div
-          className="pointer-events-auto absolute left-3 top-3 z-[2000] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur"
+          className="pointer-events-auto absolute left-3 top-3 z-[40] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -922,7 +922,7 @@ export function DispatchLiveMap({
       ) : null}
 
       {selectedJob && (
-        <div className="absolute right-3 top-3 z-[1200] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
+        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">
