@@ -52,6 +52,11 @@
   z-index: 900 !important;
 }
 
+/* Keep hover name labels above pins. */
+.leaflet-container .leaflet-tooltip-pane {
+  z-index: 1100 !important;
+}
+
 /* Native hover preview tooltips on dispatch map pins. */
 .leaflet-tooltip.lyncr-map-hover-tooltip {
   background: rgba(9, 9, 11, 0.95) !important;
@@ -64,6 +69,7 @@
   pointer-events: none !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.45) !important;
   transition: opacity 150ms ease !important;
+  white-space: nowrap !important;
 }
 
 .leaflet-tooltip.lyncr-map-hover-tooltip::before {

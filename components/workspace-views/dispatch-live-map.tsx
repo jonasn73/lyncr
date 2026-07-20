@@ -111,12 +111,39 @@ function vehicleLineFromJob(job: DispatchJob): string | null {
   return ymm?.[0]?.trim() || summary || null
 }
 
+/** Best display name for a job pin (customer → summary → phone). */
+function jobCustomerLabel(job: DispatchJob): string {
+  const name = (job.customer_name ?? "").trim()
+  if (name) return name
+  const summary = (job.summary ?? "").trim()
+  if (summary) {
+    // Prefer the leading “Customer — …” segment when present.
+    const head = summary.split("—")[0]?.trim() || summary
+    if (head && head.length < 48) return head
+  }
+  const phone = (job.customer_phone ?? "").trim()
+  if (phone) return phone
+  return "Customer"
+}
+
+/** Hover tooltip — customer name first (desktop hover / long-press on some phones). */
+function jobHoverTooltipHtml(job: DispatchJob): string {
+  const name = escapeHtml(jobCustomerLabel(job))
+  const vehicle = vehicleLineFromJob(job)
+  const vehicleLine = vehicle
+    ? `<div class="lyncr-map-hover-tooltip__line">${escapeHtml(vehicle)}</div>`
+    : ""
+  return (
+    `<div class="lyncr-map-hover-tooltip__name">${name}</div>` + vehicleLine
+  )
+}
+
 /** Proximity radar popup HTML for a job pin. */
 function jobProximityPopupHtml(
   job: DispatchJob,
   userLocation: { lat: number; lng: number } | null
 ): string {
-  const name = (job.customer_name ?? "").trim() || "Customer"
+  const name = jobCustomerLabel(job)
   const vehicle = vehicleLineFromJob(job)
   const title = vehicle ? `${name} — ${vehicle}` : name
   const address = (job.location ?? "").trim() || "No service address on file"
@@ -595,17 +622,33 @@ export function DispatchLiveMap({
       const lng = coerceMapCoord(job.longitude)!
       const pos: [number, number] = [lat, lng]
       const popupHtml = jobProximityPopupHtml(job, userLocation)
+      const tooltipHtml = jobHoverTooltipHtml(job)
       const icon = isLead ? leadIcon(L) : jobIcon(L, assigned)
       const existing = jobMarkers.current.get(job.id)
       if (existing) {
         existing.setLatLng(pos)
         existing.setIcon(icon)
         existing.setPopupContent(popupHtml)
+        existing.unbindTooltip()
+        existing.bindTooltip(tooltipHtml, {
+          direction: "top",
+          offset: [0, -12],
+          opacity: 1,
+          className: "lyncr-map-hover-tooltip",
+          sticky: true,
+        })
       } else {
         const jobId = job.id
         const m = L.marker(pos, { icon })
           .addTo(map)
           .bindPopup(popupHtml, { maxWidth: 300 })
+          .bindTooltip(tooltipHtml, {
+            direction: "top",
+            offset: [0, -12],
+            opacity: 1,
+            className: "lyncr-map-hover-tooltip",
+            sticky: true,
+          })
         // Click a job pin → open the inline dispatch/assign panel for that job.
         m.on("click", () => setSelectedJobId(jobId))
         jobMarkers.current.set(job.id, m)
@@ -868,7 +911,7 @@ export function DispatchLiveMap({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">
-                {selectedJob.customer_name || selectedJob.customer_phone || "Booked job"}
+                {jobCustomerLabel(selectedJob)}
               </p>
               {selectedJob.location && (
                 <p className="mt-0.5 truncate text-xs text-zinc-500">{selectedJob.location}</p>
