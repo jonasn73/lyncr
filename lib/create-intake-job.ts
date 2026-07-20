@@ -563,6 +563,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
         leadId: id,
         customerPhoneE164: phone,
         customerName,
+        callLogId: input.callLogId,
       })
   if (!skipCustomerSms) {
     await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })

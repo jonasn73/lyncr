@@ -99,12 +99,21 @@ export function SecondaryCallInterceptBanner({
     setBusy("decline")
     try {
       const ids = resolveCallIds()
-      await fetch("/api/calls/decline-voicemail", {
+      const res = await fetch("/api/calls/decline-voicemail", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(ids),
-      }).catch(() => null)
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        toast({
+          title: "Decline failed",
+          description: json.error || "Could not send the second caller to voicemail.",
+          variant: "destructive",
+        })
+        return
+      }
       await sendSms(SECONDARY_DECLINE_SMS_TEMPLATE)
       toast({
         title: "Second call declined",

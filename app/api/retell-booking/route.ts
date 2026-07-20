@@ -25,7 +25,10 @@ export const dynamic = "force-dynamic"
 
 function retellSecretOk(req: NextRequest): boolean {
   const expected = (process.env.RETELL_WEBHOOK_SECRET || process.env.RETELL_API_KEY || "").trim()
-  if (!expected) return true // Open when unset (dev / first wire-up); set secret in production.
+  // Fail closed in production — open only for local/dev when secret is unset.
+  if (!expected) {
+    return process.env.NODE_ENV !== "production" && process.env.VERCEL_ENV !== "production"
+  }
   const auth = req.headers.get("authorization")?.trim() || ""
   const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : ""
   const headerKey =

@@ -47,8 +47,11 @@ export function MapTab() {
   // Layer toggles (Show Techs / Jobs / Leads / You).
   const [layers, setLayers] = useState<DispatchMapLayers>(INITIAL_LAYERS)
 
-  // Drawer open/closed on smaller screens; open by default on desktop-width.
-  const [drawerOpen, setDrawerOpen] = useState(true)
+  // Closed by default on phones so the map isn't covered; open on desktop.
+  const [drawerOpen, setDrawerOpen] = useState(() => {
+    if (typeof window === "undefined") return true
+    return window.matchMedia("(min-width: 768px)").matches
+  })
 
   // Job Pool vs Live Roster inside the drawer.
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("pool")
@@ -162,9 +165,10 @@ export function MapTab() {
           id="dispatch-map-drawer"
           className={cn(
             "pointer-events-auto absolute bottom-0 right-0 top-0 z-[2000] flex w-[min(22rem,100%)] flex-col border-l border-zinc-800 bg-slate-950/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out",
-            drawerOpen ? "translate-x-0" : "translate-x-full"
+            drawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
           )}
           aria-hidden={!drawerOpen}
+          inert={!drawerOpen ? true : undefined}
         >
           {/* Drawer tab switcher */}
           <div className="flex shrink-0 border-b border-zinc-800 p-1.5">

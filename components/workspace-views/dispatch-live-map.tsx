@@ -463,8 +463,6 @@ export function DispatchLiveMap({
         scrollWheelZoom: false,
         // Pinch-to-zoom still works when dragging is off.
         touchZoom: true,
-        // Disable fast-click / tap hijacking that blocks page scroll on mobile.
-        tap: false,
       }).setView(startCenter, startZoom)
       if (shared) {
         didFit.current = true

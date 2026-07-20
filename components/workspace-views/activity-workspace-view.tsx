@@ -117,8 +117,11 @@ function useBookingAlerts() {
 
   useEffect(() => {
     const onPrefs = (e: Event) => {
-      const prefs = (e as CustomEvent<{ preferences?: typeof session.adminNotificationPreferences }>).detail
-        ?.preferences
+      const prefs = (
+        e as CustomEvent<{
+          preferences?: NonNullable<typeof session>["adminNotificationPreferences"]
+        }>
+      ).detail?.preferences
       if (!prefs) return
       setNoisyAlerts(prefs.push_operator_dispositions !== false)
     }
@@ -892,7 +895,9 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
             <WorkspaceTh>Duration</WorkspaceTh>
             <WorkspaceTh>Agent</WorkspaceTh>
             <WorkspaceTh>Line</WorkspaceTh>
-            <WorkspaceTh />
+            <WorkspaceTh>
+              <span className="sr-only">Actions</span>
+            </WorkspaceTh>
           </tr>
         </thead>
         <tbody>

@@ -24,6 +24,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   }
 
   const secret = readWebhookSecret()
+  const isProd =
+    process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production"
+  // Fail closed in production — unauthenticated writes of ai_leads are not allowed.
+  if (!secret && isProd) {
+    return NextResponse.json(
+      { error: "AI lead intake secret not configured" },
+      { status: 503 }
+    )
+  }
   if (secret) {
     const provided =
       req.headers.get("x-zing-ai-lead-secret")?.trim() ||

@@ -143,25 +143,43 @@ export function IncomingCallOpsToolbar({
   const handleDecline = useCallback(async () => {
     setDeclining(true)
     try {
-      if (callLogId && !callLogId.startsWith("ring-")) {
-        await fetch("/api/calls/decline-voicemail", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ call_id: callLogId }),
-        }).catch(() => null)
-      } else if (callLogId?.startsWith("ring-")) {
-        const sid = callLogId.slice("ring-".length)
-        await fetch("/api/calls/decline-voicemail", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider_call_sid: sid }),
-        }).catch(() => null)
+      const body =
+        callLogId && !callLogId.startsWith("ring-")
+          ? { call_id: callLogId }
+          : callLogId?.startsWith("ring-")
+            ? { provider_call_sid: callLogId.slice("ring-".length) }
+            : null
+      if (!body) {
+        toast({
+          title: "Could not decline",
+          description: "Missing call id — answer or wait for the call log, then try again.",
+          variant: "destructive",
+        })
+        return
+      }
+      const res = await fetch("/api/calls/decline-voicemail", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { redirected?: boolean; hung_up?: boolean }
+      }
+      if (!res.ok) {
+        toast({
+          title: "Could not send to voicemail",
+          description: json.error || "Telnyx rejected the redirect. Check TELNYX_ACCOUNT_SID / API key.",
+          variant: "destructive",
+        })
+        return
       }
       toast({
-        title: "Sent to voicemail",
-        description: "Caller is being redirected to your fallback greeting.",
+        title: json.data?.redirected ? "Sent to voicemail" : "Call ended",
+        description: json.data?.redirected
+          ? "Caller is being redirected to your fallback greeting."
+          : "Carrier hung up the leg (Call Control). Prefer TeXML redirect when configured.",
       })
       onDeclined()
     } finally {
