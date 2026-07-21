@@ -27,6 +27,37 @@ export function fccIdsMatch(a: string, b: string): boolean {
   return Boolean(left && right && left === right)
 }
 
+/** Caller asked for push-start / proximity (and not turn-key). */
+export function wantsSmartKeyStyle(keyStyle: string | null | undefined): boolean {
+  const style = (keyStyle ?? "").toLowerCase()
+  if (!style.trim()) return false
+  return /push|smart|prox/.test(style) && !/turn|remote\s*head|blade|flip/.test(style)
+}
+
+/** Caller asked for turn-key / flip / remote-head (and not push-start). */
+export function wantsTurnKeyStyle(keyStyle: string | null | undefined): boolean {
+  const style = (keyStyle ?? "").toLowerCase()
+  if (!style.trim()) return false
+  return /turn|remote\s*head|blade|flip/.test(style) && !/push|smart|prox/.test(style)
+}
+
+/**
+ * Match CSV modulation (ASK ≈ turn-key, FSK-only ≈ smart) to a pinned key style.
+ * Unknown / mixed modulation stays visible so we do not hide the only remaining profile.
+ */
+export function modulationMatchesKeyStyle(
+  modulation: string | null | undefined,
+  keyStyle: string | null | undefined
+): boolean {
+  if (!keyStyle?.trim()) return true
+  const raw = (modulation ?? "").toLowerCase()
+  const isAsk = /\bask\b/.test(raw)
+  const isSmart = /fsk/.test(raw) && !isAsk
+  if (wantsSmartKeyStyle(keyStyle)) return isSmart || (!isAsk && !isSmart)
+  if (wantsTurnKeyStyle(keyStyle)) return isAsk || (!isSmart && !isAsk)
+  return true
+}
+
 export type ManualKeyFrequencyOption = {
   id: string
   label: string
@@ -147,12 +178,10 @@ export function filterManualOptionsByKeyStyle(
 ): ManualKeyFrequencyOption[] {
   const style = (keyStyle ?? "").toLowerCase()
   if (!style.trim()) return [...options]
-  const wantsSmart = /push|smart|prox/.test(style)
-  const wantsTurn = /turn|remote\s*head|blade|flip/.test(style)
-  if (wantsSmart && !wantsTurn) {
+  if (wantsSmartKeyStyle(keyStyle)) {
     return options.filter((option) => /push|smart|prox/i.test(option.keyStyle))
   }
-  if (wantsTurn && !wantsSmart) {
+  if (wantsTurnKeyStyle(keyStyle)) {
     return options.filter(
       (option) =>
         /turn|remote|blade|flip/i.test(option.keyStyle) && !/push|smart|prox/i.test(option.keyStyle)

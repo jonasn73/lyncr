@@ -25,7 +25,10 @@ import {
   type VehicleKeyLookupResult,
   type VehicleKeyProfile,
 } from "@/lib/vehicle-key-reference"
-import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
+import { fccIdsMatch, modulationMatchesKeyStyle } from "@/lib/fcc-id-input"
+import {
+  filterTiCatalogForClarification,
+} from "@/lib/ti-supplier-catalog-shared"
 
 export type VehicleDecodeVehicle = {
   year: string
@@ -80,6 +83,8 @@ export type UnifiedVehicleDecodePayload = {
 
 export type BuildUnifiedVehicleDecodeOptions = {
   fccIdRaw?: string | null
+  /** When Ask already pinned push vs turn, narrow TI + CSV profiles. */
+  keyStyle?: string | null
   userId?: string | null
   organizationId?: string | null
 }
@@ -199,6 +204,43 @@ export async function buildUnifiedVehicleDecode(
     opts.fccIdRaw
   )
 
+  // When ignition style is known, hide the wrong ASK/FSK family from the filmstrip.
+  if (opts.keyStyle?.trim() && keySpecs.keys.length > 1) {
+    const filteredKeys = keySpecs.keys.filter((key) =>
+      modulationMatchesKeyStyle(key.modulation, opts.keyStyle)
+    )
+    if (filteredKeys.length > 0 && filteredKeys.length < keySpecs.keys.length) {
+      const primary = filteredKeys[0]!
+      keySpecs.keys = filteredKeys
+      keySpecs.fccId = primary.fccId
+      keySpecs.frequency = primary.frequency
+      if (keySpecs.key_info) {
+        keySpecs.key_info = {
+          ...keySpecs.key_info,
+          profiles: filteredKeys.map((key) => {
+            const detail = keySpecs.key_info!.profile_details.find((row) =>
+              fccIdsMatch(row.profile.fcc_id, key.fccId)
+            )
+            return detail?.profile ?? keySpecs.key_info!.profiles[0]!
+          }),
+          profile_details: filteredKeys.map((key) => {
+            const detail = keySpecs.key_info!.profile_details.find((row) =>
+              fccIdsMatch(row.profile.fcc_id, key.fccId)
+            )
+            return (
+              detail ?? {
+                profile: keySpecs.key_info!.profiles[0]!,
+                variants: key.variants,
+                compatible_vehicles: [],
+                compatible_summary: key.compatible_summary,
+              }
+            )
+          }),
+        }
+      }
+    }
+  }
+
   const fccIds = [
     ...(opts.fccIdRaw ? [opts.fccIdRaw] : []),
     ...keySpecs.keys.map((k) => k.fccId),
@@ -246,6 +288,7 @@ export async function buildUnifiedVehicleDecode(
             frequency: hit.frequency,
             score: hit.score,
           })),
+          preferredKeyStyle: opts.keyStyle ?? null,
         })
       : null
 
@@ -257,12 +300,16 @@ export async function buildUnifiedVehicleDecode(
     tiCatalog = orderTiCatalogByPreferredFcc(tiCatalog, preferredFcc, true)
   }
 
+  // Style pin (even without FCC) must drop the wrong smart/turn blanks.
+  if (opts.keyStyle?.trim()) {
+    tiCatalog = filterTiCatalogForClarification(tiCatalog, preferredFcc, opts.keyStyle)
+  }
+
   // Re-order keySpecs so the resolved FCC is primary for the filmstrip path.
   let nextKeySpecs = keySpecs
   if (preferredFcc && keySpecs.keys.length > 1) {
-    const want = sanitizeFccIdInput(preferredFcc)
-    const matching = keySpecs.keys.filter((key) => sanitizeFccIdInput(key.fccId) === want)
-    const rest = keySpecs.keys.filter((key) => sanitizeFccIdInput(key.fccId) !== want)
+    const matching = keySpecs.keys.filter((key) => fccIdsMatch(key.fccId, preferredFcc))
+    const rest = keySpecs.keys.filter((key) => !fccIdsMatch(key.fccId, preferredFcc))
     if (matching.length > 0) {
       const orderedKeys = [...matching, ...rest]
       const primary = orderedKeys[0]!
@@ -275,14 +322,14 @@ export async function buildUnifiedVehicleDecode(
           ? {
               ...keySpecs.key_info,
               profiles: orderedKeys.map((key) => {
-                const detail = keySpecs.key_info!.profile_details.find(
-                  (row) => sanitizeFccIdInput(row.profile.fcc_id) === sanitizeFccIdInput(key.fccId)
+                const detail = keySpecs.key_info!.profile_details.find((row) =>
+                  fccIdsMatch(row.profile.fcc_id, key.fccId)
                 )
                 return detail?.profile ?? keySpecs.key_info!.profiles[0]!
               }),
               profile_details: orderedKeys.map((key) => {
-                const detail = keySpecs.key_info!.profile_details.find(
-                  (row) => sanitizeFccIdInput(row.profile.fcc_id) === sanitizeFccIdInput(key.fccId)
+                const detail = keySpecs.key_info!.profile_details.find((row) =>
+                  fccIdsMatch(row.profile.fcc_id, key.fccId)
                 )
                 return (
                   detail ?? {

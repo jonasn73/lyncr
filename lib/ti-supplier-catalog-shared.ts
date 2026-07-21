@@ -1,7 +1,7 @@
 // Client-safe Transponder Island catalog helpers (no Neon / server imports).
 // Matching + card shaping for Key Details; DB fetch lives in ti-supplier-catalog.ts.
 
-import { fccIdsMatch, sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
+import { fccIdsMatch, sanitizeFccIdInput, wantsSmartKeyStyle, wantsTurnKeyStyle, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
 import { isVehicleYearMakeModelValid } from "@/lib/vehicle-model-year-ranges"
 
 /** One row from the shared TI scrape table. */
@@ -412,12 +412,13 @@ function yearDistanceOutside(year: number, start: number, end: number): number {
 /** Infer push-start / remote-head / blade style from the TI title. */
 function keyStyleFromTitle(title: string): string {
   const t = title.toLowerCase()
-  if (/smart|prox|proximity|push.?start|keyless/.test(t)) return "Push start (smart key)"
+  if (/smart|prox|proximity|push.?start|keyless\s*go/i.test(t)) return "Push start (smart key)"
   if (/flip/.test(t)) return "Flip key"
-  if (/remote\s*head|rhk/.test(t)) return "Remote head key"
+  if (/remote\s*head|rhk|high\s*security\s*remote/i.test(t)) return "Remote head key"
   if (/blade|edge\s*cut|transponder/.test(t)) return "Turn key (blade)"
   if (/remote|fob/.test(t)) return "Keyless remote only"
-  return "Push start (smart key)"
+  // Never default ambiguous titles to smart — that buried turn-key blanks for years.
+  return "Key / remote"
 }
 
 /** Digits-only frequency for ManualKeyFrequencyOption (e.g. "434"). */
@@ -500,7 +501,9 @@ export function scoreTiCatalogTitle(
   if (isTiAftermarketSku(tiSku, title)) {
     score += 100
   }
-  if (/smart|prox|proximity/i.test(title)) score += 30
+  // Equal style boosts — never let "smart" alone outrank flip/remote-head for the same YMM.
+  if (tiTitleLooksSmart(title)) score += 10
+  else if (tiTitleLooksTurnKey(title)) score += 10
 
   // Prefer titles where the model sits right after a recognized make alias.
   const titleLower = title.toLowerCase()
@@ -550,7 +553,9 @@ export function tiTitleLooksSmart(title: string): boolean {
 /** True when a TI title looks like turn-key / remote-head (not smart prox). */
 export function tiTitleLooksTurnKey(title: string): boolean {
   if (tiTitleLooksSmart(title)) return false
-  return /remote\s*head|flip\s*key|rhk|blade|transponder|edge\s*cut/i.test(title)
+  return /remote\s*head|flip\s*key|rhk|blade|transponder|edge\s*cut|high\s*security\s*remote|remote\s*flip/i.test(
+    title
+  )
 }
 
 /**
@@ -561,36 +566,81 @@ export function tiHitMatchesKeyStyle(
   hit: { title: string; fccId?: string },
   keyStyle: string | null | undefined
 ): boolean {
-  const style = (keyStyle ?? "").toLowerCase()
-  if (!style.trim()) return true
-  const wantsSmart = /push|smart|prox/.test(style)
-  const wantsTurn = /turn|remote\s*head|blade|flip/.test(style)
-  if (wantsSmart && !wantsTurn) return tiTitleLooksSmart(hit.title)
-  if (wantsTurn && !wantsSmart) return tiTitleLooksTurnKey(hit.title)
+  if (!keyStyle?.trim()) return true
+  if (wantsSmartKeyStyle(keyStyle)) return tiTitleLooksSmart(hit.title)
+  if (wantsTurnKeyStyle(keyStyle)) return tiTitleLooksTurnKey(hit.title)
   return true
 }
 
 /**
  * Narrow TI hits after a clarification pins an FCC and/or key style.
- * Prefer FCC match; if none, fall back to key-style (never keep the wrong smart blank).
+ * When both are set, require FCC ∩ style so a wrong smart blank never wins on FCC alone.
  */
 export function filterTiCatalogForClarification<
   T extends { title: string; fccId: string; tiSku: string; score: number },
 >(hits: T[], fccId: string | null | undefined, keyStyle: string | null | undefined): T[] {
   if (!hits.length) return hits
   const wantFcc = fccId ? sanitizeFccIdInput(fccId) : ""
+  const wantStyle = Boolean(keyStyle?.trim())
+
   if (wantFcc) {
     // Match TI `M3NA2C931423` to CSV `M3NA2C93142300` (trailing 00 variants).
     const byFcc = hits.filter((hit) => fccIdsMatch(hit.fccId, wantFcc))
-    if (byFcc.length > 0) return byFcc
+    if (byFcc.length > 0) {
+      if (!wantStyle) return byFcc
+      const byFccAndStyle = byFcc.filter((hit) => tiHitMatchesKeyStyle(hit, keyStyle))
+      if (byFccAndStyle.length > 0) return byFccAndStyle
+      // FCC matched but style conflicts — prefer other style-correct blanks over wrong-style FCC.
+      const byStyle = hits.filter((hit) => tiHitMatchesKeyStyle(hit, keyStyle))
+      if (byStyle.length > 0) return byStyle
+      return []
+    }
   }
-  if (keyStyle?.trim()) {
+
+  if (wantStyle) {
     const byStyle = hits.filter((hit) => tiHitMatchesKeyStyle(hit, keyStyle))
     if (byStyle.length > 0) return byStyle
   }
+
   // Clarification pinned something we cannot match — return empty rather than wrong key.
-  if (wantFcc || keyStyle?.trim()) return []
+  if (wantFcc || wantStyle) return []
   return hits
+}
+
+/**
+ * Keep both push-start and turn-key blanks visible in the top N when both exist.
+ * Stops smart-heavy TI ranking from hiding the only flip-key option before Ask.
+ */
+export function ensureTiCatalogStyleDiversity<
+  T extends { title: string; tiSku: string; score: number },
+>(hits: T[], limit: number): T[] {
+  if (hits.length <= 1 || limit < 2) return hits.slice(0, limit)
+  const top = hits.slice(0, limit)
+  const hasSmart = top.some((hit) => tiTitleLooksSmart(hit.title))
+  const hasTurn = top.some((hit) => tiTitleLooksTurnKey(hit.title))
+  if (hasSmart === hasTurn) return top
+
+  if (hasSmart && !hasTurn) {
+    const turn = hits.find(
+      (hit) => tiTitleLooksTurnKey(hit.title) && !top.some((row) => row.tiSku === hit.tiSku)
+    )
+    if (turn) {
+      const next = [...top]
+      next[next.length - 1] = turn
+      return next
+    }
+  }
+  if (hasTurn && !hasSmart) {
+    const smart = hits.find(
+      (hit) => tiTitleLooksSmart(hit.title) && !top.some((row) => row.tiSku === hit.tiSku)
+    )
+    if (smart) {
+      const next = [...top]
+      next[next.length - 1] = smart
+      return next
+    }
+  }
+  return top
 }
 
 /** Rank + filter raw catalog rows for a vehicle. Aftermarket A-suffix always sorts first. */
@@ -640,9 +690,9 @@ export function rankTiCatalogRows(
     if (seen.has(key)) continue
     seen.add(key)
     unique.push(hit)
-    if (unique.length >= limit) break
   }
-  return unique
+  // Keep a turn-key blank in the top list when smart titles would otherwise dominate.
+  return ensureTiCatalogStyleDiversity(unique, limit)
 }
 
 /** Convert a TI catalog hit into a ManualKeyFrequencyOption for Key Details cards. */

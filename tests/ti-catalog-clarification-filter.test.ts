@@ -64,6 +64,11 @@ describe("filterTiCatalogForClarification", () => {
     const onlySmart = hits.filter((h) => h.tiSku !== "TIK-NIS-17A")
     expect(filterTiCatalogForClarification(onlySmart, null, "Remote head key")).toEqual([])
   })
+
+  it("drops FCC-matched smart blanks when style is turn-key", () => {
+    const filtered = filterTiCatalogForClarification(hits, "CWTWB1U840", "Remote head key")
+    expect(filtered.map((h) => h.tiSku)).toEqual(["TIK-NIS-17A"])
+  })
 })
 
 describe("GT-R does not platform-match Sentra", () => {

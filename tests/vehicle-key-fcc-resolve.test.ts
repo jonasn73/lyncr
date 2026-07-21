@@ -287,6 +287,36 @@ describe("resolveVehicleKeyFcc", () => {
     const push = result.clarification?.options.find((o) => o.id === "multi-fcc-push")
     expect(push?.fccId).toMatch(/^M3NA2C93142/)
   })
+  it("auto-picks turn-key after preferred style for 2018 F-150", () => {
+    const result = resolveVehicleKeyFcc({
+      preferredKeyStyle: "Remote head key",
+      profiles: [
+        { fccId: "M3NA2C93142300", frequency: "314.95", modulation: "FSK", variantCount: 2 },
+        { fccId: "M3NA2C93142600", frequency: "902.375/903.425", modulation: "FSK", variantCount: 2 },
+        { fccId: "N5FA08TAA", frequency: "314.95", modulation: "ASK", variantCount: 3 },
+      ],
+      tiHits: [
+        {
+          fccId: "M3NA2C931426",
+          tiSku: "TIK-FOR-101A",
+          title: "2018 Ford Smart Key 5B - AFTERMARKET",
+          buttonCount: 5,
+          frequency: "902 MHz",
+          score: 200,
+        },
+        {
+          fccId: "N5FA08TAA",
+          tiSku: "TIK-FOR-70A",
+          title: "2015 - 2026 Ford High Security Remote Head Flip Key - AFTERMARKET",
+          buttonCount: 3,
+          frequency: "315 MHz",
+          score: 140,
+        },
+      ],
+    })
+    expect(result.needsClarification).toBe(false)
+    expect(result.resolvedFccId).toBe("N5FA08TAA")
+  })
 })
 
 describe("orderTiCatalogByPreferredFcc", () => {

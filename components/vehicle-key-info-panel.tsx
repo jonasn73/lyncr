@@ -11,6 +11,8 @@ import {
   mykeysProKeyOptions,
 } from "@/lib/mykeys-pro-database"
 import {
+  canonicalFccMatchKey,
+  fccIdsMatch,
   isVolvoInsertFobikVehicle,
   isVolvoKeyVol05OptionId,
   sanitizeFccIdInput,
@@ -57,13 +59,13 @@ function relatedFccLabels(
 ): string[] {
   const self = profiles.find((p) => p.fcc_id === fccId)
   if (!self) return []
-  const selfNorm = sanitizeFccIdInput(fccId)
+  const selfNorm = canonicalFccMatchKey(fccId)
   return profiles
     .filter((other) => {
-      if (other.fcc_id === fccId) return false
+      if (fccIdsMatch(other.fcc_id, fccId)) return false
       if ((other.frequency ?? "") !== (self.frequency ?? "")) return false
       if ((other.modulation ?? "") !== (self.modulation ?? "")) return false
-      const otherNorm = sanitizeFccIdInput(other.fcc_id)
+      const otherNorm = canonicalFccMatchKey(other.fcc_id)
       return otherNorm.startsWith(selfNorm) || selfNorm.startsWith(otherNorm)
     })
     .map((other) => other.fcc_id)
@@ -1485,6 +1487,7 @@ export function VehicleKeyInfoPanel({
 
     const q = new URLSearchParams({ year, make, model })
     if (sanitizedFcc) q.set("fcc_id", sanitizedFcc)
+    if (styleHint) q.set("key_style", styleHint)
 
     void fetch(`/api/vehicle/key-info?${q}`, { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("key-info"))))

@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const make = req.nextUrl.searchParams.get("make")?.trim() ?? ""
   const model = req.nextUrl.searchParams.get("model")?.trim() ?? ""
   const fccIdRaw = req.nextUrl.searchParams.get("fcc_id")?.trim() ?? ""
+  const keyStyle = req.nextUrl.searchParams.get("key_style")?.trim() ?? ""
   const sanitizedFcc = fccIdRaw ? sanitizeFccIdInput(fccIdRaw) : ""
 
   if (!yearRaw || !make || !model || !Number.isFinite(Number(yearRaw))) {
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     const unified = await buildUnifiedVehicleDecode(
       { year: yearRaw, make, model, trim: null },
-      { fccIdRaw: sanitizedFcc || null, userId }
+      { fccIdRaw: sanitizedFcc || null, keyStyle: keyStyle || null, userId }
     )
     const keySpecs = unified.keySpecs
     return NextResponse.json({
