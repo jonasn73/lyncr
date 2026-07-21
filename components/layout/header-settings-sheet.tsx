@@ -101,26 +101,36 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         <Button
           type="button"
           variant="outline"
-          size="sm"
           onClick={() => setOpen(true)}
-          className="h-11 min-w-[2.75rem] flex-col gap-0 border-border/80 bg-card/80 px-2 py-1 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:flex-row sm:gap-2 sm:py-0"
+          className={cn(
+            "border-border/80 bg-card/80 shadow-sm",
+            // Mobile: auto height so name + $ chip are never clipped by h-11
+            "h-auto min-h-11 min-w-[3.25rem] flex-col gap-0.5 overflow-visible px-1.5 py-1",
+            // Desktop: wide row with full name + collected line
+            "sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:flex-row sm:gap-2 sm:overflow-hidden sm:px-2 sm:py-0"
+          )}
           aria-label="Open settings"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
-          <Avatar className="h-7 w-7">
+          <Avatar className="h-7 w-7 shrink-0">
             <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
-          {/* Mobile: bright chip under avatar so $ is readable on dark headers */}
-          <span className="max-w-[3.5rem] truncate rounded-md bg-emerald-500/25 px-1 py-px text-[10px] font-bold tabular-nums text-emerald-300 ring-1 ring-emerald-400/40 sm:hidden">
-            {collectedLabel}
+          {/* Mobile: short name + collected $ (leading-none so glyphs aren’t cut off) */}
+          <span className="flex max-w-[4.5rem] flex-col items-center gap-0.5 sm:hidden">
+            <span className="w-full truncate text-center text-[10px] font-medium leading-none text-foreground">
+              {name.trim().split(/\s+/)[0] || name}
+            </span>
+            <span className="inline-flex items-center justify-center rounded-md bg-emerald-500/30 px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-emerald-200 ring-1 ring-emerald-400/50">
+              {collectedLabel}
+            </span>
           </span>
           {/* Desktop: name + amount collected */}
           <span className="hidden min-w-0 flex-1 flex-col items-start text-left sm:flex">
-            <span className="w-full truncate text-xs font-medium text-foreground">{name}</span>
-            <span className="w-full truncate text-[11px] font-bold tabular-nums text-emerald-300">
+            <span className="w-full truncate text-xs font-medium leading-tight text-foreground">{name}</span>
+            <span className="w-full truncate text-[11px] font-bold leading-tight tabular-nums text-emerald-300">
               {todayCents === 0 ? "Collected $0 today" : `${collectedLabel} today`}
             </span>
           </span>
