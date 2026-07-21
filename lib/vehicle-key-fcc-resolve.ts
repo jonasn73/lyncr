@@ -2,7 +2,7 @@
 // reference profiles, TI catalog FCC/button data, and key style signals.
 // When still ambiguous, build an Ask-the-customer clarification prompt.
 
-import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
+import { canonicalFccMatchKey, fccIdsMatch, sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import {
   isTiAftermarketSku,
   tiTitleLooksSmart,
@@ -50,14 +50,30 @@ export type VehicleKeyFccResolveResult = {
   needsClarification: boolean
 }
 
+/** Prefer the longer sanitized form (usually the CSV / FCC.gov ID with trailing 00). */
+function preferDisplayFcc(existing: string, incoming: string): string {
+  const a = sanitizeFccIdInput(existing)
+  const b = sanitizeFccIdInput(incoming)
+  if (b.length > a.length) return b
+  return a || b
+}
+
+/**
+ * Candidates are keyed by canonical FCC family so TI/CSV spelling variants merge.
+ * `map` keys are canonicalFccMatchKey values; row.fccId is the preferred display form.
+ */
 function ensureCandidate(
   map: Map<string, FccRankedCandidate>,
   fccId: string
 ): FccRankedCandidate {
-  let row = map.get(fccId)
+  const display = sanitizeFccIdInput(fccId)
+  const canon = canonicalFccMatchKey(display)
+  let row = map.get(canon)
   if (!row) {
-    row = { fccId, score: 0, reasons: [] }
-    map.set(fccId, row)
+    row = { fccId: display, score: 0, reasons: [] }
+    map.set(canon, row)
+  } else {
+    row.fccId = preferDisplayFcc(row.fccId, display)
   }
   return row
 }
@@ -66,6 +82,19 @@ function addScore(row: FccRankedCandidate, points: number, reason: string): void
   if (points === 0) return
   row.score += points
   if (!row.reasons.includes(reason)) row.reasons.push(reason)
+}
+
+/** Highest-scoring ranked FCC that matches any of the given ID spellings. */
+function pickBestMatchingFcc(
+  ranked: FccRankedCandidate[],
+  fccIds: string[]
+): string | null {
+  const want = fccIds.map((id) => canonicalFccMatchKey(id)).filter(Boolean)
+  if (want.length === 0) return null
+  for (const candidate of ranked) {
+    if (want.includes(canonicalFccMatchKey(candidate.fccId))) return candidate.fccId
+  }
+  return sanitizeFccIdInput(fccIds[0] ?? "") || null
 }
 
 function isSmartModulation(modulation: string | null | undefined): boolean {
@@ -122,8 +151,8 @@ export function extractButtonCountFromTitle(title: string): number | null {
 }
 
 function bestTiForFcc(tiHits: FccResolveTiHit[], fccId: string): FccResolveTiHit | null {
-  const want = sanitizeFccIdInput(fccId)
-  const matches = tiHits.filter((hit) => sanitizeFccIdInput(hit.fccId) === want)
+  const want = canonicalFccMatchKey(fccId)
+  const matches = tiHits.filter((hit) => canonicalFccMatchKey(hit.fccId) === want)
   if (matches.length === 0) return null
   matches.sort((a, b) => {
     const aAfter = isTiAftermarketSku(a.tiSku, a.title) ? 1 : 0
@@ -156,7 +185,7 @@ function labelForFcc(
           : "key"
     return `${buttons}${style} · FCC ${fccId}`
   }
-  const profile = profiles.find((p) => sanitizeFccIdInput(p.fccId) === sanitizeFccIdInput(fccId))
+  const profile = profiles.find((p) => fccIdsMatch(p.fccId, fccId))
   if (profile && isSmartModulation(profile.modulation)) return `Smart / push-start · FCC ${fccId}`
   if (profile && isAskModulation(profile.modulation)) return `Turn-key / remote head · FCC ${fccId}`
   return `FCC ${fccId}`
@@ -171,24 +200,51 @@ function keyStyleForFcc(
   if (ti && /smart|prox/i.test(ti.title)) return "Push start (smart key)"
   if (ti && /flip/i.test(ti.title)) return "Flip key"
   if (ti && /remote\s*head/i.test(ti.title)) return "Remote head key"
-  const profile = profiles.find((p) => sanitizeFccIdInput(p.fccId) === sanitizeFccIdInput(fccId))
+  const profile = profiles.find((p) => fccIdsMatch(p.fccId, fccId))
   if (profile && isSmartModulation(profile.modulation)) return "Push start (smart key)"
   if (profile && isAskModulation(profile.modulation)) return "Remote head key"
   return undefined
 }
 
-/** Label an FCC option with which source(s) listed it (CSV vs TI). */
+/** Label an FCC option with which source(s) listed it (CSV vs TI). Sets hold canonical keys. */
 function sourceLabelForFcc(
   fccId: string,
   csvFccs: Set<string>,
   tiFccs: Set<string>
 ): string {
-  const inCsv = csvFccs.has(fccId)
-  const inTi = tiFccs.has(fccId)
+  const key = canonicalFccMatchKey(fccId)
+  const inCsv = csvFccs.has(key)
+  const inTi = tiFccs.has(key)
   if (inCsv && inTi) return `Agreed FCC ${fccId}`
   if (inCsv) return `Reference FCC ${fccId}`
   if (inTi) return `TI catalog FCC ${fccId}`
   return `FCC ${fccId}`
+}
+
+/**
+ * Pick options for a source conflict — never bury the turn-key FCC under TI-only smart keys.
+ * Always include the best ASK / turn-key candidate when the reference CSV has one.
+ */
+function pickSourceConflictCandidates(
+  ranked: FccRankedCandidate[],
+  profiles: FccResolveProfile[]
+): FccRankedCandidate[] {
+  const top = ranked.slice(0, 4)
+  const turnFccIds = profiles
+    .filter((p) => isAskModulation(p.modulation))
+    .map((p) => p.fccId)
+  if (turnFccIds.length === 0) return top
+
+  const turnCandidate =
+    ranked.find((row) => turnFccIds.some((id) => fccIdsMatch(id, row.fccId))) ?? null
+  if (!turnCandidate) return top
+  if (top.some((row) => fccIdsMatch(row.fccId, turnCandidate.fccId))) return top
+
+  // Replace the lowest-scored smart slot so turn-key stays visible.
+  const next = [...top]
+  if (next.length >= 4) next[next.length - 1] = turnCandidate
+  else next.push(turnCandidate)
+  return next
 }
 
 /** Ask when CSV and TI list different FCC IDs for the same vehicle. */
@@ -199,23 +255,85 @@ function buildSourceConflictClarification(
   csvFccs: Set<string>,
   tiFccs: Set<string>
 ): VehicleClarificationPrompt {
-  const top = ranked.slice(0, 4)
+  const top = pickSourceConflictCandidates(ranked, profiles)
   return {
     id: "fcc-source-conflict",
     question: "Which FCC ID matches the customer's key?",
     askScript:
-      "Our reference database and Transponder Island list different FCC IDs — check the sticker on the customer's key or remote.",
+      "Our reference database and Transponder Island list different FCC IDs — check the sticker on the customer's key or remote. For turn-key F-150s, look for the flip / remote-head FCC (often N5F-A08TAA), not a smart fob.",
     options: top.map((candidate) => {
       const ti = bestTiForFcc(tiHits, candidate.fccId)
+      const style = keyStyleForFcc(candidate.fccId, profiles, tiHits)
+      const source = sourceLabelForFcc(candidate.fccId, csvFccs, tiFccs)
+      // Style-first label so dispatchers are not staring at raw "TI catalog FCC …" smart IDs.
+      const label = style ? `${style} · ${candidate.fccId}` : source
       return {
         id: `fcc-source-${candidate.fccId}`,
-        label: sourceLabelForFcc(candidate.fccId, csvFccs, tiFccs),
+        label,
         fccId: candidate.fccId,
         tiSku: ti?.tiSku,
-        keyStyle: keyStyleForFcc(candidate.fccId, profiles, tiHits),
-        note: `Customer matched ${sourceLabelForFcc(candidate.fccId, csvFccs, tiFccs)}`,
+        keyStyle: style,
+        note: `Customer matched ${label}`,
       }
     }),
+  }
+}
+
+/** Push vs turn-key using full CSV profiles (not only TI∩CSV agreed smart keys). */
+function buildIgnitionStyleClarification(
+  ranked: FccRankedCandidate[],
+  profiles: FccResolveProfile[],
+  tiHits: FccResolveTiHit[]
+): VehicleClarificationPrompt {
+  const smartFcc =
+    pickBestMatchingFcc(
+      ranked,
+      profiles.filter((p) => isSmartModulation(p.modulation)).map((p) => p.fccId)
+    ) ??
+    pickBestMatchingFcc(
+      ranked,
+      tiHits.filter((h) => tiTitleLooksSmart(h.title)).map((h) => h.fccId)
+    )
+  const turnFcc =
+    pickBestMatchingFcc(
+      ranked,
+      profiles.filter((p) => isAskModulation(p.modulation)).map((p) => p.fccId)
+    ) ??
+    pickBestMatchingFcc(
+      ranked,
+      tiHits.filter((h) => tiTitleLooksTurnKey(h.title)).map((h) => h.fccId)
+    )
+
+  const smartTi = smartFcc ? bestTiForFcc(tiHits, smartFcc) : null
+  const turnTi = turnFcc ? bestTiForFcc(tiHits, turnFcc) : null
+
+  return {
+    id: "multiple-fcc-ignition",
+    question: "Push-button or turn-key?",
+    askScript:
+      "This year can use different keys — does it have push-button start or a regular turn-key?",
+    options: [
+      {
+        id: "multi-fcc-push",
+        label: "Push-button / smart key",
+        fccId: smartFcc ?? undefined,
+        tiSku: smartTi?.tiSku,
+        keyStyle: "Push start (smart key)",
+        note: smartFcc
+          ? `Customer confirmed push-button smart key (FCC ${smartFcc})`
+          : "Customer confirmed push-button smart key",
+      },
+      {
+        id: "multi-fcc-turn-key",
+        label: "Turn-key / remote head key",
+        fccId: turnFcc ?? undefined,
+        tiSku: turnTi?.tiSku,
+        keyStyle: "Remote head key",
+        note: turnFcc
+          ? `Customer confirmed turn-key remote head (FCC ${turnFcc})`
+          : "Customer confirmed turn-key remote head",
+      },
+    ],
   }
 }
 
@@ -233,9 +351,7 @@ function buildFccClarification(
     const ti = bestTiForFcc(tiHits, candidate.fccId)
     const fromTi =
       ti && ti.buttonCount > 0 ? ti.buttonCount : ti ? extractButtonCountFromTitle(ti.title) : null
-    const profile = profiles.find(
-      (p) => sanitizeFccIdInput(p.fccId) === sanitizeFccIdInput(candidate.fccId)
-    )
+    const profile = profiles.find((p) => fccIdsMatch(p.fccId, candidate.fccId))
     const fromVariants = profile?.buttonCountsFromVariants?.find((n) => n > 0) ?? null
     const buttons = fromTi ?? fromVariants
     if (buttons != null && buttons > 0 && !buttonsToFcc.has(buttons)) {
@@ -267,43 +383,8 @@ function buildFccClarification(
   }
 
   // --- Discriminator 2: push-start vs turn-key (modulation) ---
-  const smart = top.filter((c) => {
-    const p = profiles.find((row) => sanitizeFccIdInput(row.fccId) === c.fccId)
-    return p && isSmartModulation(p.modulation)
-  })
-  const turnKey = top.filter((c) => {
-    const p = profiles.find((row) => sanitizeFccIdInput(row.fccId) === c.fccId)
-    return p && isAskModulation(p.modulation)
-  })
-  if (smart.length > 0 && turnKey.length > 0) {
-    const smartFcc = smart[0]!.fccId
-    const turnFcc = turnKey[0]!.fccId
-    const smartTi = bestTiForFcc(tiHits, smartFcc)
-    const turnTi = bestTiForFcc(tiHits, turnFcc)
-    return {
-      id: "multiple-fcc-ignition",
-      question: "Push-button or turn-key?",
-      askScript:
-        "This year can use different keys — does it have push-button start or a regular turn-key?",
-      options: [
-        {
-          id: "multi-fcc-push",
-          label: "Push-button / smart key",
-          fccId: smartFcc,
-          tiSku: smartTi?.tiSku,
-          keyStyle: "Push start (smart key)",
-          note: `Customer confirmed push-button smart key (FCC ${smartFcc})`,
-        },
-        {
-          id: "multi-fcc-turn-key",
-          label: "Turn-key / remote head key",
-          fccId: turnFcc,
-          tiSku: turnTi?.tiSku,
-          keyStyle: "Remote head key",
-          note: `Customer confirmed turn-key remote head (FCC ${turnFcc})`,
-        },
-      ],
-    }
+  if (needsIgnitionStyleClarification(profiles, tiHits)) {
+    return buildIgnitionStyleClarification(ranked, profiles, tiHits)
   }
 
   // --- Discriminator 3: trunk vs hatch on TI titles ---
@@ -312,13 +393,17 @@ function buildFccClarification(
   for (const hit of tiHits) {
     const id = sanitizeFccIdInput(hit.fccId)
     if (!id) continue
-    if (!top.some((c) => c.fccId === id)) continue
-    if (/trunk/i.test(hit.title)) trunkFccs.add(id)
-    if (/hatch/i.test(hit.title)) hatchFccs.add(id)
+    if (!top.some((c) => fccIdsMatch(c.fccId, id))) continue
+    if (/trunk/i.test(hit.title)) trunkFccs.add(canonicalFccMatchKey(id))
+    if (/hatch/i.test(hit.title)) hatchFccs.add(canonicalFccMatchKey(id))
   }
   if (trunkFccs.size > 0 && hatchFccs.size > 0) {
-    const trunkFcc = [...trunkFccs][0]!
-    const hatchFcc = [...hatchFccs][0]!
+    const trunkFcc =
+      ranked.find((c) => trunkFccs.has(canonicalFccMatchKey(c.fccId)))?.fccId ??
+      [...trunkFccs][0]!
+    const hatchFcc =
+      ranked.find((c) => hatchFccs.has(canonicalFccMatchKey(c.fccId)))?.fccId ??
+      [...hatchFccs][0]!
     return {
       id: "fcc-trunk-or-hatch",
       question: "Trunk or hatch button?",
@@ -377,7 +462,7 @@ export function resolveVehicleKeyFcc(input: {
   for (const profile of input.profiles) {
     const fccId = sanitizeFccIdInput(profile.fccId)
     if (!fccId) continue
-    csvFccs.add(fccId)
+    csvFccs.add(canonicalFccMatchKey(fccId))
     const row = ensureCandidate(byFcc, fccId)
     addScore(row, 10, "in reference database")
     const variants = profile.variantCount ?? 0
@@ -389,7 +474,7 @@ export function resolveVehicleKeyFcc(input: {
   for (const hit of input.tiHits) {
     const fccId = sanitizeFccIdInput(hit.fccId)
     if (!fccId) continue
-    tiFccs.add(fccId)
+    tiFccs.add(canonicalFccMatchKey(fccId))
     const row = ensureCandidate(byFcc, fccId)
     addScore(row, 45, "listed on Transponder Island for this vehicle")
     if (isTiAftermarketSku(hit.tiSku, hit.title)) {
@@ -401,9 +486,11 @@ export function resolveVehicleKeyFcc(input: {
 
   const bothSources = csvFccs.size > 0 && tiFccs.size > 0
   if (bothSources) {
-    for (const fccId of csvFccs) {
-      if (!tiFccs.has(fccId)) continue
-      addScore(ensureCandidate(byFcc, fccId), 40, "CSV and TI agree on FCC")
+    for (const fccKey of csvFccs) {
+      if (!tiFccs.has(fccKey)) continue
+      // Re-score the merged candidate (row already exists under this canon key).
+      const existing = byFcc.get(fccKey)
+      if (existing) addScore(existing, 40, "CSV and TI agree on FCC")
     }
   }
 
@@ -462,10 +549,31 @@ export function resolveVehicleKeyFcc(input: {
     }
   }
 
-  // Dual-source: only auto-pick from the CSV ∩ TI intersection.
+  // Dual-source: only auto-pick from the CSV ∩ TI intersection (canonical FCC keys).
   const agreed = bothSources
-    ? rankedAll.filter((row) => csvFccs.has(row.fccId) && tiFccs.has(row.fccId))
+    ? rankedAll.filter(
+        (row) =>
+          csvFccs.has(canonicalFccMatchKey(row.fccId)) &&
+          tiFccs.has(canonicalFccMatchKey(row.fccId))
+      )
     : rankedAll
+
+  // Push vs turn must win over source-conflict / button-count.
+  // Otherwise TI-only smart spellings bury the CSV turn-key (2018 F-150 N5FA08TAA).
+  if (needsIgnitionStyleClarification(input.profiles, input.tiHits)) {
+    return {
+      resolvedFccId: null,
+      confidence: "low",
+      ranked: rankedAll,
+      clarification: buildIgnitionStyleClarification(
+        rankedAll,
+        input.profiles,
+        input.tiHits
+      ),
+      preferredTiSku: null,
+      needsClarification: true,
+    }
+  }
 
   if (bothSources && agreed.length === 0) {
     return {
@@ -498,18 +606,6 @@ export function resolveVehicleKeyFcc(input: {
     }
   }
 
-  // Push vs turn still open (e.g. 2018 Sentra ASK + FSK) — never auto-pick smart.
-  if (needsIgnitionStyleClarification(input.profiles, input.tiHits)) {
-    return {
-      resolvedFccId: null,
-      confidence: "low",
-      ranked: rankedAll,
-      clarification: buildFccClarification(ranked, input.profiles, input.tiHits),
-      preferredTiSku: null,
-      needsClarification: true,
-    }
-  }
-
   // All aftermarket TI hits agree on one FCC → trust only when that FCC is allowed.
   const aftermarketFccs = [
     ...new Set(
@@ -522,9 +618,12 @@ export function resolveVehicleKeyFcc(input: {
   if (aftermarketFccs.length === 1) {
     const fccId = aftermarketFccs[0]!
     // When both sources exist, aftermarket must also appear in the CSV.
-    if (!bothSources || csvFccs.has(fccId)) {
+    if (!bothSources || csvFccs.has(canonicalFccMatchKey(fccId))) {
       return {
-        resolvedFccId: fccId,
+        resolvedFccId: preferDisplayFcc(
+          byFcc.get(canonicalFccMatchKey(fccId))?.fccId ?? fccId,
+          fccId
+        ),
         confidence: "high",
         ranked: rankedAll,
         clarification: null,
@@ -677,13 +776,13 @@ export function fccCandidatesAreOrderEquivalent(
 export function orderTiCatalogByPreferredFcc<
   T extends { fccId: string; tiSku: string; title: string; score: number },
 >(hits: T[], preferredFccId: string | null | undefined, strict = false): T[] {
-  const want = preferredFccId ? sanitizeFccIdInput(preferredFccId) : ""
+  const want = preferredFccId ? canonicalFccMatchKey(preferredFccId) : ""
   if (!want || hits.length === 0) return hits
 
-  const matching = hits.filter((hit) => sanitizeFccIdInput(hit.fccId) === want)
+  const matching = hits.filter((hit) => canonicalFccMatchKey(hit.fccId) === want)
   if (matching.length === 0) return hits
   if (strict) return matching
 
-  const rest = hits.filter((hit) => sanitizeFccIdInput(hit.fccId) !== want)
+  const rest = hits.filter((hit) => canonicalFccMatchKey(hit.fccId) !== want)
   return [...matching, ...rest]
 }

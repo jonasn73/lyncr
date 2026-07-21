@@ -5,6 +5,28 @@ export function sanitizeFccIdInput(raw: string): string {
   return raw.trim().replace(/[^a-zA-Z0-9]+/g, "").toUpperCase()
 }
 
+/**
+ * Strip trailing "00" pairs so TI `M3NA2C931423` matches CSV `M3NA2C93142300`.
+ * Ford Conti remotes often publish the same FCC with or without trailing zeros.
+ */
+export function canonicalFccMatchKey(raw: string): string {
+  const clean = sanitizeFccIdInput(raw)
+  if (!clean) return ""
+  let key = clean
+  // Keep a meaningful stem (at least 6 chars) while peeling trailing 00 pairs.
+  while (key.length > 6 && /00$/.test(key)) {
+    key = key.slice(0, -2)
+  }
+  return key
+}
+
+/** True when two FCC strings refer to the same remote (ignoring hyphens / trailing 00). */
+export function fccIdsMatch(a: string, b: string): boolean {
+  const left = canonicalFccMatchKey(a)
+  const right = canonicalFccMatchKey(b)
+  return Boolean(left && right && left === right)
+}
+
 export type ManualKeyFrequencyOption = {
   id: string
   label: string

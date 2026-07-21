@@ -234,7 +234,12 @@ export function VehicleIntakeClarificationsPanel({
                         : "border-amber-500/40 bg-background hover:border-primary hover:bg-primary/10 hover:text-primary"
                     )}
                   >
-                    {option.label}
+                    <span className="block">{option.label}</span>
+                    {option.keyStyle && !option.label.toLowerCase().includes(option.keyStyle.toLowerCase()) ? (
+                      <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                        {option.keyStyle}
+                      </span>
+                    ) : null}
                   </button>
                 )
               })}

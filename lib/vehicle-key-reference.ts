@@ -3,7 +3,7 @@
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
+import { canonicalFccMatchKey, sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { isVehicleYearMakeModelValid } from "@/lib/vehicle-model-year-ranges"
 
 export type VehicleKeyProfile = {
@@ -329,18 +329,20 @@ export function fccGovSearchUrl(fccId: string): string {
   return `https://fccid.io/${encodeURIComponent(clean)}`
 }
 
-/** Normalize FCC IDs so `N5F-A08TAA` and `N5FA08TAA` match the same reference rows. */
+/** Normalize FCC IDs so `N5F-A08TAA` / `N5FA08TAA` and trailing-00 variants match. */
 export function normalizeFccIdForMatch(raw: string): string {
-  return sanitizeFccIdInput(raw)
+  return canonicalFccMatchKey(raw)
 }
 
 export type VehicleKeyLookupSource = "fcc" | "ymm" | "ymm_fallback"
 
 /** All reference rows sharing a sanitized FCC ID (any vehicle). */
 export function lookupProfilesByFccId(fccIdRaw: string): VehicleKeyProfile[] {
-  const key = sanitizeFccIdInput(fccIdRaw)
+  const key = canonicalFccMatchKey(fccIdRaw)
   if (!key) return []
-  return dedupeProfiles(loadProfiles().filter((row) => sanitizeFccIdInput(row.fcc_id) === key))
+  return dedupeProfiles(
+    loadProfiles().filter((row) => canonicalFccMatchKey(row.fcc_id) === key)
+  )
 }
 
 /**

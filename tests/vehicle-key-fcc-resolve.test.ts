@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest"
+import { canonicalFccMatchKey, fccIdsMatch } from "@/lib/fcc-id-input"
 import {
   extractButtonCountFromTitle,
   orderTiCatalogByPreferredFcc,
   resolveVehicleKeyFcc,
 } from "@/lib/vehicle-key-fcc-resolve"
+
+describe("canonicalFccMatchKey", () => {
+  it("treats Ford Conti trailing-00 variants as the same FCC", () => {
+    expect(canonicalFccMatchKey("M3N-A2C93142300")).toBe("M3NA2C931423")
+    expect(canonicalFccMatchKey("M3NA2C931423")).toBe("M3NA2C931423")
+    expect(fccIdsMatch("M3N-A2C931426", "M3NA2C93142600")).toBe(true)
+    expect(fccIdsMatch("M3NA2C931423", "M3NA2C931426")).toBe(false)
+  })
+})
 
 describe("extractButtonCountFromTitle", () => {
   it("reads 3B and 5-Button styles", () => {
@@ -222,6 +232,61 @@ describe("resolveVehicleKeyFcc", () => {
     expect(result.resolvedFccId).toBeNull()
     expect(result.clarification?.id).toBe("multiple-fcc-ignition")
   })
+
+  it("asks push vs turn for 2018 F-150 when TI omits trailing 00 and buries flip-key FCC", () => {
+    // Production bug: TI lists M3N-A2C931423 (no 00); CSV has M3NA2C93142300 + N5FA08TAA.
+    // Without canonical match, source-conflict showed only TI smart keys.
+    const result = resolveVehicleKeyFcc({
+      profiles: [
+        { fccId: "M3NA2C93142300", frequency: "314.95", modulation: "FSK", variantCount: 2 },
+        { fccId: "M3NA2C93142600", frequency: "902.375/903.425", modulation: "FSK", variantCount: 2 },
+        { fccId: "N5FA08TAA", frequency: "314.95", modulation: "ASK", variantCount: 3 },
+        { fccId: "N5FA08TDA", frequency: "902.375/903.425", modulation: "FSK", variantCount: 1 },
+      ],
+      tiHits: [
+        {
+          fccId: "M3NA2C931426",
+          tiSku: "TIK-FOR-101A",
+          title: "2018 - 2026 Ford Lincoln Smart Key 5B Hatch / Starter - AFTERMARKET",
+          buttonCount: 5,
+          frequency: "902 MHz",
+          score: 200,
+        },
+        {
+          fccId: "M3NA2C931423",
+          tiSku: "TIK-FOR-108A",
+          title: "2018 - 2026 Ford Smart Key 4B Hatch - AFTERMARKET",
+          buttonCount: 4,
+          frequency: "315 MHz",
+          score: 190,
+        },
+        {
+          fccId: "M3N5WY8609",
+          tiSku: "TIK-FOR-32A",
+          title: "2011 - 2019 Ford Smart Key W/O Hatchback - AFTERMARKET",
+          buttonCount: 4,
+          frequency: "315 MHz",
+          score: 120,
+        },
+        {
+          fccId: "M3NA2C31243300",
+          tiSku: "TIK-FOR-66A",
+          title: "2015 - 2017 Ford F-150 2 Way Smart Key 5B - AFTERMARKET",
+          buttonCount: 5,
+          frequency: "902 MHz",
+          score: 110,
+        },
+      ],
+    })
+    expect(result.needsClarification).toBe(true)
+    expect(result.clarification?.id).toBe("multiple-fcc-ignition")
+    const turn = result.clarification?.options.find((o) => o.id === "multi-fcc-turn-key")
+    expect(turn?.fccId).toBe("N5FA08TAA")
+    expect(turn?.keyStyle).toMatch(/remote head|turn/i)
+    // Merged TI+CSV smart ID should prefer the longer CSV display form.
+    const push = result.clarification?.options.find((o) => o.id === "multi-fcc-push")
+    expect(push?.fccId).toMatch(/^M3NA2C93142/)
+  })
 })
 
 describe("orderTiCatalogByPreferredFcc", () => {
@@ -239,5 +304,14 @@ describe("orderTiCatalogByPreferredFcc", () => {
   it("strict mode keeps only the preferred FCC", () => {
     const ordered = orderTiCatalogByPreferredFcc(hits, "AAA111", true)
     expect(ordered.map((h) => h.fccId)).toEqual(["AAA111"])
+  })
+
+  it("matches preferred FCC when TI omits trailing 00", () => {
+    const fordHits = [
+      { fccId: "M3NA2C931423", tiSku: "TIK-A", title: "Smart", score: 1 },
+      { fccId: "OTHER", tiSku: "TIK-B", title: "Other", score: 1 },
+    ]
+    const ordered = orderTiCatalogByPreferredFcc(fordHits, "M3NA2C93142300", true)
+    expect(ordered.map((h) => h.fccId)).toEqual(["M3NA2C931423"])
   })
 })

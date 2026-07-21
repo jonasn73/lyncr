@@ -1,7 +1,7 @@
 // Client-safe Transponder Island catalog helpers (no Neon / server imports).
 // Matching + card shaping for Key Details; DB fetch lives in ti-supplier-catalog.ts.
 
-import { sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
+import { fccIdsMatch, sanitizeFccIdInput, type ManualKeyFrequencyOption } from "@/lib/fcc-id-input"
 import { isVehicleYearMakeModelValid } from "@/lib/vehicle-model-year-ranges"
 
 /** One row from the shared TI scrape table. */
@@ -580,7 +580,8 @@ export function filterTiCatalogForClarification<
   if (!hits.length) return hits
   const wantFcc = fccId ? sanitizeFccIdInput(fccId) : ""
   if (wantFcc) {
-    const byFcc = hits.filter((hit) => sanitizeFccIdInput(hit.fccId) === wantFcc)
+    // Match TI `M3NA2C931423` to CSV `M3NA2C93142300` (trailing 00 variants).
+    const byFcc = hits.filter((hit) => fccIdsMatch(hit.fccId, wantFcc))
     if (byFcc.length > 0) return byFcc
   }
   if (keyStyle?.trim()) {
