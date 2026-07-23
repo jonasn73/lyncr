@@ -18,6 +18,13 @@ import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
+import {
+  formatPaymentCatchError,
+  formatStripeCardFailure,
+  isStripeLivePublishableKey,
+  isStripeTestPublishableKey,
+  tapToPayNoReaderMessage,
+} from "@/lib/stripe-payment-errors"
 
 type Line = { id: string; label: string; amount: string }
 type PayMethod = "tap" | "card" | "cash"
@@ -166,27 +173,45 @@ export function TechPaymentModal(props: {
         },
       })
 
-      // Prefer a real reader; fall back to Stripe's simulated reader (test mode).
+      // Live keys must use a real reader — simulated readers only work with pk_test_…
+      const pk = intent.publishableKey
+      const liveMode = isStripeLivePublishableKey(pk)
+      const allowSimulator = isStripeTestPublishableKey(pk)
+
       let discover = await terminal.discoverReaders({ simulated: false })
-      if ("error" in discover || !("discoveredReaders" in discover) || !discover.discoveredReaders?.length) {
+      const noRealReader =
+        "error" in discover ||
+        !("discoveredReaders" in discover) ||
+        !discover.discoveredReaders?.length
+      if (noRealReader && allowSimulator && !liveMode) {
         discover = await terminal.discoverReaders({ simulated: true })
       }
-      if ("error" in discover) throw new Error(discover.error.message)
+      if ("error" in discover) {
+        throw new Error(formatPaymentCatchError(discover.error, "Could not find a tap reader."))
+      }
       const reader = discover.discoveredReaders?.[0]
       if (!reader) {
-        throw new Error(
-          "No NFC reader available in this browser. Use Manual Card Entry, or open Tap to Pay in the native tech app on a supported phone."
-        )
+        throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
       }
 
       const connected = await terminal.connectReader(reader)
-      if ("error" in connected) throw new Error(connected.error.message)
+      if ("error" in connected) {
+        throw new Error(formatPaymentCatchError(connected.error, "Could not connect to the reader."))
+      }
 
       const collected = await terminal.collectPaymentMethod(intent.clientSecret)
-      if ("error" in collected) throw new Error(collected.error.message)
+      if ("error" in collected) {
+        throw new Error(
+          formatPaymentCatchError(collected.error, "Customer didn’t complete the tap. Try again.")
+        )
+      }
 
       const processed = await terminal.processPayment(collected.paymentIntent)
-      if ("error" in processed) throw new Error(processed.error.message)
+      if ("error" in processed) {
+        throw new Error(
+          formatPaymentCatchError(processed.error, "Tap charge failed — try Manual Card Entry.")
+        )
+      }
 
       const piId = String(processed.paymentIntent?.id || intent.paymentIntentId || "")
       if (piId) await confirmServer(piId)
@@ -209,7 +234,7 @@ export function TechPaymentModal(props: {
       setDone(true)
       setTimeout(props.onCompleted, 900)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Tap to Pay failed")
+      setError(formatPaymentCatchError(e, "Tap to Pay failed — try Manual Card Entry."))
       setMethod(null)
     } finally {
       setTapListening(false)
@@ -229,7 +254,7 @@ export function TechPaymentModal(props: {
     try {
       await createIntent("MANUAL_CARD")
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start card payment")
+      setError(formatPaymentCatchError(e, "Could not start card payment — try again."))
       setMethod(null)
     } finally {
       setBusy(false)
@@ -445,9 +470,10 @@ export function TechPaymentModal(props: {
               ) : null}
 
               {error ? (
-                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                  {error}
-                </p>
+                <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
+                  <p className="text-sm font-semibold text-red-200">Payment didn’t go through</p>
+                  <p className="mt-0.5 text-sm leading-snug text-red-300/95">{error}</p>
+                </div>
               ) : null}
             </div>
           </>
@@ -523,7 +549,19 @@ function ManualCardForm(props: {
         },
       })
       if (error) {
-        props.onError(error.message || "Card payment failed")
+        props.onError(
+          formatStripeCardFailure(error, "Card was declined — try another card.")
+        )
+        return
+      }
+      if (
+        paymentIntent &&
+        paymentIntent.status !== "succeeded" &&
+        paymentIntent.status !== "requires_capture"
+      ) {
+        props.onError(
+          `Payment not completed (status: ${paymentIntent.status}). Ask the customer to finish bank verification, or try another card.`
+        )
         return
       }
       const piId = paymentIntent?.id || props.paymentIntentId
@@ -536,7 +574,10 @@ function ManualCardForm(props: {
         })
         if (!res.ok) {
           const json = (await res.json()) as { error?: string }
-          throw new Error(json.error || "Could not confirm payment")
+          throw new Error(
+            json.error ||
+              "Card charged, but Lyncr could not confirm it yet. Check Stripe before retrying."
+          )
         }
       }
       await fetch("/api/tech/invoice", {
@@ -554,7 +595,7 @@ function ManualCardForm(props: {
       }).catch(() => {})
       props.onSuccess()
     } catch (err) {
-      props.onError(err instanceof Error ? err.message : "Card payment failed")
+      props.onError(formatPaymentCatchError(err, "Card payment failed — try another card."))
     } finally {
       setSubmitting(false)
     }

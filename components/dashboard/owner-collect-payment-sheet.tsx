@@ -12,6 +12,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
+import {
+  formatPaymentCatchError,
+  formatStripeCardFailure,
+  isStripeLivePublishableKey,
+  isStripeTestPublishableKey,
+  tapToPayNoReaderMessage,
+} from "@/lib/stripe-payment-errors"
 import { useToast } from "@/hooks/use-toast"
 
 const TechPaymentModal = dynamic(
@@ -63,26 +70,47 @@ function AdhocCardForm({
     setError(null)
     try {
       const { error: submitError } = await elements.submit()
-      if (submitError) throw new Error(submitError.message || "Check card details")
+      if (submitError) {
+        throw new Error(
+          formatStripeCardFailure(submitError, "Check the card details and try again.")
+        )
+      }
       const result = await stripe.confirmPayment({
         elements,
         redirect: "if_required",
       })
-      if (result.error) throw new Error(result.error.message || "Payment failed")
+      if (result.error) {
+        throw new Error(
+          formatStripeCardFailure(result.error, "Card was declined — try another card.")
+        )
+      }
       const pi = result.paymentIntent
+      // Requires_action without a final success (rare when redirect: if_required)
+      if (pi && pi.status !== "succeeded" && pi.status !== "requires_capture") {
+        throw new Error(
+          `Payment not completed (status: ${pi.status}). Ask the customer to approve the bank prompt, or try another card.`
+        )
+      }
       if (pi?.id) {
-        await fetch("/api/payments/confirm", {
+        const confirmRes = await fetch("/api/payments/confirm", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentIntentId: pi.id }),
-        }).catch(() => null)
+        })
+        if (!confirmRes.ok) {
+          const json = (await confirmRes.json().catch(() => ({}))) as { error?: string }
+          throw new Error(
+            json.error ||
+              "Card charged, but Lyncr could not confirm it yet. Check Stripe Dashboard before retrying."
+          )
+        }
         onDone(pi.id)
         return
       }
-      throw new Error("Payment succeeded but no payment id was returned")
+      throw new Error("Payment finished but Stripe did not return a payment id. Check Stripe Dashboard.")
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Payment failed")
+      setError(formatPaymentCatchError(e, "Card payment failed — try another card."))
     } finally {
       setBusy(false)
     }
@@ -95,7 +123,12 @@ function AdhocCardForm({
           wallets: { applePay: "auto", googlePay: "auto" },
         }}
       />
-      {error ? <p className="text-xs text-rose-400">{error}</p> : null}
+      {error ? (
+        <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
+          <p className="text-xs font-semibold text-rose-300">Payment didn’t go through</p>
+          <p className="mt-0.5 text-xs leading-snug text-rose-200/90">{error}</p>
+        </div>
+      ) : null}
       <div className="flex gap-2">
         <button
           type="button"
@@ -298,7 +331,7 @@ export function OwnerCollectPaymentSheet({
     } catch (e) {
       toast({
         title: "Could not start payment",
-        description: e instanceof Error ? e.message : "Try again.",
+        description: formatPaymentCatchError(e, "Try again in a moment."),
         variant: "destructive",
       })
     } finally {
@@ -341,6 +374,11 @@ export function OwnerCollectPaymentSheet({
       const secret = json.data?.clientSecret
       if (!secret) throw new Error("No client_secret returned")
 
+      // Live vs test — only test mode may use Stripe’s fake “simulated” reader.
+      const pk = json.data?.publishableKey ?? publishableKey
+      const liveMode = isStripeLivePublishableKey(pk)
+      const allowSimulator = isStripeTestPublishableKey(pk)
+
       const StripeTerminal = await loadStripeTerminal()
       if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
 
@@ -362,7 +400,7 @@ export function OwnerCollectPaymentSheet({
         onUnexpectedReaderDisconnect: () => {
           toast({
             title: "Reader disconnected",
-            description: "Try again or use Card entry.",
+            description: "Try Tap again, or use Card / Apple Pay / Cash App.",
             variant: "destructive",
           })
           setTapListening(false)
@@ -370,29 +408,42 @@ export function OwnerCollectPaymentSheet({
       })
 
       let discover = await terminal.discoverReaders({ simulated: false })
-      if (
+      const noRealReader =
         "error" in discover ||
         !("discoveredReaders" in discover) ||
         !discover.discoveredReaders?.length
-      ) {
+
+      // Never fall back to the simulator on live keys (that caused the error you saw).
+      if (noRealReader && allowSimulator && !liveMode) {
         discover = await terminal.discoverReaders({ simulated: true })
       }
-      if ("error" in discover) throw new Error(discover.error.message)
+
+      if ("error" in discover) {
+        throw new Error(formatPaymentCatchError(discover.error, "Could not find a tap reader."))
+      }
       const reader = discover.discoveredReaders?.[0]
       if (!reader) {
-        throw new Error(
-          "No tap reader on this device. On iPhone, Tap to Pay needs the native app or Stripe Dashboard app. Use Card for now, or pair a Stripe reader."
-        )
+        throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
       }
 
       const connected = await terminal.connectReader(reader)
-      if ("error" in connected) throw new Error(connected.error.message)
+      if ("error" in connected) {
+        throw new Error(formatPaymentCatchError(connected.error, "Could not connect to the reader."))
+      }
 
       const collected = await terminal.collectPaymentMethod(secret)
-      if ("error" in collected) throw new Error(collected.error.message)
+      if ("error" in collected) {
+        throw new Error(
+          formatPaymentCatchError(collected.error, "Customer didn’t complete the tap. Try again.")
+        )
+      }
 
       const processed = await terminal.processPayment(collected.paymentIntent)
-      if ("error" in processed) throw new Error(processed.error.message)
+      if ("error" in processed) {
+        throw new Error(
+          formatPaymentCatchError(processed.error, "Tap charge failed — try Card entry.")
+        )
+      }
 
       const piId = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
       if (!piId) throw new Error("Payment succeeded but no payment id was returned")
@@ -408,7 +459,7 @@ export function OwnerCollectPaymentSheet({
     } catch (e) {
       toast({
         title: "Tap to Pay failed",
-        description: e instanceof Error ? e.message : "Try Card entry instead.",
+        description: formatPaymentCatchError(e, "Try Card / Apple Pay / Cash App instead."),
         variant: "destructive",
       })
     } finally {
@@ -830,8 +881,9 @@ export function OwnerCollectPaymentSheet({
                           Card / Apple Pay / Cash App
                         </button>
                         <p className="px-1 text-[11px] leading-snug text-slate-500">
-                          Tap to Pay uses this phone’s NFC (or a paired Stripe reader). Safari on
-                          iPhone may need the Stripe Dashboard app for phone-as-reader.
+                          Tap to Pay needs a real reader (Stripe Dashboard app on iPhone, or a paired
+                          Stripe reader). Desktop browsers can’t tap live cards — use Card / Apple
+                          Pay / Cash App instead.
                         </p>
                       </div>
                     )}
