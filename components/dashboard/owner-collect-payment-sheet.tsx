@@ -1,12 +1,13 @@
 "use client"
 
-// On-the-go Collect Payment — job pick OR walk-up (no job) card charge.
+// On-the-go Collect Payment — job pick OR walk-up (no job) card / Tap to Pay charge.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
-import { CreditCard, Loader2, MapPin, Plus, ArrowLeft } from "lucide-react"
+import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
+import { CreditCard, Loader2, MapPin, Plus, ArrowLeft, Nfc } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
@@ -87,7 +88,12 @@ function AdhocCardForm({
 
   return (
     <div className="space-y-3 px-1 pb-2">
-      <PaymentElement />
+      <PaymentElement
+        options={{
+          // Prefer Apple Pay / Google Pay when the phone browser supports them.
+          wallets: { applePay: "auto", googlePay: "auto" },
+        }}
+      />
       {error ? <p className="text-xs text-rose-400">{error}</p> : null}
       <div className="flex gap-2">
         <button
@@ -127,6 +133,7 @@ export function OwnerCollectPaymentSheet({
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
   const [adhocBusy, setAdhocBusy] = useState(false)
+  const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
 
@@ -137,6 +144,7 @@ export function OwnerCollectPaymentSheet({
     setClientSecret(null)
     setPublishableKey(null)
     setAdhocBusy(false)
+    setTapListening(false)
   }, [])
 
   const loadJobs = useCallback(() => {
@@ -178,9 +186,15 @@ export function OwnerCollectPaymentSheet({
     })
   }, [jobs])
 
-  async function startAdhocIntent() {
+  function parseAdhocDollars(): number | null {
     const dollars = parseFloat(adhocAmount)
-    if (!Number.isFinite(dollars) || dollars < 0.5) {
+    if (!Number.isFinite(dollars) || dollars < 0.5) return null
+    return dollars
+  }
+
+  async function startAdhocIntent() {
+    const dollars = parseAdhocDollars()
+    if (dollars == null) {
       toast({
         title: "Enter an amount",
         description: "Minimum is $0.50.",
@@ -218,6 +232,133 @@ export function OwnerCollectPaymentSheet({
       })
     } finally {
       setAdhocBusy(false)
+    }
+  }
+
+  /** Customer taps card / phone on this device (Stripe Terminal / Tap to Pay). */
+  async function runAdhocTapToPay() {
+    const dollars = parseAdhocDollars()
+    if (dollars == null) {
+      toast({
+        title: "Enter an amount",
+        description: "Minimum is $0.50.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setAdhocBusy(true)
+    setTapListening(true)
+    let terminal: Terminal | null = null
+    try {
+      const res = await fetch("/api/payments/create-intent", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adhoc: true,
+          amount: dollars,
+          paymentMethodType: "TAP_TO_PAY",
+          note: adhocNote.trim() || "Walk-up payment",
+        }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: {
+          clientSecret?: string
+          paymentIntentId?: string
+          publishableKey?: string | null
+        }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not start Tap to Pay")
+      const secret = json.data?.clientSecret
+      if (!secret) throw new Error("No client_secret returned")
+
+      const StripeTerminal = await loadStripeTerminal()
+      if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
+
+      terminal = StripeTerminal.create({
+        onFetchConnectionToken: async () => {
+          const tokenRes = await fetch("/api/payments/terminal/connection-token", {
+            method: "POST",
+            credentials: "include",
+          })
+          const tokenJson = (await tokenRes.json()) as {
+            data?: { secret?: string }
+            error?: string
+          }
+          if (!tokenRes.ok || !tokenJson.data?.secret) {
+            throw new Error(tokenJson.error || "Could not fetch Terminal connection token")
+          }
+          return tokenJson.data.secret
+        },
+        onUnexpectedReaderDisconnect: () => {
+          toast({
+            title: "Reader disconnected",
+            description: "Try again or use Card entry.",
+            variant: "destructive",
+          })
+          setTapListening(false)
+        },
+      })
+
+      // Real NFC/reader first; simulated reader for Stripe test mode in desktop browsers.
+      let discover = await terminal.discoverReaders({ simulated: false })
+      if (
+        "error" in discover ||
+        !("discoveredReaders" in discover) ||
+        !discover.discoveredReaders?.length
+      ) {
+        discover = await terminal.discoverReaders({ simulated: true })
+      }
+      if ("error" in discover) throw new Error(discover.error.message)
+      const reader = discover.discoveredReaders?.[0]
+      if (!reader) {
+        throw new Error(
+          "No tap reader on this device. On iPhone, Tap to Pay needs the native app or Stripe Dashboard app. Use Card for now, or pair a Stripe reader."
+        )
+      }
+
+      const connected = await terminal.connectReader(reader)
+      if ("error" in connected) throw new Error(connected.error.message)
+
+      const collected = await terminal.collectPaymentMethod(secret)
+      if ("error" in collected) throw new Error(collected.error.message)
+
+      const processed = await terminal.processPayment(collected.paymentIntent)
+      if ("error" in processed) throw new Error(processed.error.message)
+
+      const piId = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
+      if (piId) {
+        await fetch("/api/payments/confirm", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentIntentId: piId }),
+        }).catch(() => null)
+      }
+
+      resetAdhoc()
+      onOpenChange(false)
+      onCollected?.()
+      toast({
+        title: "Payment collected",
+        description: "Tap to Pay succeeded — header total updated.",
+      })
+    } catch (e) {
+      toast({
+        title: "Tap to Pay failed",
+        description: e instanceof Error ? e.message : "Try Card entry instead.",
+        variant: "destructive",
+      })
+    } finally {
+      setTapListening(false)
+      setAdhocBusy(false)
+      try {
+        await terminal?.disconnectReader()
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -262,7 +403,7 @@ export function OwnerCollectPaymentSheet({
                       New payment (no job)
                     </span>
                     <span className="block text-xs text-emerald-200/70">
-                      Walk-up / cash-out customer — enter any amount
+                      Walk-up — Tap to Pay or card
                     </span>
                   </span>
                 </button>
@@ -361,19 +502,46 @@ export function OwnerCollectPaymentSheet({
                         className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
                       />
                     </label>
-                    <button
-                      type="button"
-                      disabled={adhocBusy}
-                      onClick={() => void startAdhocIntent()}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                    >
-                      {adhocBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      ) : (
-                        <CreditCard className="h-4 w-4" aria-hidden />
-                      )}
-                      Continue to card
-                    </button>
+
+                    {tapListening ? (
+                      <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
+                        <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
+                        <p className="text-sm font-semibold text-emerald-100">Ready for tap</p>
+                        <p className="text-xs text-emerald-200/80">
+                          Hold the customer’s card or phone near this device…
+                        </p>
+                        <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
+                      </div>
+                    ) : (
+                      <div className="grid gap-2">
+                        <button
+                          type="button"
+                          disabled={adhocBusy}
+                          onClick={() => void runAdhocTapToPay()}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                        >
+                          {adhocBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          ) : (
+                            <Nfc className="h-4 w-4" aria-hidden />
+                          )}
+                          Tap to Pay
+                        </button>
+                        <button
+                          type="button"
+                          disabled={adhocBusy}
+                          onClick={() => void startAdhocIntent()}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 hover:border-emerald-500/40 hover:bg-zinc-800 disabled:opacity-50"
+                        >
+                          <CreditCard className="h-4 w-4" aria-hidden />
+                          Card / Apple Pay / Cash App
+                        </button>
+                        <p className="px-1 text-[11px] leading-snug text-slate-500">
+                          Tap to Pay uses this phone’s NFC (or a paired Stripe reader). Safari on
+                          iPhone may need the Stripe Dashboard app for phone-as-reader.
+                        </p>
+                      </div>
+                    )}
                   </>
                 ) : publishableKey ? (
                   <Elements

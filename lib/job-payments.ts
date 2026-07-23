@@ -201,11 +201,14 @@ export async function createJobPaymentIntent(params: {
   }
 
   const stripe = getStripeClient()
+  const isTap = params.walletMethod === "TAP_TO_PAY"
   const intent = await stripe.paymentIntents.create({
     amount: params.chargeCents,
     currency: "usd",
-    // Card + wallets (Apple Pay / Google Pay) via Payment Element — no Terminal required.
-    automatic_payment_methods: { enabled: true },
+    // Terminal / Tap to Pay needs card_present; Payment Element uses automatic methods.
+    ...(isTap
+      ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
+      : { automatic_payment_methods: { enabled: true } }),
     metadata: {
       lyncr_kind: "job_payment",
       job_id: params.job.jobId,
@@ -259,10 +262,13 @@ export async function createAdhocPaymentIntent(params: {
 
   const note = (params.note ?? "").trim().slice(0, 120) || "Walk-up payment"
   const stripe = getStripeClient()
+  const isTap = params.walletMethod === "TAP_TO_PAY"
   const intent = await stripe.paymentIntents.create({
     amount: params.chargeCents,
     currency: "usd",
-    automatic_payment_methods: { enabled: true },
+    ...(isTap
+      ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
+      : { automatic_payment_methods: { enabled: true } }),
     metadata: {
       lyncr_kind: "adhoc_payment",
       owner_user_id: params.ownerUserId,
