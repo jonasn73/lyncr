@@ -972,16 +972,24 @@ export function OwnerCollectPaymentSheet({
                     ? `Continue · charge tip ${fmtCents(selectedTipCents())}`
                     : "Continue"}
                 </button>
-                {selectedTipCents() >= 50 ? (
-                  <button
-                    type="button"
-                    disabled={slipBusy}
-                    onClick={() => void continueFromTipSign({ skipTipCharge: true })}
-                    className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
-                  >
-                    Skip tip card charge (record tip only)
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  disabled={slipBusy}
+                  onClick={() =>
+                    void continueFromTipSign({
+                      allowNoSignature: !signaturePng,
+                      // Secondary always skips a second tip swipe (record tip only / go to invoice).
+                      skipTipCharge: true,
+                    })
+                  }
+                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  {!signaturePng
+                    ? "Skip signature — send invoice"
+                    : selectedTipCents() >= 50
+                      ? "Skip tip card charge (record tip only)"
+                      : "Skip — send invoice"}
+                </button>
               </div>
             ) : mode === "tip_charge" ? (
               <div className="space-y-3">
