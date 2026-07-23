@@ -74,7 +74,7 @@ export function OrganizationSwitcherPlaceholder({
       aria-busy="true"
       aria-label="Loading business workspace"
       className={cn(
-        "h-9 w-full min-w-0 max-w-[min(100%,14rem)] gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
+        "h-9 w-full min-w-0 max-w-full gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
         className
       )}
     >
@@ -361,8 +361,8 @@ export function OrganizationSwitcher({
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             className={cn(
-              // relative z + touch-manipulation so the pill stays tappable on 375px Safari/Chrome
-              "relative z-20 h-9 w-full min-w-0 max-w-[min(100%,14rem)] touch-manipulation gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
+              // Stay inside the header center column — never paint over the logo.
+              "h-9 w-full min-w-0 max-w-full touch-manipulation gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
               className
             )}
           >

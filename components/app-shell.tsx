@@ -50,11 +50,12 @@ const AppShellHeader = memo(function AppShellHeader({
     <header
       className={cn(
         // Above map body / Leaflet chrome; notification popover portals at z-[9999].
-        "sticky top-0 z-50 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:grid-cols-[1fr_auto_1fr] sm:gap-2 sm:px-5 sm:py-3.5",
+        "sticky top-0 z-50 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:grid-cols-[1fr_auto_1fr] sm:gap-3 sm:px-5 sm:py-3.5",
         SHELL_ACRYLIC_SURFACE
       )}
     >
-      <div className="flex min-w-0 items-center justify-self-start">
+      {/* Logo stays above the workspace chip so a long business name never covers it. */}
+      <div className="relative z-30 flex shrink-0 items-center justify-self-start">
       {useLinks ? (
         <Link
           href="/dashboard"
@@ -82,14 +83,14 @@ const AppShellHeader = memo(function AppShellHeader({
       </div>
 
       {headerCenter ? (
-        <div className="relative z-20 flex min-w-0 justify-center justify-self-center pointer-events-auto px-1 sm:px-2">
+        <div className="relative z-10 flex min-w-0 max-w-full justify-center justify-self-center overflow-hidden pointer-events-auto px-0.5 sm:px-2">
           {headerCenter}
         </div>
       ) : (
         <div aria-hidden />
       )}
 
-      <div className="flex shrink-0 items-center justify-self-end gap-1 sm:gap-2">
+      <div className="relative z-20 flex shrink-0 items-center justify-self-end gap-1 sm:gap-2">
         {useLinks && (
           <>
             <Button

@@ -236,8 +236,8 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
   )
 
   return (
-    <div className="flex min-w-0 items-center justify-center gap-2">
-      {switcher}
+    <div className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
+      <div className="min-w-0 max-w-full flex-1 sm:flex-none">{switcher}</div>
       <DashboardBootstrapSyncIndicator />
     </div>
   )
