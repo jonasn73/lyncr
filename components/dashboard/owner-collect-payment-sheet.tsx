@@ -1,13 +1,13 @@
 "use client"
 
-// On-the-go Collect Payment — job pick OR walk-up (no job) card / Tap to Pay charge.
+// On-the-go Collect Payment — job pick OR walk-up charge, then optional invoice send.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
-import { CreditCard, Loader2, MapPin, Plus, ArrowLeft, Nfc } from "lucide-react"
+import { CreditCard, Loader2, MapPin, Plus, ArrowLeft, Nfc, Mail, Phone } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
@@ -49,7 +49,7 @@ function AdhocCardForm({
   onDone,
   onCancel,
 }: {
-  onDone: () => void
+  onDone: (paymentIntentId: string) => void
   onCancel: () => void
 }) {
   const stripe = useStripe()
@@ -77,8 +77,10 @@ function AdhocCardForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentIntentId: pi.id }),
         }).catch(() => null)
+        onDone(pi.id)
+        return
       }
-      onDone()
+      throw new Error("Payment succeeded but no payment id was returned")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Payment failed")
     } finally {
@@ -90,7 +92,6 @@ function AdhocCardForm({
     <div className="space-y-3 px-1 pb-2">
       <PaymentElement
         options={{
-          // Prefer Apple Pay / Google Pay when the phone browser supports them.
           wallets: { applePay: "auto", googlePay: "auto" },
         }}
       />
@@ -129,31 +130,64 @@ export function OwnerCollectPaymentSheet({
   const [jobs, setJobs] = useState<DispatchJob[]>([])
   const [loading, setLoading] = useState(false)
   const [payJob, setPayJob] = useState<DispatchJob | null>(null)
-  const [mode, setMode] = useState<"list" | "adhoc">("list")
+  // list → job picker; adhoc → amount/tax/charge; receipt → send invoice after pay
+  const [mode, setMode] = useState<"list" | "adhoc" | "receipt">("list")
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
-  const [customerName, setCustomerName] = useState("")
-  const [customerPhone, setCustomerPhone] = useState("")
   const [taxEnabled, setTaxEnabled] = useState(false)
   const [taxRatePercent, setTaxRatePercent] = useState("6")
   const [adhocBusy, setAdhocBusy] = useState(false)
   const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
+  // Set after a successful walk-up charge so we can email/SMS the invoice.
+  const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
+  const [paidTotalCents, setPaidTotalCents] = useState(0)
+  const [receiptName, setReceiptName] = useState("")
+  const [receiptEmail, setReceiptEmail] = useState("")
+  const [receiptPhone, setReceiptPhone] = useState("")
+  const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("email")
+  const [receiptBusy, setReceiptBusy] = useState(false)
 
   const resetAdhoc = useCallback(() => {
     setMode("list")
     setAdhocAmount("")
     setAdhocNote("")
-    setCustomerName("")
-    setCustomerPhone("")
     setTaxEnabled(false)
     setTaxRatePercent("6")
     setClientSecret(null)
     setPublishableKey(null)
     setAdhocBusy(false)
     setTapListening(false)
+    setPaidPaymentIntentId(null)
+    setPaidTotalCents(0)
+    setReceiptName("")
+    setReceiptEmail("")
+    setReceiptPhone("")
+    setReceiptChannel("email")
+    setReceiptBusy(false)
   }, [])
+
+  /** After charge succeeds: refresh totals, then offer invoice send. */
+  function enterReceiptStep(paymentIntentId: string, totalCents: number) {
+    setClientSecret(null)
+    setPublishableKey(null)
+    setTapListening(false)
+    setAdhocBusy(false)
+    setPaidPaymentIntentId(paymentIntentId)
+    setPaidTotalCents(totalCents)
+    setMode("receipt")
+    onCollected?.()
+    toast({
+      title: "Payment collected",
+      description: "Send an invoice if the customer wants a copy.",
+    })
+  }
+
+  function finishAndClose() {
+    resetAdhoc()
+    onOpenChange(false)
+  }
 
   const loadJobs = useCallback(() => {
     setLoading(true)
@@ -220,7 +254,7 @@ export function OwnerCollectPaymentSheet({
     return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
   }
 
-  /** Shared body for walk-up create-intent (card or tap). */
+  /** Shared body for walk-up create-intent (card or tap) — contact collected after pay. */
   function adhocIntentBody(paymentMethodType: "MANUAL_CARD" | "TAP_TO_PAY") {
     const dollars = parseAdhocDollars()
     if (dollars == null) return null
@@ -229,8 +263,6 @@ export function OwnerCollectPaymentSheet({
       amount: dollars,
       paymentMethodType,
       note: adhocNote.trim() || "Walk-up payment",
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
       taxEnabled,
       taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
     }
@@ -286,6 +318,7 @@ export function OwnerCollectPaymentSheet({
       return
     }
 
+    const totalAtCharge = adhocBreakdown.totalCents
     setAdhocBusy(true)
     setTapListening(true)
     let terminal: Terminal | null = null
@@ -336,7 +369,6 @@ export function OwnerCollectPaymentSheet({
         },
       })
 
-      // Real NFC/reader first; simulated reader for Stripe test mode in desktop browsers.
       let discover = await terminal.discoverReaders({ simulated: false })
       if (
         "error" in discover ||
@@ -363,22 +395,16 @@ export function OwnerCollectPaymentSheet({
       if ("error" in processed) throw new Error(processed.error.message)
 
       const piId = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
-      if (piId) {
-        await fetch("/api/payments/confirm", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentIntentId: piId }),
-        }).catch(() => null)
-      }
+      if (!piId) throw new Error("Payment succeeded but no payment id was returned")
 
-      resetAdhoc()
-      onOpenChange(false)
-      onCollected?.()
-      toast({
-        title: "Payment collected",
-        description: "Tap to Pay succeeded — header total updated.",
-      })
+      await fetch("/api/payments/confirm", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentIntentId: piId }),
+      }).catch(() => null)
+
+      enterReceiptStep(piId, totalAtCharge)
     } catch (e) {
       toast({
         title: "Tap to Pay failed",
@@ -393,6 +419,57 @@ export function OwnerCollectPaymentSheet({
       } catch {
         /* ignore */
       }
+    }
+  }
+
+  async function sendReceipt() {
+    if (!paidPaymentIntentId) return
+    if (receiptChannel === "email" && !receiptEmail.trim().includes("@")) {
+      toast({
+        title: "Enter an email",
+        description: "Need a valid address to send the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (receiptChannel === "sms" && receiptPhone.replace(/\D/g, "").length < 10) {
+      toast({
+        title: "Enter a phone number",
+        description: "Need a valid number to text the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setReceiptBusy(true)
+    try {
+      const res = await fetch("/api/payments/send-receipt", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentIntentId: paidPaymentIntentId,
+          channel: receiptChannel,
+          customerName: receiptName.trim() || undefined,
+          email: receiptChannel === "email" ? receiptEmail.trim() : undefined,
+          phone: receiptChannel === "sms" ? receiptPhone.trim() : undefined,
+        }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error || "Could not send invoice")
+      toast({
+        title: receiptChannel === "email" ? "Invoice emailed" : "Invoice texted",
+        description: "Customer should get it shortly.",
+      })
+      finishAndClose()
+    } catch (e) {
+      toast({
+        title: "Could not send invoice",
+        description: e instanceof Error ? e.message : "Try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setReceiptBusy(false)
     }
   }
 
@@ -412,9 +489,13 @@ export function OwnerCollectPaymentSheet({
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <div className="flex items-start justify-between gap-3 pr-8">
               <div>
-                <SheetTitle className="text-base text-slate-100">Collect payment</SheetTitle>
+                <SheetTitle className="text-base text-slate-100">
+                  {mode === "receipt" ? "Send invoice" : "Collect payment"}
+                </SheetTitle>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Charge a job or start a new walk-up payment.
+                  {mode === "receipt"
+                    ? "Payment succeeded — email or text a receipt to the customer."
+                    : "Charge a job or start a new walk-up payment."}
                 </p>
               </div>
               <CreditCard className="h-5 w-5 shrink-0 text-emerald-400" aria-hidden />
@@ -493,6 +574,117 @@ export function OwnerCollectPaymentSheet({
                   </ul>
                 )}
               </>
+            ) : mode === "receipt" ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+                  <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                    {fmtCents(paidTotalCents)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-200/70">
+                    Optional — send a receipt by email or text.
+                  </p>
+                </div>
+
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Customer name (optional)
+                  </span>
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    value={receiptName}
+                    onChange={(e) => setReceiptName(e.target.value)}
+                    placeholder="Who should it say it’s for?"
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                  />
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReceiptChannel("email")}
+                    className={cn(
+                      "flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors",
+                      receiptChannel === "email"
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                        : "border-zinc-700 bg-zinc-900 text-slate-400"
+                    )}
+                  >
+                    <Mail className="h-4 w-4" aria-hidden />
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptChannel("sms")}
+                    className={cn(
+                      "flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors",
+                      receiptChannel === "sms"
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                        : "border-zinc-700 bg-zinc-900 text-slate-400"
+                    )}
+                  >
+                    <Phone className="h-4 w-4" aria-hidden />
+                    Text / SMS
+                  </button>
+                </div>
+
+                {receiptChannel === "email" ? (
+                  <label className="block">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Email
+                    </span>
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      inputMode="email"
+                      value={receiptEmail}
+                      onChange={(e) => setReceiptEmail(e.target.value)}
+                      placeholder="customer@email.com"
+                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                    />
+                  </label>
+                ) : (
+                  <label className="block">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Phone
+                    </span>
+                    <input
+                      type="tel"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      value={receiptPhone}
+                      onChange={(e) => setReceiptPhone(e.target.value)}
+                      placeholder="(502) 555-0100"
+                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                    />
+                  </label>
+                )}
+
+                <button
+                  type="button"
+                  disabled={receiptBusy}
+                  onClick={() => void sendReceipt()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {receiptBusy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : receiptChannel === "email" ? (
+                    <Mail className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Phone className="h-4 w-4" aria-hidden />
+                  )}
+                  {receiptChannel === "email" ? "Send invoice email" : "Send invoice text"}
+                </button>
+                <button
+                  type="button"
+                  disabled={receiptBusy}
+                  onClick={finishAndClose}
+                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  Skip — done
+                </button>
+              </div>
             ) : (
               <div className="space-y-3">
                 <button
@@ -506,33 +698,6 @@ export function OwnerCollectPaymentSheet({
 
                 {!clientSecret ? (
                   <>
-                    <label className="block">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Customer name
-                      </span>
-                      <input
-                        type="text"
-                        autoComplete="name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Who is paying?"
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Phone (optional)
-                      </span>
-                      <input
-                        type="tel"
-                        autoComplete="tel"
-                        inputMode="tel"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="(502) 555-0100"
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
-                      />
-                    </label>
                     <label className="block">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Amount (USD)
@@ -680,15 +845,12 @@ export function OwnerCollectPaymentSheet({
                     }}
                   >
                     <AdhocCardForm
-                      onCancel={resetAdhoc}
-                      onDone={() => {
-                        resetAdhoc()
-                        onOpenChange(false)
-                        onCollected?.()
-                        toast({
-                          title: "Payment collected",
-                          description: "Walk-up charge succeeded — header total updated.",
-                        })
+                      onCancel={() => {
+                        setClientSecret(null)
+                        setPublishableKey(null)
+                      }}
+                      onDone={(paymentIntentId) => {
+                        enterReceiptStep(paymentIntentId, adhocBreakdown.totalCents)
                       }}
                     />
                   </Elements>
