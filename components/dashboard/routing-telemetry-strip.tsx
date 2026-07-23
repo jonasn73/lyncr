@@ -17,7 +17,11 @@ import {
   formatRescueRevenueDollars,
   isBookingRateEmpty,
 } from "@/lib/dispatch-performance-formatters"
-import { formatMissedTickerLabel } from "@/lib/missed-lead-aggregation"
+import {
+  formatMissedTickerLabel,
+  formatMissedTickerSublabel,
+} from "@/lib/missed-lead-aggregation"
+import { LINES_MOBILE_CARD } from "@/lib/mobile-shell"
 
 type TelemetryPillProps = {
   label: string
@@ -88,27 +92,37 @@ function TelemetryPill({
 function TelemetryTickerItem({
   label,
   value,
+  sublabel,
   valueClassName,
   labelClassName,
   onClick,
 }: {
   label: string
   value: string | number
+  /** Optional second line (e.g. "5 leads") — keeps the main label short on mobile. */
+  sublabel?: string | null
   valueClassName?: string
   labelClassName?: string
   onClick?: () => void
 }) {
   const body = (
     <>
-      <span className={cn("text-base font-bold tabular-nums text-slate-100", valueClassName)}>{value}</span>
+      <span className={cn("text-base font-bold tabular-nums text-slate-100", valueClassName)}>
+        {value}
+      </span>
       <span
         className={cn(
-          "max-w-full truncate text-center text-[9px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[10px]",
+          "max-w-full text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-500 sm:text-[10px]",
           labelClassName
         )}
       >
         {label}
       </span>
+      {sublabel ? (
+        <span className="max-w-full text-center text-[9px] font-medium leading-tight text-amber-400/90">
+          {sublabel}
+        </span>
+      ) : null}
     </>
   )
   const shared =
@@ -119,7 +133,7 @@ function TelemetryTickerItem({
         type="button"
         onClick={onClick}
         className={cn(shared, "cursor-pointer touch-manipulation transition-all active:scale-95")}
-        aria-label={`${label}: ${value}`}
+        aria-label={sublabel ? `${label}: ${value} (${sublabel})` : `${label}: ${value}`}
       >
         {body}
       </button>
@@ -165,6 +179,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       : missedCalls
   const missedLeadCollapse = uniqueLeads > 0 && uniqueLeads < missedCalls
   const missedTickerLabel = formatMissedTickerLabel(missedCalls, uniqueLeads)
+  const missedTickerSublabel = formatMissedTickerSublabel(missedCalls, uniqueLeads)
   const missedDesktopLabel = missedLeadCollapse
     ? `${missedCalls} missed (${uniqueLeads} leads)`
     : "Missed calls"
@@ -183,36 +198,36 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     <>
       {isMobile ? (
         <section
-          className={cn(
-            "grid grid-cols-3 gap-2 w-full border-b border-slate-900 bg-slate-950/40 px-4 py-3",
-            className
-          )}
+          className={cn("w-full py-0", className)}
           aria-label="Dispatch performance"
         >
-          <TelemetryTickerItem label="Live" value={liveLineCount} />
-          <TelemetryTickerItem
-            label="Calls"
-            value={dailyCalls}
-            onClick={() => openCallHistory("daily")}
-          />
-          <TelemetryTickerItem
-            label={missedTickerLabel}
-            value={missedCalls}
-            valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
-            labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
-            onClick={openMissedRescue}
-          />
-          <TelemetryTickerItem
-            label="Booking"
-            value={bookingDisplay}
-            valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
-          />
-          <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
-          <TelemetryTickerItem
-            label="Rescue"
-            value={rescueDisplay}
-            valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
-          />
+          <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
+            <TelemetryTickerItem label="Live" value={liveLineCount} />
+            <TelemetryTickerItem
+              label="Calls"
+              value={dailyCalls}
+              onClick={() => openCallHistory("daily")}
+            />
+            <TelemetryTickerItem
+              label={missedTickerLabel}
+              value={missedCalls}
+              sublabel={missedTickerSublabel}
+              valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
+              labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
+              onClick={openMissedRescue}
+            />
+            <TelemetryTickerItem
+              label="Booking"
+              value={bookingDisplay}
+              valueClassName={bookingEmpty ? "text-sm font-medium text-zinc-400" : undefined}
+            />
+            <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
+            <TelemetryTickerItem
+              label="Rescue"
+              value={rescueDisplay}
+              valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+            />
+          </div>
         </section>
       ) : (
         <section

@@ -11,6 +11,12 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-autopilot"
 import { formatRescueRevenueDollars } from "@/lib/dispatch-performance-formatters"
 import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
+import {
+  LINES_MOBILE_CARD,
+  LINES_MOBILE_CARD_ACTIVE,
+  LINES_MOBILE_ICON_TILE,
+  LINES_MOBILE_SECTION_LABEL,
+} from "@/lib/mobile-shell"
 
 export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   compact = false,
@@ -130,8 +136,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
     <p className="mt-1.5 text-[10px] font-medium leading-snug text-amber-200/85">
-      ✨ Rescued Revenue: {formatRescueRevenueDollars(rescueTotalCents)} generated via automated
-      textback links.
+      Rescued revenue: {formatRescueRevenueDollars(rescueTotalCents)} via textback links.
     </p>
   )
 
@@ -172,26 +177,22 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     return (
       <div
         className={cn(
-          "w-full rounded-xl border px-3 py-2.5 text-left",
-          enabled
-            ? "border-emerald-500/30 bg-emerald-950/10"
-            : "border-slate-850/60 bg-slate-900/30",
+          "w-full px-3 py-2.5 text-left",
+          enabled ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
           busy && "opacity-60"
         )}
       >
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+              LINES_MOBILE_ICON_TILE,
               enabled ? "bg-emerald-500/15 text-emerald-300" : "bg-primary/12 text-primary"
             )}
           >
             <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Automation · Missed Call Rescue
-            </p>
+            <p className={LINES_MOBILE_SECTION_LABEL}>Automation · Missed Call Rescue</p>
             <p className="truncate text-sm font-semibold text-foreground">
               {enabled ? "Textback on" : "Textback off"}
             </p>

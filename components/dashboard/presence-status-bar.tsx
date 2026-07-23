@@ -6,6 +6,11 @@ import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PresenceStatus } from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
+import {
+  LINES_MOBILE_CARD,
+  LINES_MOBILE_PAGE_X,
+  LINES_MOBILE_SECTION_LABEL,
+} from "@/lib/mobile-shell"
 
 const OPTIONS: {
   value: PresenceStatus
@@ -35,20 +40,19 @@ export function PresenceStatusBar({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "w-full border-b border-zinc-800/90 bg-slate-950/95 px-3 py-2.5",
+        "w-full border-b border-zinc-800/90 bg-slate-950/95 py-2.5",
+        LINES_MOBILE_PAGE_X,
         className
       )}
       aria-label="Presence status"
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-          Presence
-        </p>
+        <p className={LINES_MOBILE_SECTION_LABEL}>Presence</p>
         {loading || saving ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" aria-hidden />
         ) : null}
       </div>
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-3 gap-2">
         {OPTIONS.map((opt) => {
           const active = presenceStatus === opt.value
           return (
@@ -58,14 +62,15 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               disabled={loading || saving}
               onClick={() => void setPresenceStatus(opt.value)}
               className={cn(
-                "flex min-h-[3.25rem] flex-col items-center justify-center rounded-xl border px-2 py-2 text-center transition-colors",
+                "flex min-h-[3.25rem] flex-col items-center justify-center px-2 py-2 text-center transition-colors",
+                LINES_MOBILE_CARD,
                 active
                   ? opt.value === "AVAILABLE"
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                     : opt.value === "ON_JOB"
                       ? "border-amber-500/50 bg-amber-500/15 text-amber-100"
                       : "border-sky-500/50 bg-sky-500/15 text-sky-100"
-                  : "border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                  : "text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
               )}
             >
               <span className="text-sm font-semibold leading-tight">{opt.label}</span>

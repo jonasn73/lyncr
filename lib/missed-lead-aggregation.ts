@@ -198,10 +198,18 @@ export function summarizeMissedLeadInsights(
   }
 }
 
-/** Ticker subtext when rings exceed unique people: "8 MISSED (3 LEADS)" */
-export function formatMissedTickerLabel(totalMissed: number, uniqueLeads: number): string {
-  if (uniqueLeads > 0 && uniqueLeads < totalMissed) {
-    return `${totalMissed} MISSED (${uniqueLeads} LEADS)`
-  }
+/**
+ * Short mobile ticker label — always "MISSED" so a 3-col grid never truncates mid-word.
+ * Pair with {@link formatMissedTickerSublabel} when rings ≠ unique people.
+ */
+export function formatMissedTickerLabel(_totalMissed: number, _uniqueLeads: number): string {
   return "MISSED"
+}
+
+/** Optional second line under MISSED, e.g. "5 leads" when multiple rings share fewer phones. */
+export function formatMissedTickerSublabel(totalMissed: number, uniqueLeads: number): string | null {
+  if (uniqueLeads > 0 && uniqueLeads < totalMissed) {
+    return `${uniqueLeads} leads`
+  }
+  return null
 }

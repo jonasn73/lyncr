@@ -11,7 +11,13 @@ import {
   Network,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
+import {
+  LINES_MOBILE_CARD,
+  LINES_MOBILE_CARD_ACTIVE,
+  LINES_MOBILE_ICON_TILE,
+  LINES_MOBILE_SECTION_LABEL,
+  MOBILE_TAP_TARGET,
+} from "@/lib/mobile-shell"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { RoutingStrategy } from "@/lib/types"
 import { LineRoutingStatus } from "@/components/line-routing-status"
@@ -111,11 +117,8 @@ function FlowStepMobileRow({
       onClick={onOpen}
       disabled={loading}
       className={cn(
-        // Compact routing row — matches workspace glass tokens without tall tap stacks
-        "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors active:bg-slate-900/50",
-        isScheduler
-          ? "border-emerald-500/30 bg-emerald-950/10"
-          : "border-slate-850/60 bg-slate-900/30",
+        "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:bg-zinc-900/60",
+        isScheduler ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
         MOBILE_TAP_TARGET,
         loading && "pointer-events-none opacity-50",
         faded && "opacity-45"
@@ -123,7 +126,7 @@ function FlowStepMobileRow({
     >
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          LINES_MOBILE_ICON_TILE,
           isNetwork
             ? "bg-violet-500/15 text-violet-300"
             : isScheduler
@@ -134,7 +137,7 @@ function FlowStepMobileRow({
         <Icon className="h-3.5 w-3.5" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+        <p className={LINES_MOBILE_SECTION_LABEL}>{title}</p>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <p className={cn("truncate text-sm font-semibold", faded ? "text-zinc-500" : "text-foreground")}>
             {value}
@@ -155,9 +158,8 @@ function FlowStepMobileRow({
         {detail ? (
           <p
             className={cn(
-              // Wrap on narrow phones so long automation copy isn't mid-character clipped.
               "text-xs break-words [overflow-wrap:anywhere] sm:truncate sm:overflow-hidden sm:whitespace-nowrap",
-              detailMuted || faded ? "text-slate-500" : "text-zinc-500"
+              detailMuted || faded ? "text-zinc-500" : "text-zinc-500"
             )}
           >
             {detail}
@@ -661,7 +663,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           />
           {isMobile ? (
             <div
-              className={cn("flex flex-col gap-2", routingLineDetailLoading && "opacity-60")}
+              className={cn("flex flex-col gap-3", routingLineDetailLoading && "opacity-60")}
               aria-label="Call handling steps"
             >
               {primaryAndNetworkNodes.map((node) => (

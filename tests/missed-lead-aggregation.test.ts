@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   classifyMissedLeadRecoveryMode,
   formatMissedTickerLabel,
+  formatMissedTickerSublabel,
   summarizeMissedLeadInsights,
 } from "@/lib/missed-lead-aggregation"
 
@@ -80,10 +81,18 @@ describe("summarizeMissedLeadInsights", () => {
 })
 
 describe("formatMissedTickerLabel", () => {
-  it("highlights unique leads when lower than total rings", () => {
-    expect(formatMissedTickerLabel(8, 3)).toBe("8 MISSED (3 LEADS)")
+  it("keeps a short label that fits the mobile 3-col grid", () => {
+    expect(formatMissedTickerLabel(8, 3)).toBe("MISSED")
     expect(formatMissedTickerLabel(3, 3)).toBe("MISSED")
     expect(formatMissedTickerLabel(0, 0)).toBe("MISSED")
+  })
+})
+
+describe("formatMissedTickerSublabel", () => {
+  it("shows unique leads when lower than total rings", () => {
+    expect(formatMissedTickerSublabel(8, 3)).toBe("3 leads")
+    expect(formatMissedTickerSublabel(3, 3)).toBeNull()
+    expect(formatMissedTickerSublabel(0, 0)).toBeNull()
   })
 })
 

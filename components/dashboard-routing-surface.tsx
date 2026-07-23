@@ -168,7 +168,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const stickyChrome = callFlowUiReady ? (
     <div className="sticky top-0 z-50 w-full bg-slate-950">
       <PresenceStatusBar />
-      <div className="flex w-full items-center justify-between border-b border-slate-900 px-4 py-3">
+      <div className="flex w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
         <ActiveLineSubHeader
           bare
           businessNumbers={businessNumbers}
@@ -192,13 +192,13 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
       {stickyChrome}
 
       <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-24 md:pb-8">
-        <div className="mx-auto w-full max-w-7xl px-0 pt-4 sm:px-0">
+        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4">
           <MissedLeadRecoveryBanner
             prospects={missedLeadInsights.recentUnreturned}
             onIntercepted={missedLeadInsights.markIntercepted}
             className="mb-3 sm:mb-4"
           />
-          <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
+          <div className="flex flex-col gap-3 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
             <DashboardRoutingSidebar
               activeLineDisplay={activeLineDisplay}
               routingStrategy={routingStrategy}

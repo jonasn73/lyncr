@@ -89,14 +89,14 @@ const AppShellHeader = memo(function AppShellHeader({
         <div aria-hidden />
       )}
 
-      <div className="flex shrink-0 items-center justify-self-end gap-1.5 sm:gap-2">
+      <div className="flex shrink-0 items-center justify-self-end gap-1 sm:gap-2">
         {useLinks && (
           <>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
               aria-label="Jump to a page"
               title="Jump to page — ⌘K or Ctrl+K"
               onClick={() => onCommandOpenChange(true)}
@@ -126,7 +126,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
       disabled
       aria-busy="true"
       aria-label="Loading account"
-      className="h-11 min-w-[2.75rem] flex-col gap-0 border-border/80 bg-card/80 px-2 py-1 shadow-sm sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:flex-row sm:gap-2 sm:py-0"
+      className="h-9 min-w-[2.75rem] gap-1 border-border/80 bg-card/80 px-2 py-0 shadow-sm sm:w-[14rem] sm:max-w-[14rem] sm:gap-2"
     >
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
         <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />

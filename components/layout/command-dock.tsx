@@ -260,7 +260,7 @@ const CommandDockInner = memo(function CommandDockInner({
       <nav
         ref={mobileNavRef}
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-zinc-900 bg-zinc-950 md:hidden",
+          "fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-zinc-800 bg-zinc-950 md:hidden",
           "pb-[env(safe-area-inset-bottom,0px)]"
         )}
         role="navigation"
