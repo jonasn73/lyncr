@@ -104,23 +104,24 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           onClick={() => setOpen(true)}
           className={cn(
             "border-border/80 bg-card/80 shadow-sm",
-            // Mobile: auto height so name + $ chip are never clipped by h-11
-            "h-auto min-h-11 min-w-[3.25rem] flex-col gap-0.5 overflow-visible px-1.5 py-1",
-            // Desktop: wide row with full name + collected line
+            // Mobile: compact — first name + $ only (no initials circle)
+            "h-auto min-h-9 min-w-0 flex-col gap-0.5 overflow-visible px-2 py-1",
+            // Desktop: avatar + full name + collected line
             "sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:flex-row sm:gap-2 sm:overflow-hidden sm:px-2 sm:py-0"
           )}
           aria-label="Open settings"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
-          <Avatar className="h-7 w-7 shrink-0">
+          {/* Initials only on desktop — mobile was too tall with JR + Jonas + $ */}
+          <Avatar className="hidden h-7 w-7 shrink-0 sm:flex">
             <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
-          {/* Mobile: short name + collected $ (leading-none so glyphs aren’t cut off) */}
-          <span className="flex max-w-[4.5rem] flex-col items-center gap-0.5 sm:hidden">
-            <span className="w-full truncate text-center text-[10px] font-medium leading-none text-foreground">
+          {/* Mobile: first name + collected $ */}
+          <span className="flex max-w-[4.75rem] flex-col items-center gap-0.5 sm:hidden">
+            <span className="w-full truncate text-center text-[11px] font-medium leading-none text-foreground">
               {name.trim().split(/\s+/)[0] || name}
             </span>
             <span className="inline-flex items-center justify-center rounded-md bg-emerald-500/30 px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-emerald-200 ring-1 ring-emerald-400/50">
