@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
+import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
   formatPaymentCatchError,
   formatStripeCardFailure,
@@ -20,6 +21,9 @@ import {
   tapToPayNoReaderMessage,
 } from "@/lib/stripe-payment-errors"
 import { useToast } from "@/hooks/use-toast"
+
+type CollectMode = "list" | "adhoc" | "tip_sign" | "tip_charge" | "receipt"
+type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
 const TechPaymentModal = dynamic(
   () =>
@@ -163,8 +167,8 @@ export function OwnerCollectPaymentSheet({
   const [jobs, setJobs] = useState<DispatchJob[]>([])
   const [loading, setLoading] = useState(false)
   const [payJob, setPayJob] = useState<DispatchJob | null>(null)
-  // list → job picker; adhoc → amount/tax/charge; receipt → send invoice after pay
-  const [mode, setMode] = useState<"list" | "adhoc" | "receipt">("list")
+  // list → jobs; adhoc → charge; tip_sign → tip+signature; tip_charge → tip card; receipt → invoice
+  const [mode, setMode] = useState<CollectMode>("list")
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
   const [taxEnabled, setTaxEnabled] = useState(false)
@@ -173,9 +177,14 @@ export function OwnerCollectPaymentSheet({
   const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
-  // Set after a successful walk-up charge so we can email/SMS the invoice.
+  // Set after a successful walk-up charge so we can tip / sign / email-SMS.
   const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
   const [paidTotalCents, setPaidTotalCents] = useState(0)
+  const [tipChoice, setTipChoice] = useState<TipChoice>("none")
+  const [customTipDollars, setCustomTipDollars] = useState("")
+  const [signaturePng, setSignaturePng] = useState<string | null>(null)
+  const [slipBusy, setSlipBusy] = useState(false)
+  const [tipChargeCents, setTipChargeCents] = useState(0)
   const [receiptName, setReceiptName] = useState("")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState("")
@@ -194,6 +203,11 @@ export function OwnerCollectPaymentSheet({
     setTapListening(false)
     setPaidPaymentIntentId(null)
     setPaidTotalCents(0)
+    setTipChoice("none")
+    setCustomTipDollars("")
+    setSignaturePng(null)
+    setSlipBusy(false)
+    setTipChargeCents(0)
     setReceiptName("")
     setReceiptEmail("")
     setReceiptPhone("")
@@ -201,20 +215,98 @@ export function OwnerCollectPaymentSheet({
     setReceiptBusy(false)
   }, [])
 
-  /** After charge succeeds: refresh totals, then offer invoice send. */
-  function enterReceiptStep(paymentIntentId: string, totalCents: number) {
+  /** After base charge succeeds: tip options + signature, then invoice. */
+  function enterTipSignStep(paymentIntentId: string, totalCents: number) {
     setClientSecret(null)
     setPublishableKey(null)
     setTapListening(false)
     setAdhocBusy(false)
     setPaidPaymentIntentId(paymentIntentId)
     setPaidTotalCents(totalCents)
-    setMode("receipt")
+    setTipChoice("none")
+    setCustomTipDollars("")
+    setSignaturePng(null)
+    setTipChargeCents(0)
+    setMode("tip_sign")
     onCollected?.()
     toast({
       title: "Payment collected",
-      description: "Send an invoice if the customer wants a copy.",
+      description: "Add a tip (optional) and get a signature.",
     })
+  }
+
+  function enterReceiptStep() {
+    setClientSecret(null)
+    setPublishableKey(null)
+    setMode("receipt")
+  }
+
+  function selectedTipCents(): number {
+    if (tipChoice === "none") return 0
+    if (tipChoice === "custom") {
+      const dollars = parseFloat(customTipDollars)
+      if (!Number.isFinite(dollars) || dollars <= 0) return 0
+      return Math.round(dollars * 100)
+    }
+    const pct = Number(tipChoice)
+    if (!Number.isFinite(pct) || paidTotalCents <= 0) return 0
+    return Math.round(paidTotalCents * (pct / 100))
+  }
+
+  async function saveSlip(opts?: { tipPaymentIntentId?: string | null; tipCents?: number }) {
+    if (!paidPaymentIntentId) throw new Error("Missing payment id")
+    const tipCents = opts?.tipCents ?? selectedTipCents()
+    const res = await fetch("/api/payments/complete-slip", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paymentIntentId: paidPaymentIntentId,
+        tipCents,
+        signaturePng,
+        tipPaymentIntentId: opts?.tipPaymentIntentId ?? undefined,
+      }),
+    })
+    const json = (await res.json()) as { error?: string }
+    if (!res.ok) throw new Error(json.error || "Could not save tip / signature")
+  }
+
+  /** Save tip+signature; charge tip on card if ≥ $0.50, else go to invoice. */
+  async function continueFromTipSign(opts?: {
+    skipTipCharge?: boolean
+    allowNoSignature?: boolean
+  }) {
+    const tipCents = selectedTipCents()
+    if (!signaturePng && !opts?.allowNoSignature) {
+      toast({
+        title: "Signature needed",
+        description: "Have the customer sign below, or tap Continue without signature.",
+        variant: "destructive",
+      })
+      return
+    }
+    setSlipBusy(true)
+    try {
+      await saveSlip({ tipCents })
+      if (tipCents >= 50 && !opts?.skipTipCharge) {
+        setTipChargeCents(tipCents)
+        setMode("tip_charge")
+        toast({
+          title: "Charge the tip",
+          description: `${fmtCents(tipCents)} — Tap to Pay or card.`,
+        })
+        return
+      }
+      enterReceiptStep()
+    } catch (e) {
+      toast({
+        title: "Could not save slip",
+        description: e instanceof Error ? e.message : "Try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSlipBusy(false)
+    }
   }
 
   function finishAndClose() {
@@ -455,11 +547,162 @@ export function OwnerCollectPaymentSheet({
         body: JSON.stringify({ paymentIntentId: piId }),
       }).catch(() => null)
 
-      enterReceiptStep(piId, totalAtCharge)
+      enterTipSignStep(piId, totalAtCharge)
     } catch (e) {
       toast({
         title: "Tap to Pay failed",
         description: formatPaymentCatchError(e, "Try Card / Apple Pay / Cash App instead."),
+        variant: "destructive",
+      })
+    } finally {
+      setTapListening(false)
+      setAdhocBusy(false)
+      try {
+        await terminal?.disconnectReader()
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  /** Create a tip PaymentIntent (separate charge after the main payment). */
+  function tipIntentBody(paymentMethodType: "MANUAL_CARD" | "TAP_TO_PAY") {
+    if (tipChargeCents < 50) return null
+    return {
+      adhoc: true as const,
+      amount: tipChargeCents / 100,
+      paymentMethodType,
+      note: "Tip",
+      taxEnabled: false,
+      taxRatePercent: 0,
+    }
+  }
+
+  async function startTipCardIntent() {
+    const body = tipIntentBody("MANUAL_CARD")
+    if (!body) return
+    setAdhocBusy(true)
+    try {
+      const res = await fetch("/api/payments/create-intent", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: { clientSecret?: string; publishableKey?: string | null }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not start tip charge")
+      if (!json.data?.clientSecret) throw new Error("No client_secret returned")
+      setClientSecret(json.data.clientSecret)
+      setPublishableKey(json.data.publishableKey ?? null)
+    } catch (e) {
+      toast({
+        title: "Could not start tip charge",
+        description: formatPaymentCatchError(e, "Try again."),
+        variant: "destructive",
+      })
+    } finally {
+      setAdhocBusy(false)
+    }
+  }
+
+  async function runTipTapToPay() {
+    const body = tipIntentBody("TAP_TO_PAY")
+    if (!body) return
+    setAdhocBusy(true)
+    setTapListening(true)
+    let terminal: Terminal | null = null
+    try {
+      const res = await fetch("/api/payments/create-intent", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: {
+          clientSecret?: string
+          paymentIntentId?: string
+          publishableKey?: string | null
+        }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not start tip Tap to Pay")
+      const secret = json.data?.clientSecret
+      if (!secret) throw new Error("No client_secret returned")
+
+      const pk = json.data?.publishableKey ?? publishableKey
+      const liveMode = isStripeLivePublishableKey(pk)
+      const allowSimulator = isStripeTestPublishableKey(pk)
+
+      const StripeTerminal = await loadStripeTerminal()
+      if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
+
+      terminal = StripeTerminal.create({
+        onFetchConnectionToken: async () => {
+          const tokenRes = await fetch("/api/payments/terminal/connection-token", {
+            method: "POST",
+            credentials: "include",
+          })
+          const tokenJson = (await tokenRes.json()) as {
+            data?: { secret?: string }
+            error?: string
+          }
+          if (!tokenRes.ok || !tokenJson.data?.secret) {
+            throw new Error(tokenJson.error || "Could not fetch Terminal connection token")
+          }
+          return tokenJson.data.secret
+        },
+        onUnexpectedReaderDisconnect: () => setTapListening(false),
+      })
+
+      let discover = await terminal.discoverReaders({ simulated: false })
+      const noReal =
+        "error" in discover ||
+        !("discoveredReaders" in discover) ||
+        !discover.discoveredReaders?.length
+      if (noReal && allowSimulator && !liveMode) {
+        discover = await terminal.discoverReaders({ simulated: true })
+      }
+      if ("error" in discover) {
+        throw new Error(formatPaymentCatchError(discover.error, "No tip reader found."))
+      }
+      const reader = discover.discoveredReaders?.[0]
+      if (!reader) throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
+
+      const connected = await terminal.connectReader(reader)
+      if ("error" in connected) {
+        throw new Error(formatPaymentCatchError(connected.error, "Reader connect failed."))
+      }
+      const collected = await terminal.collectPaymentMethod(secret)
+      if ("error" in collected) {
+        throw new Error(formatPaymentCatchError(collected.error, "Tip tap failed."))
+      }
+      const processed = await terminal.processPayment(collected.paymentIntent)
+      if ("error" in processed) {
+        throw new Error(formatPaymentCatchError(processed.error, "Tip charge failed."))
+      }
+
+      const tipPi = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
+      if (tipPi) {
+        await fetch("/api/payments/confirm", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentIntentId: tipPi }),
+        }).catch(() => null)
+        await saveSlip({ tipPaymentIntentId: tipPi, tipCents: tipChargeCents })
+      }
+      setClientSecret(null)
+      setPublishableKey(null)
+      enterReceiptStep()
+      toast({ title: "Tip collected", description: fmtCents(tipChargeCents) })
+    } catch (e) {
+      toast({
+        title: "Tip Tap to Pay failed",
+        description: formatPaymentCatchError(e, "Try card, or skip tip charge."),
         variant: "destructive",
       })
     } finally {
@@ -541,12 +784,22 @@ export function OwnerCollectPaymentSheet({
             <div className="flex items-start justify-between gap-3 pr-8">
               <div>
                 <SheetTitle className="text-base text-slate-100">
-                  {mode === "receipt" ? "Send invoice" : "Collect payment"}
+                  {mode === "receipt"
+                    ? "Send invoice"
+                    : mode === "tip_sign"
+                      ? "Tip & signature"
+                      : mode === "tip_charge"
+                        ? "Charge tip"
+                        : "Collect payment"}
                 </SheetTitle>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {mode === "receipt"
                     ? "Payment succeeded — email or text a receipt to the customer."
-                    : "Charge a job or start a new walk-up payment."}
+                    : mode === "tip_sign"
+                      ? "Optional tip on top, then customer signs."
+                      : mode === "tip_charge"
+                        ? "Collect the tip on a second tap or card charge."
+                        : "Charge a job or start a new walk-up payment."}
                 </p>
               </div>
               <CreditCard className="h-5 w-5 shrink-0 text-emerald-400" aria-hidden />
@@ -625,12 +878,204 @@ export function OwnerCollectPaymentSheet({
                   </ul>
                 )}
               </>
-            ) : mode === "receipt" ? (
+            ) : mode === "tip_sign" ? (
               <div className="space-y-3">
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
                   <p className="text-sm font-semibold text-emerald-100">Payment received</p>
                   <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Add a tip
+                  </p>
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {(
+                      [
+                        { id: "none" as const, label: "No tip" },
+                        { id: "15" as const, label: "15%" },
+                        { id: "18" as const, label: "18%" },
+                        { id: "20" as const, label: "20%" },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setTipChoice(opt.id)}
+                        className={cn(
+                          "rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                          tipChoice === opt.id
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                            : "border-zinc-700 bg-zinc-900 text-slate-400"
+                        )}
+                      >
+                        {opt.label}
+                        {opt.id !== "none" && paidTotalCents > 0 ? (
+                          <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
+                            {fmtCents(Math.round(paidTotalCents * (Number(opt.id) / 100)))}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTipChoice("custom")}
+                    className={cn(
+                      "mt-2 w-full rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                      tipChoice === "custom"
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                        : "border-zinc-700 bg-zinc-900 text-slate-400"
+                    )}
+                  >
+                    Custom tip
+                  </button>
+                  {tipChoice === "custom" ? (
+                    <div className="mt-2 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5">
+                      <span className="text-sm font-semibold text-slate-400">$</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={customTipDollars}
+                        onChange={(e) => setCustomTipDollars(e.target.value)}
+                        className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
+                      />
+                    </div>
+                  ) : null}
+                  {selectedTipCents() > 0 ? (
+                    <p className="mt-2 text-xs text-slate-400">
+                      Tip {fmtCents(selectedTipCents())}
+                      {" · "}
+                      New total{" "}
+                      <span className="font-semibold text-emerald-300">
+                        {fmtCents(paidTotalCents + selectedTipCents())}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+
+                <CustomerSignaturePad onChange={setSignaturePng} />
+
+                <button
+                  type="button"
+                  disabled={slipBusy}
+                  onClick={() => void continueFromTipSign()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  {selectedTipCents() >= 50
+                    ? `Continue · charge tip ${fmtCents(selectedTipCents())}`
+                    : "Continue"}
+                </button>
+                {selectedTipCents() >= 50 ? (
+                  <button
+                    type="button"
+                    disabled={slipBusy}
+                    onClick={() => void continueFromTipSign({ skipTipCharge: true })}
+                    className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                  >
+                    Skip tip card charge (record tip only)
+                  </button>
+                ) : null}
+              </div>
+            ) : mode === "tip_charge" ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+                  <p className="text-sm font-semibold text-emerald-100">Tip amount</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                    {fmtCents(tipChargeCents)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-200/70">
+                    Second charge — Tap to Pay or card.
+                  </p>
+                </div>
+
+                {!clientSecret ? (
+                  tapListening ? (
+                    <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
+                      <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
+                      <p className="text-sm font-semibold text-emerald-100">Ready for tip tap</p>
+                      <Loader2 className="h-4 w-4 animate-spin text-emerald-300" aria-hidden />
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      <button
+                        type="button"
+                        disabled={adhocBusy}
+                        onClick={() => void runTipTapToPay()}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                      >
+                        {adhocBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        ) : (
+                          <Nfc className="h-4 w-4" aria-hidden />
+                        )}
+                        Tap to Pay tip
+                      </button>
+                      <button
+                        type="button"
+                        disabled={adhocBusy}
+                        onClick={() => void startTipCardIntent()}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                      >
+                        <CreditCard className="h-4 w-4" aria-hidden />
+                        Card for tip
+                      </button>
+                      <button
+                        type="button"
+                        disabled={adhocBusy}
+                        onClick={() => {
+                          setClientSecret(null)
+                          enterReceiptStep()
+                        }}
+                        className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
+                      >
+                        Skip tip charge
+                      </button>
+                    </div>
+                  )
+                ) : publishableKey ? (
+                  <Elements
+                    stripe={getStripePromise(publishableKey)}
+                    options={{
+                      clientSecret,
+                      appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
+                    }}
+                  >
+                    <AdhocCardForm
+                      onCancel={() => {
+                        setClientSecret(null)
+                        setPublishableKey(null)
+                      }}
+                      onDone={(tipPiId) => {
+                        void (async () => {
+                          await saveSlip({
+                            tipPaymentIntentId: tipPiId,
+                            tipCents: tipChargeCents,
+                          }).catch(() => null)
+                          setClientSecret(null)
+                          setPublishableKey(null)
+                          enterReceiptStep()
+                          toast({ title: "Tip collected", description: fmtCents(tipChargeCents) })
+                        })()
+                      }}
+                    />
+                  </Elements>
+                ) : (
+                  <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
+                )}
+              </div>
+            ) : mode === "receipt" ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+                  <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                    {fmtCents(paidTotalCents + Math.max(0, tipChargeCents || selectedTipCents()))}
                   </p>
                   <p className="mt-1 text-[11px] text-emerald-200/70">
                     Optional — send a receipt by email or text.
@@ -902,7 +1347,7 @@ export function OwnerCollectPaymentSheet({
                         setPublishableKey(null)
                       }}
                       onDone={(paymentIntentId) => {
-                        enterReceiptStep(paymentIntentId, adhocBreakdown.totalCents)
+                        enterTipSignStep(paymentIntentId, adhocBreakdown.totalCents)
                       }}
                     />
                   </Elements>

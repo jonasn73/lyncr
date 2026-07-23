@@ -3,6 +3,7 @@
 import { getStripeClient } from "@/lib/stripe-config"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { normalizePhoneNumberE164 } from "@/lib/db"
+import { getPaymentSlipByIntent } from "@/lib/payment-slips"
 
 export type SendPaymentReceiptInput = {
   userId: string
@@ -34,14 +35,18 @@ export function buildPaymentReceiptSms(params: {
   customerName?: string
   amountCents: number
   taxCents: number
+  tipCents?: number
   note: string
   businessLabel: string
 }): string {
   const who = params.customerName?.trim() ? ` for ${params.customerName.trim()}` : ""
   const tax =
     params.taxCents > 0 ? ` (incl. ${fmtUsd(params.taxCents)} tax)` : ""
+  const tip =
+    (params.tipCents ?? 0) > 0 ? ` Tip ${fmtUsd(params.tipCents!)}.` : ""
   const note = params.note.trim() ? `\n${params.note.trim()}` : ""
-  return `${params.businessLabel}: Payment received${who} — ${fmtUsd(params.amountCents)}${tax}.${note}\nThank you!`
+  const total = params.amountCents + Math.max(0, params.tipCents ?? 0)
+  return `${params.businessLabel}: Payment received${who} — ${fmtUsd(total)}${tax}.${tip}${note}\nThank you!`
 }
 
 /** Load a succeeded PaymentIntent the acting user is allowed to receipt. */
@@ -66,9 +71,16 @@ export async function sendPaymentReceipt(
   const intent = await loadOwnedPaymentIntent(input.paymentIntentId, input.userId)
   const amountCents = intent.amount_received || intent.amount || 0
   const taxCents = Math.max(0, Number(intent.metadata?.tax_cents || 0) || 0)
+  const slip = await getPaymentSlipByIntent(intent.id, input.userId)
+  const tipCents = Math.max(
+    0,
+    slip?.tip_cents ?? (Number(intent.metadata?.tip_cents || 0) || 0)
+  )
+  const signaturePng = slip?.signature_png || null
   const note = (intent.metadata?.note || "").trim() || "Service payment"
   const customerName = (input.customerName ?? intent.metadata?.customer_name ?? "").trim()
   const businessLabel = "Lyncr"
+  const grandTotalCents = amountCents + tipCents
 
   // Persist contact on the PI for later lookup (does not change the charge).
   try {
@@ -93,6 +105,7 @@ export async function sendPaymentReceipt(
       customerName,
       amountCents,
       taxCents,
+      tipCents,
       note,
       businessLabel,
     })
@@ -120,6 +133,14 @@ export async function sendPaymentReceipt(
     taxCents > 0
       ? `<tr><td style="padding:4px 0;color:#64748b;">Tax</td><td style="padding:4px 0;text-align:right;color:#64748b;">${escapeHtml(fmtUsd(taxCents))}</td></tr>`
       : ""
+  const tipLine =
+    tipCents > 0
+      ? `<tr><td style="padding:4px 0;color:#64748b;">Tip</td><td style="padding:4px 0;text-align:right;color:#64748b;">${escapeHtml(fmtUsd(tipCents))}</td></tr>`
+      : ""
+  const sigBlock = signaturePng
+    ? `<p style="margin:16px 0 4px;font-size:12px;color:#94a3b8;">Customer signature</p>
+       <img src="${signaturePng}" alt="Signature" width="280" style="max-width:100%;background:#fff;border-radius:8px;padding:8px;" />`
+    : ""
   const html = `
 <!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;padding:24px;">
   <table width="100%" style="max-width:480px;margin:0 auto;background:#1e293b;border-radius:12px;padding:24px;">
@@ -132,8 +153,10 @@ export async function sendPaymentReceipt(
       <table width="100%" style="font-size:14px;border-collapse:collapse;">
         <tr><td style="padding:4px 0;color:#94a3b8;">Description</td><td style="padding:4px 0;text-align:right;">${escapeHtml(note)}</td></tr>
         ${taxLine}
-        <tr><td style="padding:12px 0 0;font-weight:700;color:#6ee7b7;">Total paid</td><td style="padding:12px 0 0;text-align:right;font-weight:700;color:#6ee7b7;">${escapeHtml(fmtUsd(amountCents))}</td></tr>
+        ${tipLine}
+        <tr><td style="padding:12px 0 0;font-weight:700;color:#6ee7b7;">Total paid</td><td style="padding:12px 0 0;text-align:right;font-weight:700;color:#6ee7b7;">${escapeHtml(fmtUsd(grandTotalCents))}</td></tr>
       </table>
+      ${sigBlock}
       <p style="margin:20px 0 0;font-size:12px;color:#64748b;">Ref: ${escapeHtml(intent.id)}</p>
     </td></tr>
   </table>
@@ -145,7 +168,8 @@ export async function sendPaymentReceipt(
     `Thanks for your payment to ${businessLabel}.`,
     `Description: ${note}`,
     taxCents > 0 ? `Tax: ${fmtUsd(taxCents)}` : null,
-    `Total paid: ${fmtUsd(amountCents)}`,
+    tipCents > 0 ? `Tip: ${fmtUsd(tipCents)}` : null,
+    `Total paid: ${fmtUsd(grandTotalCents)}`,
     `Ref: ${intent.id}`,
   ]
     .filter(Boolean)
@@ -161,7 +185,7 @@ export async function sendPaymentReceipt(
       body: JSON.stringify({
         from: inviteSender(),
         to: email,
-        subject: `Receipt — ${fmtUsd(amountCents)}`,
+        subject: `Receipt — ${fmtUsd(grandTotalCents)}`,
         html,
         text,
       }),
