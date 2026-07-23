@@ -249,9 +249,15 @@ export async function createJobPaymentIntent(params: {
  */
 export async function createAdhocPaymentIntent(params: {
   ownerUserId: string
+  /** Final charge including tax (what Stripe collects). */
   chargeCents: number
   walletMethod: WalletPaymentMethod
   note?: string | null
+  customerName?: string | null
+  customerPhone?: string | null
+  /** Pre-tax amount in cents (defaults to chargeCents when tax off). */
+  subtotalCents?: number | null
+  taxCents?: number | null
 }): Promise<CreateJobPaymentIntentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -261,6 +267,13 @@ export async function createAdhocPaymentIntent(params: {
   }
 
   const note = (params.note ?? "").trim().slice(0, 120) || "Walk-up payment"
+  const customerName = (params.customerName ?? "").trim().slice(0, 80)
+  const customerPhone = (params.customerPhone ?? "").trim().slice(0, 32)
+  const subtotalCents = Math.max(
+    0,
+    Math.round(params.subtotalCents ?? params.chargeCents - (params.taxCents ?? 0))
+  )
+  const taxCents = Math.max(0, Math.round(params.taxCents ?? 0))
   const stripe = getStripeClient()
   const isTap = params.walletMethod === "TAP_TO_PAY"
   const intent = await stripe.paymentIntents.create({
@@ -276,8 +289,14 @@ export async function createAdhocPaymentIntent(params: {
       commission_cents: String(params.chargeCents),
       payment_method: params.walletMethod,
       note,
+      customer_name: customerName || "",
+      customer_phone: customerPhone || "",
+      subtotal_cents: String(subtotalCents),
+      tax_cents: String(taxCents),
     },
-    description: `Lyncr · ${note}`,
+    description: customerName
+      ? `Lyncr · ${customerName} · ${note}`
+      : `Lyncr · ${note}`,
   })
 
   if (!intent.client_secret) {

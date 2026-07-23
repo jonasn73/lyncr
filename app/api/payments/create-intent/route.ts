@@ -27,6 +27,12 @@ type Body = {
   note?: string
   /** Explicit ad-hoc flag (also implied when jobId is missing). */
   adhoc?: boolean
+  customerName?: string
+  customerPhone?: string
+  /** When true, add sales tax on top of `amount` (subtotal). */
+  taxEnabled?: boolean
+  /** Percent e.g. 6 for 6%. Used only when taxEnabled. */
+  taxRatePercent?: number
 }
 
 export async function POST(req: NextRequest) {
@@ -72,18 +78,31 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       )
     }
-    // Client sends USD dollars (e.g. 85 or 85.50).
-    const cents = Math.round(amount * 100)
-    if (cents < 50) {
+    // Client sends USD dollars for the service/subtotal (e.g. 85 or 85.50).
+    const subtotalCents = Math.round(amount * 100)
+    if (subtotalCents < 50) {
       return NextResponse.json({ error: "amount must be at least $0.50" }, { status: 400 })
     }
+
+    const taxEnabled = Boolean(body.taxEnabled)
+    const taxRatePercent = Number(body.taxRatePercent)
+    const rate =
+      taxEnabled && Number.isFinite(taxRatePercent) && taxRatePercent > 0
+        ? Math.min(30, taxRatePercent) / 100
+        : 0
+    const taxCents = rate > 0 ? Math.round(subtotalCents * rate) : 0
+    const chargeCents = subtotalCents + taxCents
 
     try {
       const result = await createAdhocPaymentIntent({
         ownerUserId: userId,
-        chargeCents: cents,
+        chargeCents,
         walletMethod,
         note: body.note,
+        customerName: body.customerName,
+        customerPhone: body.customerPhone,
+        subtotalCents,
+        taxCents,
       })
       return NextResponse.json({
         data: {
@@ -91,6 +110,8 @@ export async function POST(req: NextRequest) {
           clientSecret: result.clientSecret,
           paymentIntentId: result.paymentIntentId,
           chargeCents: result.chargeCents,
+          subtotalCents,
+          taxCents,
           commissionCents: result.commissionCents,
           transactionId: result.transaction?.id ?? null,
           publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,

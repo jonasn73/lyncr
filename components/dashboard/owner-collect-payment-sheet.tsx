@@ -132,6 +132,10 @@ export function OwnerCollectPaymentSheet({
   const [mode, setMode] = useState<"list" | "adhoc">("list")
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
+  const [customerName, setCustomerName] = useState("")
+  const [customerPhone, setCustomerPhone] = useState("")
+  const [taxEnabled, setTaxEnabled] = useState(false)
+  const [taxRatePercent, setTaxRatePercent] = useState("6")
   const [adhocBusy, setAdhocBusy] = useState(false)
   const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -141,6 +145,10 @@ export function OwnerCollectPaymentSheet({
     setMode("list")
     setAdhocAmount("")
     setAdhocNote("")
+    setCustomerName("")
+    setCustomerPhone("")
+    setTaxEnabled(false)
+    setTaxRatePercent("6")
     setClientSecret(null)
     setPublishableKey(null)
     setAdhocBusy(false)
@@ -192,9 +200,45 @@ export function OwnerCollectPaymentSheet({
     return dollars
   }
 
-  async function startAdhocIntent() {
+  const adhocBreakdown = useMemo(() => {
+    const subtotal = parseFloat(adhocAmount)
+    const subtotalCents =
+      Number.isFinite(subtotal) && subtotal > 0 ? Math.round(subtotal * 100) : 0
+    const rateRaw = parseFloat(taxRatePercent)
+    const rate =
+      taxEnabled && Number.isFinite(rateRaw) && rateRaw > 0 ? Math.min(30, rateRaw) / 100 : 0
+    const taxCents = rate > 0 ? Math.round(subtotalCents * rate) : 0
+    return {
+      subtotalCents,
+      taxCents,
+      totalCents: subtotalCents + taxCents,
+      ratePercent: rate * 100,
+    }
+  }, [adhocAmount, taxEnabled, taxRatePercent])
+
+  function fmtCents(cents: number): string {
+    return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
+  }
+
+  /** Shared body for walk-up create-intent (card or tap). */
+  function adhocIntentBody(paymentMethodType: "MANUAL_CARD" | "TAP_TO_PAY") {
     const dollars = parseAdhocDollars()
-    if (dollars == null) {
+    if (dollars == null) return null
+    return {
+      adhoc: true as const,
+      amount: dollars,
+      paymentMethodType,
+      note: adhocNote.trim() || "Walk-up payment",
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      taxEnabled,
+      taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+    }
+  }
+
+  async function startAdhocIntent() {
+    const body = adhocIntentBody("MANUAL_CARD")
+    if (!body) {
       toast({
         title: "Enter an amount",
         description: "Minimum is $0.50.",
@@ -208,12 +252,7 @@ export function OwnerCollectPaymentSheet({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adhoc: true,
-          amount: dollars,
-          paymentMethodType: "MANUAL_CARD",
-          note: adhocNote.trim() || "Walk-up payment",
-        }),
+        body: JSON.stringify(body),
       })
       const json = (await res.json()) as {
         error?: string
@@ -237,8 +276,8 @@ export function OwnerCollectPaymentSheet({
 
   /** Customer taps card / phone on this device (Stripe Terminal / Tap to Pay). */
   async function runAdhocTapToPay() {
-    const dollars = parseAdhocDollars()
-    if (dollars == null) {
+    const body = adhocIntentBody("TAP_TO_PAY")
+    if (!body) {
       toast({
         title: "Enter an amount",
         description: "Minimum is $0.50.",
@@ -255,12 +294,7 @@ export function OwnerCollectPaymentSheet({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adhoc: true,
-          amount: dollars,
-          paymentMethodType: "TAP_TO_PAY",
-          note: adhocNote.trim() || "Walk-up payment",
-        }),
+        body: JSON.stringify(body),
       })
       const json = (await res.json()) as {
         error?: string
@@ -474,6 +508,33 @@ export function OwnerCollectPaymentSheet({
                   <>
                     <label className="block">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Customer name
+                      </span>
+                      <input
+                        type="text"
+                        autoComplete="name"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Who is paying?"
+                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Phone (optional)
+                      </span>
+                      <input
+                        type="tel"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="(502) 555-0100"
+                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Amount (USD)
                       </span>
                       <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5">
@@ -490,6 +551,70 @@ export function OwnerCollectPaymentSheet({
                         />
                       </div>
                     </label>
+
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">Sales tax</p>
+                          <p className="text-[11px] text-slate-500">
+                            Turn on to add tax on top of the amount
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={taxEnabled}
+                          onClick={() => setTaxEnabled((v) => !v)}
+                          className={cn(
+                            "relative h-7 w-12 shrink-0 rounded-full transition-colors",
+                            taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+                              taxEnabled && "translate-x-5"
+                            )}
+                          />
+                        </button>
+                      </div>
+                      {taxEnabled ? (
+                        <label className="mt-3 block">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Tax rate (%)
+                          </span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            max="30"
+                            step="0.01"
+                            value={taxRatePercent}
+                            onChange={(e) => setTaxRatePercent(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm tabular-nums text-white outline-none"
+                          />
+                        </label>
+                      ) : null}
+                      {adhocBreakdown.subtotalCents > 0 ? (
+                        <div className="mt-3 space-y-1 border-t border-zinc-800 pt-3 text-xs tabular-nums">
+                          <div className="flex justify-between text-slate-400">
+                            <span>Subtotal</span>
+                            <span>{fmtCents(adhocBreakdown.subtotalCents)}</span>
+                          </div>
+                          {taxEnabled ? (
+                            <div className="flex justify-between text-slate-400">
+                              <span>Tax ({adhocBreakdown.ratePercent.toFixed(2)}%)</span>
+                              <span>{fmtCents(adhocBreakdown.taxCents)}</span>
+                            </div>
+                          ) : null}
+                          <div className="flex justify-between text-sm font-semibold text-emerald-300">
+                            <span>Total charge</span>
+                            <span>{fmtCents(adhocBreakdown.totalCents)}</span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
                     <label className="block">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Note (optional)
@@ -498,7 +623,7 @@ export function OwnerCollectPaymentSheet({
                         type="text"
                         value={adhocNote}
                         onChange={(e) => setAdhocNote(e.target.value)}
-                        placeholder="e.g. Lockout — cash customer"
+                        placeholder="e.g. Lockout — walk-up"
                         className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
                       />
                     </label>
@@ -526,6 +651,9 @@ export function OwnerCollectPaymentSheet({
                             <Nfc className="h-4 w-4" aria-hidden />
                           )}
                           Tap to Pay
+                          {adhocBreakdown.totalCents >= 50
+                            ? ` · ${fmtCents(adhocBreakdown.totalCents)}`
+                            : ""}
                         </button>
                         <button
                           type="button"
