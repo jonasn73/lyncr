@@ -1761,9 +1761,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       ...jobCreateExtras(quotedPriceCents),
     })
     if (!result.ok) return
+    const shop = form.serviceVenue === "shop"
     toast({
-      title: "Quote lead saved",
-      description: "If they call back, this phone number will match the quoted price and vehicle.",
+      title: shop ? "Shop quote saved" : "Quote lead saved",
+      description: shop
+        ? "Phone, vehicle, shop price, and notes saved. When they call back, match by this number under Leads."
+        : "If they call back, this phone number will match the quoted price and vehicle.",
     })
     closeIntakeAfterSave()
     router.push("/dashboard/leads")
@@ -1774,6 +1777,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     closeIntakeAfterSave,
     createJob,
     effectiveCurrent,
+    form.serviceVenue,
     jobCreateExtras,
     resolveOwnerUserId,
     router,
@@ -2627,6 +2631,100 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 preloadedKeyBundle={preloadedKeyBundle}
                                 onInventoryLoaded={handleInventoryLoaded}
                               />
+
+                              {/* Shop vs mobile — for “she’ll come to me / call back” quotes. */}
+                              <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                  Where is this job?
+                                </p>
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => patchForm({ serviceVenue: "mobile" })}
+                                    className={cn(
+                                      "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
+                                      form.serviceVenue === "mobile"
+                                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                                        : "border-zinc-700 bg-zinc-900 text-slate-300"
+                                    )}
+                                  >
+                                    I go to them
+                                    <span className="mt-0.5 block text-[10px] font-normal text-slate-500">
+                                      Mobile — needs address
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      patchForm({ serviceVenue: "shop" })
+                                      // Common shop cut/program quote — leave editable.
+                                      if (!customPrice.trim()) {
+                                        setCustomPrice("75")
+                                        setQuotedPriceDollars(75)
+                                      }
+                                    }}
+                                    className={cn(
+                                      "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
+                                      form.serviceVenue === "shop"
+                                        ? "border-amber-500/50 bg-amber-500/15 text-amber-50"
+                                        : "border-zinc-700 bg-zinc-900 text-slate-300"
+                                    )}
+                                  >
+                                    They come to shop
+                                    <span className="mt-0.5 block text-[10px] font-normal text-slate-500">
+                                      No address needed
+                                    </span>
+                                  </button>
+                                </div>
+                                <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.customerOwnsKey}
+                                    onChange={(e) =>
+                                      patchForm({ customerOwnsKey: e.target.checked })
+                                    }
+                                    className="mt-0.5 h-4 w-4 rounded border-zinc-600"
+                                  />
+                                  <span>
+                                    <span className="block text-xs font-semibold text-slate-100">
+                                      Customer already has the key
+                                    </span>
+                                    <span className="block text-[10px] text-slate-500">
+                                      Bought online / bring-your-own — cut &amp; program only
+                                    </span>
+                                  </span>
+                                </label>
+                                {form.serviceVenue === "shop" ? (
+                                  <div className="mt-3 space-y-1.5">
+                                    <Label htmlFor="shop-quote-price" className="text-[11px]">
+                                      Shop quote ($)
+                                    </Label>
+                                    <Input
+                                      id="shop-quote-price"
+                                      inputMode="decimal"
+                                      value={customPrice}
+                                      onChange={(e) => {
+                                        setCustomPrice(e.target.value)
+                                        const dollars = Number.parseFloat(e.target.value)
+                                        if (Number.isFinite(dollars) && dollars > 0) {
+                                          setQuotedPriceDollars(dollars)
+                                        }
+                                      }}
+                                      placeholder="75"
+                                      className="h-10 font-mono text-base tabular-nums"
+                                    />
+                                    <p className="text-[10px] leading-snug text-slate-500">
+                                      They&apos;ll shop around? Tap{" "}
+                                      <span className="font-semibold text-amber-200">
+                                        Save shop quote
+                                      </span>{" "}
+                                      below — phone + vehicle + $ price are saved for when they call
+                                      back.
+                                    </p>
+                                  </div>
+                                ) : null}
+                              </div>
+
                               <CallTimeInventoryIntake
                                 year={form.vehicleYear}
                                 make={form.vehicleMake}
@@ -3283,69 +3381,135 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     ) : null}
                     {currentStep === "KEY_SPECIFICS" ? (
                       <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            className="h-11 shrink-0"
-                            onClick={() => goBackManualWorkflow(manualPath)}
-                          >
-                            Back
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={hasKeyBlank ? "outline" : "default"}
-                            size="lg"
-                            className="h-11 min-w-0 flex-1"
-                            disabled={keyBlankRequired && !hasKeyBlank}
-                            onClick={() => {
-                              if (keyBlankRequired && !hasKeyBlank) {
-                                toast({
-                                  title: "Pick a key blank",
-                                  description: "All-keys-lost jobs need a blank before location.",
-                                })
-                                return
-                              }
-                              if (!hasKeyBlank && !keySkipArmed) {
-                                setKeySkipArmed(true)
-                                toast({
-                                  title: "No key selected",
-                                  description: "Tap Continue again to skip, or pick a blank first.",
-                                })
-                                return
-                              }
-                              setKeySkipArmed(false)
-                              setCurrentStep("ADDRESS_CONTACT")
-                            }}
-                          >
-                            {hasKeyBlank
-                              ? "Continue to location"
-                              : keyBlankRequired
-                                ? "Select a key blank first"
-                                : keySkipArmed
-                                  ? "Skip key — go to location"
-                                  : "Next: Location & Contact"}
-                          </Button>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="lg"
-                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
-                          disabled={jobState === "creating" || !canSaveQuoteLead}
-                          onClick={() => void saveQuoteLead()}
-                        >
-                          {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
-                        </Button>
-                        {!canSaveQuoteLead ? (
-                          <p className="text-center text-[10px] text-amber-200/90">
-                            Need a phone number to save a quote lead for call-back matching.
-                          </p>
+                        {form.serviceVenue === "shop" ? (
+                          <>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="lg"
+                                className="h-11 shrink-0"
+                                onClick={() => goBackManualWorkflow(manualPath)}
+                              >
+                                Back
+                              </Button>
+                              <Button
+                                type="button"
+                                size="lg"
+                                className="h-11 min-w-0 flex-1 border border-amber-500/50 bg-amber-500/20 font-semibold text-amber-50 hover:bg-amber-500/30"
+                                disabled={jobState === "creating" || !canSaveQuoteLead}
+                                onClick={() => {
+                                  const dollars = Number.parseFloat(customPrice.trim())
+                                  if (!Number.isFinite(dollars) || dollars <= 0) {
+                                    toast({
+                                      title: "Enter the shop quote",
+                                      description: "e.g. $75 if they come to you.",
+                                      variant: "destructive",
+                                    })
+                                    return
+                                  }
+                                  void saveQuoteLead()
+                                }}
+                              >
+                                {jobState === "creating" ? "Saving…" : "Save shop quote & hang up"}
+                              </Button>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="lg"
+                              className="h-11 w-full"
+                              disabled={keyBlankRequired && !hasKeyBlank}
+                              onClick={() => {
+                                patchForm({ serviceVenue: "mobile" })
+                                if (keyBlankRequired && !hasKeyBlank) {
+                                  toast({
+                                    title: "Pick a key blank",
+                                    description: "All-keys-lost jobs need a blank before location.",
+                                  })
+                                  return
+                                }
+                                setCurrentStep("ADDRESS_CONTACT")
+                              }}
+                            >
+                              Actually mobile — continue to location
+                            </Button>
+                            <p className="text-center text-[10px] text-slate-500">
+                              Saves phone, vehicle, key, and shop price — no address. Find them under
+                              Leads when they call back.
+                            </p>
+                          </>
                         ) : (
-                          <p className="text-center text-[10px] text-slate-500">
-                            Skips name, address, and schedule — keeps phone, vehicle, and quoted price.
-                          </p>
+                          <>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="lg"
+                                className="h-11 shrink-0"
+                                onClick={() => goBackManualWorkflow(manualPath)}
+                              >
+                                Back
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={hasKeyBlank ? "outline" : "default"}
+                                size="lg"
+                                className="h-11 min-w-0 flex-1"
+                                disabled={keyBlankRequired && !hasKeyBlank}
+                                onClick={() => {
+                                  if (keyBlankRequired && !hasKeyBlank) {
+                                    toast({
+                                      title: "Pick a key blank",
+                                      description: "All-keys-lost jobs need a blank before location.",
+                                    })
+                                    return
+                                  }
+                                  if (!hasKeyBlank && !keySkipArmed) {
+                                    setKeySkipArmed(true)
+                                    toast({
+                                      title: "No key selected",
+                                      description:
+                                        "Tap Continue again to skip, or pick a blank first.",
+                                    })
+                                    return
+                                  }
+                                  setKeySkipArmed(false)
+                                  if (!form.serviceVenue) patchForm({ serviceVenue: "mobile" })
+                                  setCurrentStep("ADDRESS_CONTACT")
+                                }}
+                              >
+                                {hasKeyBlank
+                                  ? "Continue to location"
+                                  : keyBlankRequired
+                                    ? "Select a key blank first"
+                                    : keySkipArmed
+                                      ? "Skip key — go to location"
+                                      : "Next: Location & Contact"}
+                              </Button>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="lg"
+                              className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                              disabled={jobState === "creating" || !canSaveQuoteLead}
+                              onClick={() => void saveQuoteLead()}
+                            >
+                              {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
+                            </Button>
+                            {!canSaveQuoteLead ? (
+                              <p className="text-center text-[10px] text-amber-200/90">
+                                Need a phone number to save a quote lead for call-back matching.
+                              </p>
+                            ) : (
+                              <p className="text-center text-[10px] text-slate-500">
+                                They&apos;ll call back? Save quote here — or choose{" "}
+                                <span className="text-amber-200/90">They come to shop</span> above
+                                if it&apos;s not a mobile job.
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     ) : null}

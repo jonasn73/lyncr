@@ -88,6 +88,10 @@ export type CreateIntakeJobInput = {
   existingLeadId?: string | null
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
+  /** mobile = we go to them; shop = they come to us (stored on collected). */
+  serviceVenue?: "mobile" | "shop" | null
+  /** Customer already has the blank/key — cut & program only. */
+  customerOwnsKey?: boolean
   /**
    * Out-of-stock / specialty fallback resolution.
    * Sets job_status + collected metadata (pending deposit or referred partner).
@@ -362,6 +366,10 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(region ? { region } : {}),
     ...(postalCode ? { postal_code: postalCode } : {}),
     ...(input.notes?.trim() ? { job_notes: input.notes.trim(), notes: input.notes.trim() } : {}),
+    ...(input.serviceVenue === "shop" || input.serviceVenue === "mobile"
+      ? { service_venue: input.serviceVenue }
+      : {}),
+    ...(input.customerOwnsKey ? { customer_owns_key: true } : {}),
     ...(input.keyFccId?.trim() ? { key_fcc_id: input.keyFccId.trim(), fcc_id: input.keyFccId.trim() } : {}),
     ...(input.keyFrequency?.trim() ? { key_frequency: input.keyFrequency.trim() } : {}),
     ...(input.keyChipset?.trim() ? { key_chipset: input.keyChipset.trim(), chip_id: input.keyChipset.trim() } : {}),

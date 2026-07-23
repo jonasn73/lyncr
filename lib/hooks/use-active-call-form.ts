@@ -111,6 +111,14 @@ export type ActiveCallFormState = {
   quotedPriceCents: number
   /** When true, auto-quote changes do not overwrite quotedPriceCents. */
   quotedPriceOverridden: boolean
+  /**
+   * Where the work happens:
+   * - mobile = tech goes to customer
+   * - shop = customer comes to your shop
+   */
+  serviceVenue: "" | "mobile" | "shop"
+  /** Customer already bought/has the key — cut & program only (common shop walk-in). */
+  customerOwnsKey: boolean
 }
 
 const EMPTY_FORM: ActiveCallFormState = {
@@ -148,6 +156,8 @@ const EMPTY_FORM: ActiveCallFormState = {
   serviceQuoteTypeId: "lockout",
   quotedPriceCents: 0,
   quotedPriceOverridden: false,
+  serviceVenue: "",
+  customerOwnsKey: false,
 }
 
 function flatAddressFromStructured(addr: StructuredAddress): Pick<
@@ -647,13 +657,18 @@ export function useActiveCallForm(
         setJobError("Enter the caller name before sending to dispatch.")
         return { ok: false }
       }
-      const quoteTag = "Price Quoted / Lead Only"
-      const notesForJob =
-        quoteLead && !form.notes.includes(quoteTag)
-          ? form.notes.trim()
-            ? `${form.notes.trim()} · ${quoteTag}`
-            : quoteTag
-          : form.notes
+      // Stamp quote / shop / own-key tags so Leads + call-back matching stay clear.
+      const noteTags: string[] = []
+      if (quoteLead) noteTags.push("Price Quoted / Lead Only")
+      if (form.serviceVenue === "shop") noteTags.push("Shop visit — customer comes to us")
+      if (form.serviceVenue === "mobile") noteTags.push("Mobile service — we go to customer")
+      if (form.customerOwnsKey) noteTags.push("Customer-supplied key — cut & program only")
+      let notesForJob = form.notes.trim()
+      for (const tag of noteTags) {
+        if (!notesForJob.includes(tag)) {
+          notesForJob = notesForJob ? `${notesForJob} · ${tag}` : tag
+        }
+      }
       const quotedPriceCents =
         jobOptions?.quotedPriceCents != null && jobOptions.quotedPriceCents > 0
           ? Math.round(jobOptions.quotedPriceCents)
@@ -796,6 +811,10 @@ export function useActiveCallForm(
             organization_id: organizationId ?? null,
             pending_callback: pendingCallback,
             scheduled_at: scheduledAtIso,
+            service_venue: form.serviceVenue === "shop" || form.serviceVenue === "mobile"
+              ? form.serviceVenue
+              : null,
+            customer_owns_key: form.customerOwnsKey === true,
             discount_applied: jobOptions?.discountApplied?.trim() || null,
             baseline_quote_cents:
               jobOptions?.baselineQuotedPriceCents != null && jobOptions.baselineQuotedPriceCents > 0

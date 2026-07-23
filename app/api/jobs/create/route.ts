@@ -43,6 +43,10 @@ type CreateJobBody = {
   distance_miles?: number | null
   service_quote_type_id?: string | null
   pending_callback?: boolean
+  /** mobile | shop — where the work happens. */
+  service_venue?: "mobile" | "shop" | null
+  /** Customer already has the key (cut & program only). */
+  customer_owns_key?: boolean
   organization_id?: string | null
   discount_applied?: string | null
   baseline_quote_cents?: number | null
@@ -105,6 +109,11 @@ export async function POST(req: NextRequest) {
       tiSku: body.ti_sku?.trim() || null,
       scheduledAtIso: body.scheduled_at?.trim() || null,
       pendingCallback: body.pending_callback === true,
+      serviceVenue:
+        body.service_venue === "shop" || body.service_venue === "mobile"
+          ? body.service_venue
+          : null,
+      customerOwnsKey: body.customer_owns_key === true,
       discountApplied: body.discount_applied?.trim() || null,
       baselineQuotedPriceCents:
         body.baseline_quote_cents != null && Number.isFinite(Number(body.baseline_quote_cents))

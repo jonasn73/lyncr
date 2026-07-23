@@ -38,6 +38,17 @@ const SAMPLE_FORM: ActiveCallFormState = {
   serviceQuoteTypeId: "key_replacement",
   quotedPriceCents: 18500,
   quotedPriceOverridden: false,
+  serviceVenue: "",
+  customerOwnsKey: false,
+  vehicleTrim: "",
+  factoryOptions: [],
+  plateNumber: "",
+  plateState: "",
+  vehicleVin: "",
+  programmingMethod: "",
+  tiSku: "",
+  scheduledDate: "",
+  scheduledTime: "",
 }
 
 describe("intake draft storage", () => {
