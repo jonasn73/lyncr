@@ -94,7 +94,8 @@ export function GetPaidSheet({
       setEmbedLoadHint(false)
       return
     }
-    const id = window.setTimeout(() => setEmbedLoadHint(true), 12_000)
+    // Only nudge if the iframe never paints (slow networks); ignore once form is interactive.
+    const id = window.setTimeout(() => setEmbedLoadHint(true), 25_000)
     return () => window.clearTimeout(id)
   }, [showOnboarding, connectInstance])
 
@@ -120,13 +121,45 @@ export function GetPaidSheet({
       if (!pk) throw new Error("Missing Stripe publishable key")
 
       const secret = json.data.clientSecret
+      // Stripe owns the form UI — theme it to Lyncr dark (default is white + serif).
       const instance = loadConnectAndInitialize({
         publishableKey: pk,
         fetchClientSecret: async () => secret,
         appearance: {
           overlays: "dialog",
           variables: {
+            fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, sans-serif',
+            fontSizeBase: "14px",
+            borderRadius: "12px",
+            spacingUnit: "10px",
             colorPrimary: "#10b981",
+            colorBackground: "#101018",
+            formBackgroundColor: "#101018",
+            offsetBackgroundColor: "#18181f",
+            colorText: "#e4e4e7",
+            colorSecondaryText: "#a1a1aa",
+            colorBorder: "#27272a",
+            colorDanger: "#fb7185",
+            buttonPrimaryColorBackground: "#059669",
+            buttonPrimaryColorBorder: "#059669",
+            buttonPrimaryColorText: "#ffffff",
+            buttonSecondaryColorBackground: "#18181f",
+            buttonSecondaryColorText: "#e4e4e7",
+            actionSecondaryColorText: "#6ee7b7",
+            actionSecondaryTextDecorationColor: "#6ee7b7",
+            badgeNeutralColorBackground: "#18181f",
+            badgeNeutralColorBorder: "#27272a",
+            badgeNeutralColorText: "#a1a1aa",
+            badgeSuccessColorBackground: "#052e1c",
+            badgeSuccessColorBorder: "#065f46",
+            badgeSuccessColorText: "#6ee7b7",
+            badgeWarningColorBackground: "#422006",
+            badgeWarningColorBorder: "#854d0e",
+            badgeWarningColorText: "#fde68a",
+            badgeDangerColorBackground: "#4c0519",
+            badgeDangerColorBorder: "#9f1239",
+            badgeDangerColorText: "#fda4af",
+            overlayBackdropColor: "rgba(0,0,0,0.65)",
           },
         },
       })
@@ -306,7 +339,7 @@ export function GetPaidSheet({
                       Form is still loading. Close Get paid, reopen, and tap Set up payouts again.
                     </p>
                   ) : null}
-                  <div className="min-h-[min(70dvh,640px)] overflow-auto rounded-xl border border-zinc-800 bg-white p-2">
+                  <div className="min-h-[min(70dvh,640px)] overflow-auto rounded-xl border border-zinc-800 bg-[#101018] p-1">
                     <ConnectComponentsProvider connectInstance={connectInstance!}>
                       {showOnboarding ? (
                         <ConnectAccountOnboarding
