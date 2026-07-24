@@ -22,6 +22,7 @@ import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
+import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
   formatPaymentCatchError,
   formatStripeCardFailure,
@@ -32,6 +33,9 @@ import {
 
 type Line = { id: string; label: string; amount: string }
 type PayMethod = "tap" | "card" | "cash" | "link"
+/** After the main charge: tip + signature → optional tip swipe → receipt. */
+type PostPayStep = "tip_sign" | "tip_charge" | "receipt"
+type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
 function newLine(label = "", amount = ""): Line {
   return { id: Math.random().toString(36).slice(2), label, amount }
@@ -48,7 +52,7 @@ function fmt(cents: number): string {
 
 /** Start invoice lines from the job quote when present; otherwise one blank service line. */
 function initialLines(job: DispatchJob): Line[] {
-  const cents = job.quoted_price_cents
+  const cents = (job as DispatchJob & { quoted_price_cents?: number | null }).quoted_price_cents
   if (typeof cents === "number" && cents >= 50) {
     return [newLine("Quoted service", (cents / 100).toFixed(2))]
   }
@@ -85,7 +89,6 @@ export function TechPaymentModal(props: {
   const [method, setMethod] = useState<PayMethod | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
   const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
@@ -95,6 +98,19 @@ export function TechPaymentModal(props: {
   const [linkPhone, setLinkPhone] = useState(() => props.job.customer_phone?.trim() || "")
   const [linkEmail, setLinkEmail] = useState("")
   const [linkSentUrl, setLinkSentUrl] = useState<string | null>(null)
+  // Tip + signature (same flow as walk-up Collect Payment).
+  const [postPayStep, setPostPayStep] = useState<PostPayStep | null>(null)
+  const [paidTotalCents, setPaidTotalCents] = useState(0)
+  const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
+  const [tipChoice, setTipChoice] = useState<TipChoice>("none")
+  const [customTipDollars, setCustomTipDollars] = useState("")
+  const [signaturePng, setSignaturePng] = useState<string | null>(null)
+  const [slipBusy, setSlipBusy] = useState(false)
+  const [tipChargeCents, setTipChargeCents] = useState(0)
+  const [receiptName, setReceiptName] = useState(() => props.job.customer_name?.trim() || "")
+  const [receiptEmail, setReceiptEmail] = useState("")
+  const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
+  const [receiptBusy, setReceiptBusy] = useState(false)
   // Wait for client mount so createPortal can target document.body.
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -197,6 +213,235 @@ export function TechPaymentModal(props: {
     if (!res.ok) throw new Error(json.error || "Could not confirm payment")
   }
 
+  function selectedTipCents(): number {
+    if (tipChoice === "none") return 0
+    if (tipChoice === "custom") {
+      const dollars = parseFloat(customTipDollars)
+      if (!Number.isFinite(dollars) || dollars <= 0) return 0
+      return Math.round(dollars * 100)
+    }
+    const pct = Number(tipChoice)
+    if (!Number.isFinite(pct) || paidTotalCents <= 0) return 0
+    return Math.round(paidTotalCents * (pct / 100))
+  }
+
+  /** Move to tip + signature after the main charge succeeds. */
+  function enterTipSignStep(piId: string | null, chargedCents: number) {
+    setPaidPaymentIntentId(piId)
+    setPaidTotalCents(chargedCents)
+    setTipChoice("none")
+    setCustomTipDollars("")
+    setSignaturePng(null)
+    setTipChargeCents(0)
+    setClientSecret(null)
+    setPublishableKey(null)
+    setMethod(null)
+    setPostPayStep("tip_sign")
+    setError(null)
+  }
+
+  async function saveSlip(opts?: { tipPaymentIntentId?: string | null; tipCents?: number }) {
+    if (!paidPaymentIntentId) return
+    const tipCents = opts?.tipCents ?? selectedTipCents()
+    const res = await fetch("/api/payments/complete-slip", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paymentIntentId: paidPaymentIntentId,
+        tipCents,
+        signaturePng,
+        tipPaymentIntentId: opts?.tipPaymentIntentId ?? undefined,
+      }),
+    })
+    const json = (await res.json()) as { error?: string }
+    if (!res.ok) throw new Error(json.error || "Could not save tip / signature")
+  }
+
+  async function continueFromTipSign(opts?: {
+    skipTipCharge?: boolean
+    allowNoSignature?: boolean
+  }) {
+    const tipCents = selectedTipCents()
+    if (!signaturePng && !opts?.allowNoSignature) {
+      setError("Have the customer sign below, or skip signature.")
+      return
+    }
+    setSlipBusy(true)
+    setError(null)
+    try {
+      if (paidPaymentIntentId) {
+        await saveSlip({ tipCents })
+      }
+      if (tipCents >= 50 && !opts?.skipTipCharge) {
+        setTipChargeCents(tipCents)
+        setPostPayStep("tip_charge")
+        return
+      }
+      setPostPayStep("receipt")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save tip / signature")
+    } finally {
+      setSlipBusy(false)
+    }
+  }
+
+  /** Charge tip as a separate job line (works for owner + tech). */
+  async function createTipIntent(paymentMethodType: "TAP_TO_PAY" | "MANUAL_CARD") {
+    if (tipChargeCents < 50) throw new Error("Tip must be at least $0.50")
+    const res = await fetch("/api/payments/create-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        jobId: props.job.id,
+        amount: tipChargeCents / 100,
+        paymentMethodType,
+        invoiceOverride: true,
+        lineItems: [{ label: "Tip", amountCents: tipChargeCents }],
+      }),
+    })
+    const json = (await res.json()) as {
+      error?: string
+      data?: {
+        clientSecret?: string
+        client_secret?: string
+        paymentIntentId?: string
+        publishableKey?: string | null
+      }
+    }
+    if (!res.ok) throw new Error(json.error || "Could not start tip charge")
+    const secret = json.data?.clientSecret || json.data?.client_secret
+    if (!secret) throw new Error("No client_secret returned")
+    setClientSecret(secret)
+    setPaymentIntentId(json.data?.paymentIntentId ?? null)
+    setPublishableKey(json.data?.publishableKey?.trim() || null)
+    return {
+      clientSecret: secret,
+      paymentIntentId: json.data?.paymentIntentId ?? null,
+      publishableKey: json.data?.publishableKey?.trim() || null,
+    }
+  }
+
+  async function startTipCardIntent() {
+    setError(null)
+    setBusy(true)
+    try {
+      await createTipIntent("MANUAL_CARD")
+    } catch (e) {
+      setError(formatPaymentCatchError(e, "Could not start tip card charge."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function runTipTapToPay() {
+    setError(null)
+    setBusy(true)
+    setTapListening(true)
+    let terminal: Terminal | null = null
+    try {
+      const intent = await createTipIntent("TAP_TO_PAY")
+      const StripeTerminal = await loadStripeTerminal()
+      if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
+      terminal = StripeTerminal.create({
+        onFetchConnectionToken: async () => {
+          const res = await fetch("/api/payments/terminal/connection-token", {
+            method: "POST",
+            credentials: "include",
+          })
+          const json = (await res.json()) as { data?: { secret?: string }; error?: string }
+          if (!res.ok || !json.data?.secret) {
+            throw new Error(json.error || "Could not fetch Terminal connection token")
+          }
+          return json.data.secret
+        },
+        onUnexpectedReaderDisconnect: () => {
+          setError("Card reader disconnected.")
+          setTapListening(false)
+        },
+      })
+      const pk = intent.publishableKey
+      const liveMode = isStripeLivePublishableKey(pk)
+      const allowSimulator = isStripeTestPublishableKey(pk)
+      let discover = await terminal.discoverReaders({ simulated: false })
+      const noRealReader =
+        "error" in discover ||
+        !("discoveredReaders" in discover) ||
+        !discover.discoveredReaders?.length
+      if (noRealReader && allowSimulator && !liveMode) {
+        discover = await terminal.discoverReaders({ simulated: true })
+      }
+      if ("error" in discover) {
+        throw new Error(formatPaymentCatchError(discover.error, "Could not find a tap reader."))
+      }
+      const reader = discover.discoveredReaders?.[0]
+      if (!reader) throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
+      const connected = await terminal.connectReader(reader)
+      if ("error" in connected) {
+        throw new Error(formatPaymentCatchError(connected.error, "Could not connect reader."))
+      }
+      const collected = await terminal.collectPaymentMethod(intent.clientSecret)
+      if ("error" in collected) {
+        throw new Error(formatPaymentCatchError(collected.error, "Tip tap failed."))
+      }
+      const processed = await terminal.processPayment(collected.paymentIntent)
+      if ("error" in processed) {
+        throw new Error(formatPaymentCatchError(processed.error, "Tip charge failed."))
+      }
+      const tipPiId = String(processed.paymentIntent?.id || intent.paymentIntentId || "")
+      if (tipPiId) await confirmServer(tipPiId)
+      if (paidPaymentIntentId) {
+        await saveSlip({ tipPaymentIntentId: tipPiId || null, tipCents: tipChargeCents }).catch(
+          () => null
+        )
+      }
+      setClientSecret(null)
+      setPublishableKey(null)
+      setPostPayStep("receipt")
+    } catch (e) {
+      setError(formatPaymentCatchError(e, "Tip Tap to Pay failed — try card."))
+    } finally {
+      setTapListening(false)
+      setBusy(false)
+      try {
+        await terminal?.disconnectReader()
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  async function sendReceipt(channel: "email" | "sms") {
+    if (!paidPaymentIntentId) {
+      setError("Receipt needs a card payment — cash jobs can skip this.")
+      return
+    }
+    setReceiptBusy(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/payments/send-receipt", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentIntentId: paidPaymentIntentId,
+          channel,
+          customerName: receiptName.trim() || undefined,
+          email: channel === "email" ? receiptEmail.trim() : undefined,
+          phone: channel === "sms" ? receiptPhone.trim() : undefined,
+        }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error || "Could not send receipt")
+      props.onCompleted()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send receipt")
+    } finally {
+      setReceiptBusy(false)
+    }
+  }
+
   async function saveCashInvoice() {
     const lineItems = lineItemsPayload()
     if (totalCents < 50) throw new Error("Enter an amount of at least $0.50.")
@@ -297,15 +542,14 @@ export function TechPaymentModal(props: {
         body: JSON.stringify({
           leadId: props.job.id,
           lineItems: lineItemsPayload(),
-          taxCents: 0,
+          taxCents,
           paymentMethod: "card",
           collectNow: true,
           skipWalletCredit: true,
         }),
       }).catch(() => {})
 
-      setDone(true)
-      setTimeout(props.onCompleted, 900)
+      enterTipSignStep(piId || intent.paymentIntentId, totalCents)
     } catch (e) {
       setError(formatPaymentCatchError(e, "Tap to Pay failed — try Manual Card Entry."))
       setMethod(null)
@@ -340,8 +584,8 @@ export function TechPaymentModal(props: {
     setMethod("cash")
     try {
       await saveCashInvoice()
-      setDone(true)
-      setTimeout(props.onCompleted, 900)
+      // Cash has no Stripe PI — tip can still be charged on card; signature is optional.
+      enterTipSignStep(null, totalCents)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not record cash payment")
       setMethod(null)
@@ -424,7 +668,15 @@ export function TechPaymentModal(props: {
       <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-800 bg-[#101018] shadow-2xl sm:rounded-3xl">
         <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
           <div>
-            <h2 className="text-base font-bold text-white">Proceed to Payment</h2>
+            <h2 className="text-base font-bold text-white">
+              {postPayStep === "tip_sign"
+                ? "Tip & signature"
+                : postPayStep === "tip_charge"
+                  ? "Charge tip"
+                  : postPayStep === "receipt"
+                    ? "Send invoice"
+                    : "Proceed to Payment"}
+            </h2>
             <p className="text-xs text-zinc-500">
               {props.job.customer_name || props.job.customer_phone || "Customer"}
             </p>
@@ -432,7 +684,7 @@ export function TechPaymentModal(props: {
           <button
             type="button"
             onClick={props.onClose}
-            disabled={busy || tapListening}
+            disabled={busy || tapListening || slipBusy}
             className="rounded-lg p-2 text-zinc-400 hover:text-white disabled:opacity-40"
             aria-label="Close"
           >
@@ -440,11 +692,280 @@ export function TechPaymentModal(props: {
           </button>
         </div>
 
-        {done ? (
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <CheckCircle2 className="h-12 w-12 text-emerald-400" />
-            <p className="mt-3 text-lg font-semibold text-white">Payment complete</p>
-            <p className="mt-1 text-sm text-zinc-400">{fmt(totalCents)} · job closed</p>
+        {postPayStep === "tip_sign" ? (
+          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+              <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                {fmt(paidTotalCents)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Add a tip
+              </p>
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {(
+                  [
+                    { id: "none" as const, label: "No tip" },
+                    { id: "15" as const, label: "15%" },
+                    { id: "18" as const, label: "18%" },
+                    { id: "20" as const, label: "20%" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTipChoice(opt.id)}
+                    className={cn(
+                      "rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                      tipChoice === opt.id
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                        : "border-zinc-700 bg-zinc-900 text-slate-400"
+                    )}
+                  >
+                    {opt.label}
+                    {opt.id !== "none" && paidTotalCents > 0 ? (
+                      <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
+                        {fmt(Math.round(paidTotalCents * (Number(opt.id) / 100)))}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTipChoice("custom")}
+                className={cn(
+                  "mt-2 w-full rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                  tipChoice === "custom"
+                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                    : "border-zinc-700 bg-zinc-900 text-slate-400"
+                )}
+              >
+                Custom tip
+              </button>
+              {tipChoice === "custom" ? (
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5">
+                  <span className="text-sm font-semibold text-slate-400">$</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={customTipDollars}
+                    onChange={(e) => setCustomTipDollars(e.target.value)}
+                    className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
+                  />
+                </div>
+              ) : null}
+              {selectedTipCents() > 0 ? (
+                <p className="mt-2 text-xs text-zinc-400">
+                  Tip {fmt(selectedTipCents())}
+                  {" · "}
+                  New total{" "}
+                  <span className="font-semibold text-emerald-300">
+                    {fmt(paidTotalCents + selectedTipCents())}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+            <CustomerSignaturePad onChange={setSignaturePng} />
+            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            <button
+              type="button"
+              disabled={slipBusy}
+              onClick={() => void continueFromTipSign()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+              {selectedTipCents() >= 50
+                ? `Continue · charge tip ${fmt(selectedTipCents())}`
+                : "Continue"}
+            </button>
+            <button
+              type="button"
+              disabled={slipBusy}
+              onClick={() =>
+                void continueFromTipSign({
+                  allowNoSignature: !signaturePng,
+                  skipTipCharge: true,
+                })
+              }
+              className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+            >
+              {!signaturePng
+                ? "Skip signature — send invoice"
+                : selectedTipCents() >= 50
+                  ? "Skip tip card charge (record tip only)"
+                  : "Skip — send invoice"}
+            </button>
+          </div>
+        ) : postPayStep === "tip_charge" ? (
+          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+              <p className="text-sm font-semibold text-emerald-100">Tip amount</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                {fmt(tipChargeCents)}
+              </p>
+              <p className="mt-1 text-[11px] text-emerald-200/70">
+                Second charge — Tap to Pay or card.
+              </p>
+            </div>
+            {!clientSecret ? (
+              tapListening ? (
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
+                  <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
+                  <p className="text-sm font-semibold text-emerald-100">Ready for tip tap</p>
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-300" aria-hidden />
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void runTipTapToPay()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <Nfc className="h-4 w-4" aria-hidden />
+                    )}
+                    Tap to Pay tip
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void startTipCardIntent()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                  >
+                    <CreditCard className="h-4 w-4" aria-hidden />
+                    Card for tip
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setClientSecret(null)
+                      setPostPayStep("receipt")
+                    }}
+                    className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
+                  >
+                    Skip tip charge
+                  </button>
+                </div>
+              )
+            ) : publishableKey ? (
+              <Elements
+                stripe={getStripePromise(publishableKey)}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: "night",
+                    variables: { colorPrimary: "#10b981", borderRadius: "10px" },
+                  },
+                }}
+              >
+                <ManualCardForm
+                  totalLabel={fmt(tipChargeCents)}
+                  paymentIntentId={paymentIntentId}
+                  lineItems={[{ label: "Tip", amountCents: tipChargeCents }]}
+                  jobId={props.job.id}
+                  taxCents={0}
+                  skipInvoice
+                  onError={setError}
+                  onSuccess={(tipPiId) => {
+                    void (async () => {
+                      if (paidPaymentIntentId) {
+                        await saveSlip({
+                          tipPaymentIntentId: tipPiId,
+                          tipCents: tipChargeCents,
+                        }).catch(() => null)
+                      }
+                      setClientSecret(null)
+                      setPublishableKey(null)
+                      setPostPayStep("receipt")
+                    })()
+                  }}
+                  onBack={() => {
+                    setClientSecret(null)
+                    setPublishableKey(null)
+                  }}
+                />
+              </Elements>
+            ) : (
+              <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
+            )}
+            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          </div>
+        ) : postPayStep === "receipt" ? (
+          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
+              <p className="mt-2 text-sm font-semibold text-emerald-100">Payment complete</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                {fmt(paidTotalCents + Math.max(0, tipChargeCents || selectedTipCents()))}
+              </p>
+            </div>
+            {paidPaymentIntentId ? (
+              <>
+                <p className="text-xs text-zinc-500">Optional — email or text a receipt.</p>
+                <input
+                  value={receiptName}
+                  onChange={(e) => setReceiptName(e.target.value)}
+                  placeholder="Customer name"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none"
+                />
+                <input
+                  value={receiptEmail}
+                  onChange={(e) => setReceiptEmail(e.target.value)}
+                  placeholder="Email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none"
+                />
+                <input
+                  value={receiptPhone}
+                  onChange={(e) => setReceiptPhone(e.target.value)}
+                  placeholder="Mobile for text"
+                  inputMode="tel"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none"
+                />
+                {error ? <p className="text-sm text-red-300">{error}</p> : null}
+                <button
+                  type="button"
+                  disabled={receiptBusy || !receiptEmail.trim()}
+                  onClick={() => void sendReceipt("email")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {receiptBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Email invoice
+                </button>
+                <button
+                  type="button"
+                  disabled={receiptBusy || !receiptPhone.trim()}
+                  onClick={() => void sendReceipt("sms")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Text invoice
+                </button>
+              </>
+            ) : (
+              <p className="text-xs text-zinc-500">
+                Cash payment recorded. Tip was charged separately if you collected one.
+              </p>
+            )}
+            <button
+              type="button"
+              disabled={receiptBusy}
+              onClick={() => props.onCompleted()}
+              className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
+            >
+              Done
+            </button>
           </div>
         ) : (
           <>
@@ -765,10 +1286,10 @@ export function TechPaymentModal(props: {
                     paymentIntentId={paymentIntentId}
                     lineItems={lineItemsPayload()}
                     jobId={props.job.id}
+                    taxCents={taxCents}
                     onError={setError}
-                    onSuccess={() => {
-                      setDone(true)
-                      setTimeout(props.onCompleted, 900)
+                    onSuccess={(piId) => {
+                      enterTipSignStep(piId || paymentIntentId, totalCents)
                     }}
                     onBack={() => {
                       setMethod(null)
@@ -846,8 +1367,11 @@ function ManualCardForm(props: {
   paymentIntentId: string | null
   jobId: string
   lineItems: { label: string; amountCents: number }[]
+  taxCents?: number
+  /** Tip-only charge — skip writing a full job invoice again. */
+  skipInvoice?: boolean
   onError: (msg: string | null) => void
-  onSuccess: () => void
+  onSuccess: (paymentIntentId: string | null) => void
   onBack: () => void
 }) {
   const stripe = useStripe()
@@ -907,20 +1431,22 @@ function ManualCardForm(props: {
           )
         }
       }
-      await fetch("/api/tech/invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          leadId: props.jobId,
-          lineItems: props.lineItems,
-          taxCents: 0,
-          paymentMethod: "card",
-          collectNow: true,
-          skipWalletCredit: true,
-        }),
-      }).catch(() => {})
-      props.onSuccess()
+      if (!props.skipInvoice) {
+        await fetch("/api/tech/invoice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            leadId: props.jobId,
+            lineItems: props.lineItems,
+            taxCents: props.taxCents ?? 0,
+            paymentMethod: "card",
+            collectNow: true,
+            skipWalletCredit: true,
+          }),
+        }).catch(() => {})
+      }
+      props.onSuccess(piId ?? null)
     } catch (err) {
       props.onError(formatPaymentCatchError(err, "Card payment failed — try another card."))
     } finally {
