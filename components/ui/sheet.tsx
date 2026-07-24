@@ -56,18 +56,21 @@ function SheetContent({
   children,
   side = 'right',
   variant,
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
   /** `drawer` = GPU translate3d slide, no backdrop blur, lighter shadow */
   variant?: 'default' | 'drawer'
+  /** Raise above another open sheet (e.g. Get paid over Settings). */
+  overlayClassName?: string
 }) {
   const motionVariant = variant ?? (side === 'right' ? 'drawer' : 'default')
   const isDrawer = motionVariant === 'drawer'
 
   return (
     <SheetPortal>
-      <SheetOverlay variant={motionVariant} />
+      <SheetOverlay variant={motionVariant} className={overlayClassName} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(

@@ -984,7 +984,8 @@ export function OwnerCollectPaymentSheet({
                       type="button"
                       onClick={() => {
                         onOpenChange(false)
-                        openGetPaidModal()
+                        // Let Collect close, then open Get paid above anything else.
+                        window.setTimeout(() => openGetPaidModal(), 50)
                       }}
                       className="mt-2.5 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
                     >
@@ -994,18 +995,18 @@ export function OwnerCollectPaymentSheet({
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (connectReady === false) {
-                      toast({
-                        title: "Get paid required",
-                        description: "Finish payout setup before collecting card payments.",
-                        variant: "destructive",
-                      })
-                      openGetPaidModal()
-                      return
-                    }
-                    setMode("adhoc")
-                  }}
+                      onClick={() => {
+                        if (connectReady === false) {
+                          toast({
+                            title: "Get paid required",
+                            description: "Finish payout setup before collecting card payments.",
+                            variant: "destructive",
+                          })
+                          window.setTimeout(() => openGetPaidModal(), 50)
+                          return
+                        }
+                        setMode("adhoc")
+                      }}
                   className="mb-3 flex w-full items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-3 text-left transition-colors hover:bg-emerald-500/15"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300">

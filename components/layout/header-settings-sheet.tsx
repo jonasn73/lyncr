@@ -1,11 +1,11 @@
 "use client"
 
-// Profile avatar opens Settings; shows today’s collected $ and a Collect Payment shortcut.
+// Profile avatar opens Settings; wallet chip opens Collect Payment.
 
 import { memo, useCallback, useEffect, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
+import { ChevronDown, LifeBuoy, Loader2, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -15,6 +15,7 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { OwnerCollectPaymentSheet } from "@/components/dashboard/owner-collect-payment-sheet"
+import { OPEN_GET_PAID_MODAL_EVENT } from "@/lib/settings-modals-events"
 
 /** Client-safe currency label for the header chip. */
 function formatCollectedDollars(cents: number): string {
@@ -77,6 +78,13 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const id = window.setInterval(refreshCollected, 60_000)
     return () => window.clearInterval(id)
   }, [refreshCollected])
+
+  // Get paid opens above Settings — close Settings so the sheet is visible (not “collapsed”).
+  useEffect(() => {
+    const onGetPaid = () => setOpen(false)
+    window.addEventListener(OPEN_GET_PAID_MODAL_EVENT, onGetPaid)
+    return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, onGetPaid)
+  }, [])
 
   const collectedLabel =
     todayCents == null ? "…" : formatCollectedDollars(todayCents)
@@ -168,27 +176,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   Collected today: {collectedLabel}
                 </p>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false)
-                    setCollectOpen(true)
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
-                >
-                  <CreditCard className="h-3.5 w-3.5" aria-hidden />
-                  Collect
-                </button>
-                <Link
-                  href={DASHBOARD_PAGE_HREF.help}
-                  onClick={() => setOpen(false)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-900"
-                >
-                  <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
-                  Help
-                </Link>
-              </div>
+              <Link
+                href={DASHBOARD_PAGE_HREF.help}
+                onClick={() => setOpen(false)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-900"
+              >
+                <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
+                Help
+              </Link>
             </div>
           </SheetHeader>
 

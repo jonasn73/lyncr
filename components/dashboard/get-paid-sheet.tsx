@@ -147,7 +147,8 @@ export function GetPaidSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl"
+        overlayClassName="z-[7000]"
+        className="z-[7010] flex max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl"
       >
         <SheetHeader className="border-b border-zinc-800 px-4 py-3 text-left">
           <div className="flex items-start justify-between gap-3">
