@@ -14,22 +14,29 @@ export function ScheduleBlockoutsPanel({
   deletingId,
   onDelete,
   onAdd,
+  /** Drop the heavy amber chrome when nested inside a parent “Day settings” panel. */
+  embedded = false,
 }: {
   dateKey: string
   blockouts: ScheduleBlockout[]
   deletingId: string | null
   onDelete: (id: string) => void
   onAdd: () => void
+  embedded?: boolean
 }) {
   const dayRows = blockouts.filter((b) => b.date === dateKey)
 
   return (
-    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+    <div
+      className={cn(
+        embedded ? "p-0" : "rounded-xl border border-amber-500/20 bg-amber-500/5 p-3"
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Ban className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-300">
-            Blockouts · {dateKey}
+            {embedded ? "Blockouts" : `Blockouts · ${dateKey}`}
           </p>
         </div>
         <button
@@ -40,14 +47,12 @@ export function ScheduleBlockoutsPanel({
             MOBILE_TAP_TARGET
           )}
         >
-          + Add Blockout Time
+          + Add
         </button>
       </div>
 
       {dayRows.length === 0 ? (
-        <p className="mt-2 text-[11px] text-zinc-500">
-          No blockouts on this day — booking and IVR can offer open slots.
-        </p>
+        <p className="mt-1.5 text-[11px] text-zinc-500">None today</p>
       ) : (
         <ul className="mt-2 space-y-1.5">
           {dayRows.map((b) => (

@@ -74,7 +74,7 @@ export function BookingDepositSettings({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-2.5",
+        "flex items-center justify-between gap-3 rounded-lg border border-zinc-800/60 bg-zinc-900/30 px-3 py-2",
         className
       )}
     >

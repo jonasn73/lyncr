@@ -856,12 +856,12 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               : "Field jobs with intake fields and validated addresses."}
         </p>
 
-        <div className="grid w-full grid-cols-1 items-start gap-4 pb-28 lg:grid-cols-4 lg:gap-5 lg:pb-0">
-          {/* Left control column — one glass surface: intake → pool → live status → booking */}
-          <div className="flex w-full min-w-0 flex-col gap-3 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)]">
+        <div className="grid w-full grid-cols-1 items-start gap-3 pb-28 lg:grid-cols-4 lg:gap-4 lg:pb-0">
+          {/* Left rail — primary path only: intake → pool → live status */}
+          <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
             <div className={cn(SCHEDULER_GLASS_CARD, "overflow-hidden p-0")}>
               {inboundCallPanel ? (
-                <div className="border-b border-zinc-800/80 p-3">
+                <div className="border-b border-zinc-800/80 p-2.5">
                   <button
                     type="button"
                     onClick={openNewIntake}
@@ -873,7 +873,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 </div>
               ) : null}
 
-              <div className="border-b border-zinc-800/80 px-3 py-3">
+              <div className="border-b border-zinc-800/80 px-2.5 py-2.5">
                 <JobPoolPanel
                   jobs={displayPoolJobs}
                   highlightId={highlightId}
@@ -884,7 +884,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                 />
               </div>
 
-              <div ref={liveStatusRef} className="border-b border-zinc-800/80">
+              <div ref={liveStatusRef}>
                 <SchedulerDispatchLiveStatus
                   sidebar
                   hidePrimaryAction
@@ -901,49 +901,62 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                   completingJobId={completingId}
                 />
               </div>
-
-              <div className="p-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Booking
-                </p>
-                <BookingDepositSettings className="border-zinc-800/60 bg-zinc-950/40" />
-              </div>
             </div>
+
+            {/* Settings off the primary path — collapsed unless this day already has blockouts. */}
+            <details
+              className="group rounded-xl border border-zinc-800/80 bg-zinc-950/40 open:bg-zinc-950/60"
+              defaultOpen={blockouts.some((b) => b.date === selectedKey)}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
+                <span>Booking &amp; blockouts</span>
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="space-y-3 border-t border-zinc-800/80 px-3 py-3">
+                <BookingDepositSettings className="border-zinc-800/60 bg-zinc-950/40" />
+                <ScheduleBlockoutsPanel
+                  embedded
+                  dateKey={selectedKey}
+                  blockouts={blockouts}
+                  deletingId={deletingBlockoutId}
+                  onAdd={() => setBlockoutModalOpen(true)}
+                  onDelete={(id) => {
+                    void (async () => {
+                      setDeletingBlockoutId(id)
+                      try {
+                        const res = await fetch(
+                          `/api/owner/scheduler/blockouts/${encodeURIComponent(id)}`,
+                          {
+                            method: "DELETE",
+                            credentials: "include",
+                          }
+                        )
+                        if (!res.ok) return
+                        setBlockouts((prev) => prev.filter((b) => b.id !== id))
+                      } finally {
+                        setDeletingBlockoutId(null)
+                      }
+                    })()
+                  }}
+                />
+              </div>
+            </details>
           </div>
 
           {/* Main workspace — pipeline + swimlanes */}
-          <div className="flex w-full min-w-0 flex-col gap-3 lg:col-span-3 lg:gap-4">
+          <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-3 lg:gap-3">
             {markCompleteError ? (
               <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                 {markCompleteError}
               </p>
             ) : null}
 
-            <ScheduleBlockoutsPanel
-              dateKey={selectedKey}
-              blockouts={blockouts}
-              deletingId={deletingBlockoutId}
-              onAdd={() => setBlockoutModalOpen(true)}
-              onDelete={(id) => {
-                void (async () => {
-                  setDeletingBlockoutId(id)
-                  try {
-                    const res = await fetch(`/api/owner/scheduler/blockouts/${encodeURIComponent(id)}`, {
-                      method: "DELETE",
-                      credentials: "include",
-                    })
-                    if (!res.ok) return
-                    setBlockouts((prev) => prev.filter((b) => b.id !== id))
-                  } finally {
-                    setDeletingBlockoutId(null)
-                  }
-                })()
-              }}
-            />
-
             {/* Empty board: one flat placeholder instead of nested empty panels. */}
             {displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/30 px-4 py-8 text-center">
+              <div className="rounded-xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-6 text-center">
                 <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
                 <p className="mt-1 text-xs text-zinc-500">
                   Add technicians in Team, then use New Intake to book the first job.
@@ -951,6 +964,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
               </div>
             ) : (
               <>
+                {displayPipelineJobs.length > 0 ? (
                 <WorkspacePanel className="flex w-full flex-col overflow-hidden">
                   <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                     <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
@@ -972,6 +986,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
                     />
                   </div>
                 </WorkspacePanel>
+                ) : null}
 
                 <WorkspacePanel className="flex w-full min-w-0 flex-col overflow-hidden">
                   <details className="group border-b border-border/60 lg:hidden">

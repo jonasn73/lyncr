@@ -56,13 +56,13 @@ function MetricCell({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col items-start justify-center gap-0.5 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-2",
+        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-zinc-800/60 bg-zinc-950/40 px-2 py-1.5",
         className
       )}
     >
       <span
         className={cn(
-          "text-xl font-bold leading-none tracking-tight tabular-nums",
+          "text-lg font-bold leading-none tracking-tight tabular-nums",
           isZero ? "text-zinc-600" : valueClassName
         )}
       >
@@ -128,7 +128,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           showPillRow
             ? "flex flex-nowrap gap-1.5 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             : "grid grid-cols-2 gap-1.5 px-2.5 py-2 sm:grid-cols-4",
-          sidebar && !showPillRow && "sm:grid-cols-2 px-3 py-2",
+          sidebar && !showPillRow && "sm:grid-cols-2 gap-1 px-2.5 py-1.5",
           !showPillRow && !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
         )}
       >
