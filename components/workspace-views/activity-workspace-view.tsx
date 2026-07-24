@@ -1112,7 +1112,6 @@ type ActivityBodyProps = {
   calls: UiCallRecord[]
   loading: boolean
   loadError: string | null
-  refreshing: boolean
   lineLabelMap: Map<string, string>
   filter: ActivityCallFilter
   onFilterChange: (next: ActivityCallFilter) => void
@@ -1122,7 +1121,6 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   calls,
   loading,
   loadError,
-  refreshing,
   lineLabelMap,
   filter,
   onFilterChange,
@@ -1166,27 +1164,16 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         eyebrow="Call history"
         title={filter === "missed" ? "Missed calls today" : "Activities"}
         action={
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Fixed-height slot so the quiet poll never shifts the list and scrolls the page. */}
-            <p
-              className={cn(
-                "min-h-4 text-xs text-zinc-600 transition-opacity duration-150",
-                refreshing ? "opacity-100" : "opacity-0"
-              )}
-              aria-live="polite"
-              aria-hidden={!refreshing}
-            >
-              Refreshing…
-            </p>
+          <div className="hidden flex-wrap items-center gap-3 sm:flex">
             <Link
               href="/dashboard/contacts"
-              className="hidden items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200 sm:inline-flex"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200"
             >
               Dispatch Map
             </Link>
             <Link
               href="/dashboard/scheduler"
-              className="hidden items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300 sm:inline-flex"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300"
             >
               <CalendarDays className="h-3.5 w-3.5" aria-hidden />
               Job scheduler
@@ -1230,8 +1217,16 @@ function useLineLabelMap(): Map<string, string> {
   }, [businessNumbers])
 }
 
-export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
-  const { calls, loading, loadError, refreshing } = useOperationsData({ refetchIntervalMs: 12_000 })
+export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
+  // Presence host keeps this pane mounted — only poll while the tab is visible.
+  isActive = true,
+}: {
+  isActive?: boolean
+}) {
+  const { calls, loading, loadError } = useOperationsData({
+    refetchIntervalMs: 12_000,
+    enabled: isActive,
+  })
   const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()
   const searchParams = useSearchParams()
@@ -1280,7 +1275,6 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
         calls={calls}
         loading={loading}
         loadError={loadError}
-        refreshing={refreshing}
         lineLabelMap={lineLabelMap}
         filter={filter}
         onFilterChange={handleFilterChange}

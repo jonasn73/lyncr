@@ -15,7 +15,7 @@ import {
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
-import { clearOperationsDataCache } from "@/lib/hooks/use-operations-data"
+import { softInvalidateOperationsDataCache } from "@/lib/hooks/use-operations-data"
 import { injectAiTranscriptOnCallDisconnect } from "@/lib/call-transcript-stub"
 import {
   emitLyncEngineBus,
@@ -214,8 +214,8 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       // Fan out metric increment to RealTimeStats via the bus.
       emitLyncEngineBus({ type: "call-initiated", payload: raw })
 
-      // Prepend / refresh Activities feed as soon as the webhook inserts the row.
-      clearOperationsDataCache()
+      // Refresh Activities without wiping the on-screen list (hard clear caused a bounce).
+      softInvalidateOperationsDataCache()
       window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
 
       setActiveCalls((prev) => {
@@ -258,7 +258,7 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       emitLyncEngineBus({ type: "call-answered", payload: raw })
 
       // Status flip ringing → answered should refresh the Activities row.
-      clearOperationsDataCache()
+      softInvalidateOperationsDataCache()
       window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
 
       setActiveCalls((prev) => {
@@ -312,7 +312,7 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
       setActiveCalls((prev) => prev.filter((c) => c.callSid !== callSid))
 
       // Always refresh Activities on hangup (answered + missed), not only missed.
-      clearOperationsDataCache()
+      softInvalidateOperationsDataCache()
       window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
       if (isMissedCallTelemetry(raw)) {
         bumpActivityBadge()

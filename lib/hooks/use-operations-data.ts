@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 
@@ -134,6 +134,15 @@ export function clearOperationsDataCache() {
   }
 }
 
+/**
+ * Mark cache stale for the next fetch, but keep rows in memory so Activities
+ * does not flash empty / jump when a live call event asks for a refresh.
+ */
+export function softInvalidateOperationsDataCache() {
+  if (!operationsCache) return
+  operationsCache = { ...operationsCache, fetchedAt: 0 }
+}
+
 function formatPhoneDisplay(phone: string | undefined | null): string {
   const v = String(phone || "")
   if (!v) return "Unknown"
@@ -205,10 +214,13 @@ function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
 export type UseOperationsDataOptions = {
   /** When set (ms), refetches calls + quality on this interval, ignoring the 45s in-memory cache TTL. */
   refetchIntervalMs?: number
+  /** When false, pause fetch/poll (hidden presence tabs). Default true. */
+  enabled?: boolean
 }
 
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
+  const enabled = options?.enabled !== false
   const seed = operationsCache
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
@@ -217,6 +229,9 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   const [loading, setLoading] = useState(() => operationsCache === null)
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Keep showing the last list while a background fetch runs (never bounce to skeleton).
+  const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
+  hasCallsRef.current = calls.length > 0
 
   // Restore last successful payload before paint so refresh / Activity tab does not flash a loading shell.
   useLayoutEffect(() => {
@@ -231,13 +246,14 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   }, [])
 
   useEffect(() => {
+    if (!enabled) return
     let mounted = true
 
     async function loadData(bypassCache: boolean) {
       const cached = operationsCache
       if (!bypassCache && cached && cacheIsFresh(cached)) {
         if (!mounted) return
-        setCalls(cached.calls)
+        setCalls((prev) => (callsFingerprint(prev) === callsFingerprint(cached.calls) ? prev : cached.calls))
         setQuality(cached.quality)
         setInsights(cached.insights)
         setLoading(false)
@@ -245,12 +261,14 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         return
       }
 
-      if (!cached) {
+      const canShowExisting = hasCallsRef.current || Boolean(cached?.calls.length)
+      if (!canShowExisting) {
+        // First load only — never blank the feed for a quiet poll / live-call refresh.
         setLoading(true)
         setLoadError(null)
-      } else {
-        setRefreshing(true)
       }
+      // Intentionally no setRefreshing(true): that re-rendered the Activities header
+      // every 12s and made the whole block look like it dropped then snapped back.
 
       try {
         const [callsRes, qualityRes] = await Promise.all([
@@ -318,10 +336,14 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         }
 
         if (!mounted) return
-        // Skip identical payloads so Activities does not re-render / jump scroll every poll.
+        // Skip identical payloads so Activities does not re-render / jump every poll.
         setCalls((prev) => (callsFingerprint(prev) === callsFingerprint(normalizedCalls) ? prev : normalizedCalls))
-        setQuality(qualitySummary)
-        setInsights(qualityInsights)
+        setQuality((prev) =>
+          JSON.stringify(prev) === JSON.stringify(qualitySummary) ? prev : qualitySummary
+        )
+        setInsights((prev) =>
+          JSON.stringify(prev) === JSON.stringify(qualityInsights) ? prev : qualityInsights
+        )
         operationsCache = {
           calls: normalizedCalls,
           quality: qualitySummary,
@@ -332,7 +354,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         setLoadError(null)
       } catch (e) {
         if (!mounted) return
-        if (!operationsCache) {
+        if (!hasCallsRef.current && !operationsCache?.calls.length) {
           setLoadError(e instanceof Error ? e.message : "Failed to load operations data")
         }
       } finally {
@@ -352,9 +374,9 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       }, refetchIntervalMs)
     }
 
-    // LyncEngine call-initiated / answered / completed — drop cache and refetch Activities.
+    // Live call events — soft-invalidate so the visible list never blanks mid-refresh.
     const onActivityRefresh = () => {
-      clearOperationsDataCache()
+      softInvalidateOperationsDataCache()
       void loadData(true)
     }
     window.addEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onActivityRefresh)
@@ -364,7 +386,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       if (intervalId) clearInterval(intervalId)
       window.removeEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onActivityRefresh)
     }
-  }, [refetchIntervalMs])
+  }, [refetchIntervalMs, enabled])
 
   return { calls, quality, insights, loading, loadError, refreshing }
 }
