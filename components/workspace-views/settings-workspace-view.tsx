@@ -3,17 +3,13 @@
 import { memo, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Bell,
   Building2,
-  Clock,
   CreditCard,
   Banknote,
   Loader2,
   LogOut,
-  MessageSquare,
   Network,
   Package,
-  ScanBarcode,
   Shield,
   ShieldCheck,
   Volume2,
@@ -22,16 +18,11 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import {
-  DrawerStepHeader,
-  DrawerScrollBody,
-} from "@/components/dashboard-routing-drawer-shared"
 import { useToast } from "@/hooks/use-toast"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import {
   WorkspacePage,
   WorkspacePageHeader,
-  workspaceFieldClass,
 } from "@/components/dashboard-workspace-ui"
 import { SettingsMenuRow, SettingsGroupedList } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
@@ -40,12 +31,8 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-status"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
-import {
-  WorkspaceRightSheetGate,
-  useWorkspaceRightSheet,
-} from "@/components/workspace-right-sheet-gate"
+import { closeHeaderSettings } from "@/lib/settings-modals-events"
 import { PlatformNotificationSettings } from "@/components/admin/platform-notification-settings"
-import { KeyInventoryScanner } from "@/components/dashboard/key-inventory-scanner"
 
 type SettingsProfileSummary = {
   name: string
@@ -53,80 +40,9 @@ type SettingsProfileSummary = {
   subscriptionActive: boolean
 }
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
-type DayHours = { open: string; close: string; enabled: boolean }
-const DEFAULT_HOURS: Record<(typeof WEEKDAYS)[number], DayHours> = {
-  Mon: { open: "09:00", close: "17:00", enabled: true },
-  Tue: { open: "09:00", close: "17:00", enabled: true },
-  Wed: { open: "09:00", close: "17:00", enabled: true },
-  Thu: { open: "09:00", close: "17:00", enabled: true },
-  Fri: { open: "09:00", close: "17:00", enabled: true },
-  Sat: { open: "10:00", close: "14:00", enabled: false },
-  Sun: { open: "10:00", close: "14:00", enabled: false },
-}
-
-const HOURS_SHEET_KEY = true as const
-
-function SettingsHoursSheet() {
-  const [hours, setHours] = useState(DEFAULT_HOURS)
-
-  return (
-    <>
-      <DrawerStepHeader step="Schedule" title="Business Hours" subtitle="" />
-      <DrawerScrollBody>
-        <ul className="flex flex-col gap-2">
-          {WEEKDAYS.map((day) => {
-            const row = hours[day]
-            return (
-              <li
-                key={day}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2.5"
-              >
-                <label className="flex w-12 items-center gap-2 text-xs font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={row.enabled}
-                    onChange={(e) =>
-                      setHours((prev) => ({ ...prev, [day]: { ...prev[day], enabled: e.target.checked } }))
-                    }
-                  />
-                  {day}
-                </label>
-                <input
-                  type="time"
-                  disabled={!row.enabled}
-                  value={row.open}
-                  onChange={(e) =>
-                    setHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))
-                  }
-                  className={workspaceFieldClass + " max-w-[7rem] py-1.5 text-xs disabled:opacity-40"}
-                />
-                <span className="text-xs text-zinc-600">–</span>
-                <input
-                  type="time"
-                  disabled={!row.enabled}
-                  value={row.close}
-                  onChange={(e) =>
-                    setHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))
-                  }
-                  className={workspaceFieldClass + " max-w-[7rem] py-1.5 text-xs disabled:opacity-40"}
-                />
-              </li>
-            )
-          })}
-        </ul>
-      </DrawerScrollBody>
-    </>
-  )
-}
-
 const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   profileLoading,
   profile,
-  pushEnabled,
-  setPushEnabled,
-  smsEnabled,
-  setSmsEnabled,
   whisperEnabled,
   whisperSaving,
   onSaveWhisper,
@@ -139,10 +55,6 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 }: {
   profileLoading: boolean
   profile: SettingsProfileSummary
-  pushEnabled: boolean
-  setPushEnabled: (v: boolean) => void
-  smsEnabled: boolean
-  setSmsEnabled: (v: boolean) => void
   whisperEnabled: boolean
   whisperSaving: boolean
   onSaveWhisper: (v: boolean) => void
@@ -152,11 +64,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   isPlatformAdmin: boolean
   embedded?: boolean
 }) {
-  const openHours = useWorkspaceRightSheet<typeof HOURS_SHEET_KEY>()
   const modals = useSettingsModalActions()
   const router = useRouter()
-  const { activeOrganizationId } = useDashboardWorkspace()
-  const [scannerOpen, setScannerOpen] = useState(false)
   const initials = profile.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -165,61 +74,58 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
     .slice(0, 2)
 
   return (
-    <WorkspacePage className={cn("gap-6 pb-10", embedded && "gap-4 px-0 pb-4")}>
+    <WorkspacePage className={cn("gap-5 pb-10", embedded && "gap-4 px-0 pb-4")}>
       {embedded ? null : <WorkspacePageHeader eyebrow="Account" title="Settings" />}
-      <KeyInventoryScanner
-        open={scannerOpen}
-        onOpenChange={setScannerOpen}
-        organizationId={activeOrganizationId}
-      />
 
-      <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
-        {profileLoading ? (
-          <>
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1 space-y-2">
-              <span className="block h-4 w-36 animate-pulse rounded bg-zinc-800" aria-hidden />
-              <span className="block h-3 w-48 animate-pulse rounded bg-zinc-800/80" aria-hidden />
-            </div>
-          </>
-        ) : (
-          <>
-            <Avatar className="h-12 w-12 shrink-0">
-              <AvatarFallback className="bg-primary text-base font-semibold text-primary-foreground">
-                {initials || "ME"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-foreground">{profile.name || "Account"}</p>
-              <p className="truncate text-sm text-zinc-500">{profile.email}</p>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Full-page Settings only — sheet header already shows email. */}
+      {embedded ? null : (
+        <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
+          {profileLoading ? (
+            <>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1 space-y-2">
+                <span className="block h-4 w-36 animate-pulse rounded bg-zinc-800" aria-hidden />
+                <span className="block h-3 w-48 animate-pulse rounded bg-zinc-800/80" aria-hidden />
+              </div>
+            </>
+          ) : (
+            <>
+              <Avatar className="h-12 w-12 shrink-0">
+                <AvatarFallback className="bg-primary text-base font-semibold text-primary-foreground">
+                  {initials || "ME"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-foreground">{profile.name || "Account"}</p>
+                <p className="truncate text-sm text-zinc-500">{profile.email}</p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-xl" /> : null}
 
-      {/* WORKSPACE — single grouped list */}
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Workspace</p>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Account</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
             icon={<Building2 className="h-5 w-5 text-primary" aria-hidden />}
             title="Business profile"
-            subtitle="Name, lead-alert SMS number, operator notifications."
+            subtitle="Name, SMS alerts, operator notifications"
             onClick={modals.openBusinessProfile}
           />
           <SettingsMenuRow
             grouped
             icon={<CreditCard className="h-5 w-5 text-primary" aria-hidden />}
-            title="Billing & subscription"
+            title="Billing"
             subtitle={
               profile.subscriptionActive
-                ? "Plan, renewal, and carrier credit on Pay."
-                : "Activate your line and manage plans on Pay."
+                ? "Plan, renewal, and carrier credit"
+                : "Activate your line on Pay"
             }
             onClick={modals.openBilling}
           />
@@ -227,43 +133,40 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             grouped
             icon={<Banknote className="h-5 w-5 text-emerald-400" aria-hidden />}
             title="Get paid"
-            subtitle="Bank payouts for Collect Payment — customers see your business name."
+            subtitle="Bank payouts — customers see your business name"
             onClick={modals.openGetPaid}
+          />
+        </SettingsGroupedList>
+      </section>
+
+      <section className="space-y-2">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Calls & SMS</p>
+        <SettingsGroupedList>
+          <SettingsMenuRow
+            grouped
+            icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="Call routing"
+            subtitle="Who answers — team, pool, or hybrid"
+            onClick={modals.openRoutingStrategy}
           />
           <SettingsMenuRow
             grouped
             icon={<Zap className="h-5 w-5 text-violet-300" aria-hidden />}
-            title="SMS automation engine"
-            subtitle="Confirmations, en-route texts, review templates."
+            title="SMS templates"
+            subtitle="Confirmations, en-route, and review texts"
             onClick={modals.openSmsAutomation}
           />
           <SettingsMenuRow
             grouped
             icon={<ShieldCheck className="h-5 w-5 text-violet-300" aria-hidden />}
-            title="Carrier 10DLC registration"
-            subtitle="US carrier compliance for lead-alert SMS."
+            title="Carrier registration"
+            subtitle="10DLC for US lead-alert SMS"
             badge={carrierRegistrationPending ? "Pending" : undefined}
             onClick={modals.openCarrierRegistration}
           />
-          <SettingsMenuRow
-            grouped
-            icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}
-            title="Call routing strategy"
-            subtitle="Private team, Lyncr pool, or hybrid fallback."
-            onClick={modals.openRoutingStrategy}
-          />
-        </SettingsGroupedList>
-      </section>
-
-      {/* SYSTEM — Push / SMS / Whisper in one list */}
-      <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">System</p>
-        <SettingsGroupedList>
-          <ToggleRow label="Push" icon={Bell} checked={pushEnabled} onChange={setPushEnabled} />
-          <ToggleRow label="SMS" icon={MessageSquare} checked={smsEnabled} onChange={setSmsEnabled} />
           <ToggleRow
-            label="Whisper"
-            icon={Volume2}
+            label="Call whisper"
+            subtitle="Say the caller’s name before you pick up"
             checked={whisperEnabled}
             disabled={whisperSaving}
             onChange={(v) => onSaveWhisper(v)}
@@ -271,35 +174,25 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         </SettingsGroupedList>
       </section>
 
-      {/* OPERATIONS — inventory scan, hours, privacy; Sign out sits alone below */}
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Operations</p>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">More</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
-            icon={<ScanBarcode className="h-5 w-5 text-emerald-400" aria-hidden />}
-            title="Scan key inventory"
-            subtitle="Barcode scanner for van / shop stock counts."
-            onClick={() => setScannerOpen(true)}
-          />
-          <SettingsMenuRow
-            grouped
-            icon={<Package className="h-5 w-5" aria-hidden />}
+            icon={<Package className="h-5 w-5 text-emerald-400" aria-hidden />}
             title="Key inventory"
-            subtitle="Stock hub and scanner shortcuts."
-            onClick={() => router.push("/dashboard/inventory")}
-          />
-          <SettingsMenuRow
-            grouped
-            icon={<Clock className="h-5 w-5" aria-hidden />}
-            title="Business hours"
-            onClick={() => openHours(HOURS_SHEET_KEY)}
+            subtitle="Stock hub and barcode scanner"
+            onClick={() => {
+              closeHeaderSettings()
+              router.push("/dashboard/inventory")
+            }}
           />
           <SettingsMenuRow
             grouped
             icon={<Shield className="h-5 w-5" aria-hidden />}
             title="Privacy"
             onClick={() => {
+              closeHeaderSettings()
               const url = process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL || "/privacy"
               window.open(url, process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL ? "_blank" : "_self")
             }}
@@ -307,7 +200,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         </SettingsGroupedList>
       </section>
 
-      {/* Sign out — unbordered rose action (full page only; sheet has its own footer). */}
+      {/* Sign out — full page only; sheet has its own footer. */}
       {embedded ? null : (
         <div className="pt-2">
           <button
@@ -348,8 +241,6 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
     subscriptionActive: false,
   }))
 
-  const [pushEnabled, setPushEnabled] = useState(true)
-  const [smsEnabled, setSmsEnabled] = useState(true)
   const [whisperEnabled, setWhisperEnabled] = useState(
     () => sessionSeed?.inboundReceptionistWhisperEnabled !== false
   )
@@ -437,51 +328,47 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
   }
 
   return (
-    <WorkspaceRightSheetGate<typeof HOURS_SHEET_KEY>
-      render={() => <SettingsHoursSheet />}
-    >
-      <SettingsWorkspaceBody
-        embedded={embedded}
-        profileLoading={profileLoading}
-        profile={profile}
-        pushEnabled={pushEnabled}
-        setPushEnabled={setPushEnabled}
-        smsEnabled={smsEnabled}
-        setSmsEnabled={setSmsEnabled}
-        whisperEnabled={whisperEnabled}
-        whisperSaving={whisperSaving}
-        onSaveWhisper={(v) => void saveWhisper(v)}
-        signingOut={signingOut}
-        carrierRegistrationPending={carrierRegistrationPending}
-        isPlatformAdmin={sessionSeed?.isPlatformAdmin === true}
-        onSignOut={() => {
-          setSigningOut(true)
-          void signOutAndGoToLogin().finally(() => setSigningOut(false))
-        }}
-      />
-    </WorkspaceRightSheetGate>
+    <SettingsWorkspaceBody
+      embedded={embedded}
+      profileLoading={profileLoading}
+      profile={profile}
+      whisperEnabled={whisperEnabled}
+      whisperSaving={whisperSaving}
+      onSaveWhisper={(v) => void saveWhisper(v)}
+      signingOut={signingOut}
+      carrierRegistrationPending={carrierRegistrationPending}
+      isPlatformAdmin={sessionSeed?.isPlatformAdmin === true}
+      onSignOut={() => {
+        setSigningOut(true)
+        void signOutAndGoToLogin().finally(() => setSigningOut(false))
+      }}
+    />
   )
 })
 
 function ToggleRow({
   label,
-  icon: Icon,
+  subtitle,
   checked,
   onChange,
   disabled,
 }: {
   label: string
-  icon: typeof Bell
+  subtitle?: string
   checked: boolean
   onChange: (v: boolean) => void
   disabled?: boolean
 }) {
-  // Inset toggle row for SettingsGroupedList — icon + label left, switch right.
   return (
     <div className="flex items-center justify-between gap-3 border-b border-slate-900/60 px-4 py-3 last:border-0">
-      <span className="flex min-w-0 items-center gap-3 text-sm font-medium text-foreground">
-        <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-        {label}
+      <span className="flex min-w-0 items-center gap-3">
+        <Volume2 className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-foreground">{label}</span>
+          {subtitle ? (
+            <span className="mt-0.5 block text-xs leading-snug text-zinc-500">{subtitle}</span>
+          ) : null}
+        </span>
       </span>
       <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} aria-label={label} />
     </div>

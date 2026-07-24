@@ -5,7 +5,7 @@
 import { memo, useCallback, useEffect, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ChevronDown, LifeBuoy, Loader2, LogOut } from "lucide-react"
+import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -15,7 +15,10 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { OwnerCollectPaymentSheet } from "@/components/dashboard/owner-collect-payment-sheet"
-import { OPEN_GET_PAID_MODAL_EVENT } from "@/lib/settings-modals-events"
+import {
+  CLOSE_HEADER_SETTINGS_EVENT,
+  SETTINGS_CHILD_OPEN_EVENTS,
+} from "@/lib/settings-modals-events"
 
 /** Client-safe currency label for the header chip. */
 function formatCollectedDollars(cents: number): string {
@@ -79,11 +82,19 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return () => window.clearInterval(id)
   }, [refreshCollected])
 
-  // Get paid opens above Settings — close Settings so the sheet is visible (not “collapsed”).
+  // Child Settings screens open as dialogs/sheets — close this sheet so they are not tucked under.
   useEffect(() => {
-    const onGetPaid = () => setOpen(false)
-    window.addEventListener(OPEN_GET_PAID_MODAL_EVENT, onGetPaid)
-    return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, onGetPaid)
+    const close = () => setOpen(false)
+    window.addEventListener(CLOSE_HEADER_SETTINGS_EVENT, close)
+    for (const event of SETTINGS_CHILD_OPEN_EVENTS) {
+      window.addEventListener(event, close)
+    }
+    return () => {
+      window.removeEventListener(CLOSE_HEADER_SETTINGS_EVENT, close)
+      for (const event of SETTINGS_CHILD_OPEN_EVENTS) {
+        window.removeEventListener(event, close)
+      }
+    }
   }, [])
 
   const collectedLabel =
@@ -92,7 +103,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   return (
     <>
       <div className="flex items-center gap-1.5">
-        {/* One-tap collect — always visible on phones for on-the-go charging */}
+        {/* Collect stays on the header wallet — not inside Settings. */}
         <Button
           type="button"
           variant="outline"
@@ -172,9 +183,6 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <div className="min-w-0">
                 <SheetTitle className="text-base text-slate-100">Settings</SheetTitle>
                 <p className="truncate text-xs text-slate-500">{email}</p>
-                <p className="mt-1 text-[11px] font-semibold tabular-nums text-emerald-400">
-                  Collected today: {collectedLabel}
-                </p>
               </div>
               <Link
                 href={DASHBOARD_PAGE_HREF.help}
