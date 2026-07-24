@@ -8,6 +8,7 @@ import { isStripeConfigured, getStripePublishableKey } from "@/lib/stripe-config
 import {
   createConnectAccountSession,
   syncConnectAccountFromStripe,
+  type ConnectBusinessKind,
 } from "@/lib/stripe-connect"
 
 export const dynamic = "force-dynamic"
@@ -16,6 +17,14 @@ export const runtime = "nodejs"
 type Body = {
   /** onboarding | management | both (default both) */
   components?: string
+  /** Prefill so Stripe skips the long business-type screens. */
+  business_kind?: string
+}
+
+function parseBusinessKind(raw: unknown): ConnectBusinessKind | null {
+  const v = String(raw ?? "").trim().toLowerCase()
+  if (v === "sole" || v === "llc" || v === "corporation") return v
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -39,9 +48,14 @@ export async function POST(req: NextRequest) {
   const raw = String(body.components ?? "both").trim().toLowerCase()
   const components =
     raw === "onboarding" || raw === "management" || raw === "both" ? raw : "both"
+  const businessKind = parseBusinessKind(body.business_kind)
 
   try {
-    const { clientSecret, accountId } = await createConnectAccountSession(userId, components)
+    const { clientSecret, accountId } = await createConnectAccountSession(
+      userId,
+      components,
+      businessKind
+    )
     await syncConnectAccountFromStripe(userId, accountId).catch(() => null)
     return NextResponse.json({
       data: {

@@ -1,6 +1,6 @@
 "use client"
 
-// In-app Stripe Connect Express — Get paid (onboarding + balance).
+// In-app Stripe Connect — Get paid (onboarding + balance).
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
@@ -12,6 +12,9 @@ import { loadConnectAndInitialize } from "@stripe/connect-js"
 import { Banknote, CheckCircle2, Loader2, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+
+/** Mirrors ConnectBusinessKind in lib/stripe-connect (keep client bundle free of Stripe server SDK). */
+type ConnectBusinessKind = "sole" | "llc" | "corporation"
 
 type ConnectStatus = {
   configured: boolean
@@ -27,6 +30,16 @@ type ConnectStatus = {
   feeLabel: string
   message: string | null
 }
+
+const BUSINESS_KINDS: {
+  id: ConnectBusinessKind
+  title: string
+  subtitle: string
+}[] = [
+  { id: "sole", title: "Sole proprietor", subtitle: "Just you — not an LLC" },
+  { id: "llc", title: "LLC", subtitle: "Most shops — Single-member LLC" },
+  { id: "corporation", title: "Corporation", subtitle: "Inc. / private corp" },
+]
 
 function fmtCents(cents: number, currency = "usd"): string {
   return (Math.max(0, cents) / 100).toLocaleString("en-US", {
@@ -48,6 +61,46 @@ function statusChip(status: ConnectStatus["status"]): { label: string; className
   return { label: "Needs setup", className: "border-sky-500/40 bg-sky-500/15 text-sky-100" }
 }
 
+/** Lyncr dark theme for Stripe Connect embeds. */
+const LYNCR_CONNECT_APPEARANCE = {
+  overlays: "dialog" as const,
+  variables: {
+    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, sans-serif",
+    fontSizeBase: "13px",
+    borderRadius: "8px",
+    // Tighter than Stripe default — less scroll on phones.
+    spacingUnit: "8px",
+    colorPrimary: "#10b981",
+    colorBackground: "#101018",
+    formBackgroundColor: "#101018",
+    offsetBackgroundColor: "#18181f",
+    colorText: "#e4e4e7",
+    colorSecondaryText: "#a1a1aa",
+    colorBorder: "#27272a",
+    colorDanger: "#fb7185",
+    buttonPrimaryColorBackground: "#059669",
+    buttonPrimaryColorBorder: "#059669",
+    buttonPrimaryColorText: "#ffffff",
+    buttonSecondaryColorBackground: "#18181f",
+    buttonSecondaryColorText: "#e4e4e7",
+    actionSecondaryColorText: "#6ee7b7",
+    actionSecondaryTextDecorationColor: "#6ee7b7",
+    badgeNeutralColorBackground: "#18181f",
+    badgeNeutralColorBorder: "#27272a",
+    badgeNeutralColorText: "#a1a1aa",
+    badgeSuccessColorBackground: "#052e1c",
+    badgeSuccessColorBorder: "#065f46",
+    badgeSuccessColorText: "#6ee7b7",
+    badgeWarningColorBackground: "#422006",
+    badgeWarningColorBorder: "#854d0e",
+    badgeWarningColorText: "#fde68a",
+    badgeDangerColorBackground: "#4c0519",
+    badgeDangerColorBorder: "#9f1239",
+    badgeDangerColorText: "#fda4af",
+    overlayBackdropColor: "rgba(0,0,0,0.65)",
+  },
+}
+
 export function GetPaidSheet({
   open,
   onOpenChange,
@@ -64,7 +117,8 @@ export function GetPaidSheet({
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showManage, setShowManage] = useState(false)
   const [sessionBusy, setSessionBusy] = useState(false)
-  const [embedLoadHint, setEmbedLoadHint] = useState(false)
+  const [businessKind, setBusinessKind] = useState<ConnectBusinessKind>("llc")
+  const [formReady, setFormReady] = useState(false)
 
   const refreshStatus = useCallback(async () => {
     setLoading(true)
@@ -88,27 +142,19 @@ export function GetPaidSheet({
     if (open) void refreshStatus()
   }, [open, refreshStatus])
 
-  // If the white Stripe box sits on a spinner too long, nudge toward hosted setup.
-  useEffect(() => {
-    if (!showOnboarding || !connectInstance) {
-      setEmbedLoadHint(false)
-      return
-    }
-    // Only nudge if the iframe never paints (slow networks); ignore once form is interactive.
-    const id = window.setTimeout(() => setEmbedLoadHint(true), 25_000)
-    return () => window.clearTimeout(id)
-  }, [showOnboarding, connectInstance])
-
   async function startEmbedded(components: "onboarding" | "management" | "both") {
     setSessionBusy(true)
     setError(null)
-    setEmbedLoadHint(false)
+    setFormReady(false)
     try {
       const res = await fetch("/api/payments/connect/account-session", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ components }),
+        body: JSON.stringify({
+          components,
+          business_kind: components === "onboarding" ? businessKind : undefined,
+        }),
       })
       const json = (await res.json()) as {
         error?: string
@@ -121,58 +167,21 @@ export function GetPaidSheet({
       if (!pk) throw new Error("Missing Stripe publishable key")
 
       const secret = json.data.clientSecret
-      // Stripe owns the form UI — theme it to Lyncr dark (default is white + serif).
       const instance = loadConnectAndInitialize({
         publishableKey: pk,
         fetchClientSecret: async () => secret,
-        appearance: {
-          overlays: "dialog",
-          variables: {
-            fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, sans-serif',
-            fontSizeBase: "14px",
-            borderRadius: "12px",
-            spacingUnit: "10px",
-            colorPrimary: "#10b981",
-            colorBackground: "#101018",
-            formBackgroundColor: "#101018",
-            offsetBackgroundColor: "#18181f",
-            colorText: "#e4e4e7",
-            colorSecondaryText: "#a1a1aa",
-            colorBorder: "#27272a",
-            colorDanger: "#fb7185",
-            buttonPrimaryColorBackground: "#059669",
-            buttonPrimaryColorBorder: "#059669",
-            buttonPrimaryColorText: "#ffffff",
-            buttonSecondaryColorBackground: "#18181f",
-            buttonSecondaryColorText: "#e4e4e7",
-            actionSecondaryColorText: "#6ee7b7",
-            actionSecondaryTextDecorationColor: "#6ee7b7",
-            badgeNeutralColorBackground: "#18181f",
-            badgeNeutralColorBorder: "#27272a",
-            badgeNeutralColorText: "#a1a1aa",
-            badgeSuccessColorBackground: "#052e1c",
-            badgeSuccessColorBorder: "#065f46",
-            badgeSuccessColorText: "#6ee7b7",
-            badgeWarningColorBackground: "#422006",
-            badgeWarningColorBorder: "#854d0e",
-            badgeWarningColorText: "#fde68a",
-            badgeDangerColorBackground: "#4c0519",
-            badgeDangerColorBorder: "#9f1239",
-            badgeDangerColorText: "#fda4af",
-            overlayBackdropColor: "rgba(0,0,0,0.65)",
-          },
-        },
+        appearance: LYNCR_CONNECT_APPEARANCE,
       })
       setConnectInstance(instance)
-      setShowOnboarding(components === "onboarding" || components === "both")
-      setShowManage(components === "management" || (components === "both" && status?.ready === true))
       if (components === "onboarding") {
         setShowManage(false)
         setShowOnboarding(true)
-      }
-      if (components === "management") {
+      } else if (components === "management") {
         setShowOnboarding(false)
         setShowManage(true)
+      } else {
+        setShowOnboarding(true)
+        setShowManage(status?.ready === true)
       }
       await refreshStatus()
     } catch (e) {
@@ -191,23 +200,42 @@ export function GetPaidSheet({
   const embedding = Boolean(connectInstance && (showOnboarding || showManage))
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setShowOnboarding(false)
+          setShowManage(false)
+          setConnectInstance(null)
+          setFormReady(false)
+        }
+        onOpenChange(next)
+      }}
+    >
       <SheetContent
         side="bottom"
         overlayClassName="z-[7000]"
         className={cn(
           "z-[7010] flex flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl",
-          // Give Stripe’s form room — cramped sheets often stick on a spinner.
           embedding ? "h-[96dvh] max-h-[96dvh]" : "max-h-[92dvh]"
         )}
       >
-        <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 py-3 text-left">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <SheetTitle className="text-base font-bold text-white">Get paid</SheetTitle>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                Customers pay your business. Payouts go to your bank automatically.
-              </p>
+        <SheetHeader
+          className={cn(
+            "shrink-0 border-b border-zinc-800 text-left",
+            embedding ? "px-4 py-2.5" : "px-4 py-3"
+          )}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <SheetTitle className="text-base font-bold text-white">
+                {embedding ? "Finish payout setup" : "Get paid"}
+              </SheetTitle>
+              {embedding ? null : (
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Customers pay your business. Payouts go to your bank automatically.
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -220,91 +248,157 @@ export function GetPaidSheet({
           </div>
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          {loading && !status ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={cn(
-                    "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                    chip.className
-                  )}
-                >
-                  {chip.label}
-                </span>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void refreshStatus()}
-                  className="text-[11px] font-semibold text-sky-300 disabled:opacity-50"
-                >
-                  Refresh
-                </button>
+        {/* When Stripe form is open: only the form — no extra chrome (less scroll). */}
+        {embedding ? (
+          <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1">
+            {!formReady ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#101018]/90">
+                <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
               </div>
-
-              {status?.ready ? (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4">
-                  <div className="flex items-center gap-2 text-emerald-100">
-                    <CheckCircle2 className="h-5 w-5" aria-hidden />
-                    <p className="text-sm font-semibold">Ready to collect payments</p>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                        Available
-                      </p>
-                      <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-200">
-                        {fmtCents(status.availableCents, status.currency)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                        Pending
-                      </p>
-                      <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-200">
-                        {fmtCents(status.pendingCents, status.currency)}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[11px] text-emerald-200/70">
-                    Stripe pays out to your linked bank on a regular schedule. Lyncr fee:{" "}
-                    {status.feeLabel}.
-                  </p>
-                </div>
-              ) : embedding ? null : (
-                <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-4">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
-                      <Banknote className="h-5 w-5" aria-hidden />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-sky-50">Set up payouts in Lyncr</p>
-                      <p className="mt-1 text-xs leading-relaxed text-sky-100/75">
-                        Verify your business and bank once. Your customers will see{" "}
-                        <strong className="font-semibold text-sky-50">your</strong> business on their
-                        statement — not Lyncr’s.
-                      </p>
-                      {status?.message ? (
-                        <p className="mt-2 text-xs text-amber-100/90">{status.message}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {error ? (
-                <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-                  {error}
-                </p>
+            ) : null}
+            <ConnectComponentsProvider connectInstance={connectInstance!}>
+              {showOnboarding ? (
+                <ConnectAccountOnboarding
+                  collectionOptions={{
+                    fields: "currently_due",
+                    futureRequirements: "omit",
+                  }}
+                  onExit={() => {
+                    setShowOnboarding(false)
+                    setConnectInstance(null)
+                    setFormReady(false)
+                    void refreshStatus()
+                  }}
+                  onLoaderStart={() => setFormReady(true)}
+                  onLoadError={({ error: loadError }) => {
+                    setError(
+                      loadError?.message ||
+                        "Could not load the payout form. Close and try Set up payouts again."
+                    )
+                    setFormReady(true)
+                  }}
+                />
               ) : null}
+              {showManage ? <ConnectAccountManagement /> : null}
+            </ConnectComponentsProvider>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            {loading && !status ? (
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                      chip.className
+                    )}
+                  >
+                    {chip.label}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void refreshStatus()}
+                    className="text-[11px] font-semibold text-sky-300 disabled:opacity-50"
+                  >
+                    Refresh
+                  </button>
+                </div>
 
-              {!embedding ? (
-                <div className="flex flex-col gap-2">
-                  {!status?.ready ? (
+                {status?.ready ? (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4">
+                    <div className="flex items-center gap-2 text-emerald-100">
+                      <CheckCircle2 className="h-5 w-5" aria-hidden />
+                      <p className="text-sm font-semibold">Ready to collect payments</p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                          Available
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-200">
+                          {fmtCents(status.availableCents, status.currency)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                          Pending
+                        </p>
+                        <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-200">
+                          {fmtCents(status.pendingCents, status.currency)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-emerald-200/70">
+                      Stripe pays out to your linked bank on a regular schedule. Lyncr fee:{" "}
+                      {status.feeLabel}.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-sky-50">Set up payouts in Lyncr</p>
+                    <p className="mt-1 text-xs leading-relaxed text-sky-100/75">
+                      Pick your business type (short), then finish bank details. Customers see{" "}
+                      <strong className="font-semibold text-sky-50">your</strong> name on the
+                      statement.
+                    </p>
+                    {status?.message ? (
+                      <p className="mt-2 text-xs text-amber-100/90">{status.message}</p>
+                    ) : null}
+                  </div>
+                )}
+
+                {error ? (
+                  <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                    {error}
+                  </p>
+                ) : null}
+
+                {!status?.ready ? (
+                  <>
+                    <div>
+                      <p className="mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Business type
+                      </p>
+                      <div className="grid gap-1.5">
+                        {BUSINESS_KINDS.map((k) => {
+                          const selected = businessKind === k.id
+                          return (
+                            <button
+                              key={k.id}
+                              type="button"
+                              onClick={() => setBusinessKind(k.id)}
+                              className={cn(
+                                "flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                                selected
+                                  ? "border-emerald-500/60 bg-emerald-500/10"
+                                  : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                              )}
+                            >
+                              <span>
+                                <span className="block text-sm font-semibold text-zinc-100">
+                                  {k.title}
+                                </span>
+                                <span className="block text-[11px] text-zinc-500">{k.subtitle}</span>
+                              </span>
+                              <span
+                                className={cn(
+                                  "h-4 w-4 shrink-0 rounded-full border-2",
+                                  selected
+                                    ? "border-emerald-400 bg-emerald-500"
+                                    : "border-zinc-600"
+                                )}
+                                aria-hidden
+                              />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
                     <button
                       type="button"
                       disabled={sessionBusy || status?.status === "not_configured"}
@@ -316,55 +410,24 @@ export function GetPaidSheet({
                       ) : (
                         <Banknote className="h-4 w-4" />
                       )}
-                      {status?.detailsSubmitted ? "Continue setup" : "Set up payouts"}
+                      {status?.detailsSubmitted ? "Continue setup" : "Continue"}
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={sessionBusy}
-                      onClick={() => void startEmbedded("management")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                    >
-                      {sessionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Manage bank & business details
-                    </button>
-                  )}
-                </div>
-              ) : null}
-
-              {embedding ? (
-                <div className="flex min-h-0 flex-1 flex-col gap-2">
-                  {embedLoadHint ? (
-                    <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                      Form is still loading. Close Get paid, reopen, and tap Set up payouts again.
-                    </p>
-                  ) : null}
-                  <div className="min-h-[min(70dvh,640px)] overflow-auto rounded-xl border border-zinc-800 bg-[#101018] p-1">
-                    <ConnectComponentsProvider connectInstance={connectInstance!}>
-                      {showOnboarding ? (
-                        <ConnectAccountOnboarding
-                          onExit={() => {
-                            setShowOnboarding(false)
-                            setConnectInstance(null)
-                            void refreshStatus()
-                          }}
-                          onLoadError={({ error: loadError }) => {
-                            setError(
-                              loadError?.message ||
-                                "Could not load the payout form. Close and try Set up payouts again."
-                            )
-                            setEmbedLoadHint(true)
-                          }}
-                        />
-                      ) : null}
-                      {showManage ? <ConnectAccountManagement /> : null}
-                    </ConnectComponentsProvider>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={sessionBusy}
+                    onClick={() => void startEmbedded("management")}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                  >
+                    {sessionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Manage bank & business details
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   )

@@ -208,12 +208,70 @@ export async function recreateConnectAccountIfAuthBlocked(userId: string): Promi
   return createEmbeddedFriendlyConnectAccount(userId, user)
 }
 
+/** Prefill Stripe business type so embedded onboarding skips the long entity picker. */
+export type ConnectBusinessKind = "sole" | "llc" | "corporation"
+
+export async function prefillConnectBusinessKind(
+  userId: string,
+  kind: ConnectBusinessKind
+): Promise<string> {
+  const accountId = await ensureStripeConnectAccount(userId)
+  const user = await getUser(userId)
+  const name =
+    user?.business_name?.trim() || user?.name?.trim() || "My Business"
+  const stripe = getStripeClient()
+
+  try {
+    if (kind === "sole") {
+      await stripe.accounts.update(accountId, {
+        business_type: "individual",
+        business_profile: {
+          name,
+          product_description: "On-site service payments collected via Lyncr",
+        },
+      })
+    } else if (kind === "llc") {
+      await stripe.accounts.update(accountId, {
+        business_type: "company",
+        company: {
+          name,
+          structure: "single_member_llc",
+        },
+        business_profile: {
+          name,
+          product_description: "On-site service payments collected via Lyncr",
+        },
+      })
+    } else {
+      await stripe.accounts.update(accountId, {
+        business_type: "company",
+        company: {
+          name,
+          structure: "private_corporation",
+        },
+        business_profile: {
+          name,
+          product_description: "On-site service payments collected via Lyncr",
+        },
+      })
+    }
+  } catch (e) {
+    console.warn("[stripe-connect] prefill business kind:", stripeErrorMessage(e))
+  }
+
+  return accountId
+}
+
 /** Account Session client_secret for embedded onboarding / account management. */
 export async function createConnectAccountSession(
   userId: string,
-  components: "onboarding" | "management" | "both" = "both"
+  components: "onboarding" | "management" | "both" = "both",
+  businessKind?: ConnectBusinessKind | null
 ): Promise<{ clientSecret: string; accountId: string }> {
   let accountId = await ensureStripeConnectAccount(userId)
+  if (businessKind === "sole" || businessKind === "llc" || businessKind === "corporation") {
+    accountId = await prefillConnectBusinessKind(userId, businessKind)
+  }
   const stripe = getStripeClient()
 
   const wantOnboarding = components === "onboarding" || components === "both"
