@@ -1833,7 +1833,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          call_log_id: effectiveCurrent.isManual ? null : effectiveCurrent.id,
+          // Bind lost-lead to the real call log when Activities reopened intake (sourceCallLogId).
+          call_log_id:
+            effectiveCurrent.sourceCallLogId?.trim() ||
+            (effectiveCurrent.isManual ? null : effectiveCurrent.id),
           phone_number: form.phoneNumber.trim() || effectiveCurrent.from_number,
           last_quoted_price_cents: quotedPriceCents,
           baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,

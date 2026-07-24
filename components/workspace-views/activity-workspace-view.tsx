@@ -319,7 +319,35 @@ function needsRevenueRescue(call: UiCallRecord): boolean {
   return !action || action === "No intake recorded"
 }
 
-/** Open global intake sheet with this caller prefilled (no dial). */
+/** Open the answered-call intake sheet for this activity row (purpose + outcome). */
+function openIntakeForActivityCall(
+  inbound: ReturnType<typeof useInboundCallPanelOptional>,
+  call: UiCallRecord
+) {
+  // No panel provider (e.g. outside dashboard shell) — nothing to open.
+  if (!inbound) return
+  const trimmed = call.callerNumber?.trim() || ""
+  // Need a dialable caller to seed the sheet.
+  if (!trimmed || trimmed === "—") return
+  const name = call.callerName?.trim() || ""
+  inbound.openManualCallPanel({
+    // E.164 when possible so SMS / booking match the call log.
+    phoneNumber: toE164(trimmed) || trimmed,
+    // Skip placeholder names so the name step still asks.
+    customerName:
+      name && name !== "Unknown Caller" && name !== "—" ? name : undefined,
+    callStatus: "answered",
+    // Business line the customer dialed (helps SMS from-line).
+    toNumber: call.targetLineE164?.trim() || undefined,
+    // Bind book / lost-lead to this call_logs row (not a new manual-* id).
+    callLogId: call.id,
+    answeredAt: call.answeredAt || call.createdAt || null,
+    // If Activities already linked a lead, complete that row instead of duplicating.
+    leadId: call.activity?.leadId || undefined,
+  })
+}
+
+/** @deprecated Prefer openIntakeForActivityCall — kept for phone-only badge taps. */
 function openIntakeDraftForPhone(
   inbound: ReturnType<typeof useInboundCallPanelOptional>,
   phone: string
@@ -328,9 +356,32 @@ function openIntakeDraftForPhone(
   const trimmed = phone.trim()
   if (!trimmed || trimmed === "—") return
   inbound.openManualCallPanel({
-    phoneNumber: toE164(trimmed),
+    phoneNumber: toE164(trimmed) || trimmed,
     callStatus: "answered",
   })
+}
+
+/** True when row click should open answered intake instead of the read-only log sheet. */
+function shouldOpenIntakeOnActivityClick(call: UiCallRecord): boolean {
+  // Outgoing logs stay read-only (no customer intake).
+  if (call.type === "outgoing") return false
+  // Need a phone to fill the answered modal.
+  if (!canCallBack(call)) return false
+  // Missed or unanswered intake → open the full purpose / outcome sheet.
+  return needsRevenueRescue(call)
+}
+
+/** Row tap: answered intake when needed; otherwise the SMS / recording log sheet. */
+function openActivityCallFromList(
+  call: UiCallRecord,
+  inbound: ReturnType<typeof useInboundCallPanelOptional>,
+  openLogSheet: (call: UiCallRecord) => void
+) {
+  if (shouldOpenIntakeOnActivityClick(call)) {
+    openIntakeForActivityCall(inbound, call)
+    return
+  }
+  openLogSheet(call)
 }
 
 function CallBackButton({
@@ -339,6 +390,8 @@ function CallBackButton({
   compact = false,
   /** When true: dial native tel: and open intake draft in parallel (missed / no intake). */
   openIntakeDraft = false,
+  /** When set with openIntakeDraft, binds intake to this call_logs row. */
+  intakeCall,
   /** Missed rows use rose “Call back” so they don’t match answered teal Call. */
   missed = false,
 }: {
@@ -346,6 +399,7 @@ function CallBackButton({
   className?: string
   compact?: boolean
   openIntakeDraft?: boolean
+  intakeCall?: UiCallRecord
   missed?: boolean
 }) {
   const inbound = useInboundCallPanelOptional()
@@ -357,7 +411,8 @@ function CallBackButton({
     e.stopPropagation()
     // Parallel: open intake draft sheet + fire native dialer.
     if (openIntakeDraft) {
-      openIntakeDraftForPhone(inbound, phone)
+      if (intakeCall) openIntakeForActivityCall(inbound, intakeCall)
+      else openIntakeDraftForPhone(inbound, phone)
     }
     window.location.href = href
   }
@@ -541,17 +596,20 @@ function ActivityIntakeSummary({
   compact = false,
   /** When set, "No intake recorded" becomes a tap target that opens intake draft (no dial). */
   callerPhone,
+  /** Full call row — preferred so intake binds to call_logs.id. */
+  call,
 }: {
   activity: CallActivityContext
   compact?: boolean
   callerPhone?: string
+  call?: UiCallRecord
 }) {
   const inbound = useInboundCallPanelOptional()
   const schedulerHref = activity.leadId
     ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
     : null
   const isNoIntake = activity.intakeAction === "No intake recorded"
-  const canOpenIntakeDraft = Boolean(isNoIntake && callerPhone && inbound)
+  const canOpenIntakeDraft = Boolean(isNoIntake && inbound && (call || callerPhone))
 
   const displayAction =
     compact && isNoIntake ? "No intake" : activity.intakeAction
@@ -564,7 +622,8 @@ function ActivityIntakeSummary({
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            openIntakeDraftForPhone(inbound, callerPhone!)
+            if (call) openIntakeForActivityCall(inbound, call)
+            else if (callerPhone) openIntakeDraftForPhone(inbound, callerPhone)
           }}
           className={cn(
             "inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[10px] font-medium",
@@ -572,7 +631,7 @@ function ActivityIntakeSummary({
             intakeActionTone(activity.intakeAction),
             "cursor-pointer transition-[color,background-color,border-color,filter] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300 hover:brightness-110"
           )}
-          aria-label="Open intake draft for this caller"
+          aria-label="Log what this call was for"
         >
           {displayAction}
         </button>
@@ -619,6 +678,7 @@ function ActivityIntakeSummary({
 
 function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => void }) {
   const { activeOrganizationId } = useDashboardWorkspace()
+  const inbound = useInboundCallPanelOptional()
   const agent = resolveCallAgent(call)
   const summary = buildCallSummary(call)
   const showCallBack = canCallBack(call)
@@ -636,6 +696,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
   const hasIntake =
     Boolean(activity.leadId) ||
     (Boolean(activity.intakeAction) && activity.intakeAction !== "No intake recorded")
+  const canCompleteIntake = needsRevenueRescue(call) && Boolean(inbound)
   const schedulerHref = activity.leadId
     ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
     : null
@@ -654,10 +715,25 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
       />
       <DrawerScrollBody>
         <div className="space-y-3">
+          {/* Primary: same answered intake (service + outcome) as the live call sheet. */}
+          {canCompleteIntake ? (
+            <button
+              type="button"
+              onClick={() => {
+                openIntakeForActivityCall(inbound, call)
+                onClose()
+              }}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/40 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/55 hover:bg-teal-500/25 active:scale-[0.98]"
+            >
+              <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+              Log purpose & outcome
+            </button>
+          ) : null}
           {showCallBack ? (
             <CallBackButton
               phone={call.callerNumber}
               openIntakeDraft={needsRevenueRescue(call)}
+              intakeCall={call}
               missed={isMissedLog}
             />
           ) : null}
@@ -711,7 +787,11 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                 {isMissedLog ? "Intake & scheduling" : "Answered panel & scheduling"}
               </p>
               <div className="mt-3">
-                <ActivityIntakeSummary activity={activity} callerPhone={call.callerNumber} />
+                <ActivityIntakeSummary
+                  activity={activity}
+                  callerPhone={call.callerNumber}
+                  call={call}
+                />
               </div>
               {schedulerHref ? (
                 <Link
@@ -786,6 +866,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
 }: ActivityTableProps) {
   const openLog = useWorkspaceRightSheet<UiCallRecord>()
   const { setSelectedActivityLog } = useDashboardWorkspace()
+  const inbound = useInboundCallPanelOptional()
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
 
   function toggleExpanded(id: string) {
@@ -795,6 +876,12 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
       else next.add(id)
       return next
     })
+  }
+
+  // Open Call detail sheet (SMS / recording) and keep workspace selection in sync.
+  function openLogSheet(call: UiCallRecord) {
+    setSelectedActivityLog(call)
+    openLog(call)
   }
 
   if (rows.length === 0) {
@@ -827,8 +914,8 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     toggleExpanded(call.id)
                     return
                   }
-                  setSelectedActivityLog(call)
-                  openLog(call)
+                  // No intake yet → answered modal; otherwise Call detail sheet.
+                  openActivityCallFromList(call, inbound, openLogSheet)
                 }}
                 className="group/caller flex w-full flex-col gap-2 rounded-lg text-left transition-colors duration-150 hover:bg-slate-800/30"
                 aria-expanded={expandable ? expanded : undefined}
@@ -875,6 +962,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   compact
                   className="w-full"
                   openIntakeDraft={needsRevenueRescue(call)}
+                  intakeCall={call}
                   missed={missed}
                 />
               ) : null}
@@ -883,6 +971,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   activity={call.activity}
                   compact
                   callerPhone={call.callerNumber}
+                  call={call}
                 />
               ) : null}
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
@@ -905,13 +994,10 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               {expandable ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedActivityLog(call)
-                    openLog(call)
-                  }}
+                  onClick={() => openActivityCallFromList(call, inbound, openLogSheet)}
                   className="self-start text-[11px] font-semibold text-cyan-400 underline-offset-2 transition-colors duration-150 hover:text-teal-300 hover:underline"
                 >
-                  View latest log
+                  {shouldOpenIntakeOnActivityClick(call) ? "Log purpose & outcome" : "View latest log"}
                 </button>
               ) : null}
             </div>
@@ -925,7 +1011,13 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
 const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap }: ActivityTableProps) {
   const openLog = useWorkspaceRightSheet<UiCallRecord>()
   const { setSelectedActivityLog } = useDashboardWorkspace()
+  const inbound = useInboundCallPanelOptional()
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
+
+  function openLogSheet(call: UiCallRecord) {
+    setSelectedActivityLog(call)
+    openLog(call)
+  }
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -1052,6 +1144,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                           activity={call.activity}
                           compact
                           callerPhone={call.callerNumber}
+                          call={call}
                         />
                       ) : (
                         <span className="text-xs text-zinc-600">—</span>
@@ -1087,18 +1180,16 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                             phone={call.callerNumber}
                             compact
                             openIntakeDraft={needsRevenueRescue(call)}
+                            intakeCall={call}
                             missed={missed}
                           />
                         ) : null}
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedActivityLog(call)
-                            openLog(call)
-                          }}
+                          onClick={() => openActivityCallFromList(call, inbound, openLogSheet)}
                           className="inline-flex h-8 items-center rounded-lg border border-zinc-700/80 bg-zinc-900/40 px-2.5 text-[11px] font-semibold text-zinc-300 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
                         >
-                          Log
+                          {shouldOpenIntakeOnActivityClick(call) ? "Intake" : "Log"}
                         </button>
                       </div>
                     </WorkspaceTd>

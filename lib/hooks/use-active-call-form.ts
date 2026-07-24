@@ -58,6 +58,13 @@ export type ActiveCallRow = {
   vehicleModel?: string
   /** Pre-filled quote from CRM convert handoff. */
   quotedPriceCents?: number
+  /**
+   * Real call_logs.id when reopening intake from Activities.
+   * Distinct from `id` when `id` is an existing ai_leads row (CRM convert).
+   */
+  sourceCallLogId?: string
+  /** Existing ai_leads id when converting / completing a CRM lead. */
+  existingLeadId?: string
 }
 
 export type ActiveCallFormState = {
@@ -704,10 +711,13 @@ export function useActiveCallForm(
       setJobError(null)
       try {
         const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
+        // Prefer explicit CRM lead id; never treat a call_logs id as a lead id.
         const existingLeadId =
           jobOptions?.existingLeadId?.trim() ||
-          (current.isManual && !current.id.startsWith("manual-") ? current.id : null)
-        let callLogIdForJob = current.id
+          current.existingLeadId?.trim() ||
+          null
+        // Activities → sourceCallLogId; live rows → id; CRM-only convert → id (legacy); manuals provision below.
+        let callLogIdForJob = current.sourceCallLogId?.trim() || current.id
         const addressLine1 = form.addressLine1.trim()
         const city = form.city.trim()
 
@@ -729,14 +739,17 @@ export function useActiveCallForm(
               country: form.country,
               notes: form.notes,
               source_last_call_log_id:
-                current.isManual && current.id.startsWith("manual-") ? null : callLogIdForJob,
+                current.id.startsWith("manual-") && !current.sourceCallLogId
+                  ? null
+                  : callLogIdForJob,
             }),
           })
           if (!customerRes.ok) throw new Error("Could not save customer record.")
           setSaveState("saved")
         }
 
-        if (current.isManual && current.id.startsWith("manual-")) {
+        // Only brand-new walk-ins need a synthetic call_logs row — Activities already has one.
+        if (current.isManual && current.id.startsWith("manual-") && !current.sourceCallLogId) {
           const manualRes = await fetch("/api/calls/manual", {
             method: "POST",
             credentials: "include",

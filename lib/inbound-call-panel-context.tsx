@@ -24,6 +24,10 @@ export type OpenManualCallPanelInput = {
   toNumber?: string
   /** Existing ai_leads id when converting from CRM — intake completes that row. */
   leadId?: string
+  /** Existing call_logs.id when completing intake from Activities (binds purpose/outcome to that call). */
+  callLogId?: string
+  /** ISO answered_at from the call log when known. */
+  answeredAt?: string | null
 }
 
 type InboundCallPanelContextValue = {
@@ -40,11 +44,20 @@ type InboundCallPanelContextValue = {
 const InboundCallPanelContext = createContext<InboundCallPanelContextValue | null>(null)
 
 function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
+  // Ringing vs answered controls whether the sheet looks “live” or post-call.
   const status: ManualCallStatus = input?.callStatus ?? "answered"
-  const answeredAt = status === "ringing" ? null : new Date().toISOString()
-  const leadId = input?.leadId?.trim()
+  // Prefer the real call’s answered_at; otherwise stamp “now” for answered manuals.
+  const answeredAt =
+    status === "ringing"
+      ? null
+      : input?.answeredAt?.trim() || new Date().toISOString()
+  // CRM convert may pass an existing lead; Activities may pass the call log id.
+  const leadId = input?.leadId?.trim() || ""
+  const callLogId = input?.callLogId?.trim() || ""
+  // Row id: real call log → CRM lead → fresh synthetic manual id.
+  const id = callLogId || leadId || `manual-${crypto.randomUUID()}`
   return {
-    id: leadId || `manual-${crypto.randomUUID()}`,
+    id,
     from_number: input?.phoneNumber?.trim() || "",
     to_number: input?.toNumber?.trim() || "",
     caller_name: input?.customerName?.trim() || null,
@@ -58,6 +71,10 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
       typeof input?.quotedPriceCents === "number" && input.quotedPriceCents > 0
         ? Math.round(input.quotedPriceCents)
         : undefined,
+    // Only set when Activities (or similar) rebound a real call_logs row.
+    sourceCallLogId: callLogId || undefined,
+    // Only set when CRM handoff targets an existing ai_leads row.
+    existingLeadId: leadId || undefined,
   }
 }
 
