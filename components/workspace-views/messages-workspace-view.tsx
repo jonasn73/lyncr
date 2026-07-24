@@ -76,7 +76,12 @@ function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
   return threads
 }
 
-export const MessagesWorkspaceView = memo(function MessagesWorkspaceView() {
+export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
+  // Presence host keeps this pane mounted after first visit — only scroll/poll when visible.
+  isActive = true,
+}: {
+  isActive?: boolean
+}) {
   const { activeOrganizationId } = useDashboardWorkspace()
   const searchParams = useSearchParams()
   const orgId =
@@ -121,28 +126,31 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView() {
   )
 
   useEffect(() => {
+    if (!isActive) return
     void loadMessages()
-  }, [loadMessages])
+  }, [loadMessages, isActive])
 
-  // Poll while this workspace is mounted so new customer replies show up.
+  // Poll only while Messages is the visible tab (pane stays mounted across tabs).
   useEffect(() => {
+    if (!isActive) return
     const id = window.setInterval(() => {
       void loadMessages({ silent: true })
     }, 12_000)
     return () => window.clearInterval(id)
-  }, [loadMessages])
+  }, [loadMessages, isActive])
 
   const threads = useMemo(() => groupIntoThreads(messages), [messages])
 
   // Activity / rescue deep-link: /dashboard/messages?phone=+1…
   useEffect(() => {
+    if (!isActive) return
     const q = searchParams.get("phone")?.trim()
     if (!q) return
     const key = phoneMatchKey(q)
     if (key.length < 10) return
     const match = threads.find((t) => phoneMatchKey(t.customerPhone) === key)
     setSelectedPhone(match?.customerPhone ?? q)
-  }, [searchParams, threads])
+  }, [searchParams, threads, isActive])
 
   const activeThread = useMemo((): SmsThread | null => {
     if (!selectedPhone) return null
@@ -171,10 +179,11 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView() {
     }
   }, [threads, selectedPhone])
 
+  // Never scrollIntoView while hidden — it moves the shared <main> under Activities.
   useEffect(() => {
-    if (!selectedPhone) return
+    if (!isActive || !selectedPhone) return
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [selectedPhone, activeThread?.messages.length])
+  }, [isActive, selectedPhone, activeThread?.messages.length])
 
   async function sendReply() {
     const to = selectedPhone

@@ -1167,11 +1167,17 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         title={filter === "missed" ? "Missed calls today" : "Activities"}
         action={
           <div className="flex flex-wrap items-center gap-3">
-            {refreshing ? (
-              <p className="text-xs text-zinc-600" aria-live="polite">
-                Refreshing…
-              </p>
-            ) : null}
+            {/* Fixed-height slot so the quiet poll never shifts the list and scrolls the page. */}
+            <p
+              className={cn(
+                "min-h-4 text-xs text-zinc-600 transition-opacity duration-150",
+                refreshing ? "opacity-100" : "opacity-0"
+              )}
+              aria-live="polite"
+              aria-hidden={!refreshing}
+            >
+              Refreshing…
+            </p>
             <Link
               href="/dashboard/contacts"
               className="hidden items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200 sm:inline-flex"
@@ -1254,6 +1260,7 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView() {
   )
 
   useEffect(() => {
+    // Keep repeat-caller urgency in sync without rewriting context on every identical poll.
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 

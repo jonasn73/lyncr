@@ -177,6 +177,16 @@ function emptyActivityContext(): CallActivityContext {
   }
 }
 
+/** Compact signature so quiet polls do not replace state / remount list rows. */
+function callsFingerprint(calls: UiCallRecord[]): string {
+  return calls
+    .map(
+      (c) =>
+        `${c.id}|${c.callStatus}|${c.durationSeconds}|${c.answeredAt ?? ""}|${c.endedAt ?? ""}|${c.activity?.intakeAction ?? ""}|${c.activity?.leadId ?? ""}|${c.recordingUrl ?? ""}`
+    )
+    .join(";")
+}
+
 /** Backfill fields missing from older session-cache rows. */
 function normalizeUiCallRecord(c: UiCallRecord): UiCallRecord {
   return {
@@ -265,12 +275,18 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
                 : routedToRaw || "Owner"
             const receptionistId = c.routed_to_receptionist_id ? String(c.routed_to_receptionist_id) : null
             const activityRaw = c.activity as CallActivityContext | null | undefined
+            const fromNumber = String(c.from_number || "")
+            const toNumber = String(c.to_number || "")
+            // Stable id only — never randomUUID (that remounted list rows and jumped scroll).
+            const stableId =
+              String(c.id || c.provider_call_sid || c.twilio_call_sid || "").trim() ||
+              `${fromNumber}|${toNumber}|${createdAt.toISOString()}`
             return {
-              id: String(c.id || c.provider_call_sid || c.twilio_call_sid || crypto.randomUUID()),
+              id: stableId,
               type: normalizeCallType(c.call_type),
               callerName: String(c.caller_name || "Unknown Caller"),
-              callerNumber: formatPhoneDisplay(String(c.from_number || "")),
-              targetLineE164: String(c.to_number || ""),
+              callerNumber: formatPhoneDisplay(fromNumber),
+              targetLineE164: toNumber,
               routedTo,
               routedToReceptionistId: receptionistId,
               routedInitials: initialsFromName(routedTo),
@@ -302,7 +318,8 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         }
 
         if (!mounted) return
-        setCalls(normalizedCalls)
+        // Skip identical payloads so Activities does not re-render / jump scroll every poll.
+        setCalls((prev) => (callsFingerprint(prev) === callsFingerprint(normalizedCalls) ? prev : normalizedCalls))
         setQuality(qualitySummary)
         setInsights(qualityInsights)
         operationsCache = {
