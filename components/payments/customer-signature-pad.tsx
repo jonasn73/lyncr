@@ -228,7 +228,7 @@ function FullscreenSignatureOverlay({
             Customer signature
           </p>
           <p className="text-xs text-zinc-500">
-            Rotate the phone sideways for the biggest pad — then tap Done.
+            Rotate sideways to sign, tap Done, then hand the phone back.
           </p>
         </div>
         <button
@@ -267,7 +267,7 @@ function FullscreenSignatureOverlay({
           onClick={onDone}
           className="w-full rounded-xl bg-emerald-600 py-3.5 text-base font-semibold text-white hover:bg-emerald-500"
         >
-          Done
+          {hasInk ? "Done — hand phone back" : "Done"}
         </button>
       </div>
     </div>,

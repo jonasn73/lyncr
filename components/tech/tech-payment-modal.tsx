@@ -821,7 +821,9 @@ export function TechPaymentModal(props: {
                       : "Charge"}
             </h2>
             <p className="text-xs text-zinc-500">
-              {props.job.customer_name || props.job.customer_phone || "Customer"}
+              {postPayStep === "tip_sign"
+                ? "Customer: add a tip, sign, then hand the phone back."
+                : props.job.customer_name || props.job.customer_phone || "Customer"}
             </p>
           </div>
           <button
@@ -913,35 +915,29 @@ export function TechPaymentModal(props: {
               ) : null}
             </div>
             <CustomerSignaturePad onChange={setSignaturePng} className="min-h-0" />
+            <p className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-center text-sm font-medium text-sky-100">
+              {signaturePng
+                ? "Thanks — please hand the phone back."
+                : "When you finish signing, hand the phone back."}
+            </p>
             {error ? <p className="shrink-0 text-sm text-red-300">{error}</p> : null}
             <div className="shrink-0 space-y-2">
-              <button
-                type="button"
-                disabled={slipBusy}
-                onClick={() => void continueFromTipSign()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                {selectedTipCents() >= 50
-                  ? `Continue · charge tip ${fmt(selectedTipCents())}`
-                  : "Continue"}
-              </button>
               <button
                 type="button"
                 disabled={slipBusy}
                 onClick={() =>
                   void continueFromTipSign({
                     allowNoSignature: !signaturePng,
-                    skipTipCharge: true,
                   })
                 }
-                className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
               >
-                {!signaturePng
-                  ? "Skip signature — send invoice"
-                  : selectedTipCents() >= 50
-                    ? "Skip tip card charge (record tip only)"
-                    : "Skip — send invoice"}
+                {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                {selectedTipCents() >= 50
+                  ? `Done · next charge tip ${fmt(selectedTipCents())}`
+                  : signaturePng
+                    ? "Done — continue"
+                    : "Continue without signature"}
               </button>
             </div>
           </div>

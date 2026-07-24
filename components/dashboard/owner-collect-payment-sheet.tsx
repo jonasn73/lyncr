@@ -1049,7 +1049,7 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
-                      ? "Optional tip, then customer signs."
+                      ? "Customer: add a tip, sign, then hand the phone back."
                       : mode === "tip_charge"
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
@@ -1469,35 +1469,31 @@ export function OwnerCollectPaymentSheet({
 
                 <CustomerSignaturePad onChange={setSignaturePng} className="min-h-0" />
 
+                {/* Customer-facing cue after they finish signing. */}
+                <p className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-center text-sm font-medium text-sky-100">
+                  {signaturePng
+                    ? "Thanks — please hand the phone back."
+                    : "When you finish signing, hand the phone back."}
+                </p>
+
                 <div className="shrink-0 space-y-2 pb-1">
-                  <button
-                    type="button"
-                    disabled={slipBusy}
-                    onClick={() => void continueFromTipSign()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                    {selectedTipCents() >= 50
-                      ? `Continue · charge tip ${fmtCents(selectedTipCents())}`
-                      : "Continue"}
-                  </button>
                   <button
                     type="button"
                     disabled={slipBusy}
                     onClick={() =>
                       void continueFromTipSign({
+                        // Tech continues after customer hands the phone back.
                         allowNoSignature: !signaturePng,
-                        // Secondary always skips a second tip swipe (record tip only / go to invoice).
-                        skipTipCharge: true,
                       })
                     }
-                    className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
                   >
-                    {!signaturePng
-                      ? "Skip signature — send invoice"
-                      : selectedTipCents() >= 50
-                        ? "Skip tip card charge (record tip only)"
-                        : "Skip — send invoice"}
+                    {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                    {selectedTipCents() >= 50
+                      ? `Done · next charge tip ${fmtCents(selectedTipCents())}`
+                      : signaturePng
+                        ? "Done — continue"
+                        : "Continue without signature"}
                   </button>
                 </div>
               </div>
