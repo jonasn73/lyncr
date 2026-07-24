@@ -14221,3 +14221,162 @@ export async function getMessaging10DlcRegistrationByCampaignId(
   }
 }
 
+// —— Stripe Connect (scripts/114-stripe-connect-accounts.sql) ——
+
+export type UserStripeConnectRow = {
+  user_id: string
+  stripe_connect_account_id: string | null
+  stripe_connect_charges_enabled: boolean
+  stripe_connect_payouts_enabled: boolean
+  stripe_connect_details_submitted: boolean
+  stripe_connect_updated_at: string | null
+}
+
+function isMissingStripeConnectColumnError(e: unknown): boolean {
+  const msg = pgErrorMessage(e)
+  return (
+    pgErrorCode(e) === "42703" &&
+    (msg.includes("stripe_connect_account_id") ||
+      msg.includes("stripe_connect_charges_enabled") ||
+      msg.includes("stripe_connect_payouts_enabled") ||
+      msg.includes("stripe_connect_details_submitted") ||
+      msg.includes("stripe_connect_updated_at"))
+  )
+}
+
+function parseStripeConnectRow(row: Record<string, unknown>): UserStripeConnectRow {
+  return {
+    user_id: String(row.id ?? row.user_id ?? ""),
+    stripe_connect_account_id:
+      row.stripe_connect_account_id != null ? String(row.stripe_connect_account_id) : null,
+    stripe_connect_charges_enabled: row.stripe_connect_charges_enabled === true,
+    stripe_connect_payouts_enabled: row.stripe_connect_payouts_enabled === true,
+    stripe_connect_details_submitted: row.stripe_connect_details_submitted === true,
+    stripe_connect_updated_at:
+      row.stripe_connect_updated_at instanceof Date
+        ? row.stripe_connect_updated_at.toISOString()
+        : row.stripe_connect_updated_at != null
+          ? String(row.stripe_connect_updated_at)
+          : null,
+  }
+}
+
+/** Load Stripe Connect flags for a user (null fields if migration 114 not applied). */
+export async function getUserStripeConnect(userId: string): Promise<UserStripeConnectRow | null> {
+  const uid = userId.trim()
+  if (!uid) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT
+        id,
+        stripe_connect_account_id,
+        stripe_connect_charges_enabled,
+        stripe_connect_payouts_enabled,
+        stripe_connect_details_submitted,
+        stripe_connect_updated_at
+      FROM users
+      WHERE id = ${uid}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return parseStripeConnectRow(row)
+  } catch (e) {
+    if (isMissingStripeConnectColumnError(e)) {
+      return {
+        user_id: uid,
+        stripe_connect_account_id: null,
+        stripe_connect_charges_enabled: false,
+        stripe_connect_payouts_enabled: false,
+        stripe_connect_details_submitted: false,
+        stripe_connect_updated_at: null,
+      }
+    }
+    throw e
+  }
+}
+
+/** Look up a Lyncr user by their Connect account id (webhook account.updated). */
+export async function getUserIdByStripeConnectAccountId(
+  stripeConnectAccountId: string
+): Promise<string | null> {
+  const acct = stripeConnectAccountId.trim()
+  if (!acct) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id FROM users
+      WHERE stripe_connect_account_id = ${acct}
+      LIMIT 1
+    `
+    const row = rows[0] as { id?: string } | undefined
+    return row?.id ? String(row.id) : null
+  } catch (e) {
+    if (isMissingStripeConnectColumnError(e)) return null
+    throw e
+  }
+}
+
+/** Persist Connect account id + capability flags after create/sync. */
+export async function updateUserStripeConnect(
+  userId: string,
+  patch: {
+    stripeConnectAccountId?: string | null
+    chargesEnabled?: boolean
+    payoutsEnabled?: boolean
+    detailsSubmitted?: boolean
+  }
+): Promise<UserStripeConnectRow | null> {
+  const uid = userId.trim()
+  if (!uid) return null
+  const sql = getSql()
+  try {
+    const existing = await getUserStripeConnect(uid)
+    if (!existing) return null
+    const accountId =
+      patch.stripeConnectAccountId !== undefined
+        ? patch.stripeConnectAccountId
+        : existing.stripe_connect_account_id
+    const charges =
+      patch.chargesEnabled !== undefined
+        ? patch.chargesEnabled
+        : existing.stripe_connect_charges_enabled
+    const payouts =
+      patch.payoutsEnabled !== undefined
+        ? patch.payoutsEnabled
+        : existing.stripe_connect_payouts_enabled
+    const details =
+      patch.detailsSubmitted !== undefined
+        ? patch.detailsSubmitted
+        : existing.stripe_connect_details_submitted
+
+    const rows = await sql`
+      UPDATE users
+      SET
+        stripe_connect_account_id = ${accountId},
+        stripe_connect_charges_enabled = ${charges},
+        stripe_connect_payouts_enabled = ${payouts},
+        stripe_connect_details_submitted = ${details},
+        stripe_connect_updated_at = now()
+      WHERE id = ${uid}
+      RETURNING
+        id,
+        stripe_connect_account_id,
+        stripe_connect_charges_enabled,
+        stripe_connect_payouts_enabled,
+        stripe_connect_details_submitted,
+        stripe_connect_updated_at
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseStripeConnectRow(row) : null
+  } catch (e) {
+    if (isMissingStripeConnectColumnError(e)) {
+      throw new Error(
+        "Stripe Connect columns missing — run scripts/114-stripe-connect-accounts.sql in Neon."
+      )
+    }
+    throw e
+  }
+}
+

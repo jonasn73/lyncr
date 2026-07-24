@@ -15,10 +15,16 @@ export const runtime = "nodejs"
 type Body = {
   paymentIntentId?: string
   payment_intent_id?: string
+  stripeConnectAccountId?: string
 }
 
-async function settleAndRespond(paymentIntentId: string) {
-  const result = await confirmJobPaymentIntent(paymentIntentId)
+async function settleAndRespond(
+  paymentIntentId: string,
+  stripeConnectAccountId?: string | null
+) {
+  const result = await confirmJobPaymentIntent(paymentIntentId, {
+    stripeConnectAccountId: stripeConnectAccountId || null,
+  })
   return NextResponse.json({
     data: {
       paymentIntentId: result.paymentIntentId,
@@ -65,8 +71,14 @@ export async function POST(req: NextRequest) {
         event.type === "payment_intent.canceled"
       ) {
         const intent = event.data.object as Stripe.PaymentIntent
-        if (intent.metadata?.lyncr_kind === "job_payment") {
-          await confirmJobPaymentIntent(intent.id)
+        if (intent.metadata?.lyncr_kind === "job_payment" || intent.metadata?.lyncr_kind === "adhoc_payment") {
+          const connectAccountId =
+            typeof event.account === "string"
+              ? event.account
+              : intent.metadata?.stripe_connect_account_id
+          await confirmJobPaymentIntent(intent.id, {
+            stripeConnectAccountId: connectAccountId || null,
+          })
         }
       }
       return NextResponse.json({ received: true })
@@ -85,6 +97,7 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as Body
   const paymentIntentId = String(body.paymentIntentId || body.payment_intent_id || "").trim()
+  const stripeConnectAccountId = String(body.stripeConnectAccountId || "").trim() || null
   if (!paymentIntentId) {
     return NextResponse.json({ error: "paymentIntentId is required" }, { status: 400 })
   }
@@ -92,7 +105,10 @@ export async function POST(req: NextRequest) {
   try {
     // Authorize: acting user must be tech/owner on the related job when metadata is present.
     const stripe = getStripeClient()
-    const intent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    const intent = await stripe.paymentIntents.retrieve(
+      paymentIntentId,
+      stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : undefined
+    )
     const jobId = intent.metadata?.job_id?.trim()
     if (jobId) {
       const job = await getJobPaymentContext(jobId)
@@ -103,9 +119,14 @@ export async function POST(req: NextRequest) {
       if (!allowed) {
         return NextResponse.json({ error: "Not allowed to confirm this payment" }, { status: 403 })
       }
+    } else if (intent.metadata?.lyncr_kind === "adhoc_payment") {
+      const ownerId = intent.metadata?.owner_user_id?.trim()
+      if (ownerId && ownerId !== userId) {
+        return NextResponse.json({ error: "Not allowed to confirm this payment" }, { status: 403 })
+      }
     }
 
-    return await settleAndRespond(paymentIntentId)
+    return await settleAndRespond(paymentIntentId, stripeConnectAccountId)
   } catch (e) {
     console.error("[payments/confirm]", e)
     const message = e instanceof Error ? e.message : "Could not confirm payment"

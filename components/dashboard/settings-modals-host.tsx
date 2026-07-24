@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   OPEN_BILLING_MODAL_EVENT,
+  OPEN_GET_PAID_MODAL_EVENT,
   OPEN_BUSINESS_PROFILE_MODAL_EVENT,
   OPEN_CARRIER_REGISTRATION_MODAL_EVENT,
   OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT,
@@ -17,6 +18,7 @@ import { PortServiceAddressModal } from "@/components/dashboard/port-service-add
 import { SmsAutomationModal } from "@/components/dashboard/sms-automation-modal"
 import { BusinessProfileModal } from "@/components/dashboard/business-profile-modal"
 import { BillingSubscriptionModal } from "@/components/dashboard/billing-subscription-modal"
+import { GetPaidSheet } from "@/components/dashboard/get-paid-sheet"
 import { RoutingStrategyModal } from "@/components/dashboard/routing-strategy-modal"
 import { TeamInviteModal } from "@/components/team-invite-modal"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
@@ -78,6 +80,7 @@ export function DashboardSettingsModalsHost({
   const [smsAutomationOpen, setSmsAutomationOpen] = useState(false)
   const [businessOpen, setBusinessOpen] = useState(false)
   const [billingOpen, setBillingOpen] = useState(false)
+  const [getPaidOpen, setGetPaidOpen] = useState(false)
   const [routingOpen, setRoutingOpen] = useState(false)
   const [teamInviteOpen, setTeamInviteOpen] = useState(false)
 
@@ -152,6 +155,7 @@ export function DashboardSettingsModalsHost({
     void refreshProfile()
     setBillingOpen(true)
   }, [refreshProfile])
+  const openGetPaid = useCallback(() => setGetPaidOpen(true), [])
   const openRouting = useCallback(() => setRoutingOpen(true), [])
   const openTeamInvite = useCallback(() => setTeamInviteOpen(true), [])
 
@@ -162,6 +166,7 @@ export function DashboardSettingsModalsHost({
       [OPEN_SMS_AUTOMATION_MODAL_EVENT, openSmsAutomation],
       [OPEN_BUSINESS_PROFILE_MODAL_EVENT, openBusiness],
       [OPEN_BILLING_MODAL_EVENT, openBilling],
+      [OPEN_GET_PAID_MODAL_EVENT, openGetPaid],
       [OPEN_ROUTING_STRATEGY_MODAL_EVENT, openRouting],
       [OPEN_TEAM_INVITE_MODAL_EVENT, openTeamInvite],
     ]
@@ -173,7 +178,7 @@ export function DashboardSettingsModalsHost({
         window.removeEventListener(event, fn)
       }
     }
-  }, [openCarrierFromEvent, openPortAddress, openSmsAutomation, openBusiness, openBilling, openRouting, openTeamInvite])
+  }, [openCarrierFromEvent, openPortAddress, openSmsAutomation, openBusiness, openBilling, openGetPaid, openRouting, openTeamInvite])
 
   useEffect(() => {
     if (!bootstrapEvent) return
@@ -183,11 +188,12 @@ export function DashboardSettingsModalsHost({
       [OPEN_SMS_AUTOMATION_MODAL_EVENT]: openSmsAutomation,
       [OPEN_BUSINESS_PROFILE_MODAL_EVENT]: openBusiness,
       [OPEN_BILLING_MODAL_EVENT]: openBilling,
+      [OPEN_GET_PAID_MODAL_EVENT]: openGetPaid,
       [OPEN_ROUTING_STRATEGY_MODAL_EVENT]: openRouting,
       [OPEN_TEAM_INVITE_MODAL_EVENT]: openTeamInvite,
     }
     map[bootstrapEvent.type]?.()
-  }, [bootstrapEvent, openCarrierFromEvent, openPortAddress, openSmsAutomation, openBusiness, openBilling, openRouting, openTeamInvite])
+  }, [bootstrapEvent, openCarrierFromEvent, openPortAddress, openSmsAutomation, openBusiness, openBilling, openGetPaid, openRouting, openTeamInvite])
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -195,8 +201,9 @@ export function DashboardSettingsModalsHost({
     if (tab === "sms-automation") openSmsAutomation()
     if (tab === "business-profile") openBusiness()
     if (tab === "billing") openBilling()
+    if (tab === "get-paid" || tab === "payouts") openGetPaid()
     if (tab === "routing") openRouting()
-  }, [searchParams, openCarrier, openSmsAutomation, openBusiness, openBilling, openRouting])
+  }, [searchParams, openCarrier, openSmsAutomation, openBusiness, openBilling, openGetPaid, openRouting])
 
   return (
     <>
@@ -227,6 +234,7 @@ export function DashboardSettingsModalsHost({
         subscriptionActive={profile.subscriptionActive}
         billingCycleEnd={profile.billingCycleEnd}
       />
+      <GetPaidSheet open={getPaidOpen} onOpenChange={setGetPaidOpen} />
       <RoutingStrategyModal open={routingOpen} onOpenChange={setRoutingOpen} />
       <TeamInviteModal open={teamInviteOpen} onOpenChange={setTeamInviteOpen} />
     </>
@@ -246,6 +254,9 @@ export function useSettingsModalActions() {
     },
     openBilling: () => {
       window.dispatchEvent(new CustomEvent(OPEN_BILLING_MODAL_EVENT))
+    },
+    openGetPaid: () => {
+      window.dispatchEvent(new CustomEvent(OPEN_GET_PAID_MODAL_EVENT))
     },
     openRoutingStrategy: () => {
       window.dispatchEvent(new CustomEvent(OPEN_ROUTING_STRATEGY_MODAL_EVENT))

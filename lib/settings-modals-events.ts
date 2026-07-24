@@ -5,6 +5,7 @@ export const OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT = "lyncr-open-port-service-ad
 export const OPEN_SMS_AUTOMATION_MODAL_EVENT = "lyncr-open-sms-automation-modal"
 export const OPEN_BUSINESS_PROFILE_MODAL_EVENT = "lyncr-open-business-profile-modal"
 export const OPEN_BILLING_MODAL_EVENT = "lyncr-open-billing-modal"
+export const OPEN_GET_PAID_MODAL_EVENT = "lyncr-open-get-paid-modal"
 export const OPEN_ROUTING_STRATEGY_MODAL_EVENT = "lyncr-open-routing-strategy-modal"
 export const OPEN_TEAM_INVITE_MODAL_EVENT = "lyncr-open-team-invite-modal"
 export const CARRIER_REGISTRATION_UPDATED_EVENT = "lyncr-carrier-registration-updated"
@@ -28,6 +29,11 @@ export function openPortServiceAddressModal() {
 export function openSmsAutomationModal() {
   if (typeof window === "undefined") return
   window.dispatchEvent(new CustomEvent(OPEN_SMS_AUTOMATION_MODAL_EVENT))
+}
+
+export function openGetPaidModal() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent(OPEN_GET_PAID_MODAL_EVENT))
 }
 
 export function notifyCarrierRegistrationUpdated() {

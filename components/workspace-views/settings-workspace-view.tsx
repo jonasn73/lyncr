@@ -7,6 +7,7 @@ import {
   Building2,
   Clock,
   CreditCard,
+  Banknote,
   Loader2,
   LogOut,
   MessageSquare,
@@ -221,6 +222,13 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
                 : "Activate your line and manage plans on Pay."
             }
             onClick={modals.openBilling}
+          />
+          <SettingsMenuRow
+            grouped
+            icon={<Banknote className="h-5 w-5 text-emerald-400" aria-hidden />}
+            title="Get paid"
+            subtitle="Bank payouts for Collect Payment — customers see your business name."
+            onClick={modals.openGetPaid}
           />
           <SettingsMenuRow
             grouped

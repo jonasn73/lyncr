@@ -114,79 +114,91 @@ export async function createCollectPayLinkCheckout(params: {
   const lyncrKind = jobId ? "job_payment" : "adhoc_payment"
   const payToken = makePayToken()
 
+  const { requireConnectReady, computeLyncrApplicationFeeCents, connectDirectChargeOptions } =
+    await import("@/lib/stripe-connect")
+  const connect = await requireConnectReady(ownerUserId)
+  const applicationFeeAmount = computeLyncrApplicationFeeCents(params.chargeCents)
+
   const stripe = getStripeClient()
   // Apple Pay / Google Pay on Embedded Checkout require the pay page domain registered.
   await ensureStripeWalletPaymentMethodDomains().catch((e) => {
     console.warn("[pay-link] wallet domain register:", e)
   })
 
-  // Embedded Checkout keeps the customer on lyncr.app (no checkout.stripe.com URL bar).
-  const session = await stripe.checkout.sessions.create({
-    ui_mode: "embedded",
-    mode: "payment",
-    // Prefer card wallets (Apple Pay / Google Pay) when the device supports them.
-    payment_method_options: {
-      card: {
-        request_three_d_secure: "automatic",
-      },
-    },
-    client_reference_id: ownerUserId,
-    customer_email: params.customerEmail?.trim() || undefined,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: params.chargeCents,
-          product_data: {
-            name: lineSummary,
-            description:
-              params.taxCents > 0
-                ? `Includes ${fmtUsd(params.taxCents)} tax · ${businessLabel}`
-                : `Secure payment to ${businessLabel}`,
-          },
+  // Embedded Checkout on the connected account (customer statement shows the shop).
+  const session = await stripe.checkout.sessions.create(
+    {
+      ui_mode: "embedded",
+      mode: "payment",
+      payment_method_options: {
+        card: {
+          request_three_d_secure: "automatic",
         },
       },
-    ],
-    metadata: {
-      checkout_type: checkoutType,
-      user_id: ownerUserId,
-      acting_user_id: params.actingUserId,
-      owner_user_id: ownerUserId,
-      tech_user_id: techUserId,
-      job_id: jobId || "",
-      charge_cents: String(params.chargeCents),
-      subtotal_cents: String(params.subtotalCents),
-      tax_cents: String(params.taxCents),
-      commission_cents: String(commissionCents),
-      note,
-      customer_name: customerName,
-      business_label: businessLabel.slice(0, 80),
-      pay_token: payToken,
-      lyncr_kind: lyncrKind,
-    },
-    payment_intent_data: {
-      description: customerName
-        ? `${businessLabel} · ${customerName} · ${note}`
-        : `${businessLabel} · ${note}`,
+      client_reference_id: ownerUserId,
+      customer_email: params.customerEmail?.trim() || undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: params.chargeCents,
+            product_data: {
+              name: lineSummary,
+              description:
+                params.taxCents > 0
+                  ? `Includes ${fmtUsd(params.taxCents)} tax · ${businessLabel}`
+                  : `Secure payment to ${businessLabel}`,
+            },
+          },
+        },
+      ],
       metadata: {
-        lyncr_kind: lyncrKind,
-        job_id: jobId || "",
+        checkout_type: checkoutType,
+        user_id: ownerUserId,
+        acting_user_id: params.actingUserId,
         owner_user_id: ownerUserId,
         tech_user_id: techUserId,
-        acting_user_id: params.actingUserId,
-        commission_cents: String(commissionCents),
-        payment_method: "MANUAL_CARD",
-        note,
-        customer_name: customerName,
+        job_id: jobId || "",
+        charge_cents: String(params.chargeCents),
         subtotal_cents: String(params.subtotalCents),
         tax_cents: String(params.taxCents),
-        pay_link: "1",
+        commission_cents: String(commissionCents),
+        note,
+        customer_name: customerName,
+        business_label: businessLabel.slice(0, 80),
         pay_token: payToken,
+        lyncr_kind: lyncrKind,
+        stripe_connect_account_id: connect.accountId,
+        lyncr_application_fee_cents: String(applicationFeeAmount),
       },
+      payment_intent_data: {
+        application_fee_amount: applicationFeeAmount,
+        description: customerName
+          ? `${businessLabel} · ${customerName} · ${note}`
+          : `${businessLabel} · ${note}`,
+        metadata: {
+          lyncr_kind: lyncrKind,
+          job_id: jobId || "",
+          owner_user_id: ownerUserId,
+          tech_user_id: techUserId,
+          acting_user_id: params.actingUserId,
+          commission_cents: String(commissionCents),
+          payment_method: "MANUAL_CARD",
+          note,
+          customer_name: customerName,
+          subtotal_cents: String(params.subtotalCents),
+          tax_cents: String(params.taxCents),
+          pay_link: "1",
+          pay_token: payToken,
+          stripe_connect_account_id: connect.accountId,
+          lyncr_application_fee_cents: String(applicationFeeAmount),
+        },
+      },
+      return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
     },
-    return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
-  })
+    connectDirectChargeOptions(connect.accountId)
+  )
 
   if (!session.id) throw new Error("Could not create payment session")
 
@@ -255,7 +267,9 @@ export async function fulfillCollectPayLinkFromCheckout(
     })
   }
 
-  await confirmJobPaymentIntent(paymentIntentId)
+  await confirmJobPaymentIntent(paymentIntentId, {
+    stripeConnectAccountId: (meta.stripe_connect_account_id || "").trim() || null,
+  })
 }
 
 /**
@@ -296,7 +310,9 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
     })
   }
 
-  await confirmJobPaymentIntent(intent.id)
+  await confirmJobPaymentIntent(intent.id, {
+    stripeConnectAccountId: (meta.stripe_connect_account_id || "").trim() || null,
+  })
 }
 
 export type CollectPayLinkStatus = {
@@ -338,8 +354,33 @@ export async function syncCollectPayLinkStatus(params: {
   }
   if (!sessionId) return null
 
-  const session = await stripe.checkout.sessions.retrieve(sessionId)
+  let connectAccountId: string | null = null
+  if (row?.owner_user_id) {
+    const { getUserStripeConnect } = await import("@/lib/db")
+    const connect = await getUserStripeConnect(row.owner_user_id)
+    connectAccountId = connect?.stripe_connect_account_id ?? null
+  }
+
+  let session: Stripe.Checkout.Session
+  try {
+    session = await stripe.checkout.sessions.retrieve(
+      sessionId,
+      connectAccountId ? { stripeAccount: connectAccountId } : undefined
+    )
+  } catch {
+    session = await stripe.checkout.sessions.retrieve(sessionId)
+  }
   const meta = session.metadata || {}
+  connectAccountId = (meta.stripe_connect_account_id || "").trim() || connectAccountId
+  if (connectAccountId) {
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId, {
+        stripeAccount: connectAccountId,
+      })
+    } catch {
+      /* keep */
+    }
+  }
   if (!token) token = (meta.pay_token || "").trim()
   const chargeCents = Math.max(
     0,
@@ -422,25 +463,60 @@ export async function resolvePayLinkSession(token: string): Promise<{
   businessLabel: string
   chargeCents: number
   customerName: string
+  stripeConnectAccountId: string | null
 } | null> {
   const key = token.trim()
   if (!key) return null
   const stripe = getStripeClient()
 
   let sessionId: string | null = null
+  let ownerUserId: string | null = null
   if (key.startsWith("cs_")) {
     sessionId = key
   } else {
     const { getCollectPayLinkByToken } = await import("@/lib/db")
     const row = await getCollectPayLinkByToken(key)
-    if (row) sessionId = row.stripe_session_id
+    if (row) {
+      sessionId = row.stripe_session_id
+      ownerUserId = row.owner_user_id
+    }
   }
 
-  // Token → session is stored in collect_pay_links (scripts/113). No Stripe search API needed.
   if (!sessionId) return null
 
-  const session = await stripe.checkout.sessions.retrieve(sessionId)
+  // Direct-charge sessions live on the connected account.
+  let connectAccountId: string | null = null
+  if (ownerUserId) {
+    const { getUserStripeConnect } = await import("@/lib/db")
+    const connect = await getUserStripeConnect(ownerUserId)
+    connectAccountId = connect?.stripe_connect_account_id ?? null
+  }
+
+  let session: Stripe.Checkout.Session
+  try {
+    session = await stripe.checkout.sessions.retrieve(
+      sessionId,
+      connectAccountId ? { stripeAccount: connectAccountId } : undefined
+    )
+  } catch {
+    // Legacy platform sessions (pre-Connect) or unknown account — try platform.
+    session = await stripe.checkout.sessions.retrieve(sessionId)
+  }
+
   const meta = session.metadata || {}
+  connectAccountId =
+    (meta.stripe_connect_account_id || "").trim() || connectAccountId
+  if (connectAccountId && !session.client_secret) {
+    // Re-fetch on connected account if we learned the id from metadata after platform fetch.
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId, {
+        stripeAccount: connectAccountId,
+      })
+    } catch {
+      /* keep prior */
+    }
+  }
+
   const chargeCents = Math.max(
     0,
     Math.round(
@@ -451,11 +527,10 @@ export async function resolvePayLinkSession(token: string): Promise<{
   )
   return {
     session,
-    businessLabel:
-      (meta.business_label || "").trim() ||
-      "Your service provider",
+    businessLabel: (meta.business_label || "").trim() || "Your service provider",
     chargeCents,
     customerName: (meta.customer_name || "").trim(),
+    stripeConnectAccountId: connectAccountId,
   }
 }
 

@@ -32,6 +32,7 @@ import {
   tapToPayNoReaderMessage,
 } from "@/lib/stripe-payment-errors"
 import { useToast } from "@/hooks/use-toast"
+import { openGetPaidModal } from "@/lib/settings-modals-events"
 
 type CollectMode = "list" | "adhoc" | "tip_sign" | "tip_charge" | "receipt"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
@@ -54,10 +55,16 @@ const TechPaymentModal = dynamic(
   { ssr: false }
 )
 
-let stripePromise: Promise<Stripe | null> | null = null
-function getStripePromise(publishableKey: string) {
-  if (!stripePromise) stripePromise = loadStripe(publishableKey)
-  return stripePromise
+let stripePromiseCache = new Map<string, Promise<Stripe | null>>()
+function getStripePromise(publishableKey: string, stripeAccount?: string | null) {
+  const acct = (stripeAccount || "").trim()
+  const cacheKey = `${publishableKey}::${acct || "platform"}`
+  let p = stripePromiseCache.get(cacheKey)
+  if (!p) {
+    p = loadStripe(publishableKey, acct ? { stripeAccount: acct } : undefined)
+    stripePromiseCache.set(cacheKey, p)
+  }
+  return p
 }
 
 function formatDollarsFromJob(job: DispatchJob): string | null {
@@ -80,9 +87,11 @@ function jobTitle(job: DispatchJob): string {
 function AdhocCardForm({
   onDone,
   onCancel,
+  stripeConnectAccountId,
 }: {
   onDone: (paymentIntentId: string) => void
   onCancel: () => void
+  stripeConnectAccountId?: string | null
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -121,7 +130,10 @@ function AdhocCardForm({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentIntentId: pi.id }),
+          body: JSON.stringify({
+            paymentIntentId: pi.id,
+            stripeConnectAccountId: stripeConnectAccountId || undefined,
+          }),
         })
         if (!confirmRes.ok) {
           const json = (await confirmRes.json().catch(() => ({}))) as { error?: string }
@@ -190,6 +202,9 @@ export function OwnerCollectPaymentSheet({
   const [payJob, setPayJob] = useState<DispatchJob | null>(null)
   /** Latest pay-link status keyed by job id (from /api/payments/pay-links). */
   const [linkByJobId, setLinkByJobId] = useState<Record<string, JobPayLinkBadge>>({})
+  /** Stripe Connect: shop must finish Get paid before card charges. */
+  const [connectReady, setConnectReady] = useState<boolean | null>(null)
+  const [connectMessage, setConnectMessage] = useState<string | null>(null)
   // list → jobs; adhoc → charge; tip_sign → tip+signature; tip_charge → tip card; receipt → invoice
   const [mode, setMode] = useState<CollectMode>("list")
   const [adhocAmount, setAdhocAmount] = useState("")
@@ -200,6 +215,7 @@ export function OwnerCollectPaymentSheet({
   const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
+  const [stripeConnectAccountId, setStripeConnectAccountId] = useState<string | null>(null)
   // Set after a successful walk-up charge so we can tip / sign / email-SMS.
   const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
   const [paidTotalCents, setPaidTotalCents] = useState(0)
@@ -370,6 +386,16 @@ export function OwnerCollectPaymentSheet({
       })
       .finally(() => setLoading(false))
 
+    fetch("/api/payments/connect/status", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data?: { ready?: boolean; message?: string | null } } | null) => {
+        setConnectReady(j?.data?.ready === true)
+        setConnectMessage(j?.data?.message ?? null)
+      })
+      .catch(() => {
+        setConnectReady(null)
+      })
+
     // Load recent pay links so job rows show “Link sent / Paid” instead of only “new payment”.
     fetch("/api/payments/pay-links?sync=1", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -473,13 +499,18 @@ export function OwnerCollectPaymentSheet({
       })
       const json = (await res.json()) as {
         error?: string
-        data?: { clientSecret?: string; publishableKey?: string | null }
+        data?: {
+          clientSecret?: string
+          publishableKey?: string | null
+          stripeConnectAccountId?: string | null
+        }
       }
       if (!res.ok) throw new Error(json.error || "Could not start payment")
       const secret = json.data?.clientSecret
       if (!secret) throw new Error("No client_secret returned")
       setClientSecret(secret)
       setPublishableKey(json.data?.publishableKey ?? null)
+      setStripeConnectAccountId(json.data?.stripeConnectAccountId?.trim() || null)
     } catch (e) {
       toast({
         title: "Could not start payment",
@@ -520,11 +551,13 @@ export function OwnerCollectPaymentSheet({
           clientSecret?: string
           paymentIntentId?: string
           publishableKey?: string | null
+          stripeConnectAccountId?: string | null
         }
       }
       if (!res.ok) throw new Error(json.error || "Could not start Tap to Pay")
       const secret = json.data?.clientSecret
       if (!secret) throw new Error("No client_secret returned")
+      setStripeConnectAccountId(json.data?.stripeConnectAccountId?.trim() || null)
 
       // Live vs test — only test mode may use Stripe’s fake “simulated” reader.
       const pk = json.data?.publishableKey ?? publishableKey
@@ -604,7 +637,10 @@ export function OwnerCollectPaymentSheet({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentIntentId: piId }),
+        body: JSON.stringify({
+          paymentIntentId: piId,
+          stripeConnectAccountId: stripeConnectAccountId || undefined,
+        }),
       }).catch(() => null)
 
       enterTipSignStep(piId, totalAtCharge)
@@ -711,12 +747,17 @@ export function OwnerCollectPaymentSheet({
       })
       const json = (await res.json()) as {
         error?: string
-        data?: { clientSecret?: string; publishableKey?: string | null }
+        data?: {
+          clientSecret?: string
+          publishableKey?: string | null
+          stripeConnectAccountId?: string | null
+        }
       }
       if (!res.ok) throw new Error(json.error || "Could not start tip charge")
       if (!json.data?.clientSecret) throw new Error("No client_secret returned")
       setClientSecret(json.data.clientSecret)
       setPublishableKey(json.data.publishableKey ?? null)
+      setStripeConnectAccountId(json.data.stripeConnectAccountId?.trim() || null)
     } catch (e) {
       toast({
         title: "Could not start tip charge",
@@ -811,7 +852,10 @@ export function OwnerCollectPaymentSheet({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentIntentId: tipPi }),
+          body: JSON.stringify({
+            paymentIntentId: tipPi,
+            stripeConnectAccountId: stripeConnectAccountId || undefined,
+          }),
         }).catch(() => null)
         await saveSlip({ tipPaymentIntentId: tipPi, tipCents: tipChargeCents })
       }
@@ -929,9 +973,39 @@ export function OwnerCollectPaymentSheet({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             {mode === "list" ? (
               <>
+                {connectReady === false ? (
+                  <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-amber-50">Finish Get paid to accept cards</p>
+                    <p className="mt-1 text-xs leading-snug text-amber-100/80">
+                      {connectMessage ||
+                        "Set up your bank in Lyncr so customers pay your business and funds go to your account."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenChange(false)
+                        openGetPaidModal()
+                      }}
+                      className="mt-2.5 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
+                    >
+                      Open Get paid
+                    </button>
+                  </div>
+                ) : null}
                 <button
                   type="button"
-                  onClick={() => setMode("adhoc")}
+                  onClick={() => {
+                    if (connectReady === false) {
+                      toast({
+                        title: "Get paid required",
+                        description: "Finish payout setup before collecting card payments.",
+                        variant: "destructive",
+                      })
+                      openGetPaidModal()
+                      return
+                    }
+                    setMode("adhoc")
+                  }}
                   className="mb-3 flex w-full items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-3 text-left transition-colors hover:bg-emerald-500/15"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300">
@@ -979,7 +1053,18 @@ export function OwnerCollectPaymentSheet({
                         <li key={job.id}>
                           <button
                             type="button"
-                            onClick={() => setPayJob(job)}
+                            onClick={() => {
+                              if (connectReady === false && !(link && (link.paymentStatus === "paid" || link.walletSettled))) {
+                                toast({
+                                  title: "Get paid required",
+                                  description: "Finish payout setup before collecting card payments.",
+                                  variant: "destructive",
+                                })
+                                openGetPaidModal()
+                                return
+                              }
+                              setPayJob(job)
+                            }}
                             className={cn(
                               "flex w-full items-start gap-3 rounded-xl border bg-zinc-900/50 px-3 py-3 text-left transition-colors",
                               paid
@@ -1206,13 +1291,14 @@ export function OwnerCollectPaymentSheet({
                   )
                 ) : publishableKey ? (
                   <Elements
-                    stripe={getStripePromise(publishableKey)}
+                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                     options={{
                       clientSecret,
                       appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
                     }}
                   >
                     <AdhocCardForm
+                      stripeConnectAccountId={stripeConnectAccountId}
                       onCancel={() => {
                         setClientSecret(null)
                         setPublishableKey(null)
@@ -1563,13 +1649,14 @@ export function OwnerCollectPaymentSheet({
                   </>
                 ) : publishableKey ? (
                   <Elements
-                    stripe={getStripePromise(publishableKey)}
+                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                     options={{
                       clientSecret,
                       appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
                     }}
                   >
                     <AdhocCardForm
+                      stripeConnectAccountId={stripeConnectAccountId}
                       onCancel={() => {
                         setClientSecret(null)
                         setPublishableKey(null)

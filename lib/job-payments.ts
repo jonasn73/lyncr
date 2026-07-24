@@ -179,6 +179,8 @@ export type CreateJobPaymentIntentResult = {
   chargeCents: number
   commissionCents: number
   transaction: WalletTransaction | null
+  /** Connected account for Stripe.js / Terminal (direct charges). */
+  stripeConnectAccountId: string
 }
 
 /** Create Stripe PaymentIntent + PENDING wallet transaction for the assigned tech. */
@@ -200,26 +202,37 @@ export async function createJobPaymentIntent(params: {
     throw new Error("Commission amount is zero — check TECH_JOB_COMMISSION_RATE")
   }
 
+  const { requireConnectReady, computeLyncrApplicationFeeCents, connectDirectChargeOptions } =
+    await import("@/lib/stripe-connect")
+  const connect = await requireConnectReady(params.job.ownerUserId)
+  const applicationFeeAmount = computeLyncrApplicationFeeCents(params.chargeCents)
+
   const stripe = getStripeClient()
   const isTap = params.walletMethod === "TAP_TO_PAY"
-  const intent = await stripe.paymentIntents.create({
-    amount: params.chargeCents,
-    currency: "usd",
-    // Terminal / Tap to Pay needs card_present; Payment Element uses automatic methods.
-    ...(isTap
-      ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
-      : { automatic_payment_methods: { enabled: true } }),
-    metadata: {
-      lyncr_kind: "job_payment",
-      job_id: params.job.jobId,
-      tech_user_id: params.job.assignedTechId,
-      owner_user_id: params.job.ownerUserId,
-      acting_user_id: params.actingUserId,
-      commission_cents: String(commissionCents),
-      payment_method: params.walletMethod,
+  const intent = await stripe.paymentIntents.create(
+    {
+      amount: params.chargeCents,
+      currency: "usd",
+      application_fee_amount: applicationFeeAmount,
+      // Terminal / Tap to Pay needs card_present; Payment Element uses automatic methods.
+      ...(isTap
+        ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
+        : { automatic_payment_methods: { enabled: true } }),
+      metadata: {
+        lyncr_kind: "job_payment",
+        job_id: params.job.jobId,
+        tech_user_id: params.job.assignedTechId,
+        owner_user_id: params.job.ownerUserId,
+        acting_user_id: params.actingUserId,
+        commission_cents: String(commissionCents),
+        payment_method: params.walletMethod,
+        stripe_connect_account_id: connect.accountId,
+        lyncr_application_fee_cents: String(applicationFeeAmount),
+      },
+      description: `Lyncr job ${params.job.jobId.slice(0, 8)}`,
     },
-    description: `Lyncr job ${params.job.jobId.slice(0, 8)}`,
-  })
+    connectDirectChargeOptions(connect.accountId)
+  )
 
   if (!intent.client_secret) {
     throw new Error("Stripe did not return a client_secret")
@@ -240,6 +253,7 @@ export async function createJobPaymentIntent(params: {
     chargeCents: params.chargeCents,
     commissionCents,
     transaction,
+    stripeConnectAccountId: connect.accountId,
   }
 }
 
@@ -274,30 +288,41 @@ export async function createAdhocPaymentIntent(params: {
     Math.round(params.subtotalCents ?? params.chargeCents - (params.taxCents ?? 0))
   )
   const taxCents = Math.max(0, Math.round(params.taxCents ?? 0))
+  const { requireConnectReady, computeLyncrApplicationFeeCents, connectDirectChargeOptions } =
+    await import("@/lib/stripe-connect")
+  const connect = await requireConnectReady(params.ownerUserId)
+  const applicationFeeAmount = computeLyncrApplicationFeeCents(params.chargeCents)
+
   const stripe = getStripeClient()
   const isTap = params.walletMethod === "TAP_TO_PAY"
-  const intent = await stripe.paymentIntents.create({
-    amount: params.chargeCents,
-    currency: "usd",
-    ...(isTap
-      ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
-      : { automatic_payment_methods: { enabled: true } }),
-    metadata: {
-      lyncr_kind: "adhoc_payment",
-      owner_user_id: params.ownerUserId,
-      acting_user_id: params.ownerUserId,
-      commission_cents: String(params.chargeCents),
-      payment_method: params.walletMethod,
-      note,
-      customer_name: customerName || "",
-      customer_phone: customerPhone || "",
-      subtotal_cents: String(subtotalCents),
-      tax_cents: String(taxCents),
+  const intent = await stripe.paymentIntents.create(
+    {
+      amount: params.chargeCents,
+      currency: "usd",
+      application_fee_amount: applicationFeeAmount,
+      ...(isTap
+        ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
+        : { automatic_payment_methods: { enabled: true } }),
+      metadata: {
+        lyncr_kind: "adhoc_payment",
+        owner_user_id: params.ownerUserId,
+        acting_user_id: params.ownerUserId,
+        commission_cents: String(params.chargeCents),
+        payment_method: params.walletMethod,
+        note,
+        customer_name: customerName || "",
+        customer_phone: customerPhone || "",
+        subtotal_cents: String(subtotalCents),
+        tax_cents: String(taxCents),
+        stripe_connect_account_id: connect.accountId,
+        lyncr_application_fee_cents: String(applicationFeeAmount),
+      },
+      description: customerName
+        ? `Lyncr · ${customerName} · ${note}`
+        : `Lyncr · ${note}`,
     },
-    description: customerName
-      ? `Lyncr · ${customerName} · ${note}`
-      : `Lyncr · ${note}`,
-  })
+    connectDirectChargeOptions(connect.accountId)
+  )
 
   if (!intent.client_secret) {
     throw new Error("Stripe did not return a client_secret")
@@ -318,6 +343,7 @@ export async function createAdhocPaymentIntent(params: {
     chargeCents: params.chargeCents,
     commissionCents: params.chargeCents,
     transaction,
+    stripeConnectAccountId: connect.accountId,
   }
 }
 
@@ -349,14 +375,33 @@ export type ConfirmJobPaymentResult = {
  * On succeeded: COMPLETED wallet tx + credit tech balance + job completed.
  */
 export async function confirmJobPaymentIntent(
-  paymentIntentId: string
+  paymentIntentId: string,
+  opts?: { stripeConnectAccountId?: string | null }
 ): Promise<ConfirmJobPaymentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
   }
 
   const stripe = getStripeClient()
-  const intent = await stripe.paymentIntents.retrieve(paymentIntentId.trim())
+  const pi = paymentIntentId.trim()
+  let connectAcct = (opts?.stripeConnectAccountId || "").trim() || null
+
+  let intent: Awaited<ReturnType<typeof stripe.paymentIntents.retrieve>>
+  if (connectAcct) {
+    intent = await stripe.paymentIntents.retrieve(pi, { stripeAccount: connectAcct })
+  } else {
+    try {
+      intent = await stripe.paymentIntents.retrieve(pi)
+      const metaAcct = (intent.metadata?.stripe_connect_account_id || "").trim()
+      if (metaAcct) {
+        connectAcct = metaAcct
+        intent = await stripe.paymentIntents.retrieve(pi, { stripeAccount: metaAcct })
+      }
+    } catch (e) {
+      throw e
+    }
+  }
+
   const jobId = intent.metadata?.job_id?.trim() || null
   const kind = intent.metadata?.lyncr_kind
 

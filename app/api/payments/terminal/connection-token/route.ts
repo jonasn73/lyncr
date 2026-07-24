@@ -25,13 +25,51 @@ export async function POST(req: NextRequest) {
 
   try {
     const stripe = getStripeClient()
-    const token = await stripe.terminal.connectionTokens.create()
-    // RN Tap to Pay also needs a Terminal Location id when connecting the reader.
+    // Direct charges / Tap to Pay on the connected account need a Connect connection token.
+    let stripeAccount: string | undefined
+    if (user.account_role === "owner") {
+      const { getConnectReadyState } = await import("@/lib/stripe-connect")
+      const state = await getConnectReadyState(userId)
+      if (state.ready) stripeAccount = state.accountId
+    } else if (user.account_role === "field_tech") {
+      const { neon } = await import("@neondatabase/serverless")
+      const { resolveNeonDatabaseUrl } = await import("@/lib/neon-database-url")
+      const sql = neon(resolveNeonDatabaseUrl())
+      try {
+        const rows = await sql`
+          SELECT ft.owner_user_id
+          FROM field_technicians ft
+          WHERE ft.portal_user_id = ${userId}
+          LIMIT 1
+        `
+        const ownerId = rows[0]
+          ? String((rows[0] as { owner_user_id: string }).owner_user_id)
+          : null
+        if (ownerId) {
+          const { getConnectReadyState } = await import("@/lib/stripe-connect")
+          const state = await getConnectReadyState(ownerId)
+          if (state.ready) stripeAccount = state.accountId
+        }
+      } catch {
+        /* fall through — platform token */
+      }
+    }
+
+    const token = await stripe.terminal.connectionTokens.create(
+      {},
+      stripeAccount ? { stripeAccount } : undefined
+    )
     const locationId = await getOrCreateTerminalLocationId({
       userId,
       displayName: user.business_name || user.name || "Lyncr",
     })
-    return NextResponse.json({ data: { secret: token.secret, locationId } })
+    return NextResponse.json({
+      data: {
+        secret: token.secret,
+        locationId,
+        stripeConnectAccountId: stripeAccount || null,
+      },
+    })
   } catch (e) {
     console.error("[payments/terminal/connection-token]", e)
     const message = e instanceof Error ? e.message : "Could not create connection token"

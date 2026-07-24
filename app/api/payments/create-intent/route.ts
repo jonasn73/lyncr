@@ -115,13 +115,15 @@ export async function POST(req: NextRequest) {
           commissionCents: result.commissionCents,
           transactionId: result.transaction?.id ?? null,
           publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,
+          stripeConnectAccountId: result.stripeConnectAccountId,
           adhoc: true,
         },
       })
     } catch (e) {
       console.error("[payments/create-intent adhoc]", e)
       const message = e instanceof Error ? e.message : "Could not create payment intent"
-      return NextResponse.json({ error: message }, { status: 500 })
+      const status = message.includes("Get paid") || message.includes("payout") ? 403 : 500
+      return NextResponse.json({ error: message }, { status })
     }
   }
 
@@ -166,11 +168,13 @@ export async function POST(req: NextRequest) {
         commissionCents: result.commissionCents,
         transactionId: result.transaction?.id ?? null,
         publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,
+        stripeConnectAccountId: result.stripeConnectAccountId,
       },
     })
   } catch (e) {
     console.error("[payments/create-intent]", e)
     const message = e instanceof Error ? e.message : "Could not create payment intent"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const status = message.includes("Get paid") || message.includes("payout") ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }

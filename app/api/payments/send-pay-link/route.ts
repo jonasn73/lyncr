@@ -139,6 +139,10 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("[payments/send-pay-link]", e)
     const message = e instanceof Error ? e.message : "Could not send pay link"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const status =
+      message.includes("Get paid") || message.includes("payout") || message.includes("under review")
+        ? 403
+        : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }

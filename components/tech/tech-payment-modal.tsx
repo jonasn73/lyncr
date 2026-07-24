@@ -76,10 +76,16 @@ function centsToAmountInput(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
-let stripePromise: Promise<Stripe | null> | null = null
-function getStripePromise(publishableKey: string) {
-  if (!stripePromise) stripePromise = loadStripe(publishableKey)
-  return stripePromise
+let stripePromiseCache = new Map<string, Promise<Stripe | null>>()
+function getStripePromise(publishableKey: string, stripeAccount?: string | null) {
+  const acct = (stripeAccount || "").trim()
+  const cacheKey = `${publishableKey}::${acct || "platform"}`
+  let p = stripePromiseCache.get(cacheKey)
+  if (!p) {
+    p = loadStripe(publishableKey, acct ? { stripeAccount: acct } : undefined)
+    stripePromiseCache.set(cacheKey, p)
+  }
+  return p
 }
 
 export function TechPaymentModal(props: {
@@ -105,6 +111,7 @@ export function TechPaymentModal(props: {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
+  const [stripeConnectAccountId, setStripeConnectAccountId] = useState<string | null>(null)
   // Contact for “Text / email pay link”.
   const [linkName, setLinkName] = useState(() => props.job.customer_name?.trim() || "")
   const [linkPhone, setLinkPhone] = useState(() => props.job.customer_phone?.trim() || "")
@@ -130,14 +137,28 @@ export function TechPaymentModal(props: {
   const amountInputRef = useRef<HTMLInputElement | null>(null)
   /** Previously sent pay links for this job (status + copy URL). */
   const [sentLinks, setSentLinks] = useState<SentPayLink[]>([])
-  const [linksLoading, setLinksLoading] = useState(false)
+  const [linksLoading, setLinksLoading] = useState(true)
   const [linksSyncing, setLinksSyncing] = useState(false)
+  /** Rare: owner wants a second charge after a link already paid. */
+  const [forceNewCharge, setForceNewCharge] = useState(false)
+
+  // Latest settled pay link for this job (if any).
+  const paidLink = useMemo(
+    () =>
+      sentLinks.find((l) => l.paymentStatus === "paid" || l.walletSettled) ?? null,
+    [sentLinks]
+  )
+  // While we still do not know link status, avoid flashing a blank “enter amount” form.
+  const awaitingLinkStatus = linksLoading && sentLinks.length === 0
+  const showPaidSummary = Boolean(paidLink) && !forceNewCharge && !postPayStep
 
   // Load / refresh pay-link status from Stripe (also credits wallet if customer already paid).
   async function refreshSentLinks(opts?: { sync?: boolean }) {
     const sync = opts?.sync !== false
     if (sync) setLinksSyncing(true)
     else setLinksLoading(true)
+    // First open always shows the status spinner until we know paid vs unpaid.
+    if (sentLinks.length === 0) setLinksLoading(true)
     try {
       const res = await fetch(
         `/api/payments/pay-links?jobId=${encodeURIComponent(props.job.id)}${sync ? "&sync=1" : ""}`,
@@ -148,12 +169,12 @@ export function TechPaymentModal(props: {
       }
       const list = Array.isArray(json.data?.links) ? json.data!.links! : []
       setSentLinks(list)
-      const justPaid = list.find((l) => l.fulfilledNow || (l.walletSettled && l.paymentStatus === "paid"))
-      if (justPaid?.fulfilledNow) {
+      const justPaid = list.find((l) => l.fulfilledNow)
+      if (justPaid) {
         setError(null)
-        // Surface success so the header $0 can update after close/refresh.
         setLinkSentUrl(justPaid.url)
         setLinkDelivered(true)
+        setForceNewCharge(false)
       }
     } catch {
       /* keep prior list */
@@ -164,6 +185,7 @@ export function TechPaymentModal(props: {
   }
 
   useEffect(() => {
+    setForceNewCharge(false)
     void refreshSentLinks({ sync: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once when opening this job
   }, [props.job.id])
@@ -266,6 +288,7 @@ export function TechPaymentModal(props: {
         client_secret?: string
         paymentIntentId?: string
         publishableKey?: string | null
+        stripeConnectAccountId?: string | null
       }
     }
     if (!res.ok) throw new Error(json.error || "Could not start payment")
@@ -274,10 +297,12 @@ export function TechPaymentModal(props: {
     setClientSecret(secret)
     setPaymentIntentId(json.data?.paymentIntentId ?? null)
     setPublishableKey(json.data?.publishableKey?.trim() || null)
+    setStripeConnectAccountId(json.data?.stripeConnectAccountId?.trim() || null)
     return {
       clientSecret: secret,
       paymentIntentId: json.data?.paymentIntentId ?? null,
       publishableKey: json.data?.publishableKey?.trim() || null,
+      stripeConnectAccountId: json.data?.stripeConnectAccountId?.trim() || null,
     }
   }
 
@@ -286,7 +311,10 @@ export function TechPaymentModal(props: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ paymentIntentId: piId }),
+      body: JSON.stringify({
+        paymentIntentId: piId,
+        stripeConnectAccountId: stripeConnectAccountId || undefined,
+      }),
     })
     const json = (await res.json()) as { error?: string }
     if (!res.ok) throw new Error(json.error || "Could not confirm payment")
@@ -388,6 +416,7 @@ export function TechPaymentModal(props: {
         client_secret?: string
         paymentIntentId?: string
         publishableKey?: string | null
+        stripeConnectAccountId?: string | null
       }
     }
     if (!res.ok) throw new Error(json.error || "Could not start tip charge")
@@ -396,10 +425,12 @@ export function TechPaymentModal(props: {
     setClientSecret(secret)
     setPaymentIntentId(json.data?.paymentIntentId ?? null)
     setPublishableKey(json.data?.publishableKey?.trim() || null)
+    setStripeConnectAccountId(json.data?.stripeConnectAccountId?.trim() || null)
     return {
       clientSecret: secret,
       paymentIntentId: json.data?.paymentIntentId ?? null,
       publishableKey: json.data?.publishableKey?.trim() || null,
+      stripeConnectAccountId: json.data?.stripeConnectAccountId?.trim() || null,
     }
   }
 
@@ -768,7 +799,9 @@ export function TechPaymentModal(props: {
                   ? "Charge tip"
                   : postPayStep === "receipt"
                     ? "Send invoice"
-                    : "Proceed to Payment"}
+                    : showPaidSummary
+                      ? "Payment received"
+                      : "Proceed to Payment"}
             </h2>
             <p className="text-xs text-zinc-500">
               {props.job.customer_name || props.job.customer_phone || "Customer"}
@@ -952,7 +985,7 @@ export function TechPaymentModal(props: {
               )
             ) : publishableKey ? (
               <Elements
-                stripe={getStripePromise(publishableKey)}
+                stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                 options={{
                   clientSecret,
                   appearance: {
@@ -968,6 +1001,7 @@ export function TechPaymentModal(props: {
                   jobId={props.job.id}
                   taxCents={0}
                   skipInvoice
+                  stripeConnectAccountId={stripeConnectAccountId}
                   onError={setError}
                   onSuccess={(tipPiId) => {
                     void (async () => {
@@ -1060,11 +1094,87 @@ export function TechPaymentModal(props: {
               Done
             </button>
           </div>
+        ) : showPaidSummary && paidLink ? (
+          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-5 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden />
+              <p className="mt-2 text-sm font-semibold text-emerald-100">
+                This job is already paid
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-300">
+                {fmt(paidLink.chargeCents)}
+              </p>
+              <p className="mt-1 text-xs text-emerald-200/80">
+                {paidLink.walletSettled
+                  ? "Included in your balance (header total)."
+                  : "Marked paid — Refresh if the header still looks low."}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                Pay link
+              </p>
+              <p className="mt-1 break-all text-[11px] text-zinc-400">{paidLink.url}</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard?.writeText(paidLink.url)}
+                  className="flex-1 rounded-lg border border-zinc-700 py-2 text-xs font-semibold text-slate-200"
+                >
+                  Copy link
+                </button>
+                <button
+                  type="button"
+                  disabled={linksSyncing}
+                  onClick={() => void refreshSentLinks({ sync: true })}
+                  className="flex-1 rounded-lg border border-sky-500/40 py-2 text-xs font-semibold text-sky-200 disabled:opacity-50"
+                >
+                  {linksSyncing ? "Checking…" : "Refresh status"}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => props.onCompleted()}
+              className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+            >
+              Done
+            </button>
+            <button
+              type="button"
+              onClick={() => setForceNewCharge(true)}
+              className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-400 hover:text-slate-200"
+            >
+              Collect another payment
+            </button>
+          </div>
+        ) : awaitingLinkStatus ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 py-16 text-slate-400">
+            <Loader2 className="h-6 w-6 animate-spin text-emerald-400" aria-hidden />
+            <p className="text-sm">Checking payment status…</p>
+          </div>
         ) : (
           <>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-              {/* Existing pay links — status, copy, and wallet sync (not a blank new charge). */}
-              {(linksLoading || sentLinks.length > 0) && (
+              {forceNewCharge && paidLink ? (
+                <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+                  <p className="text-xs font-medium text-amber-100">
+                    Already paid {fmt(paidLink.chargeCents)}. This starts a new charge.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setForceNewCharge(false)}
+                    className="mt-1.5 text-[11px] font-semibold text-amber-200 underline"
+                  >
+                    Back to paid status
+                  </button>
+                </div>
+              ) : null}
+
+              {/* Open / unpaid pay links — status while still collecting. */}
+              {(linksLoading || sentLinks.length > 0) && !forceNewCharge && (
                 <section className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -1486,7 +1596,7 @@ export function TechPaymentModal(props: {
                 {error ? <p className="text-sm text-red-300">{error}</p> : null}
                 {clientSecret && publishableKey ? (
                   <Elements
-                    stripe={getStripePromise(publishableKey)}
+                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                     options={{
                       clientSecret,
                       appearance: {
@@ -1501,6 +1611,7 @@ export function TechPaymentModal(props: {
                       lineItems={lineItemsPayload()}
                       jobId={props.job.id}
                       taxCents={taxCents}
+                      stripeConnectAccountId={stripeConnectAccountId}
                       onError={setError}
                       onSuccess={(piId) => {
                         enterTipSignStep(piId || paymentIntentId, totalCents)
@@ -1606,6 +1717,7 @@ function ManualCardForm(props: {
   taxCents?: number
   /** Tip-only charge — skip writing a full job invoice again. */
   skipInvoice?: boolean
+  stripeConnectAccountId?: string | null
   onError: (msg: string | null) => void
   onSuccess: (paymentIntentId: string | null) => void
   onBack: () => void
@@ -1657,7 +1769,10 @@ function ManualCardForm(props: {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ paymentIntentId: piId }),
+          body: JSON.stringify({
+            paymentIntentId: piId,
+            stripeConnectAccountId: props.stripeConnectAccountId || undefined,
+          }),
         })
         if (!res.ok) {
           const json = (await res.json()) as { error?: string }

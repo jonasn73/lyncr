@@ -38,11 +38,19 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed":
         await handleStripeCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
         break
+      case "account.updated": {
+        const { handleStripeConnectAccountUpdated } = await import("@/lib/stripe-connect")
+        await handleStripeConnectAccountUpdated(event.data.object as Stripe.Account)
+        break
+      }
       case "payment_intent.succeeded":
       case "payment_intent.payment_failed":
       case "payment_intent.canceled": {
         const intent = event.data.object as Stripe.PaymentIntent
         const kind = intent.metadata?.lyncr_kind
+        // Connect direct charges: event.account is the connected account id.
+        const connectAccountId =
+          typeof event.account === "string" ? event.account : intent.metadata?.stripe_connect_account_id
         // Pay links: create PENDING wallet row if checkout.session.completed was missed.
         if (event.type === "payment_intent.succeeded" && intent.metadata?.pay_link === "1") {
           const { fulfillCollectPayLinkFromPaymentIntent } = await import("@/lib/job-pay-link")
@@ -50,7 +58,9 @@ export async function POST(req: NextRequest) {
           break
         }
         if (kind === "job_payment" || kind === "adhoc_payment") {
-          await confirmJobPaymentIntent(intent.id)
+          await confirmJobPaymentIntent(intent.id, {
+            stripeConnectAccountId: connectAccountId || null,
+          })
         }
         break
       }

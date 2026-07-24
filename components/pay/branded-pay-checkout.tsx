@@ -18,6 +18,7 @@ type PayPayload =
       status: "open"
       client_secret: string
       publishable_key: string
+      stripe_account_id?: string | null
       business_label: string
       charge_cents: number
       customer_name: string
@@ -68,7 +69,11 @@ export function BrandedPayCheckout({ token }: { token: string }) {
 
   const stripePromise = useMemo(() => {
     if (!payload || payload.status !== "open") return null
-    return loadStripe(payload.publishable_key)
+    const acct = payload.stripe_account_id?.trim()
+    return loadStripe(
+      payload.publishable_key,
+      acct ? { stripeAccount: acct } : undefined
+    )
   }, [payload])
 
   return (

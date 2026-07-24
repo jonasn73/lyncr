@@ -89,6 +89,7 @@ export async function GET(
         status: "open",
         client_secret: clientSecret,
         publishable_key: publishableKey,
+        stripe_account_id: resolved.stripeConnectAccountId,
         business_label: businessLabel,
         charge_cents: chargeCents,
         customer_name: customerName,
