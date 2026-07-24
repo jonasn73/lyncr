@@ -1047,7 +1047,7 @@ export function OwnerCollectPaymentSheet({
       if (!res.ok) throw new Error(json.error || "Could not send invoice")
       toast({
         title: receiptChannel === "email" ? "Invoice emailed" : "Invoice texted",
-        description: "Customer should get it shortly.",
+        description: "Customer gets an itemized invoice with a view link.",
       })
       finishAndClose()
     } catch (e) {

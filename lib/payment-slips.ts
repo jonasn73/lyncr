@@ -3,7 +3,7 @@
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { getStripeClient } from "@/lib/stripe-config"
-import { loadOwnedPaymentIntent } from "@/lib/payment-receipt-send"
+import { loadOwnedPaymentIntent } from "@/lib/payment-intent-access"
 
 function getSql() {
   return neon(resolveNeonDatabaseUrl())
@@ -137,6 +137,20 @@ export async function upsertPaymentSlip(params: {
   }
 }
 
+function mapSlipRow(row: Record<string, unknown>): PaymentSlipRow {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    stripe_payment_intent_id: String(row.stripe_payment_intent_id),
+    tip_cents: Number(row.tip_cents ?? 0),
+    tip_payment_intent_id: row.tip_payment_intent_id
+      ? String(row.tip_payment_intent_id)
+      : null,
+    signature_png: row.signature_png ? String(row.signature_png) : null,
+    signed_at: row.signed_at ? String(row.signed_at) : null,
+  }
+}
+
 export async function getPaymentSlipByIntent(
   paymentIntentId: string,
   userId: string
@@ -159,17 +173,35 @@ export async function getPaymentSlipByIntent(
     `
     const row = rows[0] as Record<string, unknown> | undefined
     if (!row) return null
-    return {
-      id: String(row.id),
-      user_id: String(row.user_id),
-      stripe_payment_intent_id: String(row.stripe_payment_intent_id),
-      tip_cents: Number(row.tip_cents ?? 0),
-      tip_payment_intent_id: row.tip_payment_intent_id
-        ? String(row.tip_payment_intent_id)
-        : null,
-      signature_png: row.signature_png ? String(row.signature_png) : null,
-      signed_at: row.signed_at ? String(row.signed_at) : null,
-    }
+    return mapSlipRow(row)
+  } catch (e) {
+    if (isMissingPaymentSlipsTable(e)) return null
+    throw e
+  }
+}
+
+/** Look up a slip by PaymentIntent only (for public invoice / tech-collected charges). */
+export async function getPaymentSlipByIntentId(
+  paymentIntentId: string
+): Promise<PaymentSlipRow | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT
+        id::text,
+        user_id::text,
+        stripe_payment_intent_id,
+        tip_cents,
+        tip_payment_intent_id,
+        signature_png,
+        signed_at::text
+      FROM payment_slips
+      WHERE stripe_payment_intent_id = ${paymentIntentId}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return mapSlipRow(row)
   } catch (e) {
     if (isMissingPaymentSlipsTable(e)) return null
     throw e
