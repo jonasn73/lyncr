@@ -9,7 +9,7 @@ import {
   ConnectComponentsProvider,
 } from "@stripe/react-connect-js"
 import { loadConnectAndInitialize } from "@stripe/connect-js"
-import { Banknote, CheckCircle2, ExternalLink, Loader2, X } from "lucide-react"
+import { Banknote, CheckCircle2, Loader2, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
@@ -64,7 +64,6 @@ export function GetPaidSheet({
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showManage, setShowManage] = useState(false)
   const [sessionBusy, setSessionBusy] = useState(false)
-  const [linkBusy, setLinkBusy] = useState(false)
   const [embedLoadHint, setEmbedLoadHint] = useState(false)
 
   const refreshStatus = useCallback(async () => {
@@ -148,25 +147,6 @@ export function GetPaidSheet({
       setConnectInstance(null)
     } finally {
       setSessionBusy(false)
-    }
-  }
-
-  async function openHostedStripeSetup() {
-    setLinkBusy(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/payments/connect/account-link", {
-        method: "POST",
-        credentials: "include",
-      })
-      const json = (await res.json()) as { error?: string; data?: { url?: string } }
-      if (!res.ok || !json.data?.url) {
-        throw new Error(json.error || "Could not open Stripe setup")
-      }
-      window.location.href = json.data.url
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not open Stripe setup")
-      setLinkBusy(false)
     }
   }
 
@@ -292,34 +272,19 @@ export function GetPaidSheet({
               {!embedding ? (
                 <div className="flex flex-col gap-2">
                   {!status?.ready ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={sessionBusy || status?.status === "not_configured"}
-                        onClick={() => void startEmbedded("onboarding")}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        {sessionBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Banknote className="h-4 w-4" />
-                        )}
-                        {status?.detailsSubmitted ? "Continue setup" : "Set up payouts"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={linkBusy || status?.status === "not_configured"}
-                        onClick={() => void openHostedStripeSetup()}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-2.5 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                      >
-                        {linkBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <ExternalLink className="h-4 w-4" />
-                        )}
-                        Open setup in browser
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      disabled={sessionBusy || status?.status === "not_configured"}
+                      onClick={() => void startEmbedded("onboarding")}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    >
+                      {sessionBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Banknote className="h-4 w-4" />
+                      )}
+                      {status?.detailsSubmitted ? "Continue setup" : "Set up payouts"}
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -337,22 +302,9 @@ export function GetPaidSheet({
               {embedding ? (
                 <div className="flex min-h-0 flex-1 flex-col gap-2">
                   {embedLoadHint ? (
-                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                      Still loading? Use browser setup instead — it works better on phones.
-                      <button
-                        type="button"
-                        disabled={linkBusy}
-                        onClick={() => void openHostedStripeSetup()}
-                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500/20 py-2 font-semibold text-amber-50"
-                      >
-                        {linkBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        )}
-                        Open setup in browser
-                      </button>
-                    </div>
+                    <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      Form is still loading. Close Get paid, reopen, and tap Set up payouts again.
+                    </p>
                   ) : null}
                   <div className="min-h-[min(70dvh,640px)] overflow-auto rounded-xl border border-zinc-800 bg-white p-2">
                     <ConnectComponentsProvider connectInstance={connectInstance!}>
@@ -366,7 +318,7 @@ export function GetPaidSheet({
                           onLoadError={({ error: loadError }) => {
                             setError(
                               loadError?.message ||
-                                "Stripe form failed to load. Try Open setup in browser."
+                                "Could not load the payout form. Close and try Set up payouts again."
                             )
                             setEmbedLoadHint(true)
                           }}

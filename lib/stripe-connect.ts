@@ -118,23 +118,65 @@ export async function ensureStripeConnectAccount(userId: string): Promise<string
     return existing.stripe_connect_account_id
   }
 
+  return createEmbeddedFriendlyConnectAccount(userId, user)
+}
+
+/**
+ * Connected accounts configured for in-app embedded onboarding (no Stripe.com redirect).
+ * `requirement_collection: application` lets us disable Stripe’s popup login inside Get paid.
+ */
+async function createEmbeddedFriendlyConnectAccount(
+  userId: string,
+  user: NonNullable<Awaited<ReturnType<typeof getUser>>>
+): Promise<string> {
   const stripe = getStripeClient()
-  const account = await stripe.accounts.create({
-    type: "express",
-    country: "US",
-    email: user.email?.trim() || undefined,
-    business_profile: {
-      name: user.business_name?.trim() || user.name?.trim() || undefined,
-      product_description: "On-site service payments collected via Lyncr",
-    },
-    capabilities: {
-      card_payments: { requested: true },
-      transfers: { requested: true },
-    },
-    metadata: {
-      lyncr_user_id: userId,
-    },
-  })
+  const businessName = user.business_name?.trim() || user.name?.trim() || undefined
+
+  // Prefer controller-based Express so onboarding stays inside Lyncr.
+  let account: Stripe.Account
+  try {
+    account = await stripe.accounts.create({
+      country: "US",
+      email: user.email?.trim() || undefined,
+      business_profile: {
+        name: businessName,
+        product_description: "On-site service payments collected via Lyncr",
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      controller: {
+        // Platform collects KYC in embedded UI — required to skip Stripe login popup.
+        requirement_collection: "application",
+        losses: { payments: "application" },
+        // Shop pays Stripe’s card fee; Lyncr still takes application_fee_amount.
+        fees: { payer: "account" },
+        stripe_dashboard: { type: "express" },
+      },
+      metadata: {
+        lyncr_user_id: userId,
+      },
+    })
+  } catch (e) {
+    console.warn("[stripe-connect] controller create failed, falling back to type=express:", e)
+    account = await stripe.accounts.create({
+      type: "express",
+      country: "US",
+      email: user.email?.trim() || undefined,
+      business_profile: {
+        name: businessName,
+        product_description: "On-site service payments collected via Lyncr",
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      metadata: {
+        lyncr_user_id: userId,
+      },
+    })
+  }
 
   await updateUserStripeConnect(userId, {
     stripeConnectAccountId: account.id,
@@ -146,44 +188,94 @@ export async function ensureStripeConnectAccount(userId: string): Promise<string
   return account.id
 }
 
+/**
+ * Incomplete Express accounts created before in-app auth fix cannot disable Stripe login.
+ * Replace only when details were never submitted.
+ */
+export async function recreateConnectAccountIfAuthBlocked(userId: string): Promise<string> {
+  const user = await getUser(userId)
+  if (!user) throw new Error("User not found")
+  const row = await getUserStripeConnect(userId)
+  if (!row?.stripe_connect_account_id) {
+    return ensureStripeConnectAccount(userId)
+  }
+  if (row.stripe_connect_details_submitted || row.stripe_connect_charges_enabled) {
+    return row.stripe_connect_account_id
+  }
+
+  // Clear so ensure creates a fresh embedded-friendly account.
+  await updateUserStripeConnect(userId, {
+    stripeConnectAccountId: null,
+    chargesEnabled: false,
+    payoutsEnabled: false,
+    detailsSubmitted: false,
+  })
+  return createEmbeddedFriendlyConnectAccount(userId, user)
+}
+
 /** Account Session client_secret for embedded onboarding / account management. */
 export async function createConnectAccountSession(
   userId: string,
   components: "onboarding" | "management" | "both" = "both"
 ): Promise<{ clientSecret: string; accountId: string }> {
-  const accountId = await ensureStripeConnectAccount(userId)
+  let accountId = await ensureStripeConnectAccount(userId)
   const stripe = getStripeClient()
 
   const wantOnboarding = components === "onboarding" || components === "both"
   const wantManagement = components === "management" || components === "both"
 
-  const session = await stripe.accountSessions.create({
-    account: accountId,
-    components: {
-      account_onboarding: wantOnboarding
-        ? {
-            enabled: true,
-            features: {
-              external_account_collection: true,
-            },
-          }
-        : { enabled: false },
-      account_management: wantManagement
-        ? {
-            enabled: true,
-            features: {
-              external_account_collection: true,
-            },
-          }
-        : { enabled: false },
-    },
+  const buildComponents = (disableStripeAuth: boolean) => ({
+    account_onboarding: wantOnboarding
+      ? {
+          enabled: true as const,
+          features: {
+            external_account_collection: true,
+            // Keep shops inside Lyncr — no Stripe login popup / redirect.
+            ...(disableStripeAuth ? { disable_stripe_user_authentication: true } : {}),
+          },
+        }
+      : { enabled: false as const },
+    account_management: wantManagement
+      ? {
+          enabled: true as const,
+          features: {
+            external_account_collection: true,
+            ...(disableStripeAuth ? { disable_stripe_user_authentication: true } : {}),
+          },
+        }
+      : { enabled: false as const },
   })
 
-  if (!session.client_secret) {
-    throw new Error("Stripe did not return an Account Session client_secret")
-  }
+  try {
+    const session = await stripe.accountSessions.create({
+      account: accountId,
+      components: buildComponents(true),
+    })
+    if (!session.client_secret) {
+      throw new Error("Stripe did not return an Account Session client_secret")
+    }
+    return { clientSecret: session.client_secret, accountId }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // Old Express accounts (Stripe collects requirements) reject disable_stripe_user_authentication.
+    const authBlocked =
+      /disable_stripe_user_authentication|requirement_collection/i.test(msg) ||
+      /cannot be true/i.test(msg)
 
-  return { clientSecret: session.client_secret, accountId }
+    if (authBlocked) {
+      console.warn("[stripe-connect] recreating Connect account for in-app onboarding:", msg)
+      accountId = await recreateConnectAccountIfAuthBlocked(userId)
+      const session = await stripe.accountSessions.create({
+        account: accountId,
+        components: buildComponents(true),
+      })
+      if (!session.client_secret) {
+        throw new Error("Stripe did not return an Account Session client_secret")
+      }
+      return { clientSecret: session.client_secret, accountId }
+    }
+    throw e
+  }
 }
 
 /**
