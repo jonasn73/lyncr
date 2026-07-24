@@ -43,6 +43,21 @@ function fmt(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
 }
 
+/** Start invoice lines from the job quote when present; otherwise one blank service line. */
+function initialLines(job: DispatchJob): Line[] {
+  const cents = job.quoted_price_cents
+  if (typeof cents === "number" && cents >= 50) {
+    return [newLine("Quoted service", (cents / 100).toFixed(2))]
+  }
+  return [newLine("Service", "")]
+}
+
+/** Format cents as a plain dollar string for the editable amount field. */
+function centsToAmountInput(cents: number): string {
+  if (cents <= 0) return ""
+  return (cents / 100).toFixed(2)
+}
+
 let stripePromise: Promise<Stripe | null> | null = null
 function getStripePromise(publishableKey: string) {
   if (!stripePromise) stripePromise = loadStripe(publishableKey)
@@ -54,10 +69,16 @@ export function TechPaymentModal(props: {
   onClose: () => void
   onCompleted: () => void
 }) {
-  const [lines, setLines] = useState<Line[]>([
-    newLine("Key Cut", "250"),
-    newLine("Programming", "125"),
-  ])
+  const [lines, setLines] = useState<Line[]>(() => initialLines(props.job))
+  // Editable pre-tax amount (dollars). Kept in sync with line items unless the user typed a custom total.
+  const [amountInput, setAmountInput] = useState(() => {
+    const cents = props.job.quoted_price_cents
+    if (typeof cents === "number" && cents >= 50) return centsToAmountInput(cents)
+    return ""
+  })
+  const [amountEdited, setAmountEdited] = useState(false)
+  const [taxEnabled, setTaxEnabled] = useState(false)
+  const [taxRatePercent, setTaxRatePercent] = useState("6")
   const [method, setMethod] = useState<PayMethod | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,19 +93,53 @@ export function TechPaymentModal(props: {
     setMounted(true)
   }, [])
 
-  const subtotalCents = useMemo(
+  const linesSubtotalCents = useMemo(
     () => lines.reduce((sum, l) => sum + dollarsToCents(l.amount), 0),
     [lines]
   )
-  const totalCents = subtotalCents
 
-  const lineItemsPayload = () =>
-    lines
+  // When line items change and the user has not typed a custom amount, mirror the line sum.
+  useEffect(() => {
+    if (amountEdited) return
+    setAmountInput(centsToAmountInput(linesSubtotalCents))
+  }, [linesSubtotalCents, amountEdited])
+
+  const breakdown = useMemo(() => {
+    const subtotalCents = dollarsToCents(amountInput)
+    const rateRaw = parseFloat(taxRatePercent)
+    const rate =
+      taxEnabled && Number.isFinite(rateRaw) && rateRaw > 0 ? Math.min(30, rateRaw) / 100 : 0
+    const taxCents = rate > 0 ? Math.round(subtotalCents * rate) : 0
+    return {
+      subtotalCents,
+      taxCents,
+      totalCents: subtotalCents + taxCents,
+      ratePercent: rate * 100,
+    }
+  }, [amountInput, taxEnabled, taxRatePercent])
+
+  const { subtotalCents, taxCents, totalCents } = breakdown
+
+  const lineItemsPayload = () => {
+    const fromLines = lines
       .map((l) => ({ label: l.label.trim(), amountCents: dollarsToCents(l.amount) }))
       .filter((l) => l.label && l.amountCents > 0)
+    if (subtotalCents <= 0) return []
+    // Editable amount wins when it differs from the line sum (cash + Stripe both charge this).
+    if (
+      fromLines.length === 0 ||
+      (amountEdited && Math.abs(subtotalCents - linesSubtotalCents) > 0)
+    ) {
+      const label =
+        fromLines.map((l) => l.label).filter(Boolean).join(" + ").slice(0, 120) || "Service"
+      return [{ label, amountCents: subtotalCents }]
+    }
+    return fromLines
+  }
 
   async function createIntent(paymentMethodType: "TAP_TO_PAY" | "MANUAL_CARD") {
     const lineItems = lineItemsPayload()
+    if (totalCents < 50) throw new Error("Enter an amount of at least $0.50.")
     if (lineItems.length === 0) throw new Error("Add at least one line item with an amount.")
     const res = await fetch("/api/payments/create-intent", {
       method: "POST",
@@ -92,10 +147,13 @@ export function TechPaymentModal(props: {
       credentials: "include",
       body: JSON.stringify({
         jobId: props.job.id,
+        // Final charge including sales tax (invoiceOverride allows any amount).
         amount: totalCents / 100,
         paymentMethodType,
         invoiceOverride: true,
         lineItems,
+        taxEnabled,
+        taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
       }),
     })
     const json = (await res.json()) as {
@@ -133,6 +191,7 @@ export function TechPaymentModal(props: {
 
   async function saveCashInvoice() {
     const lineItems = lineItemsPayload()
+    if (totalCents < 50) throw new Error("Enter an amount of at least $0.50.")
     if (lineItems.length === 0) throw new Error("Add at least one line item with an amount.")
     const res = await fetch("/api/tech/invoice", {
       method: "POST",
@@ -141,7 +200,7 @@ export function TechPaymentModal(props: {
       body: JSON.stringify({
         leadId: props.job.id,
         lineItems,
-        taxCents: 0,
+        taxCents,
         paymentMethod: "cash",
         collectNow: true,
       }),
@@ -361,7 +420,9 @@ export function TechPaymentModal(props: {
                         </span>
                         <input
                           value={line.amount}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            // Editing a line item — let the amount field follow the line sum again.
+                            setAmountEdited(false)
                             setLines((prev) =>
                               prev.map((l) =>
                                 l.id === line.id
@@ -369,7 +430,7 @@ export function TechPaymentModal(props: {
                                   : l
                               )
                             )
-                          }
+                          }}
                           inputMode="decimal"
                           placeholder="0.00"
                           disabled={busy || method === "card"}
@@ -378,9 +439,10 @@ export function TechPaymentModal(props: {
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          setAmountEdited(false)
                           setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== line.id) : prev))
-                        }
+                        }}
                         disabled={lines.length === 1 || busy || method === "card"}
                         className="shrink-0 rounded-lg p-2 text-zinc-500 hover:text-red-400 disabled:opacity-30"
                         aria-label="Remove line"
@@ -398,9 +460,95 @@ export function TechPaymentModal(props: {
                 >
                   <Plus className="h-3 w-3" /> Add line
                 </button>
-                <div className="mt-4 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
-                  <span className="text-sm font-medium text-zinc-400">Total</span>
-                  <span className="text-lg font-bold text-white">{fmt(totalCents)}</span>
+
+                {/* Editable amount + sales tax (same idea as walk-up Collect Payment) */}
+                <div className="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      Amount (before tax)
+                    </span>
+                    <div className="relative mt-1.5">
+                      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-zinc-500">
+                        $
+                      </span>
+                      <input
+                        value={amountInput}
+                        onChange={(e) => {
+                          setAmountEdited(true)
+                          setAmountInput(e.target.value.replace(/[^\d.]/g, ""))
+                        }}
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        disabled={busy || method === "card"}
+                        aria-label="Amount before tax"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 py-2.5 pr-3 pl-7 text-right text-lg font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60"
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Type any total — does not have to match the lines above.
+                    </p>
+                  </label>
+
+                  <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">Sales tax</p>
+                      <p className="text-[11px] text-zinc-500">Add tax on top of the amount</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={taxEnabled}
+                      disabled={busy || method === "card"}
+                      onClick={() => setTaxEnabled((v) => !v)}
+                      className={cn(
+                        "relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50",
+                        taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+                          taxEnabled && "translate-x-5"
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {taxEnabled ? (
+                    <label className="block">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Tax rate (%)
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="30"
+                        step="0.01"
+                        value={taxRatePercent}
+                        onChange={(e) => setTaxRatePercent(e.target.value)}
+                        disabled={busy || method === "card"}
+                        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm tabular-nums text-white outline-none disabled:opacity-60"
+                      />
+                    </label>
+                  ) : null}
+
+                  <div className="space-y-1 border-t border-zinc-800 pt-3 text-xs tabular-nums">
+                    <div className="flex justify-between text-zinc-400">
+                      <span>Subtotal</span>
+                      <span>{fmt(subtotalCents)}</span>
+                    </div>
+                    {taxEnabled ? (
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Tax ({breakdown.ratePercent.toFixed(2)}%)</span>
+                        <span>{fmt(taxCents)}</span>
+                      </div>
+                    ) : null}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-sm font-medium text-zinc-300">Total charge</span>
+                      <span className="text-lg font-bold text-emerald-300">{fmt(totalCents)}</span>
+                    </div>
+                  </div>
                 </div>
               </section>
 
