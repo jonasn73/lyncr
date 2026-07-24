@@ -120,8 +120,9 @@ export function GetPaidSheet({
   const [businessKind, setBusinessKind] = useState<ConnectBusinessKind>("llc")
   const [formReady, setFormReady] = useState(false)
 
-  const refreshStatus = useCallback(async () => {
-    setLoading(true)
+  const refreshStatus = useCallback(async (opts?: { quiet?: boolean }) => {
+    // Quiet refresh keeps the last status visible (no full-sheet spinner on reopen).
+    if (!opts?.quiet) setLoading(true)
     setError(null)
     try {
       const res = await fetch("/api/payments/connect/status", {
@@ -139,7 +140,10 @@ export function GetPaidSheet({
   }, [])
 
   useEffect(() => {
-    if (open) void refreshStatus()
+    if (!open) return
+    void refreshStatus({ quiet: Boolean(status) })
+    // Only re-run when the sheet opens — not on every status update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional open-only refresh
   }, [open, refreshStatus])
 
   async function startEmbedded(components: "onboarding" | "management" | "both") {

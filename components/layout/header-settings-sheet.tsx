@@ -14,13 +14,29 @@ import { DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { OwnerCollectPaymentSheet } from "@/components/dashboard/owner-collect-payment-sheet"
-import { GetPaidSheet } from "@/components/dashboard/get-paid-sheet"
 import {
   CLOSE_HEADER_SETTINGS_EVENT,
   OPEN_GET_PAID_MODAL_EVENT,
   SETTINGS_CHILD_OPEN_EVENTS,
 } from "@/lib/settings-modals-events"
+import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
+
+// Heavy Stripe bundles — load only when Collect / Get paid actually open.
+const OwnerCollectPaymentSheet = dynamic(
+  () =>
+    import("@/components/dashboard/owner-collect-payment-sheet").then((m) => ({
+      default: m.OwnerCollectPaymentSheet,
+    })),
+  { ssr: false }
+)
+
+const GetPaidSheet = dynamic(
+  () =>
+    import("@/components/dashboard/get-paid-sheet").then((m) => ({
+      default: m.GetPaidSheet,
+    })),
+  { ssr: false }
+)
 
 /** Client-safe currency label for the header chip. */
 function formatCollectedDollars(cents: number): string {
@@ -64,6 +80,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [open, setOpen] = useState(false)
   const [collectOpen, setCollectOpen] = useState(false)
   const [getPaidOpen, setGetPaidOpen] = useState(false)
+  // Keep sheets mounted after first open so re-open is instant (chunk already loaded).
+  const [collectMounted, setCollectMounted] = useState(false)
+  const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [todayCents, setTodayCents] = useState<number | null>(null)
   const isMobile = useIsMobile()
@@ -85,6 +104,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return () => window.clearInterval(id)
   }, [refreshCollected])
 
+  // Warm “Today’s jobs” so Collect rarely shows a spinner.
+  useEffect(() => {
+    const id = window.setTimeout(() => prefetchCollectJobs(), 600)
+    return () => window.clearTimeout(id)
+  }, [])
+
   // Child Settings screens open as dialogs/sheets — close this sheet so they are not tucked under.
   useEffect(() => {
     const close = () => setOpen(false)
@@ -105,6 +130,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const openGetPaid = () => {
       setCollectOpen(false)
       setOpen(false)
+      setGetPaidMounted(true)
       setGetPaidOpen(true)
     }
     window.addEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
@@ -119,11 +145,17 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       const tab = params.get("tab")
       const connect = params.get("connect")
       if (tab === "get-paid" || tab === "payouts" || connect === "return" || connect === "refresh") {
+        setGetPaidMounted(true)
         setGetPaidOpen(true)
       }
     } catch {
       /* ignore */
     }
+  }, [])
+
+  const openCollect = useCallback(() => {
+    setCollectMounted(true)
+    setCollectOpen(true)
   }, [])
 
   const collectedLabel =
@@ -139,7 +171,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setCollectOpen(true)}
+          onClick={openCollect}
+          onPointerEnter={() => prefetchCollectJobs()}
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20"
           aria-label={`Collect payment — ${collectedLabel} today`}
           title="Collect payment"
@@ -172,13 +205,43 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         </Button>
       </div>
 
-      <OwnerCollectPaymentSheet
-        open={collectOpen}
-        onOpenChange={setCollectOpen}
-        onCollected={refreshCollected}
-      />
+      {collectMounted ? (
+        <Suspense
+          fallback={
+            collectOpen ? (
+              <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 p-0 sm:items-center">
+                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                  Opening Collect…
+                </div>
+              </div>
+            ) : null
+          }
+        >
+          <OwnerCollectPaymentSheet
+            open={collectOpen}
+            onOpenChange={setCollectOpen}
+            onCollected={refreshCollected}
+          />
+        </Suspense>
+      ) : null}
 
-      <GetPaidSheet open={getPaidOpen} onOpenChange={setGetPaidOpen} />
+      {getPaidMounted ? (
+        <Suspense
+          fallback={
+            getPaidOpen ? (
+              <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
+                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                  Opening Get paid…
+                </div>
+              </div>
+            ) : null
+          }
+        >
+          <GetPaidSheet open={getPaidOpen} onOpenChange={setGetPaidOpen} />
+        </Suspense>
+      ) : null}
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
+import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
 import {
   CreditCard,
   Loader2,
@@ -198,8 +199,17 @@ export function OwnerCollectPaymentSheet({
   onCollected?: () => void
 }) {
   const { toast } = useToast()
-  const [jobs, setJobs] = useState<DispatchJob[]>([])
-  const [loading, setLoading] = useState(false)
+  // Instant from session cache when possible; refreshes in the background.
+  const { jobs, isLoading: loading, error: jobsError } = useCollectJobsQuery(open)
+
+  useEffect(() => {
+    if (!open || !jobsError) return
+    toast({
+      title: "Could not load jobs",
+      description: "Try again in a moment.",
+      variant: "destructive",
+    })
+  }, [open, jobsError, toast])
   const [payJob, setPayJob] = useState<DispatchJob | null>(null)
   /** Latest pay-link status keyed by job id (from /api/payments/pay-links). */
   const [linkByJobId, setLinkByJobId] = useState<Record<string, JobPayLinkBadge>>({})
@@ -365,27 +375,32 @@ export function OwnerCollectPaymentSheet({
     onOpenChange(false)
   }
 
-  const loadJobs = useCallback(() => {
-    setLoading(true)
-    fetch("/api/owner/jobs?scope=map", { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
-      .then((j: { data?: { jobs?: DispatchJob[] } }) => {
-        const list = Array.isArray(j.data?.jobs) ? j.data!.jobs! : []
-        const openJobs = list.filter((job) => {
-          const s = (job.job_status ?? "").toLowerCase()
-          return s !== "completed" && s !== "cancelled" && s !== "canceled"
-        })
-        setJobs(openJobs.length ? openJobs : list.slice(0, 12))
-      })
-      .catch(() => {
-        setJobs([])
+  const applyPayLinkBadges = useCallback(
+    (links: JobPayLinkBadge[]) => {
+      const map: Record<string, JobPayLinkBadge> = {}
+      for (const link of links) {
+        const jid = (link.jobId || "").trim()
+        if (!jid) continue
+        // Newest first from API — keep first (most recent) per job.
+        if (!map[jid]) map[jid] = link
+      }
+      setLinkByJobId(map)
+      const repaired = links.filter((l) => l.fulfilledNow)
+      if (repaired.length > 0) {
         toast({
-          title: "Could not load jobs",
-          description: "Try again in a moment.",
-          variant: "destructive",
+          title: "Payment found",
+          description: "A customer pay link was paid — your balance updated.",
         })
-      })
-      .finally(() => setLoading(false))
+        onCollected?.()
+      }
+    },
+    [toast, onCollected]
+  )
+
+  // Secondary data (Connect + badges) — never block the job list spinner.
+  useEffect(() => {
+    if (!open) return
+    resetAdhoc()
 
     fetch("/api/payments/connect/status", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -397,39 +412,31 @@ export function OwnerCollectPaymentSheet({
         setConnectReady(null)
       })
 
-    // Load recent pay links so job rows show “Link sent / Paid” instead of only “new payment”.
-    fetch("/api/payments/pay-links?sync=1", { credentials: "include", cache: "no-store" })
+    // Fast: DB badges first. Slow Stripe sync runs after so the list stays snappy.
+    fetch("/api/payments/pay-links", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data?: { links?: JobPayLinkBadge[] } } | null) => {
         const links = Array.isArray(j?.data?.links) ? j!.data!.links! : []
-        const map: Record<string, JobPayLinkBadge> = {}
-        for (const link of links) {
-          const jid = (link.jobId || "").trim()
-          if (!jid) continue
-          // Newest first from API — keep first (most recent) per job.
-          if (!map[jid]) map[jid] = link
-        }
-        setLinkByJobId(map)
-        const repaired = links.filter((l) => l.fulfilledNow)
-        if (repaired.length > 0) {
-          toast({
-            title: "Payment found",
-            description: "A customer pay link was paid — your balance updated.",
-          })
-          onCollected?.()
-        }
+        applyPayLinkBadges(links)
       })
       .catch(() => {
         /* ignore — job list still works */
       })
-  }, [toast, onCollected])
-
-  useEffect(() => {
-    if (open) {
-      loadJobs()
-      resetAdhoc()
-    }
-  }, [open, loadJobs, resetAdhoc])
+      .finally(() => {
+        void fetch("/api/payments/pay-links?sync=1", {
+          credentials: "include",
+          cache: "no-store",
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j: { data?: { links?: JobPayLinkBadge[] } } | null) => {
+            const links = Array.isArray(j?.data?.links) ? j!.data!.links! : []
+            if (links.length) applyPayLinkBadges(links)
+          })
+          .catch(() => {
+            /* ignore */
+          })
+      })
+  }, [open, resetAdhoc, applyPayLinkBadges])
 
   const sorted = useMemo(() => {
     return [...jobs].sort((a, b) => {

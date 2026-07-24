@@ -2,7 +2,8 @@
 // GET /api/owner/jobs
 // ============================================
 // Booked jobs for the owner's dispatch feed + the active technician roster (for the Assign dropdown).
-// Query: scope=map → active field jobs only (no completed history / CRM quote leads).
+// Query: scope=map → active field jobs + tech roster/GPS.
+// Query: scope=collect → active field jobs only (fast path for Collect Payment).
 
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
@@ -22,8 +23,25 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
   const scope = req.nextUrl.searchParams.get("scope")?.trim().toLowerCase() || "all"
-  const activeOnly = scope === "map"
+  const activeOnly = scope === "map" || scope === "collect"
   const leadsOnly = scope === "leads"
+  // Collect Payment only needs open jobs — skip tech roster / GPS (faster cold start).
+  const jobsOnly = scope === "collect"
+
+  if (jobsOnly) {
+    try {
+      const jobs = await listOwnerBookedJobs(userId, 50, { activeOnly: true })
+      return NextResponse.json({
+        data: { jobs, technicians: [], techLocations: [], ownerUserId: userId, scope },
+      })
+    } catch (e) {
+      console.error("[GET /api/owner/jobs] collect jobs failed:", e)
+      return NextResponse.json({
+        data: { jobs: [], technicians: [], techLocations: [], ownerUserId: userId, scope },
+        degraded: true,
+      })
+    }
+  }
 
   // Isolate failures: a missing tech column must never wipe booked job pins.
   const [jobsResult, techniciansResult, techLocationsResult] = await Promise.allSettled([
