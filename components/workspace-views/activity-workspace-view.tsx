@@ -9,7 +9,6 @@ import {
   ClipboardList,
   Clock,
   MapPin,
-  MessageSquare,
   Phone,
   PhoneMissed,
 } from "lucide-react"
