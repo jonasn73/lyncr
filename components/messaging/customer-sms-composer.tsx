@@ -10,6 +10,7 @@ import {
   buildRunningLateSms,
   CUSTOMER_SMS_QUICK_TEMPLATES,
   DEFAULT_LATE_ETA_MINUTES,
+  MISSED_CALL_SMS_QUICK_TEMPLATES,
 } from "@/lib/customer-sms-presets"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -20,14 +21,21 @@ type CustomerSmsComposerProps = {
   fromLine?: string | null
   organizationId?: string | null
   className?: string
-  /** Show the default Quick SMS template list. */
+  /** Show the Quick SMS template list. */
   showQuickTemplates?: boolean
   /** Show Running late + ETA minutes control. */
   showRunningLate?: boolean
   /** Show Re-send booking link (Missed Call Rescue). */
   showBookingLink?: boolean
+  /**
+   * `missed` = callback / booking recovery templates (no late/ETA).
+   * `follow_up` = answered / active-job templates.
+   */
+  variant?: "follow_up" | "missed"
   /** Compact title for the panel. */
   title?: string
+  /** Placeholder for the custom textarea. */
+  customPlaceholder?: string
   onSent?: () => void
   onClose?: () => void
 }
@@ -40,10 +48,18 @@ export function CustomerSmsComposer({
   showQuickTemplates = true,
   showRunningLate = true,
   showBookingLink = false,
+  variant = "follow_up",
   title = "Text customer",
+  customPlaceholder,
   onSent,
   onClose,
 }: CustomerSmsComposerProps) {
+  const isMissed = variant === "missed"
+  const templates = isMissed ? MISSED_CALL_SMS_QUICK_TEMPLATES : CUSTOMER_SMS_QUICK_TEMPLATES
+  const lateEnabled = showRunningLate && !isMissed
+  const draftPlaceholder =
+    customPlaceholder ??
+    (isMissed ? "Or type a custom missed-call text…" : "Or type a custom follow-up…")
   const { toast } = useToast()
   const [draft, setDraft] = useState("")
   const [etaMinutes, setEtaMinutes] = useState(String(DEFAULT_LATE_ETA_MINUTES))
@@ -173,7 +189,7 @@ export function CustomerSmsComposer({
         ) : null}
       </div>
 
-      {showRunningLate ? (
+      {lateEnabled ? (
         <div className="flex flex-wrap items-end gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2.5">
           <label className="min-w-0 flex-1 text-[11px] font-medium text-amber-100/90">
             Running late
@@ -208,26 +224,36 @@ export function CustomerSmsComposer({
           type="button"
           disabled={busy}
           onClick={() => void resendBookingLink()}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-2.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+          className={cn(
+            "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold disabled:opacity-50",
+            isMissed
+              ? "border-rose-500/40 bg-rose-500/15 text-rose-50 hover:bg-rose-500/25"
+              : "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+          )}
         >
           {bookingBusy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
             <Link2 className="h-3.5 w-3.5" aria-hidden />
           )}
-          Re-send booking link
+          {isMissed ? "Send booking link" : "Re-send booking link"}
         </button>
       ) : null}
 
       {showQuickTemplates ? (
         <ul className="flex flex-col gap-1">
-          {CUSTOMER_SMS_QUICK_TEMPLATES.map((template) => (
+          {templates.map((template) => (
             <li key={template}>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void sendText(template)}
-                className="w-full rounded-lg border border-sky-500/20 bg-slate-950/50 px-2.5 py-2 text-left text-xs font-medium text-slate-100 hover:border-sky-400/40 hover:bg-slate-900 disabled:opacity-50"
+                className={cn(
+                  "w-full rounded-lg border px-2.5 py-2 text-left text-xs font-medium disabled:opacity-50",
+                  isMissed
+                    ? "border-rose-500/25 bg-slate-950/50 text-slate-100 hover:border-rose-400/40 hover:bg-slate-900"
+                    : "border-sky-500/20 bg-slate-950/50 text-slate-100 hover:border-sky-400/40 hover:bg-slate-900"
+                )}
               >
                 {template}
               </button>
@@ -246,7 +272,7 @@ export function CustomerSmsComposer({
           value={draft}
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Or type a custom follow-up…"
+          placeholder={draftPlaceholder}
           className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
         />
         <Button

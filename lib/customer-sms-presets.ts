@@ -1,10 +1,18 @@
 /** Shared Quick SMS / late-ETA preset helpers for owner → customer texts. */
 
+/** Answered / active-job follow-ups (ETA, en route). */
 export const CUSTOMER_SMS_QUICK_TEMPLATES = [
   "Stuck on a job, text you right back!",
   "On my way — give me 10 minutes.",
   "Got your call. What's the address?",
   "Tech is en route — please stay near the vehicle.",
+] as const
+
+/** Missed / unanswered recovery texts — callback + book, not “on my way”. */
+export const MISSED_CALL_SMS_QUICK_TEMPLATES = [
+  "Sorry we missed your call — can I call you back?",
+  "Got your missed call. Reply with your address and we'll get you booked.",
+  "Sorry we missed you. Tap our booking link or text what you need.",
 ] as const
 
 /** Build a running-late SMS body from an ETA in minutes. */

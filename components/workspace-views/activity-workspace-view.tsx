@@ -623,6 +623,8 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
   const agent = resolveCallAgent(call)
   const summary = buildCallSummary(call)
   const showCallBack = canCallBack(call)
+  const callStatus = classifyCall(call)
+  const isMissedLog = isMissedActivityStatus(callStatus)
   const activity = call.activity ?? {
     intakeAction: "No intake recorded",
     intakeDetail: null,
@@ -632,6 +634,9 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
     callerScheduleHint: null,
     callerPoolCount: 0,
   }
+  const hasIntake =
+    Boolean(activity.leadId) ||
+    (Boolean(activity.intakeAction) && activity.intakeAction !== "No intake recorded")
   const schedulerHref = activity.leadId
     ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
     : null
@@ -645,16 +650,16 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
     <>
       <DrawerStepHeader
         step="Log"
-        title="Call detail"
+        title={isMissedLog ? "Missed call" : "Call detail"}
         subtitle={`${call.callerName} · ${call.callerNumber}`}
       />
       <DrawerScrollBody>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {showCallBack ? (
             <CallBackButton
               phone={call.callerNumber}
               openIntakeDraft={needsRevenueRescue(call)}
-              missed={isMissedActivityStatus(classifyCall(call))}
+              missed={isMissedLog}
             />
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
@@ -666,57 +671,62 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
           </div>
 
           {canText ? (
-            <div className="rounded-2xl border border-sky-500/25 bg-sky-500/[0.06] p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-sky-300">
-                  <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                  Text customer
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
+                <p
+                  className={cn(
+                    "text-[11px] font-semibold uppercase tracking-wide",
+                    isMissedLog ? "text-rose-300" : "text-sky-300"
+                  )}
+                >
+                  {isMissedLog ? "Missed-call text" : "Follow-up SMS"}
                 </p>
                 <Link
                   href={messagesHref}
-                  className="text-[11px] font-semibold text-sky-300/90 underline-offset-2 hover:underline"
+                  className={cn(
+                    "text-[11px] font-semibold underline-offset-2 hover:underline",
+                    isMissedLog ? "text-rose-300/90" : "text-sky-300/90"
+                  )}
                 >
-                  Open in Messages
+                  Messages
                 </Link>
               </div>
               <CustomerSmsComposer
                 toPhone={customerPhone}
                 fromLine={call.targetLineE164 || null}
                 organizationId={activeOrganizationId}
-                showRunningLate
+                variant={isMissedLog ? "missed" : "follow_up"}
+                showRunningLate={!isMissedLog}
                 showQuickTemplates
                 showBookingLink
-                title="Follow-up SMS"
+                title={isMissedLog ? "Recover this lead" : "Text customer"}
               />
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
-              <ClipboardList className="h-3.5 w-3.5" aria-hidden />
-              Answered panel &amp; scheduling
-            </p>
-            <div className="mt-3">
-              <ActivityIntakeSummary activity={activity} callerPhone={call.callerNumber} />
+          {/* Missed + no intake: skip the long Answered panel — summary covers it. */}
+          {!isMissedLog || hasIntake ? (
+            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
+                <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                {isMissedLog ? "Intake & scheduling" : "Answered panel & scheduling"}
+              </p>
+              <div className="mt-3">
+                <ActivityIntakeSummary activity={activity} callerPhone={call.callerNumber} />
+              </div>
+              {schedulerHref ? (
+                <Link
+                  href={schedulerHref}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
+                >
+                  <CalendarDays className="h-4 w-4" aria-hidden />
+                  {activity.scheduleAt ? "View on scheduler map" : "Schedule this job"}
+                </Link>
+              ) : null}
             </div>
-            {schedulerHref ? (
-              <Link
-                href={schedulerHref}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
-              >
-                <CalendarDays className="h-4 w-4" aria-hidden />
-                {activity.scheduleAt ? "View on scheduler map" : "Schedule this job"}
-              </Link>
-            ) : null}
-          </div>
+          ) : null}
 
-          <div className="rounded-2xl border border-cyan-500/25 bg-cyan-500/[0.06] p-4">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" aria-hidden />
-              Call summary
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-200">{summary}</p>
-          </div>
+          <p className="px-0.5 text-xs leading-relaxed text-zinc-400">{summary}</p>
 
           {call.hasRecording && call.recordingUrl ? (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
