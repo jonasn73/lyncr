@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     tipCents?: number
     signaturePng?: string | null
     tipPaymentIntentId?: string | null
+    stripeConnectAccountId?: string | null
   }
 
   const paymentIntentId = String(body.paymentIntentId ?? "").trim()
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   const tipCents = Math.max(0, Math.round(Number(body.tipCents) || 0))
+  const stripeConnectAccountId = String(body.stripeConnectAccountId ?? "").trim() || null
 
   try {
     const slip = await upsertPaymentSlip({
@@ -41,6 +43,7 @@ export async function POST(req: NextRequest) {
       tipCents,
       signaturePng: body.signaturePng,
       tipPaymentIntentId: body.tipPaymentIntentId,
+      stripeConnectAccountId,
     })
     return NextResponse.json({ data: { slip } })
   } catch (e) {

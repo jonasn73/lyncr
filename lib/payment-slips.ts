@@ -43,13 +43,23 @@ export async function upsertPaymentSlip(params: {
   tipCents: number
   signaturePng?: string | null
   tipPaymentIntentId?: string | null
+  /** Connect account where the charge lives (direct charges). */
+  stripeConnectAccountId?: string | null
 }): Promise<PaymentSlipRow> {
   const tipCents = Math.max(0, Math.round(params.tipCents))
   const signature = sanitizeSignaturePng(params.signaturePng)
   const signedAt = signature ? new Date().toISOString() : null
 
-  // Confirm the actor owns this succeeded charge.
-  await loadOwnedPaymentIntent(params.paymentIntentId, params.userId)
+  // Confirm the actor owns this succeeded charge (Connect-aware retrieve).
+  const { intent, stripeConnectAccountId } = await loadOwnedPaymentIntent(
+    params.paymentIntentId,
+    params.userId,
+    { stripeConnectAccountId: params.stripeConnectAccountId }
+  )
+
+  // Slip ownership: shop owner when tech collected, else the acting user.
+  const slipOwnerId =
+    (intent.metadata?.owner_user_id || "").trim() || params.userId
 
   const sql = getSql()
   try {
@@ -64,7 +74,7 @@ export async function upsertPaymentSlip(params: {
         updated_at
       )
       VALUES (
-        ${params.userId},
+        ${slipOwnerId},
         ${params.paymentIntentId},
         ${tipCents},
         ${params.tipPaymentIntentId ?? null},
@@ -91,14 +101,17 @@ export async function upsertPaymentSlip(params: {
     // Mirror tip on the PaymentIntent for receipts / Stripe Dashboard.
     try {
       const stripe = getStripeClient()
-      const intent = await stripe.paymentIntents.retrieve(params.paymentIntentId)
-      await stripe.paymentIntents.update(params.paymentIntentId, {
-        metadata: {
-          ...intent.metadata,
-          tip_cents: String(tipCents),
-          has_signature: signature ? "1" : "0",
+      await stripe.paymentIntents.update(
+        params.paymentIntentId,
+        {
+          metadata: {
+            ...intent.metadata,
+            tip_cents: String(tipCents),
+            has_signature: signature ? "1" : "0",
+          },
         },
-      })
+        stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : undefined
+      )
     } catch (e) {
       console.warn("[payment-slips] PI metadata update failed", e)
     }

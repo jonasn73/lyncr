@@ -363,6 +363,8 @@ export function TechPaymentModal(props: {
         tipCents,
         signaturePng,
         tipPaymentIntentId: opts?.tipPaymentIntentId ?? undefined,
+        // Required for Connect direct charges (PI lives on the shop account).
+        stripeConnectAccountId: stripeConnectAccountId || undefined,
       }),
     })
     const json = (await res.json()) as { error?: string }
@@ -391,7 +393,13 @@ export function TechPaymentModal(props: {
       }
       setPostPayStep("receipt")
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save tip / signature")
+      // Card already charged — do not trap the tech on tip/sign if slip save fails.
+      setError(
+        e instanceof Error
+          ? `${e.message} Payment is still complete — continue to invoice.`
+          : "Could not save tip / signature. Payment is still complete."
+      )
+      if (paidPaymentIntentId) setPostPayStep("receipt")
     } finally {
       setSlipBusy(false)
     }

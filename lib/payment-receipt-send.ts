@@ -4,6 +4,7 @@ import { getStripeClient } from "@/lib/stripe-config"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { normalizePhoneNumberE164 } from "@/lib/db"
 import { getPaymentSlipByIntent } from "@/lib/payment-slips"
+import { retrieveLyncrPaymentIntent } from "@/lib/stripe-payment-intent-retrieve"
 
 export type SendPaymentReceiptInput = {
   userId: string
@@ -50,25 +51,41 @@ export function buildPaymentReceiptSms(params: {
 }
 
 /** Load a succeeded PaymentIntent the acting user is allowed to receipt. */
-export async function loadOwnedPaymentIntent(paymentIntentId: string, userId: string) {
-  const stripe = getStripeClient()
-  const intent = await stripe.paymentIntents.retrieve(paymentIntentId)
+export async function loadOwnedPaymentIntent(
+  paymentIntentId: string,
+  userId: string,
+  opts?: { stripeConnectAccountId?: string | null }
+): Promise<{
+  intent: Awaited<ReturnType<typeof retrieveLyncrPaymentIntent>>["intent"]
+  stripeConnectAccountId: string | null
+}> {
+  // Connect direct charges live on the shop account — not the Lyncr platform.
+  const retrieved = await retrieveLyncrPaymentIntent(paymentIntentId, {
+    stripeConnectAccountId: opts?.stripeConnectAccountId,
+    // Prefer PI metadata owner when looking up Connect; fall back to acting user.
+    ownerUserId: userId,
+  })
+  const { intent, stripeConnectAccountId } = retrieved
   if (intent.status !== "succeeded") {
     throw new Error("Payment is not complete yet")
   }
-  const owner = intent.metadata?.owner_user_id || intent.metadata?.acting_user_id || ""
-  const tech = intent.metadata?.tech_user_id || ""
+  const owner = (intent.metadata?.owner_user_id || intent.metadata?.acting_user_id || "").trim()
+  const tech = (intent.metadata?.tech_user_id || "").trim()
   if (owner !== userId && tech !== userId) {
     throw new Error("Not allowed to send a receipt for this payment")
   }
-  return intent
+  return { intent, stripeConnectAccountId }
 }
 
 /** Email or text a receipt for a collected payment. */
 export async function sendPaymentReceipt(
   input: SendPaymentReceiptInput
 ): Promise<{ sent: boolean; error?: string }> {
-  const intent = await loadOwnedPaymentIntent(input.paymentIntentId, input.userId)
+  const { intent, stripeConnectAccountId } = await loadOwnedPaymentIntent(
+    input.paymentIntentId,
+    input.userId,
+    { stripeConnectAccountId: null }
+  )
   const amountCents = intent.amount_received || intent.amount || 0
   const taxCents = Math.max(0, Number(intent.metadata?.tax_cents || 0) || 0)
   const slip = await getPaymentSlipByIntent(intent.id, input.userId)
@@ -85,15 +102,19 @@ export async function sendPaymentReceipt(
   // Persist contact on the PI for later lookup (does not change the charge).
   try {
     const stripe = getStripeClient()
-    await stripe.paymentIntents.update(intent.id, {
-      metadata: {
-        ...intent.metadata,
-        customer_name: customerName.slice(0, 80),
-        customer_email: (input.email ?? "").trim().slice(0, 120),
-        customer_phone: normalizePhoneNumberE164(input.phone ?? "") || "",
-        receipt_channel: input.channel,
+    await stripe.paymentIntents.update(
+      intent.id,
+      {
+        metadata: {
+          ...intent.metadata,
+          customer_name: customerName.slice(0, 80),
+          customer_email: (input.email ?? "").trim().slice(0, 120),
+          customer_phone: normalizePhoneNumberE164(input.phone ?? "") || "",
+          receipt_channel: input.channel,
+        },
       },
-    })
+      stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : undefined
+    )
   } catch (e) {
     console.warn("[payment-receipt] metadata update failed", e)
   }

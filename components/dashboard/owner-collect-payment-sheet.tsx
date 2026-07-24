@@ -326,6 +326,8 @@ export function OwnerCollectPaymentSheet({
         tipCents,
         signaturePng,
         tipPaymentIntentId: opts?.tipPaymentIntentId ?? undefined,
+        // Required for Connect direct charges (PI lives on the shop account).
+        stripeConnectAccountId: stripeConnectAccountId || undefined,
       }),
     })
     const json = (await res.json()) as { error?: string }
@@ -360,11 +362,20 @@ export function OwnerCollectPaymentSheet({
       }
       enterReceiptStep()
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Try again."
       toast({
-        title: "Could not save slip",
-        description: e instanceof Error ? e.message : "Try again.",
+        title: "Could not save tip / signature",
+        description: message,
         variant: "destructive",
       })
+      // Card already charged — still advance so the owner is not stuck on this screen.
+      if (paidPaymentIntentId) {
+        enterReceiptStep()
+        toast({
+          title: "Payment is still complete",
+          description: "You can send the invoice next. Tip/signature may need a retry.",
+        })
+      }
     } finally {
       setSlipBusy(false)
     }
