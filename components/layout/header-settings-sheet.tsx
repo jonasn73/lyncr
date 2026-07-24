@@ -15,8 +15,10 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { OwnerCollectPaymentSheet } from "@/components/dashboard/owner-collect-payment-sheet"
+import { GetPaidSheet } from "@/components/dashboard/get-paid-sheet"
 import {
   CLOSE_HEADER_SETTINGS_EVENT,
+  OPEN_GET_PAID_MODAL_EVENT,
   SETTINGS_CHILD_OPEN_EVENTS,
 } from "@/lib/settings-modals-events"
 
@@ -61,6 +63,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [collectOpen, setCollectOpen] = useState(false)
+  const [getPaidOpen, setGetPaidOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [todayCents, setTodayCents] = useState<number | null>(null)
   const isMobile = useIsMobile()
@@ -96,6 +99,23 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       }
     }
   }, [])
+
+  // Collect → Open Get paid (and Settings → Get paid) always opens from this header tree.
+  useEffect(() => {
+    const openGetPaid = () => {
+      setCollectOpen(false)
+      setOpen(false)
+      setGetPaidOpen(true)
+    }
+    window.addEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
+    return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
+  }, [])
+
+  // Deep link: /dashboard?tab=get-paid
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "get-paid" || tab === "payouts") setGetPaidOpen(true)
+  }, [searchParams])
 
   const collectedLabel =
     todayCents == null ? "…" : formatCollectedDollars(todayCents)
@@ -148,6 +168,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         onOpenChange={setCollectOpen}
         onCollected={refreshCollected}
       />
+
+      <GetPaidSheet open={getPaidOpen} onOpenChange={setGetPaidOpen} />
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
