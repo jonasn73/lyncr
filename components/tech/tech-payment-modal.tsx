@@ -37,6 +37,17 @@ type PayMethod = "tap" | "card" | "cash" | "link"
 type PostPayStep = "tip_sign" | "tip_charge" | "receipt"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
+/** Sent pay-link row from GET /api/payments/pay-links (with optional Stripe sync). */
+type SentPayLink = {
+  token: string
+  url: string
+  chargeCents: number
+  paymentStatus: string
+  walletSettled: boolean
+  createdAt: string
+  fulfilledNow?: boolean
+}
+
 function newLine(label = "", amount = ""): Line {
   return { id: Math.random().toString(36).slice(2), label, amount }
 }
@@ -117,6 +128,45 @@ export function TechPaymentModal(props: {
   /** Nested popup: card entry or pay-link form (keeps main sheet short). */
   const [activePopup, setActivePopup] = useState<"link" | "card" | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
+  /** Previously sent pay links for this job (status + copy URL). */
+  const [sentLinks, setSentLinks] = useState<SentPayLink[]>([])
+  const [linksLoading, setLinksLoading] = useState(false)
+  const [linksSyncing, setLinksSyncing] = useState(false)
+
+  // Load / refresh pay-link status from Stripe (also credits wallet if customer already paid).
+  async function refreshSentLinks(opts?: { sync?: boolean }) {
+    const sync = opts?.sync !== false
+    if (sync) setLinksSyncing(true)
+    else setLinksLoading(true)
+    try {
+      const res = await fetch(
+        `/api/payments/pay-links?jobId=${encodeURIComponent(props.job.id)}${sync ? "&sync=1" : ""}`,
+        { credentials: "include", cache: "no-store" }
+      )
+      const json = (await res.json().catch(() => ({}))) as {
+        data?: { links?: SentPayLink[] }
+      }
+      const list = Array.isArray(json.data?.links) ? json.data!.links! : []
+      setSentLinks(list)
+      const justPaid = list.find((l) => l.fulfilledNow || (l.walletSettled && l.paymentStatus === "paid"))
+      if (justPaid?.fulfilledNow) {
+        setError(null)
+        // Surface success so the header $0 can update after close/refresh.
+        setLinkSentUrl(justPaid.url)
+        setLinkDelivered(true)
+      }
+    } catch {
+      /* keep prior list */
+    } finally {
+      setLinksLoading(false)
+      setLinksSyncing(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshSentLinks({ sync: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once when opening this job
+  }, [props.job.id])
 
   // Close nested Card / Link popup and clear in-progress payment UI state.
   function closePayPopup() {
@@ -141,8 +191,10 @@ export function TechPaymentModal(props: {
   )
 
   // When line items change and the user has not typed a custom amount, mirror the line sum.
+  // Do not wipe a quoted amount with $0 when lines are still empty.
   useEffect(() => {
     if (amountEdited) return
+    if (linesSubtotalCents <= 0) return
     setAmountInput(centsToAmountInput(linesSubtotalCents))
   }, [linesSubtotalCents, amountEdited])
 
@@ -672,6 +724,7 @@ export function TechPaymentModal(props: {
         )
       }
       setLinkDelivered(true)
+      void refreshSentLinks({ sync: false })
     } catch (e) {
       setError(formatPaymentCatchError(e, "Could not send pay link — try again."))
     } finally {
@@ -1010,6 +1063,82 @@ export function TechPaymentModal(props: {
         ) : (
           <>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+              {/* Existing pay links — status, copy, and wallet sync (not a blank new charge). */}
+              {(linksLoading || sentLinks.length > 0) && (
+                <section className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-sky-300/90">
+                        Sent payment links
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-sky-100/70">
+                        Status from Stripe · Refresh if the customer says they paid
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={linksSyncing}
+                      onClick={() => void refreshSentLinks({ sync: true })}
+                      className="shrink-0 rounded-lg border border-sky-500/40 px-2.5 py-1.5 text-[11px] font-semibold text-sky-200 disabled:opacity-50"
+                    >
+                      {linksSyncing ? "Checking…" : "Refresh"}
+                    </button>
+                  </div>
+                  {linksLoading && sentLinks.length === 0 ? (
+                    <p className="mt-2 flex items-center gap-2 text-xs text-sky-200/80">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading links…
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-2">
+                      {sentLinks.map((link) => {
+                        const paid = link.paymentStatus === "paid" || link.walletSettled
+                        const label = paid
+                          ? link.walletSettled
+                            ? "Paid · in your balance"
+                            : "Paid · syncing to balance…"
+                          : link.paymentStatus === "expired"
+                            ? "Expired · not paid"
+                            : link.paymentStatus === "unpaid"
+                              ? "Open · waiting for customer"
+                              : "Sent · tap Refresh for status"
+                        return (
+                          <li
+                            key={link.token}
+                            className="rounded-lg border border-sky-500/25 bg-zinc-950/40 px-3 py-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold tabular-nums text-sky-100">
+                                  {fmt(link.chargeCents)}
+                                </p>
+                                <p
+                                  className={cn(
+                                    "mt-0.5 text-[11px] font-medium",
+                                    paid ? "text-emerald-300" : "text-amber-200/90"
+                                  )}
+                                >
+                                  {label}
+                                </p>
+                                <p className="mt-1 truncate text-[10px] text-zinc-500">
+                                  {link.url}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void navigator.clipboard?.writeText(link.url)}
+                                className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-semibold text-zinc-300"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </section>
+              )}
+
               <section>
                 {/* Collapsed by default so the sheet stays short; expand only to edit lines. */}
                 <details className="group rounded-xl border border-zinc-800 bg-zinc-900/40">
@@ -1113,7 +1242,7 @@ export function TechPaymentModal(props: {
                           setAmountInput(e.target.value.replace(/[^\d.]/g, ""))
                         }}
                         inputMode="decimal"
-                        placeholder="85.00"
+                        placeholder="0.00"
                         disabled={busy || activePopup !== null}
                         aria-label="Amount before tax"
                         className={cn(

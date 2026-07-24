@@ -42,7 +42,14 @@ export async function POST(req: NextRequest) {
       case "payment_intent.payment_failed":
       case "payment_intent.canceled": {
         const intent = event.data.object as Stripe.PaymentIntent
-        if (intent.metadata?.lyncr_kind === "job_payment") {
+        const kind = intent.metadata?.lyncr_kind
+        // Pay links: create PENDING wallet row if checkout.session.completed was missed.
+        if (event.type === "payment_intent.succeeded" && intent.metadata?.pay_link === "1") {
+          const { fulfillCollectPayLinkFromPaymentIntent } = await import("@/lib/job-pay-link")
+          await fulfillCollectPayLinkFromPaymentIntent(intent)
+          break
+        }
+        if (kind === "job_payment" || kind === "adhoc_payment") {
           await confirmJobPaymentIntent(intent.id)
         }
         break

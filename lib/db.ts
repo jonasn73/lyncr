@@ -5500,20 +5500,95 @@ export async function getCollectPayLinkByToken(token: string): Promise<CollectPa
     `
     const row = rows[0] as Record<string, unknown> | undefined
     if (!row) return null
-    return {
-      token: String(row.token),
-      stripe_session_id: String(row.stripe_session_id),
-      owner_user_id: row.owner_user_id != null ? String(row.owner_user_id) : null,
-      acting_user_id: row.acting_user_id != null ? String(row.acting_user_id) : null,
-      job_id: row.job_id != null ? String(row.job_id) : null,
-      charge_cents: Number(row.charge_cents) || 0,
-      business_label: String(row.business_label ?? ""),
-      customer_name: String(row.customer_name ?? ""),
-      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-      expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
-    }
+    return parseCollectPayLinkRow(row)
   } catch (e) {
     if (isMissingCollectPayLinksTableError(e)) return null
+    throw e
+  }
+}
+
+/** Look up a collect pay link by Stripe Checkout session id (includes expired). */
+export async function getCollectPayLinkBySessionId(
+  stripeSessionId: string
+): Promise<CollectPayLinkRow | null> {
+  const sid = stripeSessionId.trim()
+  if (!sid) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM collect_pay_links
+      WHERE stripe_session_id = ${sid}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return parseCollectPayLinkRow(row)
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return null
+    throw e
+  }
+}
+
+function parseCollectPayLinkRow(row: Record<string, unknown>): CollectPayLinkRow {
+  return {
+    token: String(row.token),
+    stripe_session_id: String(row.stripe_session_id),
+    owner_user_id: row.owner_user_id != null ? String(row.owner_user_id) : null,
+    acting_user_id: row.acting_user_id != null ? String(row.acting_user_id) : null,
+    job_id: row.job_id != null ? String(row.job_id) : null,
+    charge_cents: Number(row.charge_cents) || 0,
+    business_label: String(row.business_label ?? ""),
+    customer_name: String(row.customer_name ?? ""),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
+  }
+}
+
+/** Open (non-expired) pay links for one job — newest first. */
+export async function listCollectPayLinksByJobId(
+  ownerUserId: string,
+  jobId: string,
+  limit = 10
+): Promise<CollectPayLinkRow[]> {
+  const oid = ownerUserId.trim()
+  const jid = jobId.trim()
+  if (!oid || !jid) return []
+  const sql = getSql()
+  const cap = Math.min(Math.max(limit, 1), 50)
+  try {
+    const rows = await sql`
+      SELECT * FROM collect_pay_links
+      WHERE owner_user_id = ${oid}
+        AND job_id = ${jid}
+      ORDER BY created_at DESC
+      LIMIT ${cap}
+    `
+    return rows.map((r) => parseCollectPayLinkRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return []
+    throw e
+  }
+}
+
+/** Recent pay links for an owner (all jobs + walk-up). */
+export async function listCollectPayLinksForOwner(
+  ownerUserId: string,
+  limit = 40
+): Promise<CollectPayLinkRow[]> {
+  const oid = ownerUserId.trim()
+  if (!oid) return []
+  const sql = getSql()
+  const cap = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT * FROM collect_pay_links
+      WHERE owner_user_id = ${oid}
+      ORDER BY created_at DESC
+      LIMIT ${cap}
+    `
+    return rows.map((r) => parseCollectPayLinkRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return []
     throw e
   }
 }

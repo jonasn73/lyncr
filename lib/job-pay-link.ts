@@ -258,6 +258,164 @@ export async function fulfillCollectPayLinkFromCheckout(
   await confirmJobPaymentIntent(paymentIntentId)
 }
 
+/**
+ * Backup when checkout.session.completed is missed: create PENDING from PaymentIntent
+ * metadata (pay links always set pay_link=1), then settle.
+ */
+export async function fulfillCollectPayLinkFromPaymentIntent(
+  intent: Stripe.PaymentIntent
+): Promise<void> {
+  const meta = intent.metadata || {}
+  if (meta.pay_link !== "1") return
+  const kind = (meta.lyncr_kind || "").trim()
+  if (kind !== "job_payment" && kind !== "adhoc_payment") return
+  if (intent.status !== "succeeded") return
+
+  const jobId = (meta.job_id || "").trim() || null
+  const ownerUserId = (meta.owner_user_id || "").trim()
+  const techUserId = (meta.tech_user_id || ownerUserId).trim()
+  const commissionCents = Math.max(
+    0,
+    Math.round(Number(meta.commission_cents) || intent.amount || 0)
+  )
+  const walletUserId = kind === "adhoc_payment" ? ownerUserId : techUserId || ownerUserId
+  if (!walletUserId || commissionCents <= 0) {
+    console.error("[pay-link] PI missing wallet user or commission", intent.id)
+    return
+  }
+
+  const existing = await findWalletTransactionByPaymentIntent(intent.id)
+  if (!existing) {
+    await createWalletTransaction({
+      userId: walletUserId,
+      jobId: kind === "job_payment" ? jobId : null,
+      amountUsd: commissionCents / 100,
+      status: "PENDING",
+      paymentMethod: "MANUAL_CARD",
+      stripePaymentIntentId: intent.id,
+    })
+  }
+
+  await confirmJobPaymentIntent(intent.id)
+}
+
+export type CollectPayLinkStatus = {
+  token: string
+  url: string
+  stripeSessionId: string
+  jobId: string | null
+  chargeCents: number
+  customerName: string
+  createdAt: string
+  expiresAt: string
+  /** Stripe Checkout payment_status (or expired). */
+  paymentStatus: "paid" | "unpaid" | "no_payment_required" | "expired" | "unknown"
+  walletSettled: boolean
+  /** True when we just wrote/settled a wallet row during this sync. */
+  fulfilledNow: boolean
+}
+
+/** Pull latest Stripe status for a stored link; credit wallet if the customer already paid. */
+export async function syncCollectPayLinkStatus(params: {
+  token?: string | null
+  stripeSessionId?: string | null
+}): Promise<CollectPayLinkStatus | null> {
+  if (!isStripeConfigured()) return null
+  const stripe = getStripeClient()
+  const appUrl = getAppUrl().replace(/\/$/, "")
+
+  let token = (params.token ?? "").trim()
+  let sessionId = (params.stripeSessionId ?? "").trim()
+
+  const { getCollectPayLinkByToken, getCollectPayLinkBySessionId } = await import("@/lib/db")
+  let row =
+    (sessionId ? await getCollectPayLinkBySessionId(sessionId) : null) ||
+    (token ? await getCollectPayLinkByToken(token) : null)
+
+  if (row) {
+    token = row.token
+    sessionId = row.stripe_session_id
+  }
+  if (!sessionId) return null
+
+  const session = await stripe.checkout.sessions.retrieve(sessionId)
+  const meta = session.metadata || {}
+  if (!token) token = (meta.pay_token || "").trim()
+  const chargeCents = Math.max(
+    0,
+    Math.round(
+      Number(meta.charge_cents) ||
+        (typeof session.amount_total === "number" ? session.amount_total : 0) ||
+        row?.charge_cents ||
+        0
+    )
+  )
+  const expiresAt =
+    row?.expires_at ||
+    (session.expires_at
+      ? new Date(session.expires_at * 1000).toISOString()
+      : new Date().toISOString())
+  const expired = new Date(expiresAt).getTime() < Date.now() && session.payment_status !== "paid"
+
+  let fulfilledNow = false
+  if (session.payment_status === "paid") {
+    const piRef = session.payment_intent
+    const paymentIntentId = typeof piRef === "string" ? piRef : piRef?.id
+    const before = paymentIntentId
+      ? await findWalletTransactionByPaymentIntent(paymentIntentId)
+      : null
+    await fulfillCollectPayLinkFromCheckout(session)
+    const after = paymentIntentId
+      ? await findWalletTransactionByPaymentIntent(paymentIntentId)
+      : null
+    fulfilledNow = Boolean(after?.status === "COMPLETED" && before?.status !== "COMPLETED")
+  }
+
+  const piRef = session.payment_intent
+  const paymentIntentId = typeof piRef === "string" ? piRef : piRef?.id
+  const wallet = paymentIntentId
+    ? await findWalletTransactionByPaymentIntent(paymentIntentId)
+    : null
+
+  let paymentStatus: CollectPayLinkStatus["paymentStatus"] = "unknown"
+  if (expired) paymentStatus = "expired"
+  else if (session.payment_status === "paid") paymentStatus = "paid"
+  else if (session.payment_status === "unpaid") paymentStatus = "unpaid"
+  else if (session.payment_status === "no_payment_required") paymentStatus = "no_payment_required"
+
+  return {
+    token: token || sessionId.slice(-10),
+    url: token ? `${appUrl}/pay/${token}` : `${appUrl}/pay/thanks?session_id=${sessionId}`,
+    stripeSessionId: sessionId,
+    jobId: row?.job_id ?? ((meta.job_id || "").trim() || null),
+    chargeCents,
+    customerName: row?.customer_name || (meta.customer_name || "").trim(),
+    createdAt: row?.created_at || new Date().toISOString(),
+    expiresAt,
+    paymentStatus,
+    walletSettled: wallet?.status === "COMPLETED",
+    fulfilledNow,
+  }
+}
+
+/** Sync every stored link for a job (owner Collect Payment status + wallet repair). */
+export async function syncCollectPayLinksForJob(
+  ownerUserId: string,
+  jobId: string
+): Promise<CollectPayLinkStatus[]> {
+  const { listCollectPayLinksByJobId } = await import("@/lib/db")
+  const rows = await listCollectPayLinksByJobId(ownerUserId, jobId, 20)
+  const out: CollectPayLinkStatus[] = []
+  for (const row of rows) {
+    const status = await syncCollectPayLinkStatus({
+      token: row.token,
+      stripeSessionId: row.stripe_session_id,
+    })
+    if (status) out.push(status)
+  }
+  return out
+}
+
 /** Resolve a Checkout session from a short pay token (DB, then Stripe search). */
 export async function resolvePayLinkSession(token: string): Promise<{
   session: Stripe.Checkout.Session

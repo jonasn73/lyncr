@@ -36,6 +36,16 @@ import { useToast } from "@/hooks/use-toast"
 type CollectMode = "list" | "adhoc" | "tip_sign" | "tip_charge" | "receipt"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
+type JobPayLinkBadge = {
+  jobId: string | null
+  chargeCents: number
+  paymentStatus: string
+  walletSettled: boolean
+  fulfilledNow?: boolean
+  url: string
+  token: string
+}
+
 const TechPaymentModal = dynamic(
   () =>
     import("@/components/tech/tech-payment-modal").then((m) => ({
@@ -178,6 +188,8 @@ export function OwnerCollectPaymentSheet({
   const [jobs, setJobs] = useState<DispatchJob[]>([])
   const [loading, setLoading] = useState(false)
   const [payJob, setPayJob] = useState<DispatchJob | null>(null)
+  /** Latest pay-link status keyed by job id (from /api/payments/pay-links). */
+  const [linkByJobId, setLinkByJobId] = useState<Record<string, JobPayLinkBadge>>({})
   // list → jobs; adhoc → charge; tip_sign → tip+signature; tip_charge → tip card; receipt → invoice
   const [mode, setMode] = useState<CollectMode>("list")
   const [adhocAmount, setAdhocAmount] = useState("")
@@ -357,7 +369,33 @@ export function OwnerCollectPaymentSheet({
         })
       })
       .finally(() => setLoading(false))
-  }, [toast])
+
+    // Load recent pay links so job rows show “Link sent / Paid” instead of only “new payment”.
+    fetch("/api/payments/pay-links?sync=1", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data?: { links?: JobPayLinkBadge[] } } | null) => {
+        const links = Array.isArray(j?.data?.links) ? j!.data!.links! : []
+        const map: Record<string, JobPayLinkBadge> = {}
+        for (const link of links) {
+          const jid = (link.jobId || "").trim()
+          if (!jid) continue
+          // Newest first from API — keep first (most recent) per job.
+          if (!map[jid]) map[jid] = link
+        }
+        setLinkByJobId(map)
+        const repaired = links.filter((l) => l.fulfilledNow)
+        if (repaired.length > 0) {
+          toast({
+            title: "Payment found",
+            description: "A customer pay link was paid — your balance updated.",
+          })
+          onCollected?.()
+        }
+      })
+      .catch(() => {
+        /* ignore — job list still works */
+      })
+  }, [toast, onCollected])
 
   useEffect(() => {
     if (open) {
@@ -926,18 +964,46 @@ export function OwnerCollectPaymentSheet({
                   <ul className="space-y-2">
                     {sorted.map((job) => {
                       const quote = formatDollarsFromJob(job)
+                      const link = linkByJobId[job.id]
+                      const paid = Boolean(
+                        link && (link.paymentStatus === "paid" || link.walletSettled)
+                      )
+                      const linkLabel = link
+                        ? paid
+                          ? `Paid ${fmtCents(link.chargeCents)} · in balance`
+                          : `Link sent ${fmtCents(link.chargeCents)} · waiting`
+                        : quote
+                          ? `Quoted ${quote}`
+                          : "Enter amount on next screen"
                       return (
                         <li key={job.id}>
                           <button
                             type="button"
                             onClick={() => setPayJob(job)}
                             className={cn(
-                              "flex w-full items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-left transition-colors",
-                              "hover:border-emerald-500/40 hover:bg-zinc-900"
+                              "flex w-full items-start gap-3 rounded-xl border bg-zinc-900/50 px-3 py-3 text-left transition-colors",
+                              paid
+                                ? "border-emerald-500/45 hover:border-emerald-500/60 hover:bg-zinc-900"
+                                : link
+                                  ? "border-sky-500/40 hover:border-sky-500/55 hover:bg-zinc-900"
+                                  : "border-zinc-800 hover:border-emerald-500/40 hover:bg-zinc-900"
                             )}
                           >
-                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
-                              <CreditCard className="h-4 w-4" aria-hidden />
+                            <span
+                              className={cn(
+                                "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                                paid
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : link
+                                    ? "bg-sky-500/15 text-sky-300"
+                                    : "bg-emerald-500/15 text-emerald-400"
+                              )}
+                            >
+                              {link ? (
+                                <Link2 className="h-4 w-4" aria-hidden />
+                              ) : (
+                                <CreditCard className="h-4 w-4" aria-hidden />
+                              )}
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-semibold text-slate-100">
@@ -949,8 +1015,17 @@ export function OwnerCollectPaymentSheet({
                                   {job.location}
                                 </span>
                               ) : null}
-                              <span className="mt-1 block text-[11px] font-medium text-emerald-400/90">
-                                {quote ? `Quoted ${quote}` : "Enter amount on next screen"}
+                              <span
+                                className={cn(
+                                  "mt-1 block text-[11px] font-medium",
+                                  paid
+                                    ? "text-emerald-400"
+                                    : link
+                                      ? "text-sky-300"
+                                      : "text-emerald-400/90"
+                                )}
+                              >
+                                {linkLabel}
                               </span>
                             </span>
                           </button>
