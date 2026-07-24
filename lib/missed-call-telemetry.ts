@@ -110,28 +110,55 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
 }
 
 /**
+ * Bridged talk seconds from answered_at → ended_at when both exist.
+ * Prefer this over duration_seconds — that field often includes ring time.
+ */
+export function bridgedTalkSeconds(input: MissedCallRecordInput): number | null {
+  const answeredRaw = input.answered_at?.trim()
+  const endedRaw = input.ended_at?.trim()
+  if (!answeredRaw || !endedRaw) return null
+  const answeredAt = Date.parse(answeredRaw)
+  const endedAt = Date.parse(endedRaw)
+  if (!Number.isFinite(answeredAt) || !Number.isFinite(endedAt) || endedAt < answeredAt) {
+    return null
+  }
+  return Math.round((endedAt - answeredAt) / 1000)
+}
+
+/**
+ * Effective talk length for live-answer checks.
+ * Uses answered→ended when present; otherwise falls back to duration_seconds.
+ */
+function effectiveTalkSeconds(input: MissedCallRecordInput): number | null {
+  const bridged = bridgedTalkSeconds(input)
+  if (bridged != null) return bridged
+  const duration = Number(input.duration_seconds ?? NaN)
+  if (Number.isFinite(duration) && duration >= 0) return duration
+  return null
+}
+
+/**
  * True when Your Phone / a receptionist accepted the inbound leg for real.
  * Short talk time (&lt; {@link MIN_LIVE_ANSWER_DURATION_SECONDS}) is treated as missed
  * even with answered_at — cell voicemail often "answers" without a human.
  */
 export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
+  const talk = effectiveTalkSeconds(input)
+  const shortTalk = talk != null && talk < MIN_LIVE_ANSWER_DURATION_SECONDS
+
   // Night emergency press-2 that connected.
   if (isCaptureEmergencyAnswered(input.routed_to_name)) {
     if (input.answered_at?.trim()) {
-      const duration = Number(input.duration_seconds ?? NaN)
-      if (Number.isFinite(duration) && duration < MIN_LIVE_ANSWER_DURATION_SECONDS) return false
+      if (shortTalk) return false
       return true
     }
     const status = normalizeCallStatus(input.status)
-    const duration = Number(input.duration_seconds ?? 0)
-    if (status === "completed" && duration >= MIN_LIVE_ANSWER_DURATION_SECONDS) return true
+    if (status === "completed" && talk != null && talk >= MIN_LIVE_ANSWER_DURATION_SECONDS) {
+      return true
+    }
   }
 
   if (isAutomatedCallHandler(input.routed_to_name)) return false
-
-  const duration = Number(input.duration_seconds ?? NaN)
-  const shortTalk =
-    Number.isFinite(duration) && duration >= 0 && duration < MIN_LIVE_ANSWER_DURATION_SECONDS
 
   // Live answer requires answered_at. Ring time + "Owner" label must not invent a pickup
   // (Activities used to default empty routed_to_name → "Owner" and paint every miss green).
@@ -140,6 +167,7 @@ export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
   const answeredAt = Date.parse(input.answered_at)
   if (!Number.isFinite(answeredAt)) return false
   // Known sub-threshold talk time → voicemail / abandoned connect.
+  // Prefer answered→ended over duration_seconds (ring + talk often looks like a real answer).
   if (shortTalk) return false
   return true
 }
@@ -152,7 +180,6 @@ export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
 export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
   const type = normalizeCallType(input.call_type)
   const status = normalizeCallStatus(input.status)
-  const duration = Number(input.duration_seconds ?? NaN)
 
   // Explicit missed/voicemail rows without a bridge stamp — always missed (check before
   // ownerLiveAnswered so ring duration + a UI "Owner" default cannot override).
@@ -168,12 +195,9 @@ export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
   if (["no-answer", "busy", "missed", "canceled", "cancelled"].includes(status)) return true
 
   // Explicit short talk-time rule (even when carrier said completed + stamped answered_at).
-  if (
-    Number.isFinite(duration) &&
-    duration >= 0 &&
-    duration < MIN_LIVE_ANSWER_DURATION_SECONDS &&
-    type !== "outgoing"
-  ) {
+  // Use bridged talk when timestamps exist — duration_seconds alone can be ring time.
+  const talk = effectiveTalkSeconds(input)
+  if (talk != null && talk < MIN_LIVE_ANSWER_DURATION_SECONDS && type !== "outgoing") {
     return true
   }
 

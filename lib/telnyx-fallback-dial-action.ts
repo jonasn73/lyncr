@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { VoiceResponse, getAppUrl } from "@/lib/telnyx"
 import { maybePlaceMobileWrapupCallback } from "@/lib/mobile-wrapup-callback"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
+import { MIN_LIVE_ANSWER_DURATION_SECONDS } from "@/lib/missed-call-telemetry"
 import type { FallbackType, RoutingConfig, User, CallType } from "@/lib/types"
 import {
   getRoutingConfig,
@@ -853,26 +854,25 @@ export async function handleTelnyxFallbackDialEnded(
      * cell is also "completed" with no bridge metadata and must fall through to voicemail.
      */
     const recvLegByPath = pathFallbackMode === "recv" || pathFallbackMode === "recv-ai"
+    // Real Your Phone bridge only — sub-5s "answered" legs are usually cell voicemail.
+    // Those must fall through to voicemail / AI instead of hanging up as a live pickup.
     const ownerFirstLegBridgedComplete =
       !allowAiHandoffAfterHumanLeg &&
       primaryWasOwner &&
       !recvLegByPath &&
       !receptionistCalleeMatches &&
       dialStatus === "completed" &&
-      pstnBridgeEvidence
+      pstnBridgeEvidence &&
+      dialDurationSec >= MIN_LIVE_ANSWER_DURATION_SECONDS
     if (ownerFirstLegBridgedComplete) {
-      maybeLogTelnyxFallbackDiagnosticEarly(
-        pstnBridgeEvidence ? "owner-first-leg-bridged-hangup" : "owner-first-short-completed-hangup",
-        {
-          dialDurationSec,
-          bridgedToDigits,
-          dialStatus,
-          pathFallbackMode: pathFallbackMode ?? null,
-          primaryWasOwner,
-        }
-      )
+      maybeLogTelnyxFallbackDiagnosticEarly("owner-first-leg-bridged-hangup", {
+        dialDurationSec,
+        bridgedToDigits,
+        dialStatus,
+        pathFallbackMode: pathFallbackMode ?? null,
+        primaryWasOwner,
+      })
       if (callSid.trim()) void markTelnyxInboundDialCallerLegDone(callSid)
-      // Persist short Your Phone pickups as answered inbound — never leave them as missed.
       persistInboundDialTalkTime(callSid, dialDurationSec, {
         call_type: "incoming",
         status: dialStatus || "completed",

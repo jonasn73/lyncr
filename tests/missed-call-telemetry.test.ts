@@ -115,6 +115,18 @@ describe("isMissedCallRecord", () => {
         routed_to_name: "Owner",
       })
     ).toBe(true)
+    // Production 2026-07-24 5:13 PM: ring inflated duration_seconds to 31s, but
+    // answered→ended was only 3s (cell voicemail / aborted connect) — must stay Missed.
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: "2026-07-24T21:14:19.248Z",
+        ended_at: "2026-07-24T21:14:22.108Z",
+        duration_seconds: 31,
+        routed_to_name: "Owner",
+      })
+    ).toBe(true)
     expect(
       isMissedCallRecord({
         call_type: "incoming",
