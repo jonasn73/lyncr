@@ -790,7 +790,7 @@ export function TechPaymentModal(props: {
       ) : null}
 
       <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-800 bg-[#101018] shadow-2xl sm:rounded-3xl">
-        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <div>
             <h2 className="text-base font-bold text-white">
               {postPayStep === "tip_sign"
@@ -798,10 +798,10 @@ export function TechPaymentModal(props: {
                 : postPayStep === "tip_charge"
                   ? "Charge tip"
                   : postPayStep === "receipt"
-                    ? "Send invoice"
+                    ? "Send receipt"
                     : showPaidSummary
                       ? "Payment received"
-                      : "Proceed to Payment"}
+                      : "Charge"}
             </h2>
             <p className="text-xs text-zinc-500">
               {props.job.customer_name || props.job.customer_phone || "Customer"}
@@ -1157,120 +1157,151 @@ export function TechPaymentModal(props: {
           </div>
         ) : (
           <>
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            <div className="flex-1 space-y-2.5 overflow-y-auto px-4 py-3">
               {forceNewCharge && paidLink ? (
-                <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+                <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2">
                   <p className="text-xs font-medium text-amber-100">
-                    Already paid {fmt(paidLink.chargeCents)}. This starts a new charge.
+                    Already paid {fmt(paidLink.chargeCents)}. Starting a new charge.
                   </p>
                   <button
                     type="button"
                     onClick={() => setForceNewCharge(false)}
-                    className="mt-1.5 text-[11px] font-semibold text-amber-200 underline"
+                    className="mt-1 text-[11px] font-semibold text-amber-200 underline"
                   >
                     Back to paid status
                   </button>
                 </div>
               ) : null}
 
-              {/* Open / unpaid pay links — status while still collecting. */}
+              {/* Open / unpaid pay links — compact while still collecting. */}
               {(linksLoading || sentLinks.length > 0) && !forceNewCharge && (
-                <section className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3">
+                <section className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-sky-300/90">
-                        Sent payment links
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-sky-100/70">
-                        Status from Stripe · Refresh if the customer says they paid
-                      </p>
-                    </div>
+                    <p className="text-[11px] font-semibold text-sky-200">
+                      {linksLoading && sentLinks.length === 0
+                        ? "Checking links…"
+                        : `${sentLinks.length} pay link${sentLinks.length === 1 ? "" : "s"}`}
+                    </p>
                     <button
                       type="button"
                       disabled={linksSyncing}
                       onClick={() => void refreshSentLinks({ sync: true })}
-                      className="shrink-0 rounded-lg border border-sky-500/40 px-2.5 py-1.5 text-[11px] font-semibold text-sky-200 disabled:opacity-50"
+                      className="shrink-0 text-[11px] font-semibold text-sky-300 disabled:opacity-50"
                     >
-                      {linksSyncing ? "Checking…" : "Refresh"}
+                      {linksSyncing ? "…" : "Refresh"}
                     </button>
                   </div>
-                  {linksLoading && sentLinks.length === 0 ? (
-                    <p className="mt-2 flex items-center gap-2 text-xs text-sky-200/80">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading links…
-                    </p>
-                  ) : (
-                    <ul className="mt-2 space-y-2">
+                  {sentLinks.length > 0 ? (
+                    <ul className="mt-1.5 space-y-1">
                       {sentLinks.map((link) => {
                         const paid = link.paymentStatus === "paid" || link.walletSettled
-                        const label = paid
-                          ? link.walletSettled
-                            ? "Paid · in your balance"
-                            : "Paid · syncing to balance…"
-                          : link.paymentStatus === "expired"
-                            ? "Expired · not paid"
-                            : link.paymentStatus === "unpaid"
-                              ? "Open · waiting for customer"
-                              : "Sent · tap Refresh for status"
                         return (
                           <li
                             key={link.token}
-                            className="rounded-lg border border-sky-500/25 bg-zinc-950/40 px-3 py-2"
+                            className="flex items-center justify-between gap-2 text-[11px]"
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold tabular-nums text-sky-100">
-                                  {fmt(link.chargeCents)}
-                                </p>
-                                <p
-                                  className={cn(
-                                    "mt-0.5 text-[11px] font-medium",
-                                    paid ? "text-emerald-300" : "text-amber-200/90"
-                                  )}
-                                >
-                                  {label}
-                                </p>
-                                <p className="mt-1 truncate text-[10px] text-zinc-500">
-                                  {link.url}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => void navigator.clipboard?.writeText(link.url)}
-                                className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-semibold text-zinc-300"
-                              >
-                                Copy
-                              </button>
-                            </div>
+                            <span className="tabular-nums text-sky-100">{fmt(link.chargeCents)}</span>
+                            <span className={paid ? "text-emerald-300" : "text-amber-200/90"}>
+                              {paid ? "Paid" : "Waiting"}
+                            </span>
                           </li>
                         )
                       })}
                     </ul>
-                  )}
+                  ) : null}
                 </section>
               )}
 
-              <section>
-                {/* Collapsed by default so the sheet stays short; expand only to edit lines. */}
-                <details className="group rounded-xl border border-zinc-800 bg-zinc-900/40">
-                  <summary className="cursor-pointer list-none px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                          Invoice lines
-                        </p>
-                        <p className="mt-0.5 text-sm text-zinc-300">
-                          {lines.length} line{lines.length === 1 ? "" : "s"} · tap to edit
-                        </p>
-                      </div>
-                      <span className="text-xs font-medium text-indigo-300 group-open:hidden">Show</span>
-                      <span className="hidden text-xs font-medium text-indigo-300 group-open:inline">
-                        Hide
+              {/* One compact amount card — lines tucked under a short toggle. */}
+              <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+                <div className="flex items-end gap-2">
+                  <label className="min-w-0 flex-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Amount
+                    </span>
+                    <div className="relative mt-1">
+                      <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                        $
                       </span>
+                      <input
+                        ref={amountInputRef}
+                        value={amountInput}
+                        onChange={(e) => {
+                          setAmountEdited(true)
+                          setError(null)
+                          setAmountInput(e.target.value.replace(/[^\d.]/g, ""))
+                        }}
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        disabled={busy || activePopup !== null}
+                        aria-label="Amount before tax"
+                        className={cn(
+                          "w-full rounded-lg border bg-zinc-950 py-2 pr-2.5 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
+                          totalCents < 50 ? "border-amber-500/60" : "border-zinc-700"
+                        )}
+                      />
                     </div>
+                  </label>
+                  <div className="shrink-0 pb-0.5 text-right">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Total
+                    </p>
+                    <p className="text-lg font-bold tabular-nums text-emerald-300">{fmt(totalCents)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-800/80 pt-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={taxEnabled}
+                    disabled={busy || activePopup !== null}
+                    onClick={() => setTaxEnabled((v) => !v)}
+                    className="flex items-center gap-2 text-left disabled:opacity-50"
+                  >
+                    <span
+                      className={cn(
+                        "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                        taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                          taxEnabled && "translate-x-4"
+                        )}
+                      />
+                    </span>
+                    <span className="text-xs font-medium text-zinc-300">
+                      Tax{taxEnabled ? ` ${breakdown.ratePercent.toFixed(0)}%` : ""}
+                    </span>
+                  </button>
+                  {taxEnabled ? (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="30"
+                      step="0.01"
+                      value={taxRatePercent}
+                      onChange={(e) => setTaxRatePercent(e.target.value)}
+                      disabled={busy || activePopup !== null}
+                      aria-label="Tax rate percent"
+                      className="w-16 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-white outline-none disabled:opacity-60"
+                    />
+                  ) : null}
+                </div>
+
+                <details className="group mt-2 border-t border-zinc-800/80 pt-2">
+                  <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="group-open:hidden">
+                      Line items ({lines.length}) · edit
+                    </span>
+                    <span className="hidden group-open:inline">Hide line items</span>
                   </summary>
-                  <div className="space-y-2 border-t border-zinc-800 px-4 py-3">
+                  <div className="mt-2 space-y-1.5">
                     {lines.map((line) => (
-                      <div key={line.id} className="flex items-center gap-2">
+                      <div key={line.id} className="flex items-center gap-1.5">
                         <input
                           value={line.label}
                           onChange={(e) =>
@@ -1282,10 +1313,10 @@ export function TechPaymentModal(props: {
                           }
                           placeholder="Description"
                           disabled={busy || activePopup !== null}
-                          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                          className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                         />
-                        <div className="relative w-28 shrink-0">
-                          <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                        <div className="relative w-20 shrink-0">
+                          <span className="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-xs text-zinc-500">
                             $
                           </span>
                           <input
@@ -1303,7 +1334,7 @@ export function TechPaymentModal(props: {
                             inputMode="decimal"
                             placeholder="0.00"
                             disabled={busy || activePopup !== null}
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 py-2.5 pr-2 pl-6 text-right text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                            className="w-full rounded-md border border-zinc-700 bg-zinc-950 py-1.5 pr-1.5 pl-5 text-right text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                           />
                         </div>
                         <button
@@ -1315,10 +1346,10 @@ export function TechPaymentModal(props: {
                             )
                           }}
                           disabled={lines.length === 1 || busy || activePopup !== null}
-                          className="shrink-0 rounded-lg p-2 text-zinc-500 hover:text-red-400 disabled:opacity-30"
+                          className="shrink-0 rounded-md p-1.5 text-zinc-500 hover:text-red-400 disabled:opacity-30"
                           aria-label="Remove line"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
@@ -1326,126 +1357,26 @@ export function TechPaymentModal(props: {
                       type="button"
                       disabled={busy || activePopup !== null}
                       onClick={() => setLines((prev) => [...prev, newLine()])}
-                      className="mt-1 inline-flex items-center gap-1 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-300 disabled:opacity-40"
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-300 disabled:opacity-40"
                     >
                       <Plus className="h-3 w-3" /> Add line
                     </button>
                   </div>
                 </details>
-
-                {/* Editable amount + sales tax (same idea as walk-up Collect Payment) */}
-                <div className="mt-3 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      Amount (before tax)
-                    </span>
-                    <div className="relative mt-1.5">
-                      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-zinc-500">
-                        $
-                      </span>
-                      <input
-                        ref={amountInputRef}
-                        value={amountInput}
-                        onChange={(e) => {
-                          setAmountEdited(true)
-                          setError(null)
-                          setAmountInput(e.target.value.replace(/[^\d.]/g, ""))
-                        }}
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        disabled={busy || activePopup !== null}
-                        aria-label="Amount before tax"
-                        className={cn(
-                          "w-full rounded-lg border bg-zinc-950 py-2.5 pr-3 pl-7 text-right text-lg font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
-                          totalCents < 50 ? "border-amber-500/60" : "border-zinc-700"
-                        )}
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-zinc-500">
-                      Type the charge here first (min $0.50) — then pick Tap, Card, Link, or Cash.
-                    </p>
-                  </label>
-
-                  <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-100">Sales tax</p>
-                      <p className="text-[11px] text-zinc-500">Add tax on top of the amount</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={taxEnabled}
-                      disabled={busy || activePopup !== null}
-                      onClick={() => setTaxEnabled((v) => !v)}
-                      className={cn(
-                        "relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50",
-                        taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
-                          taxEnabled && "translate-x-5"
-                        )}
-                      />
-                    </button>
-                  </div>
-
-                  {taxEnabled ? (
-                    <label className="block">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        Tax rate (%)
-                      </span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        max="30"
-                        step="0.01"
-                        value={taxRatePercent}
-                        onChange={(e) => setTaxRatePercent(e.target.value)}
-                        disabled={busy || activePopup !== null}
-                        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm tabular-nums text-white outline-none disabled:opacity-60"
-                      />
-                    </label>
-                  ) : null}
-
-                  <div className="space-y-1 border-t border-zinc-800 pt-3 text-xs tabular-nums">
-                    <div className="flex justify-between text-zinc-400">
-                      <span>Subtotal</span>
-                      <span>{fmt(subtotalCents)}</span>
-                    </div>
-                    {taxEnabled ? (
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Tax ({breakdown.ratePercent.toFixed(2)}%)</span>
-                        <span>{fmt(taxCents)}</span>
-                      </div>
-                    ) : null}
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-sm font-medium text-zinc-300">Total charge</span>
-                      <span className="text-lg font-bold text-emerald-300">{fmt(totalCents)}</span>
-                    </div>
-                  </div>
-                </div>
               </section>
 
               <section>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Payment options
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  How to collect
                 </p>
-                {totalCents < 50 ? (
-                  <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100">
-                    Enter an amount of at least $0.50 above before choosing how to collect.
-                  </p>
-                ) : null}
                 {error && !postPayStep && !activePopup ? (
-                  <div className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
-                    <p className="text-sm font-semibold text-red-200">Couldn’t start payment</p>
-                    <p className="mt-0.5 text-sm leading-snug text-red-300/95">{error}</p>
+                  <div className="mb-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5">
+                    <p className="text-xs leading-snug text-red-300">{error}</p>
                   </div>
                 ) : null}
-                <div className="grid gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <PayOptionButton
+                    compact
                     active={method === "tap"}
                     disabled={busy || activePopup !== null}
                     dimmed={totalCents < 50}
@@ -1454,10 +1385,11 @@ export function TechPaymentModal(props: {
                       void runTapToPay()
                     }}
                     title="Tap to Pay"
-                    subtitle="NFC — hold card to back of phone"
-                    icon={<Nfc className="h-5 w-5" />}
+                    subtitle="NFC"
+                    icon={<Nfc className="h-4 w-4" />}
                   />
                   <PayOptionButton
+                    compact
                     active={activePopup === "card"}
                     disabled={busy || activePopup !== null}
                     dimmed={totalCents < 50}
@@ -1465,11 +1397,12 @@ export function TechPaymentModal(props: {
                       if (!requireChargeAmount()) return
                       void startManualCard()
                     }}
-                    title="Manual Card Entry"
-                    subtitle="Opens a secure card popup"
-                    icon={<CreditCard className="h-5 w-5" />}
+                    title="Card"
+                    subtitle="Key in"
+                    icon={<CreditCard className="h-4 w-4" />}
                   />
                   <PayOptionButton
+                    compact
                     active={activePopup === "link"}
                     disabled={busy || activePopup !== null}
                     dimmed={totalCents < 50}
@@ -1480,11 +1413,12 @@ export function TechPaymentModal(props: {
                       setLinkSentUrl(null)
                       setActivePopup("link")
                     }}
-                    title="Text / email pay link"
-                    subtitle="Sends a short lyncr.app pay link"
-                    icon={<Link2 className="h-5 w-5" />}
+                    title="Pay link"
+                    subtitle="Text / email"
+                    icon={<Link2 className="h-4 w-4" />}
                   />
                   <PayOptionButton
+                    compact
                     active={method === "cash"}
                     disabled={busy || activePopup !== null}
                     dimmed={totalCents < 50}
@@ -1492,9 +1426,9 @@ export function TechPaymentModal(props: {
                       if (!requireChargeAmount()) return
                       void payCash()
                     }}
-                    title="Cash / Alternative"
-                    subtitle="Mark paid without charging a card"
-                    icon={<Banknote className="h-5 w-5" />}
+                    title="Cash"
+                    subtitle="Mark paid"
+                    icon={<Banknote className="h-4 w-4" />}
                   />
                 </div>
               </section>
@@ -1683,8 +1617,35 @@ function PayOptionButton(props: {
   disabled?: boolean
   /** Soft “needs amount” look — still clickable so we can show an error. */
   dimmed?: boolean
+  /** 2×2 grid cell — shorter than full-width rows. */
+  compact?: boolean
   onClick: () => void
 }) {
+  if (props.compact) {
+    return (
+      <button
+        type="button"
+        disabled={props.disabled}
+        onClick={props.onClick}
+        className={cn(
+          "flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99] disabled:opacity-50",
+          props.active
+            ? "border-emerald-500/50 bg-emerald-500/15"
+            : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
+          props.dimmed && !props.disabled && "opacity-70"
+        )}
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+          {props.icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-white">{props.title}</span>
+          <span className="block text-[10px] text-zinc-500">{props.subtitle}</span>
+        </span>
+      </button>
+    )
+  }
+
   return (
     <button
       type="button"
