@@ -1,12 +1,8 @@
 "use client"
 
-import { Suspense, use, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Suspense, use, useCallback, useLayoutEffect, useRef, useState } from "react"
 import { OrganizationSwitcher, OrganizationSwitcherPlaceholder } from "@/components/organization-switcher"
-import {
-  useDashboardBootstrapEffective,
-  useDashboardBootstrapSyncing,
-} from "@/components/dashboard-bootstrap-context"
+import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
@@ -21,34 +17,6 @@ function headerSeedOrganization(name: string): Organization {
     is_default: true,
     created_at: new Date(0).toISOString(),
   }
-}
-
-/** Subtle header cue while stale bootstrap cache is revalidated in the background. */
-function DashboardBootstrapSyncIndicator() {
-  const isSyncing = useDashboardBootstrapSyncing()
-  // Delay so a fast refresh does not flash the Syncing chip on every hard reload.
-  const [show, setShow] = useState(false)
-
-  useEffect(() => {
-    if (!isSyncing) {
-      setShow(false)
-      return
-    }
-    const timer = window.setTimeout(() => setShow(true), 400)
-    return () => window.clearTimeout(timer)
-  }, [isSyncing])
-
-  if (!show) return null
-  return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium tracking-wide text-muted-foreground/80"
-      aria-live="polite"
-      title="Refreshing dashboard data"
-    >
-      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-      <span className="hidden sm:inline">Syncing</span>
-    </span>
-  )
 }
 
 /** Org switcher from a known org list — no Suspense, no fetch on first paint. */
@@ -263,7 +231,6 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
       <div className="min-w-0 w-full max-w-full flex-1 sm:w-[min(100%,16rem)] sm:flex-none">
         {switcher}
       </div>
-      <DashboardBootstrapSyncIndicator />
     </div>
   )
 }

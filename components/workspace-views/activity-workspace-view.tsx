@@ -1160,24 +1160,23 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       <WorkspacePageHeader
         eyebrow="Call history"
         title={filter === "missed" ? "Missed calls today" : "Activities"}
-        action={
-          <div className="hidden flex-wrap items-center gap-3 sm:flex">
-            <Link
-              href="/dashboard/contacts"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200"
-            >
-              Dispatch Map
-            </Link>
-            <Link
-              href="/dashboard/scheduler"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300"
-            >
-              <CalendarDays className="h-3.5 w-3.5" aria-hidden />
-              Job scheduler
-            </Link>
-          </div>
-        }
       />
+      {/* Desktop-only shortcuts — kept out of the header so mobile never gets a status row under the title. */}
+      <div className="hidden flex-wrap items-center gap-3 sm:flex">
+        <Link
+          href="/dashboard/contacts"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200"
+        >
+          Dispatch Map
+        </Link>
+        <Link
+          href="/dashboard/scheduler"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300"
+        >
+          <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+          Job scheduler
+        </Link>
+      </div>
 
       {/* Call activity only — assign / pins live on Map + Scheduler. */}
       <ActivityCallFilterBar filter={filter} missedCount={missedCount} onChange={onFilterChange} />

@@ -227,7 +227,6 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
   // Full-page skeleton only when we have never loaded successfully in this tab.
   const [loading, setLoading] = useState(() => operationsCache === null)
-  const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
@@ -267,9 +266,6 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         setLoading(true)
         setLoadError(null)
       }
-      // Intentionally no setRefreshing(true): that re-rendered the Activities header
-      // every 12s and made the whole block look like it dropped then snapped back.
-
       try {
         const [callsRes, qualityRes] = await Promise.all([
           fetch("/api/calls?limit=100", { credentials: "include" }),
@@ -359,10 +355,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
           setLoadError(e instanceof Error ? e.message : "Failed to load operations data")
         }
       } finally {
-        if (mounted) {
-          setLoading(false)
-          setRefreshing(false)
-        }
+        if (mounted) setLoading(false)
       }
     }
 
@@ -389,5 +382,5 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     }
   }, [refetchIntervalMs, enabled])
 
-  return { calls, quality, insights, loading, loadError, refreshing }
+  return { calls, quality, insights, loading, loadError }
 }
