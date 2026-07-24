@@ -65,6 +65,11 @@ export type ActiveCallRow = {
   sourceCallLogId?: string
   /** Existing ai_leads id when converting / completing a CRM lead. */
   existingLeadId?: string
+  /**
+   * `quick` = missed-call one-screen note (no YMM wizard).
+   * `full` = normal answered booking intake.
+   */
+  intakeMode?: "full" | "quick"
 }
 
 export type ActiveCallFormState = {

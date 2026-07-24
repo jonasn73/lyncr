@@ -319,7 +319,7 @@ function needsRevenueRescue(call: UiCallRecord): boolean {
   return !action || action === "No intake recorded"
 }
 
-/** Open the answered-call intake sheet for this activity row (purpose + outcome). */
+/** Open intake for this activity row — quick note for missed, full wizard for answered. */
 function openIntakeForActivityCall(
   inbound: ReturnType<typeof useInboundCallPanelOptional>,
   call: UiCallRecord
@@ -330,13 +330,15 @@ function openIntakeForActivityCall(
   // Need a dialable caller to seed the sheet.
   if (!trimmed || trimmed === "—") return
   const name = call.callerName?.trim() || ""
+  // Missed → one-screen purpose/notes; answered no-intake → full booking sheet.
+  const missed = isMissedActivityCall(call)
   inbound.openManualCallPanel({
     // E.164 when possible so SMS / booking match the call log.
     phoneNumber: toE164(trimmed) || trimmed,
     // Skip placeholder names so the name step still asks.
     customerName:
       name && name !== "Unknown Caller" && name !== "—" ? name : undefined,
-    callStatus: "answered",
+    callStatus: missed ? "completed" : "answered",
     // Business line the customer dialed (helps SMS from-line).
     toNumber: call.targetLineE164?.trim() || undefined,
     // Bind book / lost-lead to this call_logs row (not a new manual-* id).
@@ -344,6 +346,7 @@ function openIntakeForActivityCall(
     answeredAt: call.answeredAt || call.createdAt || null,
     // If Activities already linked a lead, complete that row instead of duplicating.
     leadId: call.activity?.leadId || undefined,
+    intakeMode: missed ? "quick" : "full",
   })
 }
 
@@ -726,7 +729,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/40 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/55 hover:bg-teal-500/25 active:scale-[0.98]"
             >
               <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-              Log purpose & outcome
+              {isMissedLog ? "Add missed-call note" : "Log purpose & outcome"}
             </button>
           ) : null}
           {showCallBack ? (

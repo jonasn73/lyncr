@@ -25,6 +25,7 @@ import {
   type IntakeRescueMeta,
 } from "@/components/dashboard/intake-job-photos-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
+import { MissedCallQuickLogPanel } from "@/components/dashboard/missed-call-quick-log-panel"
 import { AppointmentConfirmSmsPanel } from "@/components/messaging/appointment-confirm-sms-panel"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
 import {
@@ -2331,6 +2332,50 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         }}
       >
         {effectiveCurrent ? (
+          effectiveCurrent.intakeMode === "quick" ? (
+            <>
+              {/* Missed-call quick note — skip YMM / multi-step booking chrome. */}
+              <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 pb-3 pt-2 pr-12">
+                <button
+                  type="button"
+                  onClick={minimizeIntake}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  aria-label="Minimize"
+                  title="Minimize"
+                >
+                  <ChevronDown className="h-4 w-4" aria-hidden />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">
+                    Missed call note
+                  </p>
+                  <p className="truncate text-sm font-medium text-foreground">
+                    What was this about?
+                  </p>
+                </div>
+              </div>
+              <MissedCallQuickLogPanel
+                phoneNumber={form.phoneNumber || effectiveCurrent.from_number}
+                callLogId={effectiveCurrent.sourceCallLogId || effectiveCurrent.id}
+                customerName={form.displayName || effectiveCurrent.caller_name}
+                organizationId={activeOrganizationId}
+                onSaved={() => {
+                  clearDraftForCurrentCaller()
+                  resetIntakeUiState()
+                  dismissOnly()
+                }}
+                onBookJob={() => {
+                  // Upgrade to the full answered booking wizard when they need to schedule.
+                  patchManualCallRow({
+                    intakeMode: "full",
+                    manualCallStatus: "answered",
+                  })
+                  setCurrentStep("SERVICE_SELECT")
+                }}
+                onDismiss={dismissWithDraftClear}
+              />
+            </>
+          ) : (
           <>
             {isManual ? (
               <ManualIntakeToolbar
@@ -3935,6 +3980,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               </div>
             </div>
           </>
+          )
         ) : null}
       </SheetContent>
     </Sheet>

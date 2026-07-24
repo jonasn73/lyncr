@@ -72,6 +72,15 @@ function intakeDetailForLead(lead: LeadActivityRow): string | null {
 function intakeActionForLead(lead: LeadActivityRow, callDisposition: string | null): string {
   const source = pickCollected(lead.collected, ["source"])
   if (source === "answered_call_intake") return "Sent to dispatch"
+  // Missed-call quick note from Activities (purpose + notes, no booking wizard).
+  if (source === "activity_missed_quick_log") {
+    const disposition = (lead.disposition ?? pickCollected(lead.collected, ["disposition"]) ?? callDisposition ?? "")
+      .trim()
+      .toUpperCase()
+    if (disposition === "FAILED") return "Not a lead"
+    if (disposition === "PENDING_TIME") return "Callback note"
+    return "Note saved"
+  }
   const disposition = (lead.disposition ?? pickCollected(lead.collected, ["disposition"]) ?? callDisposition ?? "")
     .trim()
     .toUpperCase()

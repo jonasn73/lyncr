@@ -28,6 +28,11 @@ export type OpenManualCallPanelInput = {
   callLogId?: string
   /** ISO answered_at from the call log when known. */
   answeredAt?: string | null
+  /**
+   * `quick` = missed-call purpose/notes sheet (no YMM / multi-step booking).
+   * Default `full` keeps the answered-call wizard.
+   */
+  intakeMode?: "full" | "quick"
 }
 
 type InboundCallPanelContextValue = {
@@ -75,6 +80,8 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
     sourceCallLogId: callLogId || undefined,
     // Only set when CRM handoff targets an existing ai_leads row.
     existingLeadId: leadId || undefined,
+    // Missed Activities → quick note; everything else uses the full wizard.
+    intakeMode: input?.intakeMode === "quick" ? "quick" : "full",
   }
 }
 
