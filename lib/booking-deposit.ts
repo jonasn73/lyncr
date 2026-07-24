@@ -88,6 +88,11 @@ export async function createBookingDepositCheckout(params: {
   productDescription?: string
   successPath?: string
   cancelPath?: string
+  /** Public /book fields carried through Stripe metadata until deposit fulfills. */
+  intakeExtras?: {
+    address_line1?: string
+    job_type?: string
+  }
 }): Promise<{ url: string; sessionId: string }> {
   const owner = await getUser(params.ownerUserId)
   void owner
@@ -133,6 +138,12 @@ export async function createBookingDepositCheckout(params: {
       checkout_type: purpose,
       user_id: params.ownerUserId,
       hold_id: params.holdId,
+      ...(params.intakeExtras?.address_line1
+        ? { address_line1: params.intakeExtras.address_line1.slice(0, 450) }
+        : {}),
+      ...(params.intakeExtras?.job_type
+        ? { job_type: params.intakeExtras.job_type.slice(0, 120) }
+        : {}),
     },
     success_url: `${appUrl}${successPath.startsWith("/") ? successPath : `/${successPath}`}`,
     cancel_url: `${appUrl}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}`,
@@ -168,11 +179,16 @@ export async function fulfillBookingDepositFromCheckout(session: {
       ? hold.scheduled_at.toISOString()
       : String(hold.scheduled_at)
 
+  const jobType =
+    session.metadata?.job_type?.trim() || "Booked online (deposit paid)"
+  const addressLine1 = session.metadata?.address_line1?.trim() || null
+
   const job = await createUnassignedJobFromIntake({
     ownerUserId,
     callerE164: (hold.customer_phone as string) || "+10000000000",
     customerName: (hold.customer_name as string) || "Online booking",
-    jobType: "Booked online (deposit paid)",
+    addressLine1,
+    jobType,
     notes: `Public /book · Deposit hold ${holdId} · Stripe ${session.id}`,
     scheduledAtIso: scheduledAt,
     pendingCallback: false,

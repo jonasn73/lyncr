@@ -55,7 +55,27 @@ export async function POST(req: NextRequest) {
     ? normalizePhoneNumberE164(customerPhoneRaw) || toE164(customerPhoneRaw)
     : null
   const customerName =
-    typeof body.customer_name === "string" ? body.customer_name.trim() : "Online booking"
+    typeof body.customer_name === "string" ? body.customer_name.trim() : ""
+  const addressLine1 =
+    typeof body.address_line1 === "string"
+      ? body.address_line1.trim()
+      : typeof body.service_address === "string"
+        ? body.service_address.trim()
+        : ""
+  const jobTypeRaw =
+    typeof body.job_type === "string"
+      ? body.job_type.trim()
+      : typeof body.jobType === "string"
+        ? body.jobType.trim()
+        : ""
+
+  if (customerName.length < 2) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 })
+  }
+  if (addressLine1.length < 5) {
+    return NextResponse.json({ error: "Service address is required" }, { status: 400 })
+  }
+  const jobType = jobTypeRaw || "Booked online"
 
   const requireDeposit = await getUserRequireDeposit(owner.id)
 
@@ -65,8 +85,9 @@ export async function POST(req: NextRequest) {
       const job = await createUnassignedJobFromIntake({
         ownerUserId: owner.id,
         callerE164: customerPhone || "+10000000000",
-        customerName: customerName || "Online booking",
-        jobType: "Booked online",
+        customerName,
+        addressLine1,
+        jobType,
         notes: `Public /book · ${scheduledAtIso}`,
         scheduledAtIso,
         pendingCallback: false,
@@ -97,6 +118,10 @@ export async function POST(req: NextRequest) {
       ownerUserId: owner.id,
       holdId: hold.id,
       amountCents: hold.amountCents,
+      intakeExtras: {
+        address_line1: addressLine1,
+        job_type: jobType,
+      },
     })
     return NextResponse.json({
       data: {

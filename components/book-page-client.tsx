@@ -1,6 +1,6 @@
 "use client"
 
-// Public booking page — open slots + optional Stripe deposit checkout.
+// Public booking page — details + open slots + optional Stripe deposit checkout.
 
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -17,6 +17,14 @@ type AvailabilityPayload = {
   deposit_cents?: number
   fully_booked?: boolean
 }
+
+const JOB_TYPE_OPTIONS = [
+  "Lockout",
+  "Key replacement",
+  "Keys / duplication",
+  "Ignition",
+  "Other",
+] as const
 
 export default function BookPageClient({
   initialLine = "",
@@ -37,6 +45,12 @@ export default function BookPageClient({
   const [selected, setSelected] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(depositStatus === "success")
+
+  // Required capture fields (name / address / job type).
+  const [customerName, setCustomerName] = useState("")
+  const [serviceAddress, setServiceAddress] = useState("")
+  const [jobType, setJobType] = useState<string>(JOB_TYPE_OPTIONS[0])
+  const [jobTypeOther, setJobTypeOther] = useState("")
 
   useEffect(() => {
     if (!line) {
@@ -73,8 +87,16 @@ export default function BookPageClient({
     return map
   }, [data])
 
+  const resolvedJobType =
+    jobType === "Other" ? jobTypeOther.trim() || "Other" : jobType
+
+  const detailsReady =
+    customerName.trim().length >= 2 &&
+    serviceAddress.trim().length >= 5 &&
+    resolvedJobType.length >= 2
+
   async function handleRequestSlot() {
-    if (!selected || !line) return
+    if (!selected || !line || !detailsReady) return
     setSubmitting(true)
     setError(null)
     try {
@@ -85,7 +107,9 @@ export default function BookPageClient({
           line,
           phone,
           scheduled_at: selected,
-          customer_name: "Online booking",
+          customer_name: customerName.trim(),
+          address_line1: serviceAddress.trim(),
+          job_type: resolvedJobType,
         }),
       })
       const json = (await res.json()) as {
@@ -114,6 +138,9 @@ export default function BookPageClient({
       ? `Pay $${(data.deposit_cents / 100).toFixed(0)} deposit to hold`
       : "Request this time"
 
+  const fieldClass =
+    "mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/50 focus:outline-none"
+
   return (
     <main className="min-h-dvh bg-zinc-950 text-zinc-100">
       <div className="mx-auto max-w-lg px-4 py-10">
@@ -124,8 +151,7 @@ export default function BookPageClient({
           {data?.business_name || "Book a visit"}
         </h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Pick an open one-hour window. Days with a full-day blockout show as fully booked and are
-          not selectable. Partial blockouts remove overlapping hours.
+          Tell us who you are and where to meet, then pick an open one-hour window.
         </p>
         {phone ? (
           <p className="mt-1 text-xs text-zinc-500">Booking for {phone}</p>
@@ -141,7 +167,7 @@ export default function BookPageClient({
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading open times…
           </div>
-        ) : error ? (
+        ) : error && !data ? (
           <p className="mt-8 rounded-xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
             {error}
           </p>
@@ -149,10 +175,64 @@ export default function BookPageClient({
           <p className="mt-8 rounded-xl border border-emerald-900/50 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
             {depositStatus === "success"
               ? "Deposit received — your appointment slot is confirmed. We will follow up shortly."
-              : "Thanks — we received your preferred time. A dispatcher will confirm shortly."}
+              : "Thanks — we received your details and preferred time. A dispatcher will confirm shortly."}
           </p>
         ) : (
           <div className="mt-8 space-y-6">
+            <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Your details
+              </h2>
+              <label className="block text-sm text-zinc-300">
+                Name
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Full name"
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block text-sm text-zinc-300">
+                Service address
+                <input
+                  type="text"
+                  autoComplete="street-address"
+                  value={serviceAddress}
+                  onChange={(e) => setServiceAddress(e.target.value)}
+                  placeholder="Street, city, ZIP"
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block text-sm text-zinc-300">
+                Job type
+                <select
+                  value={jobType}
+                  onChange={(e) => setJobType(e.target.value)}
+                  className={fieldClass}
+                >
+                  {JOB_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {jobType === "Other" ? (
+                <label className="block text-sm text-zinc-300">
+                  Describe the job
+                  <input
+                    type="text"
+                    value={jobTypeOther}
+                    onChange={(e) => setJobTypeOther(e.target.value)}
+                    placeholder="What do you need help with?"
+                    className={fieldClass}
+                  />
+                </label>
+              ) : null}
+            </section>
+
             {slotsByDay.size === 0 ? (
               <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-400">
                 Fully booked — no open slots in the next two weeks (calendar jobs or blockouts).
@@ -193,15 +273,26 @@ export default function BookPageClient({
               </p>
             ) : null}
 
+            {error ? (
+              <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                {error}
+              </p>
+            ) : null}
+
             <button
               type="button"
-              disabled={!selected || submitting}
+              disabled={!selected || !detailsReady || submitting}
               onClick={() => void handleRequestSlot()}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               {depositLabel}
             </button>
+            {!detailsReady ? (
+              <p className="text-center text-[11px] text-zinc-500">
+                Enter your name, address, and job type to continue.
+              </p>
+            ) : null}
           </div>
         )}
       </div>

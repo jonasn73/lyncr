@@ -3,6 +3,7 @@
 // Owner Messages inbox — thread list + conversation + reply (polls GET /api/messaging).
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, MessageSquare, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,11 @@ function formatMessageTime(iso: string): string {
     return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
   }
   return d.toLocaleDateString([], { month: "short", day: "numeric" })
+}
+
+/** Last 10 digits — matches Activity deep-links that use display formatting. */
+function phoneMatchKey(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-10)
 }
 
 function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
@@ -72,6 +78,7 @@ function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
 
 export const MessagesWorkspaceView = memo(function MessagesWorkspaceView() {
   const { activeOrganizationId } = useDashboardWorkspace()
+  const searchParams = useSearchParams()
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
       ? activeOrganizationId
@@ -127,10 +134,42 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView() {
 
   const threads = useMemo(() => groupIntoThreads(messages), [messages])
 
-  const activeThread = useMemo(
-    () => threads.find((t) => t.customerPhone === selectedPhone) ?? null,
-    [threads, selectedPhone]
-  )
+  // Activity / rescue deep-link: /dashboard/messages?phone=+1…
+  useEffect(() => {
+    const q = searchParams.get("phone")?.trim()
+    if (!q) return
+    const key = phoneMatchKey(q)
+    if (key.length < 10) return
+    const match = threads.find((t) => phoneMatchKey(t.customerPhone) === key)
+    setSelectedPhone(match?.customerPhone ?? q)
+  }, [searchParams, threads])
+
+  const activeThread = useMemo((): SmsThread | null => {
+    if (!selectedPhone) return null
+    const found = threads.find((t) => t.customerPhone === selectedPhone)
+    if (found) return found
+    // Deep-link / new follow-up before any sms_messages row exists.
+    const now = new Date().toISOString()
+    return {
+      customerPhone: selectedPhone,
+      messages: [],
+      lastMessage: {
+        id: "__empty__",
+        organization_id: null,
+        owner_user_id: "",
+        phone_number_id: null,
+        direction: "outbound",
+        from_number: "",
+        to_number: selectedPhone,
+        body: "",
+        customer_phone: selectedPhone,
+        telnyx_message_id: null,
+        status: "queued",
+        created_at: now,
+      },
+      needsReply: false,
+    }
+  }, [threads, selectedPhone])
 
   useEffect(() => {
     if (!selectedPhone) return

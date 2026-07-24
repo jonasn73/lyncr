@@ -19,7 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Only owners can resend rescue links" }, { status: 403 })
   }
 
-  let body: { phone_number?: string; business_line?: string | null } = {}
+  let body: {
+    phone_number?: string
+    business_line?: string | null
+    source?: string
+  } = {}
   try {
     body = (await req.json()) as typeof body
   } catch {
@@ -37,11 +41,16 @@ export async function POST(req: NextRequest) {
     ? normalizePhoneNumberE164(lineRaw) || toE164(lineRaw) || lineRaw
     : null
 
+  const sourceRaw = typeof body.source === "string" ? body.source.trim() : ""
+  const source =
+    sourceRaw ||
+    "missed_call_rescue_resend"
+
   const result = await sendMissedCallRescueBookingLink({
     ownerUserId: userId,
     customerPhone: phone,
     businessLine,
-    source: "missed_call_rescue_resend",
+    source,
   })
 
   if (!result.ok) {

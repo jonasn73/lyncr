@@ -3,7 +3,7 @@
 // Incoming-call context row + Decline / Quick SMS action toolbar.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, MessageSquare, PhoneOff, X } from "lucide-react"
+import { Link2, Loader2, MessageSquare, PhoneOff, X } from "lucide-react"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import {
@@ -83,6 +83,7 @@ export function IncomingCallOpsToolbar({
   // Inline panel (not Radix Popover) — Popover portals at z-50 and hides under Sheet z-[110].
   const [smsOpen, setSmsOpen] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
+  const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
 
   // Prefer engine-prefetched CRM context when the phone matches the live primary call.
   const engineContext: CallerContextMatch | null =
@@ -220,6 +221,45 @@ export function IncomingCallOpsToolbar({
     [businessLineE164, organizationId, phoneE164, toast]
   )
 
+  const sendBookingLink = useCallback(async () => {
+    if (!phoneE164.trim()) {
+      toast({
+        title: "No caller number",
+        description: "Wait for caller ID before sending a booking link.",
+        variant: "destructive",
+      })
+      return
+    }
+    setBookingLinkBusy(true)
+    try {
+      const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone_number: phoneE164,
+          business_line: businessLineE164 || undefined,
+          source: "on_call",
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        toast({
+          title: "Could not send booking link",
+          description: json.error || "Try again in a moment.",
+          variant: "destructive",
+        })
+        return
+      }
+      toast({
+        title: "Booking link sent",
+        description: "Customer can book a slot and enter their details.",
+      })
+    } finally {
+      setBookingLinkBusy(false)
+    }
+  }, [businessLineE164, phoneE164, toast])
+
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {/* Context Engine — active job badge or CNAM token + repeat history */}
@@ -286,6 +326,24 @@ export function IncomingCallOpsToolbar({
             <MessageSquare className="h-3.5 w-3.5" aria-hidden />
           )}
           Quick SMS
+        </button>
+
+        <button
+          type="button"
+          disabled={bookingLinkBusy || !phoneE164.trim()}
+          onClick={() => void sendBookingLink()}
+          className={cn(
+            BTN,
+            "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+          )}
+          aria-label="Text booking link"
+        >
+          {bookingLinkBusy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Link2 className="h-3.5 w-3.5" aria-hidden />
+          )}
+          Text booking link
         </button>
 
         {isRinging ? (

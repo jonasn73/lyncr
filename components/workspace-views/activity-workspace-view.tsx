@@ -3,7 +3,17 @@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { CalendarDays, ChevronDown, ClipboardList, Clock, MapPin, Phone, PhoneMissed } from "lucide-react"
+import {
+  CalendarDays,
+  ChevronDown,
+  ClipboardList,
+  Clock,
+  MapPin,
+  MessageSquare,
+  Phone,
+  PhoneMissed,
+} from "lucide-react"
+import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import { cn } from "@/lib/utils"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
@@ -603,6 +613,7 @@ function ActivityIntakeSummary({
 }
 
 function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => void }) {
+  const { activeOrganizationId } = useDashboardWorkspace()
   const agent = resolveCallAgent(call)
   const summary = buildCallSummary(call)
   const showCallBack = canCallBack(call)
@@ -618,6 +629,11 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
   const schedulerHref = activity.leadId
     ? buildSchedulerFocusUrl(activity.leadId, { schedule: !activity.scheduleAt })
     : null
+  const customerPhone = call.callerNumber.trim()
+  const canText = Boolean(toE164(customerPhone) || customerPhone.replace(/\D/g, "").length >= 10)
+  const messagesHref = canText
+    ? `/dashboard/messages?phone=${encodeURIComponent(customerPhone)}`
+    : "/dashboard/messages"
 
   return (
     <>
@@ -641,6 +657,32 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </span>
             <CallTimeDisplay call={call} variant="compact" />
           </div>
+
+          {canText ? (
+            <div className="rounded-2xl border border-sky-500/25 bg-sky-500/[0.06] p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-sky-300">
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                  Text customer
+                </p>
+                <Link
+                  href={messagesHref}
+                  className="text-[11px] font-semibold text-sky-300/90 underline-offset-2 hover:underline"
+                >
+                  Open in Messages
+                </Link>
+              </div>
+              <CustomerSmsComposer
+                toPhone={customerPhone}
+                fromLine={call.targetLineE164 || null}
+                organizationId={activeOrganizationId}
+                showRunningLate
+                showQuickTemplates
+                showBookingLink
+                title="Follow-up SMS"
+              />
+            </div>
+          ) : null}
 
           <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
             <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">

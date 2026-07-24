@@ -48,6 +48,7 @@ import {
   SCHEDULER_STACK,
 } from "@/lib/scheduler-ui-tokens"
 import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
+import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 /** Terminal lifecycle status written by Quick Actions. */
@@ -77,13 +78,6 @@ type JobDetailOverviewProps = {
   onQuickLifecycleAction: (status: JobLifecycleQuickStatus) => void
   onClose: () => void
 }
-
-const QUICK_SMS_TEMPLATES = [
-  "Stuck on a job, text you right back!",
-  "On my way — give me 10 minutes.",
-  "Got your call. What's the address?",
-  "Tech is en route — please stay near the vehicle.",
-] as const
 
 function telHref(phone: string): string | null {
   const trimmed = phone.trim()
@@ -160,8 +154,6 @@ export function JobDetailOverview({
   const [depositSmsStaging, setDepositSmsStaging] = useState<string | null>(null)
   // Inline Telnyx SMS composer (popover was z-50 and opened behind this z-[1410] drawer).
   const [smsComposerOpen, setSmsComposerOpen] = useState(false)
-  const [smsDraft, setSmsDraft] = useState("")
-  const [smsSending, setSmsSending] = useState(false)
 
   const handleSecureDepositLink = useCallback(() => {
     const depositUrl = createMockSecureDepositLink(source.id)
@@ -177,50 +169,6 @@ export function JobDetailOverview({
       })
     )
   }, [source.id, billingBalanceDollars, customerName])
-
-  const sendQuickSms = useCallback(
-    async (text: string) => {
-      if (!customerPhone) {
-        toast({
-          title: "No phone on file",
-          description: "Add a customer phone before sending SMS.",
-          variant: "destructive",
-        })
-        return
-      }
-      setSmsSending(true)
-      try {
-        const res = await fetch("/api/messaging/send", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: customerPhone,
-            text,
-            organization_id:
-              activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
-                ? activeOrganizationId
-                : undefined,
-          }),
-        })
-        const json = (await res.json().catch(() => ({}))) as { error?: string }
-        if (!res.ok) {
-          toast({
-            title: "SMS failed",
-            description: json.error || "Could not send the quick text.",
-            variant: "destructive",
-          })
-          return
-        }
-        toast({ title: "SMS sent", description: text })
-        setSmsDraft("")
-        setSmsComposerOpen(false)
-      } finally {
-        setSmsSending(false)
-      }
-    },
-    [activeOrganizationId, customerPhone, toast]
-  )
 
   const openSmsComposer = useCallback(() => {
     if (!customerPhone) {
@@ -285,7 +233,7 @@ export function JobDetailOverview({
           )}
           <button
             type="button"
-            disabled={!customerPhone || smsSending}
+            disabled={!customerPhone}
             aria-expanded={smsComposerOpen}
             onClick={openSmsComposer}
             className={cn(
@@ -295,80 +243,23 @@ export function JobDetailOverview({
                 : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
             )}
           >
-            {smsSending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-            )}
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
             Quick SMS
           </button>
         </div>
 
         {/* Telnyx SMS composer — lives in the drawer so it is never clipped by z-index */}
         {smsComposerOpen ? (
-          <div className="mt-3 space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
-                  Telnyx SMS
-                </p>
-                <p className="mt-0.5 truncate font-mono text-xs text-sky-100">
-                  To {formatPhoneDisplay(customerPhone)}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close SMS composer"
-                onClick={() => setSmsComposerOpen(false)}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
-              >
-                <X className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-            <ul className="flex flex-col gap-1">
-              {QUICK_SMS_TEMPLATES.map((template) => (
-                <li key={template}>
-                  <button
-                    type="button"
-                    disabled={smsSending}
-                    onClick={() => void sendQuickSms(template)}
-                    className="w-full rounded-lg border border-sky-500/20 bg-slate-950/50 px-2.5 py-2 text-left text-xs font-medium text-slate-100 hover:border-sky-400/40 hover:bg-slate-900 disabled:opacity-50"
-                  >
-                    {template}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="space-y-1.5 pt-1">
-              <label htmlFor="active-job-sms-draft" className="sr-only">
-                Custom SMS message
-              </label>
-              <textarea
-                id="active-job-sms-draft"
-                rows={2}
-                value={smsDraft}
-                disabled={smsSending}
-                onChange={(e) => setSmsDraft(e.target.value)}
-                placeholder="Or type a custom message…"
-                className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
-              />
-              <Button
-                type="button"
-                size="sm"
-                className="w-full"
-                disabled={smsSending || !smsDraft.trim()}
-                onClick={() => void sendQuickSms(smsDraft.trim())}
-              >
-                {smsSending ? (
-                  <>
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
-                    Sending…
-                  </>
-                ) : (
-                  "Send SMS"
-                )}
-              </Button>
-            </div>
+          <div className="mt-3">
+            <CustomerSmsComposer
+              toPhone={customerPhone}
+              organizationId={activeOrganizationId}
+              title="Telnyx SMS"
+              showRunningLate
+              showQuickTemplates
+              onClose={() => setSmsComposerOpen(false)}
+              onSent={() => setSmsComposerOpen(false)}
+            />
           </div>
         ) : null}
       </header>
