@@ -117,28 +117,33 @@ const AppShellHeader = memo(function AppShellHeader({
   )
 })
 
-/** Same footprint as HeaderAccountMenu while session loads — prevents center slot from shifting. */
+/** Same footprint as HeaderAccountMenu while session loads — wallet + avatar. */
 const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      disabled
-      aria-busy="true"
-      aria-label="Loading account"
-      className="h-9 min-w-[2.75rem] gap-1 border-border/80 bg-card/80 px-2 py-0 shadow-sm sm:w-[14rem] sm:max-w-[14rem] sm:gap-2"
-    >
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
-      </span>
-      <span className="h-2 w-8 animate-pulse rounded bg-muted/70 sm:hidden" aria-hidden />
-      <span className="hidden min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex">
-        <span className="h-3 w-20 animate-pulse rounded bg-muted/80" aria-hidden />
-        <span className="h-2.5 w-24 animate-pulse rounded bg-emerald-500/20" aria-hidden />
-      </span>
-      <ChevronDown className="hidden h-4 w-4 shrink-0 opacity-40 sm:block" aria-hidden />
-    </Button>
+    <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled
+        className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300/70" aria-hidden />
+        <span className="h-2.5 w-10 animate-pulse rounded bg-emerald-500/25" aria-hidden />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled
+        className="h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 shadow-sm sm:px-2"
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
+        </span>
+        <span className="hidden h-2.5 w-12 animate-pulse rounded bg-muted/70 sm:inline-block" aria-hidden />
+      </Button>
+    </div>
   )
 })
 

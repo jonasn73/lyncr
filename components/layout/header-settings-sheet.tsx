@@ -100,62 +100,44 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const collectedLabel =
     todayCents == null ? "…" : formatCollectedDollars(todayCents)
 
+  const firstName = name.trim().split(/\s+/)[0] || name
+
   return (
     <>
       <div className="flex items-center gap-1.5">
-        {/* Collect stays on the header wallet — not inside Settings. */}
+        {/* Money lives with Collect — tap to charge / see today’s total. */}
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => setCollectOpen(true)}
-          className="h-9 w-9 shrink-0 border-emerald-500/40 bg-emerald-500/10 p-0 text-emerald-200 shadow-sm hover:bg-emerald-500/20 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5"
-          aria-label="Collect payment"
+          className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20"
+          aria-label={`Collect payment — ${collectedLabel} today`}
           title="Collect payment"
         >
-          <CreditCard className="h-4 w-4" aria-hidden />
-          <span className="hidden text-xs font-semibold sm:inline">Collect</span>
+          <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="text-xs font-bold tabular-nums">{collectedLabel}</span>
         </Button>
 
+        {/* Account / Settings — avatar (+ name on larger screens), no dollar amount. */}
         <Button
           type="button"
           variant="outline"
           onClick={() => setOpen(true)}
           className={cn(
-            "border-border/80 bg-card/80 shadow-sm",
-            // Mobile: single-line "Jonas · $0" chip
-            "h-9 max-w-[7.5rem] min-w-0 gap-1 overflow-hidden px-2 py-0",
-            // Desktop: avatar + full name + collected line
-            "sm:h-9 sm:w-[14rem] sm:max-w-[14rem] sm:gap-2 sm:px-2"
+            "h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 shadow-sm sm:max-w-[11rem] sm:gap-2 sm:px-2"
           )}
           aria-label="Open settings"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
-          {/* Initials only on desktop */}
-          <Avatar className="hidden h-7 w-7 shrink-0 sm:flex">
+          <Avatar className="h-7 w-7 shrink-0">
             <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
-          {/* Mobile: first name · collected $ on one line */}
-          <span className="flex min-w-0 items-center gap-1 truncate text-[11px] font-medium leading-none sm:hidden">
-            <span className="truncate text-foreground">
-              {name.trim().split(/\s+/)[0] || name}
-            </span>
-            <span className="shrink-0 text-zinc-600" aria-hidden>
-              ·
-            </span>
-            <span className="shrink-0 font-bold tabular-nums text-emerald-300">
-              {collectedLabel}
-            </span>
-          </span>
-          {/* Desktop: name + amount collected */}
-          <span className="hidden min-w-0 flex-1 flex-col items-start text-left sm:flex">
-            <span className="w-full truncate text-xs font-medium leading-tight text-foreground">{name}</span>
-            <span className="w-full truncate text-[11px] font-bold leading-tight tabular-nums text-emerald-300">
-              {todayCents === 0 ? "Collected $0 today" : `${collectedLabel} today`}
-            </span>
+          <span className="hidden min-w-0 truncate text-xs font-medium text-foreground sm:inline">
+            {firstName}
           </span>
           <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />
         </Button>
