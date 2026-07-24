@@ -1,54 +1,79 @@
-# lyncr Mobile (Expo)
+# Lyncr Mobile (Expo)
 
-React Native mobile app for lyncr. It uses the **same Next.js backend** as the web app: all API routes stay in the parent project; the app just calls them over the network.
+React Native app for Lyncr. It uses the **same Next.js backend** as the web app at [lyncr.app](https://lyncr.app).
+
+**Tap to Pay on iPhone** needs a native EAS build — not Safari and not Expo Go. See:
+
+- [`docs/MOBILE-EAS-DEV-BUILD.md`](../docs/MOBILE-EAS-DEV-BUILD.md)
+- [`docs/TAP-TO-PAY-IPHONE.md`](../docs/TAP-TO-PAY-IPHONE.md)
+
+## Identifiers
+
+| Field | Value |
+|-------|--------|
+| App name | Lyncr |
+| Expo slug | `lyncr-mobile` |
+| iOS bundle id | `app.lyncr.mobile` |
+| Android package | `app.lyncr.mobile` |
+| URL scheme | `lyncr` |
+| API (production) | `https://lyncr.app` |
 
 ## How it works
 
-- **Backend**: The Next.js app in the parent folder (`/`) runs the API (`/api/auth/*`, `/api/routing`, `/api/calls`, etc.). Run it with `npm run dev` from the project root.
-- **Mobile**: This Expo app is a separate front-end. It talks to the backend via `API_URL` (see below). Auth uses **cookies**: the API sets a session cookie and the app sends it with every request (`credentials: 'include'`).
+- **Backend**: Next.js API routes in the parent repo (`/api/auth/*`, `/api/payments/*`, etc.).
+- **Mobile**: Expo Router UI. Auth uses **cookies** (`credentials: 'include'`).
+- **Collect tab**: Stripe Terminal React Native → Tap to Pay → same payment APIs as web Collect Payment.
 
-## Quick start
+## Quick start (UI only — Expo Go)
 
-1. **Start the Next.js backend** (from repo root):
+1. From repo root, API can be local or production. For production:
+
    ```bash
-   cd ..
-   npm run dev
+   cd /Users/JR/Desktop/Lyncr/mobile
+   cp .env.example .env
    ```
-   Leave it running (e.g. at http://localhost:3000).
 
-2. **Set the API URL** for the mobile app:
-   - Create `mobile/.env` with:
-     ```
-     EXPO_PUBLIC_API_URL=http://localhost:3000
-     ```
-   - **On a physical device**: use your computer’s IP (e.g. `http://192.168.1.10:3000`) or a tunnel (ngrok, etc.), not `localhost`.
-   - **iOS Simulator**: `http://localhost:3000` usually works.
-   - **Android Emulator**: use `http://10.0.2.2:3000` instead of localhost.
+   `.env` should contain:
 
-3. **Install and run the mobile app**:
+   ```
+   EXPO_PUBLIC_API_URL=https://lyncr.app
+   ```
+
+2. Install and start:
+
    ```bash
-   cd mobile
+   cd /Users/JR/Desktop/Lyncr/mobile
    npm install
    npx expo start
    ```
-   Then press `i` for iOS simulator or `a` for Android emulator, or scan the QR code with Expo Go on your phone.
+
+   Expo Go is fine for login/tabs demos. **It will not run Tap to Pay.**
+
+## Tap to Pay (development build)
+
+```bash
+npm install -g eas-cli
+cd /Users/JR/Desktop/Lyncr/mobile
+eas login
+eas build:configure
+npm run eas:dev:ios
+```
+
+Then:
+
+```bash
+npx expo start --dev-client
+```
+
+Install the build on a physical iPhone, open **Collect**, charge with NFC.
 
 ## Project structure
 
-- `app/` – Expo Router screens:
-  - `index.tsx` – checks session, redirects to login or tabs
-  - `login.tsx`, `signup.tsx`, `onboarding.tsx` – auth flow
-  - `(tabs)/` – main app: Routing (dashboard), Activity, Contacts, Pay, Settings
-- `lib/api.ts` – `API_URL`, `apiGet()`, `apiMutate()` (all use `credentials: 'include'`)
-- `lib/useSession.ts` – `useSession()` hook that calls `/api/auth/session`
+- `app/(tabs)/collect.tsx` — Collect Payment + Tap to Pay
+- `app/(tabs)/` — Routing, Activity, Contacts, Pay, Settings
+- `lib/api.ts` — `API_URL` (default `https://lyncr.app`), `apiGet`, `apiMutate`
+- `eas.json` — EAS development / preview / production profiles
 
-## Deploying for production
+## Production App Store
 
-1. Deploy the Next.js app (e.g. Vercel) and note its URL.
-2. In `mobile/.env`, set:
-   ```
-   EXPO_PUBLIC_API_URL=https://your-app.vercel.app
-   ```
-3. Build the app: `eas build` (Expo Application Services) or `expo build` for classic builds.
-
-The same API and cookie-based auth work for both web and mobile; only the UI is different.
+Follow [`docs/DEPLOY-TO-APP-STORE.md`](../docs/DEPLOY-TO-APP-STORE.md).

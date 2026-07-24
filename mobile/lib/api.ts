@@ -4,7 +4,8 @@
  * - Production: use your deployed Next.js URL (e.g. https://lyncr.app).
  * Cookies from the API are sent with credentials: 'include'.
  */
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000"
+// Production default is the live API; override with EXPO_PUBLIC_API_URL for local/dev.
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://lyncr.app"
 
 /** GET request with credentials (sends cookies). */
 export async function apiGet<T = unknown>(path: string): Promise<T> {

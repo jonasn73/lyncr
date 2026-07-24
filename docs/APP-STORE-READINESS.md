@@ -17,6 +17,7 @@ Checklist to get lyncr approved on the **Apple App Store** and **Google Play**. 
   - `icon.png` – 1024×1024 px (App Store), Expo will generate other sizes
   - `splash-icon.png` – e.g. 1284×2778 px or use Expo’s splash specs
   - `adaptive-icon.png` – 1024×1024 px (Android foreground)
+- **Status:** Lyncr teal **L** assets are checked in under `mobile/assets/`.
 - **If missing:** EAS/Expo builds can fail or use defaults. Add these before submitting.
 - See: [Expo icons](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/), [adaptive icon](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/#adaptive-icon).
 

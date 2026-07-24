@@ -1,16 +1,16 @@
-// POST /api/payments/terminal/connection-token
-// Stripe Terminal short-lived connection token for Tap to Pay / reader SDK.
+// GET /api/payments/terminal/location
+// Stripe Terminal Location id required by the React Native Tap to Pay SDK.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser } from "@/lib/db"
-import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
+import { isStripeConfigured } from "@/lib/stripe-config"
 import { getOrCreateTerminalLocationId } from "@/lib/stripe-terminal-location"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
@@ -24,17 +24,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const stripe = getStripeClient()
-    const token = await stripe.terminal.connectionTokens.create()
-    // RN Tap to Pay also needs a Terminal Location id when connecting the reader.
     const locationId = await getOrCreateTerminalLocationId({
       userId,
       displayName: user.business_name || user.name || "Lyncr",
     })
-    return NextResponse.json({ data: { secret: token.secret, locationId } })
+    return NextResponse.json({ data: { locationId } })
   } catch (e) {
-    console.error("[payments/terminal/connection-token]", e)
-    const message = e instanceof Error ? e.message : "Could not create connection token"
+    console.error("[payments/terminal/location]", e)
+    const message = e instanceof Error ? e.message : "Could not resolve Terminal location"
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

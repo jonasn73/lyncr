@@ -45,6 +45,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="collect"
+        options={{
+          title: "Collect",
+          headerTitle: "Collect Payment",
+          tabBarLabel: "Collect",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="💳" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
         name="pay"
         options={{
           title: "Pay",

@@ -1,6 +1,9 @@
 import { Stack, type ErrorBoundaryProps } from "expo-router"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { StripeTerminalProvider } from "@stripe/stripe-terminal-react-native"
+import { fetchTerminalConnectionToken } from "@/lib/terminalToken"
+import { TerminalBootstrap } from "@/components/TerminalBootstrap"
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -25,13 +28,18 @@ const errorStyles = StyleSheet.create({
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="signup" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
+      {/* Stripe Terminal must wrap any screen that uses useStripeTerminal (Collect). */}
+      <StripeTerminalProvider logLevel="verbose" tokenProvider={fetchTerminalConnectionToken}>
+        <TerminalBootstrap>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="signup" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
+        </TerminalBootstrap>
+      </StripeTerminalProvider>
     </SafeAreaProvider>
   )
 }
