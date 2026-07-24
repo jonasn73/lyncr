@@ -91,22 +91,10 @@ const AppShellHeader = memo(function AppShellHeader({
       )}
 
       <div className="relative z-20 flex shrink-0 items-center justify-self-end gap-1 sm:gap-2">
-        {useLinks && (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
-              aria-label="Jump to a page"
-              title="Jump to page — ⌘K or Ctrl+K"
-              onClick={() => onCommandOpenChange(true)}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-            <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={onCommandOpenChange} />
-          </>
-        )}
+        {/* Command palette stays on ⌘K / Ctrl+K — no header search icon (cleans the menu). */}
+        {useLinks ? (
+          <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={onCommandOpenChange} />
+        ) : null}
         {useLinks ? <NotificationCenter /> : null}
         {useLinks && accountHeader?.kind === "loading" && <HeaderAccountMenuSkeleton />}
         {useLinks && accountHeader?.kind === "ready" && (
