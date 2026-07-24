@@ -209,6 +209,43 @@ export type Telnyx10DlcStatus = {
   detail: string | null
 }
 
+/** Pull campaign + assignment fields from Telnyx phoneNumberCampaign JSON (shape varies). */
+function parsePhoneNumberCampaignRecord(body: unknown): {
+  campaignId: string | null
+  assignmentStatus: string | null
+} {
+  const root = body as {
+    data?: Record<string, unknown> | Record<string, unknown>[]
+    records?: Record<string, unknown>[]
+  }
+  const record: Record<string, unknown> | null = Array.isArray(root.records)
+    ? (root.records[0] ?? null)
+    : Array.isArray(root.data)
+      ? (root.data[0] ?? null)
+      : root.data && typeof root.data === "object"
+        ? root.data
+        : null
+  if (!record) return { campaignId: null, assignmentStatus: null }
+
+  const campaignId =
+    (record.campaignId as string | undefined) ||
+    (record.campaign_id as string | undefined) ||
+    (record.telnyxCampaignId as string | undefined) ||
+    (record.tcrCampaignId as string | undefined) ||
+    (record.campaign as { id?: string } | undefined)?.id ||
+    null
+  const assignmentStatus = String(
+    record.assignmentStatus ?? record.assignment_status ?? ""
+  )
+    .trim()
+    .toUpperCase()
+
+  return {
+    campaignId: campaignId ? String(campaignId) : null,
+    assignmentStatus: assignmentStatus || null,
+  }
+}
+
 /** US local numbers need a 10DLC campaign or carriers silently drop SMS after API accept. */
 export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Telnyx10DlcStatus> {
   const target = normalizePhoneNumberE164(e164.trim())
@@ -239,15 +276,22 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
     }
   }
 
-  const data = (body as { data?: Record<string, unknown> }).data ?? {}
-  const campaignId =
-    (data.campaignId as string | undefined) ||
-    (data.campaign_id as string | undefined) ||
-    (data.campaign as { id?: string } | undefined)?.id ||
-    null
+  const { campaignId, assignmentStatus } = parsePhoneNumberCampaignRecord(body)
 
   if (campaignId) {
-    return { assigned: true, campaign_id: String(campaignId), detail: null }
+    // FAILED / REJECTED means carriers will still drop traffic.
+    if (
+      assignmentStatus &&
+      /FAIL|REJECT|ERROR|DENIED/.test(assignmentStatus)
+    ) {
+      return {
+        assigned: false,
+        campaign_id: campaignId,
+        detail: `10DLC assignment failed for ${target} (${assignmentStatus}). Open Settings → Carrier registration and refresh, or check Telnyx Mission Control.`,
+      }
+    }
+    // PENDING_ASSIGNMENT still counts as linked — Telnyx already accepted the DID on the campaign.
+    return { assigned: true, campaign_id: campaignId, detail: null }
   }
 
   return {
