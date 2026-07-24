@@ -121,9 +121,19 @@ export async function ensureStripeConnectAccount(userId: string): Promise<string
   return createEmbeddedFriendlyConnectAccount(userId, user)
 }
 
+function stripeErrorMessage(e: unknown): string {
+  if (e instanceof Error && e.message.trim()) return e.message
+  if (e && typeof e === "object") {
+    const o = e as { message?: unknown; raw?: { message?: unknown } }
+    if (typeof o.message === "string" && o.message.trim()) return o.message
+    if (typeof o.raw?.message === "string" && o.raw.message.trim()) return o.raw.message
+  }
+  return String(e)
+}
+
 /**
- * Connected accounts configured for in-app embedded onboarding (no Stripe.com redirect).
- * `requirement_collection: application` lets us disable Stripe’s popup login inside Get paid.
+ * Custom connected accounts for fully in-app Get paid (no Stripe.com login / redirect).
+ * Requires platform-owned requirement collection + dashboard type `none`.
  */
 async function createEmbeddedFriendlyConnectAccount(
   userId: string,
@@ -132,7 +142,6 @@ async function createEmbeddedFriendlyConnectAccount(
   const stripe = getStripeClient()
   const businessName = user.business_name?.trim() || user.name?.trim() || undefined
 
-  // Prefer controller-based Express so onboarding stays inside Lyncr.
   let account: Stripe.Account
   try {
     account = await stripe.accounts.create({
@@ -146,36 +155,24 @@ async function createEmbeddedFriendlyConnectAccount(
         card_payments: { requested: true },
         transfers: { requested: true },
       },
+      // Custom-style controller — only config that allows disable_stripe_user_authentication.
       controller: {
-        // Platform collects KYC in embedded UI — required to skip Stripe login popup.
         requirement_collection: "application",
         losses: { payments: "application" },
-        // Shop pays Stripe’s card fee; Lyncr still takes application_fee_amount.
-        fees: { payer: "account" },
-        stripe_dashboard: { type: "express" },
+        fees: { payer: "application" },
+        stripe_dashboard: { type: "none" },
       },
       metadata: {
         lyncr_user_id: userId,
       },
     })
   } catch (e) {
-    console.warn("[stripe-connect] controller create failed, falling back to type=express:", e)
-    account = await stripe.accounts.create({
-      type: "express",
-      country: "US",
-      email: user.email?.trim() || undefined,
-      business_profile: {
-        name: businessName,
-        product_description: "On-site service payments collected via Lyncr",
-      },
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-      metadata: {
-        lyncr_user_id: userId,
-      },
-    })
+    const msg = stripeErrorMessage(e)
+    console.error("[stripe-connect] custom Connect account create failed:", msg)
+    throw new Error(
+      "Stripe blocked in-app payout setup. In Stripe Dashboard → Connect → settings, turn on platform-owned onboarding (Custom / no Stripe dashboard for sellers), then try Set up payouts again. Details: " +
+        msg
+    )
   }
 
   await updateUserStripeConnect(userId, {
@@ -189,21 +186,19 @@ async function createEmbeddedFriendlyConnectAccount(
 }
 
 /**
- * Incomplete Express accounts created before in-app auth fix cannot disable Stripe login.
- * Replace only when details were never submitted.
+ * Incomplete Express accounts cannot disable Stripe login — replace with Custom for in-app UI.
+ * Only when onboarding was never finished (never charged).
  */
 export async function recreateConnectAccountIfAuthBlocked(userId: string): Promise<string> {
   const user = await getUser(userId)
   if (!user) throw new Error("User not found")
   const row = await getUserStripeConnect(userId)
-  if (!row?.stripe_connect_account_id) {
-    return ensureStripeConnectAccount(userId)
-  }
-  if (row.stripe_connect_details_submitted || row.stripe_connect_charges_enabled) {
-    return row.stripe_connect_account_id
+  if (row?.stripe_connect_details_submitted || row?.stripe_connect_charges_enabled) {
+    throw new Error(
+      "This payout account was created with Stripe Express login. Contact support to migrate Get paid in-app."
+    )
   }
 
-  // Clear so ensure creates a fresh embedded-friendly account.
   await updateUserStripeConnect(userId, {
     stripeConnectAccountId: null,
     chargesEnabled: false,
@@ -230,7 +225,6 @@ export async function createConnectAccountSession(
           enabled: true as const,
           features: {
             external_account_collection: true,
-            // Keep shops inside Lyncr — no Stripe login popup / redirect.
             ...(disableStripeAuth ? { disable_stripe_user_authentication: true } : {}),
           },
         }
@@ -246,35 +240,40 @@ export async function createConnectAccountSession(
       : { enabled: false as const },
   })
 
-  try {
+  const trySession = async (acct: string, disableAuth: boolean) => {
     const session = await stripe.accountSessions.create({
-      account: accountId,
-      components: buildComponents(true),
+      account: acct,
+      components: buildComponents(disableAuth),
     })
     if (!session.client_secret) {
       throw new Error("Stripe did not return an Account Session client_secret")
     }
-    return { clientSecret: session.client_secret, accountId }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    // Old Express accounts (Stripe collects requirements) reject disable_stripe_user_authentication.
-    const authBlocked =
-      /disable_stripe_user_authentication|requirement_collection/i.test(msg) ||
-      /cannot be true/i.test(msg)
+    return session.client_secret
+  }
 
-    if (authBlocked) {
-      console.warn("[stripe-connect] recreating Connect account for in-app onboarding:", msg)
-      accountId = await recreateConnectAccountIfAuthBlocked(userId)
-      const session = await stripe.accountSessions.create({
-        account: accountId,
-        components: buildComponents(true),
-      })
-      if (!session.client_secret) {
-        throw new Error("Stripe did not return an Account Session client_secret")
-      }
-      return { clientSecret: session.client_secret, accountId }
+  try {
+    const clientSecret = await trySession(accountId, true)
+    return { clientSecret, accountId }
+  } catch (e) {
+    const msg = stripeErrorMessage(e)
+    const authBlocked =
+      /disable_stripe_user_authentication|requirement_collection|platform owns requirements|custom accounts/i.test(
+        msg
+      )
+
+    if (!authBlocked) throw e instanceof Error ? e : new Error(msg)
+
+    console.warn("[stripe-connect] Express account blocks in-app auth — recreating as Custom:", msg)
+    accountId = await recreateConnectAccountIfAuthBlocked(userId)
+    try {
+      const clientSecret = await trySession(accountId, true)
+      return { clientSecret, accountId }
+    } catch (e2) {
+      throw new Error(
+        "Still can’t start in-app Get paid. In Stripe → Connect settings, choose platform-owned requirements / Custom (no seller Stripe dashboard), then try again. " +
+          stripeErrorMessage(e2)
+      )
     }
-    throw e
   }
 }
 
