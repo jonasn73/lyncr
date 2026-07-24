@@ -117,6 +117,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 112 | `112-payment-slips.sql` | **Collect tip + signature.** Creates **`payment_slips`** (`stripe_payment_intent_id`, `tip_cents`, `tip_payment_intent_id`, `signature_png`). Powers post-payment tip options + customer signature on Collect Payment, and tip/signature on emailed receipts. **Required** to save tip/signature after a charge. |
 | 113 | `113-collect-pay-links.sql` | **Branded pay links.** Creates **`collect_pay_links`** (short token → Stripe Checkout session). Powers SMS/email **`lyncr.app/pay/{token}`** pages with embedded checkout (no `checkout.stripe.com` URL). App falls back to Stripe metadata search if this table is missing. |
 | 114 | `114-stripe-connect-accounts.sql` | **Get paid (Stripe Connect).** Adds **`users.stripe_connect_account_id`**, **`stripe_connect_charges_enabled`**, **`stripe_connect_payouts_enabled`**, **`stripe_connect_details_submitted`**, **`stripe_connect_updated_at`**. Powers in-app Connect Express onboarding so Collect Payment charges go to each shop’s bank (Lyncr takes 2.9% + $0.30). **Required** before Connect payouts work. |
+| 115 | `115-payment-receipt-tokens.sql` | **Short invoice links.** Creates **`payment_receipt_tokens`** (short token → Stripe PaymentIntent). Powers SMS/email **`lyncr.app/r/{token}`** invoice pages without a multi-line signed URL. **Required** for short invoice texts. |
 
 ## Platform admin (`admin@lyncr.app`)
 

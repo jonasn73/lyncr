@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { verifyPaymentReceiptToken } from "@/lib/payment-receipt-token"
+import { resolveReceiptToken } from "@/lib/payment-receipt-short-token"
 import { loadPaymentInvoice } from "@/lib/payment-invoice"
 
 export const dynamic = "force-dynamic"
@@ -13,7 +14,12 @@ export async function GET(
 ) {
   const { token: raw } = await context.params
   const token = decodeURIComponent(String(raw || "").trim())
-  const verified = verifyPaymentReceiptToken(token)
+
+  // Prefer short DB tokens (lyncr.app/r/Ab3xYz9kQm); fall back to old HMAC links.
+  const short = await resolveReceiptToken(token)
+  const verified = short
+    ? { paymentIntentId: short.paymentIntentId, ownerUserId: short.ownerUserId }
+    : verifyPaymentReceiptToken(token)
   if (!verified) {
     return NextResponse.json({ error: "Invoice link is invalid or expired" }, { status: 404 })
   }

@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { getUser } from "@/lib/db"
 import { getAppUrl } from "@/lib/telnyx"
 import { getPaymentSlipByIntentId } from "@/lib/payment-slips"
-import { createPaymentReceiptToken } from "@/lib/payment-receipt-token"
+import { getOrCreateReceiptToken } from "@/lib/payment-receipt-short-token"
 import { retrieveLyncrPaymentIntent } from "@/lib/stripe-payment-intent-retrieve"
 import { getStripeClient } from "@/lib/stripe-config"
 
@@ -147,7 +147,8 @@ export async function loadPaymentInvoice(params: {
   const paidAtIso = full.created
     ? new Date(full.created * 1000).toISOString()
     : new Date().toISOString()
-  const token = createPaymentReceiptToken({
+  // Short token → lyncr.app/r/Ab3xYz9kQm (fits in one SMS line).
+  const shortToken = await getOrCreateReceiptToken({
     paymentIntentId: full.id,
     ownerUserId: (owner || params.ownerUserId).trim(),
   })
@@ -168,7 +169,7 @@ export async function loadPaymentInvoice(params: {
     totalCents: amountCents + tipCents,
     paymentMethodLabel: paymentMethodLabelFromIntent(full),
     signaturePng: slip?.signature_png || null,
-    receiptUrl: `${appUrl}/r/${encodeURIComponent(token)}`,
+    receiptUrl: `${appUrl}/r/${shortToken}`,
     paymentIntentId: full.id,
   }
 }
