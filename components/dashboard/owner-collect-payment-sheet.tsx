@@ -944,11 +944,7 @@ export function OwnerCollectPaymentSheet({
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className={cn(
-            "flex flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:mx-auto sm:max-w-lg",
-            // List mode hugs content; charge flows get more height.
-            mode === "list" ? "max-h-[min(88dvh,640px)]" : "max-h-[88dvh]"
-          )}
+          className="flex h-auto max-h-[92dvh] flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
         >
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <div className="flex items-start justify-between gap-3">
@@ -1720,6 +1716,7 @@ export function OwnerCollectPaymentSheet({
       {payJob ? (
         <TechPaymentModal
           job={payJob}
+          showBack
           onClose={() => setPayJob(null)}
           onCompleted={() => {
             setPayJob(null)

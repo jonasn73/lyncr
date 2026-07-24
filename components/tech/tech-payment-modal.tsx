@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import {
+  ArrowLeft,
   Banknote,
   CheckCircle2,
   CreditCard,
@@ -92,6 +93,8 @@ export function TechPaymentModal(props: {
   job: DispatchJob
   onClose: () => void
   onCompleted: () => void
+  /** When opened from Collect — show Back to the job list (same as Walk-up). */
+  showBack?: boolean
 }) {
   const [lines, setLines] = useState<Line[]>(() => initialLines(props.job))
   // Editable pre-tax amount (dollars). Kept in sync with line items unless the user typed a custom total.
@@ -767,10 +770,10 @@ export function TechPaymentModal(props: {
   // which otherwise traps position:fixed to the header — only a sliver shows on screen.
   const modal = (
     <div
-      className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Proceed to payment"
+      aria-label="Charge"
     >
       {tapListening ? (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#0b0b12]/95 px-8 text-center">
@@ -789,7 +792,7 @@ export function TechPaymentModal(props: {
         </div>
       ) : null}
 
-      <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-800 bg-[#101018] shadow-2xl sm:rounded-3xl">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md">
         <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <div>
             <h2 className="text-base font-bold text-white">
@@ -1158,6 +1161,17 @@ export function TechPaymentModal(props: {
         ) : (
           <>
             <div className="flex-1 space-y-2.5 overflow-y-auto px-4 py-3">
+              {props.showBack && !postPayStep ? (
+                <button
+                  type="button"
+                  onClick={props.onClose}
+                  disabled={busy || tapListening || slipBusy}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-200 disabled:opacity-40"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                  Back
+                </button>
+              ) : null}
               {forceNewCharge && paidLink ? (
                 <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2">
                   <p className="text-xs font-medium text-amber-100">

@@ -93,7 +93,8 @@ function SheetContent({
                 side === 'top' &&
                   'data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
                 side === 'bottom' &&
-                  'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex h-[min(88dvh,800px)] max-h-[94dvh] flex-col rounded-t-3xl border-x border-t border-border/70',
+                  // h-auto hugs content (no empty gap); max-h keeps tall flows scrollable.
+                  'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 flex h-auto max-h-[94dvh] flex-col rounded-t-3xl rounded-b-none border-x border-t border-b-0 border-border/70 pb-[env(safe-area-inset-bottom)]',
               ),
           className,
         )}
