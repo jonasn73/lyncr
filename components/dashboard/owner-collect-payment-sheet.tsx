@@ -18,6 +18,7 @@ import {
   Phone,
   Link2,
   MessageSquare,
+  X,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -942,31 +943,50 @@ export function OwnerCollectPaymentSheet({
       >
         <SheetContent
           side="bottom"
-          className="flex max-h-[88dvh] flex-col gap-0 rounded-t-2xl p-0 sm:mx-auto sm:max-w-lg"
+          showCloseButton={false}
+          className={cn(
+            "flex flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:mx-auto sm:max-w-lg",
+            // List mode hugs content; charge flows get more height.
+            mode === "list" ? "max-h-[min(88dvh,640px)]" : "max-h-[88dvh]"
+          )}
         >
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
-            <div className="flex items-start justify-between gap-3 pr-8">
-              <div>
-                <SheetTitle className="text-base text-slate-100">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="text-base font-bold text-slate-100">
                   {mode === "receipt"
-                    ? "Send invoice"
+                    ? "Send receipt"
                     : mode === "tip_sign"
                       ? "Tip & signature"
                       : mode === "tip_charge"
                         ? "Charge tip"
-                        : "Collect payment"}
+                        : mode === "adhoc"
+                          ? "Walk-up charge"
+                          : "Collect"}
                 </SheetTitle>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {mode === "receipt"
-                    ? "Payment succeeded — email or text a receipt to the customer."
+                    ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
-                      ? "Optional tip on top, then customer signs."
+                      ? "Optional tip, then customer signs."
                       : mode === "tip_charge"
-                        ? "Collect the tip on a second tap or card charge."
-                        : "Charge a job or start a new walk-up payment."}
+                        ? "Collect the tip on Tap to Pay or card."
+                        : mode === "adhoc"
+                          ? "Amount, tax, then Tap to Pay or card."
+                          : "Charge a walk-up or a job on today’s schedule."}
                 </p>
               </div>
-              <CreditCard className="h-5 w-5 shrink-0 text-emerald-400" aria-hidden />
+              <button
+                type="button"
+                onClick={() => {
+                  resetAdhoc()
+                  onOpenChange(false)
+                }}
+                className="rounded-lg p-2 text-zinc-400 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
           </SheetHeader>
 
@@ -995,45 +1015,43 @@ export function OwnerCollectPaymentSheet({
                 ) : null}
                 <button
                   type="button"
-                      onClick={() => {
-                        if (connectReady === false) {
-                          toast({
-                            title: "Get paid required",
-                            description: "Finish payout setup before collecting card payments.",
-                            variant: "destructive",
-                          })
-                          window.setTimeout(() => openGetPaidModal(), 50)
-                          return
-                        }
-                        setMode("adhoc")
-                      }}
-                  className="mb-3 flex w-full items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-3 text-left transition-colors hover:bg-emerald-500/15"
+                  onClick={() => {
+                    if (connectReady === false) {
+                      toast({
+                        title: "Get paid required",
+                        description: "Finish payout setup before collecting card payments.",
+                        variant: "destructive",
+                      })
+                      window.setTimeout(() => openGetPaidModal(), 50)
+                      return
+                    }
+                    setMode("adhoc")
+                  }}
+                  className="mb-4 flex w-full items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-3 text-left transition-colors hover:bg-emerald-500/15"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300">
                     <Plus className="h-4 w-4" aria-hidden />
                   </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-emerald-100">
-                      New payment (no job)
-                    </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-emerald-100">Walk-up charge</span>
                     <span className="block text-xs text-emerald-200/70">
-                      Walk-up — Tap to Pay or card
+                      No job on the schedule — Tap to Pay or card
                     </span>
                   </span>
                 </button>
 
-                <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Or pick a job
+                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Today’s jobs
                 </p>
 
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                     Loading jobs…
                   </div>
                 ) : sorted.length === 0 ? (
-                  <p className="px-2 py-8 text-center text-sm text-slate-500">
-                    No open jobs — use New payment above.
+                  <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-6 text-center text-sm text-slate-500">
+                    No open jobs right now. Use Walk-up charge above.
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -1061,7 +1079,7 @@ export function OwnerCollectPaymentSheet({
                                   description: "Finish payout setup before collecting card payments.",
                                   variant: "destructive",
                                 })
-                                openGetPaidModal()
+                                window.setTimeout(() => openGetPaidModal(), 50)
                                 return
                               }
                               setPayJob(job)
