@@ -32,6 +32,10 @@ import type { DispatchJob } from "@/lib/types"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
+  ChargeResultSummary,
+  type TipChargeResult,
+} from "@/components/payments/charge-result-summary"
+import {
   formatPaymentCatchError,
   formatStripeCardFailure,
   isStripeLivePublishableKey,
@@ -118,10 +122,13 @@ function jobTitle(job: DispatchJob): string {
 function AdhocCardForm({
   onDone,
   onCancel,
+  onError,
   stripeConnectAccountId,
 }: {
   onDone: (paymentIntentId: string) => void
   onCancel: () => void
+  /** Parent can keep the decline reason for the receipt summary. */
+  onError?: (message: string) => void
   stripeConnectAccountId?: string | null
 }) {
   const stripe = useStripe()
@@ -178,7 +185,9 @@ function AdhocCardForm({
       }
       throw new Error("Payment finished but Stripe did not return a payment id. Check Stripe Dashboard.")
     } catch (e) {
-      setError(formatPaymentCatchError(e, "Card payment failed — try another card."))
+      const message = formatPaymentCatchError(e, "Card payment failed — try another card.")
+      setError(message)
+      onError?.(message)
     } finally {
       setBusy(false)
     }
@@ -193,8 +202,11 @@ function AdhocCardForm({
       />
       {error ? (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
-          <p className="text-xs font-semibold text-rose-300">Payment didn’t go through</p>
-          <p className="mt-0.5 text-xs leading-snug text-rose-200/90">{error}</p>
+          <p className="text-xs font-semibold text-rose-300">Card charge failed</p>
+          <p className="mt-0.5 text-xs leading-snug text-rose-200/90">
+            <span className="font-semibold">Why: </span>
+            {error}
+          </p>
         </div>
       ) : null}
       <div className="flex gap-2">
@@ -268,6 +280,10 @@ export function OwnerCollectPaymentSheet({
   const [signaturePng, setSignaturePng] = useState<string | null>(null)
   const [slipBusy, setSlipBusy] = useState(false)
   const [tipChargeCents, setTipChargeCents] = useState(0)
+  /** Tip card outcome shown on the Send receipt screen. */
+  const [tipResult, setTipResult] = useState<TipChargeResult>({ kind: "none" })
+  /** Last tip decline / reader error — used if tech continues without tip. */
+  const [tipLastError, setTipLastError] = useState<string | null>(null)
   const [receiptName, setReceiptName] = useState("")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState("")
@@ -298,6 +314,8 @@ export function OwnerCollectPaymentSheet({
     setSignaturePng(null)
     setSlipBusy(false)
     setTipChargeCents(0)
+    setTipResult({ kind: "none" })
+    setTipLastError(null)
     setReceiptName("")
     setReceiptEmail("")
     setReceiptPhone("")
@@ -349,18 +367,47 @@ export function OwnerCollectPaymentSheet({
     setCustomTipDollars("")
     setSignaturePng(null)
     setTipChargeCents(0)
+    setTipResult({ kind: "none" })
+    setTipLastError(null)
     setMode("tip_sign")
     onCollected?.()
     toast({
-      title: "Payment collected",
+      title: "Card charged successfully",
       description: "Add a tip (optional) and get a signature.",
     })
   }
 
-  function enterReceiptStep() {
+  function enterReceiptStep(nextTip?: TipChargeResult) {
     setClientSecret(null)
     setPublishableKey(null)
+    if (nextTip) setTipResult(nextTip)
     setMode("receipt")
+  }
+
+  /** Leave tip charge: mark tip charged / skipped / failed for the receipt summary. */
+  function finishTipChargeStep(
+    outcome: "charged" | "skipped" | "failed",
+    reason?: string
+  ) {
+    const cents = tipChargeCents
+    if (outcome === "charged") {
+      enterReceiptStep({ kind: "charged", cents })
+      return
+    }
+    if (outcome === "failed") {
+      enterReceiptStep({
+        kind: "failed",
+        cents,
+        reason: (reason || tipLastError || "Tip card was declined.").trim(),
+      })
+      return
+    }
+    // Skipped after a decline → still show the bank reason on receipt.
+    if (tipLastError) {
+      enterReceiptStep({ kind: "failed", cents, reason: tipLastError })
+      return
+    }
+    enterReceiptStep({ kind: "skipped", cents })
   }
 
   function selectedTipCents(): number {
@@ -941,12 +988,15 @@ export function OwnerCollectPaymentSheet({
       }
       setClientSecret(null)
       setPublishableKey(null)
-      enterReceiptStep()
-      toast({ title: "Tip collected", description: fmtCents(tipChargeCents) })
+      setTipLastError(null)
+      finishTipChargeStep("charged")
+      toast({ title: "Tip charged successfully", description: fmtCents(tipChargeCents) })
     } catch (e) {
+      const reason = formatPaymentCatchError(e, "Tip Tap to Pay failed — try card.")
+      setTipLastError(reason)
       toast({
-        title: "Tip Tap to Pay failed",
-        description: formatPaymentCatchError(e, "Try card, or skip tip charge."),
+        title: "Tip charge failed",
+        description: reason,
         variant: "destructive",
       })
     } finally {
@@ -1172,6 +1222,13 @@ export function OwnerCollectPaymentSheet({
                               setPaidTotalCents(Math.round(tx.amount * 100))
                               setReceiptName(tx.customerName || "")
                               setReceiptPhone(tx.customerPhone || "")
+                              setTipLastError(null)
+                              setTipResult(
+                                tx.tipCents && tx.tipCents > 0
+                                  ? { kind: "charged", cents: tx.tipCents }
+                                  : { kind: "none" }
+                              )
+                              setTipChargeCents(tx.tipCents && tx.tipCents > 0 ? tx.tipCents : 0)
                               setMode("receipt")
                             }}
                             className={cn(
@@ -1540,16 +1597,22 @@ export function OwnerCollectPaymentSheet({
                         <CreditCard className="h-4 w-4" aria-hidden />
                         Card for tip
                       </button>
+                      {tipLastError ? (
+                        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5">
+                          <p className="text-xs font-semibold text-rose-300">Tip charge failed</p>
+                          <p className="mt-0.5 text-xs leading-snug text-rose-100/90">{tipLastError}</p>
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         disabled={adhocBusy}
                         onClick={() => {
                           setClientSecret(null)
-                          enterReceiptStep()
+                          finishTipChargeStep(tipLastError ? "failed" : "skipped")
                         }}
                         className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
                       >
-                        Skip tip charge
+                        {tipLastError ? "Continue without tip — send receipt" : "Skip tip charge"}
                       </button>
                     </div>
                   )
@@ -1563,6 +1626,7 @@ export function OwnerCollectPaymentSheet({
                   >
                     <AdhocCardForm
                       stripeConnectAccountId={stripeConnectAccountId}
+                      onError={(message) => setTipLastError(message)}
                       onCancel={() => {
                         setClientSecret(null)
                         setPublishableKey(null)
@@ -1575,11 +1639,28 @@ export function OwnerCollectPaymentSheet({
                           }).catch(() => null)
                           setClientSecret(null)
                           setPublishableKey(null)
-                          enterReceiptStep()
-                          toast({ title: "Tip collected", description: fmtCents(tipChargeCents) })
+                          setTipLastError(null)
+                          finishTipChargeStep("charged")
+                          toast({
+                            title: "Tip charged successfully",
+                            description: fmtCents(tipChargeCents),
+                          })
                         })()
                       }}
                     />
+                    {tipLastError ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClientSecret(null)
+                          setPublishableKey(null)
+                          finishTipChargeStep("failed")
+                        }}
+                        className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
+                      >
+                        Continue without tip — send receipt
+                      </button>
+                    ) : null}
                   </Elements>
                 ) : (
                   <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
@@ -1587,15 +1668,7 @@ export function OwnerCollectPaymentSheet({
               </div>
             ) : mode === "receipt" ? (
               <div className="space-y-3">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
-                  <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
-                    {fmtCents(paidTotalCents + Math.max(0, tipChargeCents || selectedTipCents()))}
-                  </p>
-                  <p className="mt-1 text-[11px] text-emerald-200/70">
-                    Optional — send a receipt by email or text.
-                  </p>
-                </div>
+                <ChargeResultSummary baseCents={paidTotalCents} tip={tipResult} />
 
                 <label className="block">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">

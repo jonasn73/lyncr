@@ -25,6 +25,10 @@ import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
+  ChargeResultSummary,
+  type TipChargeResult,
+} from "@/components/payments/charge-result-summary"
+import {
   formatPaymentCatchError,
   formatStripeCardFailure,
   isStripeLivePublishableKey,
@@ -131,6 +135,8 @@ export function TechPaymentModal(props: {
   const [signaturePng, setSignaturePng] = useState<string | null>(null)
   const [slipBusy, setSlipBusy] = useState(false)
   const [tipChargeCents, setTipChargeCents] = useState(0)
+  const [tipResult, setTipResult] = useState<TipChargeResult>({ kind: "none" })
+  const [tipLastError, setTipLastError] = useState<string | null>(null)
   const [receiptName, setReceiptName] = useState(() => props.job.customer_name?.trim() || "")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
@@ -343,12 +349,40 @@ export function TechPaymentModal(props: {
     setCustomTipDollars("")
     setSignaturePng(null)
     setTipChargeCents(0)
+    setTipResult({ kind: "none" })
+    setTipLastError(null)
     setClientSecret(null)
     setPublishableKey(null)
     setMethod(null)
     setActivePopup(null)
     setPostPayStep("tip_sign")
     setError(null)
+  }
+
+  function goToReceipt(nextTip?: TipChargeResult) {
+    if (nextTip) setTipResult(nextTip)
+    setPostPayStep("receipt")
+  }
+
+  function finishTipChargeStep(outcome: "charged" | "skipped" | "failed", reason?: string) {
+    const cents = tipChargeCents
+    if (outcome === "charged") {
+      goToReceipt({ kind: "charged", cents })
+      return
+    }
+    if (outcome === "failed") {
+      goToReceipt({
+        kind: "failed",
+        cents,
+        reason: (reason || tipLastError || "Tip card was declined.").trim(),
+      })
+      return
+    }
+    if (tipLastError) {
+      goToReceipt({ kind: "failed", cents, reason: tipLastError })
+      return
+    }
+    goToReceipt({ kind: "skipped", cents })
   }
 
   async function saveSlip(opts?: { tipPaymentIntentId?: string | null; tipCents?: number }) {
@@ -388,10 +422,11 @@ export function TechPaymentModal(props: {
       }
       if (tipCents >= 50 && !opts?.skipTipCharge) {
         setTipChargeCents(tipCents)
+        setTipLastError(null)
         setPostPayStep("tip_charge")
         return
       }
-      setPostPayStep("receipt")
+      goToReceipt({ kind: "none" })
     } catch (e) {
       // Card already charged — do not trap the tech on tip/sign if slip save fails.
       setError(
@@ -399,7 +434,7 @@ export function TechPaymentModal(props: {
           ? `${e.message} Payment is still complete — continue to invoice.`
           : "Could not save tip / signature. Payment is still complete."
       )
-      if (paidPaymentIntentId) setPostPayStep("receipt")
+      if (paidPaymentIntentId) goToReceipt({ kind: "none" })
     } finally {
       setSlipBusy(false)
     }
@@ -520,9 +555,12 @@ export function TechPaymentModal(props: {
       }
       setClientSecret(null)
       setPublishableKey(null)
-      setPostPayStep("receipt")
+      setTipLastError(null)
+      finishTipChargeStep("charged")
     } catch (e) {
-      setError(formatPaymentCatchError(e, "Tip Tap to Pay failed — try card."))
+      const reason = formatPaymentCatchError(e, "Tip Tap to Pay failed — try card.")
+      setTipLastError(reason)
+      setError(reason)
     } finally {
       setTapListening(false)
       setBusy(false)
@@ -983,16 +1021,27 @@ export function TechPaymentModal(props: {
                     <CreditCard className="h-4 w-4" aria-hidden />
                     Card for tip
                   </button>
+                  {tipLastError || error ? (
+                    <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-left">
+                      <p className="text-xs font-semibold text-rose-300">Tip charge failed</p>
+                      <p className="mt-0.5 text-xs leading-snug text-rose-100/90">
+                        <span className="font-semibold">Why: </span>
+                        {tipLastError || error}
+                      </p>
+                    </div>
+                  ) : null}
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => {
                       setClientSecret(null)
-                      setPostPayStep("receipt")
+                      finishTipChargeStep(tipLastError || error ? "failed" : "skipped")
                     }}
                     className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
                   >
-                    Skip tip charge
+                    {tipLastError || error
+                      ? "Continue without tip — send receipt"
+                      : "Skip tip charge"}
                   </button>
                 </div>
               )
@@ -1015,7 +1064,10 @@ export function TechPaymentModal(props: {
                   taxCents={0}
                   skipInvoice
                   stripeConnectAccountId={stripeConnectAccountId}
-                  onError={setError}
+                  onError={(message) => {
+                    setTipLastError(message)
+                    setError(message)
+                  }}
                   onSuccess={(tipPiId) => {
                     void (async () => {
                       if (paidPaymentIntentId) {
@@ -1026,7 +1078,8 @@ export function TechPaymentModal(props: {
                       }
                       setClientSecret(null)
                       setPublishableKey(null)
-                      setPostPayStep("receipt")
+                      setTipLastError(null)
+                      finishTipChargeStep("charged")
                     })()
                   }}
                   onBack={() => {
@@ -1038,17 +1091,33 @@ export function TechPaymentModal(props: {
             ) : (
               <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
             )}
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error && clientSecret ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-300">
+                  <span className="font-semibold">Why: </span>
+                  {error}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientSecret(null)
+                    setPublishableKey(null)
+                    finishTipChargeStep("failed")
+                  }}
+                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
+                >
+                  Continue without tip — send receipt
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : postPayStep === "receipt" ? (
           <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
-              <p className="mt-2 text-sm font-semibold text-emerald-100">Payment complete</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
-                {fmt(paidTotalCents + Math.max(0, tipChargeCents || selectedTipCents()))}
-              </p>
-            </div>
+            <ChargeResultSummary
+              baseCents={paidTotalCents}
+              tip={tipResult}
+              baseKind={paidPaymentIntentId ? "card" : "cash"}
+            />
             {paidPaymentIntentId ? (
               <>
                 <p className="text-xs text-zinc-500">Optional — email or text a receipt.</p>
