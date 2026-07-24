@@ -1,6 +1,7 @@
 "use client"
 
 import { Fragment, memo, useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import {
   PhoneForwarded,
@@ -9,6 +10,7 @@ import {
   ChevronRight,
   Smartphone,
   Network,
+  MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -618,6 +620,46 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     />
   )
 
+  // Opens the two-way SMS inbox (textbacks + customer replies).
+  const messagesInboxCard = isMobile ? (
+    <Link
+      href="/dashboard/messages"
+      className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left", LINES_MOBILE_CARD)}
+    >
+      <div className={cn(LINES_MOBILE_ICON_TILE, "bg-sky-500/15 text-sky-300")}>
+        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={LINES_MOBILE_SECTION_LABEL}>SMS · Inbox</p>
+        <p className="truncate text-sm font-semibold text-foreground">Messages</p>
+        <p className="text-xs leading-snug text-zinc-500">
+          Read and reply when customers text your line.
+        </p>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+    </Link>
+  ) : (
+    <Link
+      href="/dashboard/messages"
+      className="group relative flex w-full flex-1 flex-col rounded-2xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:border-sky-500/40 sm:p-5"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-500/30 bg-sky-500/15 text-sky-300">
+          <MessageSquare className="h-5 w-5" aria-hidden />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            SMS · Inbox
+          </p>
+          <p className="mt-0.5 text-base font-semibold text-foreground">Messages</p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+        Open textback threads and reply when customers text your business line.
+      </p>
+    </Link>
+  )
+
   // Flattened shell — no outer card; step rows/cards sit on the page background.
   return (
     <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:min-h-[22rem] md:scroll-mt-24">
@@ -690,6 +732,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               ) : null}
               {overflowCard}
               {rescueCard}
+              {messagesInboxCard}
             </div>
           ) : (
             <div
@@ -727,6 +770,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               ) : null}
               <FlowConnector />
               {rescueCard}
+              <FlowConnector />
+              {messagesInboxCard}
             </div>
           )}
         </div>

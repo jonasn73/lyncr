@@ -28,6 +28,7 @@ import { readActiveOrganizationId, writeActiveOrganizationId } from "@/lib/works
 const PAGE_HREF: Record<PageId, string> = {
   dashboard: "/dashboard",
   activity: "/dashboard/activity",
+  messages: "/dashboard/messages",
   scheduler: "/dashboard/scheduler",
   leads: "/dashboard/leads",
   customers: "/dashboard/customers",

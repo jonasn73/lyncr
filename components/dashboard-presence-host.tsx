@@ -8,6 +8,7 @@ import { DashboardPage } from "@/components/dashboard-page"
 import { ActivityWorkspaceView } from "@/components/workspace-views/activity-workspace-view"
 import { LeadsWorkspaceView } from "@/components/workspace-views/leads-workspace-view"
 import { MapWorkspaceView } from "@/components/workspace-views/map-workspace-view"
+import { MessagesWorkspaceView } from "@/components/workspace-views/messages-workspace-view"
 import { PayWorkspaceView } from "@/components/workspace-views/pay-workspace-view"
 import { SettingsWorkspaceView } from "@/components/workspace-views/settings-workspace-view"
 
@@ -26,6 +27,7 @@ const SchedulerWorkspaceView = dynamic(
 export const DASHBOARD_PRESENCE_PAGE_IDS = [
   "dashboard",
   "activity",
+  "messages",
   "scheduler",
   "leads",
   "contacts",
@@ -88,6 +90,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
         <ActivityWorkspaceView />
+      </PresencePane>
+      <PresencePane active={activePage === "messages"} label="Messages" deferUntilVisit>
+        <MessagesWorkspaceView />
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
         <Suspense fallback={<div className="min-h-[40vh] w-full" aria-busy="true" aria-label="Loading scheduler" />}>

@@ -3,7 +3,7 @@
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { normalizePhoneNumberE164, getUserByPhoneNumber } from "@/lib/db"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { toE164 } from "@/lib/phone-e164"
 import { getMissedCallTextbackEnabled } from "@/lib/missed-call-textback"
 import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
@@ -172,10 +172,12 @@ export async function sendMissedCallRescueBookingLink(params: {
   const text = buildTelnyxMenuBookingSms(customer, bookUrl, line || null)
 
   try {
-    const sent = await sendTelnyxSms({
+    // Log outbound textback into sms_messages so Messages inbox shows the thread.
+    const sent = await sendAndLogWorkspaceCustomerSms({
+      ownerUserId: params.ownerUserId,
       toE164: customer,
       text,
-      userId: params.ownerUserId,
+      fromE164: line || null,
     })
     if (!sent.ok) {
       console.warn("[missed-call-rescue] booking link SMS failed:", sent.error)

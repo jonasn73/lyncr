@@ -42,6 +42,7 @@ import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
 const VALID_PAGES: PageId[] = [
   "dashboard",
   "activity",
+  "messages",
   "leads",
   "customers",
   "contacts",

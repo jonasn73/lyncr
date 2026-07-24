@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Inbox,
   Map,
+  MessageSquare,
   Settings,
   Zap,
   type LucideIcon,
@@ -14,6 +15,7 @@ import {
 export type PageId =
   | "dashboard"
   | "activity"
+  | "messages"
   | "leads"
   | "customers"
   | "contacts"
@@ -34,6 +36,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Routing", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "activity", label: "Activity", icon: ClipboardList },
+  { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "leads", label: "Leads", icon: Inbox },
   { id: "contacts", label: "Map", icon: Map },
   { id: "pay", label: "Pay", icon: BarChart3 },
@@ -52,6 +55,7 @@ export const mobileBottomNavItems: DashboardNavItem[] = [
 export const DASHBOARD_PAGE_HREF: Record<PageId, string> = {
   dashboard: "/dashboard",
   activity: "/dashboard/activity",
+  messages: "/dashboard/messages",
   leads: "/dashboard/leads",
   customers: "/dashboard/customers",
   contacts: "/dashboard/contacts",
