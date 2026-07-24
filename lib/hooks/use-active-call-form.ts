@@ -644,7 +644,14 @@ export function useActiveCallForm(
         existingLeadId?: string | null
       }
     ): Promise<
-      { ok: true; leadId: string; customerSmsSent?: boolean; customerSmsError?: string | null } | { ok: false }
+      | {
+          ok: true
+          leadId: string
+          customerSmsSent?: boolean
+          customerSmsError?: string | null
+          customerSmsDraft?: string | null
+        }
+      | { ok: false }
     > => {
       if (!current) return { ok: false }
       const phone = resolvedPhoneNumber || current.from_number
@@ -850,6 +857,7 @@ export function useActiveCallForm(
             lead_id?: string
             customer_sms_sent?: boolean
             customer_sms_error?: string | null
+            customer_sms_draft?: string | null
           }
           error?: string
         }
@@ -867,6 +875,7 @@ export function useActiveCallForm(
           leadId,
           customerSmsSent: json.data?.customer_sms_sent === true,
           customerSmsError: json.data?.customer_sms_error ?? null,
+          customerSmsDraft: json.data?.customer_sms_draft ?? null,
         }
       } catch (e) {
         setJobState("error")

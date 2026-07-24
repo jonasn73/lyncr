@@ -7,6 +7,7 @@ import {
   getOrganizationForOwner,
   getUser,
   normalizePhoneNumberE164,
+  updateAiLeadSmsOutcome,
 } from "@/lib/db"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
       text?: string
       from_number?: string
       organization_id?: string
+      /** When set, stamp ai_leads sms_sent after a successful send (intake confirmation). */
+      lead_id?: string
     }
 
     const text = String(body.text ?? "").trim()
@@ -57,6 +60,16 @@ export async function POST(req: NextRequest) {
 
     if (!sent.ok) {
       return NextResponse.json({ error: sent.error, errorType: sent.errorType }, { status: 400 })
+    }
+
+    const leadId = String(body.lead_id ?? "").trim()
+    if (leadId) {
+      await updateAiLeadSmsOutcome(leadId, {
+        sms_sent: true,
+        sms_error: sent.delivery_warning,
+      }).catch(() => {
+        /* best-effort stamp */
+      })
     }
 
     return NextResponse.json({

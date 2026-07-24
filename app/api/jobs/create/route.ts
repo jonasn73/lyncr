@@ -143,6 +143,8 @@ export async function POST(req: NextRequest) {
       isPriceOverridden: body.is_price_overridden === true || body.isPriceOverridden === true,
       recoveredViaRouteDiscount: body.recovered_via_route_discount === true,
       existingLeadId: body.existing_lead_id?.trim() || null,
+      // Operator reviews / edits confirmation SMS in the intake sheet before send.
+      deferCustomerSms: true,
     })
 
     return NextResponse.json({ data: result })

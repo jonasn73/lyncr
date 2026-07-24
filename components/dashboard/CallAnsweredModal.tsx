@@ -25,6 +25,7 @@ import {
   type IntakeRescueMeta,
 } from "@/components/dashboard/intake-job-photos-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
+import { AppointmentConfirmSmsPanel } from "@/components/messaging/appointment-confirm-sms-panel"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
 import {
   SecondaryCallInterceptBanner,
@@ -566,6 +567,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   /** Soft-gate: second tap skips Key details without a blank (non-AKL). */
   const [keySkipArmed, setKeySkipArmed] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
+  /** Confirmation SMS draft after book — must send or skip before Done / Scheduler. */
+  const [confirmSmsDraft, setConfirmSmsDraft] = useState<string | null>(null)
+  const [confirmSmsResolved, setConfirmSmsResolved] = useState(false)
   const [draftPulse, setDraftPulse] = useState(false)
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -733,6 +737,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setRescueMeta(null)
     setGpsRequestState("idle")
     setDraftRestoredFlash(false)
+    setBookedLeadId(null)
+    setConfirmSmsDraft(null)
+    setConfirmSmsResolved(false)
     // New call — allow live GPS to fill address until the operator edits it.
     addressManuallyEditedRef.current = false
   }, [effectiveCurrent?.id])
@@ -1622,6 +1629,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     resetForm()
     setCurrentStep("SERVICE_SELECT")
     setBookedLeadId(null)
+    setConfirmSmsDraft(null)
+    setConfirmSmsResolved(false)
     setCustomPrice("")
     setNegotiationDiscountApplied(null)
     setNegotiationDiscountsTried([])
@@ -1663,23 +1672,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
 
-    // Appointment confirmation SMS is sent server-side in createUnassignedJobFromIntake.
-    if (result.customerSmsSent) {
-      toast({
-        title: "Appointment confirmed",
-        description: "Confirmation text sent to the customer.",
-      })
-    } else if (result.customerSmsError) {
-      toast({
-        title: "Booked — SMS not sent",
-        description: result.customerSmsError,
-        variant: "destructive",
-      })
-    }
-
     // Wipe the phone-keyed draft so the next call from this customer starts fresh.
     clearDraftForCurrentCaller()
     setBookedLeadId(result.leadId)
+    setConfirmSmsDraft(result.customerSmsDraft?.trim() || null)
+    setConfirmSmsResolved(!result.customerSmsDraft?.trim())
     setCurrentStep("BOOKING_COMPLETE")
   }, [
     activeOrganizationId,
@@ -1689,14 +1686,40 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     effectiveCurrent,
     jobCreateExtras,
     resolveOwnerUserId,
-    toast,
   ])
 
   const finishBookingAndOpenScheduler = useCallback(() => {
+    if (confirmSmsDraft && !confirmSmsResolved) {
+      toast({
+        title: "Confirm the SMS first",
+        description: "Send or skip the confirmation text before opening the scheduler.",
+        variant: "destructive",
+      })
+      return
+    }
     const leadId = bookedLeadId
     closeIntakeAfterSave()
     if (leadId) router.push(buildSchedulerFocusUrl(leadId))
-  }, [bookedLeadId, closeIntakeAfterSave, router])
+  }, [
+    bookedLeadId,
+    closeIntakeAfterSave,
+    confirmSmsDraft,
+    confirmSmsResolved,
+    router,
+    toast,
+  ])
+
+  const dismissBookingComplete = useCallback(() => {
+    if (confirmSmsDraft && !confirmSmsResolved) {
+      toast({
+        title: "Confirm the SMS first",
+        description: "Send or skip the confirmation text before closing.",
+        variant: "destructive",
+      })
+      return
+    }
+    dismissWithDraftClear()
+  }, [confirmSmsDraft, confirmSmsResolved, dismissWithDraftClear, toast])
 
   const sendToDispatch = useCallback(async () => {
     if (!effectiveCurrent) return
@@ -1709,30 +1732,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
-    if (result.customerSmsSent) {
-      toast({
-        title: "Appointment confirmed",
-        description: "Confirmation text sent to the customer.",
-      })
-    } else if (result.customerSmsError) {
-      toast({
-        title: "Booked — SMS not sent",
-        description: result.customerSmsError,
-        variant: "destructive",
-      })
-    }
-    closeIntakeAfterSave()
-    router.push(buildSchedulerFocusUrl(result.leadId, { schedule: true }))
+    // Same confirm-SMS gate as Confirm & book (do not jump to scheduler with unreviewed text).
+    clearDraftForCurrentCaller()
+    setBookedLeadId(result.leadId)
+    setConfirmSmsDraft(result.customerSmsDraft?.trim() || null)
+    setConfirmSmsResolved(!result.customerSmsDraft?.trim())
+    setCurrentStep("BOOKING_COMPLETE")
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
-    closeIntakeAfterSave,
+    clearDraftForCurrentCaller,
     createJob,
     effectiveCurrent,
     jobCreateExtras,
     resolveOwnerUserId,
-    router,
-    toast,
   ])
 
   const savePendingLead = useCallback(async () => {
@@ -3042,9 +3055,42 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   {form.scheduledDate} at {form.scheduledTime}
                                 </p>
                               </div>
-                              <p className="text-center text-[11px] text-muted-foreground">
-                                Confirmation SMS will send automatically once 10DLC registration is approved.
-                              </p>
+                              {confirmSmsDraft && !confirmSmsResolved ? (
+                                <AppointmentConfirmSmsPanel
+                                  toPhone={
+                                    resolvedPhoneNumber ||
+                                    form.phoneNumber ||
+                                    effectiveCurrent?.from_number ||
+                                    ""
+                                  }
+                                  fromLine={effectiveCurrent?.to_number ?? null}
+                                  organizationId={activeOrganizationId}
+                                  leadId={bookedLeadId}
+                                  draftText={confirmSmsDraft}
+                                  customerFirstName={
+                                    form.displayName.trim().split(/\s+/)[0] || "there"
+                                  }
+                                  appointmentLabel={
+                                    form.scheduledDate && form.scheduledTime
+                                      ? `${form.scheduledDate} at ${form.scheduledTime}`
+                                      : null
+                                  }
+                                  onSent={() => setConfirmSmsResolved(true)}
+                                  onSkip={() => {
+                                    setConfirmSmsResolved(true)
+                                    toast({
+                                      title: "SMS skipped",
+                                      description: "No confirmation text was sent.",
+                                    })
+                                  }}
+                                />
+                              ) : confirmSmsResolved ? (
+                                <p className="text-center text-[11px] font-medium text-emerald-200/90">
+                                  {confirmSmsDraft
+                                    ? "Confirmation SMS handled — you can open the scheduler or close."
+                                    : "Booking saved."}
+                                </p>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -3702,6 +3748,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           type="button"
                           size="lg"
                           className="h-11 w-full font-semibold"
+                          disabled={Boolean(confirmSmsDraft && !confirmSmsResolved)}
                           onClick={finishBookingAndOpenScheduler}
                         >
                           Open on Scheduler
@@ -3711,10 +3758,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           variant="outline"
                           size="lg"
                           className="h-11 w-full"
-                          onClick={dismissWithDraftClear}
+                          disabled={Boolean(confirmSmsDraft && !confirmSmsResolved)}
+                          onClick={dismissBookingComplete}
                         >
                           Done
                         </Button>
+                        {confirmSmsDraft && !confirmSmsResolved ? (
+                          <p className="text-center text-[10px] text-amber-200/90">
+                            Send or skip the confirmation SMS to continue
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
                     {(currentStep === "VEHICLE_INFO" ||

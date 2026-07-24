@@ -11,7 +11,11 @@ import {
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
 import { UNASSIGNED_POOL_STATUS, UNASSIGNED_CALLBACK_STATUS, PENDING_CALLBACK_ADDRESS, CRM_LEAD_STATUS, LOST_LEAD_STATUS } from "@/lib/job-pool"
-import { sendIntakeBookingCustomerSms } from "@/lib/intake-booking-customer-sms"
+import {
+  buildIntakeBookingCustomerSmsText,
+  sendIntakeBookingCustomerSms,
+} from "@/lib/intake-booking-customer-sms"
+import { SITE_NAME } from "@/lib/brand"
 import {
   buildIntakePricingMetadata,
   getOwnerServiceRateCard,
@@ -88,6 +92,11 @@ export type CreateIntakeJobInput = {
   existingLeadId?: string | null
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
+  /**
+   * When true, do not send the confirmation SMS — return `customer_sms_draft` instead
+   * so the operator can review / edit before send (answered-call intake).
+   */
+  deferCustomerSms?: boolean
   /** mobile = we go to them; shop = they come to us (stored on collected). */
   serviceVenue?: "mobile" | "shop" | null
   /** Customer already has the blank/key — cut & program only. */
@@ -114,6 +123,8 @@ export type CreateIntakeJobResult = {
   longitude: number | null
   customer_sms_sent: boolean
   customer_sms_error: string | null
+  /** Draft confirmation text when send was deferred for operator review. */
+  customer_sms_draft: string | null
   /** Persisted booked balance (cents) — Active Job must display this. */
   quoted_price_cents: number | null
   billing_balance_cents: number | null
@@ -563,25 +574,40 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   }
 
   // Appointment confirmation SMS after a real book (not callback / special-order / referred).
+  // Intake UI can defer send so the operator reviews / edits the text first.
   const skipCustomerSms = pendingCallback || isSpecialOrder || isReferredOut
+  const deferCustomerSms = input.deferCustomerSms === true
   const serviceAddressForSms =
     [addressLine1, input.addressLine2?.trim(), city, input.region?.trim(), input.postalCode?.trim()]
       .filter(Boolean)
       .join(", ") || null
-  const sms = skipCustomerSms
-    ? { sent: false, error: null as string | null }
-    : await sendIntakeBookingCustomerSms({
-        ownerUserId: input.ownerUserId,
-        leadId: id,
-        customerPhoneE164: phone,
-        customerName,
-        callLogId: input.callLogId,
-        organizationId: input.organizationId,
-        scheduledAtIso,
-        serviceAddress: serviceAddressForSms,
-        jobType,
-      })
-  if (!skipCustomerSms) {
+  const ownerForSms = skipCustomerSms ? null : await getUser(input.ownerUserId)
+  const customerSmsDraft =
+    skipCustomerSms
+      ? null
+      : buildIntakeBookingCustomerSmsText({
+          customerName,
+          businessName:
+            ownerForSms?.business_name?.trim() ||
+            ownerForSms?.name?.trim() ||
+            SITE_NAME,
+          scheduledAtIso,
+          serviceAddress: serviceAddressForSms,
+          jobType,
+        })
+  let sms: { sent: boolean; error: string | null } = { sent: false, error: null }
+  if (!skipCustomerSms && !deferCustomerSms) {
+    sms = await sendIntakeBookingCustomerSms({
+      ownerUserId: input.ownerUserId,
+      leadId: id,
+      customerPhoneE164: phone,
+      customerName,
+      callLogId: input.callLogId,
+      organizationId: input.organizationId,
+      scheduledAtIso,
+      serviceAddress: serviceAddressForSms,
+      jobType,
+    })
     await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
   }
 
@@ -607,6 +633,7 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     longitude,
     customer_sms_sent: sms.sent,
     customer_sms_error: sms.error,
+    customer_sms_draft: customerSmsDraft,
     quoted_price_cents: bookedCents,
     billing_balance_cents: bookedCents,
   }
