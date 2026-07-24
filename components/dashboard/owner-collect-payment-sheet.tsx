@@ -600,7 +600,7 @@ export function OwnerCollectPaymentSheet({
       adhoc: true as const,
       amount: dollars,
       paymentMethodType,
-      note: adhocNote.trim() || "Walk-up payment",
+      note: adhocNote.trim() || "Service",
       taxEnabled,
       taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
     }
@@ -812,7 +812,7 @@ export function OwnerCollectPaymentSheet({
           amount: dollars,
           taxEnabled,
           taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
-          note: adhocNote.trim() || "Walk-up payment",
+          note: adhocNote.trim() || "Service",
           customerName: payLinkName.trim() || undefined,
           phone: channel === "sms" ? payLinkPhone.trim() : undefined,
           email: channel === "email" ? payLinkEmail.trim() : undefined,
@@ -1103,10 +1103,10 @@ export function OwnerCollectPaymentSheet({
                       : mode === "tip_charge"
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
-                          ? "Walk-up"
+                          ? "Enter an amount, then charge."
                           : listTab === "history"
                             ? "Cards, Tap to Pay, and cash you have run."
-                            : "Charge a walk-up or a job on today’s schedule."}
+                            : "Add a charge or pick a job on today’s schedule."}
                 </p>
               </div>
               <button
@@ -1197,7 +1197,7 @@ export function OwnerCollectPaymentSheet({
                       const title =
                         tx.customerName ||
                         (tx.customerPhone ? formatPhoneDisplay(tx.customerPhone) : null) ||
-                        (tx.jobId ? "Job payment" : "Walk-up charge")
+                        (tx.jobId ? "Job payment" : "Add charge")
                       const subtitle = [
                         historyMethodLabel(tx.paymentMethod),
                         tx.jobLabel,
@@ -1278,7 +1278,7 @@ export function OwnerCollectPaymentSheet({
                                 </span>
                                 {!tx.jobId ? (
                                   <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
-                                    Walk-up
+                                    Quick
                                   </span>
                                 ) : null}
                                 {canReceipt ? (
@@ -1337,9 +1337,9 @@ export function OwnerCollectPaymentSheet({
                     <Plus className="h-4 w-4" aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-emerald-100">Walk-up charge</span>
+                    <span className="block text-sm font-semibold text-emerald-100">Add charge</span>
                     <span className="block text-xs text-emerald-200/70">
-                      No job on the schedule — Tap to Pay or card
+                      No job needed — Tap to Pay or card
                     </span>
                   </span>
                 </button>
@@ -1355,7 +1355,7 @@ export function OwnerCollectPaymentSheet({
                   </div>
                 ) : sorted.length === 0 ? (
                   <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-6 text-center text-sm text-slate-500">
-                    No open jobs right now. Use Walk-up charge above.
+                    No open jobs right now. Tap Add charge above.
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -1875,7 +1875,7 @@ export function OwnerCollectPaymentSheet({
                           type="text"
                           value={adhocNote}
                           onChange={(e) => setAdhocNote(e.target.value)}
-                          placeholder="e.g. Lockout — walk-up"
+                          placeholder="e.g. Lockout"
                           className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-emerald-500"
                         />
                       </details>

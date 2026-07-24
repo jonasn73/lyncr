@@ -280,7 +280,7 @@ export async function createAdhocPaymentIntent(params: {
     throw new Error("amount must be at least $0.50")
   }
 
-  const note = (params.note ?? "").trim().slice(0, 120) || "Walk-up payment"
+  const note = (params.note ?? "").trim().slice(0, 120) || "Service"
   const customerName = (params.customerName ?? "").trim().slice(0, 80)
   const customerPhone = (params.customerPhone ?? "").trim().slice(0, 32)
   const subtotalCents = Math.max(

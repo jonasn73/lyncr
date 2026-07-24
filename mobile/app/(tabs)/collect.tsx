@@ -139,7 +139,7 @@ export default function CollectScreen() {
           adhoc: true,
           amount: dollars,
           paymentMethodType: "TAP_TO_PAY",
-          note: note.trim() || "Walk-up payment",
+          note: note.trim() || "Service",
           taxEnabled,
           taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
         }),
@@ -416,7 +416,7 @@ export default function CollectScreen() {
         style={styles.input}
         value={note}
         onChangeText={setNote}
-        placeholder="Walk-up / counter sale"
+        placeholder="Service note (optional)"
         placeholderTextColor={colors.textDim}
       />
 
