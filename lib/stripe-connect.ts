@@ -186,6 +186,28 @@ export async function createConnectAccountSession(
   return { clientSecret: session.client_secret, accountId }
 }
 
+/**
+ * Hosted Stripe onboarding URL (fallback when the in-app form sticks on mobile).
+ * User finishes on Stripe, then returns to returnUrl.
+ */
+export async function createConnectAccountOnboardingLink(
+  userId: string,
+  opts: { returnUrl: string; refreshUrl: string }
+): Promise<{ url: string; accountId: string }> {
+  const accountId = await ensureStripeConnectAccount(userId)
+  const stripe = getStripeClient()
+  const link = await stripe.accountLinks.create({
+    account: accountId,
+    type: "account_onboarding",
+    return_url: opts.returnUrl,
+    refresh_url: opts.refreshUrl,
+  })
+  if (!link.url) {
+    throw new Error("Stripe did not return an onboarding URL")
+  }
+  return { url: link.url, accountId }
+}
+
 /** Pull capability flags from Stripe into Neon. */
 export async function syncConnectAccountFromStripe(
   userId: string,

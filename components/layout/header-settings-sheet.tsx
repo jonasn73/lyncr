@@ -111,11 +111,20 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
   }, [])
 
-  // Deep link: /dashboard?tab=get-paid
+  // Return from hosted Stripe onboarding: /dashboard?tab=get-paid&connect=return
   useEffect(() => {
-    const tab = searchParams.get("tab")
-    if (tab === "get-paid" || tab === "payouts") setGetPaidOpen(true)
-  }, [searchParams])
+    if (typeof window === "undefined") return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const tab = params.get("tab")
+      const connect = params.get("connect")
+      if (tab === "get-paid" || tab === "payouts" || connect === "return" || connect === "refresh") {
+        setGetPaidOpen(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   const collectedLabel =
     todayCents == null ? "…" : formatCollectedDollars(todayCents)
