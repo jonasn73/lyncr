@@ -619,10 +619,17 @@ export function OwnerCollectPaymentSheet({
       })
       const json = (await res.json()) as {
         error?: string
-        data?: { url?: string; chargeCents?: number }
+        data?: { url?: string; chargeCents?: number; sent?: boolean }
       }
       if (json.data?.url) setPayLinkUrl(json.data.url)
-      if (!res.ok) throw new Error(json.error || "Could not send pay link")
+      if (!res.ok || json.data?.sent === false) {
+        throw new Error(
+          json.error ||
+            (channel === "sms"
+              ? "Pay link created, but the text could not be delivered. Copy the link below."
+              : "Pay link created, but email could not be sent. Copy the link below.")
+        )
+      }
       toast({
         title: channel === "sms" ? "Pay link texted" : "Pay link emailed",
         description: json.data?.chargeCents

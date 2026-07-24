@@ -1,7 +1,7 @@
 // Telnyx messaging profile + assign purchased numbers for outbound SMS lead alerts.
 
 import { normalizePhoneNumberE164 } from "@/lib/db"
-import { getPlatform10DlcCampaignId, isUsLocalDid } from "@/lib/telnyx-shared-campaign"
+import { getPlatform10DlcCampaignId } from "@/lib/telnyx-shared-campaign"
 import { getAppUrl } from "@/lib/telnyx"
 import { SITE_NAME } from "@/lib/brand"
 import { findTelnyxPhoneNumberId, getTelnyxApiKey, telnyxHeaders } from "@/lib/telnyx-config"
@@ -216,26 +216,24 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
     return { assigned: true, campaign_id: null, detail: null }
   }
 
-  const platformCampaignId = getPlatform10DlcCampaignId()
-  if (platformCampaignId && isUsLocalDid(target)) {
-    return { assigned: true, campaign_id: platformCampaignId, detail: null }
-  }
-
   try {
     getTelnyxApiKey()
   } catch {
     return { assigned: false, campaign_id: null, detail: "TELNYX_API_KEY missing" }
   }
 
+  // Always ask Telnyx whether THIS DID is on a campaign. A platform campaign env
+  // alone does not mean every local number is assigned (carriers still drop SMS).
   const res = await fetch(
     `${TELNYX_BASE}/10dlc/phoneNumberCampaign?phoneNumber=${encodeURIComponent(target)}`,
     { headers: telnyxHeaders() }
   )
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
+    const platformCampaignId = getPlatform10DlcCampaignId()
     return {
       assigned: false,
-      campaign_id: null,
+      campaign_id: platformCampaignId,
       detail:
         "10DLC campaign not assigned — in Telnyx Mission Control go to Messaging → 10DLC, register a brand + campaign, then assign your business line.",
     }
@@ -254,9 +252,8 @@ export async function getTelnyx10DlcAssignmentStatus(e164: string): Promise<Teln
 
   return {
     assigned: false,
-    campaign_id: null,
-    detail:
-      "10DLC campaign not assigned — Telnyx accepted the API request but US carriers block delivery until you assign +15025758166 to an approved 10DLC campaign.",
+    campaign_id: getPlatform10DlcCampaignId(),
+    detail: `10DLC campaign not assigned — Telnyx accepted the API request but US carriers block delivery until you assign ${target} to an approved 10DLC campaign.`,
   }
 }
 

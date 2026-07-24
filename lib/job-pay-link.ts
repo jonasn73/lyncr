@@ -5,7 +5,11 @@ import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 import { getUser } from "@/lib/db"
 import { normalizePhoneNumberE164 } from "@/lib/db"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import {
+  is10DlcDeliveryWarning,
+  sendTelnyxSms,
+  TEN_DLC_BLOCK_USER_MESSAGE,
+} from "@/lib/telnyx-sms"
 import {
   commissionCentsFromCharge,
   confirmJobPaymentIntent,
@@ -229,6 +233,13 @@ export async function sendCollectPayLink(params: {
       text,
     })
     if (!result.ok) return { sent: false, error: result.error || "SMS could not be sent" }
+    // Telnyx may accept the API call while US carriers still drop the text (missing 10DLC).
+    if (is10DlcDeliveryWarning(result.delivery_warning)) {
+      return {
+        sent: false,
+        error: result.delivery_warning || TEN_DLC_BLOCK_USER_MESSAGE,
+      }
+    }
     return { sent: true }
   }
 

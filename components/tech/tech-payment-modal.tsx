@@ -99,6 +99,8 @@ export function TechPaymentModal(props: {
   const [linkPhone, setLinkPhone] = useState(() => props.job.customer_phone?.trim() || "")
   const [linkEmail, setLinkEmail] = useState("")
   const [linkSentUrl, setLinkSentUrl] = useState<string | null>(null)
+  /** True only when SMS/email actually delivered (not just Checkout URL created). */
+  const [linkDelivered, setLinkDelivered] = useState(false)
   // Tip + signature (same flow as walk-up Collect Payment).
   const [postPayStep, setPostPayStep] = useState<PostPayStep | null>(null)
   const [paidTotalCents, setPaidTotalCents] = useState(0)
@@ -124,6 +126,7 @@ export function TechPaymentModal(props: {
     setPublishableKey(null)
     setPaymentIntentId(null)
     setLinkSentUrl(null)
+    setLinkDelivered(false)
     setError(null)
   }
   // Wait for client mount so createPortal can target document.body.
@@ -625,6 +628,7 @@ export function TechPaymentModal(props: {
   async function sendPayLink(channel: "sms" | "email") {
     setError(null)
     setLinkSentUrl(null)
+    setLinkDelivered(false)
     if (totalCents < 50) {
       setError("Enter an amount of at least $0.50.")
       return
@@ -657,8 +661,17 @@ export function TechPaymentModal(props: {
         error?: string
         data?: { url?: string; sent?: boolean }
       }
+      // Always keep the Checkout URL for copy/paste — but only claim "sent" on success.
       if (json.data?.url) setLinkSentUrl(json.data.url)
-      if (!res.ok) throw new Error(json.error || "Could not send pay link")
+      if (!res.ok || json.data?.sent === false) {
+        throw new Error(
+          json.error ||
+            (channel === "sms"
+              ? "Pay link created, but the text could not be delivered. Copy the link below."
+              : "Pay link created, but email could not be sent. Copy the link below.")
+        )
+      }
+      setLinkDelivered(true)
     } catch (e) {
       setError(formatPaymentCatchError(e, "Could not send pay link — try again."))
     } finally {
@@ -1321,7 +1334,9 @@ export function TechPaymentModal(props: {
                 </div>
                 {linkSentUrl ? (
                   <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
-                    <p className="text-sm font-semibold text-emerald-200">Link sent</p>
+                    <p className="text-sm font-semibold text-emerald-200">
+                      {linkDelivered ? "Link sent" : "Pay link ready (not delivered)"}
+                    </p>
                     <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
                     <button
                       type="button"

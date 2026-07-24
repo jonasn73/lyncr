@@ -10,7 +10,11 @@ import {
   upsertSmsRegistration,
   normalizePhoneNumberE164,
 } from "@/lib/db"
-import { resolveActiveLineFor10DlcAssignment } from "@/lib/primary-business-line"
+import {
+  listActiveLinesFor10DlcAssignment,
+  resolveActiveLineFor10DlcAssignment,
+} from "@/lib/primary-business-line"
+import { isTelnyxOwnedNumber } from "@/lib/telnyx-messaging-config"
 import {
   TEN_DLC_USE_CASES,
   tenDlcUseCaseMeta,
@@ -497,17 +501,35 @@ export async function refreshMessaging10DlcStatus(
   if (status.normalized === "approved") {
     let assigned = reg.assigned_number
     let detail = "Approved — your line can now send SMS lead alerts."
-    const targetLine = await activeLineFor10Dlc(userId, resolvedOrgId)
-    if (targetLine && normalizePhoneNumberE164(targetLine) !== normalizePhoneNumberE164(assigned ?? "")) {
+    // Prefer a Telnyx-live DID; skip stale Neon rows (e.g. released numbers still marked active).
+    const candidates = await listActiveLinesFor10DlcAssignment(userId, resolvedOrgId)
+    const ownedCandidates: string[] = []
+    for (const line of candidates) {
+      if (await isTelnyxOwnedNumber(line)) ownedCandidates.push(line)
+    }
+    const targetLines = ownedCandidates.length > 0 ? ownedCandidates : candidates
+    const primaryTarget = targetLines[0] ?? (await activeLineFor10Dlc(userId, resolvedOrgId))
+    if (
+      primaryTarget &&
+      normalizePhoneNumberE164(primaryTarget) !== normalizePhoneNumberE164(assigned ?? "")
+    ) {
       assigned = null
     }
     if (!assigned && assignCampaignId) {
-      if (targetLine) {
-        const res = await assignNumberToTelnyx10DlcCampaign(targetLine, assignCampaignId)
-        if (res.ok) {
-          assigned = targetLine
-        } else {
-          detail = `Approved, but number assignment needs a retry: ${res.error}`
+      if (targetLines.length > 0) {
+        let lastError = "Could not assign the number to the campaign."
+        for (const targetLine of targetLines) {
+          const res = await assignNumberToTelnyx10DlcCampaign(targetLine, assignCampaignId)
+          if (res.ok) {
+            assigned = targetLine
+            lastError = ""
+            break
+          }
+          lastError = res.error || lastError
+          console.warn("[10dlc] number assignment failed for", targetLine, lastError)
+        }
+        if (!assigned) {
+          detail = `Approved, but number assignment needs a retry: ${lastError}`
         }
       } else {
         detail = "Approved — your main line is still porting. Refresh after it is live to attach SMS."

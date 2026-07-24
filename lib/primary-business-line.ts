@@ -121,15 +121,35 @@ export async function resolveActiveLineFor10DlcAssignment(
   ownerUserId: string,
   organizationId?: string | null
 ): Promise<string | null> {
+  // Prefer a DID that still exists on Telnyx (skips released/stale Neon rows).
+  const { isTelnyxOwnedNumber } = await import("@/lib/telnyx-messaging-config")
+  const candidates = await listActiveLinesFor10DlcAssignment(ownerUserId, organizationId)
+  for (const e164 of candidates) {
+    if (await isTelnyxOwnedNumber(e164)) return e164
+  }
+  return candidates[0] ?? null
+}
+
+/** Active provider-linked lines for an owner/org (oldest first) — used for 10DLC retries. */
+export async function listActiveLinesFor10DlcAssignment(
+  ownerUserId: string,
+  organizationId?: string | null
+): Promise<string[]> {
   const orgId = organizationId ?? null
+  const out: string[] = []
+  const push = (raw: string | null | undefined) => {
+    const e164 = raw?.trim() ? normalizePhoneNumberE164(raw) : ""
+    if (e164 && !out.includes(e164)) out.push(e164)
+  }
+
   if (!orgId || orgId.startsWith("legacy-")) {
     const lines = await getPhoneNumbers(ownerUserId)
-    const active = lines.find(
-      (line) =>
-        line.status === "active" &&
-        Boolean(line.provider_number_sid?.trim() || line.twilio_sid?.trim())
-    )
-    return active?.number?.trim() ? normalizePhoneNumberE164(active.number) : null
+    for (const line of lines) {
+      if (line.status !== "active") continue
+      if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+      push(line.number)
+    }
+    return out
   }
 
   const [numbers, portOrders] = await Promise.all([
@@ -145,18 +165,18 @@ export async function resolveActiveLineFor10DlcAssignment(
       portRow?.status === "active" &&
       Boolean(portRow.provider_number_sid?.trim() || portRow.twilio_sid?.trim())
     ) {
-      return portE164
+      push(portE164)
     }
-    return null
+    return out
   }
 
   const portingRow = numbers.find((n) => n.status === "porting")
-  if (portingRow) return null
+  if (portingRow) return out
 
-  const active = numbers.find(
-    (line) =>
-      line.status === "active" &&
-      Boolean(line.provider_number_sid?.trim() || line.twilio_sid?.trim())
-  )
-  return active?.number?.trim() ? normalizePhoneNumberE164(active.number) : null
+  for (const line of numbers) {
+    if (line.status !== "active") continue
+    if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+    push(line.number)
+  }
+  return out
 }
