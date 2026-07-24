@@ -3,6 +3,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   Banknote,
   CheckCircle2,
@@ -65,6 +66,11 @@ export function TechPaymentModal(props: {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
+  // Wait for client mount so createPortal can target document.body.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const subtotalCents = useMemo(
     () => lines.reduce((sum, l) => sum + dollarsToCents(l.amount), 0),
@@ -277,8 +283,15 @@ export function TechPaymentModal(props: {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+  // Portal to <body>: Collect opens this from under the acrylic header (backdrop-filter),
+  // which otherwise traps position:fixed to the header — only a sliver shows on screen.
+  const modal = (
+    <div
+      className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Proceed to payment"
+    >
       {tapListening ? (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#0b0b12]/95 px-8 text-center">
           <div className="relative mb-6 flex h-28 w-28 items-center justify-center">
@@ -296,7 +309,7 @@ export function TechPaymentModal(props: {
         </div>
       ) : null}
 
-      <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-800 bg-[#101018] sm:rounded-3xl">
+      <div className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-800 bg-[#101018] shadow-2xl sm:rounded-3xl">
         <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
           <div>
             <h2 className="text-base font-bold text-white">Proceed to Payment</h2>
@@ -481,6 +494,9 @@ export function TechPaymentModal(props: {
       </div>
     </div>
   )
+
+  if (!mounted || typeof document === "undefined") return null
+  return createPortal(modal, document.body)
 }
 
 function PayOptionButton(props: {
