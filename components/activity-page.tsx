@@ -72,7 +72,7 @@ export function ActivityPage() {
   const [filter, setFilter] = useState<FilterType>("all")
   const [search, setSearch] = useState("")
   const [detailCall, setDetailCall] = useState<CallRecord | null>(null)
-  const { calls, quality, insights, loading, loadError, refreshing } = useOperationsData()
+  const { calls, quality, insights, loading, loadError } = useOperationsData()
 
   const filters: { id: FilterType; label: string }[] = [
     { id: "all", label: "All" },
