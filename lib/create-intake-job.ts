@@ -114,7 +114,6 @@ export type CreateIntakeJobResult = {
   longitude: number | null
   customer_sms_sent: boolean
   customer_sms_error: string | null
-  tracking_url: string
   /** Persisted booked balance (cents) — Active Job must display this. */
   quoted_price_cents: number | null
   billing_balance_cents: number | null
@@ -563,15 +562,24 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     await setLeadCoordinates(id, latitude, longitude)
   }
 
+  // Appointment confirmation SMS after a real book (not callback / special-order / referred).
   const skipCustomerSms = pendingCallback || isSpecialOrder || isReferredOut
+  const serviceAddressForSms =
+    [addressLine1, input.addressLine2?.trim(), city, input.region?.trim(), input.postalCode?.trim()]
+      .filter(Boolean)
+      .join(", ") || null
   const sms = skipCustomerSms
-    ? { sent: false, error: null, tracking_url: "" }
+    ? { sent: false, error: null as string | null }
     : await sendIntakeBookingCustomerSms({
         ownerUserId: input.ownerUserId,
         leadId: id,
         customerPhoneE164: phone,
         customerName,
         callLogId: input.callLogId,
+        organizationId: input.organizationId,
+        scheduledAtIso,
+        serviceAddress: serviceAddressForSms,
+        jobType,
       })
   if (!skipCustomerSms) {
     await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
@@ -599,7 +607,6 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     longitude,
     customer_sms_sent: sms.sent,
     customer_sms_error: sms.error,
-    tracking_url: sms.tracking_url,
     quoted_price_cents: bookedCents,
     billing_balance_cents: bookedCents,
   }

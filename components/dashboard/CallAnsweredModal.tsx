@@ -1663,8 +1663,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
 
-    // TODO: Activate automated booking confirmation SMS once 10DLC registration is fully approved.
-    // await sendSmsConfirmation(phoneNumber, selectedTimeBlock, address);
+    // Appointment confirmation SMS is sent server-side in createUnassignedJobFromIntake.
+    if (result.customerSmsSent) {
+      toast({
+        title: "Appointment confirmed",
+        description: "Confirmation text sent to the customer.",
+      })
+    } else if (result.customerSmsError) {
+      toast({
+        title: "Booked — SMS not sent",
+        description: result.customerSmsError,
+        variant: "destructive",
+      })
+    }
 
     // Wipe the phone-keyed draft so the next call from this customer starts fresh.
     clearDraftForCurrentCaller()
@@ -1678,6 +1689,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     effectiveCurrent,
     jobCreateExtras,
     resolveOwnerUserId,
+    toast,
   ])
 
   const finishBookingAndOpenScheduler = useCallback(() => {
@@ -1697,6 +1709,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const quotedPriceCents = applyCustomPriceToForm()
     const result = await createJob(activeOrganizationId, jobCreateExtras(quotedPriceCents))
     if (!result.ok) return
+    if (result.customerSmsSent) {
+      toast({
+        title: "Appointment confirmed",
+        description: "Confirmation text sent to the customer.",
+      })
+    } else if (result.customerSmsError) {
+      toast({
+        title: "Booked — SMS not sent",
+        description: result.customerSmsError,
+        variant: "destructive",
+      })
+    }
     closeIntakeAfterSave()
     router.push(buildSchedulerFocusUrl(result.leadId, { schedule: true }))
   }, [
@@ -1708,6 +1732,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     jobCreateExtras,
     resolveOwnerUserId,
     router,
+    toast,
   ])
 
   const savePendingLead = useCallback(async () => {

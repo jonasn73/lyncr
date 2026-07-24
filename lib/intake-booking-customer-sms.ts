@@ -1,7 +1,6 @@
-// Booking confirmation SMS to the caller after answered-call intake creates an unassigned job.
+// Booking confirmation SMS to the caller after answered-call intake creates a job.
 
 import { SITE_NAME } from "@/lib/brand"
-import { createBookingInvite, buildBookQueryUrl } from "@/lib/booking-invite"
 import {
   getPhoneNumbers,
   getUser,
@@ -10,12 +9,12 @@ import {
 } from "@/lib/db"
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 
 const CANCELLATION_POLICY =
-  "Cancellations requested within 5 minutes of dispatch incur no charge. Cancellations after 5 minutes will be subject to a fee."
+  "Cancellations within 5 minutes of dispatch: no charge. After that, a fee may apply."
 
-/** Resolve a business DID for the public /book link (call line → first owned line). */
+/** Resolve a business DID for From + logging (call line → first owned line). */
 async function resolveBusinessLine(params: {
   ownerUserId: string
   businessLine?: string | null
@@ -53,51 +52,46 @@ async function resolveBusinessLine(params: {
   return null
 }
 
-/** Public customer tracking URL — never /dashboard/* (login-gated). */
-export async function buildIntakeBookingTrackingUrl(params: {
-  ownerUserId: string
-  leadId: string
-  customerPhoneE164: string
-  businessLine?: string | null
-  callLogId?: string | null
-}): Promise<string> {
-  const line = await resolveBusinessLine({
-    ownerUserId: params.ownerUserId,
-    businessLine: params.businessLine,
-    callLogId: params.callLogId,
-  })
-  const customer = normalizePhoneNumberE164(params.customerPhoneE164) || params.customerPhoneE164
-
-  if (line) {
-    const created = await createBookingInvite({
-      ownerUserId: params.ownerUserId,
-      businessLine: line,
-      callerPhone: customer,
-      source: "intake_booking",
-    })
-    if (created?.url) return created.url
-    return buildBookQueryUrl({ callerPhone: customer, businessLine: line })
+/** Human-readable appointment time for SMS (US-friendly). */
+export function formatAppointmentSmsTime(scheduledAtIso: string | null | undefined): string | null {
+  const raw = (scheduledAtIso ?? "").trim()
+  if (!raw) return null
+  const ms = Date.parse(raw)
+  if (!Number.isFinite(ms)) return null
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(new Date(ms))
+  } catch {
+    return new Date(ms).toLocaleString("en-US")
   }
-
-  // Last resort: query-string book page (still public).
-  return buildBookQueryUrl({
-    callerPhone: customer,
-    businessLine: customer,
-  })
 }
 
 export function buildIntakeBookingCustomerSmsText(params: {
   customerName: string
   businessName: string
-  trackingUrl: string
+  scheduledAtIso?: string | null
+  serviceAddress?: string | null
+  jobType?: string | null
 }): string {
   const first = params.customerName.split(/\s+/)[0]?.trim() || "there"
   const business = params.businessName.trim() || SITE_NAME
-  return (
-    `Hi ${first}, ${business} confirmed your service request. ` +
-    `Track status & ETA: ${params.trackingUrl}\n\n` +
-    CANCELLATION_POLICY
-  )
+  const when = formatAppointmentSmsTime(params.scheduledAtIso)
+  const address = (params.serviceAddress ?? "").trim()
+  const job = (params.jobType ?? "").trim()
+
+  let body = `Hi ${first}, ${business} confirmed your appointment`
+  if (when) body += ` for ${when}`
+  body += "."
+  if (address) body += ` Location: ${address}.`
+  if (job) body += ` Service: ${job}.`
+  body += ` Reply here if anything changes.\n\n${CANCELLATION_POLICY}`
+  return body
 }
 
 export async function sendIntakeBookingCustomerSms(params: {
@@ -107,27 +101,46 @@ export async function sendIntakeBookingCustomerSms(params: {
   customerName: string
   businessLine?: string | null
   callLogId?: string | null
-}): Promise<{ sent: boolean; error: string | null; tracking_url: string }> {
+  organizationId?: string | null
+  scheduledAtIso?: string | null
+  serviceAddress?: string | null
+  jobType?: string | null
+}): Promise<{ sent: boolean; error: string | null }> {
   const toE164 = normalizePhoneNumberE164(params.customerPhoneE164)
   if (!isReasonablePstnDialString(toE164)) {
-    const tracking_url = await buildIntakeBookingTrackingUrl(params)
-    return { sent: false, error: "Invalid customer phone number.", tracking_url }
+    return { sent: false, error: "Invalid customer phone number." }
   }
 
   const owner = await getUser(params.ownerUserId)
-  const trackingUrl = await buildIntakeBookingTrackingUrl({
-    ...params,
-    customerPhoneE164: toE164,
+  const fromE164 = await resolveBusinessLine({
+    ownerUserId: params.ownerUserId,
+    businessLine: params.businessLine,
+    callLogId: params.callLogId,
   })
   const text = buildIntakeBookingCustomerSmsText({
     customerName: params.customerName,
     businessName: owner?.business_name?.trim() || owner?.name?.trim() || SITE_NAME,
-    trackingUrl,
+    scheduledAtIso: params.scheduledAtIso,
+    serviceAddress: params.serviceAddress,
+    jobType: params.jobType,
   })
 
-  const res = await sendTelnyxSms({ toE164, text, userId: params.ownerUserId })
-  if (!res.ok) {
-    return { sent: false, error: res.error, tracking_url: trackingUrl }
+  const orgId =
+    params.organizationId && !params.organizationId.startsWith("legacy-")
+      ? params.organizationId
+      : null
+
+  // Log into sms_messages so the confirmation appears in Messages inbox.
+  const sent = await sendAndLogWorkspaceCustomerSms({
+    ownerUserId: params.ownerUserId,
+    toE164,
+    text,
+    organizationId: orgId,
+    fromE164: fromE164 || null,
+  })
+
+  if (!sent.ok) {
+    return { sent: false, error: sent.error }
   }
-  return { sent: true, error: res.delivery_warning ?? null, tracking_url: trackingUrl }
+  return { sent: true, error: sent.delivery_warning ?? null }
 }

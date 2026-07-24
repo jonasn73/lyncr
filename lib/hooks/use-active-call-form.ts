@@ -643,7 +643,9 @@ export function useActiveCallForm(
         recoveredViaRouteDiscount?: boolean
         existingLeadId?: string | null
       }
-    ): Promise<{ ok: true; leadId: string } | { ok: false }> => {
+    ): Promise<
+      { ok: true; leadId: string; customerSmsSent?: boolean; customerSmsError?: string | null } | { ok: false }
+    > => {
       if (!current) return { ok: false }
       const phone = resolvedPhoneNumber || current.from_number
       const pendingCallback = Boolean(jobOptions?.pendingCallback)
@@ -844,7 +846,11 @@ export function useActiveCallForm(
           }),
         })
         const json = (await res.json()) as {
-          data?: { lead_id?: string; customer_sms_sent?: boolean }
+          data?: {
+            lead_id?: string
+            customer_sms_sent?: boolean
+            customer_sms_error?: string | null
+          }
           error?: string
         }
         if (!res.ok) throw new Error(json.error ?? "Job create failed")
@@ -856,7 +862,12 @@ export function useActiveCallForm(
         if (pendingCallback) {
           revalidateLeadsWorkspaceCache()
         }
-        return { ok: true, leadId }
+        return {
+          ok: true,
+          leadId,
+          customerSmsSent: json.data?.customer_sms_sent === true,
+          customerSmsError: json.data?.customer_sms_error ?? null,
+        }
       } catch (e) {
         setJobState("error")
         setJobError(e instanceof Error ? e.message : "Job create failed")
