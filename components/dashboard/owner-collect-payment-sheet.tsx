@@ -961,7 +961,7 @@ export function OwnerCollectPaymentSheet({
                       : mode === "tip_charge"
                         ? "Charge tip"
                         : mode === "adhoc"
-                          ? "Walk-up charge"
+                          ? "Charge"
                           : "Collect"}
                 </SheetTitle>
                 <p className="mt-0.5 text-xs text-slate-500">
@@ -972,7 +972,7 @@ export function OwnerCollectPaymentSheet({
                       : mode === "tip_charge"
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
-                          ? "Amount, tax, then Tap to Pay or card."
+                          ? "Walk-up"
                           : "Charge a walk-up or a job on today’s schedule."}
                 </p>
               </div>
@@ -1067,7 +1067,7 @@ export function OwnerCollectPaymentSheet({
                           : `Link sent ${fmtCents(link.chargeCents)} · waiting`
                         : quote
                           ? `Quoted ${quote}`
-                          : "Enter amount on next screen"
+                          : "Set amount next"
                       return (
                         <li key={job.id}>
                           <button
@@ -1452,68 +1452,86 @@ export function OwnerCollectPaymentSheet({
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <button
                   type="button"
                   onClick={resetAdhoc}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                  Back to jobs
+                  Back
                 </button>
 
                 {!clientSecret ? (
                   <>
-                    <label className="block">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Amount (USD)
-                      </span>
-                      <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5">
-                        <span className="text-lg font-semibold text-slate-400">$</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0.50"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={adhocAmount}
-                          onChange={(e) => setAdhocAmount(e.target.value)}
-                          className="w-full bg-transparent text-lg font-semibold tabular-nums text-white outline-none placeholder:text-zinc-600"
-                        />
-                      </div>
-                    </label>
-
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-100">Sales tax</p>
-                          <p className="text-[11px] text-slate-500">
-                            Turn on to add tax on top of the amount
+                    {/* Same compact amount card as job Charge */}
+                    <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+                      <div className="flex items-end gap-2">
+                        <label className="min-w-0 flex-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                            Amount
+                          </span>
+                          <div className="relative mt-1">
+                            <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0.50"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={adhocAmount}
+                              onChange={(e) => setAdhocAmount(e.target.value)}
+                              aria-label="Amount before tax"
+                              className={cn(
+                                "w-full rounded-lg border bg-zinc-950 py-2 pr-2.5 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500",
+                                adhocBreakdown.totalCents < 50
+                                  ? "border-amber-500/60"
+                                  : "border-zinc-700"
+                              )}
+                            />
+                          </div>
+                        </label>
+                        <div className="shrink-0 pb-0.5 text-right">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                            Total
+                          </p>
+                          <p className="text-lg font-bold tabular-nums text-emerald-300">
+                            {fmtCents(adhocBreakdown.totalCents)}
                           </p>
                         </div>
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-800/80 pt-2">
                         <button
                           type="button"
                           role="switch"
                           aria-checked={taxEnabled}
                           onClick={() => setTaxEnabled((v) => !v)}
-                          className={cn(
-                            "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-                            taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
-                          )}
+                          className="flex items-center gap-2 text-left"
                         >
                           <span
                             className={cn(
-                              "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
-                              taxEnabled && "translate-x-5"
+                              "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                              taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
                             )}
-                          />
-                        </button>
-                      </div>
-                      {taxEnabled ? (
-                        <label className="mt-3 block">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Tax rate (%)
+                          >
+                            <span
+                              className={cn(
+                                "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                                taxEnabled && "translate-x-4"
+                              )}
+                            />
                           </span>
+                          <span className="text-xs font-medium text-zinc-300">
+                            Tax
+                            {taxEnabled
+                              ? ` ${adhocBreakdown.ratePercent.toFixed(0)}%`
+                              : ""}
+                          </span>
+                        </button>
+                        {taxEnabled ? (
                           <input
                             type="number"
                             inputMode="decimal"
@@ -1522,42 +1540,28 @@ export function OwnerCollectPaymentSheet({
                             step="0.01"
                             value={taxRatePercent}
                             onChange={(e) => setTaxRatePercent(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm tabular-nums text-white outline-none"
+                            aria-label="Tax rate percent"
+                            className="w-16 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-white outline-none"
                           />
-                        </label>
-                      ) : null}
-                      {adhocBreakdown.subtotalCents > 0 ? (
-                        <div className="mt-3 space-y-1 border-t border-zinc-800 pt-3 text-xs tabular-nums">
-                          <div className="flex justify-between text-slate-400">
-                            <span>Subtotal</span>
-                            <span>{fmtCents(adhocBreakdown.subtotalCents)}</span>
-                          </div>
-                          {taxEnabled ? (
-                            <div className="flex justify-between text-slate-400">
-                              <span>Tax ({adhocBreakdown.ratePercent.toFixed(2)}%)</span>
-                              <span>{fmtCents(adhocBreakdown.taxCents)}</span>
-                            </div>
-                          ) : null}
-                          <div className="flex justify-between text-sm font-semibold text-emerald-300">
-                            <span>Total charge</span>
-                            <span>{fmtCents(adhocBreakdown.totalCents)}</span>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
+                        ) : null}
+                      </div>
 
-                    <label className="block">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Note (optional)
-                      </span>
-                      <input
-                        type="text"
-                        value={adhocNote}
-                        onChange={(e) => setAdhocNote(e.target.value)}
-                        placeholder="e.g. Lockout — walk-up"
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
-                      />
-                    </label>
+                      <details className="group mt-2 border-t border-zinc-800/80 pt-2">
+                        <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400 marker:content-none [&::-webkit-details-marker]:hidden">
+                          <span className="group-open:hidden">
+                            Note{adhocNote.trim() ? " · set" : ""} · edit
+                          </span>
+                          <span className="hidden group-open:inline">Hide note</span>
+                        </summary>
+                        <input
+                          type="text"
+                          value={adhocNote}
+                          onChange={(e) => setAdhocNote(e.target.value)}
+                          placeholder="e.g. Lockout — walk-up"
+                          className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-emerald-500"
+                        />
+                      </details>
+                    </section>
 
                     {tapListening ? (
                       <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
@@ -1569,88 +1573,110 @@ export function OwnerCollectPaymentSheet({
                         <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
                       </div>
                     ) : (
-                      <div className="grid gap-2">
-                        <button
-                          type="button"
-                          disabled={adhocBusy}
-                          onClick={() => void runAdhocTapToPay()}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                        >
-                          {adhocBusy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                          ) : (
-                            <Nfc className="h-4 w-4" aria-hidden />
-                          )}
-                          Tap to Pay
-                          {adhocBreakdown.totalCents >= 50
-                            ? ` · ${fmtCents(adhocBreakdown.totalCents)}`
-                            : ""}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={adhocBusy}
-                          onClick={() => void startAdhocIntent()}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 hover:border-emerald-500/40 hover:bg-zinc-800 disabled:opacity-50"
-                        >
-                          <CreditCard className="h-4 w-4" aria-hidden />
-                          Card / Apple Pay / Cash App
-                        </button>
-                        <button
-                          type="button"
-                          disabled={adhocBusy}
-                          onClick={() => {
-                            setPayLinkOpen((v) => !v)
-                            setPayLinkUrl(null)
-                          }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-50"
-                        >
-                          <Link2 className="h-4 w-4" aria-hidden />
-                          Text / email pay link
-                        </button>
+                      <section>
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                          How to collect
+                        </p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            disabled={adhocBusy}
+                            onClick={() => void runAdhocTapToPay()}
+                            className={cn(
+                              "flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition disabled:opacity-50",
+                              "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
+                              adhocBreakdown.totalCents < 50 && "opacity-70"
+                            )}
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                              {adhocBusy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              ) : (
+                                <Nfc className="h-4 w-4" aria-hidden />
+                              )}
+                            </span>
+                            <span className="text-xs font-semibold text-white">Tap to Pay</span>
+                            <span className="text-[10px] text-zinc-500">NFC</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={adhocBusy}
+                            onClick={() => void startAdhocIntent()}
+                            className={cn(
+                              "flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50",
+                              adhocBreakdown.totalCents < 50 && "opacity-70"
+                            )}
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                              <CreditCard className="h-4 w-4" aria-hidden />
+                            </span>
+                            <span className="text-xs font-semibold text-white">Card</span>
+                            <span className="text-[10px] text-zinc-500">Key in</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={adhocBusy}
+                            onClick={() => {
+                              setPayLinkOpen((v) => !v)
+                              setPayLinkUrl(null)
+                            }}
+                            className={cn(
+                              "col-span-2 flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left disabled:opacity-50",
+                              payLinkOpen
+                                ? "border-emerald-500/50 bg-emerald-500/15"
+                                : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
+                              adhocBreakdown.totalCents < 50 && "opacity-70"
+                            )}
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                              <Link2 className="h-4 w-4" aria-hidden />
+                            </span>
+                            <span className="text-xs font-semibold text-white">Pay link</span>
+                            <span className="text-[10px] text-zinc-500">Text / email</span>
+                          </button>
+                        </div>
+
                         {payLinkOpen ? (
-                          <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3">
-                            <p className="text-[11px] text-slate-500">
-                              Customer opens a short lyncr.app link and pays on a branded page.
-                            </p>
+                          <div className="mt-2 space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
                             <input
                               type="text"
                               value={payLinkName}
                               onChange={(e) => setPayLinkName(e.target.value)}
                               placeholder="Customer name (optional)"
-                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
                             />
                             <input
                               type="tel"
                               value={payLinkPhone}
                               onChange={(e) => setPayLinkPhone(e.target.value)}
                               placeholder="Mobile for text"
-                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
                             />
                             <input
                               type="email"
                               value={payLinkEmail}
                               onChange={(e) => setPayLinkEmail(e.target.value)}
                               placeholder="Email"
-                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
                             />
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-1.5">
                               <button
                                 type="button"
                                 disabled={adhocBusy || !payLinkPhone.trim()}
                                 onClick={() => void sendAdhocPayLink("sms")}
-                                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white disabled:opacity-50"
                               >
                                 <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                                Text link
+                                Text
                               </button>
                               <button
                                 type="button"
                                 disabled={adhocBusy || !payLinkEmail.trim()}
                                 onClick={() => void sendAdhocPayLink("email")}
-                                className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                                className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2 text-xs font-semibold text-slate-100 disabled:opacity-50"
                               >
                                 <Mail className="h-3.5 w-3.5" aria-hidden />
-                                Email link
+                                Email
                               </button>
                             </div>
                             {payLinkUrl ? (
@@ -1658,12 +1684,7 @@ export function OwnerCollectPaymentSheet({
                             ) : null}
                           </div>
                         ) : null}
-                        <p className="px-1 text-[11px] leading-snug text-slate-500">
-                          Tap to Pay needs a real reader (Stripe Dashboard app on iPhone, or a paired
-                          Stripe reader). Desktop browsers can’t tap live cards — use Card / Apple
-                          Pay / Cash App, or send a pay link.
-                        </p>
-                      </div>
+                      </section>
                     )}
                   </>
                 ) : publishableKey ? (
