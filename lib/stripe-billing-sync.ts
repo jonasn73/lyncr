@@ -87,6 +87,13 @@ export async function handleStripeCheckoutSessionCompleted(session: Stripe.Check
     return
   }
 
+  if (checkoutType === "job_payment_link" || checkoutType === "adhoc_payment_link") {
+    if (session.payment_status !== "paid" && session.status !== "complete") return
+    const { fulfillCollectPayLinkFromCheckout } = await import("@/lib/job-pay-link")
+    await fulfillCollectPayLinkFromCheckout(session)
+    return
+  }
+
   if (checkoutType === "credit_pack") {
     if (session.payment_status !== "paid" && session.status !== "complete") return
     await applyStripeCreditPackPayment(userId, session)

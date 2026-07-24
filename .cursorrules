@@ -74,6 +74,7 @@ REST client factory, webhook validator, TwiML builder, and app URL helper.
 | /api/analytics | GET | Agent talk time + pay calculations |
 | /api/payments/terminal/connection-token | POST | Stripe Terminal connection token (+ locationId for RN Tap to Pay) |
 | /api/payments/terminal/location | GET | Stripe Terminal Location id for Tap to Pay reader connect |
+| /api/payments/send-pay-link | POST | Create Stripe Checkout pay link + SMS/email to customer |
 
 ## Environment Variables Required
 ```

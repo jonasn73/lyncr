@@ -7,7 +7,18 @@ import dynamic from "next/dynamic"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
-import { CreditCard, Loader2, MapPin, Plus, ArrowLeft, Nfc, Mail, Phone } from "lucide-react"
+import {
+  CreditCard,
+  Loader2,
+  MapPin,
+  Plus,
+  ArrowLeft,
+  Nfc,
+  Mail,
+  Phone,
+  Link2,
+  MessageSquare,
+} from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
@@ -190,6 +201,12 @@ export function OwnerCollectPaymentSheet({
   const [receiptPhone, setReceiptPhone] = useState("")
   const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("email")
   const [receiptBusy, setReceiptBusy] = useState(false)
+  // Pre-pay: text/email a Stripe Checkout link (walk-up).
+  const [payLinkOpen, setPayLinkOpen] = useState(false)
+  const [payLinkName, setPayLinkName] = useState("")
+  const [payLinkEmail, setPayLinkEmail] = useState("")
+  const [payLinkPhone, setPayLinkPhone] = useState("")
+  const [payLinkUrl, setPayLinkUrl] = useState<string | null>(null)
 
   const resetAdhoc = useCallback(() => {
     setMode("list")
@@ -212,6 +229,11 @@ export function OwnerCollectPaymentSheet({
     setReceiptEmail("")
     setReceiptPhone("")
     setReceiptChannel("email")
+    setPayLinkOpen(false)
+    setPayLinkName("")
+    setPayLinkEmail("")
+    setPayLinkPhone("")
+    setPayLinkUrl(null)
     setReceiptBusy(false)
   }, [])
 
@@ -562,6 +584,59 @@ export function OwnerCollectPaymentSheet({
       } catch {
         /* ignore */
       }
+    }
+  }
+
+  /** Text or email a Stripe Checkout link for this walk-up amount. */
+  async function sendAdhocPayLink(channel: "sms" | "email") {
+    const dollars = parseAdhocDollars()
+    if (dollars == null) {
+      toast({
+        title: "Enter an amount",
+        description: "Minimum is $0.50.",
+        variant: "destructive",
+      })
+      return
+    }
+    setAdhocBusy(true)
+    setPayLinkUrl(null)
+    try {
+      const res = await fetch("/api/payments/send-pay-link", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel,
+          adhoc: true,
+          amount: dollars,
+          taxEnabled,
+          taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+          note: adhocNote.trim() || "Walk-up payment",
+          customerName: payLinkName.trim() || undefined,
+          phone: channel === "sms" ? payLinkPhone.trim() : undefined,
+          email: channel === "email" ? payLinkEmail.trim() : undefined,
+        }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: { url?: string; chargeCents?: number }
+      }
+      if (json.data?.url) setPayLinkUrl(json.data.url)
+      if (!res.ok) throw new Error(json.error || "Could not send pay link")
+      toast({
+        title: channel === "sms" ? "Pay link texted" : "Pay link emailed",
+        description: json.data?.chargeCents
+          ? `Customer can pay ${fmtCents(json.data.chargeCents)}.`
+          : "Link sent.",
+      })
+    } catch (e) {
+      toast({
+        title: "Could not send pay link",
+        description: formatPaymentCatchError(e, "Try again in a moment."),
+        variant: "destructive",
+      })
+    } finally {
+      setAdhocBusy(false)
     }
   }
 
@@ -1333,10 +1408,73 @@ export function OwnerCollectPaymentSheet({
                           <CreditCard className="h-4 w-4" aria-hidden />
                           Card / Apple Pay / Cash App
                         </button>
+                        <button
+                          type="button"
+                          disabled={adhocBusy}
+                          onClick={() => {
+                            setPayLinkOpen((v) => !v)
+                            setPayLinkUrl(null)
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-50"
+                        >
+                          <Link2 className="h-4 w-4" aria-hidden />
+                          Text / email pay link
+                        </button>
+                        {payLinkOpen ? (
+                          <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3">
+                            <p className="text-[11px] text-slate-500">
+                              Customer opens a secure Stripe page and pays on their own phone.
+                            </p>
+                            <input
+                              type="text"
+                              value={payLinkName}
+                              onChange={(e) => setPayLinkName(e.target.value)}
+                              placeholder="Customer name (optional)"
+                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                            />
+                            <input
+                              type="tel"
+                              value={payLinkPhone}
+                              onChange={(e) => setPayLinkPhone(e.target.value)}
+                              placeholder="Mobile for text"
+                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                            />
+                            <input
+                              type="email"
+                              value={payLinkEmail}
+                              onChange={(e) => setPayLinkEmail(e.target.value)}
+                              placeholder="Email"
+                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                disabled={adhocBusy || !payLinkPhone.trim()}
+                                onClick={() => void sendAdhocPayLink("sms")}
+                                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                                Text link
+                              </button>
+                              <button
+                                type="button"
+                                disabled={adhocBusy || !payLinkEmail.trim()}
+                                onClick={() => void sendAdhocPayLink("email")}
+                                className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                              >
+                                <Mail className="h-3.5 w-3.5" aria-hidden />
+                                Email link
+                              </button>
+                            </div>
+                            {payLinkUrl ? (
+                              <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
                         <p className="px-1 text-[11px] leading-snug text-slate-500">
                           Tap to Pay needs a real reader (Stripe Dashboard app on iPhone, or a paired
                           Stripe reader). Desktop browsers can’t tap live cards — use Card / Apple
-                          Pay / Cash App instead.
+                          Pay / Cash App, or send a pay link.
                         </p>
                       </div>
                     )}

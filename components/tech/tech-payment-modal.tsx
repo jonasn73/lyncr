@@ -8,7 +8,10 @@ import {
   Banknote,
   CheckCircle2,
   CreditCard,
+  Link2,
   Loader2,
+  Mail,
+  MessageSquare,
   Nfc,
   Plus,
   Trash2,
@@ -28,7 +31,7 @@ import {
 } from "@/lib/stripe-payment-errors"
 
 type Line = { id: string; label: string; amount: string }
-type PayMethod = "tap" | "card" | "cash"
+type PayMethod = "tap" | "card" | "cash" | "link"
 
 function newLine(label = "", amount = ""): Line {
   return { id: Math.random().toString(36).slice(2), label, amount }
@@ -87,6 +90,11 @@ export function TechPaymentModal(props: {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
+  // Contact for “Text / email pay link”.
+  const [linkName, setLinkName] = useState(() => props.job.customer_name?.trim() || "")
+  const [linkPhone, setLinkPhone] = useState(() => props.job.customer_phone?.trim() || "")
+  const [linkEmail, setLinkEmail] = useState("")
+  const [linkSentUrl, setLinkSentUrl] = useState<string | null>(null)
   // Wait for client mount so createPortal can target document.body.
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -342,6 +350,51 @@ export function TechPaymentModal(props: {
     }
   }
 
+  /** Create Stripe Checkout URL and text or email it to the customer. */
+  async function sendPayLink(channel: "sms" | "email") {
+    setError(null)
+    setLinkSentUrl(null)
+    if (totalCents < 50) {
+      setError("Enter an amount of at least $0.50.")
+      return
+    }
+    setBusy(true)
+    setMethod("link")
+    try {
+      const res = await fetch("/api/payments/send-pay-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          channel,
+          jobId: props.job.id,
+          // API expects pre-tax dollars; tax is re-applied server-side.
+          amount: subtotalCents / 100,
+          taxEnabled,
+          taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+          customerName: linkName.trim() || undefined,
+          phone: channel === "sms" ? linkPhone.trim() : undefined,
+          email: channel === "email" ? linkEmail.trim() : undefined,
+          lineItems: lineItemsPayload(),
+          note: lineItemsPayload()
+            .map((l) => l.label)
+            .join(", ")
+            .slice(0, 120),
+        }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: { url?: string; sent?: boolean }
+      }
+      if (json.data?.url) setLinkSentUrl(json.data.url)
+      if (!res.ok) throw new Error(json.error || "Could not send pay link")
+    } catch (e) {
+      setError(formatPaymentCatchError(e, "Could not send pay link — try again."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Portal to <body>: Collect opens this from under the acrylic header (backdrop-filter),
   // which otherwise traps position:fixed to the header — only a sliver shows on screen.
   const modal = (
@@ -575,6 +628,18 @@ export function TechPaymentModal(props: {
                       icon={<CreditCard className="h-5 w-5" />}
                     />
                     <PayOptionButton
+                      active={method === "link"}
+                      disabled={busy || totalCents < 50}
+                      onClick={() => {
+                        setError(null)
+                        setMethod("link")
+                        setLinkSentUrl(null)
+                      }}
+                      title="Text / email pay link"
+                      subtitle="Customer pays on their phone — Stripe Checkout"
+                      icon={<Link2 className="h-5 w-5" />}
+                    />
+                    <PayOptionButton
                       active={method === "cash"}
                       disabled={busy || totalCents < 50}
                       onClick={() => void payCash()}
@@ -583,6 +648,104 @@ export function TechPaymentModal(props: {
                       icon={<Banknote className="h-5 w-5" />}
                     />
                   </div>
+
+                  {method === "link" ? (
+                    <div className="mt-3 space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+                      <p className="text-xs text-emerald-100/90">
+                        Sends a secure link for {fmt(totalCents)}. When they pay, the job is marked
+                        collected.
+                      </p>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Customer name
+                        </span>
+                        <input
+                          value={linkName}
+                          onChange={(e) => setLinkName(e.target.value)}
+                          disabled={busy}
+                          placeholder="Optional"
+                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Mobile for text
+                        </span>
+                        <input
+                          value={linkPhone}
+                          onChange={(e) => setLinkPhone(e.target.value)}
+                          disabled={busy}
+                          inputMode="tel"
+                          placeholder="+15551234567"
+                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Email
+                        </span>
+                        <input
+                          value={linkEmail}
+                          onChange={(e) => setLinkEmail(e.target.value)}
+                          disabled={busy}
+                          inputMode="email"
+                          autoCapitalize="none"
+                          placeholder="customer@email.com"
+                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+                        />
+                      </label>
+                      <div className="grid gap-2">
+                        <button
+                          type="button"
+                          disabled={busy || !linkPhone.trim()}
+                          onClick={() => void sendPayLink("sms")}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                        >
+                          {busy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          ) : (
+                            <MessageSquare className="h-4 w-4" aria-hidden />
+                          )}
+                          Text pay link
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || !linkEmail.trim()}
+                          onClick={() => void sendPayLink("email")}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                        >
+                          <Mail className="h-4 w-4" aria-hidden />
+                          Email pay link
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setMethod(null)
+                            setLinkSentUrl(null)
+                          }}
+                          className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
+                        >
+                          Back
+                        </button>
+                      </div>
+                      {linkSentUrl ? (
+                        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+                          <p className="text-sm font-semibold text-emerald-200">Link sent</p>
+                          <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
+                          <button
+                            type="button"
+                            className="mt-2 text-xs font-semibold text-emerald-300 underline"
+                            onClick={() => {
+                              void navigator.clipboard?.writeText(linkSentUrl)
+                            }}
+                          >
+                            Copy link
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </section>
               )}
 
