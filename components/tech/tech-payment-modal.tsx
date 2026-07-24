@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   Banknote,
@@ -79,7 +79,8 @@ export function TechPaymentModal(props: {
   const [lines, setLines] = useState<Line[]>(() => initialLines(props.job))
   // Editable pre-tax amount (dollars). Kept in sync with line items unless the user typed a custom total.
   const [amountInput, setAmountInput] = useState(() => {
-    const cents = props.job.quoted_price_cents
+    const cents = (props.job as DispatchJob & { quoted_price_cents?: number | null })
+      .quoted_price_cents
     if (typeof cents === "number" && cents >= 50) return centsToAmountInput(cents)
     return ""
   })
@@ -111,6 +112,7 @@ export function TechPaymentModal(props: {
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
   const [receiptBusy, setReceiptBusy] = useState(false)
+  const amountInputRef = useRef<HTMLInputElement | null>(null)
   // Wait for client mount so createPortal can target document.body.
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -143,6 +145,15 @@ export function TechPaymentModal(props: {
   }, [amountInput, taxEnabled, taxRatePercent])
 
   const { subtotalCents, taxCents, totalCents } = breakdown
+
+  /** Buttons used to be disabled at $0 with no feedback — looked clickable but did nothing. */
+  function requireChargeAmount(): boolean {
+    if (totalCents >= 50) return true
+    setError("Enter an amount of at least $0.50 in Amount (before tax), then try again.")
+    amountInputRef.current?.focus()
+    amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    return false
+  }
 
   const lineItemsPayload = () => {
     const fromLines = lines
@@ -1046,20 +1057,25 @@ export function TechPaymentModal(props: {
                         $
                       </span>
                       <input
+                        ref={amountInputRef}
                         value={amountInput}
                         onChange={(e) => {
                           setAmountEdited(true)
+                          setError(null)
                           setAmountInput(e.target.value.replace(/[^\d.]/g, ""))
                         }}
                         inputMode="decimal"
-                        placeholder="0.00"
+                        placeholder="85.00"
                         disabled={busy || method === "card"}
                         aria-label="Amount before tax"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 py-2.5 pr-3 pl-7 text-right text-lg font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60"
+                        className={cn(
+                          "w-full rounded-lg border bg-zinc-950 py-2.5 pr-3 pl-7 text-right text-lg font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
+                          totalCents < 50 ? "border-amber-500/60" : "border-zinc-700"
+                        )}
                       />
                     </div>
                     <p className="mt-1 text-[11px] text-zinc-500">
-                      Type any total — does not have to match the lines above.
+                      Type the charge here first (min $0.50) — then pick Tap, Card, Link, or Cash.
                     </p>
                   </label>
 
@@ -1131,27 +1147,48 @@ export function TechPaymentModal(props: {
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                     Payment options
                   </p>
+                  {totalCents < 50 ? (
+                    <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100">
+                      Enter an amount of at least $0.50 above before choosing how to collect.
+                    </p>
+                  ) : null}
+                  {error && !postPayStep ? (
+                    <div className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
+                      <p className="text-sm font-semibold text-red-200">Couldn’t start payment</p>
+                      <p className="mt-0.5 text-sm leading-snug text-red-300/95">{error}</p>
+                    </div>
+                  ) : null}
                   <div className="grid gap-2">
                     <PayOptionButton
                       active={method === "tap"}
-                      disabled={busy || totalCents < 50}
-                      onClick={() => void runTapToPay()}
+                      disabled={busy}
+                      dimmed={totalCents < 50}
+                      onClick={() => {
+                        if (!requireChargeAmount()) return
+                        void runTapToPay()
+                      }}
                       title="Tap to Pay"
                       subtitle="NFC — hold card to back of phone"
                       icon={<Nfc className="h-5 w-5" />}
                     />
                     <PayOptionButton
                       active={false}
-                      disabled={busy || totalCents < 50}
-                      onClick={() => void startManualCard()}
+                      disabled={busy}
+                      dimmed={totalCents < 50}
+                      onClick={() => {
+                        if (!requireChargeAmount()) return
+                        void startManualCard()
+                      }}
                       title="Manual Card Entry"
                       subtitle="Secure Stripe card fields"
                       icon={<CreditCard className="h-5 w-5" />}
                     />
                     <PayOptionButton
                       active={method === "link"}
-                      disabled={busy || totalCents < 50}
+                      disabled={busy}
+                      dimmed={totalCents < 50}
                       onClick={() => {
+                        if (!requireChargeAmount()) return
                         setError(null)
                         setMethod("link")
                         setLinkSentUrl(null)
@@ -1162,8 +1199,12 @@ export function TechPaymentModal(props: {
                     />
                     <PayOptionButton
                       active={method === "cash"}
-                      disabled={busy || totalCents < 50}
-                      onClick={() => void payCash()}
+                      disabled={busy}
+                      dimmed={totalCents < 50}
+                      onClick={() => {
+                        if (!requireChargeAmount()) return
+                        void payCash()
+                      }}
                       title="Cash / Alternative"
                       subtitle="Mark paid without charging a card"
                       icon={<Banknote className="h-5 w-5" />}
@@ -1314,12 +1355,6 @@ export function TechPaymentModal(props: {
                 </p>
               ) : null}
 
-              {error ? (
-                <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
-                  <p className="text-sm font-semibold text-red-200">Payment didn’t go through</p>
-                  <p className="mt-0.5 text-sm leading-snug text-red-300/95">{error}</p>
-                </div>
-              ) : null}
             </div>
           </>
         )}
@@ -1337,6 +1372,8 @@ function PayOptionButton(props: {
   icon: React.ReactNode
   active?: boolean
   disabled?: boolean
+  /** Soft “needs amount” look — still clickable so we can show an error. */
+  dimmed?: boolean
   onClick: () => void
 }) {
   return (
@@ -1348,7 +1385,8 @@ function PayOptionButton(props: {
         "flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition active:scale-[0.99] disabled:opacity-50",
         props.active
           ? "border-indigo-500 bg-indigo-500/15"
-          : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600"
+          : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
+        props.dimmed && !props.disabled && "opacity-70"
       )}
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-950/60 text-indigo-300">
