@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { softInvalidateOperationsDataCache } from "@/lib/hooks/use-operations-data"
+import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 import { revalidateLeadsWorkspaceCache } from "@/lib/leads-cache"
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
 import { cn } from "@/lib/utils"
@@ -86,8 +87,9 @@ export function MissedCallQuickLogPanel({
       })
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error ?? "Could not save")
-      // Refresh Activities badges + Leads list.
+      // Refresh Activities badges + Leads list immediately.
       softInvalidateOperationsDataCache()
+      window.dispatchEvent(new CustomEvent(LYNCR_ACTIVITY_REFRESH_EVENT))
       revalidateLeadsWorkspaceCache()
       notifyWorkspaceDataChanged({
         reason: "missed-call-quick-log",
