@@ -288,10 +288,10 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
           <div
             className={cn(
               "border-t border-zinc-800/80",
-              sidebar ? "px-3 py-2" : "px-3 py-2 md:px-3.5"
+              sidebar ? "px-2.5 py-1.5" : "px-3 py-2 md:px-3.5"
             )}
           >
-            <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1.5")}>Coming up next</p>
+            <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1")}>Coming up next</p>
             <UpcomingJobsList
               upcoming={upcoming}
               now={now}
