@@ -9,7 +9,7 @@ import {
   memo,
 } from "react"
 import Link from "next/link"
-import { Loader2, ChevronDown, Search } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
