@@ -615,7 +615,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     patchForm,
     resetForm,
     setServiceQuoteTypeId,
-    applyRapidLocksmithTemplate,
     setQuotedPriceDollars,
     syncQuotedPriceToAuto,
     liveQuote,
@@ -1909,30 +1908,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [setServiceQuoteTypeId]
   )
 
-  const handleRapidTemplate = useCallback(
-    (template: "vehicle_lockout" | "home_lockout" | "rekey") => {
-      applyRapidLocksmithTemplate(template)
-      setShowMoreJobTypes(false)
-      setKeySkipArmed(false)
-      if (template === "vehicle_lockout") {
-        // Ask year/make/model before location so the tech knows the car.
-        setVehicleLockoutIntake(true)
-        setCurrentStep("VEHICLE_INFO")
-        return
-      }
-      setVehicleLockoutIntake(false)
-      const nextType =
-        template === "rekey" ? ("rekey" as ServiceQuoteTypeId) : ("lockout" as ServiceQuoteTypeId)
-      setCurrentStep(manualIntakeStepAfterService(nextType))
-      // Home lockout / re-key jump straight to address.
-      window.setTimeout(() => {
-        setCurrentStep("ADDRESS_CONTACT")
-        window.setTimeout(() => addressSearchRef.current?.focus(), 80)
-      }, 0)
-    },
-    [applyRapidLocksmithTemplate]
-  )
-
   const requestLiveGps = useCallback(async () => {
     const phone = resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
     if (!phone.trim()) {
@@ -2488,30 +2463,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   ) : null}
                                 </div>
                               ) : null}
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  data-intake-primary-option
-                                  onClick={() => handleRapidTemplate("vehicle_lockout")}
-                                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-                                >
-                                  🚗 Vehicle Lockout
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRapidTemplate("home_lockout")}
-                                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-                                >
-                                  🏠 Home Lockout
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRapidTemplate("rekey")}
-                                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-                                >
-                                  🔑 Re-key / Fresh Install
-                                </button>
-                              </div>
                               <ServiceQuoteCalculatorPanel
                                 quote={liveQuote}
                                 serviceTypeId={serviceTypeId}
@@ -3433,29 +3384,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       ) : null}
                     </div>
                   ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleRapidTemplate("vehicle_lockout")}
-                      className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"
-                    >
-                      🚗 Vehicle Lockout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRapidTemplate("home_lockout")}
-                      className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"
-                    >
-                      🏠 Home Lockout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRapidTemplate("rekey")}
-                      className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary"
-                    >
-                      🔑 Re-key / Fresh Install
-                    </button>
-                  </div>
                 </fieldset>
 
                 <PriceShopperRecoveryPanel
