@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isStripeConfigured, getStripePublishableKey } from "@/lib/stripe-config"
 import { resolvePayLinkSession } from "@/lib/job-pay-link"
+import { ensureStripeWalletPaymentMethodDomains } from "@/lib/stripe-payment-method-domains"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -22,6 +23,9 @@ export async function GET(
   }
 
   try {
+    // Register lyncr.app for Apple Pay before returning the embedded session.
+    await ensureStripeWalletPaymentMethodDomains().catch(() => null)
+
     const resolved = await resolvePayLinkSession(key)
     if (!resolved) {
       return NextResponse.json(

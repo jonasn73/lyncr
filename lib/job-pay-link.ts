@@ -3,6 +3,7 @@
 import type Stripe from "stripe"
 import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
+import { ensureStripeWalletPaymentMethodDomains } from "@/lib/stripe-payment-method-domains"
 import {
   getUser,
   insertCollectPayLink,
@@ -114,10 +115,21 @@ export async function createCollectPayLinkCheckout(params: {
   const payToken = makePayToken()
 
   const stripe = getStripeClient()
+  // Apple Pay / Google Pay on Embedded Checkout require the pay page domain registered.
+  await ensureStripeWalletPaymentMethodDomains().catch((e) => {
+    console.warn("[pay-link] wallet domain register:", e)
+  })
+
   // Embedded Checkout keeps the customer on lyncr.app (no checkout.stripe.com URL bar).
   const session = await stripe.checkout.sessions.create({
     ui_mode: "embedded",
     mode: "payment",
+    // Prefer card wallets (Apple Pay / Google Pay) when the device supports them.
+    payment_method_options: {
+      card: {
+        request_three_d_secure: "automatic",
+      },
+    },
     client_reference_id: ownerUserId,
     customer_email: params.customerEmail?.trim() || undefined,
     line_items: [

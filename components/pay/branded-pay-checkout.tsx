@@ -129,7 +129,8 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             </div>
 
             <p className="mt-6 text-center text-[11px] leading-relaxed text-slate-500">
-              Your card details are encrypted. You’ll return here when payment is complete.
+              On iPhone Safari, Apple Pay shows when available. Card and other methods work on any
+              device. You’ll return here when payment is complete.
             </p>
           </>
         ) : null}
