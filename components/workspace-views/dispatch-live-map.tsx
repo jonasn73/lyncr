@@ -5,7 +5,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ExternalLink, MapPinned, X, Loader2, Phone } from "lucide-react"
+import { ExternalLink, MapPinned, X, Loader2, Phone, Crosshair, Maximize2, Navigation } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 import "@/app/leaflet-popup-overrides.css"
 import type { Map as LeafletMap, Marker } from "leaflet"
@@ -51,6 +51,12 @@ const HOME_SERVICE_CITY_ZOOM = 12
 const AUTO_FIT_MAX_ZOOM = 12
 /** Zoom when focusing a single job from the Job Pool (still tighter than overview). */
 const FOCUS_JOB_ZOOM = 13
+/** Default follow-me zoom while driving / walking (street context, pin stays centered). */
+const FOLLOW_CRUISE_ZOOM = 15
+/** Close-up when within NEAR_JOB_MILES of a customer pin. */
+const NEAR_JOB_ZOOM = 17
+/** Miles — enter smart close-up when this close to a job. */
+const NEAR_JOB_MILES = 0.5
 
 /** True for phone-width viewports OR Leaflet's mobile UA — single-finger drag traps page scroll. */
 function isMobileMapViewport(L?: LeafletModule): boolean {
@@ -249,6 +255,11 @@ export function DispatchLiveMap({
   const didCenterOnUser = useRef(false)
   /** Signature of plottable job pins — unlock camera only when this set changes. */
   const lastJobPinSig = useRef("")
+  /** Camera mode: follow keeps You centered; overview frees the camera. */
+  const followUserRef = useRef(Boolean(fillParent))
+  const [followUser, setFollowUser] = useState(Boolean(fillParent))
+  /** near = close-up on customer; cruise = follow at street zoom; free = user/overview. */
+  const cameraModeRef = useRef<"near" | "cruise" | "free">("cruise")
 
   const [ready, setReady] = useState(false)
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
@@ -370,7 +381,7 @@ export function DispatchLiveMap({
     }
   }, [visibleJobs])
 
-  // Job Pool drawer click → center map on that pin.
+  // Job Pool drawer click → center map on that pin (pause follow-me).
   useEffect(() => {
     if (!focusJobId || !ready) return
     const map = mapRef.current
@@ -385,12 +396,126 @@ export function DispatchLiveMap({
       onFocusJobConsumed?.()
       return
     }
+    followUserRef.current = false
+    setFollowUser(false)
+    cameraModeRef.current = "free"
     map.setView([lat, lng], FOCUS_JOB_ZOOM)
     setSharedDispatchMapView([lat, lng], FOCUS_JOB_ZOOM)
     setSelectedJobId(job.id)
     didFit.current = true
     onFocusJobConsumed?.()
   }, [focusJobId, ready, visibleJobs, jobs, onFocusJobConsumed])
+
+  useEffect(() => {
+    followUserRef.current = followUser
+  }, [followUser])
+
+  /** Recenter on me and resume follow-me. */
+  const recenterOnMe = useCallback(() => {
+    const map = mapRef.current
+    if (!map || !userLocation) return
+    followUserRef.current = true
+    setFollowUser(true)
+    cameraModeRef.current = "cruise"
+    map.setView([userLocation.lat, userLocation.lng], FOLLOW_CRUISE_ZOOM, { animate: true })
+    didCenterOnUser.current = true
+    didFit.current = true
+    setSharedDispatchMapView([userLocation.lat, userLocation.lng], FOLLOW_CRUISE_ZOOM)
+  }, [userLocation])
+
+  /** Zoom out so You + all job pins are visible. */
+  const showOverview = useCallback(() => {
+    const map = mapRef.current
+    const L = leafletRef.current
+    if (!map || !L) return
+    followUserRef.current = false
+    setFollowUser(false)
+    cameraModeRef.current = "free"
+    const pts: [number, number][] = []
+    if (layers.you && userLocation) {
+      pts.push([userLocation.lat, userLocation.lng])
+    }
+    for (const job of visibleJobs) {
+      const lat = coerceMapCoord(job.latitude)
+      const lng = coerceMapCoord(job.longitude)
+      if (lat != null && lng != null) pts.push([lat, lng])
+    }
+    if (layers.techs) {
+      for (const t of techs) pts.push([t.latitude, t.longitude])
+    }
+    if (pts.length === 0) return
+    if (pts.length === 1) {
+      map.setView(pts[0], HOME_SERVICE_CITY_ZOOM, { animate: true })
+      setSharedDispatchMapView(pts[0], HOME_SERVICE_CITY_ZOOM)
+    } else {
+      map.fitBounds(L.latLngBounds(pts), {
+        padding: [56, 56],
+        maxZoom: AUTO_FIT_MAX_ZOOM + 1,
+        animate: true,
+      })
+      const center = map.getCenter()
+      setSharedDispatchMapView([center.lat, center.lng], map.getZoom())
+    }
+  }, [layers.you, layers.techs, userLocation, visibleJobs, techs])
+
+  // Follow-me camera: keep You centered; close up when near a customer job.
+  useEffect(() => {
+    if (!ready || !userLocation || !layers.you) return
+    if (!followUserRef.current) return
+    const map = mapRef.current
+    const L = leafletRef.current
+    if (!map || !L) return
+
+    let nearest: { lat: number; lng: number; miles: number } | null = null
+    for (const job of visibleJobs) {
+      const lat = coerceMapCoord(job.latitude)
+      const lng = coerceMapCoord(job.longitude)
+      if (lat == null || lng == null) continue
+      const miles = travelDistanceMiles(userLocation, { lat, lng })
+      if (!Number.isFinite(miles)) continue
+      if (!nearest || miles < nearest.miles) nearest = { lat, lng, miles }
+    }
+
+    if (nearest && nearest.miles <= NEAR_JOB_MILES) {
+      const bounds = L.latLngBounds([
+        [userLocation.lat, userLocation.lng],
+        [nearest.lat, nearest.lng],
+      ])
+      if (cameraModeRef.current !== "near") {
+        map.fitBounds(bounds, {
+          padding: [72, 72],
+          maxZoom: NEAR_JOB_ZOOM,
+          animate: true,
+        })
+        cameraModeRef.current = "near"
+      } else {
+        map.panTo([userLocation.lat, userLocation.lng], { animate: true })
+      }
+      return
+    }
+
+    if (cameraModeRef.current === "near") {
+      map.setView([userLocation.lat, userLocation.lng], FOLLOW_CRUISE_ZOOM, { animate: true })
+      cameraModeRef.current = "cruise"
+      return
+    }
+
+    if (!didCenterOnUser.current || cameraModeRef.current === "cruise") {
+      const zoom = map.getZoom()
+      const targetZoom =
+        !didCenterOnUser.current || zoom < FOLLOW_CRUISE_ZOOM - 1
+          ? FOLLOW_CRUISE_ZOOM
+          : zoom
+      map.setView([userLocation.lat, userLocation.lng], targetZoom, {
+        animate: didCenterOnUser.current,
+      })
+      didCenterOnUser.current = true
+      didFit.current = true
+      cameraModeRef.current = "cruise"
+    } else {
+      map.panTo([userLocation.lat, userLocation.lng], { animate: true })
+    }
+  }, [ready, userLocation, visibleJobs, layers.you, followUser])
 
   // Assign (or clear) a tech straight from a map pin — same endpoint as the dispatch board.
   const assign = useCallback(
@@ -740,7 +865,13 @@ export function DispatchLiveMap({
           .bindTooltip("Your Location (You)", youTooltipOpts)
       }
       // First GPS fix only when nothing else is plottable yet — never lock didFit on You alone.
-      if (!didCenterOnUser.current && plottableJobs.length === 0 && !destination) {
+      // Full map tab: follow-me effect owns the camera (pin stays centered).
+      if (
+        !fillParent &&
+        !didCenterOnUser.current &&
+        plottableJobs.length === 0 &&
+        !destination
+      ) {
         map.setView(pos, HOME_SERVICE_CITY_ZOOM)
         didCenterOnUser.current = true
       }
@@ -750,6 +881,7 @@ export function DispatchLiveMap({
     }
 
     // Frame work pins (jobs / techs / intake). You-alone must not lock the camera forever.
+    // Map tab with GPS + follow skips one-shot fit so the blue pin stays centered.
     const workPts: [number, number][] = [
       ...plottableJobs.map((j) => {
         const lat = coerceMapCoord(j.latitude)!
@@ -761,7 +893,16 @@ export function DispatchLiveMap({
     if (destination) workPts.push([destination.lat, destination.lng])
 
     if (!didFit.current) {
-      if (workPts.length === 0) {
+      if (fillParent && layers.you && userLocation && followUserRef.current) {
+        map.setView([userLocation.lat, userLocation.lng], FOLLOW_CRUISE_ZOOM)
+        didFit.current = true
+        didCenterOnUser.current = true
+        cameraModeRef.current = "cruise"
+        setSharedDispatchMapView(
+          [userLocation.lat, userLocation.lng],
+          FOLLOW_CRUISE_ZOOM
+        )
+      } else if (workPts.length === 0) {
         if (!didCenterOnUser.current) {
           map.setView(
             [DEFAULT_502_SERVICE_BIAS.lat, DEFAULT_502_SERVICE_BIAS.lon],
@@ -787,7 +928,18 @@ export function DispatchLiveMap({
         setSharedDispatchMapView([center.lat, center.lng], map.getZoom())
       }
     }
-  }, [ready, visibleJobs, jobs, leadJobs, techs, destination, userLocation, layers.techs, layers.you])
+  }, [
+    ready,
+    visibleJobs,
+    jobs,
+    leadJobs,
+    techs,
+    destination,
+    userLocation,
+    layers.techs,
+    layers.you,
+    fillParent,
+  ])
 
   const selectedJob =
     selectedJobId
@@ -814,6 +966,46 @@ export function DispatchLiveMap({
               : "h-72 rounded-xl"
         )}
       />
+
+      {/* Camera controls — follow me + overview (Map tab + tall canvases). */}
+      {(fillParent || fullViewport) && layers.you ? (
+        <div
+          className="pointer-events-auto absolute bottom-20 right-3 z-[25] flex flex-col gap-2 md:bottom-4 md:right-4"
+          role="group"
+          aria-label="Map camera"
+        >
+          <button
+            type="button"
+            onClick={() => showOverview()}
+            disabled={!ready}
+            title="See all jobs and where you are"
+            aria-label="Zoom out to all jobs"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-700 bg-slate-950/95 text-slate-200 shadow-lg backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
+          >
+            <Maximize2 className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => recenterOnMe()}
+            disabled={!ready || !userLocation}
+            title={followUser ? "Following you" : "Center map on me"}
+            aria-label="Center map on my location"
+            aria-pressed={followUser}
+            className={cn(
+              "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-lg backdrop-blur disabled:opacity-40",
+              followUser
+                ? "border-sky-500/60 bg-sky-500/25 text-sky-100"
+                : "border-zinc-700 bg-slate-950/95 text-slate-200 hover:border-sky-500/50 hover:text-sky-200"
+            )}
+          >
+            {followUser ? (
+              <Navigation className="h-5 w-5" aria-hidden />
+            ) : (
+              <Crosshair className="h-5 w-5" aria-hidden />
+            )}
+          </button>
+        </div>
+      ) : null}
 
       {destination ? (
         <div
