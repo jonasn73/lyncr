@@ -20,7 +20,12 @@ import {
   Link2,
   MessageSquare,
   X,
+  History,
+  RefreshCw,
 } from "lucide-react"
+import type { OwnerCollectedTransaction } from "@/lib/owner-collected"
+import { formatCollectedDollars } from "@/lib/owner-collected"
+import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
@@ -37,7 +42,31 @@ import { useToast } from "@/hooks/use-toast"
 import { openGetPaidModal } from "@/lib/settings-modals-events"
 
 type CollectMode = "list" | "adhoc" | "tip_sign" | "tip_charge" | "receipt"
+type ListTab = "collect" | "history"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
+
+function formatHistoryWhen(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
+function historyMethodLabel(method: OwnerCollectedTransaction["paymentMethod"]): string {
+  if (method === "TAP_TO_PAY") return "Tap to Pay"
+  if (method === "CASH") return "Cash"
+  return "Card"
+}
+
+function historyStatusClass(status: OwnerCollectedTransaction["status"]): string {
+  if (status === "COMPLETED") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (status === "FAILED") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+  return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+}
 
 type JobPayLinkBadge = {
   jobId: string | null
@@ -218,6 +247,10 @@ export function OwnerCollectPaymentSheet({
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
   // list → jobs; adhoc → charge; tip_sign → tip+signature; tip_charge → tip card; receipt → invoice
   const [mode, setMode] = useState<CollectMode>("list")
+  const [listTab, setListTab] = useState<ListTab>("collect")
+  const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
   const [taxEnabled, setTaxEnabled] = useState(false)
@@ -249,6 +282,7 @@ export function OwnerCollectPaymentSheet({
 
   const resetAdhoc = useCallback(() => {
     setMode("list")
+    setListTab("collect")
     setAdhocAmount("")
     setAdhocNote("")
     setTaxEnabled(false)
@@ -275,6 +309,33 @@ export function OwnerCollectPaymentSheet({
     setPayLinkUrl(null)
     setReceiptBusy(false)
   }, [])
+
+  const loadPaymentHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    setHistoryError(null)
+    try {
+      const res = await fetch("/api/owner/collected/transactions?limit=50", {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const json = (await res.json()) as {
+        data?: { transactions?: OwnerCollectedTransaction[] }
+        error?: string
+      }
+      if (!res.ok) throw new Error(json.error || "Could not load history")
+      setHistoryRows(Array.isArray(json.data?.transactions) ? json.data!.transactions! : [])
+    } catch (e) {
+      setHistoryError(e instanceof Error ? e.message : "Could not load history")
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  // Load history when the History tab is opened.
+  useEffect(() => {
+    if (!open || mode !== "list" || listTab !== "history") return
+    void loadPaymentHistory()
+  }, [open, mode, listTab, loadPaymentHistory])
 
   /** After base charge succeeds: tip options + signature, then invoice. */
   function enterTipSignStep(paymentIntentId: string, totalCents: number) {
@@ -980,7 +1041,9 @@ export function OwnerCollectPaymentSheet({
                         ? "Charge tip"
                         : mode === "adhoc"
                           ? "Charge"
-                          : "Collect"}
+                          : listTab === "history"
+                            ? "Payment history"
+                            : "Collect"}
                 </SheetTitle>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {mode === "receipt"
@@ -991,7 +1054,9 @@ export function OwnerCollectPaymentSheet({
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
                           ? "Walk-up"
-                          : "Charge a walk-up or a job on today’s schedule."}
+                          : listTab === "history"
+                            ? "Cards, Tap to Pay, and cash you have run."
+                            : "Charge a walk-up or a job on today’s schedule."}
                 </p>
               </div>
               <button
@@ -1006,6 +1071,35 @@ export function OwnerCollectPaymentSheet({
                 <X className="h-5 w-5" />
               </button>
             </div>
+            {mode === "list" ? (
+              <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+                <button
+                  type="button"
+                  onClick={() => setListTab("collect")}
+                  className={cn(
+                    "rounded-lg py-2 text-xs font-semibold transition-colors",
+                    listTab === "collect"
+                      ? "bg-emerald-500/20 text-emerald-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  Collect
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListTab("history")}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                    listTab === "history"
+                      ? "bg-emerald-500/20 text-emerald-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <History className="h-3.5 w-3.5" aria-hidden />
+                  History
+                </button>
+              </div>
+            ) : null}
           </SheetHeader>
 
           <div
@@ -1014,7 +1108,137 @@ export function OwnerCollectPaymentSheet({
               mode === "tip_sign" ? "flex flex-col overflow-hidden" : "overflow-y-auto"
             )}
           >
-            {mode === "list" ? (
+            {mode === "list" && listTab === "history" ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2 px-0.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Recent charges
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void loadPaymentHistory()}
+                    disabled={historyLoading}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-emerald-300/90 hover:bg-emerald-500/10 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      className={cn("h-3.5 w-3.5", historyLoading && "animate-spin")}
+                      aria-hidden
+                    />
+                    Refresh
+                  </button>
+                </div>
+
+                {historyLoading && historyRows.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Loading history…
+                  </div>
+                ) : historyError ? (
+                  <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-4 text-center text-sm text-rose-200">
+                    {historyError}
+                  </p>
+                ) : historyRows.length === 0 ? (
+                  <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-8 text-center text-sm text-slate-500">
+                    No charges yet. Run a card or Tap to Pay from Collect, then check back here.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {historyRows.map((tx) => {
+                      const title =
+                        tx.customerName ||
+                        (tx.customerPhone ? formatPhoneDisplay(tx.customerPhone) : null) ||
+                        (tx.jobId ? "Job payment" : "Walk-up charge")
+                      const subtitle = [
+                        historyMethodLabel(tx.paymentMethod),
+                        tx.jobLabel,
+                        tx.tipCents && tx.tipCents > 0
+                          ? `Tip ${formatCollectedDollars(tx.tipCents)}`
+                          : null,
+                        tx.hasSignature ? "Signed" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                      const canReceipt =
+                        tx.status === "COMPLETED" && Boolean(tx.stripePaymentIntentId)
+                      return (
+                        <li key={tx.id}>
+                          <button
+                            type="button"
+                            disabled={!canReceipt}
+                            onClick={() => {
+                              if (!canReceipt || !tx.stripePaymentIntentId) return
+                              // Re-open receipt send for this past charge.
+                              setPaidPaymentIntentId(tx.stripePaymentIntentId)
+                              setPaidTotalCents(Math.round(tx.amount * 100))
+                              setReceiptName(tx.customerName || "")
+                              setReceiptPhone(tx.customerPhone || "")
+                              setMode("receipt")
+                            }}
+                            className={cn(
+                              "flex w-full items-start gap-3 rounded-xl border bg-zinc-900/50 px-3 py-3 text-left transition-colors",
+                              canReceipt
+                                ? "border-zinc-800 hover:border-emerald-500/40 hover:bg-zinc-900"
+                                : "cursor-default border-zinc-800/80"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                                tx.status === "COMPLETED"
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : tx.status === "FAILED"
+                                    ? "bg-rose-500/15 text-rose-300"
+                                    : "bg-amber-500/15 text-amber-200"
+                              )}
+                            >
+                              <CreditCard className="h-4 w-4" aria-hidden />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-start justify-between gap-2">
+                                <span className="truncate text-sm font-semibold text-slate-100">
+                                  {title}
+                                </span>
+                                <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-300">
+                                  {formatCollectedDollars(Math.round(tx.amount * 100))}
+                                </span>
+                              </span>
+                              <span className="mt-0.5 block text-[11px] text-slate-500">
+                                {formatHistoryWhen(tx.createdAt)}
+                                {subtitle ? ` · ${subtitle}` : ""}
+                              </span>
+                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                <span
+                                  className={cn(
+                                    "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                    historyStatusClass(tx.status)
+                                  )}
+                                >
+                                  {tx.status === "COMPLETED"
+                                    ? "Paid"
+                                    : tx.status === "FAILED"
+                                      ? "Failed"
+                                      : "Pending"}
+                                </span>
+                                {!tx.jobId ? (
+                                  <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                                    Walk-up
+                                  </span>
+                                ) : null}
+                                {canReceipt ? (
+                                  <span className="text-[10px] font-medium text-emerald-400/90">
+                                    Tap to send receipt
+                                  </span>
+                                ) : null}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : mode === "list" ? (
               <>
                 {connectReady === false ? (
                   <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3">
