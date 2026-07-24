@@ -267,11 +267,8 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
   // IVR / keypad — amber Missed (IVR), never green Answered.
   if (isIvrMenuHandler(routed)) return "missed_ivr"
   if (/ai receptionist|voice ai|assistant/i.test(routed)) return "ai_handled"
-  // Your Phone / human answer — green Answered even for short pickups (e.g. 6s).
-  if (
-    !isMissedCallRecord(missedRecordFromUiCall(call)) &&
-    (Boolean(call.answeredAt) || (call.durationSeconds > 0 && Boolean(routed) && !isIvrMenuHandler(routed)))
-  ) {
+  // Your Phone / human answer — requires answered_at (or shared missed rules say not missed).
+  if (!isMissedCallRecord(missedRecordFromUiCall(call)) && Boolean(call.answeredAt)) {
     return "answered"
   }
   if (isMissedCallRecord(missedRecordFromUiCall(call))) {

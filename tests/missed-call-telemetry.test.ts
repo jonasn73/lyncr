@@ -35,6 +35,41 @@ describe("isMissedCallRecord", () => {
     ).toBe(true)
   })
 
+  it("counts call_type=missed with ring duration even when UI invents Owner", () => {
+    // Production bug: empty routed_to_name was defaulted to "Owner", then ring seconds
+    // looked like a live answer and Activities painted every miss as ANSWERED.
+    expect(
+      isMissedCallRecord({
+        call_type: "missed",
+        status: "completed",
+        answered_at: null,
+        duration_seconds: 48,
+        routed_to_name: "Owner",
+      })
+    ).toBe(true)
+    expect(
+      isMissedCallRecord({
+        call_type: "missed",
+        status: "completed",
+        answered_at: null,
+        duration_seconds: 121,
+        routed_to_name: null,
+      })
+    ).toBe(true)
+  })
+
+  it("does not treat Owner + duration without answered_at as a live pickup", () => {
+    expect(
+      isMissedCallRecord({
+        call_type: "incoming",
+        status: "completed",
+        answered_at: null,
+        duration_seconds: 40,
+        routed_to_name: "Owner",
+      })
+    ).toBe(true)
+  })
+
   it("does not count live answered conversations — including short-but-real pickups", () => {
     expect(
       isMissedCallRecord({

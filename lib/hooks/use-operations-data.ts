@@ -286,11 +286,12 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
             const createdAtRaw = String(c.created_at || "")
             const createdAt = createdAtRaw ? new Date(createdAtRaw) : new Date()
             const statusRaw = String(c.status || "").toLowerCase()
-            const routedToRaw = String(c.routed_to_name || c.routed_to_receptionist_id || "")
+            // Keep empty when unknown — never invent "Owner" (that painted missed calls as Answered).
+            const routedToRaw = String(c.routed_to_name || "").trim()
             const routedTo =
               statusRaw.includes("ai") || routedToRaw.toLowerCase().includes("ai")
                 ? "AI Receptionist"
-                : routedToRaw || "Owner"
+                : routedToRaw
             const receptionistId = c.routed_to_receptionist_id ? String(c.routed_to_receptionist_id) : null
             const activityRaw = c.activity as CallActivityContext | null | undefined
             const fromNumber = String(c.from_number || "")

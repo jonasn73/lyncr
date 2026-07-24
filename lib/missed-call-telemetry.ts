@@ -133,28 +133,15 @@ export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
   const shortTalk =
     Number.isFinite(duration) && duration >= 0 && duration < MIN_LIVE_ANSWER_DURATION_SECONDS
 
-  if (input.answered_at?.trim()) {
-    const answeredAt = Date.parse(input.answered_at)
-    if (!Number.isFinite(answeredAt)) return false
-    // Known sub-threshold talk time → voicemail / abandoned connect.
-    if (shortTalk) return false
-    return true
-  }
+  // Live answer requires answered_at. Ring time + "Owner" label must not invent a pickup
+  // (Activities used to default empty routed_to_name → "Owner" and paint every miss green).
+  if (!input.answered_at?.trim()) return false
 
-  // Fallback: completed leg with real talk time and a human routing label (Owner / named agent).
-  const status = normalizeCallStatus(input.status)
-  const routed = String(input.routed_to_name ?? "").trim()
-  if (
-    status === "completed" &&
-    Number.isFinite(duration) &&
-    duration >= MIN_LIVE_ANSWER_DURATION_SECONDS &&
-    routed &&
-    !isAutomatedCallHandler(routed)
-  ) {
-    return true
-  }
-
-  return false
+  const answeredAt = Date.parse(input.answered_at)
+  if (!Number.isFinite(answeredAt)) return false
+  // Known sub-threshold talk time → voicemail / abandoned connect.
+  if (shortTalk) return false
+  return true
 }
 
 /**
@@ -163,12 +150,18 @@ export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
  * Matches the routing strip SQL in getDailyCallTelemetryForOwner.
  */
 export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
-  // Human answer wins over a stale call_type=missed — unless talk time is too short.
-  if (ownerLiveAnswered(input)) return false
-
   const type = normalizeCallType(input.call_type)
   const status = normalizeCallStatus(input.status)
   const duration = Number(input.duration_seconds ?? NaN)
+
+  // Explicit missed/voicemail rows without a bridge stamp — always missed (check before
+  // ownerLiveAnswered so ring duration + a UI "Owner" default cannot override).
+  if ((type === "missed" || type === "voicemail") && !input.answered_at?.trim()) {
+    return true
+  }
+
+  // Human answer wins over a stale call_type=missed — only when answered_at proves it.
+  if (ownerLiveAnswered(input)) return false
 
   if (type === "voicemail") return true
   if (type === "missed") return true
