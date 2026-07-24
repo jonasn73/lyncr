@@ -55,6 +55,8 @@ type Props = {
   skipInitialFetch?: boolean
   /** Account business name — used as a placeholder label while orgs load on client nav. */
   sessionBusinessName?: string
+  /** Cookie/SSR preferred org — keeps the label stable before localStorage is available. */
+  preferredActiveId?: string | null
 }
 
 /** Static header chip shown while streamed organizations resolve (looks like the real switcher). */
@@ -97,8 +99,11 @@ function isEditableWorkspace(org: Organization): boolean {
   return !org.id.startsWith("legacy-")
 }
 
-function pickActiveOrganizationId(rows: Organization[]): string | null {
-  const stored = readActiveOrganizationId()
+function pickActiveOrganizationId(
+  rows: Organization[],
+  preferredActiveId?: string | null
+): string | null {
+  const stored = preferredActiveId?.trim() || readActiveOrganizationId()
   return (
     (stored && rows.some((o) => o.id === stored) ? stored : null) ??
     rows.find((o) => o.is_default)?.id ??
@@ -114,10 +119,13 @@ export function OrganizationSwitcher({
   seedOrganizations,
   skipInitialFetch = false,
   sessionBusinessName,
+  preferredActiveId = null,
 }: Props) {
   const [organizations, setOrganizations] = useState<Organization[]>(() => seedOrganizations ?? [])
   const [activeId, setActiveId] = useState<string | null>(() =>
-    seedOrganizations?.length ? pickActiveOrganizationId(seedOrganizations) : null
+    seedOrganizations?.length
+      ? pickActiveOrganizationId(seedOrganizations, preferredActiveId)
+      : null
   )
   const [loading, setLoading] = useState(() => !skipInitialFetch && (seedOrganizations?.length ?? 0) === 0)
   const [creating, setCreating] = useState(false)

@@ -73,6 +73,7 @@ export function DashboardShell({
   sessionBusinessName,
   sessionAccount,
   initialBootstrap,
+  initialActiveOrganizationId = null,
   initialLeadsCache,
 }: {
   children: React.ReactNode
@@ -81,6 +82,8 @@ export function DashboardShell({
   sessionBusinessName?: string
   /** Server-resolved routing bootstrap — matches SSR HTML to client on hard refresh. */
   initialBootstrap?: DashboardMainBootstrap | null
+  /** Cookie-backed active org — keeps business name stable across SSR → hydrate. */
+  initialActiveOrganizationId?: string | null
   /** Server-resolved leads for /dashboard/leads hard refresh. */
   initialLeadsCache?: LeadsWorkspaceCache | null
   /** Server session snapshot — avoids header width jump while /api/auth/session loads. */
@@ -212,7 +215,10 @@ export function DashboardShell({
       <DashboardActivationProvider activationSeed={activationSeed}>
         <DashboardChromeProvider activePage={activePage}>
           <SwrProvider>
-            <DashboardWorkspaceProvider initialBootstrap={initialBootstrap}>
+            <DashboardWorkspaceProvider
+              initialBootstrap={initialBootstrap}
+              initialActiveOrganizationId={initialActiveOrganizationId}
+            >
               <LyncEngineProvider>
               <DashboardRealtimeStatsHost>
               <InboundCallPanelProvider>

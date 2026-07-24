@@ -6,21 +6,39 @@ import { filterPhoneLinesForOrganization, primaryPhoneLineForOrganization } from
 
 /** Pick the org the user last selected, or the default workspace. */
 export function pickActiveOrganizationIdFromBootstrap(
-  organizations: Organization[]
+  organizations: Organization[],
+  preferredOrganizationId?: string | null
 ): string | null {
-  const stored = readActiveOrganizationId()
+  const stored = (preferredOrganizationId?.trim() || null) ?? readActiveOrganizationId()
   const def = organizations.find((o) => o.is_default) ?? organizations[0]
   return (stored && organizations.some((o) => o.id === stored) ? stored : null) ?? def?.id ?? null
 }
 
+/** Stable header label from bootstrap + preferred org (cookie / localStorage). */
+export function organizationLabelFromBootstrap(
+  organizations: Organization[],
+  preferredOrganizationId?: string | null,
+  fallbackName?: string | null
+): string {
+  const id = pickActiveOrganizationIdFromBootstrap(organizations, preferredOrganizationId)
+  const name = organizations.find((o) => o.id === id)?.name?.trim()
+  return name || fallbackName?.trim() || "Business"
+}
+
 /** Workspace fields derived from bootstrap — used for SSR + session-cache first paint. */
-export function workspaceSeedFromBootstrap(bootstrap: DashboardMainBootstrap): {
+export function workspaceSeedFromBootstrap(
+  bootstrap: DashboardMainBootstrap,
+  preferredOrganizationId?: string | null
+): {
   organizations: Organization[]
   phoneLines: DashboardBusinessNumber[]
   activeOrganizationId: string | null
   activeLine: string | null
 } {
-  const activeOrganizationId = pickActiveOrganizationIdFromBootstrap(bootstrap.organizations)
+  const activeOrganizationId = pickActiveOrganizationIdFromBootstrap(
+    bootstrap.organizations,
+    preferredOrganizationId
+  )
   const phoneLines = filterPhoneLinesForOrganization(bootstrap.phoneLines, activeOrganizationId)
   return {
     organizations: bootstrap.organizations,

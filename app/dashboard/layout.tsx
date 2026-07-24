@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
+import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
@@ -38,8 +39,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [user, h] = await Promise.all([getCachedSessionUser(), headers()])
+  const [user, h, cookieStore] = await Promise.all([getCachedSessionUser(), headers(), cookies()])
   const pathnameFromRequest = h.get("x-sigo-pathname")
+  const initialActiveOrganizationId =
+    cookieStore.get(ACTIVE_ORGANIZATION_COOKIE)?.value?.trim() || null
   const isSecondaryDashboardRoute =
     pathnameFromRequest === "/dashboard/help" ||
     pathnameFromRequest?.startsWith("/dashboard/help/") ||
@@ -115,6 +118,7 @@ export default async function DashboardLayout({
         pathnameFromRequest={pathnameFromRequest}
         sessionBusinessName={user.business_name}
         initialBootstrap={initialMainBootstrap}
+        initialActiveOrganizationId={initialActiveOrganizationId}
         initialLeadsCache={initialLeadsCache}
         sessionAccount={{
           name: user.name?.trim() || "Account",

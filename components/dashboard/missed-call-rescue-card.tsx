@@ -2,7 +2,7 @@
 
 // Lines Call Flow — Missed Call Rescue toggle + IVR capacity auto-bypass threshold.
 
-import { memo, useCallback, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { MessageSquareText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
@@ -11,12 +11,28 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-autopilot"
 import { formatRescueRevenueDollars } from "@/lib/dispatch-performance-formatters"
 import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import {
   LINES_MOBILE_CARD,
   LINES_MOBILE_CARD_ACTIVE,
   LINES_MOBILE_ICON_TILE,
   LINES_MOBILE_SECTION_LABEL,
 } from "@/lib/mobile-shell"
+
+const TEXTBACK_CACHE_SCOPE = "missed-call-textback"
+
+function textbackCacheKey(): string {
+  return persistedCacheKey(TEXTBACK_CACHE_SCOPE, "account")
+}
+
+function readCachedTextbackEnabled(): boolean | null {
+  const cached = readPersistedCache<boolean>(textbackCacheKey())
+  return typeof cached === "boolean" ? cached : null
+}
+
+function writeCachedTextbackEnabled(enabled: boolean): void {
+  writePersistedCache(textbackCacheKey(), enabled)
+}
 
 export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   compact = false,
@@ -36,14 +52,16 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
 }) {
   const { toast } = useToast()
   const { activeOrganizationId } = useDashboardWorkspace()
-  const [loading, setLoading] = useState(true)
+  // null = unknown — never paint the opposite of the saved setting.
+  const [enabled, setEnabled] = useState<boolean | null>(() => readCachedTextbackEnabled())
+  const [toggleLoading, setToggleLoading] = useState(() => readCachedTextbackEnabled() === null)
   const [saving, setSaving] = useState(false)
-  const [enabled, setEnabled] = useState(true)
   // Dollars booked via public /book textback links (ai_leads quoted totals).
   const [rescueTotalCents, setRescueTotalCents] = useState(0)
   const [localCapacity, setLocalCapacity] = useState(
     capacityThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD
   )
+  const toggleLoadedRef = useRef(false)
 
   useEffect(() => {
     if (typeof capacityThreshold === "number") {
@@ -51,43 +69,60 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     }
   }, [capacityThreshold])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const qs = routingTelemetryQueryString(activeOrganizationId)
-      const [toggleRes, metricsRes] = await Promise.all([
-        fetch("/api/routing/missed-call-rescue", {
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch(`/api/routing/tracking-metrics${qs}`, {
-          credentials: "include",
-          cache: "no-store",
-        }),
-      ])
-      const toggleJson = (await toggleRes.json()) as {
-        data?: { missed_call_textback_enabled?: boolean }
-      }
-      setEnabled(toggleJson.data?.missed_call_textback_enabled !== false)
-      if (metricsRes.ok) {
-        const metricsJson = (await metricsRes.json()) as {
-          data?: { textback_rescue_revenue_cents?: number }
-        }
+  // Account-level toggle — fetch once; do not reset when org changes.
+  useEffect(() => {
+    if (toggleLoadedRef.current && enabled !== null) return
+    let cancelled = false
+    setToggleLoading(enabled === null)
+    void fetch("/api/routing/missed-call-rescue", {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((toggleJson: { data?: { missed_call_textback_enabled?: boolean } } | null) => {
+        if (cancelled) return
+        const next = toggleJson?.data?.missed_call_textback_enabled !== false
+        setEnabled(next)
+        writeCachedTextbackEnabled(next)
+        toggleLoadedRef.current = true
+      })
+      .catch(() => {
+        /* keep cached / null — do not force ON */
+      })
+      .finally(() => {
+        if (!cancelled) setToggleLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // Only on mount — account flag is not org-scoped.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only toggle load
+  }, [])
+
+  // Org-scoped rescued revenue — refresh when workspace changes.
+  useEffect(() => {
+    let cancelled = false
+    const qs = routingTelemetryQueryString(activeOrganizationId)
+    void fetch(`/api/routing/tracking-metrics${qs}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((metricsJson: { data?: { textback_rescue_revenue_cents?: number } } | null) => {
+        if (cancelled || !metricsJson) return
         setRescueTotalCents(Number(metricsJson.data?.textback_rescue_revenue_cents ?? 0))
-      }
-    } catch {
-      // Keep default on.
-    } finally {
-      setLoading(false)
+      })
+      .catch(() => {
+        /* keep last known */
+      })
+    return () => {
+      cancelled = true
     }
   }, [activeOrganizationId])
 
-  useEffect(() => {
-    void load()
-  }, [load])
-
   async function handleToggle(next: boolean) {
     setEnabled(next)
+    writeCachedTextbackEnabled(next)
     setSaving(true)
     try {
       const res = await fetch("/api/routing/missed-call-rescue", {
@@ -99,6 +134,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
       if (!res.ok) {
         const json = (await res.json()) as { error?: string; migration?: string }
         setEnabled(!next)
+        writeCachedTextbackEnabled(!next)
         toast({
           title: "Could not update Missed Call Rescue",
           description: json.migration
@@ -116,6 +152,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
       })
     } catch (e) {
       setEnabled(!next)
+      writeCachedTextbackEnabled(!next)
       toast({
         title: "Could not update Missed Call Rescue",
         description: e instanceof Error ? e.message : "Try again.",
@@ -132,7 +169,11 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     onCapacityThresholdChange?.(next)
   }
 
-  const busy = loading || parentLoading || saving
+  const known = enabled !== null
+  const isOn = enabled === true
+  const busy = toggleLoading || parentLoading || saving
+  const switchDisabled = !known || busy
+  const label = !known ? "Textback…" : isOn ? "Textback on" : "Textback off"
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
     <p className="mt-1.5 text-[10px] font-medium leading-snug text-amber-200/85">
@@ -173,12 +214,17 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     </div>
   ) : null
 
+  const switchClass = cn(
+    "shrink-0 data-[state=checked]:bg-emerald-500",
+    !known && "duration-0 [&_[data-slot=switch-thumb]]:duration-0"
+  )
+
   if (compact) {
     return (
       <div
         className={cn(
           "w-full px-3 py-2.5 text-left",
-          enabled ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
+          !known ? LINES_MOBILE_CARD : isOn ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
           busy && "opacity-60"
         )}
       >
@@ -186,27 +232,29 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           <div
             className={cn(
               LINES_MOBILE_ICON_TILE,
-              enabled ? "bg-emerald-500/15 text-emerald-300" : "bg-primary/12 text-primary"
+              !known
+                ? "bg-zinc-500/15 text-zinc-400"
+                : isOn
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "bg-primary/12 text-primary"
             )}
           >
             <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
             <p className={LINES_MOBILE_SECTION_LABEL}>Automation · Missed Call Rescue</p>
-            <p className="truncate text-sm font-semibold text-foreground">
-              {enabled ? "Textback on" : "Textback off"}
-            </p>
+            <p className="truncate text-sm font-semibold text-foreground">{label}</p>
             <p className="text-xs leading-snug text-zinc-500">
               Instantly texts a booking link when a call goes unanswered.
             </p>
             {rescueBadge}
           </div>
           <Switch
-            checked={enabled}
-            disabled={busy}
+            checked={isOn}
+            disabled={switchDisabled}
             onCheckedChange={(v) => void handleToggle(v)}
             aria-label="Missed Call Rescue textback"
-            className="shrink-0 data-[state=checked]:bg-emerald-500"
+            className={switchClass}
           />
         </div>
         {capacityField}
@@ -218,9 +266,11 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     <div
       className={cn(
         "group relative flex w-full flex-1 flex-col rounded-2xl border p-4 text-left transition-colors sm:p-5",
-        enabled
-          ? "border-emerald-500/30 bg-emerald-950/10"
-          : "border-border/70 bg-card/80 hover:border-border",
+        !known
+          ? "border-border/70 bg-card/80"
+          : isOn
+            ? "border-emerald-500/30 bg-emerald-950/10"
+            : "border-border/70 bg-card/80 hover:border-border",
         busy && "opacity-60"
       )}
     >
@@ -229,9 +279,11 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           <div
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-              enabled
-                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                : "border-primary/25 bg-primary/10 text-primary"
+              !known
+                ? "border-border/60 bg-muted/40 text-muted-foreground"
+                : isOn
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                  : "border-primary/25 bg-primary/10 text-primary"
             )}
           >
             <MessageSquareText className="h-5 w-5" aria-hidden />
@@ -240,17 +292,15 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Automation · Missed Call Rescue
             </p>
-            <p className="mt-0.5 text-base font-semibold text-foreground">
-              {enabled ? "Textback on" : "Textback off"}
-            </p>
+            <p className="mt-0.5 text-base font-semibold text-foreground">{label}</p>
           </div>
         </div>
         <Switch
-          checked={enabled}
-          disabled={busy}
+          checked={isOn}
+          disabled={switchDisabled}
           onCheckedChange={(v) => void handleToggle(v)}
           aria-label="Missed Call Rescue textback"
-          className="shrink-0 data-[state=checked]:bg-emerald-500"
+          className={switchClass}
         />
       </div>
       <p className="mt-3 text-sm leading-relaxed text-zinc-500">

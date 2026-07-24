@@ -23,7 +23,11 @@ import {
 import { readDashboardBootstrapCache } from "@/lib/dashboard-bootstrap-cache"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 import type { Organization } from "@/lib/types"
-import { readActiveOrganizationId, writeActiveOrganizationId } from "@/lib/workspace-organizations"
+import {
+  ensureActiveOrganizationCookie,
+  readActiveOrganizationId,
+  writeActiveOrganizationId,
+} from "@/lib/workspace-organizations"
 
 const PAGE_HREF: Record<PageId, string> = {
   dashboard: "/dashboard",
@@ -90,12 +94,17 @@ function resolveWorkspaceBootstrapSeed(
 export function DashboardWorkspaceProvider({
   children,
   initialBootstrap,
+  initialActiveOrganizationId = null,
 }: {
   children: ReactNode
   initialBootstrap?: DashboardMainBootstrap | null
+  /** Cookie-backed org id from the server so SSR matches the client switcher. */
+  initialActiveOrganizationId?: string | null
 }) {
   const bootstrapSeed = resolveWorkspaceBootstrapSeed(initialBootstrap)
-  const workspaceSeed = bootstrapSeed ? workspaceSeedFromBootstrap(bootstrapSeed) : null
+  const workspaceSeed = bootstrapSeed
+    ? workspaceSeedFromBootstrap(bootstrapSeed, initialActiveOrganizationId)
+    : null
 
   const router = useRouter()
   const activeTab = useDashboardActivePage()
@@ -176,6 +185,11 @@ export function DashboardWorkspaceProvider({
     },
     []
   )
+
+  // Mirror localStorage → cookie so the next hard refresh SSR picks the same org name.
+  useEffect(() => {
+    ensureActiveOrganizationCookie()
+  }, [])
 
   useEffect(() => {
     if (workspaceSeed) return

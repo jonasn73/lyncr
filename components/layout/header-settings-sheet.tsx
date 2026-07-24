@@ -20,6 +20,14 @@ import {
   SETTINGS_CHILD_OPEN_EVENTS,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+
+const COLLECTED_TODAY_CACHE_KEY = persistedCacheKey("collected-today", "header")
+
+function readCachedTodayCents(): number | null {
+  const cached = readPersistedCache<number>(COLLECTED_TODAY_CACHE_KEY)
+  return typeof cached === "number" && Number.isFinite(cached) ? cached : null
+}
 
 // Heavy Stripe bundles — load only when Collect / Get paid actually open.
 const OwnerCollectPaymentSheet = dynamic(
@@ -84,14 +92,18 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [todayCents, setTodayCents] = useState<number | null>(null)
+  // Session cache so refresh does not flash "…" then grow into "$259.70".
+  const [todayCents, setTodayCents] = useState<number | null>(() => readCachedTodayCents())
   const isMobile = useIsMobile()
 
   const refreshCollected = useCallback(() => {
     fetch("/api/owner/collected", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data?: { todayCents?: number } } | null) => {
-        if (typeof j?.data?.todayCents === "number") setTodayCents(j.data.todayCents)
+        if (typeof j?.data?.todayCents === "number") {
+          setTodayCents(j.data.todayCents)
+          writePersistedCache(COLLECTED_TODAY_CACHE_KEY, j.data.todayCents)
+        }
       })
       .catch(() => {
         /* keep last known */
@@ -158,8 +170,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setCollectOpen(true)
   }, [])
 
-  const collectedLabel =
-    todayCents == null ? "…" : formatCollectedDollars(todayCents)
+  // Prefer last known / $0 over a short "…" that expands the chip.
+  const collectedLabel = formatCollectedDollars(todayCents ?? 0)
 
   const firstName = name.trim().split(/\s+/)[0] || name
 
@@ -178,7 +190,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           title="Collect payment"
         >
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="text-xs font-bold tabular-nums">{collectedLabel}</span>
+          <span className="inline-block min-w-[3.25rem] text-right text-xs font-bold tabular-nums">
+            {collectedLabel}
+          </span>
         </Button>
 
         {/* Account / Settings — avatar (+ name on larger screens), no dollar amount. */}

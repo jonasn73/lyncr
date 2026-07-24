@@ -129,7 +129,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
       >
         <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300/70" aria-hidden />
-        <span className="h-2.5 w-10 animate-pulse rounded bg-emerald-500/25" aria-hidden />
+        <span className="inline-block min-w-[3.25rem] h-2.5 animate-pulse rounded bg-emerald-500/25" aria-hidden />
       </Button>
       <Button
         type="button"

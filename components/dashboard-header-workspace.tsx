@@ -11,6 +11,7 @@ import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { Organization } from "@/lib/types"
+import { organizationLabelFromBootstrap } from "@/lib/dashboard-bootstrap-seed"
 
 function headerSeedOrganization(name: string): Organization {
   return {
@@ -58,7 +59,12 @@ function HeaderOrganizationsFromData({
   organizations: Organization[]
   sessionBusinessName?: string
 }) {
-  const { organizations: workspaceOrgs, setOrganizations, setActiveOrganizationId } = useDashboardWorkspace()
+  const {
+    organizations: workspaceOrgs,
+    setOrganizations,
+    setActiveOrganizationId,
+    activeOrganizationId,
+  } = useDashboardWorkspace()
   const seededRef = useRef(false)
 
   const handleOrganizationChange = useCallback(
@@ -91,6 +97,7 @@ function HeaderOrganizationsFromData({
   return (
     <OrganizationSwitcher
       seedOrganizations={organizations}
+      preferredActiveId={activeOrganizationId}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -107,7 +114,7 @@ function HeaderOrganizationsFromMainBootstrap({
   sessionBusinessName?: string
 }) {
   const bootstrap = use(bootstrapPromise)
-  const { setOrganizations, setActiveOrganizationId } = useDashboardWorkspace()
+  const { setOrganizations, setActiveOrganizationId, activeOrganizationId } = useDashboardWorkspace()
   const seededRef = useRef(false)
 
   const handleOrganizationChange = useCallback(
@@ -134,6 +141,7 @@ function HeaderOrganizationsFromMainBootstrap({
   return (
     <OrganizationSwitcher
       seedOrganizations={bootstrap.organizations}
+      preferredActiveId={activeOrganizationId}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -150,7 +158,7 @@ function HeaderOrganizationsFromStream({
   sessionBusinessName?: string
 }) {
   const organizations = use(organizationsPromise)
-  const { setOrganizations, setActiveOrganizationId } = useDashboardWorkspace()
+  const { setOrganizations, setActiveOrganizationId, activeOrganizationId } = useDashboardWorkspace()
   const seededRef = useRef(false)
 
   const handleOrganizationChange = useCallback(
@@ -177,6 +185,7 @@ function HeaderOrganizationsFromStream({
   return (
     <OrganizationSwitcher
       seedOrganizations={organizations}
+      preferredActiveId={activeOrganizationId}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -186,7 +195,8 @@ function HeaderOrganizationsFromStream({
 
 /** Fallback when orgs are already in workspace (client tab navigation). */
 function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusinessName?: string }) {
-  const { organizations, setActiveOrganizationId, setOrganizations } = useDashboardWorkspace()
+  const { organizations, setActiveOrganizationId, setOrganizations, activeOrganizationId } =
+    useDashboardWorkspace()
 
   const handleOrganizationChange = useCallback(
     (id: string | null) => {
@@ -195,7 +205,11 @@ function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusi
     [setActiveOrganizationId]
   )
 
-  const placeholderLabel = sessionBusinessName?.trim() || organizations[0]?.name || "Business"
+  const placeholderLabel = organizationLabelFromBootstrap(
+    organizations,
+    activeOrganizationId,
+    sessionBusinessName
+  )
 
   if (organizations.length === 0) {
     return <OrganizationSwitcherPlaceholder label={placeholderLabel} />
@@ -204,6 +218,7 @@ function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusi
   return (
     <OrganizationSwitcher
       seedOrganizations={organizations}
+      preferredActiveId={activeOrganizationId}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -214,8 +229,16 @@ function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusi
 /** Business workspace switcher mounted in the dashboard app header. */
 export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusinessName?: string }) {
   const bootstrap = useDashboardBootstrapEffective()
+  const { activeOrganizationId } = useDashboardWorkspace()
   const { dashboardMainBootstrapPromise, organizationsPromise } = useDashboardStream()
-  const placeholderLabel = sessionBusinessName?.trim() || "Business"
+  // Prefer the active org name so the chip does not flash account business_name → org name.
+  const placeholderLabel = bootstrap?.organizations.length
+    ? organizationLabelFromBootstrap(
+        bootstrap.organizations,
+        activeOrganizationId,
+        sessionBusinessName
+      )
+    : sessionBusinessName?.trim() || "Business"
 
   const switcher = bootstrap?.organizations.length ? (
     <HeaderOrganizationsFromData
@@ -237,7 +260,9 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
 
   return (
     <div className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
-      <div className="min-w-0 max-w-full flex-1 sm:flex-none">{switcher}</div>
+      <div className="min-w-0 w-full max-w-full flex-1 sm:w-[min(100%,16rem)] sm:flex-none">
+        {switcher}
+      </div>
       <DashboardBootstrapSyncIndicator />
     </div>
   )
