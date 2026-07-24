@@ -792,7 +792,13 @@ export function TechPaymentModal(props: {
         </div>
       ) : null}
 
-      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md">
+      <div
+        className={cn(
+          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
+          // Tip + sign: taller sheet so the signature pad is easier to see.
+          postPayStep === "tip_sign" ? "h-[94dvh] max-h-[94dvh]" : "max-h-[92dvh]"
+        )}
+      >
         <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <div>
             <h2 className="text-base font-bold text-white">
@@ -822,18 +828,16 @@ export function TechPaymentModal(props: {
         </div>
 
         {postPayStep === "tip_sign" ? (
-          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
               <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
-                {fmt(paidTotalCents)}
-              </p>
+              <p className="text-lg font-bold tabular-nums text-emerald-300">{fmt(paidTotalCents)}</p>
             </div>
-            <div>
+            <div className="shrink-0">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Add a tip
               </p>
-              <div className="mt-2 grid grid-cols-4 gap-2">
+              <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                 {(
                   [
                     { id: "none" as const, label: "No tip" },
@@ -847,7 +851,7 @@ export function TechPaymentModal(props: {
                     type="button"
                     onClick={() => setTipChoice(opt.id)}
                     className={cn(
-                      "rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                      "rounded-xl border py-2 text-xs font-semibold transition-colors",
                       tipChoice === opt.id
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                         : "border-zinc-700 bg-zinc-900 text-slate-400"
@@ -866,7 +870,7 @@ export function TechPaymentModal(props: {
                 type="button"
                 onClick={() => setTipChoice("custom")}
                 className={cn(
-                  "mt-2 w-full rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                  "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                   tipChoice === "custom"
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                     : "border-zinc-700 bg-zinc-900 text-slate-400"
@@ -875,7 +879,7 @@ export function TechPaymentModal(props: {
                 Custom tip
               </button>
               {tipChoice === "custom" ? (
-                <div className="mt-2 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5">
+                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
                   <span className="text-sm font-semibold text-slate-400">$</span>
                   <input
                     type="number"
@@ -890,7 +894,7 @@ export function TechPaymentModal(props: {
                 </div>
               ) : null}
               {selectedTipCents() > 0 ? (
-                <p className="mt-2 text-xs text-zinc-400">
+                <p className="mt-1.5 text-xs text-zinc-400">
                   Tip {fmt(selectedTipCents())}
                   {" · "}
                   New total{" "}
@@ -900,36 +904,38 @@ export function TechPaymentModal(props: {
                 </p>
               ) : null}
             </div>
-            <CustomerSignaturePad onChange={setSignaturePng} />
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
-            <button
-              type="button"
-              disabled={slipBusy}
-              onClick={() => void continueFromTipSign()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              {selectedTipCents() >= 50
-                ? `Continue · charge tip ${fmt(selectedTipCents())}`
-                : "Continue"}
-            </button>
-            <button
-              type="button"
-              disabled={slipBusy}
-              onClick={() =>
-                void continueFromTipSign({
-                  allowNoSignature: !signaturePng,
-                  skipTipCharge: true,
-                })
-              }
-              className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
-            >
-              {!signaturePng
-                ? "Skip signature — send invoice"
-                : selectedTipCents() >= 50
-                  ? "Skip tip card charge (record tip only)"
-                  : "Skip — send invoice"}
-            </button>
+            <CustomerSignaturePad onChange={setSignaturePng} className="min-h-0" />
+            {error ? <p className="shrink-0 text-sm text-red-300">{error}</p> : null}
+            <div className="shrink-0 space-y-2">
+              <button
+                type="button"
+                disabled={slipBusy}
+                onClick={() => void continueFromTipSign()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                {selectedTipCents() >= 50
+                  ? `Continue · charge tip ${fmt(selectedTipCents())}`
+                  : "Continue"}
+              </button>
+              <button
+                type="button"
+                disabled={slipBusy}
+                onClick={() =>
+                  void continueFromTipSign({
+                    allowNoSignature: !signaturePng,
+                    skipTipCharge: true,
+                  })
+                }
+                className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                {!signaturePng
+                  ? "Skip signature — send invoice"
+                  : selectedTipCents() >= 50
+                    ? "Skip tip card charge (record tip only)"
+                    : "Skip — send invoice"}
+              </button>
+            </div>
           </div>
         ) : postPayStep === "tip_charge" ? (
           <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">

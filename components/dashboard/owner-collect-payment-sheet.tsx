@@ -951,7 +951,11 @@ export function OwnerCollectPaymentSheet({
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className="flex h-auto max-h-[92dvh] flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
+          className={cn(
+            "flex flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
+            // Tip + sign needs more vertical room so the pad is usable.
+            mode === "tip_sign" ? "h-[94dvh] max-h-[94dvh]" : "h-auto max-h-[92dvh]"
+          )}
         >
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <div className="flex items-start justify-between gap-3">
@@ -993,7 +997,12 @@ export function OwnerCollectPaymentSheet({
             </div>
           </SheetHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div
+            className={cn(
+              "min-h-0 flex-1 overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]",
+              mode === "tip_sign" ? "flex flex-col overflow-hidden" : "overflow-y-auto"
+            )}
+          >
             {mode === "list" ? (
               <>
                 {connectReady === false ? (
@@ -1143,19 +1152,19 @@ export function OwnerCollectPaymentSheet({
                 )}
               </>
             ) : mode === "tip_sign" ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+              <div className="flex min-h-0 flex-col gap-3">
+                <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
                   <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
+                  <p className="text-lg font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
                   </p>
                 </div>
 
-                <div>
+                <div className="shrink-0">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Add a tip
                   </p>
-                  <div className="mt-2 grid grid-cols-4 gap-2">
+                  <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                     {(
                       [
                         { id: "none" as const, label: "No tip" },
@@ -1169,7 +1178,7 @@ export function OwnerCollectPaymentSheet({
                         type="button"
                         onClick={() => setTipChoice(opt.id)}
                         className={cn(
-                          "rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                          "rounded-xl border py-2 text-xs font-semibold transition-colors",
                           tipChoice === opt.id
                             ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                             : "border-zinc-700 bg-zinc-900 text-slate-400"
@@ -1188,7 +1197,7 @@ export function OwnerCollectPaymentSheet({
                     type="button"
                     onClick={() => setTipChoice("custom")}
                     className={cn(
-                      "mt-2 w-full rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                      "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                       tipChoice === "custom"
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                         : "border-zinc-700 bg-zinc-900 text-slate-400"
@@ -1197,7 +1206,7 @@ export function OwnerCollectPaymentSheet({
                     Custom tip
                   </button>
                   {tipChoice === "custom" ? (
-                    <div className="mt-2 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5">
+                    <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
                       <span className="text-sm font-semibold text-slate-400">$</span>
                       <input
                         type="number"
@@ -1212,7 +1221,7 @@ export function OwnerCollectPaymentSheet({
                     </div>
                   ) : null}
                   {selectedTipCents() > 0 ? (
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-1.5 text-xs text-slate-400">
                       Tip {fmtCents(selectedTipCents())}
                       {" · "}
                       New total{" "}
@@ -1223,37 +1232,39 @@ export function OwnerCollectPaymentSheet({
                   ) : null}
                 </div>
 
-                <CustomerSignaturePad onChange={setSignaturePng} />
+                <CustomerSignaturePad onChange={setSignaturePng} className="min-h-0" />
 
-                <button
-                  type="button"
-                  disabled={slipBusy}
-                  onClick={() => void continueFromTipSign()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                  {selectedTipCents() >= 50
-                    ? `Continue · charge tip ${fmtCents(selectedTipCents())}`
-                    : "Continue"}
-                </button>
-                <button
-                  type="button"
-                  disabled={slipBusy}
-                  onClick={() =>
-                    void continueFromTipSign({
-                      allowNoSignature: !signaturePng,
-                      // Secondary always skips a second tip swipe (record tip only / go to invoice).
-                      skipTipCharge: true,
-                    })
-                  }
-                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
-                >
-                  {!signaturePng
-                    ? "Skip signature — send invoice"
-                    : selectedTipCents() >= 50
-                      ? "Skip tip card charge (record tip only)"
-                      : "Skip — send invoice"}
-                </button>
+                <div className="shrink-0 space-y-2 pb-1">
+                  <button
+                    type="button"
+                    disabled={slipBusy}
+                    onClick={() => void continueFromTipSign()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                    {selectedTipCents() >= 50
+                      ? `Continue · charge tip ${fmtCents(selectedTipCents())}`
+                      : "Continue"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={slipBusy}
+                    onClick={() =>
+                      void continueFromTipSign({
+                        allowNoSignature: !signaturePng,
+                        // Secondary always skips a second tip swipe (record tip only / go to invoice).
+                        skipTipCharge: true,
+                      })
+                    }
+                    className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                  >
+                    {!signaturePng
+                      ? "Skip signature — send invoice"
+                      : selectedTipCents() >= 50
+                        ? "Skip tip card charge (record tip only)"
+                        : "Skip — send invoice"}
+                  </button>
+                </div>
               </div>
             ) : mode === "tip_charge" ? (
               <div className="space-y-3">
