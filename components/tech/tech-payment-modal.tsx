@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import {
   Banknote,
@@ -112,7 +112,20 @@ export function TechPaymentModal(props: {
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
   const [receiptBusy, setReceiptBusy] = useState(false)
+  /** Nested popup: card entry or pay-link form (keeps main sheet short). */
+  const [activePopup, setActivePopup] = useState<"link" | "card" | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Close nested Card / Link popup and clear in-progress payment UI state.
+  function closePayPopup() {
+    setActivePopup(null)
+    if (method === "link" || method === "card") setMethod(null)
+    setClientSecret(null)
+    setPublishableKey(null)
+    setPaymentIntentId(null)
+    setLinkSentUrl(null)
+    setError(null)
+  }
   // Wait for client mount so createPortal can target document.body.
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -247,6 +260,7 @@ export function TechPaymentModal(props: {
     setClientSecret(null)
     setPublishableKey(null)
     setMethod(null)
+    setActivePopup(null)
     setPostPayStep("tip_sign")
     setError(null)
   }
@@ -579,11 +593,13 @@ export function TechPaymentModal(props: {
     setError(null)
     setBusy(true)
     setMethod("card")
+    setActivePopup("card")
     try {
       await createIntent("MANUAL_CARD")
     } catch (e) {
       setError(formatPaymentCatchError(e, "Could not start card payment — try again."))
       setMethod(null)
+      setActivePopup(null)
     } finally {
       setBusy(false)
     }
@@ -980,74 +996,93 @@ export function TechPaymentModal(props: {
           </div>
         ) : (
           <>
-            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
               <section>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Invoice breakdown
-                </p>
-                <div className="space-y-2">
-                  {lines.map((line) => (
-                    <div key={line.id} className="flex items-center gap-2">
-                      <input
-                        value={line.label}
-                        onChange={(e) =>
-                          setLines((prev) =>
-                            prev.map((l) => (l.id === line.id ? { ...l, label: e.target.value } : l))
-                          )
-                        }
-                        placeholder="Description"
-                        disabled={busy || method === "card"}
-                        className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
-                      />
-                      <div className="relative w-28 shrink-0">
-                        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
-                          $
-                        </span>
+                {/* Collapsed by default so the sheet stays short; expand only to edit lines. */}
+                <details className="group rounded-xl border border-zinc-800 bg-zinc-900/40">
+                  <summary className="cursor-pointer list-none px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                          Invoice lines
+                        </p>
+                        <p className="mt-0.5 text-sm text-zinc-300">
+                          {lines.length} line{lines.length === 1 ? "" : "s"} · tap to edit
+                        </p>
+                      </div>
+                      <span className="text-xs font-medium text-indigo-300 group-open:hidden">Show</span>
+                      <span className="hidden text-xs font-medium text-indigo-300 group-open:inline">
+                        Hide
+                      </span>
+                    </div>
+                  </summary>
+                  <div className="space-y-2 border-t border-zinc-800 px-4 py-3">
+                    {lines.map((line) => (
+                      <div key={line.id} className="flex items-center gap-2">
                         <input
-                          value={line.amount}
-                          onChange={(e) => {
-                            // Editing a line item — let the amount field follow the line sum again.
-                            setAmountEdited(false)
+                          value={line.label}
+                          onChange={(e) =>
                             setLines((prev) =>
                               prev.map((l) =>
-                                l.id === line.id
-                                  ? { ...l, amount: e.target.value.replace(/[^\d.]/g, "") }
-                                  : l
+                                l.id === line.id ? { ...l, label: e.target.value } : l
                               )
                             )
-                          }}
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          disabled={busy || method === "card"}
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 py-2.5 pr-2 pl-6 text-right text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                          }
+                          placeholder="Description"
+                          disabled={busy || activePopup !== null}
+                          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
                         />
+                        <div className="relative w-28 shrink-0">
+                          <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                            $
+                          </span>
+                          <input
+                            value={line.amount}
+                            onChange={(e) => {
+                              setAmountEdited(false)
+                              setLines((prev) =>
+                                prev.map((l) =>
+                                  l.id === line.id
+                                    ? { ...l, amount: e.target.value.replace(/[^\d.]/g, "") }
+                                    : l
+                                )
+                              )
+                            }}
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            disabled={busy || activePopup !== null}
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 py-2.5 pr-2 pl-6 text-right text-sm text-white outline-none focus:border-indigo-500 disabled:opacity-60"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAmountEdited(false)
+                            setLines((prev) =>
+                              prev.length > 1 ? prev.filter((l) => l.id !== line.id) : prev
+                            )
+                          }}
+                          disabled={lines.length === 1 || busy || activePopup !== null}
+                          className="shrink-0 rounded-lg p-2 text-zinc-500 hover:text-red-400 disabled:opacity-30"
+                          aria-label="Remove line"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAmountEdited(false)
-                          setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== line.id) : prev))
-                        }}
-                        disabled={lines.length === 1 || busy || method === "card"}
-                        className="shrink-0 rounded-lg p-2 text-zinc-500 hover:text-red-400 disabled:opacity-30"
-                        aria-label="Remove line"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  disabled={busy || method === "card"}
-                  onClick={() => setLines((prev) => [...prev, newLine()])}
-                  className="mt-3 inline-flex items-center gap-1 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-300 disabled:opacity-40"
-                >
-                  <Plus className="h-3 w-3" /> Add line
-                </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={busy || activePopup !== null}
+                      onClick={() => setLines((prev) => [...prev, newLine()])}
+                      className="mt-1 inline-flex items-center gap-1 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-300 disabled:opacity-40"
+                    >
+                      <Plus className="h-3 w-3" /> Add line
+                    </button>
+                  </div>
+                </details>
 
                 {/* Editable amount + sales tax (same idea as walk-up Collect Payment) */}
-                <div className="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+                <div className="mt-3 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
                   <label className="block">
                     <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                       Amount (before tax)
@@ -1066,7 +1101,7 @@ export function TechPaymentModal(props: {
                         }}
                         inputMode="decimal"
                         placeholder="85.00"
-                        disabled={busy || method === "card"}
+                        disabled={busy || activePopup !== null}
                         aria-label="Amount before tax"
                         className={cn(
                           "w-full rounded-lg border bg-zinc-950 py-2.5 pr-3 pl-7 text-right text-lg font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
@@ -1088,7 +1123,7 @@ export function TechPaymentModal(props: {
                       type="button"
                       role="switch"
                       aria-checked={taxEnabled}
-                      disabled={busy || method === "card"}
+                      disabled={busy || activePopup !== null}
                       onClick={() => setTaxEnabled((v) => !v)}
                       className={cn(
                         "relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50",
@@ -1117,7 +1152,7 @@ export function TechPaymentModal(props: {
                         step="0.01"
                         value={taxRatePercent}
                         onChange={(e) => setTaxRatePercent(e.target.value)}
-                        disabled={busy || method === "card"}
+                        disabled={busy || activePopup !== null}
                         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm tabular-nums text-white outline-none disabled:opacity-60"
                       />
                     </label>
@@ -1142,220 +1177,206 @@ export function TechPaymentModal(props: {
                 </div>
               </section>
 
-              {method === "card" ? null : (
-                <section>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                    Payment options
-                  </p>
-                  {totalCents < 50 ? (
-                    <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100">
-                      Enter an amount of at least $0.50 above before choosing how to collect.
-                    </p>
-                  ) : null}
-                  {error && !postPayStep ? (
-                    <div className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
-                      <p className="text-sm font-semibold text-red-200">Couldn’t start payment</p>
-                      <p className="mt-0.5 text-sm leading-snug text-red-300/95">{error}</p>
-                    </div>
-                  ) : null}
-                  <div className="grid gap-2">
-                    <PayOptionButton
-                      active={method === "tap"}
-                      disabled={busy}
-                      dimmed={totalCents < 50}
-                      onClick={() => {
-                        if (!requireChargeAmount()) return
-                        void runTapToPay()
-                      }}
-                      title="Tap to Pay"
-                      subtitle="NFC — hold card to back of phone"
-                      icon={<Nfc className="h-5 w-5" />}
-                    />
-                    <PayOptionButton
-                      active={false}
-                      disabled={busy}
-                      dimmed={totalCents < 50}
-                      onClick={() => {
-                        if (!requireChargeAmount()) return
-                        void startManualCard()
-                      }}
-                      title="Manual Card Entry"
-                      subtitle="Secure Stripe card fields"
-                      icon={<CreditCard className="h-5 w-5" />}
-                    />
-                    <PayOptionButton
-                      active={method === "link"}
-                      disabled={busy}
-                      dimmed={totalCents < 50}
-                      onClick={() => {
-                        if (!requireChargeAmount()) return
-                        setError(null)
-                        setMethod("link")
-                        setLinkSentUrl(null)
-                      }}
-                      title="Text / email pay link"
-                      subtitle="Customer pays on their phone — Stripe Checkout"
-                      icon={<Link2 className="h-5 w-5" />}
-                    />
-                    <PayOptionButton
-                      active={method === "cash"}
-                      disabled={busy}
-                      dimmed={totalCents < 50}
-                      onClick={() => {
-                        if (!requireChargeAmount()) return
-                        void payCash()
-                      }}
-                      title="Cash / Alternative"
-                      subtitle="Mark paid without charging a card"
-                      icon={<Banknote className="h-5 w-5" />}
-                    />
-                  </div>
-
-                  {method === "link" ? (
-                    <div className="mt-3 space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
-                      <p className="text-xs text-emerald-100/90">
-                        Sends a secure link for {fmt(totalCents)}. When they pay, the job is marked
-                        collected.
-                      </p>
-                      <label className="block">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Customer name
-                        </span>
-                        <input
-                          value={linkName}
-                          onChange={(e) => setLinkName(e.target.value)}
-                          disabled={busy}
-                          placeholder="Optional"
-                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Mobile for text
-                        </span>
-                        <input
-                          value={linkPhone}
-                          onChange={(e) => setLinkPhone(e.target.value)}
-                          disabled={busy}
-                          inputMode="tel"
-                          placeholder="+15551234567"
-                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Email
-                        </span>
-                        <input
-                          value={linkEmail}
-                          onChange={(e) => setLinkEmail(e.target.value)}
-                          disabled={busy}
-                          inputMode="email"
-                          autoCapitalize="none"
-                          placeholder="customer@email.com"
-                          className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-                        />
-                      </label>
-                      <div className="grid gap-2">
-                        <button
-                          type="button"
-                          disabled={busy || !linkPhone.trim()}
-                          onClick={() => void sendPayLink("sms")}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                        >
-                          {busy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                          ) : (
-                            <MessageSquare className="h-4 w-4" aria-hidden />
-                          )}
-                          Text pay link
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || !linkEmail.trim()}
-                          onClick={() => void sendPayLink("email")}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                        >
-                          <Mail className="h-4 w-4" aria-hidden />
-                          Email pay link
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setMethod(null)
-                            setLinkSentUrl(null)
-                          }}
-                          className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
-                        >
-                          Back
-                        </button>
-                      </div>
-                      {linkSentUrl ? (
-                        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
-                          <p className="text-sm font-semibold text-emerald-200">Link sent</p>
-                          <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
-                          <button
-                            type="button"
-                            className="mt-2 text-xs font-semibold text-emerald-300 underline"
-                            onClick={() => {
-                              void navigator.clipboard?.writeText(linkSentUrl)
-                            }}
-                          >
-                            Copy link
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </section>
-              )}
-
-              {method === "card" && clientSecret && publishableKey ? (
-                <Elements
-                  stripe={getStripePromise(publishableKey)}
-                  options={{
-                    clientSecret,
-                    appearance: {
-                      theme: "night",
-                      variables: { colorPrimary: "#6366f1", borderRadius: "10px" },
-                    },
-                  }}
-                >
-                  <ManualCardForm
-                    totalLabel={fmt(totalCents)}
-                    paymentIntentId={paymentIntentId}
-                    lineItems={lineItemsPayload()}
-                    jobId={props.job.id}
-                    taxCents={taxCents}
-                    onError={setError}
-                    onSuccess={(piId) => {
-                      enterTipSignStep(piId || paymentIntentId, totalCents)
-                    }}
-                    onBack={() => {
-                      setMethod(null)
-                      setClientSecret(null)
-                      setPaymentIntentId(null)
-                    }}
-                  />
-                </Elements>
-              ) : null}
-
-              {method === "card" && (!clientSecret || !publishableKey) && busy ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-zinc-400">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Preparing secure card form…
-                </div>
-              ) : null}
-
-              {method === "card" && !publishableKey && !busy ? (
-                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-                  Add <span className="font-mono">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</span> in Vercel to
-                  enable Manual Card Entry.
+              <section>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Payment options
                 </p>
-              ) : null}
-
+                {totalCents < 50 ? (
+                  <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100">
+                    Enter an amount of at least $0.50 above before choosing how to collect.
+                  </p>
+                ) : null}
+                {error && !postPayStep && !activePopup ? (
+                  <div className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
+                    <p className="text-sm font-semibold text-red-200">Couldn’t start payment</p>
+                    <p className="mt-0.5 text-sm leading-snug text-red-300/95">{error}</p>
+                  </div>
+                ) : null}
+                <div className="grid gap-2">
+                  <PayOptionButton
+                    active={method === "tap"}
+                    disabled={busy || activePopup !== null}
+                    dimmed={totalCents < 50}
+                    onClick={() => {
+                      if (!requireChargeAmount()) return
+                      void runTapToPay()
+                    }}
+                    title="Tap to Pay"
+                    subtitle="NFC — hold card to back of phone"
+                    icon={<Nfc className="h-5 w-5" />}
+                  />
+                  <PayOptionButton
+                    active={activePopup === "card"}
+                    disabled={busy || activePopup !== null}
+                    dimmed={totalCents < 50}
+                    onClick={() => {
+                      if (!requireChargeAmount()) return
+                      void startManualCard()
+                    }}
+                    title="Manual Card Entry"
+                    subtitle="Opens a secure card popup"
+                    icon={<CreditCard className="h-5 w-5" />}
+                  />
+                  <PayOptionButton
+                    active={activePopup === "link"}
+                    disabled={busy || activePopup !== null}
+                    dimmed={totalCents < 50}
+                    onClick={() => {
+                      if (!requireChargeAmount()) return
+                      setError(null)
+                      setMethod("link")
+                      setLinkSentUrl(null)
+                      setActivePopup("link")
+                    }}
+                    title="Text / email pay link"
+                    subtitle="Opens a popup to send Stripe Checkout"
+                    icon={<Link2 className="h-5 w-5" />}
+                  />
+                  <PayOptionButton
+                    active={method === "cash"}
+                    disabled={busy || activePopup !== null}
+                    dimmed={totalCents < 50}
+                    onClick={() => {
+                      if (!requireChargeAmount()) return
+                      void payCash()
+                    }}
+                    title="Cash / Alternative"
+                    subtitle="Mark paid without charging a card"
+                    icon={<Banknote className="h-5 w-5" />}
+                  />
+                </div>
+              </section>
             </div>
+
+            {/* Nested popups keep Card / Link forms off the main scroll. */}
+            {activePopup === "link" ? (
+              <NestedPayPopup title="Text / email pay link" onClose={closePayPopup}>
+                <p className="text-xs text-emerald-100/90">
+                  Sends a secure link for {fmt(totalCents)}. When they pay, the job is marked
+                  collected.
+                </p>
+                {error ? <p className="text-sm text-red-300">{error}</p> : null}
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Customer name
+                  </span>
+                  <input
+                    value={linkName}
+                    onChange={(e) => setLinkName(e.target.value)}
+                    disabled={busy}
+                    placeholder="Optional"
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Mobile for text
+                  </span>
+                  <input
+                    value={linkPhone}
+                    onChange={(e) => setLinkPhone(e.target.value)}
+                    disabled={busy}
+                    inputMode="tel"
+                    placeholder="+15551234567"
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Email
+                  </span>
+                  <input
+                    value={linkEmail}
+                    onChange={(e) => setLinkEmail(e.target.value)}
+                    disabled={busy}
+                    inputMode="email"
+                    autoCapitalize="none"
+                    placeholder="customer@email.com"
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+                  />
+                </label>
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    disabled={busy || !linkPhone.trim()}
+                    onClick={() => void sendPayLink("sms")}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <MessageSquare className="h-4 w-4" aria-hidden />
+                    )}
+                    Text pay link
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || !linkEmail.trim()}
+                    onClick={() => void sendPayLink("email")}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                  >
+                    <Mail className="h-4 w-4" aria-hidden />
+                    Email pay link
+                  </button>
+                </div>
+                {linkSentUrl ? (
+                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+                    <p className="text-sm font-semibold text-emerald-200">Link sent</p>
+                    <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-semibold text-emerald-300 underline"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(linkSentUrl)
+                      }}
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                ) : null}
+              </NestedPayPopup>
+            ) : null}
+
+            {activePopup === "card" ? (
+              <NestedPayPopup title="Manual card entry" onClose={closePayPopup}>
+                {error ? <p className="text-sm text-red-300">{error}</p> : null}
+                {clientSecret && publishableKey ? (
+                  <Elements
+                    stripe={getStripePromise(publishableKey)}
+                    options={{
+                      clientSecret,
+                      appearance: {
+                        theme: "night",
+                        variables: { colorPrimary: "#6366f1", borderRadius: "10px" },
+                      },
+                    }}
+                  >
+                    <ManualCardForm
+                      totalLabel={fmt(totalCents)}
+                      paymentIntentId={paymentIntentId}
+                      lineItems={lineItemsPayload()}
+                      jobId={props.job.id}
+                      taxCents={taxCents}
+                      onError={setError}
+                      onSuccess={(piId) => {
+                        enterTipSignStep(piId || paymentIntentId, totalCents)
+                      }}
+                      onBack={closePayPopup}
+                    />
+                  </Elements>
+                ) : busy ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-zinc-400">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Preparing secure card form…
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                    Add <span className="font-mono">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</span> in
+                    Vercel to enable Manual Card Entry.
+                  </p>
+                )}
+              </NestedPayPopup>
+            ) : null}
           </>
         )}
       </div>
@@ -1364,6 +1385,39 @@ export function TechPaymentModal(props: {
 
   if (!mounted || typeof document === "undefined") return null
   return createPortal(modal, document.body)
+}
+
+/** Second-layer sheet on top of Proceed to Payment (Card / pay-link forms). */
+function NestedPayPopup(props: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  return (
+    // Full-screen dimmer above the main payment sheet (z above 7000).
+    <div className="fixed inset-0 z-[7200] flex items-end justify-center bg-black/55 backdrop-blur-[2px] sm:items-center">
+      {/* Compact panel — scrolls inside if the form is tall. */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={props.title}
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-700 bg-[#12121a] shadow-2xl sm:rounded-3xl"
+      >
+        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3.5">
+          <h3 className="text-sm font-bold text-white">{props.title}</h3>
+          <button
+            type="button"
+            onClick={props.onClose}
+            className="rounded-lg p-2 text-zinc-400 hover:text-white"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">{props.children}</div>
+      </div>
+    </div>
+  )
 }
 
 function PayOptionButton(props: {
