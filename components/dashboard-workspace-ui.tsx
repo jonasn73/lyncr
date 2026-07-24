@@ -1,6 +1,7 @@
 "use client"
 
 import { type HTMLAttributes, type ReactNode } from "react"
+import { Phone, PhoneMissed, Voicemail } from "lucide-react"
 import { cn } from "@/lib/utils"
 export { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 
@@ -210,50 +211,88 @@ export type ActivityCallStatus =
   | "busy_link"
   | "emergency"
 
+/** Unanswered / rescue family — used for card accents vs answered green. */
+export function isMissedActivityStatus(status: ActivityCallStatus): boolean {
+  return (
+    status === "missed" ||
+    status === "missed_ivr" ||
+    status === "voicemail" ||
+    status === "night_link" ||
+    status === "day_link" ||
+    status === "day_off_link" ||
+    status === "busy_link"
+  )
+}
+
 export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
   const styles: Record<ActivityCallStatus, string> = {
     answered:
-      "border-emerald-500/45 bg-emerald-500/12 text-emerald-300 shadow-[0_0_14px_-6px_rgba(16,185,129,0.55)]",
+      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     emergency:
-      "border-emerald-500/45 bg-emerald-500/12 text-emerald-300 shadow-[0_0_14px_-6px_rgba(16,185,129,0.55)]",
+      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     ai_handled:
       "border-violet-500/45 bg-violet-500/12 text-violet-300 shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
     voicemail:
-      "border-amber-500/40 bg-amber-500/10 text-amber-300 shadow-[0_0_14px_-6px_rgba(245,158,11,0.35)]",
+      "border-rose-500/50 bg-rose-500/15 text-rose-200 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     missed_ivr:
-      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
+      "border-rose-500/55 bg-rose-500/18 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.55)]",
     night_link:
-      "border-sky-500/45 bg-sky-500/12 text-sky-200 shadow-[0_0_14px_-6px_rgba(14,165,233,0.4)]",
+      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     day_link:
-      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
+      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     day_off_link:
-      "border-sky-500/45 bg-sky-500/12 text-sky-200 shadow-[0_0_14px_-6px_rgba(14,165,233,0.4)]",
+      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     busy_link:
-      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_14px_-6px_rgba(245,158,11,0.4)]",
-    missed: "border-red-500/35 bg-red-500/8 text-red-400",
+      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+    missed:
+      "border-rose-500/60 bg-rose-500/20 text-rose-50 shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
   }
   const labels: Record<ActivityCallStatus, string> = {
     answered: "Answered",
-    emergency: "Emergency Answered",
+    emergency: "Emergency answered",
     ai_handled: "AI handled",
     voicemail: "Voicemail",
-    missed_ivr: "Missed (IVR)",
-    night_link: "Missed - Sent Night Link",
-    day_link: "Missed - Sent Day Link",
-    day_off_link: "Missed - Sent Day Off Link",
-    busy_link: "Missed - Sent Busy Link",
+    missed_ivr: "Missed · IVR",
+    night_link: "Missed · night link",
+    day_link: "Missed · day link",
+    day_off_link: "Missed · day-off link",
+    busy_link: "Missed · busy link",
     missed: "Missed",
   }
+  const Icon =
+    status === "answered" || status === "emergency"
+      ? Phone
+      : status === "voicemail"
+        ? Voicemail
+        : status === "ai_handled"
+          ? Phone
+          : PhoneMissed
+
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
         styles[status]
       )}
     >
+      <Icon className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
       {labels[status]}
     </span>
   )
+}
+
+/** Soft card chrome so missed rows never look like answered emerald cards. */
+export function activityRowAccentClass(status: ActivityCallStatus): string {
+  if (status === "answered" || status === "emergency") {
+    return "border-l-[3px] border-l-emerald-500/70 bg-emerald-500/[0.04]"
+  }
+  if (status === "ai_handled") {
+    return "border-l-[3px] border-l-violet-500/60 bg-violet-500/[0.04]"
+  }
+  if (isMissedActivityStatus(status)) {
+    return "border-l-[3px] border-l-rose-500 bg-rose-500/[0.07]"
+  }
+  return "border-l-[3px] border-l-transparent"
 }
 
 export function WorkspaceDisclosureRow({

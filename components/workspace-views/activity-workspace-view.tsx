@@ -42,6 +42,8 @@ import {
   WorkspaceTh,
   WorkspaceTd,
   ActivityStatusPill,
+  activityRowAccentClass,
+  isMissedActivityStatus,
   WORKSPACE_TABLE_ROW_CLASS,
   type ActivityCallStatus,
 } from "@/components/dashboard-workspace-ui"
@@ -341,11 +343,14 @@ function CallBackButton({
   compact = false,
   /** When true: dial native tel: and open intake draft in parallel (missed / no intake). */
   openIntakeDraft = false,
+  /** Missed rows use rose “Call back” so they don’t match answered teal Call. */
+  missed = false,
 }: {
   phone: string
   className?: string
   compact?: boolean
   openIntakeDraft?: boolean
+  missed?: boolean
 }) {
   const inbound = useInboundCallPanelOptional()
   const href = buildTelHref(phone)
@@ -366,13 +371,17 @@ function CallBackButton({
       href={href}
       onClick={handleClick}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-500/35 bg-cyan-500/10 font-semibold text-cyan-200 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300 active:scale-[0.98]",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg border font-semibold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98]",
+        missed
+          ? "border-rose-500/45 bg-rose-500/15 text-rose-100 hover:border-rose-400/60 hover:bg-rose-500/25"
+          : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300",
         compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
         className
       )}
     >
       <Phone className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-      {compact ? "Call" : "Call back"}
+      {/* Missed: always “Call back”; answered compact list stays short “Call”. */}
+      {missed || !compact ? "Call back" : "Call"}
     </a>
   )
 }
@@ -648,6 +657,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             <CallBackButton
               phone={call.callerNumber}
               openIntakeDraft={needsRevenueRescue(call)}
+              missed={isMissedActivityStatus(classifyCall(call))}
             />
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
@@ -794,10 +804,14 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
         const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
         const expandable = call.count > 1
         const expanded = expandable && expandedIds.has(call.id)
+        const missed = isMissedActivityStatus(st)
         return (
           <li
             key={call.id}
-            className="rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-800/50"
+            className={cn(
+              "rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-800/50",
+              activityRowAccentClass(st)
+            )}
           >
             <div className="flex flex-col gap-2">
               <button
@@ -834,7 +848,12 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     <a
                       href={buildTelHref(call.callerNumber) ?? undefined}
                       onClick={(e) => e.stopPropagation()}
-                      className="truncate text-xs font-medium text-cyan-400 underline-offset-2 transition-colors duration-150 hover:text-teal-300 hover:underline"
+                      className={cn(
+                        "truncate text-xs font-medium underline-offset-2 transition-colors duration-150 hover:underline",
+                        missed
+                          ? "text-rose-300 hover:text-rose-200"
+                          : "text-cyan-400 hover:text-teal-300"
+                      )}
                     >
                       {call.callerNumber}
                     </a>
@@ -850,6 +869,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   compact
                   className="w-full"
                   openIntakeDraft={needsRevenueRescue(call)}
+                  missed={missed}
                 />
               ) : null}
               {call.activity ? (
@@ -951,6 +971,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
           ) : (
             rows.map((call) => {
               const st = classifyCall(call)
+              const missed = isMissedActivityStatus(st)
               const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
               const expandable = call.count > 1
               const expanded = expandable && expandedIds.has(call.id)
@@ -959,7 +980,8 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                   <tr
                     className={cn(
                       WORKSPACE_TABLE_ROW_CLASS,
-                      "group/row transition-colors duration-150 hover:bg-slate-800/55"
+                      "group/row transition-colors duration-150 hover:bg-slate-800/55",
+                      activityRowAccentClass(st)
                     )}
                   >
                     <WorkspaceTd className="!px-3 !py-2.5 align-middle">
@@ -1001,7 +1023,12 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       {canCallBack(call) ? (
                         <a
                           href={buildTelHref(call.callerNumber) ?? undefined}
-                          className="block truncate text-xs font-medium text-cyan-400 underline-offset-2 transition-colors duration-150 hover:text-teal-300 hover:underline"
+                          className={cn(
+                            "block truncate text-xs font-medium underline-offset-2 transition-colors duration-150 hover:underline",
+                            missed
+                              ? "text-rose-300 hover:text-rose-200"
+                              : "text-cyan-400 hover:text-teal-300"
+                          )}
                           title={call.callerNumber}
                         >
                           {call.callerNumber}
@@ -1054,6 +1081,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                             phone={call.callerNumber}
                             compact
                             openIntakeDraft={needsRevenueRescue(call)}
+                            missed={missed}
                           />
                         ) : null}
                         <button
