@@ -1242,7 +1242,7 @@ export function TechPaymentModal(props: {
                       setActivePopup("link")
                     }}
                     title="Text / email pay link"
-                    subtitle="Opens a popup to send Stripe Checkout"
+                    subtitle="Sends a short lyncr.app pay link"
                     icon={<Link2 className="h-5 w-5" />}
                   />
                   <PayOptionButton
@@ -1265,8 +1265,8 @@ export function TechPaymentModal(props: {
             {activePopup === "link" ? (
               <NestedPayPopup title="Text / email pay link" onClose={closePayPopup}>
                 <p className="text-xs text-emerald-100/90">
-                  Sends a secure link for {fmt(totalCents)}. When they pay, the job is marked
-                  collected.
+                  Texts a short lyncr.app link for {fmt(totalCents)}. Customer pays on a branded
+                  page — when they finish, the job is marked collected.
                 </p>
                 {error ? <p className="text-sm text-red-300">{error}</p> : null}
                 <label className="block">

@@ -115,6 +115,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 110 | `110-ti-supplier-catalog.sql` | **TI full catalog.** Creates **`ti_supplier_catalog`** (shared scrape: `ti_sku`, `cross_ref_ti_sku`, `title`, `fcc_id`, `frequency`, `button_count`, `image_url`, `product_url`). Adds **`product_title`**, **`product_url`**, **`cross_ref_ti_sku`** on **`key_inventory`**. Import with `npx tsx scripts/import-ti-catalog.ts` after `npm run scrape:ti`. |
 | 111 | `111-tech-wallet-transactions.sql` | **Tech wallet.** Adds **`users.balance`** (available earnings) and **`wallet_transactions`** (`user_id`, `job_id`, `amount`, `status` PENDING/COMPLETED/FAILED, `payment_method` TAP_TO_PAY/MANUAL_CARD/CASH, optional `stripe_payment_intent_id`). Powers field-tech **My Wallet** on `/tech/dashboard` via `GET /api/tech/wallet`. |
 | 112 | `112-payment-slips.sql` | **Collect tip + signature.** Creates **`payment_slips`** (`stripe_payment_intent_id`, `tip_cents`, `tip_payment_intent_id`, `signature_png`). Powers post-payment tip options + customer signature on Collect Payment, and tip/signature on emailed receipts. **Required** to save tip/signature after a charge. |
+| 113 | `113-collect-pay-links.sql` | **Branded pay links.** Creates **`collect_pay_links`** (short token → Stripe Checkout session). Powers SMS/email **`lyncr.app/pay/{token}`** pages with embedded checkout (no `checkout.stripe.com` URL). App falls back to Stripe metadata search if this table is missing. |
 
 ## Platform admin (`admin@lyncr.app`)
 

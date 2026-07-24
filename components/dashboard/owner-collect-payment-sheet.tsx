@@ -1430,7 +1430,7 @@ export function OwnerCollectPaymentSheet({
                         {payLinkOpen ? (
                           <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3">
                             <p className="text-[11px] text-slate-500">
-                              Customer opens a secure Stripe page and pays on their own phone.
+                              Customer opens a short lyncr.app link and pays on a branded page.
                             </p>
                             <input
                               type="text"

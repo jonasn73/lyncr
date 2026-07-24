@@ -5425,6 +5425,99 @@ export async function listSmsMessagesForOrganization(
   }
 }
 
+function isMissingCollectPayLinksTableError(e: unknown): boolean {
+  return pgErrorCode(e) === "42P01" && pgErrorMessage(e).includes("collect_pay_links")
+}
+
+export type CollectPayLinkRow = {
+  token: string
+  stripe_session_id: string
+  owner_user_id: string | null
+  acting_user_id: string | null
+  job_id: string | null
+  charge_cents: number
+  business_label: string
+  customer_name: string
+  created_at: string
+  expires_at: string
+}
+
+/** Persist a short pay-link token (scripts/113-collect-pay-links.sql). */
+export async function insertCollectPayLink(params: {
+  token: string
+  stripeSessionId: string
+  ownerUserId?: string | null
+  actingUserId?: string | null
+  jobId?: string | null
+  chargeCents: number
+  businessLabel?: string | null
+  customerName?: string | null
+}): Promise<CollectPayLinkRow | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      INSERT INTO collect_pay_links (
+        token, stripe_session_id, owner_user_id, acting_user_id, job_id,
+        charge_cents, business_label, customer_name
+      )
+      VALUES (
+        ${params.token}, ${params.stripeSessionId}, ${params.ownerUserId ?? null},
+        ${params.actingUserId ?? null}, ${params.jobId ?? null}, ${params.chargeCents},
+        ${(params.businessLabel ?? "").trim()}, ${(params.customerName ?? "").trim()}
+      )
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return {
+      token: String(row.token),
+      stripe_session_id: String(row.stripe_session_id),
+      owner_user_id: row.owner_user_id != null ? String(row.owner_user_id) : null,
+      acting_user_id: row.acting_user_id != null ? String(row.acting_user_id) : null,
+      job_id: row.job_id != null ? String(row.job_id) : null,
+      charge_cents: Number(row.charge_cents) || 0,
+      business_label: String(row.business_label ?? ""),
+      customer_name: String(row.customer_name ?? ""),
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
+    }
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return null
+    throw e
+  }
+}
+
+/** Look up an active (non-expired) collect pay link by short token. */
+export async function getCollectPayLinkByToken(token: string): Promise<CollectPayLinkRow | null> {
+  const key = token.trim()
+  if (!key) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM collect_pay_links
+      WHERE token = ${key} AND expires_at > now()
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return {
+      token: String(row.token),
+      stripe_session_id: String(row.stripe_session_id),
+      owner_user_id: row.owner_user_id != null ? String(row.owner_user_id) : null,
+      acting_user_id: row.acting_user_id != null ? String(row.acting_user_id) : null,
+      job_id: row.job_id != null ? String(row.job_id) : null,
+      charge_cents: Number(row.charge_cents) || 0,
+      business_label: String(row.business_label ?? ""),
+      customer_name: String(row.customer_name ?? ""),
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
+    }
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return null
+    throw e
+  }
+}
+
 function parsePortingOrderRow(row: Record<string, unknown>): PortingOrder {
   const status = String(row.status ?? "pending").toLowerCase()
   const allowed: PortingOrderStatus[] = [

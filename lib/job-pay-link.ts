@@ -1,10 +1,13 @@
-// Create + fulfill Stripe Checkout pay links for jobs / walk-up, then SMS or email the URL.
+// Create + fulfill branded Collect Payment links (lyncr.app/pay/…) and SMS/email them.
 
 import type Stripe from "stripe"
 import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
-import { getUser } from "@/lib/db"
-import { normalizePhoneNumberE164 } from "@/lib/db"
+import {
+  getUser,
+  insertCollectPayLink,
+  normalizePhoneNumberE164,
+} from "@/lib/db"
 import {
   is10DlcDeliveryWarning,
   sendTelnyxSms,
@@ -37,13 +40,27 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;")
 }
 
+/** Short opaque token for SMS (avoids pasting a long checkout.stripe.com URL). */
+function makePayToken(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+  const bytes = new Uint8Array(10)
+  crypto.getRandomValues(bytes)
+  let out = ""
+  for (let i = 0; i < bytes.length; i++) {
+    out += alphabet[bytes[i]! % alphabet.length]
+  }
+  return out
+}
+
 export type CreatePayLinkResult = {
+  /** Branded short URL on lyncr.app (customer-facing). */
   url: string
   sessionId: string
   chargeCents: number
+  payToken: string
 }
 
-/** Stripe Checkout Session the customer opens to pay remotely. */
+/** Create an embedded Checkout session + short lyncr.app/pay/{token} URL. */
 export async function createCollectPayLinkCheckout(params: {
   actingUserId: string
   /** When set, ties payment to a job; otherwise walk-up / adhoc. */
@@ -84,7 +101,7 @@ export async function createCollectPayLinkCheckout(params: {
 
   const owner = await getUser(ownerUserId)
   const businessLabel =
-    owner?.business_name?.trim() || owner?.name?.trim() || "Lyncr"
+    owner?.business_name?.trim() || owner?.name?.trim() || "Your service provider"
   const note = (params.note ?? "").trim().slice(0, 120) || (jobId ? "Job payment" : "Service payment")
   const customerName = (params.customerName ?? "").trim().slice(0, 80)
   const lineSummary = (params.lineSummary ?? "").trim().slice(0, 120) || note
@@ -94,9 +111,12 @@ export async function createCollectPayLinkCheckout(params: {
   const appUrl = getAppUrl().replace(/\/$/, "")
   const checkoutType = jobId ? "job_payment_link" : "adhoc_payment_link"
   const lyncrKind = jobId ? "job_payment" : "adhoc_payment"
+  const payToken = makePayToken()
 
   const stripe = getStripeClient()
+  // Embedded Checkout keeps the customer on lyncr.app (no checkout.stripe.com URL bar).
   const session = await stripe.checkout.sessions.create({
+    ui_mode: "embedded",
     mode: "payment",
     client_reference_id: ownerUserId,
     customer_email: params.customerEmail?.trim() || undefined,
@@ -107,11 +127,11 @@ export async function createCollectPayLinkCheckout(params: {
           currency: "usd",
           unit_amount: params.chargeCents,
           product_data: {
-            name: `${businessLabel} — ${lineSummary}`,
+            name: lineSummary,
             description:
               params.taxCents > 0
-                ? `Includes ${fmtUsd(params.taxCents)} tax`
-                : `Pay ${businessLabel} securely online`,
+                ? `Includes ${fmtUsd(params.taxCents)} tax · ${businessLabel}`
+                : `Secure payment to ${businessLabel}`,
           },
         },
       },
@@ -129,13 +149,14 @@ export async function createCollectPayLinkCheckout(params: {
       commission_cents: String(commissionCents),
       note,
       customer_name: customerName,
+      business_label: businessLabel.slice(0, 80),
+      pay_token: payToken,
       lyncr_kind: lyncrKind,
     },
-    // So the PaymentIntent is created with Lyncr metadata for wallet settle.
     payment_intent_data: {
       description: customerName
-        ? `Lyncr · ${customerName} · ${note}`
-        : `Lyncr · ${note}`,
+        ? `${businessLabel} · ${customerName} · ${note}`
+        : `${businessLabel} · ${note}`,
       metadata: {
         lyncr_kind: lyncrKind,
         job_id: jobId || "",
@@ -149,17 +170,33 @@ export async function createCollectPayLinkCheckout(params: {
         subtotal_cents: String(params.subtotalCents),
         tax_cents: String(params.taxCents),
         pay_link: "1",
+        pay_token: payToken,
       },
     },
-    success_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/pay/cancelled`,
+    return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
   })
 
-  if (!session.url) throw new Error("Stripe did not return a checkout URL")
+  if (!session.id) throw new Error("Could not create payment session")
+
+  // Best-effort short-token index (works even before migration via Stripe metadata search).
+  await insertCollectPayLink({
+    token: payToken,
+    stripeSessionId: session.id,
+    ownerUserId,
+    actingUserId: params.actingUserId,
+    jobId,
+    chargeCents: params.chargeCents,
+    businessLabel,
+    customerName,
+  }).catch((e) => {
+    console.warn("[pay-link] collect_pay_links insert skipped:", e)
+  })
+
   return {
-    url: session.url,
+    url: `${appUrl}/pay/${payToken}`,
     sessionId: session.id,
     chargeCents: params.chargeCents,
+    payToken,
   }
 }
 
@@ -209,7 +246,50 @@ export async function fulfillCollectPayLinkFromCheckout(
   await confirmJobPaymentIntent(paymentIntentId)
 }
 
-/** SMS or email a Stripe Checkout pay link. */
+/** Resolve a Checkout session from a short pay token (DB, then Stripe search). */
+export async function resolvePayLinkSession(token: string): Promise<{
+  session: Stripe.Checkout.Session
+  businessLabel: string
+  chargeCents: number
+  customerName: string
+} | null> {
+  const key = token.trim()
+  if (!key) return null
+  const stripe = getStripeClient()
+
+  let sessionId: string | null = null
+  if (key.startsWith("cs_")) {
+    sessionId = key
+  } else {
+    const { getCollectPayLinkByToken } = await import("@/lib/db")
+    const row = await getCollectPayLinkByToken(key)
+    if (row) sessionId = row.stripe_session_id
+  }
+
+  // Token → session is stored in collect_pay_links (scripts/113). No Stripe search API needed.
+  if (!sessionId) return null
+
+  const session = await stripe.checkout.sessions.retrieve(sessionId)
+  const meta = session.metadata || {}
+  const chargeCents = Math.max(
+    0,
+    Math.round(
+      Number(meta.charge_cents) ||
+        (typeof session.amount_total === "number" ? session.amount_total : 0) ||
+        0
+    )
+  )
+  return {
+    session,
+    businessLabel:
+      (meta.business_label || "").trim() ||
+      "Your service provider",
+    chargeCents,
+    customerName: (meta.customer_name || "").trim(),
+  }
+}
+
+/** SMS or email a branded pay link. */
 export async function sendCollectPayLink(params: {
   actingUserId: string
   channel: "email" | "sms"
@@ -220,20 +300,26 @@ export async function sendCollectPayLink(params: {
   phone?: string | null
   businessLabel?: string | null
 }): Promise<{ sent: boolean; error?: string }> {
-  const businessLabel = (params.businessLabel || "Lyncr").trim() || "Lyncr"
+  const businessLabel = (params.businessLabel || "Your service provider").trim() || "Your service provider"
   const customerName = (params.customerName ?? "").trim()
+  const amount = fmtUsd(params.chargeCents)
 
   if (params.channel === "sms") {
     const toE164 = normalizePhoneNumberE164(params.phone ?? "")
     if (!toE164) return { sent: false, error: "Enter a valid phone number" }
-    const text = `${businessLabel}: Pay ${fmtUsd(params.chargeCents)} securely:\n${params.url}`
+    const greeting = customerName ? `Hi ${customerName} — ` : ""
+    const text = [
+      `${greeting}${businessLabel} sent you a secure payment request for ${amount}.`,
+      "",
+      "Pay here:",
+      params.url,
+    ].join("\n")
     const result = await sendTelnyxSms({
       userId: params.actingUserId,
       toE164,
       text,
     })
     if (!result.ok) return { sent: false, error: result.error || "SMS could not be sent" }
-    // Telnyx may accept the API call while US carriers still drop the text (missing 10DLC).
     if (is10DlcDeliveryWarning(result.delivery_warning)) {
       return {
         sent: false,
@@ -261,14 +347,14 @@ export async function sendCollectPayLink(params: {
       <p style="margin:0 0 16px;font-size:16px;">${greeting}</p>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.5;">
         <strong>${escapeHtml(businessLabel)}</strong> sent you a secure link to pay
-        <strong style="color:#6ee7b7;">${escapeHtml(fmtUsd(params.chargeCents))}</strong>.
+        <strong style="color:#6ee7b7;">${escapeHtml(amount)}</strong>.
       </p>
       <p style="margin:24px 0;">
         <a href="${escapeHtml(params.url)}" style="display:inline-block;background:#10b981;color:#042f2e;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:10px;">
-          Pay ${escapeHtml(fmtUsd(params.chargeCents))}
+          Pay ${escapeHtml(amount)}
         </a>
       </p>
-      <p style="margin:16px 0 0;font-size:12px;color:#64748b;word-break:break-all;">${escapeHtml(params.url)}</p>
+      <p style="margin:16px 0 0;font-size:12px;color:#64748b;">${escapeHtml(params.url)}</p>
     </td></tr>
   </table>
 </body></html>`.trim()
@@ -276,8 +362,9 @@ export async function sendCollectPayLink(params: {
   const text = [
     customerName ? `Hi ${customerName},` : "Hi,",
     "",
-    `${businessLabel} sent you a secure payment link for ${fmtUsd(params.chargeCents)}.`,
+    `${businessLabel} sent you a secure payment request for ${amount}.`,
     "",
+    "Pay here:",
     params.url,
   ].join("\n")
 
@@ -291,7 +378,7 @@ export async function sendCollectPayLink(params: {
       body: JSON.stringify({
         from: inviteSender(),
         to: email,
-        subject: `Pay ${fmtUsd(params.chargeCents)} — ${businessLabel}`,
+        subject: `Payment request ${amount} — ${businessLabel}`,
         html,
         text,
       }),
