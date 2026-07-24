@@ -214,6 +214,7 @@ export function GetPaidSheet({
     >
       <SheetContent
         side="bottom"
+        showCloseButton={false}
         overlayClassName="z-[7000]"
         className={cn(
           "z-[7010] flex flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl",

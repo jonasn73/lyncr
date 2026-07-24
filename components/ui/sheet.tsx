@@ -57,6 +57,7 @@ function SheetContent({
   side = 'right',
   variant,
   overlayClassName,
+  showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
@@ -64,6 +65,8 @@ function SheetContent({
   variant?: 'default' | 'drawer'
   /** Raise above another open sheet (e.g. Get paid over Settings). */
   overlayClassName?: string
+  /** Set false when the sheet header already has its own close control. */
+  showCloseButton?: boolean
 }) {
   const motionVariant = variant ?? (side === 'right' ? 'drawer' : 'default')
   const isDrawer = motionVariant === 'drawer'
@@ -97,10 +100,12 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
-          <XIcon className="size-4" />
-          <span className="sr-only">Close</span>
-        </SheetPrimitive.Close>
+        {showCloseButton ? (
+          <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
+            <XIcon className="size-4" />
+            <span className="sr-only">Close</span>
+          </SheetPrimitive.Close>
+        ) : null}
       </SheetPrimitive.Content>
     </SheetPortal>
   )
