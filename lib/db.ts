@@ -8117,6 +8117,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
         : pick(["dispatch_status"]),
     completed_at: pick(["completed_at"]),
     review_sms_sent_at: pick(["review_sms_sent_at"]),
+    review_link_opened_at: pick(["review_link_opened_at"]),
     quoted_price_cents: (() => {
       // Prefer final booked total so Active Job matches the intake quote, not a later recalc.
       const fromCollected = pickNum([
@@ -9909,6 +9910,29 @@ export async function markLeadReviewSmsSent(params: {
   if (params.telnyxMessageId?.trim()) {
     patch.review_sms_telnyx_id = params.telnyxMessageId.trim()
   }
+  try {
+    const rows = await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+      WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return false
+    throw e
+  }
+}
+
+/** Owner marks that the customer opened/left a review (or tracked /rv/ click already did). */
+export async function markLeadReviewLinkOpened(params: {
+  leadId: string
+  ownerUserId: string
+  openedAtIso?: string
+}): Promise<boolean> {
+  const sql = getSql()
+  const openedAt = params.openedAtIso?.trim() || new Date().toISOString()
+  const patch = { review_link_opened_at: openedAt }
   try {
     const rows = await sql`
       UPDATE ai_leads

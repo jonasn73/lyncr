@@ -32,6 +32,8 @@ export type LatestCustomerAction = {
     delivered_at?: string | null
     failed_at?: string | null
     delivery_error?: string | null
+    /** False when we have no Telnyx id to receive carrier delivery receipts. */
+    deliveryTracked?: boolean
   } | null
   /** Last inbound reply (if any). */
   lastInbound: {
@@ -53,6 +55,8 @@ export type LatestCompletedJobHint = {
   at: string
   /** Thanks + review already sent (job stamp), even if inbox row is missing. */
   reviewSmsSentAt?: string | null
+  /** Owner confirmed / tracked review open (job stamp). */
+  reviewLinkOpenedAt?: string | null
 }
 
 function phoneKey(phone: string): string {
@@ -127,6 +131,8 @@ export type LatestActionNameHint = {
   name: string | null
   /** Completed job id if this phone finished today. */
   completedJobId?: string | null
+  /** Owner/tracked review open timestamp. */
+  reviewLinkOpenedAt?: string | null
 }
 
 export type LatestReviewHint = {
@@ -148,6 +154,7 @@ export function buildLatestCustomerActions(params: {
   const limit = params.limit ?? 5
   const nameByPhone = new Map<string, string>()
   const jobByPhone = new Map<string, string>()
+  const openedByPhone = new Map<string, string>()
   for (const h of params.nameHints ?? []) {
     const k = phoneKey(h.phone)
     if (!k) continue
@@ -156,6 +163,9 @@ export function buildLatestCustomerActions(params: {
     if (n && !nameByPhone.has(k)) nameByPhone.set(k, n)
     // Prefer any completed job id for Thanks + review.
     if (h.completedJobId && !jobByPhone.has(k)) jobByPhone.set(k, h.completedJobId)
+    if (h.reviewLinkOpenedAt?.trim() && !openedByPhone.has(k)) {
+      openedByPhone.set(k, h.reviewLinkOpenedAt.trim())
+    }
   }
   const reviewByPhone = new Map<string, number>()
   for (const r of params.reviewHints ?? []) {
@@ -181,7 +191,8 @@ export function buildLatestCustomerActions(params: {
     const kind = lastOutbound ? classifyOutboundSmsKind(lastOutbound.body) : "other"
     const deliveryLabel = lastOutbound ? formatSmsDeliveryLabel(lastOutbound) : null
     const clicks = reviewByPhone.get(key) ?? 0
-    const reviewOpened = clicks > 0
+    const openedStamp = openedByPhone.get(key)
+    const reviewOpened = clicks > 0 || Boolean(openedStamp)
     const event: "sent" | "replied" = last.direction === "inbound" ? "replied" : "sent"
 
     let headline: string
@@ -227,7 +238,7 @@ export function buildLatestCustomerActions(params: {
       at: last.created_at,
       deliveryLabel,
       reviewLinkOpened: reviewOpened,
-      reviewLinkClicks: clicks,
+      reviewLinkClicks: Math.max(clicks, reviewOpened ? 1 : 0),
       lastOutbound: lastOutbound
         ? {
             id: lastOutbound.id,
@@ -237,6 +248,7 @@ export function buildLatestCustomerActions(params: {
             delivered_at: lastOutbound.delivered_at,
             failed_at: lastOutbound.failed_at,
             delivery_error: lastOutbound.delivery_error,
+            deliveryTracked: Boolean(lastOutbound.telnyx_message_id),
           }
         : null,
       lastInbound: lastInbound
@@ -257,7 +269,9 @@ export function buildLatestCustomerActions(params: {
     if (key && phonesWithSms.has(key)) continue
     const name = (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
     const reviewSentAt = (job.reviewSmsSentAt || "").trim() || null
+    const openedAt = (job.reviewLinkOpenedAt || "").trim() || null
     const clicks = key ? reviewByPhone.get(key) ?? 0 : 0
+    const reviewOpened = clicks > 0 || Boolean(openedAt)
     if (reviewSentAt) {
       out.push({
         id: `job-${job.id}-review`,
@@ -266,7 +280,7 @@ export function buildLatestCustomerActions(params: {
         event: "sent",
         kind: "review",
         headline: `Review link sent to ${name}`,
-        statusLine: clicks > 0
+        statusLine: reviewOpened
           ? clicks > 1
             ? `Sent · Link opened (${clicks}×)`
             : "Sent · Link opened"
@@ -274,8 +288,8 @@ export function buildLatestCustomerActions(params: {
         preview: (job.location || job.summary || "Thanks + review").trim(),
         at: reviewSentAt,
         deliveryLabel: "Sent",
-        reviewLinkOpened: clicks > 0,
-        reviewLinkClicks: clicks,
+        reviewLinkOpened: reviewOpened,
+        reviewLinkClicks: Math.max(clicks, reviewOpened ? 1 : 0),
         lastOutbound: {
           id: `lead-review-${job.id}`,
           body: "Thanks + review text",
@@ -284,6 +298,7 @@ export function buildLatestCustomerActions(params: {
           delivered_at: null,
           failed_at: null,
           delivery_error: null,
+          deliveryTracked: false,
         },
         lastInbound: null,
         completedJobId: job.id,

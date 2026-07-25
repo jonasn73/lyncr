@@ -2,14 +2,15 @@
 
 // Lines “Latest” card — most recent customer text action; tap for delivery / reply / review status.
 
-import Link from "next/link"
 import { memo, useCallback, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   CheckCircle2,
   ChevronRight,
   Loader2,
   MessageSquare,
   Settings2,
+  Star,
 } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
@@ -36,11 +37,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   compact?: boolean
 }) {
   const { toast } = useToast()
+  const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
   const [items, setItems] = useState<LatestCustomerAction[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
+  const [markingOpened, setMarkingOpened] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +108,39 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       }
     },
     [load, toast]
+  )
+
+  const markReviewOpened = useCallback(
+    async (jobId: string) => {
+      setMarkingOpened(true)
+      try {
+        const res = await fetch(
+          `/api/owner/jobs/${encodeURIComponent(jobId)}/review-opened`,
+          { method: "POST", credentials: "include" }
+        )
+        const json = (await res.json().catch(() => null)) as { error?: string } | null
+        if (!res.ok) throw new Error(json?.error || "Could not update")
+        toast({ title: "Marked review received", description: "Latest status updated." })
+        await load()
+      } catch (e) {
+        toast({
+          title: "Could not update",
+          description: e instanceof Error ? e.message : "Try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setMarkingOpened(false)
+      }
+    },
+    [load, toast]
+  )
+
+  const openInMessages = useCallback(
+    (phone: string) => {
+      setSelected(null)
+      router.push(`/dashboard/messages?phone=${encodeURIComponent(phone)}`)
+    },
+    [router]
   )
 
   return (
@@ -194,7 +230,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             <LatestActionDetail
               item={selected}
               busyJobId={busyJobId}
+              markingOpened={markingOpened}
               onSendThanks={(jobId) => void sendThanksReview(jobId)}
+              onMarkReviewOpened={(jobId) => void markReviewOpened(jobId)}
+              onOpenMessages={openInMessages}
             />
           ) : null}
         </SheetContent>
@@ -206,18 +245,22 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 function LatestActionDetail({
   item,
   busyJobId,
+  markingOpened,
   onSendThanks,
+  onMarkReviewOpened,
+  onOpenMessages,
 }: {
   item: LatestCustomerAction
   busyJobId: string | null
+  markingOpened: boolean
   onSendThanks: (jobId: string) => void
+  onMarkReviewOpened: (jobId: string) => void
+  onOpenMessages: (phone: string) => void
 }) {
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
-  const messagesHref = item.customerPhone
-    ? `/dashboard/messages?phone=${encodeURIComponent(item.customerPhone)}`
-    : "/dashboard/messages"
+  const alreadySentReview = item.kind === "review" && Boolean(item.lastOutbound)
 
   const steps: Array<{ label: string; done: boolean; detail?: string }> = []
   if (item.event === "job_finished") {
@@ -242,15 +285,34 @@ function LatestActionDetail({
       item.lastOutbound.delivered_at || item.lastOutbound.status === "delivered"
     )
     const failed = Boolean(item.lastOutbound.failed_at || item.lastOutbound.status === "failed")
-    steps.push({
-      label: failed ? "Delivery failed" : "Delivered to phone",
-      done: delivered || failed,
-      detail: failed
-        ? item.lastOutbound.delivery_error || "Carrier rejected"
-        : delivered
-          ? item.deliveryLabel || "Delivered"
-          : "Waiting for carrier…",
-    })
+    const tracked = item.lastOutbound.deliveryTracked !== false
+    // If they opened the review link / replied, the phone clearly got the text.
+    const inferredDelivered = item.reviewLinkOpened || Boolean(item.lastInbound)
+    if (failed) {
+      steps.push({
+        label: "Delivery failed",
+        done: true,
+        detail: item.lastOutbound.delivery_error || "Carrier rejected",
+      })
+    } else if (delivered || inferredDelivered) {
+      steps.push({
+        label: "Delivered to phone",
+        done: true,
+        detail: inferredDelivered && !delivered ? "Confirmed (customer engaged)" : "Delivered",
+      })
+    } else if (!tracked) {
+      steps.push({
+        label: "Delivered to phone",
+        done: true,
+        detail: "Sent — carrier receipt wasn’t available for this text",
+      })
+    } else {
+      steps.push({
+        label: "Delivered to phone",
+        done: false,
+        detail: "Waiting for carrier…",
+      })
+    }
   }
   if (item.kind === "review") {
     steps.push({
@@ -259,8 +321,8 @@ function LatestActionDetail({
       detail: item.reviewLinkOpened
         ? item.reviewLinkClicks > 1
           ? `Opened ${item.reviewLinkClicks}×`
-          : "Customer tapped the link"
-        : "Not opened yet",
+          : "Customer opened / left a review"
+        : "Not tracked yet — older texts used a direct Google link",
     })
   }
   if (item.lastInbound) {
@@ -339,27 +401,48 @@ function LatestActionDetail({
 
       <div className="shrink-0 space-y-2 border-t border-border/60 px-5 py-4">
         {item.customerPhone ? (
-          <Link
-            href={messagesHref}
+          <button
+            type="button"
+            onClick={() => onOpenMessages(item.customerPhone)}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20"
           >
             <MessageSquare className="h-4 w-4" />
             Open in Messages
-          </Link>
+          </button>
+        ) : null}
+        {item.completedJobId && item.kind === "review" && !item.reviewLinkOpened ? (
+          <button
+            type="button"
+            disabled={markingOpened}
+            onClick={() => onMarkReviewOpened(item.completedJobId!)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            {markingOpened ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Star className="h-4 w-4" />
+            )}
+            Mark review received
+          </button>
         ) : null}
         {item.completedJobId ? (
           <button
             type="button"
             disabled={busyJobId === item.completedJobId}
             onClick={() => onSendThanks(item.completedJobId!)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600/90 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50",
+              alreadySentReview
+                ? "border border-border/60 bg-muted/30 text-zinc-300 hover:bg-muted/50"
+                : "bg-emerald-600/90 text-white hover:bg-emerald-500"
+            )}
           >
             {busyJobId === item.completedJobId ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <CheckCircle2 className="h-4 w-4" />
             )}
-            Send Thanks + review
+            {alreadySentReview ? "Send again" : "Send Thanks + review"}
           </button>
         ) : null}
       </div>

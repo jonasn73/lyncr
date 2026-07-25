@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
         phone,
         name: (ev.customer_name || "").trim() || null,
         completedJobId: completed,
+        reviewLinkOpenedAt: ev.review_link_opened_at ?? null,
       })
     }
 
@@ -86,6 +87,7 @@ export async function GET(req: NextRequest) {
         summary: job.summary,
         at: job.scheduledAt || new Date().toISOString(),
         reviewSmsSentAt: ev?.review_sms_sent_at ?? null,
+        reviewLinkOpenedAt: ev?.review_link_opened_at ?? null,
       }
     })
 

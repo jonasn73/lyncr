@@ -202,6 +202,8 @@ export interface SchedulerEvent {
   completed_at?: string | null
   /** ISO timestamp when Thanks + review SMS was sent (collected.review_sms_sent_at). */
   review_sms_sent_at?: string | null
+  /** ISO when review link was opened / owner marked review received. */
+  review_link_opened_at?: string | null
   /** Last quoted price in cents (from collected.last_quoted_price_cents). */
   quoted_price_cents?: number | null
   /** Explicit booked balance alias used by Active Job (same as quoted_price_cents). */
