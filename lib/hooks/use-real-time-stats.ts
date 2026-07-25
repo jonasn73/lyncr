@@ -3,7 +3,7 @@
 // Shared React hook: owner-dashboard call metrics + live in-progress tracking via Pusher.
 // One baseline REST read on mount/org change; all live updates are event-driven (no interval polling).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   isDashboardVisibleLineStatus,
@@ -284,7 +284,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
   const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
 
-  useEffect(() => {
+  // Apply session cache before paint so LIVE/CALLS/MISSED don’t flash 0 → real on refresh.
+  useLayoutEffect(() => {
     const snap = readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot()
     applySnapshot(
       {
@@ -300,6 +301,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       },
       snap
     )
+  }, [activeOrganizationId])
+
+  useEffect(() => {
     void refreshBaseline()
   }, [activeOrganizationId, refreshBaseline])
 

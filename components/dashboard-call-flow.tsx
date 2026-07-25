@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, memo, useCallback, useEffect, useState } from "react"
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import {
@@ -20,8 +20,8 @@ import {
   LINES_MOBILE_SECTION_LABEL,
   MOBILE_TAP_TARGET,
 } from "@/lib/mobile-shell"
-import { useIsMobile } from "@/hooks/use-mobile"
 import type { RoutingStrategy } from "@/lib/types"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { LineRoutingStatus } from "@/components/line-routing-status"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import {
@@ -519,12 +519,24 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   adminRoutingOverridePhone,
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
-  const isMobile = useIsMobile()
   const { presenceStatus, presenceBypass } = useAccountPresence()
   // Live calendar capacity + next open 1-hour block for Smart Overflow IVR Menu.
   const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
   // Who Answers primary mode — gates the entire IVR configuration deck.
   const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>("your_phone")
+  const routingModeCacheKey = persistedCacheKey(
+    "active-routing-mode",
+    routingBusinessNumber?.trim() || "none"
+  )
+
+  // Restore last Smart IVR / Your phone mode before paint (avoids IVR card popping in late).
+  useLayoutEffect(() => {
+    if (!routingBusinessNumber?.trim()) return
+    const cached = readPersistedCache<{ mode: string }>(routingModeCacheKey)
+    if (cached?.mode) {
+      setActiveRoutingMode(normalizeActiveRoutingMode(cached.mode))
+    }
+  }, [routingBusinessNumber, routingModeCacheKey])
 
   const loadActiveRoutingMode = useCallback(async () => {
     if (!routingBusinessNumber?.trim()) {
@@ -538,11 +550,13 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       )
       if (!res.ok) return
       const json = (await res.json()) as { data?: { activeRoutingMode?: string } }
-      setActiveRoutingMode(normalizeActiveRoutingMode(json.data?.activeRoutingMode))
+      const next = normalizeActiveRoutingMode(json.data?.activeRoutingMode)
+      setActiveRoutingMode(next)
+      writePersistedCache(routingModeCacheKey, { mode: next })
     } catch {
       // Keep last known mode on transient network errors.
     }
-  }, [routingBusinessNumber])
+  }, [routingBusinessNumber, routingModeCacheKey])
 
   useEffect(() => {
     void loadActiveRoutingMode()
@@ -588,27 +602,33 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
-  const overflowCard = showIvrDeck ? (
-    <SmartOverflowFallbackCard
-      compact={isMobile}
-      step={String(primaryAndNetworkNodes.length + 2)}
-      overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass}
-      presenceStatus={presenceStatus}
-      nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
-      confirmedJobsToday={smartOverflow.confirmedJobsToday}
-      capacityThreshold={smartOverflow.config.capacityThreshold}
-      onOpenScriptEditor={() => setShowFallbackSettings(true)}
-      loading={routingLineDetailLoading || smartOverflow.loading}
-      retellConnected={smartOverflow.retellConnected}
-    />
+  // Build mobile + desktop card variants so CSS breakpoints can show the right one
+  // without a useIsMobile remount (that was causing refresh lag under Live & Connected).
+  const overflowCardProps = {
+    step: String(primaryAndNetworkNodes.length + 2),
+    overflowActive: overflowCardActive,
+    presenceDriven: presenceBypass,
+    presenceStatus,
+    nextAvailableSlotText: smartOverflow.nextAvailableSlotText,
+    confirmedJobsToday: smartOverflow.confirmedJobsToday,
+    capacityThreshold: smartOverflow.config.capacityThreshold,
+    onOpenScriptEditor: () => setShowFallbackSettings(true),
+    loading: routingLineDetailLoading || smartOverflow.loading,
+    retellConnected: smartOverflow.retellConnected,
+  } as const
+
+  const overflowCardMobile = showIvrDeck ? (
+    <SmartOverflowFallbackCard compact {...overflowCardProps} />
+  ) : null
+  const overflowCardDesktop = showIvrDeck ? (
+    <SmartOverflowFallbackCard compact={false} {...overflowCardProps} />
   ) : null
 
-  // Completed jobs today — one-tap thanks + review (not the full Field command board).
-  const justFinishedCard = <JustFinishedReviewCard compact={isMobile} />
+  const justFinishedMobile = <JustFinishedReviewCard compact />
+  const justFinishedDesktop = <JustFinishedReviewCard compact={false} />
 
   // Opens the two-way SMS inbox (textbacks + customer replies).
-  const messagesInboxCard = isMobile ? (
+  const messagesInboxMobile = (
     <Link
       href="/dashboard/messages"
       className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left", LINES_MOBILE_CARD)}
@@ -625,7 +645,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
     </Link>
-  ) : (
+  )
+  const messagesInboxDesktop = (
     <Link
       href="/dashboard/messages"
       className="group relative flex w-full flex-1 flex-col rounded-2xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:border-sky-500/40 sm:p-5"
@@ -685,19 +706,59 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           </div>
         </div>
       ) : (
-        <div className={cn(!isMobile && CALL_FLOW_STEPS_MIN_H, !isMobile && "space-y-4")}>
+        <div>
           <AdminRoutingOverrideNotice
             active={adminOverrideActive}
             phone={adminRoutingOverridePhone?.trim() ?? ""}
           />
-          {isMobile ? (
-            <div
-              className={cn("flex flex-col gap-3", routingLineDetailLoading && "opacity-60")}
-              aria-label="Call handling steps"
-            >
-              {primaryAndNetworkNodes.map((node) => (
-                <FlowStepMobileRow
-                  key={node.key}
+          {/* Mobile layout — CSS only (no useIsMobile remount on refresh). */}
+          <div
+            className={cn(
+              "flex flex-col gap-3 md:hidden",
+              routingLineDetailLoading && "opacity-60"
+            )}
+            aria-label="Call handling steps"
+          >
+            {primaryAndNetworkNodes.map((node) => (
+              <FlowStepMobileRow
+                key={node.key}
+                title={node.title}
+                icon={node.icon}
+                value={node.value}
+                detail={node.detail}
+                onOpen={node.onOpen}
+                loading={routingLineDetailLoading}
+                accent={node.accent}
+                valueBadge={node.valueBadge}
+                detailMuted={node.detailMuted}
+                faded={node.faded}
+                badgeTone={node.badgeTone}
+              />
+            ))}
+            {showIvrDeck && ivrMenuLive ? (
+              <div
+                className="mx-auto h-6 w-[2px] animate-pulse rounded-full bg-gradient-to-b from-emerald-500/20 via-emerald-400 to-emerald-500/20"
+                aria-hidden
+              />
+            ) : null}
+            {overflowCardMobile}
+            {justFinishedMobile}
+            {messagesInboxMobile}
+          </div>
+          {/* Desktop layout — hidden on phones so SSR + first paint match. */}
+          <div
+            className={cn(
+              "hidden md:flex flex-col gap-4 lg:flex-row lg:items-stretch",
+              CALL_FLOW_STEPS_MIN_H,
+              routingLineDetailLoading && "opacity-60"
+            )}
+            aria-label="Call handling steps"
+          >
+            {primaryAndNetworkNodes.map((node, i) => (
+              <Fragment key={node.key}>
+                {i > 0 ? <FlowConnector live={ivrMenuLive} /> : null}
+                <FlowStepCard
+                  step={String(i + 2)}
                   title={node.title}
                   icon={node.icon}
                   value={node.value}
@@ -710,57 +771,19 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                   faded={node.faded}
                   badgeTone={node.badgeTone}
                 />
-              ))}
-              {showIvrDeck && ivrMenuLive ? (
-                <div
-                  className="mx-auto h-6 w-[2px] animate-pulse rounded-full bg-gradient-to-b from-emerald-500/20 via-emerald-400 to-emerald-500/20"
-                  aria-hidden
-                />
-              ) : null}
-              {overflowCard}
-              {justFinishedCard}
-              {messagesInboxCard}
-            </div>
-          ) : (
-            <div
-              className={cn(
-                "flex flex-col gap-4 lg:flex-row lg:items-stretch",
-                CALL_FLOW_STEPS_MIN_H,
-                routingLineDetailLoading && "opacity-60"
-              )}
-              aria-label="Call handling steps"
-            >
-              {primaryAndNetworkNodes.map((node, i) => (
-                <Fragment key={node.key}>
-                  {i > 0 ? <FlowConnector live={ivrMenuLive} /> : null}
-                  <FlowStepCard
-                    step={String(i + 2)}
-                    title={node.title}
-                    icon={node.icon}
-                    value={node.value}
-                    detail={node.detail}
-                    onOpen={node.onOpen}
-                    loading={routingLineDetailLoading}
-                    accent={node.accent}
-                    valueBadge={node.valueBadge}
-                    detailMuted={node.detailMuted}
-                    faded={node.faded}
-                    badgeTone={node.badgeTone}
-                  />
-                </Fragment>
-              ))}
-              {showIvrDeck ? (
-                <>
-                  <FlowConnector live={ivrMenuLive} />
-                  {overflowCard}
-                </>
-              ) : null}
-              <FlowConnector />
-              {justFinishedCard}
-              <FlowConnector />
-              {messagesInboxCard}
-            </div>
-          )}
+              </Fragment>
+            ))}
+            {showIvrDeck ? (
+              <>
+                <FlowConnector live={ivrMenuLive} />
+                {overflowCardDesktop}
+              </>
+            ) : null}
+            <FlowConnector />
+            {justFinishedDesktop}
+            <FlowConnector />
+            {messagesInboxDesktop}
+          </div>
         </div>
       )}
     </section>

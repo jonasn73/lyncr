@@ -54,9 +54,12 @@ export function PresenceStatusBar({ className }: { className?: string }) {
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className={LINES_MOBILE_SECTION_LABEL}>Presence</p>
-        {loading || saving ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" aria-hidden />
-        ) : null}
+        {/* Fixed spinner slot so the label row doesn’t jump when loading toggles. */}
+        <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
+          {loading || saving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
+          ) : null}
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {OPTIONS.map((opt) => {

@@ -2,7 +2,7 @@
 
 // Fetch today's call logs and derive unique missed leads + recent unreturned prospects.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import {
@@ -10,14 +10,26 @@ import {
   readInterceptedPhoneKeys,
   summarizeMissedLeadInsights,
   type MissedLeadCallRow,
+  type MissedLeadHotProspect,
   type MissedLeadInsights,
 } from "@/lib/missed-lead-aggregation"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 const EMPTY: MissedLeadInsights = {
   totalMissedToday: 0,
   uniqueLeadsToday: 0,
   recentUnreturned: [],
+}
+
+/** Keep the unreturned banner from popping in after /api/calls on hard refresh. */
+const MISSED_LEADS_CACHE_KEY = persistedCacheKey("missed-lead-insights", "banner")
+
+type MissedLeadsCache = {
+  rows: MissedLeadCallRow[]
+  recentUnreturned: MissedLeadHotProspect[]
+  uniqueLeadsToday: number
+  totalMissedToday: number
 }
 
 function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null {
@@ -38,10 +50,25 @@ function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null
   }
 }
 
+function readCachedMissedLeads(): MissedLeadCallRow[] | null {
+  const cached = readPersistedCache<MissedLeadsCache>(MISSED_LEADS_CACHE_KEY)
+  if (!cached || !Array.isArray(cached.rows)) return null
+  return cached.rows
+}
+
 export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]) {
   const [rows, setRows] = useState<MissedLeadCallRow[]>([])
   const [loading, setLoading] = useState(true)
   const [interceptTick, setInterceptTick] = useState(0)
+
+  // Restore last call-log rows before paint so the Unreturned banner doesn’t jump in late.
+  useLayoutEffect(() => {
+    const cached = readCachedMissedLeads()
+    if (cached && cached.length > 0) {
+      setRows(cached)
+      setLoading(false)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -59,6 +86,16 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
           )
         })
       setRows(parsed)
+      // Cache raw rows + summary so the next refresh can paint the banner immediately.
+      const summary = summarizeMissedLeadInsights(parsed, {
+        interceptedKeys: readInterceptedPhoneKeys(),
+      })
+      writePersistedCache(MISSED_LEADS_CACHE_KEY, {
+        rows: parsed,
+        recentUnreturned: summary.recentUnreturned,
+        uniqueLeadsToday: summary.uniqueLeadsToday,
+        totalMissedToday: summary.totalMissedToday,
+      } satisfies MissedLeadsCache)
     } catch {
       /* keep last good rows */
     } finally {
@@ -88,6 +125,7 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
 
   const insights = useMemo(() => {
     void interceptTick
+    if (rows.length === 0) return EMPTY
     return summarizeMissedLeadInsights(rows, {
       interceptedKeys: readInterceptedPhoneKeys(),
     })
