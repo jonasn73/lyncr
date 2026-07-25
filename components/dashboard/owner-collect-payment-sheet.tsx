@@ -263,6 +263,9 @@ export function OwnerCollectPaymentSheet({
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  /** Today + month totals so owners see yesterday did not “disappear”. */
+  const [collectedTodayCents, setCollectedTodayCents] = useState(0)
+  const [collectedMonthCents, setCollectedMonthCents] = useState(0)
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
   const [taxEnabled, setTaxEnabled] = useState(false)
@@ -354,6 +357,35 @@ export function OwnerCollectPaymentSheet({
     if (!open || mode !== "list" || listTab !== "history") return
     void loadPaymentHistory()
   }, [open, mode, listTab, loadPaymentHistory])
+
+  // Refresh today / month totals whenever Collect opens on the list.
+  useEffect(() => {
+    if (!open || mode !== "list") return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch("/api/owner/collected", {
+          credentials: "include",
+          cache: "no-store",
+        })
+        const json = (await res.json()) as {
+          data?: { todayCents?: number; monthCents?: number }
+        }
+        if (cancelled || !res.ok) return
+        if (typeof json.data?.todayCents === "number") {
+          setCollectedTodayCents(json.data.todayCents)
+        }
+        if (typeof json.data?.monthCents === "number") {
+          setCollectedMonthCents(json.data.monthCents)
+        }
+      } catch {
+        /* keep last */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, mode, listTab])
 
   /** After base charge succeeds: tip options + signature, then invoice. */
   function enterTipSignStep(paymentIntentId: string, totalCents: number) {

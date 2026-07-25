@@ -22,11 +22,22 @@ import {
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-const COLLECTED_TODAY_CACHE_KEY = persistedCacheKey("collected-today", "header")
+const COLLECTED_SUMMARY_CACHE_KEY = persistedCacheKey("collected-summary", "header")
 
-function readCachedTodayCents(): number | null {
-  const cached = readPersistedCache<number>(COLLECTED_TODAY_CACHE_KEY)
-  return typeof cached === "number" && Number.isFinite(cached) ? cached : null
+type CollectedHeaderCache = { todayCents: number; monthCents: number }
+
+function readCachedCollectedSummary(): CollectedHeaderCache | null {
+  const cached = readPersistedCache<CollectedHeaderCache>(COLLECTED_SUMMARY_CACHE_KEY)
+  if (
+    cached &&
+    typeof cached.todayCents === "number" &&
+    typeof cached.monthCents === "number" &&
+    Number.isFinite(cached.todayCents) &&
+    Number.isFinite(cached.monthCents)
+  ) {
+    return cached
+  }
+  return null
 }
 
 // Heavy Stripe bundles — load only when Collect / Get paid actually open.
@@ -92,18 +103,28 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Session cache so refresh does not flash "…" then grow into "$259.70".
-  const [todayCents, setTodayCents] = useState<number | null>(() => readCachedTodayCents())
+  // Month-to-date is the main chip (does not reset overnight). Today is secondary.
+  const [todayCents, setTodayCents] = useState<number | null>(
+    () => readCachedCollectedSummary()?.todayCents ?? null
+  )
+  const [monthCents, setMonthCents] = useState<number | null>(
+    () => readCachedCollectedSummary()?.monthCents ?? null
+  )
   const isMobile = useIsMobile()
 
   const refreshCollected = useCallback(() => {
     fetch("/api/owner/collected", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { data?: { todayCents?: number } } | null) => {
-        if (typeof j?.data?.todayCents === "number") {
-          setTodayCents(j.data.todayCents)
-          writePersistedCache(COLLECTED_TODAY_CACHE_KEY, j.data.todayCents)
-        }
+      .then((j: { data?: { todayCents?: number; monthCents?: number } } | null) => {
+        const today = j?.data?.todayCents
+        const month = j?.data?.monthCents
+        if (typeof today !== "number" || typeof month !== "number") return
+        setTodayCents(today)
+        setMonthCents(month)
+        writePersistedCache(COLLECTED_SUMMARY_CACHE_KEY, {
+          todayCents: today,
+          monthCents: month,
+        } satisfies CollectedHeaderCache)
       })
       .catch(() => {
         /* keep last known */
@@ -177,15 +198,16 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setCollectOpen(true)
   }, [])
 
-  // Prefer last known / $0 over a short "…" that expands the chip.
-  const collectedLabel = formatCollectedDollars(todayCents ?? 0)
+  // Month-to-date on the chip so yesterday’s take doesn’t “vanish” at midnight.
+  const monthLabel = formatCollectedDollars(monthCents ?? todayCents ?? 0)
+  const todayLabel = formatCollectedDollars(todayCents ?? 0)
 
   const firstName = name.trim().split(/\s+/)[0] || name
 
   return (
     <>
       <div className="flex items-center gap-1.5">
-        {/* Money lives with Collect — tap to charge / see today’s total. */}
+        {/* Collect — month total (primary) + today’s take (caption). */}
         <Button
           type="button"
           variant="outline"
@@ -193,12 +215,15 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           onClick={openCollect}
           onPointerEnter={() => prefetchCollectJobs()}
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20"
-          aria-label={`Collect payment — ${collectedLabel} today`}
-          title="Collect payment"
+          aria-label={`Collect payment — ${monthLabel} this month, ${todayLabel} today. Open for history.`}
+          title={`This month ${monthLabel} · Today ${todayLabel}`}
         >
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="inline-block min-w-[3.25rem] text-right text-xs font-bold tabular-nums">
-            {collectedLabel}
+          <span className="flex min-w-[3.5rem] flex-col items-end leading-none">
+            <span className="text-xs font-bold tabular-nums">{monthLabel}</span>
+            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/70">
+              month
+            </span>
           </span>
         </Button>
 
