@@ -76,14 +76,18 @@ export async function GET(req: NextRequest) {
     }
 
     const finishedJobs = buildTodayJustFinishedJobs(dayEvents, 6)
-    const completedJobs: LatestCompletedJobHint[] = finishedJobs.map((job) => ({
-      id: job.id,
-      customerPhone: job.customerPhone,
-      customerName: job.customerName,
-      location: job.location,
-      summary: job.summary,
-      at: job.scheduledAt || new Date().toISOString(),
-    }))
+    const completedJobs: LatestCompletedJobHint[] = finishedJobs.map((job) => {
+      const ev = dayEvents.find((e) => e.id === job.id)
+      return {
+        id: job.id,
+        customerPhone: job.customerPhone,
+        customerName: job.customerName,
+        location: job.location,
+        summary: job.summary,
+        at: job.scheduledAt || new Date().toISOString(),
+        reviewSmsSentAt: ev?.review_sms_sent_at ?? null,
+      }
+    })
 
     // For recent SMS phones missing a today-calendar name, look up the latest job.
     const known = new Set(

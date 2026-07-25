@@ -200,6 +200,8 @@ export interface SchedulerEvent {
   dispatch_status: string | null
   /** ISO timestamp when the job was marked completed (collected.completed_at). */
   completed_at?: string | null
+  /** ISO timestamp when Thanks + review SMS was sent (collected.review_sms_sent_at). */
+  review_sms_sent_at?: string | null
   /** Last quoted price in cents (from collected.last_quoted_price_cents). */
   quoted_price_cents?: number | null
   /** Explicit booked balance alias used by Active Job (same as quoted_price_cents). */

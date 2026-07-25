@@ -91,7 +91,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         if (!res.ok) throw new Error(json?.error || "Could not send review SMS")
         toast({
           title: "Thanks + review sent",
-          description: "It will show under Latest with delivery status.",
+          description: "Latest will show Sent, then Delivered when the carrier confirms.",
         })
         await load()
       } catch (e) {

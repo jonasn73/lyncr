@@ -8116,6 +8116,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
         ? String(row.dispatch_status)
         : pick(["dispatch_status"]),
     completed_at: pick(["completed_at"]),
+    review_sms_sent_at: pick(["review_sms_sent_at"]),
     quoted_price_cents: (() => {
       // Prefer final booked total so Active Job matches the intake quote, not a later recalc.
       const fromCollected = pickNum([
@@ -9890,6 +9891,35 @@ export async function getLeadDispatchContext(leadId: string): Promise<LeadDispat
     summary: row.summary != null ? String(row.summary) : null,
     assigned_tech_id: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
     job_status: row.job_status != null ? String(row.job_status) : null,
+  }
+}
+
+/** Stamp Thanks + review send time on the lead so Latest can show status even if SMS inbox insert races. */
+export async function markLeadReviewSmsSent(params: {
+  leadId: string
+  ownerUserId: string
+  sentAtIso?: string
+  telnyxMessageId?: string | null
+}): Promise<boolean> {
+  const sql = getSql()
+  const sentAt = params.sentAtIso?.trim() || new Date().toISOString()
+  const patch: Record<string, string> = {
+    review_sms_sent_at: sentAt,
+  }
+  if (params.telnyxMessageId?.trim()) {
+    patch.review_sms_telnyx_id = params.telnyxMessageId.trim()
+  }
+  try {
+    const rows = await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+      WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return false
+    throw e
   }
 }
 

@@ -14,6 +14,7 @@ import {
   insertScheduledSms,
   isReasonablePstnDialString,
   listDueScheduledSms,
+  markLeadReviewSmsSent,
   markScheduledSmsFailed,
   markScheduledSmsSent,
   normalizePhoneNumberE164,
@@ -244,6 +245,19 @@ export async function sendManualThanksReviewSms(params: {
   if (!res.ok) {
     console.warn(`[sms-pipeline] manual review send failed: ${res.error}`)
     return { ok: false, skipped: true, reason: "send-failed" }
+  }
+  // Always stamp the job so Latest shows “sent” even if the inbox row insert is missing.
+  await markLeadReviewSmsSent({
+    leadId: ctx.lead_id,
+    ownerUserId: ctx.owner_user_id,
+    telnyxMessageId: res.message_id,
+  }).catch((e) => {
+    console.warn("[sms-pipeline] markLeadReviewSmsSent failed:", e)
+  })
+  if (!res.message) {
+    console.warn(
+      `[sms-pipeline] review SMS sent via Telnyx (${res.message_id || "no-id"}) but sms_messages insert returned null`
+    )
   }
   return { ok: true, sent: true, scheduled: false }
 }

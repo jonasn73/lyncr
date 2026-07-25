@@ -51,6 +51,8 @@ export type LatestCompletedJobHint = {
   summary: string | null
   /** When the job finished / was scheduled (for sorting). */
   at: string
+  /** Thanks + review already sent (job stamp), even if inbox row is missing. */
+  reviewSmsSentAt?: string | null
 }
 
 function phoneKey(phone: string): string {
@@ -254,6 +256,40 @@ export function buildLatestCustomerActions(params: {
     const key = phoneKey(phone)
     if (key && phonesWithSms.has(key)) continue
     const name = (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
+    const reviewSentAt = (job.reviewSmsSentAt || "").trim() || null
+    const clicks = key ? reviewByPhone.get(key) ?? 0 : 0
+    if (reviewSentAt) {
+      out.push({
+        id: `job-${job.id}-review`,
+        customerPhone: phone,
+        customerName: name,
+        event: "sent",
+        kind: "review",
+        headline: `Review link sent to ${name}`,
+        statusLine: clicks > 0
+          ? clicks > 1
+            ? `Sent · Link opened (${clicks}×)`
+            : "Sent · Link opened"
+          : "Sent · Waiting for open",
+        preview: (job.location || job.summary || "Thanks + review").trim(),
+        at: reviewSentAt,
+        deliveryLabel: "Sent",
+        reviewLinkOpened: clicks > 0,
+        reviewLinkClicks: clicks,
+        lastOutbound: {
+          id: `lead-review-${job.id}`,
+          body: "Thanks + review text",
+          status: "sent",
+          created_at: reviewSentAt,
+          delivered_at: null,
+          failed_at: null,
+          delivery_error: null,
+        },
+        lastInbound: null,
+        completedJobId: job.id,
+      })
+      continue
+    }
     out.push({
       id: `job-${job.id}`,
       customerPhone: phone,
