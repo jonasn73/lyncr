@@ -1,7 +1,8 @@
 // ============================================
 // POST /api/webhooks/telnyx/messaging
 // ============================================
-// Telnyx Messaging webhook — inbound SMS (message.received).
+// Telnyx Messaging webhook — inbound SMS (message.received) + delivery
+// (message.sent / message.finalized / message.failed).
 // Also reachable at POST /api/messaging/webhook (same handler).
 
 import { after } from "next/server"

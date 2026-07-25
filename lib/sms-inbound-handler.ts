@@ -1,4 +1,4 @@
-// Handle Telnyx message.received — operator disposition replies + customer thread storage.
+// Handle Telnyx messaging webhooks — inbound SMS + outbound delivery receipts.
 
 import {
   findOpenPendingSmsDispositionByPhone,
@@ -13,17 +13,19 @@ import {
   recordOperatorDisposition,
   DISPOSITION_LABEL,
 } from "@/lib/call-disposition"
+import { processTelnyxSmsDeliveryEvent, type TelnyxDeliveryWebhook } from "@/lib/sms-delivery-status"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
-export type TelnyxMessagingWebhook = {
+export type TelnyxMessagingWebhook = TelnyxDeliveryWebhook & {
   data?: {
     event_type?: string
     id?: string
     payload?: {
       id?: string
       from?: { phone_number?: string }
-      to?: { phone_number?: string }[] | { phone_number?: string }
+      to?: { phone_number?: string; status?: string }[] | { phone_number?: string; status?: string }
       text?: string
+      errors?: Array<{ code?: string | number; title?: string; detail?: string }>
     }
   }
 }
@@ -41,19 +43,34 @@ function extractToE164(payload: TelnyxMessagingWebhook["data"]): string {
   return ""
 }
 
-/** Process one inbound SMS after the webhook returns 200. */
+/** Process one Telnyx messaging webhook after the route returns 200. */
 export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook): Promise<void> {
-  if (body?.data?.event_type !== "message.received") return
+  const event = String(body?.data?.event_type ?? "").trim()
 
-  const fromRaw = body.data.payload?.from?.phone_number?.trim() || ""
+  // Carrier delivery lifecycle for outbound texts already in sms_messages.
+  if (
+    event === "message.sent" ||
+    event === "message.finalized" ||
+    event === "message.failed"
+  ) {
+    const updated = await processTelnyxSmsDeliveryEvent(body)
+    if (!updated) {
+      console.warn(`[sms-delivery] no sms_messages row for ${event} id=${body.data?.payload?.id || body.data?.id}`)
+    }
+    return
+  }
+
+  if (event !== "message.received") return
+
+  const fromRaw = body.data?.payload?.from?.phone_number?.trim() || ""
   const toRaw = extractToE164(body.data)
-  const text = body.data.payload?.text?.trim() || ""
+  const text = body.data?.payload?.text?.trim() || ""
   if (!fromRaw || !toRaw) return
 
   const fromE164 = normalizePhoneNumberE164(fromRaw)
   const toE164 = normalizePhoneNumberE164(toRaw)
   const telnyxMessageId =
-    body.data.payload?.id?.trim() || body.data.id?.trim() || null
+    body.data?.payload?.id?.trim() || body.data?.id?.trim() || null
 
   const disposition = parseDispositionCode(text)
   if (disposition) {

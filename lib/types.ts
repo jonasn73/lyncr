@@ -1021,8 +1021,13 @@ export interface SmsMessage {
   body: string
   customer_phone: string
   telnyx_message_id: string | null
+  /** sent | delivered | failed | received | accepted_with_warning | … */
   status: string
   created_at: string
+  /** Set when Telnyx reports carrier delivery (scripts/119). */
+  delivered_at?: string | null
+  failed_at?: string | null
+  delivery_error?: string | null
 }
 
 // --- Phone Numbers ---

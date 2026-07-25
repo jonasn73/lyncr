@@ -60,8 +60,9 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         if (!res.ok) throw new Error(json?.error || "Could not send review SMS")
         toast({
           title: "Thanks + review sent",
-          description: "Customer got your thank-you text.",
+          description: "Check Messages for Delivered status. We’ll show if they open the review link.",
         })
+        await load()
       } catch (e) {
         toast({
           title: "Could not send thanks",
@@ -126,27 +127,35 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               key={job.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5"
             >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {job.customerName || "Customer"}
-                </p>
-                <p className="truncate text-xs text-zinc-500">
-                  {job.location || job.summary || "Completed"}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={busyJobId === job.id}
-                onClick={() => void sendThanksReview(job.id)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/90 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {busyJobId === job.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                )}
-                Thanks + review
-              </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {job.customerName || "Customer"}
+                  </p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {job.location || job.summary || "Completed"}
+                  </p>
+                  {job.reviewLinkOpened ? (
+                    <p className="mt-1 text-[11px] font-medium text-emerald-300">
+                      Review link opened
+                      {job.reviewLinkClicks && job.reviewLinkClicks > 1
+                        ? ` (${job.reviewLinkClicks}×)`
+                        : ""}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  disabled={busyJobId === job.id}
+                  onClick={() => void sendThanksReview(job.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/90 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {busyJobId === job.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Thanks + review
+                </button>
             </li>
           ))}
         </ul>

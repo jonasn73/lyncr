@@ -121,6 +121,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 116 | `116-wallet-payment-intent-index.sql` | **Wallet PI lookup.** Unique index on **`wallet_transactions.stripe_payment_intent_id`** (non-null). Speeds confirm / webhook settle as the ledger grows. |
 | 117 | `117-sms-custom-snippets.sql` | **Reusable SMS texts.** Adds **`onboarding_profiles.sms_custom_snippets`** (JSONB list of `{id, label, body}`). Powers custom editable quick texts in Settings → SMS templates and the customer SMS composer. **Required** for saved custom SMS shortcuts. |
 | 118 | `118-sms-status-templates.sql` | **Status SMS copy.** Adds **`onboarding_profiles.sms_status_templates`** (JSONB: late / arrived / paused_wait / paused_parts). Editable in SMS templates; used for Running late + auto status texts. **Required** for custom late/status customer SMS. |
+| 119 | `119-sms-delivery-and-review-clicks.sql` | **SMS delivery + review clicks.** Adds **`sms_messages.delivered_at` / `failed_at` / `delivery_error`** (Telnyx DLRs) and **`review_link_tokens`** for tracked **`lyncr.app/rv/{token}`** review links. **Required** for Delivered/Failed in Messages and “review link opened” on Just finished. |
 
 ## Platform admin (`admin@lyncr.app`)
 

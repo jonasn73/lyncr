@@ -16,6 +16,7 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-status"
 import type { SmsMessage } from "@/lib/types"
 
 type SmsThread = {
@@ -23,6 +24,10 @@ type SmsThread = {
   messages: SmsMessage[]
   lastMessage: SmsMessage
   needsReply: boolean
+}
+
+function formatOutboundDeliveryLabel(msg: SmsMessage): string | null {
+  return formatSmsDeliveryLabel(msg)
 }
 
 function formatMessageTime(iso: string): string {
@@ -367,6 +372,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
               <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4 md:px-4">
                 {activeThread.messages.map((msg) => {
                   const outbound = msg.direction === "outbound"
+                  const deliveryLabel = outbound ? formatOutboundDeliveryLabel(msg) : null
                   return (
                     <div
                       key={msg.id}
@@ -376,7 +382,9 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                         className={cn(
                           "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug",
                           outbound
-                            ? "rounded-br-md bg-emerald-600 text-white"
+                            ? msg.status === "failed"
+                              ? "rounded-br-md bg-rose-700 text-white"
+                              : "rounded-br-md bg-emerald-600 text-white"
                             : "rounded-bl-md border border-border/60 bg-muted/50 text-foreground"
                         )}
                       >
@@ -384,11 +392,18 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                         <p
                           className={cn(
                             "mt-1 text-[10px] tabular-nums",
-                            outbound ? "text-emerald-100/80" : "text-muted-foreground"
+                            outbound ? "text-emerald-100/80" : "text-muted-foreground",
+                            outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
                         >
                           {formatMessageTime(msg.created_at)}
+                          {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
+                        {outbound && msg.status === "failed" && msg.delivery_error ? (
+                          <p className="mt-0.5 text-[10px] leading-snug text-rose-100/80">
+                            {msg.delivery_error}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   )

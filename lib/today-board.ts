@@ -31,6 +31,9 @@ export type TodayJobItem = {
   assignedTechName: string | null
   assignedTechId: string | null
   scheduledAt: string | null
+  /** Review SMS link was opened (tracked /rv/ token). */
+  reviewLinkOpened?: boolean
+  reviewLinkClicks?: number
 }
 
 /** Payload returned by GET /api/owner/today. */

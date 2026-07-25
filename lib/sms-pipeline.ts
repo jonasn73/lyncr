@@ -18,7 +18,8 @@ import {
   markScheduledSmsSent,
   normalizePhoneNumberE164,
 } from "@/lib/db"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
+import { createTrackedReviewUrl } from "@/lib/review-link-token"
+import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 
 export type SmsPhase = "booking" | "route" | "review"
 
@@ -99,12 +100,23 @@ export async function runSmsPipeline(params: {
   }
 
   const owner = await getUser(ctx.owner_user_id)
+  let reviewUrl = settings.google_review_url?.trim() || ""
+  if (params.phase === "review" && reviewUrl) {
+    reviewUrl =
+      (await createTrackedReviewUrl({
+        ownerUserId: ctx.owner_user_id,
+        destinationUrl: reviewUrl,
+        leadId: ctx.lead_id,
+        customerPhone: toE164,
+      })) || reviewUrl
+  }
+
   const vars: Record<string, string> = {
     customer_name: ctx.customer_name?.trim() || "there",
     business_name: owner?.business_name?.trim() || brandLabel(),
     time_slot: ctx.time_slot?.trim() || "your scheduled time",
     tech_name: params.techName?.trim() || "your technician",
-    review_url: settings.google_review_url?.trim() || "",
+    review_url: reviewUrl,
     location: ctx.location?.trim() || "",
   }
 
@@ -113,7 +125,7 @@ export async function runSmsPipeline(params: {
   const body = renderTemplate(template, vars)
   if (!body) return { ok: false, skipped: true, reason: "empty-body" }
 
-  // Review request drops later; everything else goes now.
+  // Review request drops later; everything else goes now (and is logged for delivery tracking).
   if (params.phase === "review") {
     const sendAfter = new Date(Date.now() + REVIEW_DELAY_MIN * 60_000)
     await insertScheduledSms({
@@ -127,7 +139,11 @@ export async function runSmsPipeline(params: {
     return { ok: true, sent: false, scheduled: true }
   }
 
-  const res = await sendTelnyxSms({ toE164, text: body, userId: ctx.owner_user_id })
+  const res = await sendAndLogWorkspaceCustomerSms({
+    ownerUserId: ctx.owner_user_id,
+    toE164,
+    text: body,
+  })
   if (!res.ok) {
     console.warn(`[sms-pipeline] ${params.phase} send failed: ${res.error}`)
     return { ok: false, skipped: true, reason: "send-failed" }
@@ -187,7 +203,16 @@ export async function sendManualThanksReviewSms(params: {
 
   const settings = await getOwnerSmsSettings(ctx.owner_user_id)
   const owner = await getUser(ctx.owner_user_id)
-  const reviewUrl = settings.google_review_url?.trim() || ""
+  let reviewUrl = settings.google_review_url?.trim() || ""
+  if (reviewUrl) {
+    reviewUrl =
+      (await createTrackedReviewUrl({
+        ownerUserId: ctx.owner_user_id,
+        destinationUrl: reviewUrl,
+        leadId: ctx.lead_id,
+        customerPhone: toE164,
+      })) || reviewUrl
+  }
   const vars: Record<string, string> = {
     customer_name: ctx.customer_name?.trim() || "there",
     business_name: owner?.business_name?.trim() || brandLabel(),
@@ -210,7 +235,12 @@ export async function sendManualThanksReviewSms(params: {
     .trim()
   if (!body) return { ok: false, skipped: true, reason: "empty-body" }
 
-  const res = await sendTelnyxSms({ toE164, text: body, userId: ctx.owner_user_id })
+  // Log into Messages so delivery receipts (Delivered / Failed) attach to this text.
+  const res = await sendAndLogWorkspaceCustomerSms({
+    ownerUserId: ctx.owner_user_id,
+    toE164,
+    text: body,
+  })
   if (!res.ok) {
     console.warn(`[sms-pipeline] manual review send failed: ${res.error}`)
     return { ok: false, skipped: true, reason: "send-failed" }
@@ -231,7 +261,11 @@ export async function flushDueScheduledSms(limit = 20): Promise<{ sent: number; 
     const claimed = await claimScheduledSms(item.id)
     if (!claimed) continue
     try {
-      const res = await sendTelnyxSms({ toE164: item.to_e164, text: item.body, userId: item.owner_user_id })
+      const res = await sendAndLogWorkspaceCustomerSms({
+        ownerUserId: item.owner_user_id,
+        toE164: item.to_e164,
+        text: item.body,
+      })
       if (res.ok) {
         await markScheduledSmsSent(item.id)
         sent++

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getCallLogs, listOwnerBookedJobs, listOwnerSchedulerEvents } from "@/lib/db"
+import { getReviewLinkStatsForLead } from "@/lib/review-link-token"
 import {
   buildTodayCallbacks,
   buildTodayJustFinishedJobs,
@@ -37,7 +38,20 @@ export async function GET(req: NextRequest) {
     const nowJobs = buildTodayNowJobs(activeJobs, 8)
     const nowIds = new Set(nowJobs.map((j) => j.id))
     const upNext = buildTodayUpNextJobs(dayEvents, nowIds, 3, now)
-    const justFinished = buildTodayJustFinishedJobs(dayEvents, 3)
+    let justFinished = buildTodayJustFinishedJobs(dayEvents, 3)
+
+    // Attach review-link open stats for Just finished cards.
+    justFinished = await Promise.all(
+      justFinished.map(async (job) => {
+        const stats = await getReviewLinkStatsForLead(userId, job.id).catch(() => null)
+        if (!stats) return job
+        return {
+          ...job,
+          reviewLinkOpened: stats.click_count > 0,
+          reviewLinkClicks: stats.click_count,
+        }
+      })
+    )
 
     const data: TodayBoardPayload = {
       needsYou,

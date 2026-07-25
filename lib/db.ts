@@ -5361,6 +5361,12 @@ function isMissingSmsMessagesTableError(e: unknown): boolean {
 }
 
 function parseSmsMessageRow(row: Record<string, unknown>): SmsMessage {
+  const iso = (v: unknown): string | null => {
+    if (v == null) return null
+    if (v instanceof Date) return v.toISOString()
+    const s = String(v).trim()
+    return s || null
+  }
   return {
     id: String(row.id),
     organization_id: row.organization_id != null ? String(row.organization_id) : null,
@@ -5374,6 +5380,9 @@ function parseSmsMessageRow(row: Record<string, unknown>): SmsMessage {
     telnyx_message_id: row.telnyx_message_id != null ? String(row.telnyx_message_id) : null,
     status: String(row.status ?? "received"),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    delivered_at: iso(row.delivered_at),
+    failed_at: iso(row.failed_at),
+    delivery_error: row.delivery_error != null ? String(row.delivery_error) : null,
   }
 }
 
@@ -5429,6 +5438,79 @@ export async function listSmsMessagesForOrganization(
     return rows.map((r) => parseSmsMessageRow(r as Record<string, unknown>))
   } catch (e) {
     if (isMissingSmsMessagesTableError(e)) return []
+    throw e
+  }
+}
+
+/**
+ * Update outbound SMS delivery from Telnyx message.sent / message.finalized / message.failed.
+ * Matches on telnyx_message_id (scripts/119 columns optional until migrated).
+ */
+export async function updateSmsMessageDeliveryByTelnyxId(params: {
+  telnyxMessageId: string
+  status: "sent" | "delivered" | "failed"
+  deliveryError?: string | null
+}): Promise<boolean> {
+  const id = params.telnyxMessageId.trim()
+  if (!id) return false
+  const sql = getSql()
+  const err = params.deliveryError?.trim() || null
+  try {
+    if (params.status === "delivered") {
+      const rows = await sql`
+        UPDATE sms_messages
+        SET
+          status = 'delivered',
+          delivered_at = COALESCE(delivered_at, now()),
+          failed_at = NULL,
+          delivery_error = NULL
+        WHERE telnyx_message_id = ${id}
+          AND direction = 'outbound'
+        RETURNING id
+      `
+      return rows.length > 0
+    }
+    if (params.status === "failed") {
+      const rows = await sql`
+        UPDATE sms_messages
+        SET
+          status = 'failed',
+          failed_at = COALESCE(failed_at, now()),
+          delivery_error = ${err}
+        WHERE telnyx_message_id = ${id}
+          AND direction = 'outbound'
+        RETURNING id
+      `
+      return rows.length > 0
+    }
+    // sent — don't downgrade delivered/failed
+    const rows = await sql`
+      UPDATE sms_messages
+      SET status = 'sent'
+      WHERE telnyx_message_id = ${id}
+        AND direction = 'outbound'
+        AND status NOT IN ('delivered', 'failed')
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    // Pre-119: status-only update without delivered_at columns.
+    if (pgErrorCode(e) === "42703") {
+      try {
+        const rows = await sql`
+          UPDATE sms_messages
+          SET status = ${params.status}
+          WHERE telnyx_message_id = ${id}
+            AND direction = 'outbound'
+          RETURNING id
+        `
+        return rows.length > 0
+      } catch (e2) {
+        if (isMissingSmsMessagesTableError(e2)) return false
+        throw e2
+      }
+    }
+    if (isMissingSmsMessagesTableError(e)) return false
     throw e
   }
 }
