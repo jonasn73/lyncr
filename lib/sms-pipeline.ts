@@ -165,6 +165,60 @@ export async function onJobStateChange(
 }
 
 /**
+ * Owner tapped “Thanks + review” on Today / Collect — send now.
+ * Ignores the auto-review toggle (explicit action) but still needs a review URL when one is configured;
+ * if the URL is missing, sends a plain thank-you without a link.
+ */
+export async function sendManualThanksReviewSms(params: {
+  leadId: string
+  techName?: string | null
+  expectedOwnerUserId?: string
+}): Promise<PipelineResult> {
+  const ctx = await getLeadDispatchContext(params.leadId)
+  if (!ctx) return { ok: false, skipped: true, reason: "lead-not-found" }
+  if (params.expectedOwnerUserId && ctx.owner_user_id !== params.expectedOwnerUserId) {
+    return { ok: false, skipped: true, reason: "owner-mismatch" }
+  }
+
+  const toE164 = ctx.customer_phone ? normalizePhoneNumberE164(ctx.customer_phone) : ""
+  if (!isReasonablePstnDialString(toE164)) {
+    return { ok: false, skipped: true, reason: "no-customer-phone" }
+  }
+
+  const settings = await getOwnerSmsSettings(ctx.owner_user_id)
+  const owner = await getUser(ctx.owner_user_id)
+  const reviewUrl = settings.google_review_url?.trim() || ""
+  const vars: Record<string, string> = {
+    customer_name: ctx.customer_name?.trim() || "there",
+    business_name: owner?.business_name?.trim() || brandLabel(),
+    time_slot: ctx.time_slot?.trim() || "your scheduled time",
+    tech_name: params.techName?.trim() || "your technician",
+    review_url: reviewUrl,
+    location: ctx.location?.trim() || "",
+  }
+
+  // Prefer the owner’s review template when a URL exists; otherwise a plain thank-you.
+  let body: string
+  if (reviewUrl) {
+    const template = settings.sms_review_template?.trim() || defaultTemplate("review")
+    body = renderTemplate(template, vars)
+  } else {
+    body = renderTemplate(
+      "Thanks for choosing {{business_name}}, {{customer_name}}! We appreciate your business.",
+      vars
+    )
+  }
+  if (!body) return { ok: false, skipped: true, reason: "empty-body" }
+
+  const res = await sendTelnyxSms({ toE164, text: body, userId: ctx.owner_user_id })
+  if (!res.ok) {
+    console.warn(`[sms-pipeline] manual review send failed: ${res.error}`)
+    return { ok: false, skipped: true, reason: "send-failed" }
+  }
+  return { ok: true, sent: true, scheduled: false }
+}
+
+/**
  * Send any scheduled texts that are now due. Called by the cron flush endpoint AND opportunistically
  * from frequently-polled dashboards, so review texts go out within minutes even without a cron.
  */

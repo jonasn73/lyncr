@@ -184,15 +184,15 @@ export const TodayCommandBoard = memo(function TodayCommandBoard({
           { method: "POST", credentials: "include" }
         )
         const json = (await res.json().catch(() => null)) as { error?: string } | null
-        if (!res.ok) throw new Error(json?.error || "Could not queue review SMS")
+        if (!res.ok) throw new Error(json?.error || "Could not send review SMS")
         toast({
-          title: "Thanks + review queued",
-          description: "Customer gets your thank-you / review text shortly.",
+          title: "Thanks + review sent",
+          description: "Customer got your thank-you text.",
         })
       } catch (e) {
         toast({
           title: "Could not send thanks",
-          description: e instanceof Error ? e.message : "Check SMS templates.",
+          description: e instanceof Error ? e.message : "Try again in a moment.",
           variant: "destructive",
         })
       } finally {
