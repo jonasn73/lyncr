@@ -2,7 +2,7 @@
 
 // Profile avatar opens Settings; wallet chip opens Collect Payment.
 
-import { memo, useCallback, useEffect, useState, Suspense } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
@@ -21,6 +21,9 @@ import {
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+
+/** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
+const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[4.75rem] flex-col items-end leading-none"
 
 const COLLECTED_SUMMARY_CACHE_KEY = persistedCacheKey("collected-summary", "header")
 
@@ -103,13 +106,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Month-to-date is the main chip (does not reset overnight). Today is secondary.
-  const [todayCents, setTodayCents] = useState<number | null>(
-    () => readCachedCollectedSummary()?.todayCents ?? null
-  )
-  const [monthCents, setMonthCents] = useState<number | null>(
-    () => readCachedCollectedSummary()?.monthCents ?? null
-  )
+  // Start null on server + first client paint so SSR HTML matches (no $0 → $968 flash).
+  const [todayCents, setTodayCents] = useState<number | null>(null)
+  const [monthCents, setMonthCents] = useState<number | null>(null)
+  // True after sessionStorage / first fetch — amount slot stays reserved either way.
+  const [amountReady, setAmountReady] = useState(false)
   const isMobile = useIsMobile()
 
   const refreshCollected = useCallback(() => {
@@ -118,17 +119,31 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       .then((j: { data?: { todayCents?: number; monthCents?: number } } | null) => {
         const today = j?.data?.todayCents
         const month = j?.data?.monthCents
-        if (typeof today !== "number" || typeof month !== "number") return
+        if (typeof today !== "number" || typeof month !== "number") {
+          setAmountReady(true)
+          return
+        }
         setTodayCents(today)
         setMonthCents(month)
+        setAmountReady(true)
         writePersistedCache(COLLECTED_SUMMARY_CACHE_KEY, {
           todayCents: today,
           monthCents: month,
         } satisfies CollectedHeaderCache)
       })
       .catch(() => {
-        /* keep last known */
+        setAmountReady(true)
       })
+  }, [])
+
+  // Pull last-known total before paint so the chip rarely shows an empty flash on refresh.
+  useLayoutEffect(() => {
+    const cached = readCachedCollectedSummary()
+    if (cached) {
+      setTodayCents(cached.todayCents)
+      setMonthCents(cached.monthCents)
+      setAmountReady(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -199,7 +214,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   }, [])
 
   // Month-to-date on the chip so yesterday’s take doesn’t “vanish” at midnight.
-  const monthLabel = formatCollectedDollars(monthCents ?? todayCents ?? 0)
+  const monthLabel =
+    monthCents != null || todayCents != null
+      ? formatCollectedDollars(monthCents ?? todayCents ?? 0)
+      : null
   const todayLabel = formatCollectedDollars(todayCents ?? 0)
 
   const firstName = name.trim().split(/\s+/)[0] || name
@@ -215,12 +233,23 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           onClick={openCollect}
           onPointerEnter={() => prefetchCollectJobs()}
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20"
-          aria-label={`Collect payment — ${monthLabel} this month, ${todayLabel} today. Open for history.`}
-          title={`This month ${monthLabel} · Today ${todayLabel}`}
+          aria-label={
+            monthLabel
+              ? `Collect payment — ${monthLabel} this month, ${todayLabel} today. Open for history.`
+              : "Collect payment — loading month total"
+          }
+          title={monthLabel ? `This month ${monthLabel} · Today ${todayLabel}` : "Loading month total"}
         >
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="flex min-w-[3.5rem] flex-col items-end leading-none">
-            <span className="text-xs font-bold tabular-nums">{monthLabel}</span>
+          <span className={WALLET_AMOUNT_SLOT_CLASS}>
+            {monthLabel && amountReady ? (
+              <span className="text-xs font-bold tabular-nums">{monthLabel}</span>
+            ) : (
+              <span
+                className="inline-block h-3 w-14 animate-pulse rounded bg-emerald-500/25"
+                aria-hidden
+              />
+            )}
             <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/70">
               month
             </span>

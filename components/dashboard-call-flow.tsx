@@ -790,7 +790,6 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   bare?: boolean
 }) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
-  const isMobile = useIsMobile()
 
   // Shared row layout; bare mode lets the sticky nav wrapper supply padding/border.
   const rowClass = bare
@@ -836,21 +835,23 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
           wide
         />
       </div>
-      {loading ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Loading line" />
-      ) : null}
-      {isMobile ? (
-        <button
-          type="button"
-          onClick={openManageModal}
-          className={cn(
-            "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10",
-            MOBILE_TAP_TARGET
-          )}
-        >
-          Lines
-        </button>
-      ) : null}
+      {/* Fixed-size spinner slot so Live & Connected row doesn’t jump when loading flips. */}
+      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden={!loading}>
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading line" />
+        ) : null}
+      </span>
+      {/* CSS hide on desktop — avoids useIsMobile SSR flash that pops “Lines” in after refresh. */}
+      <button
+        type="button"
+        onClick={openManageModal}
+        className={cn(
+          "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 md:hidden",
+          MOBILE_TAP_TARGET
+        )}
+      >
+        Lines
+      </button>
     </div>
   )
 })

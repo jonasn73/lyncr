@@ -3,7 +3,6 @@
 import { memo, useCallback, useState } from "react"
 import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useIsMobile } from "@/hooks/use-mobile"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
   RoutingCallHistoryDialog,
@@ -118,15 +117,19 @@ function TelemetryTickerItem({
       >
         {label}
       </span>
-      {sublabel ? (
-        <span className="max-w-full text-center text-[9px] font-medium leading-tight text-amber-400/90">
-          {sublabel}
-        </span>
-      ) : null}
+      {/* Always reserve the sublabel line so “4 leads” appearing doesn’t resize the grid. */}
+      <span
+        className={cn(
+          "max-w-full min-h-[0.875rem] text-center text-[9px] font-medium leading-tight",
+          sublabel ? "text-amber-400/90" : "invisible"
+        )}
+      >
+        {sublabel || "·"}
+      </span>
     </>
   )
   const shared =
-    "flex min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5"
+    "flex min-h-[3.75rem] min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5"
   if (onClick) {
     return (
       <button
@@ -152,7 +155,6 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   /** Unique phones among today's misses — when lower than missedCalls, ticker shows LEADS. */
   uniqueMissedLeads?: number
 }) {
-  const isMobile = useIsMobile()
   const {
     dailyCalls,
     missedCalls,
@@ -194,82 +196,80 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     setRescueOpen(true)
   }, [])
 
+  // CSS breakpoints (not useIsMobile) so SSR + first paint match — no desktop→mobile collapse on refresh.
   return (
     <>
-      {isMobile ? (
-        <section
-          className={cn("w-full py-0", className)}
-          aria-label="Dispatch performance"
-        >
-          <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
-            <TelemetryTickerItem label="Live" value={liveLineCount} />
-            <TelemetryTickerItem
-              label="Calls"
-              value={dailyCalls}
-              onClick={() => openCallHistory("daily")}
-            />
-            <TelemetryTickerItem
-              label={missedTickerLabel}
-              value={missedCalls}
-              sublabel={missedTickerSublabel}
-              valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
-              labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
-              onClick={openMissedRescue}
-            />
-            <TelemetryTickerItem
-              label="Booking"
-              value={bookingDisplay}
-              valueClassName={bookingEmpty ? "text-sm font-medium text-zinc-400" : undefined}
-            />
-            <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
-            <TelemetryTickerItem
-              label="Rescue"
-              value={rescueDisplay}
-              valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
-            />
-          </div>
-        </section>
-      ) : (
-        <section
-          className={cn(
-            "grid grid-cols-3 gap-2 w-full rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md",
-            className
-          )}
-          aria-label="Workspace telemetry"
-        >
-          <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
-          <TelemetryPill
-            label="Daily calls"
+      <section
+        className={cn("w-full py-0 md:hidden", className)}
+        aria-label="Dispatch performance"
+      >
+        <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
+          <TelemetryTickerItem label="Live" value={liveLineCount} />
+          <TelemetryTickerItem
+            label="Calls"
             value={dailyCalls}
-            icon={PhoneIncoming}
             onClick={() => openCallHistory("daily")}
           />
-          <TelemetryPill
-            label={missedDesktopLabel}
+          <TelemetryTickerItem
+            label={missedTickerLabel}
             value={missedCalls}
-            icon={PhoneMissed}
-            tone={missedCalls > 0 ? "amber" : "default"}
-            valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
-            labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
+            sublabel={missedTickerSublabel}
+            valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
+            labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
             onClick={openMissedRescue}
           />
-          <TelemetryPill
-            label="Booking rate"
+          <TelemetryTickerItem
+            label="Booking"
             value={bookingDisplay}
-            icon={Percent}
-            tone="teal"
-            valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
+            valueClassName={bookingEmpty ? "text-sm font-medium text-zinc-400" : undefined}
           />
-          <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
-          <TelemetryPill
-            label="Rescue revenue"
+          <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
+          <TelemetryTickerItem
+            label="Rescue"
             value={rescueDisplay}
-            icon={DollarSign}
-            tone={rescueHot ? "amber" : "emerald"}
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
-        </section>
-      )}
+        </div>
+      </section>
+      <section
+        className={cn(
+          "hidden md:grid grid-cols-3 gap-2 w-full rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md",
+          className
+        )}
+        aria-label="Workspace telemetry"
+      >
+        <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
+        <TelemetryPill
+          label="Daily calls"
+          value={dailyCalls}
+          icon={PhoneIncoming}
+          onClick={() => openCallHistory("daily")}
+        />
+        <TelemetryPill
+          label={missedDesktopLabel}
+          value={missedCalls}
+          icon={PhoneMissed}
+          tone={missedCalls > 0 ? "amber" : "default"}
+          valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
+          labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
+          onClick={openMissedRescue}
+        />
+        <TelemetryPill
+          label="Booking rate"
+          value={bookingDisplay}
+          icon={Percent}
+          tone="teal"
+          valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
+        />
+        <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
+        <TelemetryPill
+          label="Rescue revenue"
+          value={rescueDisplay}
+          icon={DollarSign}
+          tone={rescueHot ? "amber" : "emerald"}
+          valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+        />
+      </section>
 
       <RoutingCallHistoryDialog
         open={historyOpen}

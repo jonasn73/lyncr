@@ -164,26 +164,34 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const realtimeStats = useRealTimeStatsContextOptional()
   const missedLeadInsights = useMissedLeadInsights(businessNumbers)
 
-  // Sticky Presence + tracking line — siblings of the scroll body so they pin under the shell header.
-  const stickyChrome = callFlowUiReady ? (
+  // Always reserve Presence + main-line row height so refresh doesn’t collapse under Live & Connected.
+  const stickyChrome = (
     <div className="sticky top-0 z-50 w-full bg-slate-950">
       <PresenceStatusBar />
-      <div className="flex w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
-        <ActiveLineSubHeader
-          bare
-          businessNumbers={businessNumbers}
-          activeLine={activeLineRaw}
-          onSelect={(n) => setRoutingBusinessNumber(n)}
-          subscriptionActive={subscriptionActive}
-          lineCarrierLive={lineCarrierLive}
-          routingStrategy={routingStrategy}
-          activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
-          loading={routingLineDetailLoading}
-        />
+      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
+        {callFlowUiReady ? (
+          <ActiveLineSubHeader
+            bare
+            businessNumbers={businessNumbers}
+            activeLine={activeLineRaw}
+            onSelect={(n) => setRoutingBusinessNumber(n)}
+            subscriptionActive={subscriptionActive}
+            lineCarrierLive={lineCarrierLive}
+            routingStrategy={routingStrategy}
+            activeCallCount={realtimeStats?.activeCallsOnSelectedLine ?? 0}
+            loading={routingLineDetailLoading}
+          />
+        ) : (
+          <div className="flex w-full min-w-0 items-center justify-between gap-3" aria-busy="true">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="h-2.5 w-24 animate-pulse rounded bg-zinc-800" />
+              <div className="h-4 w-36 animate-pulse rounded bg-zinc-800/80" />
+            </div>
+            <div className="h-3 w-28 shrink-0 animate-pulse rounded bg-zinc-800" />
+          </div>
+        )}
       </div>
     </div>
-  ) : (
-    <PresenceStatusBar />
   )
 
   return (

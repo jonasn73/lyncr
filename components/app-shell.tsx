@@ -117,7 +117,13 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
       >
         <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300/70" aria-hidden />
-        <span className="inline-block min-w-[3.25rem] h-2.5 animate-pulse rounded bg-emerald-500/25" aria-hidden />
+        {/* Match live wallet chip min-width so swap to real menu doesn’t collapse. */}
+        <span className="flex min-w-[4.75rem] flex-col items-end leading-none" aria-hidden>
+          <span className="inline-block h-3 w-14 animate-pulse rounded bg-emerald-500/25" />
+          <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/40">
+            month
+          </span>
+        </span>
       </Button>
       <Button
         type="button"
