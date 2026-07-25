@@ -103,7 +103,7 @@ export function listUpcomingSchedulerJobs(params: {
 
     if (!onSelectedDay) continue
 
-    const isActiveNow = phase === "en_route" || phase === "on_site"
+    const isActiveNow = phase === "en_route" || phase === "on_site" || phase === "paused"
 
     candidates.push({
       id: job.id,

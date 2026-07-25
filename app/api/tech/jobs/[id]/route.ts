@@ -8,11 +8,24 @@ import { after } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getOwnerIdForLead, getUser, setJobStatusForTech } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
-import { sendDispatchEnRouteCustomerSms, sendDispatchOnSiteCustomerSms } from "@/lib/dispatch-customer-sms"
+import {
+  sendDispatchEnRouteCustomerSms,
+  sendDispatchOnSiteCustomerSms,
+  sendDispatchPausedPartsCustomerSms,
+  sendDispatchPausedWaitCustomerSms,
+} from "@/lib/dispatch-customer-sms"
 
 export const dynamic = "force-dynamic"
 
-const ALLOWED = new Set(["en_route", "arrived", "work_complete", "completed", "assigned"])
+const ALLOWED = new Set([
+  "en_route",
+  "arrived",
+  "paused_wait",
+  "paused_parts",
+  "work_complete",
+  "completed",
+  "assigned",
+])
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -63,6 +76,32 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           })
         } catch (e) {
           console.warn("[tech status] on_site SMS failed:", e)
+        }
+      })
+    }
+    if (status === "paused_wait") {
+      after(async () => {
+        try {
+          const ownerId = await getOwnerIdForLead(id)
+          await sendDispatchPausedWaitCustomerSms({
+            leadId: id,
+            expectedOwnerUserId: ownerId ?? undefined,
+          })
+        } catch (e) {
+          console.warn("[tech status] paused_wait SMS failed:", e)
+        }
+      })
+    }
+    if (status === "paused_parts") {
+      after(async () => {
+        try {
+          const ownerId = await getOwnerIdForLead(id)
+          await sendDispatchPausedPartsCustomerSms({
+            leadId: id,
+            expectedOwnerUserId: ownerId ?? undefined,
+          })
+        } catch (e) {
+          console.warn("[tech status] paused_parts SMS failed:", e)
         }
       })
     }

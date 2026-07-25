@@ -33,7 +33,7 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import { SmartOverflowFallbackCard } from "@/components/dashboard/smart-overflow-fallback-card"
-import { MissedCallRescueCard } from "@/components/dashboard/missed-call-rescue-card"
+import { TodayCommandBoard } from "@/components/dashboard/today-command-board"
 import {
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
@@ -588,7 +588,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     configureStrategy: onConfigureStrategy,
   })
 
-  // Primary (+ optional network); IVR and Missed Call Rescue are dedicated cards below.
+  // Primary (+ optional network); IVR + Today board are dedicated cards below.
   const primaryAndNetworkNodes = flowNodes
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
@@ -609,16 +609,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     />
   ) : null
 
-  const rescueCard = (
-    <MissedCallRescueCard
-      compact={isMobile}
-      loading={routingLineDetailLoading}
-      capacityThreshold={smartOverflow.config.capacityThreshold}
-      confirmedJobsToday={smartOverflow.confirmedJobsToday}
-      onCapacityThresholdChange={(n) => void smartOverflow.setCapacityThreshold(n)}
-      capacitySaving={smartOverflow.capacitySaving}
-    />
-  )
+  // Day-to-day field board (callbacks + live jobs) — Missed Call Rescue lives in Settings.
+  const todayBoard = <TodayCommandBoard compact={isMobile} />
 
   // Opens the two-way SMS inbox (textbacks + customer replies).
   const messagesInboxCard = isMobile ? (
@@ -731,7 +723,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                 />
               ) : null}
               {overflowCard}
-              {rescueCard}
+              {todayBoard}
               {messagesInboxCard}
             </div>
           ) : (
@@ -769,7 +761,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                 </>
               ) : null}
               <FlowConnector />
-              {rescueCard}
+              {todayBoard}
               <FlowConnector />
               {messagesInboxCard}
             </div>

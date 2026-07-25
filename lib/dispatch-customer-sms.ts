@@ -82,3 +82,55 @@ export async function sendDispatchOnSiteCustomerSms(params: {
     console.error("[dispatch-customer-sms] on_site unexpected failure:", e)
   }
 }
+
+/** Customer text when the tech pauses on site (will return shortly). */
+export async function sendDispatchPausedWaitCustomerSms(params: {
+  leadId: string
+  expectedOwnerUserId?: string
+}): Promise<void> {
+  const ctx = await getLeadDispatchContext(params.leadId)
+  if (!ctx) return
+  if (params.expectedOwnerUserId && ctx.owner_user_id !== params.expectedOwnerUserId) return
+
+  const toE164 = ctx.customer_phone ? normalizePhoneNumberE164(ctx.customer_phone) : ""
+  if (!isReasonablePstnDialString(toE164)) return
+
+  const owner = await getUser(ctx.owner_user_id)
+  const businessName = owner?.business_name?.trim() || brandLabel()
+  const text = `${businessName}: We've stepped away briefly and will be back shortly to finish your job.`
+
+  try {
+    const res = await sendTelnyxSms({ toE164, text, userId: ctx.owner_user_id })
+    if (!res.ok) {
+      console.warn("[dispatch-customer-sms] paused_wait send failed:", res.error)
+    }
+  } catch (e) {
+    console.error("[dispatch-customer-sms] paused_wait unexpected failure:", e)
+  }
+}
+
+/** Customer text when the job is paused waiting on a part. */
+export async function sendDispatchPausedPartsCustomerSms(params: {
+  leadId: string
+  expectedOwnerUserId?: string
+}): Promise<void> {
+  const ctx = await getLeadDispatchContext(params.leadId)
+  if (!ctx) return
+  if (params.expectedOwnerUserId && ctx.owner_user_id !== params.expectedOwnerUserId) return
+
+  const toE164 = ctx.customer_phone ? normalizePhoneNumberE164(ctx.customer_phone) : ""
+  if (!isReasonablePstnDialString(toE164)) return
+
+  const owner = await getUser(ctx.owner_user_id)
+  const businessName = owner?.business_name?.trim() || brandLabel()
+  const text = `${businessName}: We need a part to finish and will follow up as soon as it's ready. Thanks for your patience.`
+
+  try {
+    const res = await sendTelnyxSms({ toE164, text, userId: ctx.owner_user_id })
+    if (!res.ok) {
+      console.warn("[dispatch-customer-sms] paused_parts send failed:", res.error)
+    }
+  } catch (e) {
+    console.error("[dispatch-customer-sms] paused_parts unexpected failure:", e)
+  }
+}

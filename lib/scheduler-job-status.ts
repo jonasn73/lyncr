@@ -17,7 +17,14 @@ export type SchedulerLifecyclePhase =
   | "scheduled"
   | "en_route"
   | "on_site"
+  | "paused"
   | "completed"
+
+/** True when the tech paused mid-job (wait on site or waiting on parts). */
+export function isPausedJobStatus(jobStatus?: string | null): boolean {
+  const status = (jobStatus ?? "").trim().toLowerCase()
+  return status === "paused_wait" || status === "paused_parts"
+}
 
 /** Derive UI phase from dispatch + field progress columns. */
 export function schedulerLifecyclePhase(params: {
@@ -36,6 +43,7 @@ export function schedulerLifecyclePhase(params: {
   ) {
     return "completed"
   }
+  if (isPausedJobStatus(status)) return "paused"
   if (status === "arrived") return "on_site"
   if (status === "en_route") return "en_route"
   if (status === "unassigned") return "unassigned"
@@ -57,10 +65,10 @@ export function isHopperPoolJob(job: SchedulerJobPhaseInput): boolean {
   return schedulerLifecyclePhase(job) === "unassigned"
 }
 
-/** Right-column active pipeline — assigned, scheduled, en route, or on site. */
+/** Right-column active pipeline — assigned, scheduled, en route, on site, or paused. */
 export function isActivePipelineFeedJob(job: SchedulerJobPhaseInput): boolean {
   const phase = schedulerLifecyclePhase(job)
-  return phase === "scheduled" || phase === "en_route" || phase === "on_site"
+  return phase === "scheduled" || phase === "en_route" || phase === "on_site" || phase === "paused"
 }
 
 export const SCHEDULER_BADGE_STYLE: Record<SchedulerLifecyclePhase, string> = {
@@ -68,6 +76,7 @@ export const SCHEDULER_BADGE_STYLE: Record<SchedulerLifecyclePhase, string> = {
   scheduled: "border-teal-500/40 bg-teal-500/10 text-teal-300",
   en_route: "border-sky-500/40 bg-sky-500/10 text-sky-300",
   on_site: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
+  paused: "border-orange-500/40 bg-orange-500/10 text-orange-300",
   completed: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
 }
 
@@ -77,6 +86,7 @@ export const SCHEDULER_CARD_STYLE: Record<SchedulerLifecyclePhase, string> = {
   scheduled: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-teal-500 text-teal-50`,
   en_route: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-sky-500 text-sky-100`,
   on_site: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-yellow-500 text-yellow-100`,
+  paused: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-orange-500 text-orange-100`,
   completed: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-zinc-600 text-zinc-400 opacity-70`,
 }
 
@@ -88,6 +98,7 @@ export const SCHEDULER_STATUS_LABEL: Record<SchedulerLifecyclePhase, string> = {
   scheduled: "Assigned",
   en_route: "En route",
   on_site: "In progress",
+  paused: "Paused",
   completed: "Completed",
 }
 
@@ -101,6 +112,8 @@ export function schedulerJobStatusDisplayLabel(jobStatus?: string | null): strin
   if (status === "completed") return "Completed"
   if (status === "arrived") return "In progress"
   if (status === "en_route") return "En route"
+  if (status === "paused_wait") return "Paused — waiting"
+  if (status === "paused_parts") return "Paused — parts"
   if (status === "assigned") return "Assigned"
   if (status === "unassigned") return "Unassigned"
   return null
@@ -110,6 +123,7 @@ export function schedulerJobStatusDisplayLabel(jobStatus?: string | null): strin
 export const PIPELINE_PANEL_GROUP_ORDER: SchedulerLifecyclePhase[] = [
   "en_route",
   "on_site",
+  "paused",
   "scheduled",
   "unassigned",
 ]
@@ -119,6 +133,7 @@ export const PIPELINE_PANEL_GROUP_TITLE: Record<SchedulerLifecyclePhase, string>
   scheduled: "Assigned",
   en_route: "En route",
   on_site: "In progress",
+  paused: "Paused",
   completed: "Completed",
 }
 
@@ -128,6 +143,7 @@ export const SCHEDULER_MAP_PIN_COLOR: Record<SchedulerLifecyclePhase, string> = 
   scheduled: "#14b8a6",
   en_route: "#38bdf8",
   on_site: "#eab308",
+  paused: "#f97316",
   completed: "#22c55e",
 }
 

@@ -25,6 +25,8 @@ const STATUS_LABEL: Record<string, string> = {
   assigned: "Assigned",
   en_route: "En route",
   arrived: "On site",
+  paused_wait: "Paused — waiting",
+  paused_parts: "Paused — parts",
   work_complete: "Work complete",
   completed: "Completed",
 }
@@ -33,13 +35,23 @@ const STATUS_STYLE: Record<string, string> = {
   assigned: "bg-zinc-700/60 text-zinc-200",
   en_route: "bg-sky-500/20 text-sky-300",
   arrived: "bg-amber-500/20 text-amber-200",
+  paused_wait: "bg-orange-500/20 text-orange-200",
+  paused_parts: "bg-orange-500/20 text-orange-200",
   work_complete: "bg-violet-500/20 text-violet-200",
   completed: "bg-emerald-500/20 text-emerald-300",
 }
 
 /** Derive the tech's overall live status from their active jobs. */
 function deriveTechStatus(jobs: DispatchJob[]): "idle" | "en_route" | "on_site" {
-  if (jobs.some((j) => j.job_status === "arrived" || j.job_status === "work_complete")) {
+  if (
+    jobs.some(
+      (j) =>
+        j.job_status === "arrived" ||
+        j.job_status === "work_complete" ||
+        j.job_status === "paused_wait" ||
+        j.job_status === "paused_parts"
+    )
+  ) {
     return "on_site"
   }
   if (jobs.some((j) => j.job_status === "en_route")) return "en_route"
@@ -269,6 +281,8 @@ export function TechConsole(props: {
                 busy={busyId === job.id}
                 onArrived={() => setStatus(job.id, "arrived")}
                 onEnRoute={() => setStatus(job.id, "en_route")}
+                onPausedWait={() => setStatus(job.id, "paused_wait")}
+                onPausedParts={() => setStatus(job.id, "paused_parts")}
                 onWorkComplete={() => setStatus(job.id, "work_complete")}
                 onProceedToPayment={() => setPaymentJob(job)}
               />
@@ -416,6 +430,8 @@ function JobCard(props: {
   busy: boolean
   onArrived: () => void
   onEnRoute: () => void
+  onPausedWait: () => void
+  onPausedParts: () => void
   onWorkComplete: () => void
   onProceedToPayment: () => void
 }) {
@@ -423,7 +439,13 @@ function JobCard(props: {
   const status = job.job_status || "assigned"
   const phoneDigits = (job.customer_phone || "").replace(/[^\d+]/g, "")
   const workComplete = status === "work_complete"
-  const canMarkWorkComplete = status === "arrived" || status === "work_complete"
+  const canMarkWorkComplete =
+    status === "arrived" ||
+    status === "paused_wait" ||
+    status === "paused_parts" ||
+    status === "work_complete"
+  const showPauseActions =
+    status === "arrived" || status === "paused_wait" || status === "paused_parts"
 
   return (
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
@@ -511,6 +533,26 @@ function JobCard(props: {
           Proceed to Payment
         </button>
       </div>
+      {showPauseActions ? (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={props.busy || status === "paused_wait"}
+            onClick={props.onPausedWait}
+            className="rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs font-semibold text-orange-200 disabled:opacity-50"
+          >
+            Paused / wait
+          </button>
+          <button
+            type="button"
+            disabled={props.busy || status === "paused_parts"}
+            onClick={props.onPausedParts}
+            className="rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs font-semibold text-orange-200 disabled:opacity-50"
+          >
+            Leaving — back later
+          </button>
+        </div>
+      ) : null}
       {canMarkWorkComplete && !workComplete ? (
         <p className="mt-2 text-center text-[10px] text-zinc-600">
           Mark work complete on the left, then Proceed to Payment unlocks.
@@ -555,7 +597,11 @@ function LeftStatusButton(props: {
       </button>
     )
   }
-  if (props.status === "arrived") {
+  if (
+    props.status === "arrived" ||
+    props.status === "paused_wait" ||
+    props.status === "paused_parts"
+  ) {
     return (
       <button
         onClick={props.onWorkComplete}

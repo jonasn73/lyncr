@@ -11,6 +11,8 @@ import {
 import {
   sendDispatchEnRouteCustomerSms,
   sendDispatchOnSiteCustomerSms,
+  sendDispatchPausedPartsCustomerSms,
+  sendDispatchPausedWaitCustomerSms,
 } from "@/lib/dispatch-customer-sms"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 
@@ -21,6 +23,8 @@ const ALLOWED = new Set([
   "assigned",
   "en_route",
   "arrived",
+  "paused_wait",
+  "paused_parts",
   "completed",
   "cancelled",
   "unresolved",
@@ -45,10 +49,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const previous = await getOwnerSchedulerEventById(userId, leadId.trim())
   if (!previous) return NextResponse.json({ error: "Job not found" }, { status: 404 })
 
-  if (status === "en_route" || status === "arrived" || status === "assigned") {
-    if (!previous.assigned_tech_id) {
-      return NextResponse.json({ error: "Assign a technician before updating field status" }, { status: 400 })
-    }
+  // Owner may update field status without an assigned tech (solo / owner-run jobs).
+  // "assigned" alone still requires a tech id so the pipeline does not lie about staffing.
+  if (status === "assigned" && !previous.assigned_tech_id) {
+    return NextResponse.json({ error: "Assign a technician before marking assigned" }, { status: 400 })
   }
 
   try {
@@ -79,6 +83,24 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           await sendDispatchOnSiteCustomerSms({ leadId: leadId.trim(), expectedOwnerUserId: userId })
         } catch (e) {
           console.warn("[owner job status] on_site SMS failed:", e)
+        }
+      })
+    }
+    if (status === "paused_wait" && prevStatus !== "paused_wait") {
+      after(async () => {
+        try {
+          await sendDispatchPausedWaitCustomerSms({ leadId: leadId.trim(), expectedOwnerUserId: userId })
+        } catch (e) {
+          console.warn("[owner job status] paused_wait SMS failed:", e)
+        }
+      })
+    }
+    if (status === "paused_parts" && prevStatus !== "paused_parts") {
+      after(async () => {
+        try {
+          await sendDispatchPausedPartsCustomerSms({ leadId: leadId.trim(), expectedOwnerUserId: userId })
+        } catch (e) {
+          console.warn("[owner job status] paused_parts SMS failed:", e)
         }
       })
     }

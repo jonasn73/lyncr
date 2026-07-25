@@ -8,6 +8,7 @@ import {
   Banknote,
   Loader2,
   LogOut,
+  MessageSquareText,
   Network,
   Package,
   Shield,
@@ -155,6 +156,13 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             title="SMS templates"
             subtitle="Confirmations, en-route, and review texts"
             onClick={modals.openSmsAutomation}
+          />
+          <SettingsMenuRow
+            grouped
+            icon={<MessageSquareText className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="Missed Call Rescue"
+            subtitle="Auto booking-link textback + IVR capacity"
+            onClick={modals.openMissedCallRescue}
           />
           <SettingsMenuRow
             grouped
