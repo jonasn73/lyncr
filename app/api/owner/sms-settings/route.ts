@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getOwnerSmsSettings, getUser, normalizeOwnerSmsSnippets, updateOwnerSmsSettings } from "@/lib/db"
+import { normalizeSmsStatusTemplates } from "@/lib/sms-status-templates"
 import type { OwnerSmsSettings } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -57,6 +58,9 @@ export async function PUT(req: NextRequest) {
   if (body.sms_custom_snippets !== undefined) {
     updates.sms_custom_snippets = normalizeOwnerSmsSnippets(body.sms_custom_snippets)
   }
+  if (body.sms_status_templates !== undefined) {
+    updates.sms_status_templates = normalizeSmsStatusTemplates(body.sms_status_templates)
+  }
 
   try {
     const settings = await updateOwnerSmsSettings(userId, updates)
@@ -64,6 +68,12 @@ export async function PUT(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not save settings"
     const code = e instanceof Error && "code" in e ? String((e as { code?: string }).code) : ""
+    if (code === "SMS_STATUS_MIGRATION_REQUIRED" || msg.includes("118-sms-status-templates")) {
+      return NextResponse.json(
+        { error: msg, migration: "scripts/118-sms-status-templates.sql" },
+        { status: 503 }
+      )
+    }
     if (code === "SMS_SNIPPETS_MIGRATION_REQUIRED" || msg.includes("117-sms-custom-snippets")) {
       return NextResponse.json(
         { error: msg, migration: "scripts/117-sms-custom-snippets.sql" },

@@ -7,12 +7,12 @@ import { Link2, Loader2, MessageSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import {
-  buildRunningLateSms,
   CUSTOMER_SMS_QUICK_TEMPLATES,
   DEFAULT_LATE_ETA_MINUTES,
   MISSED_CALL_SMS_QUICK_TEMPLATES,
 } from "@/lib/customer-sms-presets"
-import type { OwnerSmsSnippet } from "@/lib/types"
+import { renderStatusSms, DEFAULT_SMS_STATUS_TEMPLATES } from "@/lib/sms-status-templates"
+import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -66,21 +66,47 @@ export function CustomerSmsComposer({
   const [etaMinutes, setEtaMinutes] = useState(String(DEFAULT_LATE_ETA_MINUTES))
   const [sending, setSending] = useState(false)
   const [bookingBusy, setBookingBusy] = useState(false)
-  // Owner-saved reusable texts from Settings → SMS templates.
+  // Owner-saved reusable texts + late/status copy from Settings → SMS templates.
   const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
+  const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
+    ...DEFAULT_SMS_STATUS_TEMPLATES,
+  })
+  const [businessName, setBusinessName] = useState("")
 
   useEffect(() => {
     let cancelled = false
     void fetch("/api/owner/sms-settings", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((json: { data?: { sms_custom_snippets?: OwnerSmsSnippet[] } } | null) => {
-        if (cancelled || !json?.data) return
-        const list = Array.isArray(json.data.sms_custom_snippets) ? json.data.sms_custom_snippets : []
-        setCustomSnippets(list.filter((s) => s?.body?.trim()))
-      })
+      .then(
+        (
+          json: {
+            data?: {
+              sms_custom_snippets?: OwnerSmsSnippet[]
+              sms_status_templates?: OwnerSmsStatusTemplates
+            }
+          } | null
+        ) => {
+          if (cancelled || !json?.data) return
+          const list = Array.isArray(json.data.sms_custom_snippets) ? json.data.sms_custom_snippets : []
+          setCustomSnippets(list.filter((s) => s?.body?.trim()))
+          if (json.data.sms_status_templates && typeof json.data.sms_status_templates === "object") {
+            setStatusTemplates({
+              ...DEFAULT_SMS_STATUS_TEMPLATES,
+              ...json.data.sms_status_templates,
+            })
+          }
+        }
+      )
       .catch(() => {
         /* built-ins still work */
       })
+    void fetch("/api/auth/session", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { data?: { user?: { business_name?: string } } } | null) => {
+        if (cancelled) return
+        setBusinessName(String(json?.data?.user?.business_name ?? "").trim())
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -135,8 +161,29 @@ export function CustomerSmsComposer({
 
   const sendRunningLate = useCallback(() => {
     const mins = Number(etaMinutes)
-    void sendText(buildRunningLateSms(Number.isFinite(mins) ? mins : DEFAULT_LATE_ETA_MINUTES))
-  }, [etaMinutes, sendText])
+    const eta = Number.isFinite(mins) ? mins : DEFAULT_LATE_ETA_MINUTES
+    const body = renderStatusSms(statusTemplates.late || DEFAULT_SMS_STATUS_TEMPLATES.late, {
+      customer_name: "there",
+      business_name: businessName || "us",
+      eta_minutes: eta,
+    })
+    void sendText(body)
+  }, [businessName, etaMinutes, sendText, statusTemplates.late])
+
+  const sendStatusQuick = useCallback(
+    (key: keyof OwnerSmsStatusTemplates) => {
+      if (key === "late") {
+        sendRunningLate()
+        return
+      }
+      const body = renderStatusSms(statusTemplates[key] || DEFAULT_SMS_STATUS_TEMPLATES[key], {
+        customer_name: "there",
+        business_name: businessName || "us",
+      })
+      void sendText(body)
+    },
+    [businessName, sendRunningLate, sendText, statusTemplates]
+  )
 
   const resendBookingLink = useCallback(async () => {
     if (!toPhone.trim()) {
@@ -210,32 +257,60 @@ export function CustomerSmsComposer({
       </div>
 
       {lateEnabled ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2.5">
-          <label className="min-w-0 flex-1 text-[11px] font-medium text-amber-100/90">
-            Running late
-            <span className="mt-1 flex items-center gap-1.5">
-              <input
-                type="number"
-                min={1}
-                max={180}
-                disabled={busy}
-                value={etaMinutes}
-                onChange={(e) => setEtaMinutes(e.target.value)}
-                className="h-9 w-16 rounded-md border border-amber-500/30 bg-slate-950/70 px-2 text-center text-sm font-semibold tabular-nums text-amber-50 focus:border-amber-400/50 focus:outline-none disabled:opacity-50"
-                aria-label="Minutes late"
-              />
-              <span className="text-[11px] text-amber-200/70">min</span>
-            </span>
-          </label>
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy}
-            onClick={sendRunningLate}
-            className="shrink-0 bg-amber-600 text-white hover:bg-amber-500"
-          >
-            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Send late text"}
-          </Button>
+        <div className="space-y-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2.5">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="min-w-0 flex-1 text-[11px] font-medium text-amber-100/90">
+              Running late
+              <span className="mt-1 flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  disabled={busy}
+                  value={etaMinutes}
+                  onChange={(e) => setEtaMinutes(e.target.value)}
+                  className="h-9 w-16 rounded-md border border-amber-500/30 bg-slate-950/70 px-2 text-center text-sm font-semibold tabular-nums text-amber-50 focus:border-amber-400/50 focus:outline-none disabled:opacity-50"
+                  aria-label="Minutes late"
+                />
+                <span className="text-[11px] text-amber-200/70">min</span>
+              </span>
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={sendRunningLate}
+              className="shrink-0 bg-amber-600 text-white hover:bg-amber-500"
+            >
+              {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Send late text"}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => sendStatusQuick("arrived")}
+              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              I&apos;m here
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => sendStatusQuick("paused_wait")}
+              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              Paused / back soon
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => sendStatusQuick("paused_parts")}
+              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              Parts / later
+            </button>
+          </div>
         </div>
       ) : null}
 

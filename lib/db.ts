@@ -77,6 +77,10 @@ import type {
   SmsRegistrationStatus,
   SmsMessage,
 } from "./types"
+import {
+  DEFAULT_SMS_STATUS_TEMPLATES,
+  normalizeSmsStatusTemplates,
+} from "./sms-status-templates"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
@@ -9652,7 +9656,8 @@ function isMissingSmsEngineColumnError(e: unknown): boolean {
     msg.includes("sms_route") ||
     msg.includes("sms_review") ||
     msg.includes("google_review_url") ||
-    msg.includes("sms_custom_snippets")
+    msg.includes("sms_custom_snippets") ||
+    msg.includes("sms_status_templates")
   )
 }
 
@@ -9795,6 +9800,7 @@ function defaultOwnerSmsSettings(): OwnerSmsSettings {
     sms_review_template: null,
     google_review_url: null,
     sms_custom_snippets: [],
+    sms_status_templates: { ...DEFAULT_SMS_STATUS_TEMPLATES },
   }
 }
 
@@ -9805,7 +9811,7 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
     const rows = await sql`
       SELECT sms_booking_enabled, sms_route_enabled, sms_review_enabled,
              sms_booking_template, sms_route_template, sms_review_template, google_review_url,
-             sms_custom_snippets
+             sms_custom_snippets, sms_status_templates
       FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1
     `
     const row = rows[0]
@@ -9819,10 +9825,15 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
       sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
       google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
       sms_custom_snippets: normalizeOwnerSmsSnippets(row.sms_custom_snippets),
+      sms_status_templates: normalizeSmsStatusTemplates(row.sms_status_templates),
     }
   } catch (e) {
-    // Pre-117: column missing — retry without snippets.
-    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("sms_custom_snippets")) {
+    // Pre-118 / pre-117: retry with fewer columns.
+    if (
+      pgErrorCode(e) === "42703" &&
+      (pgErrorMessage(e).includes("sms_custom_snippets") ||
+        pgErrorMessage(e).includes("sms_status_templates"))
+    ) {
       try {
         const rows = await sql`
           SELECT sms_booking_enabled, sms_route_enabled, sms_review_enabled,
@@ -9840,6 +9851,7 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
           sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
           google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
           sms_custom_snippets: [],
+          sms_status_templates: { ...DEFAULT_SMS_STATUS_TEMPLATES },
         }
       } catch (e2) {
         if (
@@ -9882,6 +9894,10 @@ export async function updateOwnerSmsSettings(
       updates.sms_custom_snippets !== undefined
         ? normalizeOwnerSmsSnippets(updates.sms_custom_snippets)
         : cur.sms_custom_snippets,
+    sms_status_templates:
+      updates.sms_status_templates !== undefined
+        ? normalizeSmsStatusTemplates(updates.sms_status_templates)
+        : cur.sms_status_templates,
   }
   try {
     await sql`
@@ -9894,10 +9910,18 @@ export async function updateOwnerSmsSettings(
         sms_review_template = ${next.sms_review_template},
         google_review_url = ${next.google_review_url},
         sms_custom_snippets = ${JSON.stringify(next.sms_custom_snippets)}::jsonb,
+        sms_status_templates = ${JSON.stringify(next.sms_status_templates)}::jsonb,
         updated_at = now()
       WHERE user_id = ${userId}
     `
   } catch (e) {
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("sms_status_templates")) {
+      const err = new Error(
+        "Status SMS templates need migration scripts/118-sms-status-templates.sql — run it in Neon SQL Editor."
+      )
+      ;(err as Error & { code?: string }).code = "SMS_STATUS_MIGRATION_REQUIRED"
+      throw err
+    }
     if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("sms_custom_snippets")) {
       const err = new Error(
         "Custom SMS snippets need migration scripts/117-sms-custom-snippets.sql — run it in Neon SQL Editor."

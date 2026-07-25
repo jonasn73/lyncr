@@ -8,7 +8,11 @@ import { Loader2, Plus, Star, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import type { OwnerSmsSnippet } from "@/lib/types"
+import {
+  DEFAULT_SMS_STATUS_TEMPLATES,
+  SMS_STATUS_TEMPLATE_META,
+} from "@/lib/sms-status-templates"
+import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
 
 type SmsSettings = {
   sms_booking_enabled: boolean
@@ -19,6 +23,7 @@ type SmsSettings = {
   sms_review_template: string
   google_review_url: string
   sms_custom_snippets: OwnerSmsSnippet[]
+  sms_status_templates: OwnerSmsStatusTemplates
 }
 
 /** Which message box the tag chips insert into. */
@@ -33,6 +38,7 @@ const EMPTY: SmsSettings = {
   sms_review_template: "",
   google_review_url: "",
   sms_custom_snippets: [],
+  sms_status_templates: { ...DEFAULT_SMS_STATUS_TEMPLATES },
 }
 
 const MAX_CUSTOM_SNIPPETS = 20
@@ -50,6 +56,7 @@ const TAGS: { tag: string; label: string }[] = [
   { tag: "{{business_name}}", label: "Business name" },
   { tag: "{{time_slot}}", label: "Appointment time" },
   { tag: "{{tech_name}}", label: "Tech name" },
+  { tag: "{{eta_minutes}}", label: "ETA minutes (late text)" },
   { tag: "{{review_url}}", label: "Review link" },
 ]
 
@@ -67,9 +74,11 @@ export function SmsAutomationForm({ onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   // Last message box the owner tapped — tags insert here.
   const [activeField, setActiveField] = useState<TemplateFieldKey>("sms_review_template")
+  const [activeStatusKey, setActiveStatusKey] = useState<keyof OwnerSmsStatusTemplates | null>(null)
   const bookingRef = useRef<HTMLTextAreaElement | null>(null)
   const routeRef = useRef<HTMLTextAreaElement | null>(null)
   const reviewRef = useRef<HTMLTextAreaElement | null>(null)
+  const statusRefs = useRef<Partial<Record<keyof OwnerSmsStatusTemplates, HTMLTextAreaElement | null>>>({})
   // Remember caret so a chip tap inserts where they were typing.
   const caretRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
 
@@ -88,6 +97,12 @@ export function SmsAutomationForm({ onSaved }: Props) {
           sms_review_template: s.sms_review_template ?? "",
           google_review_url: s.google_review_url ?? "",
           sms_custom_snippets: Array.isArray(s.sms_custom_snippets) ? s.sms_custom_snippets : [],
+          sms_status_templates: {
+            ...DEFAULT_SMS_STATUS_TEMPLATES,
+            ...(s.sms_status_templates && typeof s.sms_status_templates === "object"
+              ? s.sms_status_templates
+              : {}),
+          },
         })
       })
       .catch(() => {})
@@ -113,12 +128,44 @@ export function SmsAutomationForm({ onSaved }: Props) {
 
   const insertTag = useCallback(
     (tag: string) => {
+      const start = caretRef.current.start
+      const end = caretRef.current.end
+
+      if (activeStatusKey) {
+        const el = statusRefs.current[activeStatusKey] ?? null
+        const current = settings.sms_status_templates[activeStatusKey] ?? ""
+        const s = el?.selectionStart ?? start
+        const e = el?.selectionEnd ?? end
+        const next = current.slice(0, s) + tag + current.slice(e)
+        if (next.length > 480) {
+          toast({
+            title: "Message too long",
+            description: "Remove some text before adding another tag.",
+            variant: "destructive",
+          })
+          return
+        }
+        patch("sms_status_templates", {
+          ...settings.sms_status_templates,
+          [activeStatusKey]: next,
+        })
+        const cursor = s + tag.length
+        caretRef.current = { start: cursor, end: cursor }
+        requestAnimationFrame(() => {
+          const box = statusRefs.current[activeStatusKey]
+          if (!box) return
+          box.focus()
+          box.setSelectionRange(cursor, cursor)
+        })
+        return
+      }
+
       const key = activeField
       const el = refFor(key).current
       const current = settings[key] ?? ""
-      const start = el ? el.selectionStart ?? caretRef.current.start : caretRef.current.start
-      const end = el ? el.selectionEnd ?? caretRef.current.end : caretRef.current.end
-      const next = current.slice(0, start) + tag + current.slice(end)
+      const s = el ? el.selectionStart ?? start : start
+      const e = el ? el.selectionEnd ?? end : end
+      const next = current.slice(0, s) + tag + current.slice(e)
       if (next.length > 480) {
         toast({
           title: "Message too long",
@@ -128,9 +175,8 @@ export function SmsAutomationForm({ onSaved }: Props) {
         return
       }
       patch(key, next)
-      const cursor = start + tag.length
+      const cursor = s + tag.length
       caretRef.current = { start: cursor, end: cursor }
-      // Put the caret after the inserted tag on the next paint.
       requestAnimationFrame(() => {
         const box = refFor(key).current
         if (!box) return
@@ -138,9 +184,8 @@ export function SmsAutomationForm({ onSaved }: Props) {
         box.setSelectionRange(cursor, cursor)
       })
     },
-    // settings + activeField needed for insert; toast is stable enough
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-    [activeField, settings, toast]
+    [activeField, activeStatusKey, settings, toast]
   )
 
   async function save() {
@@ -213,8 +258,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
     )
   }
 
-  const activeLabel =
-    activeField === "sms_booking_template"
+  const activeLabel = activeStatusKey
+    ? SMS_STATUS_TEMPLATE_META.find((m) => m.key === activeStatusKey)?.title || "Status update"
+    : activeField === "sms_booking_template"
       ? "Booking confirmation"
       : activeField === "sms_route_template"
         ? "On the way"
@@ -258,9 +304,12 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onChange={(v) => patch("sms_booking_template", v)}
         placeholder={PLACEHOLDERS.booking}
         disabled={saving}
-        active={activeField === "sms_booking_template"}
+        active={activeStatusKey == null && activeField === "sms_booking_template"}
         textareaRef={bookingRef}
-        onActivate={() => setActiveField("sms_booking_template")}
+        onActivate={() => {
+          setActiveStatusKey(null)
+          setActiveField("sms_booking_template")
+        }}
         onCaret={rememberCaret}
       />
       <PhaseBlock
@@ -273,9 +322,12 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onChange={(v) => patch("sms_route_template", v)}
         placeholder={PLACEHOLDERS.route}
         disabled={saving}
-        active={activeField === "sms_route_template"}
+        active={activeStatusKey == null && activeField === "sms_route_template"}
         textareaRef={routeRef}
-        onActivate={() => setActiveField("sms_route_template")}
+        onActivate={() => {
+          setActiveStatusKey(null)
+          setActiveField("sms_route_template")
+        }}
         onCaret={rememberCaret}
       />
       <PhaseBlock
@@ -288,11 +340,62 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onChange={(v) => patch("sms_review_template", v)}
         placeholder={PLACEHOLDERS.review}
         disabled={saving}
-        active={activeField === "sms_review_template"}
+        active={activeStatusKey == null && activeField === "sms_review_template"}
         textareaRef={reviewRef}
-        onActivate={() => setActiveField("sms_review_template")}
+        onActivate={() => {
+          setActiveStatusKey(null)
+          setActiveField("sms_review_template")
+        }}
         onCaret={rememberCaret}
       />
+
+      <section className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">Status updates</p>
+          <p className="text-xs text-zinc-500">
+            Texts customers get when you’re late, on site, or paused. Use {"{{eta_minutes}}"} in the late
+            message. Tap a tag chip above to insert it.
+          </p>
+        </div>
+        {SMS_STATUS_TEMPLATE_META.map((meta) => (
+          <div
+            key={meta.key}
+            className={cn(
+              "space-y-1.5 rounded-lg p-2",
+              activeStatusKey === meta.key && "ring-1 ring-amber-400/40"
+            )}
+          >
+            <p className="text-xs font-semibold text-amber-100/90">{meta.title}</p>
+            <p className="text-[11px] text-zinc-500">{meta.description}</p>
+            <textarea
+              ref={(el) => {
+                statusRefs.current[meta.key] = el
+              }}
+              rows={2}
+              className={fieldClass + " resize-y"}
+              value={settings.sms_status_templates[meta.key]}
+              onChange={(e) => {
+                patch("sms_status_templates", {
+                  ...settings.sms_status_templates,
+                  [meta.key]: e.target.value,
+                })
+                rememberCaret(e.currentTarget)
+              }}
+              onFocus={(e) => {
+                setActiveStatusKey(meta.key)
+                rememberCaret(e.currentTarget)
+              }}
+              onClick={(e) => rememberCaret(e.currentTarget)}
+              onKeyUp={(e) => rememberCaret(e.currentTarget)}
+              onSelect={(e) => rememberCaret(e.currentTarget)}
+              placeholder={DEFAULT_SMS_STATUS_TEMPLATES[meta.key]}
+              maxLength={480}
+              disabled={saving}
+              aria-label={meta.title}
+            />
+          </div>
+        ))}
+      </section>
 
       <label className="block">
         <span className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">

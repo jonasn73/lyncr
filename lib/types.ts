@@ -322,7 +322,15 @@ export interface OwnerSmsSnippet {
   body: string
 }
 
-/** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062 + 117). */
+/** Field status customer SMS copy (scripts/118) — late / on site / paused. */
+export interface OwnerSmsStatusTemplates {
+  late: string
+  arrived: string
+  paused_wait: string
+  paused_parts: string
+}
+
+/** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062 + 117/118). */
 export interface OwnerSmsSettings {
   sms_booking_enabled: boolean
   sms_route_enabled: boolean
@@ -333,6 +341,8 @@ export interface OwnerSmsSettings {
   google_review_url: string | null
   /** Custom reusable texts — Settings → SMS templates + composer. */
   sms_custom_snippets: OwnerSmsSnippet[]
+  /** Late / arrived / pause customer texts. */
+  sms_status_templates: OwnerSmsStatusTemplates
 }
 
 /** Dispatch context for a single job, used by the SMS pipeline + tracking. */
