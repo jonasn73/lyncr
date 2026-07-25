@@ -136,3 +136,32 @@ export async function getReviewLinkStatsForLead(
     throw e
   }
 }
+
+/** Review-link click totals keyed by customer phone (for Latest feed). */
+export async function listReviewLinkClickHintsForOwner(
+  ownerUserId: string,
+  limit = 40
+): Promise<Array<{ phone: string; click_count: number }>> {
+  const sql = getSql()
+  const cap = Math.min(Math.max(limit, 1), 100)
+  try {
+    const rows = await sql`
+      SELECT customer_phone, click_count
+      FROM review_link_tokens
+      WHERE owner_user_id = ${ownerUserId}::uuid
+        AND customer_phone IS NOT NULL
+        AND customer_phone <> ''
+      ORDER BY created_at DESC
+      LIMIT ${cap}
+    `
+    return rows
+      .map((row) => ({
+        phone: String((row as { customer_phone?: unknown }).customer_phone ?? ""),
+        click_count: Number((row as { click_count?: unknown }).click_count ?? 0),
+      }))
+      .filter((r) => r.phone)
+  } catch (e) {
+    if (isMissingReviewTokensTable(e)) return []
+    throw e
+  }
+}
