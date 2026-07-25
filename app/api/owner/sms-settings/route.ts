@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getOwnerSmsSettings, getUser, updateOwnerSmsSettings } from "@/lib/db"
+import { getOwnerSmsSettings, getUser, normalizeOwnerSmsSnippets, updateOwnerSmsSettings } from "@/lib/db"
 import type { OwnerSmsSettings } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -54,11 +54,22 @@ export async function PUT(req: NextRequest) {
     updates.google_review_url =
       typeof body.google_review_url === "string" ? body.google_review_url.trim().slice(0, 500) || null : null
   }
+  if (body.sms_custom_snippets !== undefined) {
+    updates.sms_custom_snippets = normalizeOwnerSmsSnippets(body.sms_custom_snippets)
+  }
 
   try {
     const settings = await updateOwnerSmsSettings(userId, updates)
     return NextResponse.json({ data: settings })
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Could not save settings"
+    const code = e instanceof Error && "code" in e ? String((e as { code?: string }).code) : ""
+    if (code === "SMS_SNIPPETS_MIGRATION_REQUIRED" || msg.includes("117-sms-custom-snippets")) {
+      return NextResponse.json(
+        { error: msg, migration: "scripts/117-sms-custom-snippets.sql" },
+        { status: 503 }
+      )
+    }
     console.error("[PUT /api/owner/sms-settings] failed:", e)
     return NextResponse.json({ error: "Could not save settings" }, { status: 500 })
   }

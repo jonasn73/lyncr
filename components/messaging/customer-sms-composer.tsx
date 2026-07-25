@@ -2,7 +2,7 @@
 
 // Shared owner → customer SMS composer (late/ETA + presets + custom).
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link2, Loader2, MessageSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -12,6 +12,7 @@ import {
   DEFAULT_LATE_ETA_MINUTES,
   MISSED_CALL_SMS_QUICK_TEMPLATES,
 } from "@/lib/customer-sms-presets"
+import type { OwnerSmsSnippet } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -65,6 +66,25 @@ export function CustomerSmsComposer({
   const [etaMinutes, setEtaMinutes] = useState(String(DEFAULT_LATE_ETA_MINUTES))
   const [sending, setSending] = useState(false)
   const [bookingBusy, setBookingBusy] = useState(false)
+  // Owner-saved reusable texts from Settings → SMS templates.
+  const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch("/api/owner/sms-settings", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { data?: { sms_custom_snippets?: OwnerSmsSnippet[] } } | null) => {
+        if (cancelled || !json?.data) return
+        const list = Array.isArray(json.data.sms_custom_snippets) ? json.data.sms_custom_snippets : []
+        setCustomSnippets(list.filter((s) => s?.body?.trim()))
+      })
+      .catch(() => {
+        /* built-ins still work */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const sendText = useCallback(
     async (text: string) => {
@@ -238,6 +258,27 @@ export function CustomerSmsComposer({
           )}
           {isMissed ? "Send booking link" : "Re-send booking link"}
         </button>
+      ) : null}
+
+      {showQuickTemplates && customSnippets.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/70">Your texts</p>
+          <ul className="flex flex-col gap-1">
+            {customSnippets.map((snip) => (
+              <li key={snip.id}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void sendText(snip.body)}
+                  className="w-full rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-left text-xs font-medium text-emerald-50 hover:border-emerald-400/50 hover:bg-emerald-500/20 disabled:opacity-50"
+                >
+                  <span className="block font-semibold text-emerald-200">{snip.label}</span>
+                  <span className="mt-0.5 line-clamp-2 text-[11px] text-emerald-100/80">{snip.body}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {showQuickTemplates ? (

@@ -21,8 +21,8 @@ export function SmsAutomationModal({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>SMS templates</DialogTitle>
           <DialogDescription>
-            Set the exact texts for booking, on the way, and thanks + review. Turn auto-send on or off for each —
-            Today’s buttons still use your wording either way.
+            Edit booking, on the way, and thanks + review — plus your own reusable quick texts. Tap a tag chip to insert
+            it where you’re typing.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[calc(92vh-8rem)] overflow-y-auto pr-1">

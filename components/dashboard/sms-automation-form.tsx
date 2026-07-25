@@ -4,10 +4,11 @@
 // Tap merge-tag chips to insert into the message field you’re editing.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
-import { Loader2, Star } from "lucide-react"
+import { Loader2, Plus, Star, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import type { OwnerSmsSnippet } from "@/lib/types"
 
 type SmsSettings = {
   sms_booking_enabled: boolean
@@ -17,6 +18,7 @@ type SmsSettings = {
   sms_route_template: string
   sms_review_template: string
   google_review_url: string
+  sms_custom_snippets: OwnerSmsSnippet[]
 }
 
 /** Which message box the tag chips insert into. */
@@ -30,7 +32,10 @@ const EMPTY: SmsSettings = {
   sms_route_template: "",
   sms_review_template: "",
   google_review_url: "",
+  sms_custom_snippets: [],
 }
+
+const MAX_CUSTOM_SNIPPETS = 20
 
 const PLACEHOLDERS = {
   booking:
@@ -82,6 +87,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
           sms_route_template: s.sms_route_template ?? "",
           sms_review_template: s.sms_review_template ?? "",
           google_review_url: s.google_review_url ?? "",
+          sms_custom_snippets: Array.isArray(s.sms_custom_snippets) ? s.sms_custom_snippets : [],
         })
       })
       .catch(() => {})
@@ -147,8 +153,10 @@ export function SmsAutomationForm({ onSaved }: Props) {
         body: JSON.stringify(settings),
       })
       if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(j.error || "Save failed")
+        const j = (await res.json().catch(() => ({}))) as { error?: string; migration?: string }
+        throw new Error(
+          j.migration ? `Run ${j.migration} in Neon, then try again.` : j.error || "Save failed"
+        )
       }
       toast({ title: "SMS templates saved" })
       onSaved?.()
@@ -161,6 +169,39 @@ export function SmsAutomationForm({ onSaved }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  function addSnippet() {
+    if (settings.sms_custom_snippets.length >= MAX_CUSTOM_SNIPPETS) {
+      toast({
+        title: "Limit reached",
+        description: `You can save up to ${MAX_CUSTOM_SNIPPETS} custom texts.`,
+        variant: "destructive",
+      })
+      return
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `snip_${Date.now()}`
+    patch("sms_custom_snippets", [
+      ...settings.sms_custom_snippets,
+      { id, label: "New text", body: "" },
+    ])
+  }
+
+  function updateSnippet(id: string, patchRow: Partial<OwnerSmsSnippet>) {
+    patch(
+      "sms_custom_snippets",
+      settings.sms_custom_snippets.map((s) => (s.id === id ? { ...s, ...patchRow } : s))
+    )
+  }
+
+  function removeSnippet(id: string) {
+    patch(
+      "sms_custom_snippets",
+      settings.sms_custom_snippets.filter((s) => s.id !== id)
+    )
   }
 
   if (loading) {
@@ -271,6 +312,72 @@ export function SmsAutomationForm({ onSaved }: Props) {
         </p>
       </label>
 
+      <section className="space-y-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Your saved texts</p>
+            <p className="text-xs text-zinc-500">
+              Custom shortcuts you can reuse anytime you text a customer (Activities, Scheduler, etc.).
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={saving || settings.sms_custom_snippets.length >= MAX_CUSTOM_SNIPPETS}
+            onClick={addSnippet}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/25 disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </button>
+        </div>
+        {settings.sms_custom_snippets.length === 0 ? (
+          <p className="text-xs text-zinc-500">
+            No custom texts yet. Tap Add — e.g. “On my way in 20” or “What’s the address?”
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {settings.sms_custom_snippets.map((snip) => (
+              <li
+                key={snip.id}
+                className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={snip.label}
+                    maxLength={40}
+                    disabled={saving}
+                    onChange={(e) => updateSnippet(snip.id, { label: e.target.value })}
+                    placeholder="Short name"
+                    className={cn(fieldClass, "flex-1")}
+                    aria-label="Shortcut name"
+                  />
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => removeSnippet(snip.id)}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 hover:border-rose-500/40 hover:text-rose-300 disabled:opacity-50"
+                    aria-label={`Delete ${snip.label || "text"}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <textarea
+                  rows={2}
+                  value={snip.body}
+                  maxLength={480}
+                  disabled={saving}
+                  onChange={(e) => updateSnippet(snip.id, { body: e.target.value })}
+                  placeholder="Message to send when you tap this shortcut…"
+                  className={cn(fieldClass, "resize-y")}
+                  aria-label={`${snip.label || "Custom"} message body`}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <button
         type="button"
         disabled={saving}
@@ -294,7 +401,7 @@ function PhaseBlock(props: {
   placeholder: string
   disabled: boolean
   active: boolean
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  textareaRef: RefObject<HTMLTextAreaElement | null>
   onActivate: () => void
   onCaret: (el: HTMLTextAreaElement) => void
 }) {

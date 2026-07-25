@@ -313,7 +313,16 @@ export interface TechLiveLocation {
   longitude: number
 }
 
-/** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062). */
+/** One reusable quick text the owner can edit and tap to send (scripts/117). */
+export interface OwnerSmsSnippet {
+  id: string
+  /** Short name shown on the button (e.g. "Running late"). */
+  label: string
+  /** Full SMS body sent when they tap this shortcut. */
+  body: string
+}
+
+/** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062 + 117). */
 export interface OwnerSmsSettings {
   sms_booking_enabled: boolean
   sms_route_enabled: boolean
@@ -322,6 +331,8 @@ export interface OwnerSmsSettings {
   sms_route_template: string | null
   sms_review_template: string | null
   google_review_url: string | null
+  /** Custom reusable texts — Settings → SMS templates + composer. */
+  sms_custom_snippets: OwnerSmsSnippet[]
 }
 
 /** Dispatch context for a single job, used by the SMS pipeline + tracking. */

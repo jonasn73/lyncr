@@ -9647,7 +9647,35 @@ function isMissingTechTrackingColumnError(e: unknown): boolean {
 function isMissingSmsEngineColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   const msg = pgErrorMessage(e)
-  return msg.includes("sms_booking") || msg.includes("sms_route") || msg.includes("sms_review") || msg.includes("google_review_url")
+  return (
+    msg.includes("sms_booking") ||
+    msg.includes("sms_route") ||
+    msg.includes("sms_review") ||
+    msg.includes("google_review_url") ||
+    msg.includes("sms_custom_snippets")
+  )
+}
+
+const SMS_SNIPPET_MAX = 20
+const SMS_SNIPPET_LABEL_MAX = 40
+const SMS_SNIPPET_BODY_MAX = 480
+
+/** Normalize/clamp custom SMS snippets from JSONB or API payloads. */
+export function normalizeOwnerSmsSnippets(raw: unknown): import("@/lib/types").OwnerSmsSnippet[] {
+  if (!Array.isArray(raw)) return []
+  const out: import("@/lib/types").OwnerSmsSnippet[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue
+    const row = item as Record<string, unknown>
+    const body = String(row.body ?? "").trim().slice(0, SMS_SNIPPET_BODY_MAX)
+    if (!body) continue
+    const label =
+      String(row.label ?? "").trim().slice(0, SMS_SNIPPET_LABEL_MAX) || body.slice(0, 28)
+    const id = String(row.id ?? "").trim() || `snip_${out.length + 1}_${Date.now()}`
+    out.push({ id, label, body })
+    if (out.length >= SMS_SNIPPET_MAX) break
+  }
+  return out
 }
 
 /** Persist a tech's live coordinates + status (no-op until scripts/062). */
@@ -9766,6 +9794,7 @@ function defaultOwnerSmsSettings(): OwnerSmsSettings {
     sms_route_template: null,
     sms_review_template: null,
     google_review_url: null,
+    sms_custom_snippets: [],
   }
 }
 
@@ -9775,7 +9804,8 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
   try {
     const rows = await sql`
       SELECT sms_booking_enabled, sms_route_enabled, sms_review_enabled,
-             sms_booking_template, sms_route_template, sms_review_template, google_review_url
+             sms_booking_template, sms_route_template, sms_review_template, google_review_url,
+             sms_custom_snippets
       FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1
     `
     const row = rows[0]
@@ -9788,8 +9818,40 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
       sms_route_template: row.sms_route_template != null ? String(row.sms_route_template) : null,
       sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
       google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
+      sms_custom_snippets: normalizeOwnerSmsSnippets(row.sms_custom_snippets),
     }
   } catch (e) {
+    // Pre-117: column missing — retry without snippets.
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("sms_custom_snippets")) {
+      try {
+        const rows = await sql`
+          SELECT sms_booking_enabled, sms_route_enabled, sms_review_enabled,
+                 sms_booking_template, sms_route_template, sms_review_template, google_review_url
+          FROM onboarding_profiles WHERE user_id = ${userId} LIMIT 1
+        `
+        const row = rows[0]
+        if (!row) return defaultOwnerSmsSettings()
+        return {
+          sms_booking_enabled: row.sms_booking_enabled === true,
+          sms_route_enabled: row.sms_route_enabled === true,
+          sms_review_enabled: row.sms_review_enabled === true,
+          sms_booking_template: row.sms_booking_template != null ? String(row.sms_booking_template) : null,
+          sms_route_template: row.sms_route_template != null ? String(row.sms_route_template) : null,
+          sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
+          google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
+          sms_custom_snippets: [],
+        }
+      } catch (e2) {
+        if (
+          isMissingSmsEngineColumnError(e2) ||
+          isMissingOnboardingProfilesTableError(e2) ||
+          isWrongLegacyProfilesTableError(e2)
+        ) {
+          return defaultOwnerSmsSettings()
+        }
+        throw e2
+      }
+    }
     if (isMissingSmsEngineColumnError(e) || isMissingOnboardingProfilesTableError(e) || isWrongLegacyProfilesTableError(e)) {
       return defaultOwnerSmsSettings()
     }
@@ -9816,19 +9878,35 @@ export async function updateOwnerSmsSettings(
     sms_review_template:
       updates.sms_review_template !== undefined ? updates.sms_review_template : cur.sms_review_template,
     google_review_url: updates.google_review_url !== undefined ? updates.google_review_url : cur.google_review_url,
+    sms_custom_snippets:
+      updates.sms_custom_snippets !== undefined
+        ? normalizeOwnerSmsSnippets(updates.sms_custom_snippets)
+        : cur.sms_custom_snippets,
   }
-  await sql`
-    UPDATE onboarding_profiles SET
-      sms_booking_enabled = ${next.sms_booking_enabled},
-      sms_route_enabled = ${next.sms_route_enabled},
-      sms_review_enabled = ${next.sms_review_enabled},
-      sms_booking_template = ${next.sms_booking_template},
-      sms_route_template = ${next.sms_route_template},
-      sms_review_template = ${next.sms_review_template},
-      google_review_url = ${next.google_review_url},
-      updated_at = now()
-    WHERE user_id = ${userId}
-  `
+  try {
+    await sql`
+      UPDATE onboarding_profiles SET
+        sms_booking_enabled = ${next.sms_booking_enabled},
+        sms_route_enabled = ${next.sms_route_enabled},
+        sms_review_enabled = ${next.sms_review_enabled},
+        sms_booking_template = ${next.sms_booking_template},
+        sms_route_template = ${next.sms_route_template},
+        sms_review_template = ${next.sms_review_template},
+        google_review_url = ${next.google_review_url},
+        sms_custom_snippets = ${JSON.stringify(next.sms_custom_snippets)}::jsonb,
+        updated_at = now()
+      WHERE user_id = ${userId}
+    `
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("sms_custom_snippets")) {
+      const err = new Error(
+        "Custom SMS snippets need migration scripts/117-sms-custom-snippets.sql — run it in Neon SQL Editor."
+      )
+      ;(err as Error & { code?: string }).code = "SMS_SNIPPETS_MIGRATION_REQUIRED"
+      throw err
+    }
+    throw e
+  }
   return next
 }
 
