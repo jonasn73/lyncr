@@ -107,8 +107,6 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [load, toast]
   )
 
-  if (!loading && items.length === 0) return null
-
   return (
     <>
       <div
@@ -129,10 +127,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               Latest
             </p>
             <p className={cn("font-semibold text-foreground", compact ? "text-sm" : "mt-0.5 text-base")}>
-              Recent texts
+              Recent activity
             </p>
             <p className={cn("text-zinc-500", compact ? "text-xs leading-snug" : "mt-1 text-sm")}>
-              Tap a row for delivery, review opens, and replies.
+              Finished jobs, texts you send, and customer replies.
             </p>
           </div>
           <button
@@ -151,6 +149,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading…
           </div>
+        ) : items.length === 0 ? (
+          <p className="mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
+            Nothing yet today. Finish a job or send Thanks + review — it’ll show up here with delivery
+            status.
+          </p>
         ) : (
           <ul className="mt-3 space-y-2">
             {items.map((item) => (
@@ -209,10 +212,26 @@ function LatestActionDetail({
   busyJobId: string | null
   onSendThanks: (jobId: string) => void
 }) {
-  const phoneLabel = formatPhoneDisplay(item.customerPhone) || item.customerPhone
-  const messagesHref = `/dashboard/messages?phone=${encodeURIComponent(item.customerPhone)}`
+  const phoneLabel = item.customerPhone
+    ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
+    : "No phone on file"
+  const messagesHref = item.customerPhone
+    ? `/dashboard/messages?phone=${encodeURIComponent(item.customerPhone)}`
+    : "/dashboard/messages"
 
   const steps: Array<{ label: string; done: boolean; detail?: string }> = []
+  if (item.event === "job_finished") {
+    steps.push({
+      label: "Job finished",
+      done: true,
+      detail: formatTimeAgo(item.at),
+    })
+    steps.push({
+      label: "Thanks + review text",
+      done: false,
+      detail: "Not sent yet — use the button below",
+    })
+  }
   if (item.lastOutbound) {
     steps.push({
       label: "Text sent",
@@ -319,13 +338,15 @@ function LatestActionDetail({
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 px-5 py-4">
-        <Link
-          href={messagesHref}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20"
-        >
-          <MessageSquare className="h-4 w-4" />
-          Open in Messages
-        </Link>
+        {item.customerPhone ? (
+          <Link
+            href={messagesHref}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Open in Messages
+          </Link>
+        ) : null}
         {item.completedJobId ? (
           <button
             type="button"

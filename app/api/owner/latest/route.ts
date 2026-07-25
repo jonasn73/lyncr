@@ -1,4 +1,4 @@
-// GET /api/owner/latest — recent customer SMS actions for the Lines “Latest” card.
+// GET /api/owner/latest — recent customer SMS + finished jobs for the Lines “Latest” card.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
@@ -7,14 +7,16 @@ import {
   getOrganizationForOwner,
   listOwnerSchedulerEvents,
   listSmsMessagesForOrganization,
+  listSmsMessagesForOwner,
   searchOwnerJobsByPhone,
 } from "@/lib/db"
 import {
   buildLatestCustomerActions,
   type LatestActionNameHint,
+  type LatestCompletedJobHint,
 } from "@/lib/latest-customer-actions"
 import { listReviewLinkClickHintsForOwner } from "@/lib/review-link-token"
-import { todayLocalRangeIso } from "@/lib/today-board"
+import { buildTodayJustFinishedJobs, todayLocalRangeIso } from "@/lib/today-board"
 
 function phoneKey(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10)
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     const { fromIso, toIso } = todayLocalRangeIso(new Date())
 
-    const [messages, dayEvents, reviewHints] = await Promise.all([
+    const [orgMessages, dayEvents, reviewHints] = await Promise.all([
       org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
       listOwnerSchedulerEvents({
         ownerUserId: userId,
@@ -50,8 +52,11 @@ export async function GET(req: NextRequest) {
       listReviewLinkClickHintsForOwner(userId, 40),
     ])
 
+    // If this workspace has no SMS rows, still show owner-wide texts (null/other org).
+    const messages =
+      orgMessages.length > 0 ? orgMessages : await listSmsMessagesForOwner(userId, 120)
+
     // Map phones → customer names + completed job ids from today’s calendar.
-    // Newest events first so completed/name from the latest job wins.
     const nameHints: LatestActionNameHint[] = []
     const sortedEvents = [...dayEvents].sort((a, b) => {
       const aT = Date.parse(a.scheduled_at || a.created_at) || 0
@@ -69,6 +74,16 @@ export async function GET(req: NextRequest) {
         completedJobId: completed,
       })
     }
+
+    const finishedJobs = buildTodayJustFinishedJobs(dayEvents, 6)
+    const completedJobs: LatestCompletedJobHint[] = finishedJobs.map((job) => ({
+      id: job.id,
+      customerPhone: job.customerPhone,
+      customerName: job.customerName,
+      location: job.location,
+      summary: job.summary,
+      at: job.scheduledAt || new Date().toISOString(),
+    }))
 
     // For recent SMS phones missing a today-calendar name, look up the latest job.
     const known = new Set(
@@ -111,6 +126,7 @@ export async function GET(req: NextRequest) {
       messages,
       nameHints,
       reviewHints,
+      completedJobs,
       limit: 6,
     })
 

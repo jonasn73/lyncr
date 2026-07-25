@@ -3,8 +3,8 @@
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
 
-/** Kind of outbound text (heuristic from body). */
-export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other"
+/** Kind of outbound text (heuristic from body), or a finished job with no text yet. */
+export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other" | "job"
 
 /** One thread’s latest action for the Latest strip. */
 export type LatestCustomerAction = {
@@ -12,7 +12,7 @@ export type LatestCustomerAction = {
   customerPhone: string
   customerName: string
   /** What happened most recently. */
-  event: "sent" | "replied"
+  event: "sent" | "replied" | "job_finished"
   kind: LatestSmsKind
   /** e.g. “Review link sent to Jessica” */
   headline: string
@@ -41,6 +41,16 @@ export type LatestCustomerAction = {
   } | null
   /** Completed job id today (for Thanks + review), if matched. */
   completedJobId: string | null
+}
+
+export type LatestCompletedJobHint = {
+  id: string
+  customerPhone: string | null
+  customerName: string | null
+  location: string | null
+  summary: string | null
+  /** When the job finished / was scheduled (for sorting). */
+  at: string
 }
 
 function phoneKey(phone: string): string {
@@ -123,12 +133,14 @@ export type LatestReviewHint = {
 }
 
 /**
- * Turn recent SMS into Latest rows (one per customer thread, newest first).
+ * Turn recent SMS + today’s completed jobs into Latest rows (newest first).
+ * SMS threads win when both exist for the same phone.
  */
 export function buildLatestCustomerActions(params: {
   messages: SmsMessage[]
   nameHints?: LatestActionNameHint[]
   reviewHints?: LatestReviewHint[]
+  completedJobs?: LatestCompletedJobHint[]
   limit?: number
 }): LatestCustomerAction[] {
   const limit = params.limit ?? 5
@@ -150,11 +162,13 @@ export function buildLatestCustomerActions(params: {
     reviewByPhone.set(k, Math.max(reviewByPhone.get(k) ?? 0, r.click_count))
   }
 
-  const threads = groupThreads(params.messages).slice(0, limit)
+  const threads = groupThreads(params.messages)
   const out: LatestCustomerAction[] = []
+  const phonesWithSms = new Set<string>()
 
   for (const thread of threads) {
     const key = phoneKey(thread.customerPhone)
+    if (key) phonesWithSms.add(key)
     const name = nameByPhone.get(key) || "Customer"
     const last = thread.lastMessage
     const lastOutbound =
@@ -234,5 +248,31 @@ export function buildLatestCustomerActions(params: {
     })
   }
 
-  return out
+  // Completed jobs with no SMS thread yet — same “Just finished” surface as before.
+  for (const job of params.completedJobs ?? []) {
+    const phone = (job.customerPhone || "").trim()
+    const key = phoneKey(phone)
+    if (key && phonesWithSms.has(key)) continue
+    const name = (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
+    out.push({
+      id: `job-${job.id}`,
+      customerPhone: phone,
+      customerName: name,
+      event: "job_finished",
+      kind: "job",
+      headline: `${name} · job finished`,
+      statusLine: "Send Thanks + review",
+      preview: (job.location || job.summary || "Completed").trim(),
+      at: job.at,
+      deliveryLabel: null,
+      reviewLinkOpened: false,
+      reviewLinkClicks: 0,
+      lastOutbound: null,
+      lastInbound: null,
+      completedJobId: job.id,
+    })
+  }
+
+  out.sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+  return out.slice(0, limit)
 }

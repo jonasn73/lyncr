@@ -5442,6 +5442,27 @@ export async function listSmsMessagesForOrganization(
   }
 }
 
+/** Recent SMS for an owner across all workspaces (Latest feed fallback). */
+export async function listSmsMessagesForOwner(
+  ownerUserId: string,
+  limit = 100
+): Promise<SmsMessage[]> {
+  const sql = getSql()
+  const cap = Math.min(Math.max(limit, 1), 500)
+  try {
+    const rows = await sql`
+      SELECT * FROM sms_messages
+      WHERE owner_user_id = ${ownerUserId}
+      ORDER BY created_at DESC
+      LIMIT ${cap}
+    `
+    return rows.map((r) => parseSmsMessageRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isMissingSmsMessagesTableError(e)) return []
+    throw e
+  }
+}
+
 /**
  * Update outbound SMS delivery from Telnyx message.sent / message.finalized / message.failed.
  * Matches on telnyx_message_id (scripts/119 columns optional until migrated).
