@@ -205,8 +205,10 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
     )
   }
 
-  // Case 3 — single isolated caller
+  // Case 3 — single isolated caller (show who, not just a count)
   const phone = mode.prospect.from_number
+  const phoneLabel = formatPhoneDisplay(phone) || phone
+  const missedAgo = formatMissedAgo(mode.prospect.latestAt)
   return (
     <>
       <div
@@ -216,9 +218,14 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
         )}
         role="status"
       >
-        <p className="min-w-0 text-sm font-medium text-amber-100/95">
-          ⚠️ 1 unreturned prospect waiting
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-amber-100/95">
+            ⚠️ Unreturned: {phoneLabel}
+          </p>
+          <p className="mt-0.5 truncate text-[11px] text-amber-200/70">
+            Missed call{missedAgo ? ` · ${missedAgo}` : ""} · waiting for callback
+          </p>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
@@ -255,3 +262,23 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
     </>
   )
 })
+
+/** Short relative time for the missed-call banner (e.g. “12m ago”). */
+function formatMissedAgo(iso: string): string {
+  // Turn the ISO timestamp string into milliseconds since 1970.
+  const t = Date.parse(iso)
+  // If the date is invalid, show nothing instead of "NaN ago".
+  if (!Number.isFinite(t)) return ""
+  // How many whole minutes have passed since that missed call.
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60_000))
+  // Under one minute → say it just happened.
+  if (mins < 1) return "just now"
+  // Under one hour → show minutes (e.g. "12m ago").
+  if (mins < 60) return `${mins}m ago`
+  // Convert leftover minutes into hours.
+  const hours = Math.floor(mins / 60)
+  // Under one day → show hours (e.g. "2h ago").
+  if (hours < 24) return `${hours}h ago`
+  // Older than a day → show days (e.g. "1d ago").
+  return `${Math.floor(hours / 24)}d ago`
+}
