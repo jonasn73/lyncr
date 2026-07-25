@@ -118,6 +118,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 113 | `113-collect-pay-links.sql` | **Branded pay links.** Creates **`collect_pay_links`** (short token → Stripe Checkout session). Powers SMS/email **`lyncr.app/pay/{token}`** pages with embedded checkout (no `checkout.stripe.com` URL). App falls back to Stripe metadata search if this table is missing. |
 | 114 | `114-stripe-connect-accounts.sql` | **Get paid (Stripe Connect).** Adds **`users.stripe_connect_account_id`**, **`stripe_connect_charges_enabled`**, **`stripe_connect_payouts_enabled`**, **`stripe_connect_details_submitted`**, **`stripe_connect_updated_at`**. Powers in-app Connect Express onboarding so Collect Payment charges go to each shop’s bank (Lyncr takes 2.9% + $0.30). **Required** before Connect payouts work. |
 | 115 | `115-payment-receipt-tokens.sql` | **Short invoice links.** Creates **`payment_receipt_tokens`** (short token → Stripe PaymentIntent). Powers SMS/email **`lyncr.app/r/{token}`** invoice pages without a multi-line signed URL. **Required** for short invoice texts. |
+| 116 | `116-wallet-payment-intent-index.sql` | **Wallet PI lookup.** Unique index on **`wallet_transactions.stripe_payment_intent_id`** (non-null). Speeds confirm / webhook settle as the ledger grows. |
 
 ## Platform admin (`admin@lyncr.app`)
 

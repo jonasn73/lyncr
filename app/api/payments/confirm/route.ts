@@ -20,10 +20,12 @@ type Body = {
 
 async function settleAndRespond(
   paymentIntentId: string,
-  stripeConnectAccountId?: string | null
+  stripeConnectAccountId?: string | null,
+  intent?: Stripe.PaymentIntent | null
 ) {
   const result = await confirmJobPaymentIntent(paymentIntentId, {
     stripeConnectAccountId: stripeConnectAccountId || null,
+    intent: intent || null,
   })
   return NextResponse.json({
     data: {
@@ -126,7 +128,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return await settleAndRespond(paymentIntentId, stripeConnectAccountId)
+    return await settleAndRespond(paymentIntentId, stripeConnectAccountId, intent)
   } catch (e) {
     console.error("[payments/confirm]", e)
     const message = e instanceof Error ? e.message : "Could not confirm payment"

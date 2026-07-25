@@ -366,10 +366,14 @@ function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
 /** After ring, poll ringing + answered APIs — backup when Pusher is slow. */
 const RINGING_LOOKUP_DELAYS_MS = [0, 50, 150, 350]
 /** While a call is ringing, poll quickly until answered_at lands in Neon. */
-const RINGING_FAST_POLL_MS = 250
-const RINGING_FAST_POLL_MAX_MS = 90_000
-/** Safety net when Pusher is slow — only while the dashboard tab is visible. */
-const ANSWERED_VISIBILITY_POLL_MS = 800
+const RINGING_FAST_POLL_MS = 400
+const RINGING_FAST_POLL_MAX_MS = 45_000
+/**
+ * Safety-net poll while the dashboard tab is visible.
+ * With Pusher: slow fallback. Without: still moderate (not sub-second).
+ */
+const ANSWERED_VISIBILITY_POLL_MS_REALTIME = 12_000
+const ANSWERED_VISIBILITY_POLL_MS_FALLBACK = 3_000
 
 /** True when intake is mid-call (answered / on hold) — secondary rings should not steal the sheet. */
 function isIntakeCallActive(row: ActiveCallRow | null): boolean {
@@ -1179,19 +1183,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       }
     }
 
+    let lookupInFlight = false
     const tryShowActiveCall = () => {
-      void fetchFirstUnseenRingingCall(dismissedRef.current).then((ringing) => {
-        if (cancelled) return
-        if (ringing) {
-          showCallRow(setCurrent, ringing, dismissedRef.current)
-          return
-        }
-        void fetchFirstUnseenAnsweredCall(dismissedRef.current).then((answered) => {
-          if (cancelled || !answered) return
-          showCallRow(setCurrent, answered, dismissedRef.current)
-          stopRingingFastPoll()
+      // Skip overlapping polls — under load these stacked every 800ms.
+      if (lookupInFlight || cancelled) return
+      lookupInFlight = true
+      void fetchFirstUnseenRingingCall(dismissedRef.current)
+        .then((ringing) => {
+          if (cancelled) return
+          if (ringing) {
+            showCallRow(setCurrent, ringing, dismissedRef.current)
+            return
+          }
+          return fetchFirstUnseenAnsweredCall(dismissedRef.current).then((answered) => {
+            if (cancelled || !answered) return
+            showCallRow(setCurrent, answered, dismissedRef.current)
+            stopRingingFastPoll()
+          })
         })
-      })
+        .finally(() => {
+          lookupInFlight = false
+        })
     }
 
     const startRingingFastPoll = () => {
@@ -1222,10 +1234,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     tryShowActiveCall()
 
+    const pollMs = isRealtimeClientConfigured()
+      ? ANSWERED_VISIBILITY_POLL_MS_REALTIME
+      : ANSWERED_VISIBILITY_POLL_MS_FALLBACK
     const pollId = window.setInterval(() => {
       if (document.visibilityState !== "visible") return
       tryShowActiveCall()
-    }, ANSWERED_VISIBILITY_POLL_MS)
+    }, pollMs)
 
     if (!isRealtimeClientConfigured()) {
       return () => {

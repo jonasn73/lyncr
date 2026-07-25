@@ -376,7 +376,11 @@ export type ConfirmJobPaymentResult = {
  */
 export async function confirmJobPaymentIntent(
   paymentIntentId: string,
-  opts?: { stripeConnectAccountId?: string | null }
+  opts?: {
+    stripeConnectAccountId?: string | null
+    /** Skip a second Stripe retrieve when the caller already loaded the PI. */
+    intent?: import("stripe").Stripe.PaymentIntent | null
+  }
 ): Promise<ConfirmJobPaymentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -387,7 +391,11 @@ export async function confirmJobPaymentIntent(
   let connectAcct = (opts?.stripeConnectAccountId || "").trim() || null
 
   let intent: Awaited<ReturnType<typeof stripe.paymentIntents.retrieve>>
-  if (connectAcct) {
+  if (opts?.intent && opts.intent.id === pi) {
+    intent = opts.intent
+    const metaAcct = (intent.metadata?.stripe_connect_account_id || "").trim()
+    if (!connectAcct && metaAcct) connectAcct = metaAcct
+  } else if (connectAcct) {
     intent = await stripe.paymentIntents.retrieve(pi, { stripeAccount: connectAcct })
   } else {
     try {

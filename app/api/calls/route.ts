@@ -20,8 +20,11 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = req.nextUrl
-    const limit = parseInt(searchParams.get("limit") || "50", 10)
-    const offset = parseInt(searchParams.get("offset") || "0", 10)
+    const rawLimit = parseInt(searchParams.get("limit") || "50", 10)
+    const rawOffset = parseInt(searchParams.get("offset") || "0", 10)
+    // Cap page size — clients used to request unbounded history.
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 50
+    const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0
     const type = searchParams.get("type") || undefined // incoming, outgoing, missed, voicemail
 
     const calls = await getCallLogs(userId, { limit, offset, type })

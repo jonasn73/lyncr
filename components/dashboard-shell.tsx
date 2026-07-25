@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useCallback, useEffect, useMemo, useState, memo } from "react"
+import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
 import { AppShell, type AccountHeaderState, type PageId } from "@/components/app-shell"
 import { DashboardChromeProvider } from "@/components/dashboard-shell-chrome-context"
@@ -15,7 +16,6 @@ import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-nu
 import { DashboardLeadsPrefetch } from "@/components/dashboard-leads-prefetch"
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
-import { CallAnsweredModal } from "@/components/dashboard/CallAnsweredModal"
 import { PhotoUploadNotificationBanner } from "@/components/dashboard/photo-upload-notification-banner"
 import { DashboardOperatorHeartbeatHost } from "@/components/dashboard/dashboard-operator-heartbeat-host"
 import {
@@ -26,6 +26,13 @@ import {
   DashboardHeaderWorkspace,
   DashboardOrganizationsBootstrap,
 } from "@/components/dashboard-header-workspace"
+
+// Keep the heavy intake modal (Leaflet, framer-motion, ~4k LOC) out of the shell chunk.
+const CallAnsweredModal = dynamic(
+  () =>
+    import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
+  { ssr: false }
+)
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { LeadsWorkspaceCache } from "@/lib/leads-cache"
 import { LeadsWorkspaceInitialProvider } from "@/components/leads-workspace-initial-context"

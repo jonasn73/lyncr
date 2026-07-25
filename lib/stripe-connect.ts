@@ -58,7 +58,14 @@ export async function requireConnectReady(ownerUserId: string): Promise<ConnectR
   return result
 }
 
-export async function getConnectReadyState(ownerUserId: string): Promise<ConnectReadyResult> {
+/** Avoid Stripe account.retrieve on every Tap / card charge (webhook keeps flags fresh). */
+const CONNECT_SYNC_TTL_MS = 10 * 60 * 1000
+const connectSyncAtByUser = new Map<string, number>()
+
+export async function getConnectReadyState(
+  ownerUserId: string,
+  opts?: { forceSync?: boolean }
+): Promise<ConnectReadyResult> {
   const uid = ownerUserId.trim()
   if (!uid) {
     return {
@@ -68,11 +75,18 @@ export async function getConnectReadyState(ownerUserId: string): Promise<Connect
       reason: CONNECT_NOT_READY_MESSAGE,
     }
   }
-  // Refresh flags from Stripe when we have an account id (best-effort).
   let row = await getUserStripeConnect(uid)
-  if (row?.stripe_connect_account_id && isStripeConfigured()) {
+  const lastSync = connectSyncAtByUser.get(uid) ?? 0
+  const syncStale = Date.now() - lastSync > CONNECT_SYNC_TTL_MS
+  // Sync when forced, never synced this process, charges not enabled yet, or TTL expired.
+  const shouldSync =
+    Boolean(opts?.forceSync) ||
+    !row?.stripe_connect_charges_enabled ||
+    syncStale
+  if (row?.stripe_connect_account_id && isStripeConfigured() && shouldSync) {
     try {
       row = (await syncConnectAccountFromStripe(uid, row.stripe_connect_account_id)) ?? row
+      connectSyncAtByUser.set(uid, Date.now())
     } catch (e) {
       console.warn("[stripe-connect] sync before ready check:", e)
     }

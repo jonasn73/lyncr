@@ -68,12 +68,21 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
 
   useEffect(() => {
     void load()
-    const id = window.setInterval(() => void load(), 45_000)
+    // Pause when the tab is hidden — avoids background /api/calls traffic.
+    const id = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
+      void load()
+    }, 90_000)
     const onRefresh = () => void load()
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load()
+    }
     window.addEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onRefresh)
+    document.addEventListener("visibilitychange", onVisible)
     return () => {
       window.clearInterval(id)
       window.removeEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onRefresh)
+      document.removeEventListener("visibilitychange", onVisible)
     }
   }, [load])
 

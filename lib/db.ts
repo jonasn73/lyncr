@@ -3953,6 +3953,8 @@ export async function getDailyCallTelemetryForOwner(
           FROM call_logs
           WHERE user_id = ${telemetryOwnerUserId}
             AND to_number = ANY(${lineNumbers})
+            -- Bound scan (~current month + buffer) so we do not read full call history.
+            AND created_at >= now() - interval '40 days'
         )
         SELECT
           COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
@@ -4009,6 +4011,8 @@ export async function getDailyCallTelemetryForOwner(
             ) AS talk_seconds
           FROM call_logs
           WHERE user_id = ${telemetryOwnerUserId}
+            -- Bound scan (~current month + buffer) so we do not read full call history.
+            AND created_at >= now() - interval '40 days'
         )
         SELECT
           COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
@@ -8153,6 +8157,7 @@ export async function listOwnerSchedulerEvents(params: {
   const lim = Math.min(Math.max(params.limit ?? 200, 1), 500)
   const orgId = params.organizationId?.trim() || null
   try {
+    // Qualify all ai_leads columns — JOIN to field_technicians also has created_at.
     const rows = orgId
       ? await sql`
           SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
@@ -8161,13 +8166,13 @@ export async function listOwnerSchedulerEvents(params: {
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
           WHERE l.user_id = ${params.ownerUserId}
             AND (
-              disposition IN ('BOOKED', 'PENDING_TIME')
-              OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
-            AND COALESCE(scheduled_at, created_at) >= ${params.fromIso}::timestamptz
-            AND COALESCE(scheduled_at, created_at) <= ${params.toIso}::timestamptz
-            AND (organization_id IS NULL OR organization_id = ${orgId}::uuid)
-          ORDER BY COALESCE(scheduled_at, created_at) ASC
+            AND COALESCE(l.scheduled_at, l.created_at) >= ${params.fromIso}::timestamptz
+            AND COALESCE(l.scheduled_at, l.created_at) <= ${params.toIso}::timestamptz
+            AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
+          ORDER BY COALESCE(l.scheduled_at, l.created_at) ASC
           LIMIT ${lim}
         `
       : await sql`
@@ -8177,12 +8182,12 @@ export async function listOwnerSchedulerEvents(params: {
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
           WHERE l.user_id = ${params.ownerUserId}
             AND (
-              disposition IN ('BOOKED', 'PENDING_TIME')
-              OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
             )
-            AND COALESCE(scheduled_at, created_at) >= ${params.fromIso}::timestamptz
-            AND COALESCE(scheduled_at, created_at) <= ${params.toIso}::timestamptz
-          ORDER BY COALESCE(scheduled_at, created_at) ASC
+            AND COALESCE(l.scheduled_at, l.created_at) >= ${params.fromIso}::timestamptz
+            AND COALESCE(l.scheduled_at, l.created_at) <= ${params.toIso}::timestamptz
+          ORDER BY COALESCE(l.scheduled_at, l.created_at) ASC
           LIMIT ${lim}
         `
     return rows.map((r) => schedulerEventFromRow(r as Record<string, unknown>))

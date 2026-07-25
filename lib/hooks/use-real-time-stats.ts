@@ -491,22 +491,42 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     ).length
   }, [activeCallSessions, selectedLineDigits])
 
-  return {
-    dailyCalls,
-    missedCalls,
-    dailyTalkSeconds,
-    weeklyTalkSeconds,
-    monthlyTalkSeconds,
-    liveDailyTalkSeconds,
-    liveWeeklyTalkSeconds,
-    liveMonthlyTalkSeconds,
-    bookingRatePercent,
-    avgDispatchSpeedMinutes,
-    rescueRevenueCents,
-    liveLineCount,
-    activeCallsOnSelectedLine,
-    activeCallSessions,
-    realtimeConnected,
-    refreshBaseline,
-  }
+  return useMemo(
+    () => ({
+      dailyCalls,
+      missedCalls,
+      dailyTalkSeconds,
+      weeklyTalkSeconds,
+      monthlyTalkSeconds,
+      liveDailyTalkSeconds,
+      liveWeeklyTalkSeconds,
+      liveMonthlyTalkSeconds,
+      bookingRatePercent,
+      avgDispatchSpeedMinutes,
+      rescueRevenueCents,
+      liveLineCount,
+      activeCallsOnSelectedLine,
+      activeCallSessions,
+      realtimeConnected,
+      refreshBaseline,
+    }),
+    [
+      dailyCalls,
+      missedCalls,
+      dailyTalkSeconds,
+      weeklyTalkSeconds,
+      monthlyTalkSeconds,
+      liveDailyTalkSeconds,
+      liveWeeklyTalkSeconds,
+      liveMonthlyTalkSeconds,
+      bookingRatePercent,
+      avgDispatchSpeedMinutes,
+      rescueRevenueCents,
+      liveLineCount,
+      activeCallsOnSelectedLine,
+      activeCallSessions,
+      realtimeConnected,
+      refreshBaseline,
+    ]
+  )
 }

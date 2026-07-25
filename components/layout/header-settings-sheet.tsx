@@ -112,15 +112,22 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
   useEffect(() => {
     refreshCollected()
-    const id = window.setInterval(refreshCollected, 60_000)
-    return () => window.clearInterval(id)
+    // Refresh when visible; skip background polls that pile up while phone is locked.
+    const id = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
+      refreshCollected()
+    }, 120_000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshCollected()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [refreshCollected])
 
-  // Warm “Today’s jobs” so Collect rarely shows a spinner.
-  useEffect(() => {
-    const id = window.setTimeout(() => prefetchCollectJobs(), 600)
-    return () => window.clearTimeout(id)
-  }, [])
+  // Collect jobs warm on wallet chip hover (onPointerEnter below) — not on every dashboard load.
 
   // Child Settings screens open as dialogs/sheets — close this sheet so they are not tucked under.
   useEffect(() => {
