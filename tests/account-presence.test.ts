@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { normalizePresenceStatus } from "@/lib/account-presence"
+import {
+  isBusyPresenceStatus,
+  isManualPresenceLock,
+  normalizePresenceStatus,
+} from "@/lib/account-presence"
 import {
   PRESENCE_CLOSED_PROMPT,
   PRESENCE_ON_JOB_PROMPT,
@@ -17,24 +21,38 @@ describe("account presence", () => {
     expect(normalizePresenceStatus("")).toBe("AVAILABLE")
   })
 
-  it("builds presence Closed and On-Job Gather prompts", () => {
+  it("treats Busy (ON_JOB) and Closed as cell-skipping presence", () => {
+    expect(isBusyPresenceStatus("ON_JOB")).toBe(true)
+    expect(isBusyPresenceStatus("CLOSED")).toBe(true)
+    expect(isBusyPresenceStatus("AVAILABLE")).toBe(false)
+  })
+
+  it("locks manual Busy and Closed against calendar cron clears", () => {
+    // Dashboard Busy must survive sync-presence when not in a blockout.
+    expect(isManualPresenceLock("ON_JOB", true)).toBe(true)
+    expect(isManualPresenceLock("CLOSED", true)).toBe(true)
+    // Calendar-driven ON_JOB (no manual lock) may still be cleared.
+    expect(isManualPresenceLock("ON_JOB", false)).toBe(false)
+    expect(isManualPresenceLock("AVAILABLE", true)).toBe(false)
+  })
+
+  it("builds presence Busy Gather prompts for Closed and On-Job steps", () => {
     const closed = buildPresenceClosedGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-closed"
     )
-    // TeXML escapes apostrophes — assert on distinctive unescaped phrases.
-    expect(closed).toContain("off-duty for the evening")
-    expect(closed).toContain("priority appointment slot")
+    // Unified Busy script (ON_JOB / CLOSED share one Speak). Apostrophes are TeXML-escaped.
+    expect(closed).toContain("can&apos;t take your call right now")
+    expect(closed).toContain("booking link by text")
     expect(closed).toContain("presence-closed")
 
     const onJob = buildPresenceOnJobGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-on-job"
     )
-    expect(onJob).toContain("live lockout service")
-    expect(onJob).toContain("next open dispatch slot")
+    expect(onJob).toContain("can&apos;t take your call right now")
     expect(onJob).toContain("presence-on-job")
 
-    // Closed and On-Job must not share the same Speak copy.
-    expect(PRESENCE_CLOSED_PROMPT).not.toBe(PRESENCE_ON_JOB_PROMPT)
+    // Product Busy greeting is shared across both presence steps.
+    expect(PRESENCE_CLOSED_PROMPT).toBe(PRESENCE_ON_JOB_PROMPT)
 
     const custom = buildPresenceOnJobGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-on-job",

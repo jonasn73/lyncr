@@ -18,7 +18,11 @@ export const PRESENCE_BUSY_WRITE_STATUS: PresenceStatus = "ON_JOB"
 
 export type AccountPresence = {
   presenceStatus: PresenceStatus
-  /** True when the owner manually tapped Closed (cron must not clear it). */
+  /**
+   * True when the owner manually tapped Busy (ON_JOB) or Closed.
+   * Calendar cron must not clear that choice back to AVAILABLE.
+   * (DB column name remains presence_closed_manual for older migrations.)
+   */
   presenceClosedManual: boolean
   /** Custom TeXML Speak when ON_JOB (falls back to product default). */
   onJobGreetingText: string
@@ -67,6 +71,17 @@ export function normalizePresenceStatus(raw: unknown): PresenceStatus {
 export function isBusyPresenceStatus(status: PresenceStatus | string | null | undefined): boolean {
   const v = normalizePresenceStatus(status)
   return v === "ON_JOB" || v === "CLOSED"
+}
+
+/**
+ * Manual Busy / Closed must survive the calendar sync cron.
+ * AVAILABLE is never locked — cron may still auto-set ON_JOB from blockouts.
+ */
+export function isManualPresenceLock(
+  status: PresenceStatus | string | null | undefined,
+  presenceClosedManual: boolean | null | undefined
+): boolean {
+  return presenceClosedManual === true && isBusyPresenceStatus(status)
 }
 
 /** Prefer trimmed custom Busy copy; ON_JOB and CLOSED share one script. */
@@ -294,19 +309,22 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
 
 /**
  * Owner dashboard toggle.
- * CLOSED → locks manual closed flag; Available / On-Job clears the lock.
+ * Busy (ON_JOB) or CLOSED → set manual lock so /api/cron/sync-presence cannot clear it.
+ * AVAILABLE → clear the lock (calendar may auto-busy again from blockouts).
  */
 export async function setAccountPresence(params: {
   ownerUserId: string
   presenceStatus: PresenceStatus
 }): Promise<AccountPresence> {
+  // Normalize aliases like "busy" → ON_JOB before writing.
   const status = normalizePresenceStatus(params.presenceStatus)
-  const closedManual = status === "CLOSED"
+  // Lock Busy and Closed so the 5-minute calendar cron cannot wipe them to AVAILABLE.
+  const manualLock = isBusyPresenceStatus(status)
   const sql = sqlClient()
   try {
     await sql`
       INSERT INTO account_settings (user_id, presence_status, presence_closed_manual, updated_at)
-      VALUES (${params.ownerUserId}, ${status}, ${closedManual}, now())
+      VALUES (${params.ownerUserId}, ${status}, ${manualLock}, now())
       ON CONFLICT (user_id) DO UPDATE SET
         presence_status = EXCLUDED.presence_status,
         presence_closed_manual = EXCLUDED.presence_closed_manual,
@@ -432,7 +450,7 @@ export async function setAccountPresenceGreetings(
 }
 
 /**
- * Calendar cron write — never clears a manually locked CLOSED.
+ * Calendar cron write — never clears a manually locked Busy (ON_JOB) or CLOSED.
  * Returns whether a row was updated.
  */
 export async function applyCalendarPresenceAutomation(params: {
@@ -442,14 +460,16 @@ export async function applyCalendarPresenceAutomation(params: {
   const sql = sqlClient()
   try {
     const current = await getAccountPresence(params.ownerUserId)
-    if (current.presenceStatus === "CLOSED" && current.presenceClosedManual) {
+    // Owner tapped Busy or Closed in the dashboard — leave that status alone.
+    if (isManualPresenceLock(current.presenceStatus, current.presenceClosedManual)) {
       return {
         updated: false,
-        presenceStatus: "CLOSED",
+        presenceStatus: current.presenceStatus,
         skippedClosedManual: true,
       }
     }
 
+    // Blockout → temporary ON_JOB; no blockout → AVAILABLE (calendar-driven only).
     const next: PresenceStatus = params.currentlyInBlockout ? "ON_JOB" : "AVAILABLE"
     if (current.presenceStatus === next && !current.presenceClosedManual) {
       return { updated: false, presenceStatus: next }
@@ -462,8 +482,8 @@ export async function applyCalendarPresenceAutomation(params: {
         presence_status = EXCLUDED.presence_status,
         presence_closed_manual = false,
         updated_at = now()
+      -- Never overwrite a dashboard Busy / Closed lock (column reused as manual lock).
       WHERE account_settings.presence_closed_manual IS NOT TRUE
-         OR account_settings.presence_status IS DISTINCT FROM 'CLOSED'
     `
     return { updated: true, presenceStatus: next }
   } catch (e) {

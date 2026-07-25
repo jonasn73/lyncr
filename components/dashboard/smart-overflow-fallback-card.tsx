@@ -115,6 +115,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           <DiagnosticBadges
             nextAvailableSlotText={nextAvailableSlotText}
             retellConnected={retellConnected}
+            presenceStatus={presenceStatus}
           />
         ) : null}
 
@@ -184,6 +185,7 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
         <DiagnosticBadges
           nextAvailableSlotText={nextAvailableSlotText}
           retellConnected={retellConnected}
+          presenceStatus={presenceStatus}
         />
       ) : null}
 
@@ -211,10 +213,14 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
 function DiagnosticBadges({
   nextAvailableSlotText,
   retellConnected = true,
+  presenceStatus = "AVAILABLE",
 }: {
   nextAvailableSlotText: string
   retellConnected?: boolean
+  presenceStatus?: PresenceStatus
 }) {
+  // Presence Busy already skips the cell via TeXML — do not show the Retell "waiting" badge.
+  const routingReady = retellConnected || isBusyPresenceStatus(presenceStatus)
   return (
     <div className="mt-3 flex flex-col gap-1.5">
       <span className="inline-flex w-fit items-center rounded border border-teal-900 bg-teal-950 px-2 py-0.5 text-[10px] font-semibold text-teal-400">
@@ -223,12 +229,12 @@ function DiagnosticBadges({
       <span
         className={cn(
           "inline-flex w-fit max-w-full items-center truncate rounded border px-2 py-0.5 text-[10px] font-semibold",
-          retellConnected
+          routingReady
             ? "border-emerald-900/80 bg-emerald-950/60 text-emerald-300"
             : "border-amber-900/80 bg-amber-950/50 text-amber-300"
         )}
       >
-        {retellConnected
+        {routingReady
           ? "Routing: Presence / capacity → keypad menu"
           : "Routing: Waiting / menu endpoint check"}
       </span>

@@ -14,7 +14,7 @@ COMMENT ON TABLE account_settings IS
 COMMENT ON COLUMN account_settings.presence_status IS
   'AVAILABLE = ring cell 15s; ON_JOB = busy IVR+SMS; CLOSED = closed IVR+SMS (no ring).';
 COMMENT ON COLUMN account_settings.presence_closed_manual IS
-  'True after owner taps Closed — calendar cron will not override until they leave Closed.';
+  'True after owner taps Busy (ON_JOB) or Closed — calendar cron will not override until they tap Available.';
 
 -- Seed rows for existing owners (safe if re-run).
 INSERT INTO account_settings (user_id, presence_status, presence_closed_manual)

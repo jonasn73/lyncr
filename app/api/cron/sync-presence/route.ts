@@ -1,5 +1,5 @@
 // GET /api/cron/sync-presence — every 5 minutes: calendar blockout → ON_JOB, else AVAILABLE.
-// Skips owners who manually locked CLOSED.
+// Skips owners who manually locked Busy (ON_JOB) or CLOSED in the dashboard.
 
 import { NextRequest, NextResponse } from "next/server"
 import {

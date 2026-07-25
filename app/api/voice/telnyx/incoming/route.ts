@@ -1614,12 +1614,19 @@ async function tryFastInboundReceptionistResponse(
             zing: `telnyx-incoming-capture-${plan.kind}`,
             callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
-            ringTail4: ownerDial.replace(/\D/g, "").slice(-4) || null,
+            // Only meaningful when we actually Dial; Busy / Closed skip the cell.
+            ringTail4:
+              plan.kind === "day_dial"
+                ? ownerDial.replace(/\D/g, "").slice(-4) || null
+                : null,
             dayRingTimeoutSec,
             lookupMs,
             routingSource: memHit ? "memory" : "db",
             routingMode,
             planKind: plan.kind,
+            // Helps diagnose “UI Busy but cell still rings” (cron wipe / wrong user).
+            presenceStatus: presence.presenceStatus,
+            presenceManualLock: presence.presenceClosedManual === true,
             ...(plan.kind === "calendar_full_day" || plan.kind === "calendar_partial"
               ? { dateKey: plan.dateKey, timeHhMm: plan.timeHhMm, reason: plan.reason }
               : {}),

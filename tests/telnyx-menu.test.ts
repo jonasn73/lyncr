@@ -93,13 +93,13 @@ describe("telnyx menu IVR helpers", () => {
     expect(TELNYX_MENU_PROMPT).toContain("Key Squad 502")
   })
 
-  it("resolves distinct Speak greetings for ON_JOB vs CLOSED presence", () => {
+  it("resolves unified Busy Speak greeting for ON_JOB and CLOSED presence", () => {
+    // Presence Busy uses one script for both ON_JOB and CLOSED.
     expect(resolveTelnyxMenuGreetingForPresence("ON_JOB")).toBe(TELNYX_MENU_ON_JOB_PROMPT)
     expect(resolveTelnyxMenuGreetingForPresence("CLOSED")).toBe(TELNYX_MENU_CLOSED_PROMPT)
     expect(resolveTelnyxMenuGreetingForPresence("AVAILABLE")).toBe(TELNYX_MENU_PROMPT)
-    expect(TELNYX_MENU_ON_JOB_PROMPT).toContain("live lockout service")
-    expect(TELNYX_MENU_CLOSED_PROMPT).toContain("off-duty for the evening")
-    expect(TELNYX_MENU_ON_JOB_PROMPT).not.toBe(TELNYX_MENU_CLOSED_PROMPT)
+    expect(TELNYX_MENU_ON_JOB_PROMPT).toContain("can't take your call right now")
+    expect(TELNYX_MENU_ON_JOB_PROMPT).toBe(TELNYX_MENU_CLOSED_PROMPT)
   })
 
   it("prefers custom account_settings greetings over product defaults", () => {

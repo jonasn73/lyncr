@@ -52,6 +52,14 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
+  // Re-read presence periodically so the bar matches the DB if something else changes it.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refresh()
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [refresh])
+
   const setPresenceStatus = useCallback(
     async (next: PresenceStatus) => {
       const prev = presenceStatus
