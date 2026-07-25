@@ -26,13 +26,6 @@ import {
   DashboardHeaderWorkspace,
   DashboardOrganizationsBootstrap,
 } from "@/components/dashboard-header-workspace"
-
-// Keep the heavy intake modal (Leaflet, framer-motion, ~4k LOC) out of the shell chunk.
-const CallAnsweredModal = dynamic(
-  () =>
-    import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
-  { ssr: false }
-)
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { LeadsWorkspaceCache } from "@/lib/leads-cache"
 import { LeadsWorkspaceInitialProvider } from "@/components/leads-workspace-initial-context"
@@ -45,6 +38,13 @@ import {
   useDashboardSessionOptional,
 } from "@/components/dashboard-session-context"
 import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
+
+// Keep the heavy intake modal (Leaflet, framer-motion, ~4k LOC) out of the shell chunk.
+const CallAnsweredModal = dynamic(
+  () =>
+    import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
+  { ssr: false }
+)
 
 const VALID_PAGES: PageId[] = [
   "dashboard",
