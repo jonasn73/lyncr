@@ -29,25 +29,31 @@ type SmsSettings = {
 /** Which message box the tag chips insert into. */
 type TemplateFieldKey = "sms_booking_template" | "sms_route_template" | "sms_review_template"
 
+const MAX_CUSTOM_SNIPPETS = 20
+
+/** Default copy shown as real editable text (not HTML placeholder — that disappears on click). */
+const DEFAULT_TEMPLATES = {
+  booking:
+    "Hi {{customer_name}}, this is {{business_name}}. Your appointment is confirmed for {{time_slot}}. Reply here if anything changes.",
+  route: "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!",
+  review: "Thanks for choosing {{business_name}}, {{customer_name}}! Leave us a quick review: {{review_url}}",
+}
+
 const EMPTY: SmsSettings = {
   sms_booking_enabled: false,
   sms_route_enabled: false,
   sms_review_enabled: false,
-  sms_booking_template: "",
-  sms_route_template: "",
-  sms_review_template: "",
+  sms_booking_template: DEFAULT_TEMPLATES.booking,
+  sms_route_template: DEFAULT_TEMPLATES.route,
+  sms_review_template: DEFAULT_TEMPLATES.review,
   google_review_url: "",
   sms_custom_snippets: [],
   sms_status_templates: { ...DEFAULT_SMS_STATUS_TEMPLATES },
 }
 
-const MAX_CUSTOM_SNIPPETS = 20
-
-const PLACEHOLDERS = {
-  booking:
-    "Hi {{customer_name}}, this is {{business_name}}. Your appointment is confirmed for {{time_slot}}. Reply here if anything changes.",
-  route: "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!",
-  review: "Thanks for choosing {{business_name}}, {{customer_name}}! Leave us a quick review: {{review_url}}",
+function withDefaultTemplate(saved: string | null | undefined, fallback: string): string {
+  const t = typeof saved === "string" ? saved.trim() : ""
+  return t || fallback
 }
 
 /** Tags Lyncr fills in at send time — tap to drop into the active message. */
@@ -92,16 +98,29 @@ export function SmsAutomationForm({ onSaved }: Props) {
           sms_booking_enabled: s.sms_booking_enabled === true,
           sms_route_enabled: s.sms_route_enabled === true,
           sms_review_enabled: s.sms_review_enabled === true,
-          sms_booking_template: s.sms_booking_template ?? "",
-          sms_route_template: s.sms_route_template ?? "",
-          sms_review_template: s.sms_review_template ?? "",
+          // Empty DB values → show default wording as editable text (not a vanishing placeholder).
+          sms_booking_template: withDefaultTemplate(s.sms_booking_template, DEFAULT_TEMPLATES.booking),
+          sms_route_template: withDefaultTemplate(s.sms_route_template, DEFAULT_TEMPLATES.route),
+          sms_review_template: withDefaultTemplate(s.sms_review_template, DEFAULT_TEMPLATES.review),
           google_review_url: s.google_review_url ?? "",
           sms_custom_snippets: Array.isArray(s.sms_custom_snippets) ? s.sms_custom_snippets : [],
           sms_status_templates: {
-            ...DEFAULT_SMS_STATUS_TEMPLATES,
-            ...(s.sms_status_templates && typeof s.sms_status_templates === "object"
-              ? s.sms_status_templates
-              : {}),
+            late: withDefaultTemplate(
+              s.sms_status_templates?.late,
+              DEFAULT_SMS_STATUS_TEMPLATES.late
+            ),
+            arrived: withDefaultTemplate(
+              s.sms_status_templates?.arrived,
+              DEFAULT_SMS_STATUS_TEMPLATES.arrived
+            ),
+            paused_wait: withDefaultTemplate(
+              s.sms_status_templates?.paused_wait,
+              DEFAULT_SMS_STATUS_TEMPLATES.paused_wait
+            ),
+            paused_parts: withDefaultTemplate(
+              s.sms_status_templates?.paused_parts,
+              DEFAULT_SMS_STATUS_TEMPLATES.paused_parts
+            ),
           },
         })
       })
@@ -302,7 +321,6 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onToggle={(v) => patch("sms_booking_enabled", v)}
         value={settings.sms_booking_template}
         onChange={(v) => patch("sms_booking_template", v)}
-        placeholder={PLACEHOLDERS.booking}
         disabled={saving}
         active={activeStatusKey == null && activeField === "sms_booking_template"}
         textareaRef={bookingRef}
@@ -320,7 +338,6 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onToggle={(v) => patch("sms_route_enabled", v)}
         value={settings.sms_route_template}
         onChange={(v) => patch("sms_route_template", v)}
-        placeholder={PLACEHOLDERS.route}
         disabled={saving}
         active={activeStatusKey == null && activeField === "sms_route_template"}
         textareaRef={routeRef}
@@ -338,7 +355,6 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onToggle={(v) => patch("sms_review_enabled", v)}
         value={settings.sms_review_template}
         onChange={(v) => patch("sms_review_template", v)}
-        placeholder={PLACEHOLDERS.review}
         disabled={saving}
         active={activeStatusKey == null && activeField === "sms_review_template"}
         textareaRef={reviewRef}
@@ -388,7 +404,6 @@ export function SmsAutomationForm({ onSaved }: Props) {
               onClick={(e) => rememberCaret(e.currentTarget)}
               onKeyUp={(e) => rememberCaret(e.currentTarget)}
               onSelect={(e) => rememberCaret(e.currentTarget)}
-              placeholder={DEFAULT_SMS_STATUS_TEMPLATES[meta.key]}
               maxLength={480}
               disabled={saving}
               aria-label={meta.title}
@@ -501,7 +516,6 @@ function PhaseBlock(props: {
   onToggle: (v: boolean) => void
   value: string
   onChange: (v: string) => void
-  placeholder: string
   disabled: boolean
   active: boolean
   textareaRef: RefObject<HTMLTextAreaElement | null>
@@ -535,7 +549,6 @@ function PhaseBlock(props: {
         onClick={(e) => props.onCaret(e.currentTarget)}
         onKeyUp={(e) => props.onCaret(e.currentTarget)}
         onSelect={(e) => props.onCaret(e.currentTarget)}
-        placeholder={props.placeholder}
         maxLength={480}
         disabled={props.disabled}
         aria-label={`${props.title} message`}
