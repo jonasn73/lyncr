@@ -1,6 +1,6 @@
 "use client"
 
-// In-app Stripe Connect — Get paid (onboarding + balance).
+// In-app Stripe Connect — Get paid (onboarding, balance, manual bank transfer).
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
@@ -9,9 +9,21 @@ import {
   ConnectComponentsProvider,
 } from "@stripe/react-connect-js"
 import { loadConnectAndInitialize } from "@stripe/connect-js"
-import { Banknote, CheckCircle2, Loader2, X } from "lucide-react"
+import { Banknote, CheckCircle2, Loader2, RefreshCw, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+
+type PayoutRow = {
+  id: string
+  amountCents: number
+  currency: string
+  status: string
+  arrivalDateLabel: string
+  createdLabel: string
+  method: string
+  failureMessage: string | null
+}
 
 /** Mirrors ConnectBusinessKind in lib/stripe-connect (keep client bundle free of Stripe server SDK). */
 type ConnectBusinessKind = "sole" | "llc" | "corporation"
@@ -59,6 +71,18 @@ function statusChip(status: ConnectStatus["status"]): { label: string; className
     return { label: "Unavailable", className: "border-zinc-600 bg-zinc-800 text-zinc-400" }
   }
   return { label: "Needs setup", className: "border-sky-500/40 bg-sky-500/15 text-sky-100" }
+}
+
+function payoutStatusClass(status: string): string {
+  const s = status.toLowerCase()
+  if (s === "paid") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (s === "pending" || s === "in_transit") {
+    return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+  }
+  if (s === "failed" || s === "canceled") {
+    return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+  }
+  return "border-zinc-700 bg-zinc-900 text-zinc-400"
 }
 
 /** Lyncr dark theme for Stripe Connect embeds. */
@@ -119,6 +143,11 @@ export function GetPaidSheet({
   const [sessionBusy, setSessionBusy] = useState(false)
   const [businessKind, setBusinessKind] = useState<ConnectBusinessKind>("llc")
   const [formReady, setFormReady] = useState(false)
+  const [payouts, setPayouts] = useState<PayoutRow[]>([])
+  const [payoutsLoading, setPayoutsLoading] = useState(false)
+  const [transferDollars, setTransferDollars] = useState("")
+  const [transferBusy, setTransferBusy] = useState(false)
+  const { toast } = useToast()
 
   const refreshStatus = useCallback(async (opts?: { quiet?: boolean }) => {
     // Quiet refresh keeps the last status visible (no full-sheet spinner on reopen).
@@ -139,12 +168,80 @@ export function GetPaidSheet({
     }
   }, [])
 
+  const refreshPayouts = useCallback(async () => {
+    setPayoutsLoading(true)
+    try {
+      const res = await fetch("/api/payments/connect/payouts?limit=20", {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const json = (await res.json()) as { error?: string; data?: { payouts?: PayoutRow[] } }
+      if (!res.ok) throw new Error(json.error || "Could not load bank transfers")
+      setPayouts(Array.isArray(json.data?.payouts) ? json.data!.payouts! : [])
+    } catch (e) {
+      // Keep prior list; surface message only when ready (transfer section visible).
+      console.warn("[get-paid] payouts list:", e)
+    } finally {
+      setPayoutsLoading(false)
+    }
+  }, [])
+
+  async function sendToBank(opts?: { fullAvailable?: boolean }) {
+    setTransferBusy(true)
+    setError(null)
+    try {
+      let amountCents: number | undefined
+      if (!opts?.fullAvailable) {
+        const dollars = parseFloat(transferDollars)
+        if (!Number.isFinite(dollars) || dollars < 1) {
+          throw new Error("Enter at least $1.00, or tap Send all available.")
+        }
+        amountCents = Math.round(dollars * 100)
+      }
+      const res = await fetch("/api/payments/connect/payouts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          opts?.fullAvailable
+            ? { fullAvailable: true }
+            : { amountCents }
+        ),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: { payout?: PayoutRow }
+      }
+      if (!res.ok || !json.data?.payout) {
+        throw new Error(json.error || "Could not transfer to bank")
+      }
+      const paid = json.data.payout
+      toast({
+        title: "Transfer started",
+        description: `${fmtCents(paid.amountCents, paid.currency)} is on the way to your bank (usually 1–2 business days).`,
+      })
+      setTransferDollars("")
+      await Promise.all([refreshStatus({ quiet: true }), refreshPayouts()])
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not transfer to bank"
+      setError(message)
+      toast({ title: "Transfer failed", description: message, variant: "destructive" })
+    } finally {
+      setTransferBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (!open) return
     void refreshStatus({ quiet: Boolean(status) })
     // Only re-run when the sheet opens — not on every status update.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional open-only refresh
   }, [open, refreshStatus])
+
+  useEffect(() => {
+    if (!open || !status?.ready) return
+    void refreshPayouts()
+  }, [open, status?.ready, refreshPayouts])
 
   async function startEmbedded(components: "onboarding" | "management" | "both") {
     setSessionBusy(true)
@@ -238,7 +335,7 @@ export function GetPaidSheet({
               </SheetTitle>
               {embedding ? null : (
                 <p className="mt-0.5 text-xs text-zinc-500">
-                  Customers pay your business. Payouts go to your bank automatically.
+                  Bank transfers live here — send available funds anytime, or let Stripe auto-pay.
                 </p>
               )}
             </div>
@@ -339,7 +436,7 @@ export function GetPaidSheet({
                       </div>
                     </div>
                     <p className="mt-2 text-[11px] text-emerald-200/70">
-                      Stripe pays out to your linked bank on a regular schedule. Lyncr fee:{" "}
+                      Pending becomes Available after card funds clear (often 1–2 days). Lyncr fee:{" "}
                       {status.feeLabel}.
                     </p>
                   </div>
@@ -419,15 +516,140 @@ export function GetPaidSheet({
                     </button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={sessionBusy}
-                    onClick={() => void startEmbedded("management")}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                  >
-                    {sessionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Manage bank & business details
-                  </button>
+                  <>
+                    {/* Manual bank transfer */}
+                    <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Send to bank
+                      </p>
+                      {!status.payoutsEnabled ? (
+                        <p className="text-xs text-amber-100/90">
+                          Stripe has not enabled bank payouts yet. Open Manage bank below, or wait
+                          for approval.
+                        </p>
+                      ) : status.availableCents < 100 ? (
+                        <p className="text-xs text-zinc-400">
+                          Nothing available to send yet. New charges stay in Pending until they
+                          clear.
+                        </p>
+                      ) : (
+                        <>
+                          <label className="block">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                              Amount (USD)
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={transferDollars}
+                              onChange={(e) => setTransferDollars(e.target.value)}
+                              placeholder={(status.availableCents / 100).toFixed(2)}
+                              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            disabled={transferBusy}
+                            onClick={() => void sendToBank()}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                          >
+                            {transferBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                            ) : (
+                              <Banknote className="h-4 w-4" aria-hidden />
+                            )}
+                            Transfer to bank
+                          </button>
+                          <button
+                            type="button"
+                            disabled={transferBusy}
+                            onClick={() => void sendToBank({ fullAvailable: true })}
+                            className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                          >
+                            Send all available ({fmtCents(status.availableCents, status.currency)})
+                          </button>
+                          <p className="text-[11px] leading-snug text-zinc-500">
+                            Standard transfer — usually arrives in 1–2 business days.
+                          </p>
+                        </>
+                      )}
+                    </section>
+
+                    {/* Bank transfer history */}
+                    <section className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 px-0.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Bank transfers
+                        </p>
+                        <button
+                          type="button"
+                          disabled={payoutsLoading}
+                          onClick={() => void refreshPayouts()}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-sky-300 disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            className={cn("h-3.5 w-3.5", payoutsLoading && "animate-spin")}
+                            aria-hidden
+                          />
+                          Refresh
+                        </button>
+                      </div>
+                      {payoutsLoading && payouts.length === 0 ? (
+                        <p className="py-4 text-center text-xs text-zinc-500">Loading transfers…</p>
+                      ) : payouts.length === 0 ? (
+                        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-zinc-500">
+                          No bank transfers yet. When you send money (or Stripe auto-pays), it
+                          shows here.
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {payouts.map((p) => (
+                            <li
+                              key={p.id}
+                              className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold tabular-nums text-slate-100">
+                                    {fmtCents(p.amountCents, p.currency)}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-zinc-500">
+                                    {p.createdLabel}
+                                    {p.arrivalDateLabel !== "—"
+                                      ? ` · arrives ${p.arrivalDateLabel}`
+                                      : ""}
+                                  </p>
+                                  {p.failureMessage ? (
+                                    <p className="mt-1 text-[11px] text-rose-300">
+                                      {p.failureMessage}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <span
+                                  className={cn(
+                                    "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                    payoutStatusClass(p.status)
+                                  )}
+                                >
+                                  {p.status.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    <button
+                      type="button"
+                      disabled={sessionBusy}
+                      onClick={() => void startEmbedded("management")}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                    >
+                      {sessionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Manage bank & business details
+                    </button>
+                  </>
                 )}
               </>
             )}

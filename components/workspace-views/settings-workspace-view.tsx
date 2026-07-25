@@ -133,7 +133,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             grouped
             icon={<Banknote className="h-5 w-5 text-emerald-400" aria-hidden />}
             title="Get paid"
-            subtitle="Bank payouts — customers see your business name"
+            subtitle="Bank transfers — send funds or view payout history"
             onClick={modals.openGetPaid}
           />
         </SettingsGroupedList>

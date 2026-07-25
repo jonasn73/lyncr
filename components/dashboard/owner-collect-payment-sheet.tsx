@@ -1154,33 +1154,53 @@ export function OwnerCollectPaymentSheet({
               </button>
             </div>
             {mode === "list" ? (
-              <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
-                <button
-                  type="button"
-                  onClick={() => setListTab("collect")}
-                  className={cn(
-                    "rounded-lg py-2 text-xs font-semibold transition-colors",
-                    listTab === "collect"
-                      ? "bg-emerald-500/20 text-emerald-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  Collect
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setListTab("history")}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
-                    listTab === "history"
-                      ? "bg-emerald-500/20 text-emerald-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  <History className="h-3.5 w-3.5" aria-hidden />
-                  History
-                </button>
-              </div>
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                      Today
+                    </p>
+                    <p className="text-sm font-bold tabular-nums text-emerald-100">
+                      {formatCollectedDollars(collectedTodayCents)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                      This month
+                    </p>
+                    <p className="text-sm font-bold tabular-nums text-emerald-100">
+                      {formatCollectedDollars(collectedMonthCents)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setListTab("collect")}
+                    className={cn(
+                      "rounded-lg py-2 text-xs font-semibold transition-colors",
+                      listTab === "collect"
+                        ? "bg-emerald-500/20 text-emerald-100"
+                        : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    Collect
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setListTab("history")}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                      listTab === "history"
+                        ? "bg-emerald-500/20 text-emerald-100"
+                        : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    <History className="h-3.5 w-3.5" aria-hidden />
+                    History
+                  </button>
+                </div>
+              </>
             ) : null}
           </SheetHeader>
 
@@ -1192,6 +1212,20 @@ export function OwnerCollectPaymentSheet({
           >
             {mode === "list" && listTab === "history" ? (
               <div className="space-y-3">
+                <p className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] leading-snug text-zinc-400">
+                  This list is customer charges only. Bank transfers are in{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenChange(false)
+                      window.setTimeout(() => openGetPaidModal(), 50)
+                    }}
+                    className="font-semibold text-emerald-300 underline-offset-2 hover:underline"
+                  >
+                    Get paid
+                  </button>
+                  .
+                </p>
                 <div className="flex items-center justify-between gap-2 px-0.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                     Recent charges
