@@ -16,6 +16,13 @@ import {
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { DispatchMapLayers } from "@/components/workspace-views/dispatch-live-map"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import {
+  emitReturnToIntakeFromMap,
+  getActiveDispatchMapDestination,
+  LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT,
+  LYNCR_FOCUS_DISPATCH_MAP_EVENT,
+  type FocusDispatchMapDetail,
+} from "@/lib/dispatch-map-focus"
 import { useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { cn } from "@/lib/utils"
@@ -63,6 +70,19 @@ export function MapTab() {
 
   // When the user taps a Job Pool row, pan the map to that pin.
   const [focusJobId, setFocusJobId] = useState<string | null>(null)
+
+  // Intake "View on Map Layout" — keep Return visible in Map chrome (not under layer chips).
+  const [intakeDestination, setIntakeDestination] = useState<FocusDispatchMapDetail | null>(null)
+  useEffect(() => {
+    const sync = () => setIntakeDestination(getActiveDispatchMapDestination())
+    sync()
+    window.addEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, sync)
+    window.addEventListener(LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT, sync)
+    return () => {
+      window.removeEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, sync)
+      window.removeEventListener(LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT, sync)
+    }
+  }, [])
 
   // Unassigned / hopper jobs for the Job Pool list.
   const { jobs: poolJobs, isLoading: poolLoading } = useJobPoolQuery(activeOrganizationId)
@@ -223,41 +243,53 @@ export function MapTab() {
       )}
     >
       {/* Compact header — Job Pool toggle lives here so it never floats over the map */}
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
-        <div className="min-w-0">
-          <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
-            Dispatch Map
-          </h1>
-          <p className="hidden truncate text-xs text-slate-500 sm:block">
-            Jobs, techs, and your location — one map for dispatch.
-          </p>
+      <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
+              Dispatch Map
+            </h1>
+            <p className="hidden truncate text-xs text-slate-500 sm:block">
+              Jobs, techs, and your location — one map for dispatch.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen((o) => !o)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
+            aria-expanded={drawerOpen}
+            aria-controls="dispatch-map-drawer dispatch-map-sheet"
+          >
+            {drawerOpen ? (
+              <>
+                <ChevronDown className="h-3.5 w-3.5 md:hidden" aria-hidden />
+                <span className="md:hidden">Close</span>
+                <span className="hidden md:inline">Hide panel</span>
+              </>
+            ) : (
+              <>
+                <ChevronUp className="h-3.5 w-3.5 md:hidden" aria-hidden />
+                <span className="md:hidden">Pool</span>
+                <span className="hidden md:inline">Job Pool & Roster</span>
+                {sortedPool.length > 0 ? (
+                  <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                    {sortedPool.length}
+                  </span>
+                ) : null}
+              </>
+            )}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setDrawerOpen((o) => !o)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
-          aria-expanded={drawerOpen}
-          aria-controls="dispatch-map-drawer dispatch-map-sheet"
-        >
-          {drawerOpen ? (
-            <>
-              <ChevronDown className="h-3.5 w-3.5 md:hidden" aria-hidden />
-              <span className="md:hidden">Close</span>
-              <span className="hidden md:inline">Hide panel</span>
-            </>
-          ) : (
-            <>
-              <ChevronUp className="h-3.5 w-3.5 md:hidden" aria-hidden />
-              <span className="md:hidden">Pool</span>
-              <span className="hidden md:inline">Job Pool & Roster</span>
-              {sortedPool.length > 0 ? (
-                <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
-                  {sortedPool.length}
-                </span>
-              ) : null}
-            </>
-          )}
-        </button>
+        {intakeDestination ? (
+          <button
+            type="button"
+            data-return-to-intake=""
+            onClick={() => emitReturnToIntakeFromMap()}
+            className="flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
+          >
+            ← Return to Intake Form
+          </button>
+        ) : null}
       </header>
 
       {/* Map fills remaining space; overlays sit on top */}
@@ -271,9 +303,9 @@ export function MapTab() {
           className="absolute inset-0 h-full w-full"
         />
 
-        {/* Layer chips — top of map only (never float mid-screen) */}
+        {/* Layer chips — top-right so they don’t cover the intake pin card on the left */}
         <div
-          className="pointer-events-auto absolute left-2 right-2 top-2 z-[20] flex flex-wrap items-center gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur md:left-3 md:right-auto md:top-3 md:max-w-none"
+          className="pointer-events-auto absolute right-2 top-2 z-[20] flex max-w-[min(100%,calc(100%-1rem))] flex-wrap items-center justify-end gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur md:right-3 md:top-3"
           role="group"
           aria-label="Map layers"
         >

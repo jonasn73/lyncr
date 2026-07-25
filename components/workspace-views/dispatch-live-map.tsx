@@ -14,7 +14,9 @@ import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { DispatchJob } from "@/lib/types"
 import {
   LYNCR_FOCUS_DISPATCH_MAP_EVENT,
-  consumePendingFocusDispatchMap,
+  clearActiveDispatchMapDestination,
+  getActiveDispatchMapDestination,
+  LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT,
   emitReturnToIntakeFromMap,
   type FocusDispatchMapDetail,
 } from "@/lib/dispatch-map-focus"
@@ -548,9 +550,9 @@ export function DispatchLiveMap({
     [technicians, mutateMapData]
   )
 
-  // Intake "View on Map Layout" — drop / refresh the high-contrast destination pin.
+  // Intake "View on Map Layout" — sticky destination survives remount / dynamic import.
   useEffect(() => {
-    const pending = consumePendingFocusDispatchMap()
+    const pending = getActiveDispatchMapDestination()
     if (pending && Number.isFinite(pending.lat) && Number.isFinite(pending.lng)) {
       setDestination(pending)
       didFit.current = false
@@ -567,8 +569,16 @@ export function DispatchLiveMap({
       setDestination(detail)
       didFit.current = false
     }
+    const onClear = () => {
+      setDestination(null)
+      didFit.current = false
+    }
     window.addEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, onFocus)
-    return () => window.removeEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, onFocus)
+    window.addEventListener(LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT, onClear)
+    return () => {
+      window.removeEventListener(LYNCR_FOCUS_DISPATCH_MAP_EVENT, onFocus)
+      window.removeEventListener(LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT, onClear)
+    }
   }, [])
 
   // Create the Leaflet map when the map shell is actually mounted in the DOM.
@@ -1009,7 +1019,13 @@ export function DispatchLiveMap({
 
       {destination ? (
         <div
-          className="pointer-events-auto absolute left-3 top-3 z-[40] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur"
+          className={cn(
+            // fillParent Map tab: sit below layer chips + above sibling overlays (portal-level z).
+            "pointer-events-auto absolute z-[60] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur",
+            fillParent || hideChrome
+              ? "left-3 right-3 top-[4.25rem] sm:right-auto sm:top-14"
+              : "left-3 top-3"
+          )}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1086,6 +1102,7 @@ export function DispatchLiveMap({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
+              clearActiveDispatchMapDestination()
               setDestination(null)
               didFit.current = false
             }}

@@ -2194,16 +2194,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     expandIntakeAfterTabReady()
   }, [activeTab, expandIntakeAfterTabReady])
 
-  // Map overlay "← Return to Intake Form" — must register even when sheet is minimized.
+  // Keep return handler current without re-subscribing on every activeTab change.
+  const returnToIntakeFromMapRef = useRef(returnToIntakeFromMap)
+  returnToIntakeFromMapRef.current = returnToIntakeFromMap
+
+  // Map overlay "← Return to Intake Form" — mount-once so tab switches don’t race View on Map.
   useEffect(() => {
     const onReturn = () => {
       consumePendingReturnToIntake()
-      returnToIntakeFromMap()
+      returnToIntakeFromMapRef.current()
     }
     window.addEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
-    // Catch a click that fired before this effect mounted.
     if (consumePendingReturnToIntake()) {
-      returnToIntakeFromMap()
+      returnToIntakeFromMapRef.current()
     }
     return () => {
       window.removeEventListener(LYNCR_RETURN_TO_INTAKE_EVENT, onReturn)
@@ -2212,7 +2215,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         suppressSheetDismissTimerRef.current = null
       }
     }
-  }, [returnToIntakeFromMap])
+  }, [])
 
   const viewOnMapLayout = useCallback(() => {
     const lat = form.serviceAddress?.lat
