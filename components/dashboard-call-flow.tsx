@@ -382,7 +382,7 @@ export function buildCallFlowNodes(params: {
   autopilotMode: boolean
   /** Off-duty IVR Menu is answering — fade Your phone and badge Forwarding to IVR. */
   ivrMenuLive?: boolean
-  /** Presence On-Job / Closed — cell is bypassed for automation. */
+  /** Presence Busy — cell is bypassed for automation. */
   presenceBypass?: boolean
   presenceStatus?: "AVAILABLE" | "ON_JOB" | "CLOSED"
   openWhoAnswers: () => void
@@ -393,14 +393,9 @@ export function buildCallFlowNodes(params: {
   const ivrLive = params.ivrMenuLive === true
   const presenceBypass = params.presenceBypass === true
   const cellBypassed = ivrLive || presenceBypass
-  const presenceBadge =
-    params.presenceStatus === "CLOSED"
-      ? "[ SILENCED ]"
-      : params.presenceStatus === "ON_JOB"
-        ? "[ BYPASSED ]"
-        : undefined
+  const presenceBadge = presenceBypass ? "[ BUSY ]" : undefined
   const bypassDetail =
-    "Calls are routing 100% to automation. Your cell device will not ring."
+    "Presence Busy — calls go to booking automation. Your phone will not ring."
 
   // Node 1 — Primary: whoever the webhook dials first on this line.
   if (poolIsPrimary) {

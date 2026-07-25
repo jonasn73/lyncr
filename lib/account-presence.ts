@@ -13,6 +13,9 @@ import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-
 
 export type PresenceStatus = "AVAILABLE" | "ON_JOB" | "CLOSED"
 
+/** Status written when the owner taps Busy in the Presence bar. */
+export const PRESENCE_BUSY_WRITE_STATUS: PresenceStatus = "ON_JOB"
+
 export type AccountPresence = {
   presenceStatus: PresenceStatus
   /** True when the owner manually tapped Closed (cron must not clear it). */
@@ -60,24 +63,23 @@ export function normalizePresenceStatus(raw: unknown): PresenceStatus {
   return "AVAILABLE"
 }
 
-/** Prefer trimmed custom copy; otherwise the product default for that presence. */
+/** True when presence skips the cell (UI “Busy” = ON_JOB or CLOSED). */
+export function isBusyPresenceStatus(status: PresenceStatus | string | null | undefined): boolean {
+  const v = normalizePresenceStatus(status)
+  return v === "ON_JOB" || v === "CLOSED"
+}
+
+/** Prefer trimmed custom Busy copy; ON_JOB and CLOSED share one script. */
 export function resolvePresenceAutomationGreeting(params: {
   presenceStatus: PresenceStatus | string | null | undefined
   onJobGreetingText?: string | null
   closedGreetingText?: string | null
 }): string {
-  const status = normalizePresenceStatus(params.presenceStatus)
-  if (status === "ON_JOB") {
-    const custom =
-      typeof params.onJobGreetingText === "string" ? params.onJobGreetingText.trim() : ""
-    return custom || DEFAULT_ON_JOB_GREETING_TEXT
-  }
-  if (status === "CLOSED") {
-    const custom =
-      typeof params.closedGreetingText === "string" ? params.closedGreetingText.trim() : ""
-    return custom || DEFAULT_CLOSED_GREETING_TEXT
-  }
-  return DEFAULT_ON_JOB_GREETING_TEXT
+  const onJob =
+    typeof params.onJobGreetingText === "string" ? params.onJobGreetingText.trim() : ""
+  const closed =
+    typeof params.closedGreetingText === "string" ? params.closedGreetingText.trim() : ""
+  return onJob || closed || DEFAULT_ON_JOB_GREETING_TEXT
 }
 
 function sqlClient() {

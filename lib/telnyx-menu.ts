@@ -11,22 +11,22 @@ export const TELNYX_MENU_PROMPT =
   "Thanks for calling Key Squad 502. Press 1 to book on your phone without talking to anyone, or Press 2 to ring our phone."
 
 /**
- * Spoken when the active line's presence_status is ON_JOB.
- * Used by /api/telnyx-menu calendar-aware entry (via buildPresenceOnJobGatherXml).
+ * Unified Busy greeting (Presence Busy = ON_JOB or CLOSED).
+ * Callers hear this when your cell is skipped for automation.
  */
-export const TELNYX_MENU_ON_JOB_PROMPT =
-  "Thanks for calling Key Squad. We're actively on a live lockout service right now, but we are open. Press 1 to get our next open dispatch slot text straight to your device, or stay on the line."
+export const TELNYX_MENU_BUSY_PROMPT =
+  "Thanks for calling Key Squad. We can't take your call right now. Press 1 to get a booking link by text, or stay on the line."
 
-/**
- * Spoken when the active line's presence_status is CLOSED.
- * Used by /api/telnyx-menu calendar-aware entry (via buildPresenceClosedGatherXml).
- */
-export const TELNYX_MENU_CLOSED_PROMPT =
-  "Thanks for calling Key Squad. Our mobile technicians are currently off-duty for the evening. You can book a priority appointment slot for tomorrow morning by pressing 1, or leave a voicemail."
+/** @deprecated Use TELNYX_MENU_BUSY_PROMPT — kept so older rows still resolve. */
+export const TELNYX_MENU_ON_JOB_PROMPT = TELNYX_MENU_BUSY_PROMPT
+
+/** @deprecated Use TELNYX_MENU_BUSY_PROMPT — kept so older rows still resolve. */
+export const TELNYX_MENU_CLOSED_PROMPT = TELNYX_MENU_BUSY_PROMPT
 
 /**
  * Pick the initial IVR <Say> greeting from presence_status.
  * Optional custom scripts (from account_settings) override product defaults.
+ * ON_JOB and CLOSED share one Busy greeting.
  */
 export function resolveTelnyxMenuGreetingForPresence(
   presenceStatus: "AVAILABLE" | "ON_JOB" | "CLOSED" | string | null | undefined,
@@ -39,17 +39,12 @@ export function resolveTelnyxMenuGreetingForPresence(
   const status = String(presenceStatus || "")
     .trim()
     .toUpperCase()
-  // Live lockout — still open, offer next dispatch slot by text.
-  if (status === "ON_JOB") {
-    const customText =
+  if (status === "ON_JOB" || status === "CLOSED") {
+    const onJob =
       typeof custom?.onJobGreetingText === "string" ? custom.onJobGreetingText.trim() : ""
-    return customText || TELNYX_MENU_ON_JOB_PROMPT
-  }
-  // Off-duty evening — tomorrow priority slot or voicemail.
-  if (status === "CLOSED") {
-    const customText =
+    const closed =
       typeof custom?.closedGreetingText === "string" ? custom.closedGreetingText.trim() : ""
-    return customText || TELNYX_MENU_CLOSED_PROMPT
+    return onJob || closed || TELNYX_MENU_BUSY_PROMPT
   }
   // Open / unknown — standard press-1 / press-2 menu.
   return TELNYX_MENU_PROMPT

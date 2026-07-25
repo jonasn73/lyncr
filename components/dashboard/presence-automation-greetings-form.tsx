@@ -11,13 +11,9 @@ import {
   IVR_VOICE_PERSONA_OPTIONS,
   toDatetimeLocalValue,
 } from "@/lib/ivr-automation-settings"
-import {
-  TELNYX_MENU_CLOSED_PROMPT,
-  TELNYX_MENU_ON_JOB_PROMPT,
-} from "@/lib/telnyx-menu"
+import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 
-const DEFAULT_ON_JOB_GREETING_TEXT = TELNYX_MENU_ON_JOB_PROMPT
-const DEFAULT_CLOSED_GREETING_TEXT = TELNYX_MENU_CLOSED_PROMPT
+const DEFAULT_BUSY_GREETING_TEXT = TELNYX_MENU_BUSY_PROMPT
 
 const fieldClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
@@ -40,8 +36,8 @@ type GreetingsPayload = {
 }
 
 type DraftState = {
-  onJob: string
-  closed: string
+  /** Single Busy script — saved to both on-job and closed columns. */
+  busy: string
   bypass: string
   voice: string
   holidayStart: string
@@ -50,9 +46,10 @@ type DraftState = {
 }
 
 function payloadToDraft(data: GreetingsPayload): DraftState {
+  const onJob = data.onJobGreetingText || data.on_job_greeting_text || ""
+  const closed = data.closedGreetingText || data.closed_greeting_text || ""
   return {
-    onJob: data.onJobGreetingText || data.on_job_greeting_text || DEFAULT_ON_JOB_GREETING_TEXT,
-    closed: data.closedGreetingText || data.closed_greeting_text || DEFAULT_CLOSED_GREETING_TEXT,
+    busy: (onJob || closed || DEFAULT_BUSY_GREETING_TEXT).trim() || DEFAULT_BUSY_GREETING_TEXT,
     bypass: String(data.ivrBypassCode ?? data.ivr_bypass_code ?? ""),
     voice:
       data.ivrVoiceEngineModel || data.ivr_voice_engine_model || DEFAULT_IVR_VOICE_ENGINE_MODEL,
@@ -109,10 +106,11 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          onJobGreetingText: draft.onJob,
-          on_job_greeting_text: draft.onJob,
-          closedGreetingText: draft.closed,
-          closed_greeting_text: draft.closed,
+          // Keep both DB columns in sync — Presence Busy uses either path.
+          onJobGreetingText: draft.busy,
+          on_job_greeting_text: draft.busy,
+          closedGreetingText: draft.busy,
+          closed_greeting_text: draft.busy,
           ivrBypassCode: draft.bypass.trim() || null,
           ivr_bypass_code: draft.bypass.trim() || null,
           ivrVoiceEngineModel: draft.voice,
@@ -140,12 +138,12 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         })
         return
       }
-      const next = payloadToDraft(json.data || draft)
+      const next = payloadToDraft(json.data || { onJobGreetingText: draft.busy })
       setDraft(next)
       setBaseline(JSON.stringify(next))
       toast({
         title: "Automation greetings saved",
-        description: "Voice, bypass, holiday, and Speak scripts update on the next call.",
+        description: "Busy greeting and voice settings update on the next call.",
       })
     } catch (e) {
       toast({
@@ -174,8 +172,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
           🤖 Automation Voice Greetings
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
-          Edit On-Job / Closed Speak scripts, TTS persona, secret bypass dial, and holiday
-          closures.
+          Edit the Busy greeting callers hear when your phone is skipped, plus voice, bypass, and
+          holiday closures.
         </p>
       </div>
 
@@ -234,30 +232,19 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
           </div>
 
           <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-            <label htmlFor="on-job-greeting-text" className="text-xs font-semibold text-zinc-300">
-              On-Job Automation Greeting
+            <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-zinc-300">
+              Busy greeting
             </label>
+            <p className="text-[10px] text-zinc-600">
+              Played when Presence is Busy — your phone does not ring; callers can text-book.
+            </p>
             <textarea
-              id="on-job-greeting-text"
+              id="busy-greeting-text"
               rows={5}
-              value={draft.onJob}
-              onChange={(e) => setDraft((d) => ({ ...d, onJob: e.target.value }))}
+              value={draft.busy}
+              onChange={(e) => setDraft((d) => ({ ...d, busy: e.target.value }))}
               className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-2.5")}
-              placeholder={DEFAULT_ON_JOB_GREETING_TEXT}
-            />
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-            <label htmlFor="closed-greeting-text" className="text-xs font-semibold text-zinc-300">
-              Off-Duty / Closed Automation Greeting
-            </label>
-            <textarea
-              id="closed-greeting-text"
-              rows={5}
-              value={draft.closed}
-              onChange={(e) => setDraft((d) => ({ ...d, closed: e.target.value }))}
-              className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-2.5")}
-              placeholder={DEFAULT_CLOSED_GREETING_TEXT}
+              placeholder={DEFAULT_BUSY_GREETING_TEXT}
             />
           </div>
 
@@ -283,7 +270,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
                 <p className="text-[10px] leading-relaxed text-zinc-600">
                   When the current time falls in this window, callers hear the holiday greeting
-                  instead of On-Job / Closed.
+                  instead of the Busy greeting.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">

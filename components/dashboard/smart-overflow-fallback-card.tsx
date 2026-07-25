@@ -6,13 +6,13 @@ import { memo } from "react"
 import { Hourglass, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
-import type { PresenceStatus } from "@/lib/account-presence"
+import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 
 export type SmartOverflowFallbackCardProps = {
   compact?: boolean
   step?: string
   overflowActive: boolean
-  /** Presence On-Job / Closed — stronger amber glow on the automation path. */
+  /** Presence Busy — stronger amber glow on the automation path. */
   presenceDriven?: boolean
   /** Active line presence — drives the read-only IVR trigger summary. */
   presenceStatus?: PresenceStatus
@@ -27,8 +27,7 @@ export type SmartOverflowFallbackCardProps = {
 }
 
 function routeCauseLabel(status: PresenceStatus | undefined): string {
-  if (status === "ON_JOB") return "🤖 Route Cause: Manually set to On-Job"
-  if (status === "CLOSED") return "🤖 Route Cause: Manually set to Closed"
+  if (isBusyPresenceStatus(status)) return "🤖 Route Cause: Presence Busy — phone skipped"
   return "🤖 Route Cause: Presence Available — cell rings first"
 }
 
@@ -57,11 +56,11 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
     : "IVR Menu standby"
   const detail = overflowActive
     ? presenceDriven
-      ? "Presence On-Job / Closed — calls skip your cell and hit automation first"
+      ? "Presence Busy — calls skip your cell and hit automation first"
       : "Inbound calls → automated greeting + press 1 / press 2 menu"
     : presenceStatus === "AVAILABLE"
-      ? "Available — your cell rings first. Automation only runs if the call is unanswered."
-      : "Use Presence (top) for On-Job / Closed, or set the capacity threshold under Feedback."
+      ? "Available — your cell rings first. Automation only runs if you don’t answer."
+      : "Use Presence (top) for Busy, or set the capacity threshold under Feedback."
   const valueClass = overflowActive
     ? presenceDriven
       ? "animate-pulse text-amber-300"
@@ -252,7 +251,7 @@ function IvrTriggerSummary({
   confirmedJobsToday: number
   capacityThreshold: number
 }) {
-  const driven = presenceStatus === "ON_JOB" || presenceStatus === "CLOSED"
+  const driven = isBusyPresenceStatus(presenceStatus)
   return (
     <div className={cn("mt-3 space-y-2 border-t border-white/5 pt-3", compact && "pt-2")}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">

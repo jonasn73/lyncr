@@ -404,7 +404,7 @@ export function DashboardVoiceAiDrawer({
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Step 4 · Voice &amp; AI Greetings</p>
         <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground sm:mt-1.5 sm:text-xl">Voice &amp; AI Greetings</h2>
         <p className="mt-1 max-w-md text-sm leading-snug text-zinc-500">
-          Edit On-Job / Closed automation greetings, keypress routes, then AI / voicemail scripts.
+          Edit Busy automation greeting, keypress routes, then AI / voicemail scripts.
         </p>
         {routingBusinessNumber ? (
           <p className="mt-1 text-[11px] text-zinc-600">Line {formatPhoneDisplay(routingBusinessNumber)}</p>

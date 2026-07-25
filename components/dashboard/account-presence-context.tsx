@@ -11,14 +11,14 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import type { PresenceStatus } from "@/lib/account-presence"
+import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 import { useToast } from "@/hooks/use-toast"
 
 type AccountPresenceContextValue = {
   presenceStatus: PresenceStatus
   loading: boolean
   saving: boolean
-  /** True when cell ring is skipped (On-Job or Closed). */
+  /** True when cell ring is skipped (Presence Busy). */
   presenceBypass: boolean
   setPresenceStatus: (next: PresenceStatus) => Promise<void>
   refresh: () => Promise<void>
@@ -103,7 +103,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       presenceStatus,
       loading,
       saving,
-      presenceBypass: presenceStatus === "ON_JOB" || presenceStatus === "CLOSED",
+      presenceBypass: isBusyPresenceStatus(presenceStatus),
       setPresenceStatus,
       refresh,
     }),

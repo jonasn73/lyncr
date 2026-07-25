@@ -1,10 +1,14 @@
 "use client"
 
-// Sticky Presence bar on Lines — Available / On-Job / Closed.
+// Sticky Presence bar on Lines — Available (ring cell) / Busy (skip cell → booking IVR).
 
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { PresenceStatus } from "@/lib/account-presence"
+import {
+  isBusyPresenceStatus,
+  PRESENCE_BUSY_WRITE_STATUS,
+  type PresenceStatus,
+} from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 import {
   LINES_MOBILE_CARD,
@@ -12,25 +16,27 @@ import {
   LINES_MOBILE_SECTION_LABEL,
 } from "@/lib/mobile-shell"
 
-const OPTIONS: {
-  value: PresenceStatus
+type PresenceUiOption = {
+  /** Value sent to the API (Busy always writes ON_JOB). */
+  write: PresenceStatus
   label: string
   hint: string
-}[] = [
+  /** Whether this option should look selected for the current DB status. */
+  isActive: (status: PresenceStatus) => boolean
+}
+
+const OPTIONS: PresenceUiOption[] = [
   {
-    value: "AVAILABLE",
+    write: "AVAILABLE",
     label: "Available",
-    hint: "Ring your cell first",
+    hint: "Your phone rings first",
+    isActive: (s) => s === "AVAILABLE",
   },
   {
-    value: "ON_JOB",
-    label: "On-Job",
-    hint: "Busy IVR + booking text",
-  },
-  {
-    value: "CLOSED",
-    label: "Closed",
-    hint: "No ring — booking link only",
+    write: PRESENCE_BUSY_WRITE_STATUS,
+    label: "Busy",
+    hint: "Skip your phone → booking text",
+    isActive: (s) => isBusyPresenceStatus(s),
   },
 ]
 
@@ -52,29 +58,32 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" aria-hidden />
         ) : null}
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {OPTIONS.map((opt) => {
-          const active = presenceStatus === opt.value
+          const active = opt.isActive(presenceStatus)
           return (
             <button
-              key={opt.value}
+              key={opt.label}
               type="button"
               disabled={loading || saving}
-              onClick={() => void setPresenceStatus(opt.value)}
+              onClick={() => void setPresenceStatus(opt.write)}
               className={cn(
                 "flex min-h-[3.25rem] flex-col items-center justify-center px-2 py-2 text-center transition-colors",
                 LINES_MOBILE_CARD,
                 active
-                  ? opt.value === "AVAILABLE"
+                  ? opt.write === "AVAILABLE"
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                    : opt.value === "ON_JOB"
-                      ? "border-amber-500/50 bg-amber-500/15 text-amber-100"
-                      : "border-sky-500/50 bg-sky-500/15 text-sky-100"
+                    : "border-amber-500/50 bg-amber-500/15 text-amber-100"
                   : "text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
               )}
             >
               <span className="text-sm font-semibold leading-tight">{opt.label}</span>
-              <span className="mt-0.5 hidden text-[9px] leading-tight text-zinc-500 sm:block">
+              <span
+                className={cn(
+                  "mt-0.5 text-[10px] leading-tight",
+                  active ? "text-current/70" : "text-zinc-500"
+                )}
+              >
                 {opt.hint}
               </span>
             </button>

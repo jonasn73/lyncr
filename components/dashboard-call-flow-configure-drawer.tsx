@@ -23,10 +23,7 @@ import {
   IVR_VOICE_PERSONA_OPTIONS,
   toDatetimeLocalValue,
 } from "@/lib/ivr-automation-settings"
-import {
-  TELNYX_MENU_CLOSED_PROMPT,
-  TELNYX_MENU_ON_JOB_PROMPT,
-} from "@/lib/telnyx-menu"
+import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 import { formatPhoneDisplay, snapDashboardRingTimeoutSec } from "@/lib/dashboard-routing-utils"
 import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 
@@ -48,8 +45,8 @@ type ConfigureDraft = {
   customPhone: string
   ringTimeout: number
   voice: string
-  onJob: string
-  closed: string
+  /** Unified Busy greeting — written to both on-job and closed columns. */
+  busy: string
   holidayStart: string
   holidayEnd: string
   holidayText: string
@@ -62,8 +59,7 @@ const DEFAULT_DRAFT: ConfigureDraft = {
   customPhone: "",
   ringTimeout: 30,
   voice: DEFAULT_IVR_VOICE_ENGINE_MODEL,
-  onJob: TELNYX_MENU_ON_JOB_PROMPT,
-  closed: TELNYX_MENU_CLOSED_PROMPT,
+  busy: TELNYX_MENU_BUSY_PROMPT,
   holidayStart: "",
   holidayEnd: "",
   holidayText: "",
@@ -152,8 +148,9 @@ export function DashboardCallFlowConfigureDrawer({
         customPhone: phoneDigits10(d.customRoutingPhone),
         ringTimeout: ring,
         voice: d.ivrVoiceEngineModel || DEFAULT_IVR_VOICE_ENGINE_MODEL,
-        onJob: d.onJobGreetingText || TELNYX_MENU_ON_JOB_PROMPT,
-        closed: d.closedGreetingText || TELNYX_MENU_CLOSED_PROMPT,
+        busy:
+          (d.onJobGreetingText || d.closedGreetingText || TELNYX_MENU_BUSY_PROMPT).trim() ||
+          TELNYX_MENU_BUSY_PROMPT,
         holidayStart: toDatetimeLocalValue(d.holidayOverrideStart || null),
         holidayEnd: toDatetimeLocalValue(d.holidayOverrideEnd || null),
         holidayText: d.holidayGreetingText || "",
@@ -196,8 +193,8 @@ export function DashboardCallFlowConfigureDrawer({
           custom_routing_phone: draft.mode === "custom_routing" ? draft.customPhone : null,
           ring_timeout_seconds: draft.mode === "your_phone" ? draft.ringTimeout : undefined,
           fallback_type: draft.fallbackType,
-          onJobGreetingText: draft.onJob,
-          closedGreetingText: draft.closed,
+          onJobGreetingText: draft.busy,
+          closedGreetingText: draft.busy,
           ivrBypassCode: draft.bypass.trim() || null,
           ivrVoiceEngineModel: draft.voice,
           holidayOverrideStart: draft.holidayStart || null,
@@ -441,27 +438,17 @@ export function DashboardCallFlowConfigureDrawer({
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-                  <label htmlFor="configure-on-job" className="text-xs font-semibold text-zinc-300">
-                    On-Job Automation Greeting
+                  <label htmlFor="configure-busy" className="text-xs font-semibold text-zinc-300">
+                    Busy greeting
                   </label>
+                  <p className="text-[10px] text-zinc-600">
+                    Heard when Presence is Busy — phone skipped, booking by text.
+                  </p>
                   <textarea
-                    id="configure-on-job"
+                    id="configure-busy"
                     rows={5}
-                    value={draft.onJob}
-                    onChange={(e) => setDraft((d) => ({ ...d, onJob: e.target.value }))}
-                    className={cn(fieldClass, "min-h-[7.5rem] resize-y")}
-                  />
-                </div>
-
-                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-                  <label htmlFor="configure-closed" className="text-xs font-semibold text-zinc-300">
-                    Off-Duty / Closed Automation Greeting
-                  </label>
-                  <textarea
-                    id="configure-closed"
-                    rows={5}
-                    value={draft.closed}
-                    onChange={(e) => setDraft((d) => ({ ...d, closed: e.target.value }))}
+                    value={draft.busy}
+                    onChange={(e) => setDraft((d) => ({ ...d, busy: e.target.value }))}
                     className={cn(fieldClass, "min-h-[7.5rem] resize-y")}
                   />
                 </div>
