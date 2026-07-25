@@ -1020,10 +1020,10 @@ export function DispatchLiveMap({
       {destination ? (
         <div
           className={cn(
-            // fillParent Map tab: sit below layer chips + above sibling overlays (portal-level z).
+            // fillParent Map tab: chips live in the header now — pin card can sit at the top.
             "pointer-events-auto absolute z-[60] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur",
             fillParent || hideChrome
-              ? "left-3 right-3 top-[4.25rem] sm:right-auto sm:top-14"
+              ? "left-3 right-3 top-3 sm:right-auto"
               : "left-3 top-3"
           )}
           onPointerDown={(e) => e.stopPropagation()}
@@ -1224,7 +1224,9 @@ export function DispatchLiveMap({
   if (fillParent || hideChrome) {
     return (
       <section
-        className={cn("flex h-full min-h-0 w-full flex-col", className)}
+        // isolate + z-0: keep Leaflet pane z-indexes (400–1100) inside this box
+        // so Map tab chrome (Jobs/Techs/Leads/You) isn’t covered after the map loads.
+        className={cn("relative z-0 isolate flex h-full min-h-0 w-full flex-col", className)}
         aria-label="Operational dispatch map"
       >
         {mapCanvas}

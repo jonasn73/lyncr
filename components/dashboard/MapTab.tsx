@@ -242,7 +242,7 @@ export function MapTab() {
         "sm:h-[calc(100dvh-6.5rem)] sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
       )}
     >
-      {/* Compact header — Job Pool toggle lives here so it never floats over the map */}
+      {/* Compact header — layer chips live here so Leaflet panes can’t bury them after load */}
       <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -280,36 +280,13 @@ export function MapTab() {
             )}
           </button>
         </div>
-        {intakeDestination ? (
-          <button
-            type="button"
-            data-return-to-intake=""
-            onClick={() => emitReturnToIntakeFromMap()}
-            className="flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
-          >
-            ← Return to Intake Form
-          </button>
-        ) : null}
-      </header>
-
-      {/* Map fills remaining space; overlays sit on top */}
-      <div className="relative min-h-0 flex-1">
-        <DispatchLiveMap
-          fillParent
-          hideChrome
-          layers={layers}
-          focusJobId={focusJobId}
-          onFocusJobConsumed={onFocusJobConsumed}
-          className="absolute inset-0 h-full w-full"
-        />
-
-        {/* Layer chips — top-right so they don’t cover the intake pin card on the left */}
+        {/* Jobs / Techs / Leads / You — in chrome, not over the map (Leaflet z-index was hiding them). */}
         <div
-          className="pointer-events-auto absolute right-2 top-2 z-[20] flex max-w-[min(100%,calc(100%-1rem))] flex-wrap items-center justify-end gap-1 rounded-xl border border-zinc-700/80 bg-slate-950/90 p-1.5 shadow-lg backdrop-blur md:right-3 md:top-3"
+          className="flex flex-wrap items-center gap-1"
           role="group"
           aria-label="Map layers"
         >
-          <span className="hidden items-center gap-1 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:inline-flex">
+          <span className="inline-flex items-center gap-1 pr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
             <Layers className="h-3 w-3" aria-hidden />
             Layers
           </span>
@@ -323,7 +300,7 @@ export function MapTab() {
                 aria-pressed={on}
                 aria-label={long}
                 className={cn(
-                  "rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors",
+                  "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
                   on
                     ? "bg-sky-500/20 text-sky-200 ring-1 ring-sky-500/40"
                     : "bg-zinc-900/80 text-slate-500 ring-1 ring-zinc-800 hover:text-slate-300"
@@ -335,6 +312,28 @@ export function MapTab() {
             )
           })}
         </div>
+        {intakeDestination ? (
+          <button
+            type="button"
+            data-return-to-intake=""
+            onClick={() => emitReturnToIntakeFromMap()}
+            className="flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
+          >
+            ← Return to Intake Form
+          </button>
+        ) : null}
+      </header>
+
+      {/* Map fills remaining space; isolate so Leaflet panes stay under our overlays */}
+      <div className="relative z-0 min-h-0 flex-1 isolate">
+        <DispatchLiveMap
+          fillParent
+          hideChrome
+          layers={layers}
+          focusJobId={focusJobId}
+          onFocusJobConsumed={onFocusJobConsumed}
+          className="absolute inset-0 z-0 h-full w-full"
+        />
 
         {/* —— Mobile: bottom sheet (opened from header “Pool” button) —— */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] flex flex-col md:hidden">
