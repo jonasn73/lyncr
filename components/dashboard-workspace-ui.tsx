@@ -224,7 +224,14 @@ export function isMissedActivityStatus(status: ActivityCallStatus): boolean {
   )
 }
 
-export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
+export function ActivityStatusPill({
+  status,
+  /** Dense list rows: shorter label, no glow so more numbers fit. */
+  dense = false,
+}: {
+  status: ActivityCallStatus
+  dense?: boolean
+}) {
   const styles: Record<ActivityCallStatus, string> = {
     answered:
       "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
@@ -249,14 +256,14 @@ export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
   }
   const labels: Record<ActivityCallStatus, string> = {
     answered: "Answered",
-    emergency: "Emergency answered",
-    ai_handled: "AI handled",
+    emergency: dense ? "Emergency" : "Emergency answered",
+    ai_handled: dense ? "AI" : "AI handled",
     voicemail: "Voicemail",
-    missed_ivr: "Missed · IVR",
-    night_link: "Missed · night link",
-    day_link: "Missed · day link",
-    day_off_link: "Missed · day-off link",
-    busy_link: "Missed · busy link",
+    missed_ivr: dense ? "Missed" : "Missed · IVR",
+    night_link: dense ? "Missed" : "Missed · night link",
+    day_link: dense ? "Missed" : "Missed · day link",
+    day_off_link: dense ? "Missed" : "Missed · day-off link",
+    busy_link: dense ? "Missed" : "Missed · busy link",
     missed: "Missed",
   }
   const Icon =
@@ -271,11 +278,16 @@ export function ActivityStatusPill({ status }: { status: ActivityCallStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-        styles[status]
+        "inline-flex shrink-0 items-center gap-1 rounded-md border font-bold uppercase tracking-wide",
+        dense
+          ? "px-1.5 py-0.5 text-[9px] shadow-none"
+          : "px-2 py-0.5 text-[10px]",
+        styles[status],
+        dense && "shadow-none"
       )}
+      title={labels[status] === "Missed" && status !== "missed" ? status.replace(/_/g, " ") : undefined}
     >
-      <Icon className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+      <Icon className={cn("shrink-0 opacity-90", dense ? "h-2.5 w-2.5" : "h-3 w-3")} aria-hidden />
       {labels[status]}
     </span>
   )

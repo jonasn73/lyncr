@@ -209,11 +209,22 @@ function CallTimeDisplay({
   variant = "compact",
 }: {
   call: UiCallRecord
-  variant?: "compact" | "prominent"
+  variant?: "compact" | "prominent" | "inline"
 }) {
   const parts = formatCallTimestampParts(call)
   if (!parts) {
     return <span className="text-xs text-zinc-600">—</span>
+  }
+  // Single-line time for dense collapsed activity rows.
+  if (variant === "inline") {
+    return (
+      <span className="shrink-0 text-[11px] font-semibold tabular-nums text-zinc-400" title={parts.full}>
+        {parts.time}
+        {parts.day && parts.day !== "Today" ? (
+          <span className="font-medium text-zinc-600"> · {parts.day}</span>
+        ) : null}
+      </span>
+    )
   }
   if (variant === "prominent") {
     return (
@@ -832,11 +843,20 @@ type ActivityTableProps = {
 }
 
 /** Caller name with optional collapsed-count suffix: Unknown Caller (2). */
-function CallerNameWithCount({ call, interactive = false }: { call: GroupedActivityCall; interactive?: boolean }) {
+function CallerNameWithCount({
+  call,
+  interactive = false,
+  dense = false,
+}: {
+  call: GroupedActivityCall
+  interactive?: boolean
+  dense?: boolean
+}) {
   return (
     <p
       className={cn(
         "truncate font-medium text-foreground transition-colors duration-150",
+        dense ? "text-sm leading-tight" : "text-base",
         interactive && "group-hover/caller:text-teal-300"
       )}
       title={call.callerName}
@@ -870,6 +890,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
   const openLog = useWorkspaceRightSheet<UiCallRecord>()
   const { setSelectedActivityLog } = useDashboardWorkspace()
   const inbound = useInboundCallPanelOptional()
+  // Rows stay collapsed by default so more numbers fit on screen.
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
 
   function toggleExpanded(id: string) {
@@ -881,7 +902,6 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
     })
   }
 
-  // Open Call detail sheet (SMS / recording) and keep workspace selection in sync.
   function openLogSheet(call: UiCallRecord) {
     setSelectedActivityLog(call)
     openLog(call)
@@ -894,116 +914,142 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
   }
 
   return (
-    <ul className="divide-y divide-zinc-800/80">
+    <ul className="divide-y divide-zinc-800/70">
       {rows.map((call) => {
         const st = classifyCall(call)
         const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-        const expandable = call.count > 1
-        const expanded = expandable && expandedIds.has(call.id)
+        const expanded = expandedIds.has(call.id)
         const missed = isMissedActivityStatus(st)
+        const telHref = buildTelHref(call.callerNumber)
+        const intakeShort =
+          call.activity?.intakeAction === "No intake recorded"
+            ? "No intake"
+            : call.activity?.intakeAction || null
         return (
           <li
             key={call.id}
             className={cn(
-              "rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-800/50",
-              activityRowAccentClass(st)
+              "px-3 py-2 transition-colors duration-150",
+              activityRowAccentClass(st),
+              expanded && "bg-zinc-950/40"
             )}
           >
-            <div className="flex flex-col gap-2">
+            {/* Collapsed row: status · name · phone · time · call · chevron */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  if (expandable) {
-                    toggleExpanded(call.id)
-                    return
-                  }
-                  // No intake yet → answered modal; otherwise Call detail sheet.
-                  openActivityCallFromList(call, inbound, openLogSheet)
-                }}
-                className="group/caller flex w-full flex-col gap-2 rounded-lg text-left transition-colors duration-150 hover:bg-slate-800/30"
-                aria-expanded={expandable ? expanded : undefined}
+                onClick={() => toggleExpanded(call.id)}
+                className="group/caller flex min-w-0 flex-1 items-center gap-2 rounded-lg py-0.5 text-left"
+                aria-expanded={expanded}
+                aria-label={
+                  expanded
+                    ? `Collapse ${call.callerName}`
+                    : `Expand ${call.callerName} for call back and details`
+                }
               >
-                <div className="flex items-start justify-between gap-3">
-                  <ActivityStatusPill status={st} />
-                  <div className="flex shrink-0 items-start gap-1.5">
-                    <CallTimeDisplay call={call} variant="prominent" />
-                    {expandable ? (
-                      <ChevronDown
-                        className={cn(
-                          "mt-0.5 h-4 w-4 text-slate-500 transition-transform duration-150 group-hover/caller:text-teal-400",
-                          expanded && "rotate-180"
-                        )}
-                        aria-hidden
-                      />
-                    ) : null}
-                  </div>
-                </div>
-                <div className="min-w-0">
-                  <CallerNameWithCount call={call} interactive />
-                  {canCallBack(call) ? (
-                    <a
-                      href={buildTelHref(call.callerNumber) ?? undefined}
-                      onClick={(e) => e.stopPropagation()}
+                <ActivityStatusPill status={st} dense />
+                <span className="min-w-0 flex-1">
+                  <CallerNameWithCount call={call} interactive dense />
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px]">
+                    <span
                       className={cn(
-                        "truncate text-xs font-medium underline-offset-2 transition-colors duration-150 hover:underline",
-                        missed
-                          ? "text-rose-300 hover:text-rose-200"
-                          : "text-cyan-400 hover:text-teal-300"
+                        "truncate font-medium",
+                        missed ? "text-rose-300/90" : "text-cyan-400/90"
                       )}
                     >
                       {call.callerNumber}
-                    </a>
-                  ) : (
-                    <p className="truncate text-xs text-zinc-500">{call.callerNumber}</p>
-                  )}
-                </div>
-                {expanded ? <GroupedCallChronology members={call.members} /> : null}
-              </button>
-              {canCallBack(call) ? (
-                <CallBackButton
-                  phone={call.callerNumber}
-                  compact
-                  className="w-full"
-                  openIntakeDraft={needsRevenueRescue(call)}
-                  intakeCall={call}
-                  missed={missed}
-                />
-              ) : null}
-              {call.activity ? (
-                <ActivityIntakeSummary
-                  activity={call.activity}
-                  compact
-                  callerPhone={call.callerNumber}
-                  call={call}
-                />
-              ) : null}
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  {call.count > 1 ? (
-                    <span className="truncate text-[11px] text-slate-500">
-                      {formatGroupedCallSummary(call)}
                     </span>
-                  ) : (
-                    <AgentBadge agent={resolveCallAgent(call)} compact />
-                  )}
-                  <span className="truncate" title={targetLabel}>
-                    {targetLabel}
+                    <span className="shrink-0 text-zinc-600">·</span>
+                    <span className="shrink-0 tabular-nums text-zinc-500">
+                      {formatDuration(call.durationSeconds)}
+                    </span>
+                    {intakeShort && intakeShort !== "No intake" ? (
+                      <>
+                        <span className="shrink-0 text-zinc-600">·</span>
+                        <span className="truncate text-zinc-500">{intakeShort}</span>
+                      </>
+                    ) : null}
                   </span>
-                </div>
-                <span className="shrink-0 tabular-nums text-zinc-400">
-                  {formatDuration(call.durationSeconds)}
                 </span>
-              </div>
-              {expandable ? (
+                <CallTimeDisplay call={call} variant="inline" />
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 shrink-0 text-zinc-600 transition-transform duration-150 group-hover/caller:text-teal-400",
+                    expanded && "rotate-180 text-teal-400"
+                  )}
+                  aria-hidden
+                />
+              </button>
+              {canCallBack(call) && telHref ? (
+                <a
+                  href={telHref}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (needsRevenueRescue(call)) {
+                      openIntakeForActivityCall(inbound, call)
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.96]",
+                    missed
+                      ? "border-rose-500/45 bg-rose-500/15 text-rose-100"
+                      : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
+                  )}
+                  aria-label={missed ? "Call back" : "Call"}
+                  title={missed ? "Call back" : "Call"}
+                >
+                  <Phone className="h-4 w-4" aria-hidden />
+                </a>
+              ) : null}
+            </div>
+
+            {/* Expanded: actions + intake + line (only when needed). */}
+            {expanded ? (
+              <div className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
+                {canCallBack(call) ? (
+                  <CallBackButton
+                    phone={call.callerNumber}
+                    compact
+                    className="w-full"
+                    openIntakeDraft={needsRevenueRescue(call)}
+                    intakeCall={call}
+                    missed={missed}
+                  />
+                ) : null}
+                {call.activity ? (
+                  <ActivityIntakeSummary
+                    activity={call.activity}
+                    compact
+                    callerPhone={call.callerNumber}
+                    call={call}
+                  />
+                ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {call.count > 1 ? (
+                      <span className="truncate text-[11px] text-slate-500">
+                        {formatGroupedCallSummary(call)}
+                      </span>
+                    ) : (
+                      <AgentBadge agent={resolveCallAgent(call)} compact />
+                    )}
+                    <span className="truncate" title={targetLabel}>
+                      {targetLabel}
+                    </span>
+                  </div>
+                </div>
+                {call.count > 1 ? <GroupedCallChronology members={call.members} /> : null}
                 <button
                   type="button"
                   onClick={() => openActivityCallFromList(call, inbound, openLogSheet)}
                   className="self-start text-[11px] font-semibold text-cyan-400 underline-offset-2 transition-colors duration-150 hover:text-teal-300 hover:underline"
                 >
-                  {shouldOpenIntakeOnActivityClick(call) ? "Log purpose & outcome" : "View latest log"}
+                  {shouldOpenIntakeOnActivityClick(call)
+                    ? "Log purpose & outcome"
+                    : "View call details"}
                 </button>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </li>
         )
       })}
