@@ -33,7 +33,6 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import { SmartOverflowFallbackCard } from "@/components/dashboard/smart-overflow-fallback-card"
-import { TodayCommandBoard } from "@/components/dashboard/today-command-board"
 import {
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
@@ -588,7 +587,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     configureStrategy: onConfigureStrategy,
   })
 
-  // Primary (+ optional network); IVR + Today board are dedicated cards below.
+  // Primary (+ optional network); IVR + Messages are dedicated cards below.
   const primaryAndNetworkNodes = flowNodes
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
@@ -608,9 +607,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       retellConnected={smartOverflow.retellConnected}
     />
   ) : null
-
-  // Day-to-day field board (callbacks + live jobs) — Missed Call Rescue lives in Settings.
-  const todayBoard = <TodayCommandBoard compact={isMobile} />
 
   // Opens the two-way SMS inbox (textbacks + customer replies).
   const messagesInboxCard = isMobile ? (
