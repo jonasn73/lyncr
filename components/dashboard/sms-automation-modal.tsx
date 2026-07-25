@@ -17,15 +17,14 @@ type Props = {
 export function SmsAutomationModal({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(92vh,900px)] overflow-hidden border-border/80 bg-card/95 sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(92vh,720px)] flex-col overflow-hidden border-border/80 bg-card/95 sm:max-w-lg">
+        <DialogHeader className="shrink-0">
           <DialogTitle>SMS templates</DialogTitle>
           <DialogDescription>
-            Edit booking, on the way, thanks + review, late/status updates, and your reusable quick texts. Tap a tag chip
-            to insert it where you’re typing.
+            Pick a tab, edit the text, tap a tag to insert it. Save when you’re done.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[calc(92vh-8rem)] overflow-y-auto pr-1">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <SmsAutomationForm onSaved={() => onOpenChange(false)} />
         </div>
       </DialogContent>
