@@ -33,6 +33,7 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import { SmartOverflowFallbackCard } from "@/components/dashboard/smart-overflow-fallback-card"
+import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
 import {
   CallFlowStepsSkeleton,
 } from "@/components/workspace-content-skeletons"
@@ -608,6 +609,9 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     />
   ) : null
 
+  // Completed jobs today — one-tap thanks + review (not the full Field command board).
+  const justFinishedCard = <JustFinishedReviewCard compact={isMobile} />
+
   // Opens the two-way SMS inbox (textbacks + customer replies).
   const messagesInboxCard = isMobile ? (
     <Link
@@ -719,7 +723,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                 />
               ) : null}
               {overflowCard}
-              {todayBoard}
+              {justFinishedCard}
               {messagesInboxCard}
             </div>
           ) : (
@@ -757,7 +761,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                 </>
               ) : null}
               <FlowConnector />
-              {todayBoard}
+              {justFinishedCard}
               <FlowConnector />
               {messagesInboxCard}
             </div>
