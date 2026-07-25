@@ -3,7 +3,7 @@
 // Live Smart Overflow IVR Menu — calendar capacity → ivr_menu_enabled sync.
 // Presence On-Job / Closed is controlled only by the top Presence bar (no Off-duty switch).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import {
   DEFAULT_SMART_OVERFLOW_CONFIG,
@@ -18,6 +18,30 @@ import {
 } from "@/lib/smart-overflow-autopilot"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import type { SchedulerEvent } from "@/lib/types"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+
+/** Lightweight snapshot so the IVR card doesn’t insert late on hard refresh. */
+type SmartOverflowCache = {
+  capacityThreshold: number
+  confirmedJobsToday: number
+  overflowActive: boolean
+  nextAvailableSlotText: string
+  retellConnected: boolean
+}
+
+function overflowCacheKey(): string {
+  return persistedCacheKey("smart-overflow", readActiveOrganizationId() || "default")
+}
+
+function readOverflowCache(): SmartOverflowCache | null {
+  const cached = readPersistedCache<SmartOverflowCache>(overflowCacheKey())
+  if (!cached || typeof cached.capacityThreshold !== "number") return null
+  return cached
+}
+
+function writeOverflowCache(snap: SmartOverflowCache) {
+  writePersistedCache(overflowCacheKey(), snap)
+}
 
 function currentMonthKey(now = new Date()): string {
   const y = now.getFullYear()
@@ -73,12 +97,34 @@ export function useSmartOverflowAutopilot(
     capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
   })
   const [events, setEvents] = useState<SchedulerEvent[]>([])
+  const [eventsReady, setEventsReady] = useState(false)
   const [loading, setLoading] = useState(true)
   const [hydrated, setHydrated] = useState(false)
   const [capacitySaving, setCapacitySaving] = useState(false)
   const [retellOfferText, setRetellOfferText] = useState<string | null>(null)
   const [retellConnected, setRetellConnected] = useState(false)
+  // Seeded from sessionStorage so overflow card can paint before calendar fetch.
+  const [seedConfirmedJobs, setSeedConfirmedJobs] = useState<number | null>(null)
+  const [seedNextSlotText, setSeedNextSlotText] = useState<string | null>(null)
+  const hasOverflowCacheRef = useRef(false)
   const lastSyncedIvrEnabled = useRef<boolean | null>(null)
+
+  // Restore last overflow snapshot before paint (stops IVR card popping in under Latest).
+  useLayoutEffect(() => {
+    const cached = readOverflowCache()
+    if (!cached) return
+    hasOverflowCacheRef.current = true
+    setConfigState({
+      mode: "auto_capacity",
+      manualEnabled: false,
+      capacityThreshold: Math.max(1, Math.min(40, Math.floor(cached.capacityThreshold) || 5)),
+    })
+    setSeedConfirmedJobs(cached.confirmedJobsToday)
+    setSeedNextSlotText(cached.nextAvailableSlotText)
+    setRetellConnected(cached.retellConnected)
+    setHydrated(true)
+    setLoading(false)
+  }, [])
 
   // Load capacity threshold from account_settings (source of truth).
   useEffect(() => {
@@ -154,7 +200,8 @@ export function useSmartOverflowAutopilot(
     const orgId = readActiveOrganizationId()
     const orgQs = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
 
-    setLoading(true)
+    // Don’t dim the card when we already painted from cache.
+    if (!hasOverflowCacheRef.current) setLoading(true)
     void fetch(`/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQs}`, {
       credentials: "include",
     })
@@ -167,10 +214,16 @@ export function useSmartOverflowAutopilot(
         return json.data?.events ?? json.events ?? []
       })
       .then((list) => {
-        if (!cancelled) setEvents(Array.isArray(list) ? list : [])
+        if (!cancelled) {
+          setEvents(Array.isArray(list) ? list : [])
+          setEventsReady(true)
+        }
       })
       .catch(() => {
-        if (!cancelled) setEvents([])
+        if (!cancelled) {
+          setEvents([])
+          setEventsReady(true)
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -183,12 +236,37 @@ export function useSmartOverflowAutopilot(
 
   const now = useMemo(() => new Date(), [events, config, hydrated])
   const todayKey = defaultIntakeScheduleDate(now)
-  const confirmedJobsToday = useMemo(
+  const confirmedFromEvents = useMemo(
     () => countConfirmedJobsOnDay(events, todayKey),
     [events, todayKey]
   )
+  // Prefer live calendar counts once ready; otherwise use the cached seed.
+  const confirmedJobsToday = eventsReady
+    ? confirmedFromEvents
+    : (seedConfirmedJobs ?? confirmedFromEvents)
   const overflowActive = hydrated && isSmartOverflowActive(config, confirmedJobsToday)
   const nextSlot = useMemo(() => getNextAvailableSlot(now, events), [now, events])
+
+  // Persist a small snapshot whenever overflow math settles (next refresh paints instantly).
+  useEffect(() => {
+    if (!hydrated || !eventsReady) return
+    writeOverflowCache({
+      capacityThreshold: config.capacityThreshold,
+      confirmedJobsToday,
+      overflowActive,
+      nextAvailableSlotText: retellOfferText || nextSlot?.text || "Monday morning",
+      retellConnected,
+    })
+  }, [
+    hydrated,
+    eventsReady,
+    config.capacityThreshold,
+    confirmedJobsToday,
+    overflowActive,
+    retellOfferText,
+    nextSlot?.text,
+    retellConnected,
+  ])
 
   // Capacity used to flip ivr_menu_enabled=true and made the dashboard look like
   // "Automation 100%" even while Presence was Available. Webhook routing is
@@ -277,11 +355,13 @@ export function useSmartOverflowAutopilot(
     setCapacityThreshold,
     capacitySaving,
     overflowActive,
-    nextAvailableSlotText: retellOfferText || nextSlot?.text || "Monday morning",
+    nextAvailableSlotText:
+      retellOfferText || nextSlot?.text || seedNextSlotText || "Monday morning",
     nextAvailableSlotIso: nextSlot?.scheduledAtIso || null,
     confirmedJobsToday,
     events,
-    loading: loading || !hydrated,
+    // After cache paint, don’t report “loading” (avoids opacity flash on the IVR card).
+    loading: !hasOverflowCacheRef.current && (loading || !hydrated),
     retellConnected,
     ingestAICallBooking,
   }

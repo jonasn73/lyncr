@@ -713,10 +713,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           />
           {/* Mobile layout — CSS only (no useIsMobile remount on refresh). */}
           <div
-            className={cn(
-              "flex flex-col gap-3 md:hidden",
-              routingLineDetailLoading && "opacity-60"
-            )}
+            className="flex flex-col gap-3 md:hidden"
             aria-label="Call handling steps"
           >
             {primaryAndNetworkNodes.map((node) => (
@@ -749,8 +746,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           <div
             className={cn(
               "hidden md:flex flex-col gap-4 lg:flex-row lg:items-stretch",
-              CALL_FLOW_STEPS_MIN_H,
-              routingLineDetailLoading && "opacity-60"
+              CALL_FLOW_STEPS_MIN_H
             )}
             aria-label="Call handling steps"
           >

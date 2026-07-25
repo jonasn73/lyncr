@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
+import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import {
   LINES_MOBILE_CARD,
   LINES_MOBILE_SECTION_LABEL,
@@ -39,40 +40,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const { toast } = useToast()
   const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
-  const [items, setItems] = useState<LatestCustomerAction[]>([])
-  const [loading, setLoading] = useState(true)
+  // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
+  const { items, loading, refresh: load } = useOwnerLatest(activeOrganizationId)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   const [markingOpened, setMarkingOpened] = useState(false)
-
-  const load = useCallback(async () => {
-    try {
-      const orgQs =
-        activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
-          ? `?organization_id=${encodeURIComponent(activeOrganizationId)}`
-          : ""
-      const res = await fetch(`/api/owner/latest${orgQs}`, {
-        credentials: "include",
-        cache: "no-store",
-      })
-      const json = (await res.json().catch(() => null)) as {
-        data?: { latest?: LatestCustomerAction[] }
-        error?: string
-      } | null
-      if (!res.ok || !json?.data) return
-      setItems(json.data.latest ?? [])
-    } catch {
-      /* keep last good list */
-    } finally {
-      setLoading(false)
-    }
-  }, [activeOrganizationId])
-
-  useEffect(() => {
-    void load()
-    const id = window.setInterval(() => void load(), 30_000)
-    return () => window.clearInterval(id)
-  }, [load])
 
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
   const selectedPhone = selected?.customerPhone ?? null
@@ -180,48 +152,51 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           </button>
         </div>
 
-        {loading ? (
-          <div className="mt-3 flex items-center gap-2 text-sm text-zinc-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading…
-          </div>
-        ) : items.length === 0 ? (
-          <p className="mt-3 rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
-            Nothing yet today. Finish a job or send Thanks + review — it’ll show up here with delivery
-            status.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {items.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(item)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                    item.event === "replied"
-                      ? "border-sky-500/25 bg-sky-500/5 hover:bg-sky-500/10"
-                      : "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{item.headline}</p>
-                      <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
-                        {formatTimeAgo(item.at)}
-                      </span>
+        {/* Reserve list height so refetch doesn’t collapse Latest into “Loading…”. */}
+        <div className="mt-3 min-h-[3.5rem]">
+          {loading && items.length === 0 ? (
+            <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : items.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
+              Nothing yet today. Finish a job or send Thanks + review — it’ll show up here with delivery
+              status.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {items.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(item)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                      item.event === "replied"
+                        ? "border-sky-500/25 bg-sky-500/5 hover:bg-sky-500/10"
+                        : "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate text-sm font-medium text-foreground">{item.headline}</p>
+                        <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
+                          {formatTimeAgo(item.at)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs font-medium text-zinc-400">{item.statusLine}</p>
+                      {item.preview ? (
+                        <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
+                      ) : null}
                     </div>
-                    <p className="mt-0.5 truncate text-xs font-medium text-zinc-400">{item.statusLine}</p>
-                    {item.preview ? (
-                      <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
-                    ) : null}
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>

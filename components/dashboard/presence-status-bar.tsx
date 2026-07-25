@@ -68,7 +68,8 @@ export function PresenceStatusBar({ className }: { className?: string }) {
             <button
               key={opt.label}
               type="button"
-              disabled={loading || saving}
+              // Only block taps while saving — loading must not freeze/flash the chips on refresh.
+              disabled={saving}
               onClick={() => void setPresenceStatus(opt.write)}
               className={cn(
                 "flex min-h-[3.25rem] flex-col items-center justify-center px-2 py-2 text-center transition-colors",
