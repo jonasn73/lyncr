@@ -10,7 +10,9 @@ import {
   Phone,
   RefreshCw,
   Route,
+  Settings2,
 } from "lucide-react"
+import { openSmsAutomationModal } from "@/lib/settings-modals-events"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useToast } from "@/hooks/use-toast"
@@ -255,19 +257,30 @@ export const TodayCommandBoard = memo(function TodayCommandBoard({
             Callbacks, live jobs, and one-tap customer updates.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load(true)}
-          disabled={refreshing || loading}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 text-zinc-400 hover:bg-muted/40 hover:text-foreground disabled:opacity-50"
-          aria-label="Refresh Today"
-        >
-          {refreshing || loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => openSmsAutomationModal()}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:bg-muted/40 hover:text-foreground"
+            aria-label="Edit SMS templates"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            Texts
+          </button>
+          <button
+            type="button"
+            onClick={() => void load(true)}
+            disabled={refreshing || loading}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-zinc-400 hover:bg-muted/40 hover:text-foreground disabled:opacity-50"
+            aria-label="Refresh Today"
+          >
+            {refreshing || loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       {loading && !data ? (

@@ -197,17 +197,17 @@ export async function sendManualThanksReviewSms(params: {
     location: ctx.location?.trim() || "",
   }
 
-  // Prefer the owner’s review template when a URL exists; otherwise a plain thank-you.
-  let body: string
-  if (reviewUrl) {
-    const template = settings.sms_review_template?.trim() || defaultTemplate("review")
-    body = renderTemplate(template, vars)
-  } else {
-    body = renderTemplate(
-      "Thanks for choosing {{business_name}}, {{customer_name}}! We appreciate your business.",
-      vars
-    )
-  }
+  // Always use the owner’s saved review wording (Today “Texts” / SMS templates).
+  // If they left {{review_url}} in place but have no link yet, strip the empty tag cleanly.
+  const template =
+    settings.sms_review_template?.trim() ||
+    (reviewUrl
+      ? defaultTemplate("review")
+      : "Thanks for choosing {{business_name}}, {{customer_name}}! We appreciate your business.")
+  const body = renderTemplate(template, vars)
+    .replace(/\s+/g, " ")
+    .replace(/\s+:/g, ":")
+    .trim()
   if (!body) return { ok: false, skipped: true, reason: "empty-body" }
 
   const res = await sendTelnyxSms({ toE164, text: body, userId: ctx.owner_user_id })

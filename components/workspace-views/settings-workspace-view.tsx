@@ -154,7 +154,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             grouped
             icon={<Zap className="h-5 w-5 text-violet-300" aria-hidden />}
             title="SMS templates"
-            subtitle="Confirmations, en-route, and review texts"
+            subtitle="Edit booking, on-the-way, and thanks + review texts"
             onClick={modals.openSmsAutomation}
           />
           <SettingsMenuRow

@@ -19,9 +19,10 @@ export function SmsAutomationModal({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(92vh,900px)] overflow-hidden border-border/80 bg-card/95 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>SMS automation engine</DialogTitle>
+          <DialogTitle>SMS templates</DialogTitle>
           <DialogDescription>
-            Configure white-labeled customer texts at each stage of the job — booking, en route, and review.
+            Set the exact texts for booking, on the way, and thanks + review. Turn auto-send on or off for each —
+            Today’s buttons still use your wording either way.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[calc(92vh-8rem)] overflow-y-auto pr-1">

@@ -1,5 +1,8 @@
 "use client"
 
+// Owner SMS templates — booking, en route, review copy + review link.
+// Toggles = auto-send; templates stay editable for Today one-tap even when auto is off.
+
 import { useEffect, useState } from "react"
 import { Loader2, Star } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -84,7 +87,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
         const j = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(j.error || "Save failed")
       }
-      toast({ title: "Automated SMS settings saved" })
+      toast({ title: "SMS templates saved" })
       onSaved?.()
     } catch (e) {
       toast({
@@ -109,9 +112,10 @@ export function SmsAutomationForm({ onSaved }: Props) {
   return (
     <div className="space-y-5">
       <p className="text-xs text-zinc-500">
-        Use merge tags like{" "}
+        Write the texts you want customers to get. Use tags like{" "}
         <code className="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-zinc-300">{"{{customer_name}}"}</code> — they
-        fill in automatically when texts send.
+        fill in automatically. The switch only controls <span className="text-zinc-300">automatic</span> sends; your
+        wording is always saved for Today’s one-tap buttons too.
       </p>
       <div className="flex flex-wrap gap-1.5">
         {TAGS.map((t) => (
@@ -125,8 +129,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
       </div>
 
       <PhaseBlock
-        title="Booking Confirmation"
-        description="Sent when a job is booked, confirming the appointment time."
+        title="Booking confirmation"
+        description="When a job is booked — confirms the appointment time."
+        autoLabel="Send automatically on booking"
         enabled={settings.sms_booking_enabled}
         onToggle={(v) => patch("sms_booking_enabled", v)}
         value={settings.sms_booking_template}
@@ -135,8 +140,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
         disabled={saving}
       />
       <PhaseBlock
-        title="Technician En Route"
-        description="Sent when you assign a tech or they press Start Route."
+        title="On the way"
+        description="When someone starts the route (Scheduler, tech app, or Today)."
+        autoLabel="Send automatically on Start route"
         enabled={settings.sms_route_enabled}
         onToggle={(v) => patch("sms_route_enabled", v)}
         value={settings.sms_route_template}
@@ -145,8 +151,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
         disabled={saving}
       />
       <PhaseBlock
-        title="Post-Job Review Request"
-        description="Drops 15 minutes after the job is completed, with your review link."
+        title="Thanks + review"
+        description="Used by Today’s Thanks + review button, and (if auto is on) ~15 minutes after a job completes."
+        autoLabel="Also send automatically after job complete"
         enabled={settings.sms_review_enabled}
         onToggle={(v) => patch("sms_review_enabled", v)}
         value={settings.sms_review_template}
@@ -168,6 +175,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
           onChange={(e) => patch("google_review_url", e.target.value)}
           disabled={saving}
         />
+        <p className="mt-1.5 text-[11px] text-zinc-500">
+          Pasted into {"{{review_url}}"} in the Thanks + review message. Leave blank for a thank-you with no link.
+        </p>
       </label>
 
       <button
@@ -176,7 +186,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
         onClick={() => void save()}
         className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
       >
-        {saving ? "Saving…" : "Save SMS automation"}
+        {saving ? "Saving…" : "Save SMS templates"}
       </button>
     </div>
   )
@@ -185,6 +195,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
 function PhaseBlock(props: {
   title: string
   description: string
+  autoLabel: string
   enabled: boolean
   onToggle: (v: boolean) => void
   value: string
@@ -194,29 +205,29 @@ function PhaseBlock(props: {
 }) {
   return (
     <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-foreground">{props.title}</p>
-          <p className="text-xs text-zinc-500">{props.description}</p>
-        </div>
+      <div>
+        <p className="text-sm font-medium text-foreground">{props.title}</p>
+        <p className="text-xs text-zinc-500">{props.description}</p>
+      </div>
+      <textarea
+        rows={3}
+        className={fieldClass + " resize-y"}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        placeholder={props.placeholder}
+        maxLength={480}
+        disabled={props.disabled}
+        aria-label={`${props.title} message`}
+      />
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2">
+        <p className="text-xs text-zinc-400">{props.autoLabel}</p>
         <Switch
           checked={props.enabled}
           onCheckedChange={props.onToggle}
           disabled={props.disabled}
-          aria-label={props.title}
+          aria-label={props.autoLabel}
         />
       </div>
-      {props.enabled ? (
-        <textarea
-          rows={3}
-          className={fieldClass + " resize-y"}
-          value={props.value}
-          onChange={(e) => props.onChange(e.target.value)}
-          placeholder={props.placeholder}
-          maxLength={480}
-          disabled={props.disabled}
-        />
-      ) : null}
     </div>
   )
 }
