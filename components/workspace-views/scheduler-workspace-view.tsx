@@ -32,7 +32,6 @@ import {
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
-import { readAndClearLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
@@ -104,6 +103,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const deletedJobIdsRef = useRef<Set<string>>(new Set())
   /** Prevents URL focus effects from closing a job the user opened manually via Edit. */
   const suppressUrlFocusRef = useRef(false)
+  /** Avoid re-fetching the same CRM Convert focus id when lists miss it. */
+  const focusFetchAttemptedRef = useRef<string | null>(null)
 
   const { focusLeadId, scheduleFromIntake } = useMemo(
     () => parseSchedulerFocusSearch(searchParams.toString()),
@@ -304,22 +305,6 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     },
     [inboundCallPanel]
   )
-
-  /** Open intake sheet when redirected from CRM "Convert to booking". */
-  useEffect(() => {
-    if (!isActive || !inboundCallPanel) return
-    const handoff = readAndClearLeadsIntakeHandoff()
-    if (!handoff) return
-    inboundCallPanel.openManualCallPanel({
-      leadId: handoff.leadId,
-      phoneNumber: handoff.phoneNumber,
-      customerName: handoff.customerName,
-      vehicleYear: handoff.vehicleYear,
-      vehicleMake: handoff.vehicleMake,
-      vehicleModel: handoff.vehicleModel,
-      quotedPriceCents: handoff.quotedPriceCents,
-    })
-  }, [isActive, inboundCallPanel])
 
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current
@@ -792,6 +777,11 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     }
   }, [isActive, focusLeadId, scheduleFromIntake, mutatePool])
 
+  // Allow a fresh CRM Convert deep-link to fetch again after the prior focus cleared.
+  useEffect(() => {
+    if (!focusLeadId) focusFetchAttemptedRef.current = null
+  }, [focusLeadId])
+
   useEffect(() => {
     if (!isActive || !focusLeadId || suppressUrlFocusRef.current) return
 
@@ -825,10 +815,57 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           setVisibleMonth(d)
         }
         openJobForEdit(scheduled, { fromUrl: true })
-      } else if (poolJob) {
+        return
+      }
+      if (poolJob) {
         openJobForEdit(poolJob, { fromUrl: true })
-      } else if (pipelineJob) {
+        return
+      }
+      if (pipelineJob) {
         focusPipelineJob(pipelineJob)
+        return
+      }
+      // CRM Convert: job may be Waiting Pool / callback but not in the current list yet.
+      // Fetch by id and open the same JobDetailDrawer Coming Up Next uses.
+      if (poolLoading) return
+      if (focusFetchAttemptedRef.current === focusLeadId) return
+      focusFetchAttemptedRef.current = focusLeadId
+      let cancelled = false
+      void fetch(`/api/owner/scheduler/${encodeURIComponent(focusLeadId)}`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+        .then(async (res) => {
+          if (!res.ok) return null
+          const json = (await res.json().catch(() => ({}))) as {
+            data?: { event?: SchedulerEvent }
+          }
+          return json.data?.event ?? null
+        })
+        .then((event) => {
+          if (cancelled) return
+          if (!event) {
+            clearSchedulerFocusUrl()
+            return
+          }
+          setHighlightId(event.id)
+          if (event.scheduled_at && !event.scheduled_tentative) {
+            const eventDay = dayKeyLocal(new Date(event.scheduled_at))
+            if (eventDay !== dayKeyLocal(selectedDay)) {
+              const d = new Date(event.scheduled_at)
+              setSelectedDay(d)
+              setVisibleMonth(d)
+            }
+            openJobForEdit(event, { fromUrl: true })
+          } else {
+            openJobForEdit(schedulerEventToPoolJob(event), { fromUrl: true })
+          }
+        })
+        .catch(() => {
+          if (!cancelled) clearSchedulerFocusUrl()
+        })
+      return () => {
+        cancelled = true
       }
     }
   }, [

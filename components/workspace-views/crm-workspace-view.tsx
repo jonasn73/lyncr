@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { writeLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
+import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type {
   CrmCustomerListItem,
   CrmLeadBadge,
@@ -38,26 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-
-/** Prefer lead YMM, then garage, so Convert → intake opens with a vehicle already filled. */
-function resolveConvertVehicle(
-  lead: CrmServiceHistoryItem | null | undefined,
-  garage: CustomerVehicle[]
-): { year?: string; make?: string; model?: string } {
-  const fromLead = {
-    year: lead?.vehicle_year?.trim() || undefined,
-    make: lead?.vehicle_make?.trim() || undefined,
-    model: lead?.vehicle_model?.trim() || undefined,
-  }
-  if (fromLead.year || fromLead.make || fromLead.model) return fromLead
-  const v = garage[0]
-  if (!v) return {}
-  return {
-    year: v.year?.trim() || undefined,
-    make: v.make?.trim() || undefined,
-    model: v.model?.trim() || undefined,
-  }
-}
 
 type CrmFilter = "all" | "leads" | "clients"
 
@@ -278,37 +258,26 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       openLeadHistory.length > 0)
 
   /**
-   * Seed scheduler intake with this open quote/callback lead, then open Scheduler.
-   * Booking upgrades the same ai_leads row (no duplicate).
-   * Close the CRM profile Dialog/panel first — workspace panes stay mounted, so an open
-   * Dialog (z-[7000]) would otherwise cover CallAnsweredModal intake (default sheet z-[6000]).
+   * Convert = open the existing job on Scheduler (JobDetailDrawer), not restart intake.
+   * The lead/job already went through CallAnsweredModal — operator sets Scheduled + assigns tech there.
+   * Close the CRM profile first so the drawer is not trapped under the Dialog (z-[7000]).
+   * Rare: no history lead id → just open Scheduler (operator can tap New Intake).
    */
   const convertToBooking = useCallback(
     (lead?: CrmServiceHistoryItem | null) => {
       if (!selected) return
       const target = lead ?? openLeadHistory[0] ?? null
-      if (!target?.id) return
-      const ymm = resolveConvertVehicle(target, vehicles)
-      // Capture fields before closing — close clears selectedId / selected on next paint.
-      const handoff = {
-        leadId: target.id,
-        phoneNumber: selected.phone_e164,
-        customerName: editName.trim() || selected.display_name || "",
-        vehicleYear: ymm.year,
-        vehicleMake: ymm.make,
-        vehicleModel: ymm.model,
-        quotedPriceCents:
-          target.amount_cents != null && target.amount_cents > 0
-            ? Math.round(target.amount_cents)
-            : undefined,
-      }
-      // Drop the profile layer immediately so Scheduler intake is not trapped under it.
+      // Drop the profile layer immediately so Scheduler UI is not covered by it.
       setSelectedId(null)
       setSelected(null)
-      writeLeadsIntakeHandoff(handoff)
+      if (target?.id) {
+        // Same deep-link Coming Up Next / post-book uses — opens JobDetailDrawer.
+        router.push(buildSchedulerFocusUrl(target.id))
+        return
+      }
       router.push("/dashboard/scheduler")
     },
-    [selected, openLeadHistory, vehicles, editName, router]
+    [selected, openLeadHistory, router]
   )
 
   const addVehicle = async () => {
@@ -926,7 +895,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
 
       {/* Mobile: compact centered floating dialog (list stays dimmed behind).
           Gate on isActive — CRM pane stays mounted when switching tabs; without this,
-          Convert to booking can leave the Dialog open over Scheduler intake. */}
+          Convert to booking can leave the Dialog open over the Scheduler job drawer. */}
       <Dialog
         open={isActive && isMobile && profileOpen}
         onOpenChange={(open) => {
