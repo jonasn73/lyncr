@@ -174,15 +174,23 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
   if (mode.kind === "high_urgency") {
     // Full number on its own line so Call/Text never squeeze it into “…”
     const phoneLabel = formatPhoneDisplay(mode.prospect.from_number) || mode.prospect.from_number
+    // Same tel: dial path the old Rescue button used — whole card shares it.
+    const rescuePhone = mode.prospect.from_number
     return (
       <>
-        <div
+        {/* One button for the whole card: big mobile tap target, keyboard focusable. */}
+        <button
+          type="button"
+          onClick={() => handleRescueCall(rescuePhone)}
+          aria-label={`Rescue high urgency caller ${phoneLabel}`}
           className={cn(
+            "w-full text-left cursor-pointer",
             "border-rose-900 bg-rose-950/20 rounded-xl p-3",
             "border animate-[pulse_2.4s_ease-in-out_infinite]",
+            "transition-colors hover:bg-rose-950/35 focus-visible:outline-none",
+            "focus-visible:ring-2 focus-visible:ring-rose-400/50",
             className
           )}
-          role="status"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -193,21 +201,20 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
                 {phoneLabel}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => handleRescueCall(mode.prospect.from_number)}
+            {/* Visual Rescue affordance only — click is handled by the outer button. */}
+            <span
+              aria-hidden
               className={cn(
-                "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg",
+                "pointer-events-none inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg",
                 "border border-rose-500/40 bg-rose-500/15 px-3 py-1.5",
-                "text-xs font-semibold text-rose-100 transition-colors",
-                "hover:bg-rose-500/25"
+                "text-xs font-semibold text-rose-100"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
               Rescue
-            </button>
+            </span>
           </div>
-        </div>
+        </button>
         {templateSheet}
       </>
     )
