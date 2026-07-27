@@ -34,7 +34,8 @@ const PAGE_HREF: Record<PageId, string> = {
   activity: "/dashboard/activity",
   messages: "/dashboard/messages",
   scheduler: "/dashboard/scheduler",
-  leads: "/dashboard/leads",
+  // Soft-nav to CRM Leads tab (matches DASHBOARD_PAGE_HREF.leads).
+  leads: "/dashboard/customers?tab=leads",
   customers: "/dashboard/customers",
   contacts: "/dashboard/contacts",
   pay: "/dashboard/pay",

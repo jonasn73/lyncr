@@ -6,7 +6,6 @@ import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import { ActivityWorkspaceView } from "@/components/workspace-views/activity-workspace-view"
-import { LeadsWorkspaceView } from "@/components/workspace-views/leads-workspace-view"
 import { CrmWorkspaceView } from "@/components/workspace-views/crm-workspace-view"
 import { MapWorkspaceView } from "@/components/workspace-views/map-workspace-view"
 import { MessagesWorkspaceView } from "@/components/workspace-views/messages-workspace-view"
@@ -31,7 +30,6 @@ export const DASHBOARD_PRESENCE_PAGE_IDS = [
   "messages",
   "scheduler",
   "customers",
-  "leads",
   "contacts",
   "pay",
   "settings",
@@ -105,10 +103,6 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         <Suspense fallback={<div className="min-h-[40vh] w-full" aria-busy="true" aria-label="Loading CRM" />}>
           <CrmWorkspaceView isActive={activePage === "customers"} />
         </Suspense>
-      </PresencePane>
-      {/* Legacy /dashboard/leads deep links still mount the recovery list until fully merged. */}
-      <PresencePane active={activePage === "leads"} label="Leads" deferUntilVisit>
-        <LeadsWorkspaceView />
       </PresencePane>
       <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
         <MapWorkspaceView />

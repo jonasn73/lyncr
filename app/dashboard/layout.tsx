@@ -17,8 +17,6 @@ import {
   phoneLinesPromise,
   routingBootstrapPromise,
 } from "@/lib/server/streamed-dashboard-data"
-import { loadLeadsWorkspaceData } from "@/lib/server/leads-workspace-data"
-import type { LeadsWorkspaceCache } from "@/lib/leads-cache"
 import type { User } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -93,18 +91,6 @@ export default async function DashboardLayout({
   const hopperPromise = shouldStreamMainBootstrap ? jobPoolPromise(user) : undefined
   const pipelinePromise = shouldStreamMainBootstrap ? activePipelinePromise(user) : undefined
 
-  const isLeadsRoute =
-    pathnameFromRequest === "/dashboard/leads" ||
-    pathnameFromRequest?.startsWith("/dashboard/leads/")
-  let initialLeadsCache: LeadsWorkspaceCache | undefined
-  if (isLeadsRoute) {
-    try {
-      initialLeadsCache = await loadLeadsWorkspaceData(user.id)
-    } catch (e) {
-      console.error("[dashboard/layout] leads preload", e)
-    }
-  }
-
   return (
     <DashboardStreamProvider
       dashboardMainBootstrapPromise={resolvedMainBootstrapPromise}
@@ -119,7 +105,6 @@ export default async function DashboardLayout({
         sessionBusinessName={user.business_name}
         initialBootstrap={initialMainBootstrap}
         initialActiveOrganizationId={initialActiveOrganizationId}
-        initialLeadsCache={initialLeadsCache}
         sessionAccount={{
           name: user.name?.trim() || "Account",
           email: user.email,

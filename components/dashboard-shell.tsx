@@ -13,7 +13,6 @@ import { InboundCallPanelProvider } from "@/lib/inbound-call-panel-context"
 import { LyncEngineProvider } from "@/lib/lync-engine-context"
 import { DashboardRealtimeStatsHost } from "@/components/dashboard/dashboard-realtime-stats-host"
 import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-numbers-sync"
-import { DashboardLeadsPrefetch } from "@/components/dashboard-leads-prefetch"
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { PhotoUploadNotificationBanner } from "@/components/dashboard/photo-upload-notification-banner"
@@ -27,8 +26,6 @@ import {
   DashboardOrganizationsBootstrap,
 } from "@/components/dashboard-header-workspace"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
-import type { LeadsWorkspaceCache } from "@/lib/leads-cache"
-import { LeadsWorkspaceInitialProvider } from "@/components/leads-workspace-initial-context"
 import { DashboardBootstrapShellGate } from "@/components/dashboard-bootstrap-context"
 import { DashboardMainStreamGate } from "@/components/dashboard-main-stream-gate"
 import { DashboardSettingsModalsLazyHost } from "@/components/dashboard/settings-modals-lazy-host"
@@ -50,7 +47,6 @@ const VALID_PAGES: PageId[] = [
   "dashboard",
   "activity",
   "messages",
-  "leads",
   "customers",
   "contacts",
   "pay",
@@ -62,6 +58,8 @@ const VALID_PAGES: PageId[] = [
 
 function getActivePage(pathname: string): PageId {
   const segment = pathname.replace(/^\/dashboard\/?/, "").trim() || "dashboard"
+  // Old /dashboard/leads bookmarks → CRM pane (hard nav also redirects via leads/page.tsx).
+  if (segment === "leads" || segment.startsWith("leads/")) return "customers"
   return VALID_PAGES.includes(segment as PageId) ? (segment as PageId) : "dashboard"
 }
 
@@ -81,7 +79,6 @@ export function DashboardShell({
   sessionAccount,
   initialBootstrap,
   initialActiveOrganizationId = null,
-  initialLeadsCache,
 }: {
   children: React.ReactNode
   pathnameFromRequest: string | null
@@ -91,8 +88,6 @@ export function DashboardShell({
   initialBootstrap?: DashboardMainBootstrap | null
   /** Cookie-backed active org — keeps business name stable across SSR → hydrate. */
   initialActiveOrganizationId?: string | null
-  /** Server-resolved leads for /dashboard/leads hard refresh. */
-  initialLeadsCache?: LeadsWorkspaceCache | null
   /** Server session snapshot — avoids header width jump while /api/auth/session loads. */
   sessionAccount?: {
     name: string
@@ -231,7 +226,6 @@ export function DashboardShell({
               <InboundCallPanelProvider>
               <DashboardBootstrapShellGate initialBootstrap={initialBootstrap}>
                 <DashboardBusinessNumbersSync />
-                <DashboardLeadsPrefetch />
                 <DashboardOrganizationsBootstrap />
                 <DashboardNumbersModalProvider>
                   <UpgradeSubscriptionModal />
@@ -239,8 +233,7 @@ export function DashboardShell({
                   <Suspense fallback={null}>
                     <DashboardSettingsModalsLazyHost sessionSeed={settingsSessionSeed} />
                   </Suspense>
-                  <LeadsWorkspaceInitialProvider initial={initialLeadsCache}>
-                    <DispatchCommandBridgeProvider>
+                  <DispatchCommandBridgeProvider>
                     <AppShell
                       pathname={pathname}
                       accountHeader={accountHeader}
@@ -253,8 +246,7 @@ export function DashboardShell({
                       <PhotoUploadNotificationBanner />
                       <DashboardAnsweredCallPopup enabled={popupEnabled} />
                     </AppShell>
-                    </DispatchCommandBridgeProvider>
-                  </LeadsWorkspaceInitialProvider>
+                  </DispatchCommandBridgeProvider>
                 </DashboardNumbersModalProvider>
               </DashboardBootstrapShellGate>
               </InboundCallPanelProvider>

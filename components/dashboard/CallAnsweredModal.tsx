@@ -101,7 +101,6 @@ import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
-import { revalidateLeadsWorkspaceCache } from "@/lib/leads-cache"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
 import {
   loadAnsweredIntakeDismissed,
@@ -1778,7 +1777,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     })
     if (!result.ok) return
     closeIntakeAfterSave()
-    router.push("/dashboard/leads")
+    // Pending callbacks live in CRM Leads tab (legacy /dashboard/leads board removed).
+    router.push("/dashboard/customers?tab=leads")
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
@@ -1822,7 +1822,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         : "If they call back, this phone number will match the quoted price and vehicle.",
     })
     closeIntakeAfterSave()
-    router.push("/dashboard/leads")
+    // Quote leads show under CRM → Leads (not the removed Leads Dashboard).
+    router.push("/dashboard/customers?tab=leads")
   }, [
     activeOrganizationId,
     applyCustomPriceToForm,
@@ -1868,7 +1869,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error ?? "Could not log lost lead")
       setLostLeadState("saved")
-      revalidateLeadsWorkspaceCache()
       void revalidateSchedulerJobPoolCaches(activeOrganizationId)
       window.setTimeout(() => dismissOnly(), 1200)
     } catch (e) {
@@ -2815,7 +2815,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                       description: referralStatus,
                                     })
                                     closeIntakeAfterSave()
-                                    router.push("/dashboard/leads")
+                                    // Partner referrals land in CRM Leads for follow-up.
+                                    router.push("/dashboard/customers?tab=leads")
                                   }}
                                 />
                               </div>
@@ -3251,7 +3252,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             description: referralStatus,
                           })
                           closeIntakeAfterSave()
-                          router.push("/dashboard/leads")
+                          // Partner referrals land in CRM Leads for follow-up.
+                          router.push("/dashboard/customers?tab=leads")
                         }}
                       />
                     </div>

@@ -99,15 +99,16 @@ export async function createBookingDepositCheckout(params: {
   const appUrl = getAppUrl().replace(/\/$/, "")
   const stripe = getStripeClient()
   const purpose = params.purpose ?? "booking_deposit"
+  // Special-order retainers return to CRM Leads (legacy Leads Dashboard removed).
   const successPath =
     params.successPath ??
     (purpose === "special_order_retainer"
-      ? `/dashboard/leads?deposit=success&hold=${params.holdId}`
+      ? `/dashboard/customers?tab=leads&deposit=success&hold=${params.holdId}`
       : `/book?deposit=success&hold=${params.holdId}`)
   const cancelPath =
     params.cancelPath ??
     (purpose === "special_order_retainer"
-      ? `/dashboard/leads?deposit=cancelled&hold=${params.holdId}`
+      ? `/dashboard/customers?tab=leads&deposit=cancelled&hold=${params.holdId}`
       : `/book?deposit=cancelled&hold=${params.holdId}`)
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
