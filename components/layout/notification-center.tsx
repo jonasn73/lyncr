@@ -535,10 +535,10 @@ export const NotificationCenter = memo(function NotificationCenter() {
           variant="ghost"
           size="icon"
           className="relative h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-          aria-label={items.length > 0 ? `${items.length} notifications` : "Notifications"}
+          aria-label={items.length > 0 ? `${items.length} alerts` : "Alerts"}
           aria-expanded={open}
           aria-haspopup="dialog"
-          title="Notifications"
+          title="Alerts"
         >
           <Bell className="h-5 w-5" />
           {items.length > 0 ? (
@@ -560,14 +560,19 @@ export const NotificationCenter = memo(function NotificationCenter() {
         onEscapeKeyDown={() => setOpen(false)}
       >
         <div className="border-b border-border/60 px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">Notifications</p>
+          <p className="text-sm font-semibold text-foreground">Alerts</p>
           <p className="text-xs text-muted-foreground">
-            {items.length === 0 ? "You're all caught up." : `${items.length} item${items.length === 1 ? "" : "s"} need attention`}
+            {items.length === 0
+              ? "You're all caught up."
+              : `${items.length} item${items.length === 1 ? "" : "s"} need attention`}
           </p>
         </div>
         <div className="max-h-[min(60vh,24rem)] overflow-y-auto p-2">
           {items.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-muted-foreground">No alerts for this workspace.</p>
+            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+              <p>No porting or SMS setup alerts.</p>
+              <p className="mt-1 text-xs">Call alerts live on Lines.</p>
+            </div>
           ) : (
             <ul className="flex flex-col gap-2">
               {items.map((item) => {
