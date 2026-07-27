@@ -244,7 +244,8 @@ export function buildIvrBypassDialXml(opts: {
 
 /**
  * Day first ring — Dial owner cell, then action URL for unanswered fallback.
- * Optional numberUrl is fetched the instant the callee answers (opens intake / press-1).
+ * Optional numberUrl is fetched the instant the callee answers (CRM answered stamp +
+ * immediate bridge for Your Phone — no DTMF confirm).
  *
  * Always include Telnyx `ringTone="us"` with `answerOnBridge` so the caller hears
  * clear US ringback while the cell rings (otherwise many legs sound like dead air).
@@ -254,7 +255,7 @@ export function buildDayCaptureDialXml(opts: {
   actionUrl: string
   callerId?: string | null
   timeoutSeconds?: number
-  /** TeXML <Number url> — e.g. receptionist-answer webhook for call-answered + intake. */
+  /** TeXML <Number url> — receptionist-answer webhook (owner = instant bridge + answered_at). */
   numberUrl?: string | null
   /** When false, omit ringTone (tests / rare hold-silence experiments). Default true. */
   includeRingback?: boolean
@@ -338,38 +339,39 @@ export function isCaptureDialUnanswered(statusRaw: string): boolean {
 }
 
 /**
- * True when the Your Phone / day Dial leg was a *confirmed* live bridge.
+ * True when the Your Phone / day Dial leg was a live answered bridge.
  *
- * Telnyx reports `DialCallStatus=completed` both when:
- * - the owner pressed 1 and talked (real bridge), and
- * - voicemail / press-1 timeout hung up the cell leg (NO bridge).
- *
- * Only treat as live when receptionist-answer stamped `answered_at` (press 1),
- * or Dial callback shows bridge metadata + enough talk seconds.
- * Otherwise day-fallback must continue to busy Gather / SMS — never silent Hangup.
+ * Without Press-1: cell answer bridges immediately. Telnyx Dial `action` then reports
+ * `completed` after talk (or after a short voicemail pickup). Best-effort rules:
+ * - no-answer / busy / cancel / failed → not live (caller should hit busy Gather / SMS)
+ * - answered_at stamped by receptionist-answer → live
+ * - completed/answered with enough talk seconds (and/or bridge meta) → live
+ * Short VM pickups may still look like `completed` — duration threshold is best-effort.
  */
 export function isCaptureDialLiveHumanBridge(opts: {
   dialStatus: string
-  /** Set only after press-1 accept (or press-1 disabled). */
+  /** Set when owner answer webhook ran (immediate bridge) or receptionist pressed 1. */
   answeredAt?: string | null
   dialCallDurationSec?: number
   dialBridgedDurationSec?: number
   dialBridgedTo?: string | null
   minLiveSeconds?: number
 }): boolean {
-  // Normalize Telnyx status spelling (completed / completed, in_progress → in-progress).
+  // Normalize Telnyx status spelling (completed / in_progress → in-progress).
   const s = opts.dialStatus.trim().toLowerCase().replace(/_/g, "-")
   // Only "completed" (or rare "answered") can mean a finished live pickup.
   if (s !== "completed" && s !== "answered") return false
-  // Press-1 accept is the strongest signal — never hang up the caller without this when screening is on.
+  // Answer webhook on cell pickup is the strongest signal for Your Phone.
   if (opts.answeredAt != null && String(opts.answeredAt).trim() !== "") return true
-  // Fallback when press-1 is disabled: require bridge metadata + minimum talk time.
+  // Best-effort without answered_at: talk time and/or bridge metadata from Dial action.
   const minLive = opts.minLiveSeconds ?? 5
   const callDur = Number(opts.dialCallDurationSec ?? 0)
   const bridgedDur = Number(opts.dialBridgedDurationSec ?? 0)
   const bridgedDigits = String(opts.dialBridgedTo ?? "").replace(/\D/g, "").length
   const hasBridgeMeta = bridgedDigits >= 10 || bridgedDur >= 1
-  return hasBridgeMeta && Number.isFinite(callDur) && callDur >= minLive
+  if (hasBridgeMeta && Number.isFinite(callDur) && callDur >= minLive) return true
+  // Telnyx answered + duration with no bridge fields — still treat as live talk.
+  return Number.isFinite(callDur) && callDur >= minLive
 }
 
 /** True when the cell line is already on another live call. */

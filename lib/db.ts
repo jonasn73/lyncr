@@ -3643,7 +3643,8 @@ export async function recordCallStatusEvent(
   const normalizedStatus = callStatus.trim().toLowerCase().replace(/_/g, "-")
   const occurredAt = occurredAtIso ? new Date(occurredAtIso) : new Date()
   const providerSid = providerCallSid.trim()
-  // Press-1 gate owns answered_at — carrier "answered" on cell voicemail must not stamp it.
+  // Answer webhook owns answered_at for Your Phone / receptionist accept — carrier
+  // "answered" alone (e.g. IVR Gather) must not stamp it via this status path.
   const skipAnsweredAt = options?.skipAnsweredAt === true
   try {
     const rows = await sql`

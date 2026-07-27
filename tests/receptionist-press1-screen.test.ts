@@ -12,14 +12,16 @@ import {
 import { shouldPlayCallerRingbackDuringDial } from "@/lib/inbound-branded-greeting"
 
 describe("receptionist-answer route", () => {
-  it("owner leg (no r=) still requires press-1 to accept (anti-voicemail)", async () => {
+  it("owner leg (no r=) bridges immediately without press-1", async () => {
     const req = new NextRequest(
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?cl=CA_test&bt=generic&bn=Key%20Squad"
     )
     const res = await receptionistAnswerGet(req)
     const xml = await res.text()
-    expect(xml).toContain("<Gather")
-    expect(xml).toContain("Press 1 to accept this call")
+    // Your Phone: empty/whisper Response completes Number url and bridges — no Gather.
+    expect(xml).not.toContain("<Gather")
+    expect(xml).not.toContain("Press 1 to accept this call")
+    expect(xml).toContain("<Response")
   })
 
   it("receptionist leg still shows press-1 gather", async () => {

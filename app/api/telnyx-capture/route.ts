@@ -396,8 +396,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Day Dial action — live press-1 bridge → hangup; press-1 miss / VM → busy Gather;
-  // BUSY/CONGESTION → call-waiting SMS; else busy Gather.
+  // Day Dial action — live bridge (answered + talk) → hangup; no-answer/busy → Gather / SMS.
   if (step === "day-fallback") {
     // Parse Dial talk / bridge fields Telnyx may include on the Dial `action` POST.
     const dialCallDurationSec = parseInt(
@@ -414,7 +413,7 @@ export async function POST(req: NextRequest) {
       "BridgedTo",
       "BridgeTarget",
     ])
-    // Press-1 accept stamps answered_at; reject / voicemail leave it null.
+    // Owner answer webhook stamps answered_at on immediate cell bridge (no Press-1).
     let answeredAt: string | null = null
     if (callSid) {
       try {
@@ -433,8 +432,8 @@ export async function POST(req: NextRequest) {
       dialBridgedTo,
     })
 
-    // Only hang up the caller after a confirmed human bridge (press 1 / real talk).
-    // `DialCallStatus=completed` alone is NOT enough — press-1 timeout is also "completed".
+    // Hang up the caller after a live cell answer (talk time / answered_at).
+    // no-answer / busy / cancel still fall through to busy Gather below.
     if (liveBridge) {
       console.log(
         JSON.stringify({
@@ -447,7 +446,7 @@ export async function POST(req: NextRequest) {
       return xmlResponse(buildCaptureHangupXml())
     }
 
-    // completed / answered without press-1 → treat like a miss and keep the caller in the funnel.
+    // completed/answered with no duration / bridge evidence — treat as miss, keep funnel.
     if (dialStatus && !isCaptureDialUnanswered(dialStatus)) {
       console.log(
         JSON.stringify({
@@ -456,7 +455,7 @@ export async function POST(req: NextRequest) {
           dialStatus,
           hasAnsweredAt: Boolean(answeredAt),
           dialCallDurationSec: Number.isFinite(dialCallDurationSec) ? dialCallDurationSec : null,
-          note: "Press-1 reject / voicemail pickup — continue to busy Gather (do not silent-hangup)",
+          note: "Short/no-talk completed leg — continue to busy Gather (do not silent-hangup)",
         })
       )
     }

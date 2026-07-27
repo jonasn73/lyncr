@@ -93,19 +93,19 @@ describe("inbound time capture", () => {
     expect(isCaptureDialUnanswered("completed")).toBe(false)
   })
 
-  it("does not treat press-1 reject completed as a live bridge", () => {
-    // Telnyx Dial action after voicemail / press-1 timeout — completed, no answered_at, no bridge.
+  it("treats answered + talk time as a live bridge without press-1", () => {
+    // Short completed with no answered_at and no talk — not live (busy Gather).
     expect(
       isCaptureDialLiveHumanBridge({
         dialStatus: "completed",
         answeredAt: null,
-        dialCallDurationSec: 8,
+        dialCallDurationSec: 2,
         dialBridgedDurationSec: 0,
         dialBridgedTo: "",
       })
     ).toBe(false)
 
-    // Press-1 accept stamps answered_at → hang up caller leg after the conversation ends.
+    // Owner answer webhook stamps answered_at on immediate bridge → hang up after talk.
     expect(
       isCaptureDialLiveHumanBridge({
         dialStatus: "completed",
@@ -114,7 +114,18 @@ describe("inbound time capture", () => {
       })
     ).toBe(true)
 
-    // Press-1 disabled fallback: bridge metadata + enough talk seconds.
+    // No answered_at but enough talk seconds → treat as live (best-effort).
+    expect(
+      isCaptureDialLiveHumanBridge({
+        dialStatus: "completed",
+        answeredAt: null,
+        dialCallDurationSec: 45,
+        dialBridgedDurationSec: 0,
+        dialBridgedTo: "",
+      })
+    ).toBe(true)
+
+    // Bridge metadata + enough talk seconds → live.
     expect(
       isCaptureDialLiveHumanBridge({
         dialStatus: "completed",
@@ -124,6 +135,15 @@ describe("inbound time capture", () => {
         dialBridgedTo: "+15022602716",
       })
     ).toBe(true)
+
+    // no-answer must never count as live.
+    expect(
+      isCaptureDialLiveHumanBridge({
+        dialStatus: "no-answer",
+        answeredAt: null,
+        dialCallDurationSec: 15,
+      })
+    ).toBe(false)
   })
 
   it("builds calendar full-day and partial busy Gather prompts", () => {

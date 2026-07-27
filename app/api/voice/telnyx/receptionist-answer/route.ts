@@ -2,8 +2,10 @@
 // GET/POST /api/voice/telnyx/receptionist-answer
 // ============================================
 // Telnyx fetches this `<Number url="…" method="POST">` document the instant the callee leg
-// answers (before bridging to the caller). Press-1 confirms a human — voicemail cannot press 1,
-// so Lyncr keeps the call as missed and falls through to textback / native voicemail.
+// answers (before bridging to the caller).
+//
+// Your Phone / owner cell: bridge immediately (no DTMF). Stamp answered_at + CRM notify.
+// Receptionist legs (`r=`): optional Press-1 anti-voicemail screen (unless env-disabled).
 
 import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
@@ -25,6 +27,7 @@ import { OWNER_PHONE_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 
+// Env escape hatch — skip Press-1 for receptionist legs too (owner already skips).
 const PRESS1_SCREEN_DISABLED = ["0", "false", "no"].includes(
   (process.env.ZING_RECEPTIONIST_PRESS1_SCREEN || "").trim().toLowerCase()
 )
@@ -85,7 +88,7 @@ function resolveProviderCallSid(req: NextRequest): string {
 }
 
 /**
- * Confirmed human answer (press 1, or press-1 disabled).
+ * Confirmed live answer (owner immediate bridge, or receptionist press-1 / screen-off).
  * Sets answered_at so Activities / Missed Call Rescue treat the leg as live.
  */
 async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
@@ -118,7 +121,7 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   })
 }
 
-/** Receptionist HUD — only after press-1 accept or when screening is off. */
+/** Receptionist HUD — after press-1 accept, or when screening is off / immediate bridge. */
 function scheduleReceptionistHudConnected(req: NextRequest, receptionistId: string): void {
   const callSid = resolveProviderCallSid(req)
   if (!callSid) return
@@ -138,13 +141,21 @@ function scheduleReceptionistHudConnected(req: NextRequest, receptionistId: stri
   })
 }
 
+/** Empty (or whisper-only) TeXML — completes `<Number url>` and bridges the caller now. */
+function immediateBridgeXml(phrase: string | null): string {
+  const texml = new VoiceResponse()
+  if (phrase) texmlSayWhisperPlain(texml, phrase)
+  return texml.toString()
+}
+
 async function respond(req: NextRequest): Promise<NextResponse> {
   const isGate = param(req, "g") === "1"
   const businessName = param(req, "bn", "businessName") || "your business"
   const receptionistId = param(req, "r", "receptionistId")
   const phrase = whisperPhrase(req)
+  const isOwnerLeg = !receptionistId?.trim()
 
-  // Gate callback — only digit 1 confirms a human (voicemail cannot press 1).
+  // Gate callback (receptionist Press-1 Gather action) — digit 1 accepts, anything else rejects.
   if (isGate) {
     const digit = await readPressedDigit(req)
     if (digit === "1") {
@@ -155,17 +166,20 @@ async function respond(req: NextRequest): Promise<NextResponse> {
     return xmlResponseBody(buildReceptionistPress1RejectedTexml())
   }
 
-  // Escape hatch for debugging / accounts that want immediate bridge.
-  if (PRESS1_SCREEN_DISABLED) {
+  // Your Phone / owner cell: no Press-1 — stamp answered + bridge the caller immediately.
+  if (isOwnerLeg) {
     await notifyOwnerCrmAnswered(req)
-    if (receptionistId?.trim()) scheduleReceptionistHudConnected(req, receptionistId)
-    const texml = new VoiceResponse()
-    if (phrase) texmlSayWhisperPlain(texml, phrase)
-    return xmlResponseBody(texml.toString())
+    return xmlResponseBody(immediateBridgeXml(phrase))
   }
 
-  // Owner cell AND receptionist: press 1 before bridging (anti-voicemail).
-  // Do NOT set answered_at yet — voicemail pickup must stay Missed.
+  // Receptionist escape hatch — env disables Press-1 for agent legs too.
+  if (PRESS1_SCREEN_DISABLED) {
+    await notifyOwnerCrmAnswered(req)
+    scheduleReceptionistHudConnected(req, receptionistId!)
+    return xmlResponseBody(immediateBridgeXml(phrase))
+  }
+
+  // Receptionist cell: Press-1 before bridging (anti-voicemail). Do not stamp answered_at yet.
   return xmlResponseBody(
     buildReceptionistPress1ScreenTexml(businessName, gateActionUrl(req), {
       whisperPhrase: phrase,

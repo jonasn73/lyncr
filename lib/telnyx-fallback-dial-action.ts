@@ -850,8 +850,8 @@ export async function handleTelnyxFallbackDialEnded(
 
     /**
      * Owner cell leg ended after a real PSTN bridge — end the caller’s leg unless Voice AI should run next.
-     * Do not treat `shortCompletedLooksAnswered` as a bridge here: press-1 reject / timeout on the owner
-     * cell is also "completed" with no bridge metadata and must fall through to voicemail.
+     * Do not treat `shortCompletedLooksAnswered` as a bridge here: brief VM / aborted connects can look
+     * "completed" with no bridge metadata and must fall through to voicemail.
      */
     const recvLegByPath = pathFallbackMode === "recv" || pathFallbackMode === "recv-ai"
     // Real Your Phone bridge only — sub-5s "answered" legs are usually cell voicemail.
@@ -1165,7 +1165,7 @@ export async function handleTelnyxFallbackDialEnded(
             action: `${secondLegBase}?callSid=${encodeURIComponent(callSid)}&primary=owner&leg=owner-first&bn=${encodeURIComponent(bnForAction)}${fbTail}${secondModeQuery}${origFromSuffix}`,
             method: "POST",
           } as Parameters<InstanceType<typeof VoiceResponse>["dial"]>[0])
-          // Press-1 anti-voicemail screen + dial-leg status callbacks on owner cell.
+          // Owner cell answer URL + dial-leg status callbacks (immediate bridge, no Press-1).
           const ownerPhoneE164 = toE164(user.phone)
           const ownerAnswerUrl = buildReceptionistAnswerUrl({
             appUrl,

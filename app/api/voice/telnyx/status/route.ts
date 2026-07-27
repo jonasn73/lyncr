@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
       Number.isFinite(duration) &&
       duration >= 0 &&
       duration < MIN_LIVE_ANSWER_DURATION_SECONDS
-    // Press-1 confirmation owns answered_at — ignore carrier "answered" stamps for live metrics.
+    // Press-1 confirmation owns answered_at for receptionist legs; owner Your Phone
+    // stamps it on immediate bridge via receptionist-answer — ignore carrier "answered" here.
     const alreadyHumanAnswered =
       !automated &&
       Boolean(snapshot?.answered_at) &&
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     try {
       await recordCallStatusEvent(callSid, callStatus, duration, eventTimestamp || undefined, {
         skipAnsweredTelemetry: true,
-        // Anti-voicemail: only receptionist-answer press-1 sets answered_at.
+        // answered_at comes from receptionist-answer (owner instant bridge / recv press-1).
         skipAnsweredAt: true,
       })
     } catch (metricsError) {
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
       callType = snapshot?.call_type === "voicemail" ? "voicemail" : "missed"
     }
 
-    // Short "completed" legs (voicemail pickup without press-1) → missed.
+    // Short "completed" legs (aborted connect / brief VM) → missed.
     if (
       callType !== "outgoing" &&
       (callStatus === "completed" || callStatus === "canceled" || callStatus === "no-answer") &&
