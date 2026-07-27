@@ -1,6 +1,6 @@
 "use client"
 
-// Customers & Leads CRM hub — list + profile sheet (garage, history, Call/SMS). Scheduler stays separate.
+// Customers & Leads CRM hub — list + profile (desktop side panel / mobile centered dialog).
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -13,6 +13,7 @@ import {
   Phone,
   Plus,
   Search,
+  UserRound,
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -23,15 +24,16 @@ import type {
   CustomerVehicle,
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type CrmFilter = "all" | "leads" | "clients"
 
@@ -79,6 +81,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
 }: {
   isActive?: boolean
 }) {
+  const isMobile = useIsMobile()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
   const initialFilter: CrmFilter =
@@ -325,12 +328,291 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   }
 
   const closeProfile = () => setSelectedId(null)
+  const profileOpen = selectedId != null
 
-  const profileSheetOpen = selectedId != null
+  // Factory so desktop panel + mobile dialog each get their own element tree.
+  const renderProfileBody = () =>
+    !selected ? (
+      <div className="flex items-center justify-center gap-2 py-16 text-sm text-zinc-500">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading…
+      </div>
+    ) : (
+      <div className="space-y-5">
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={buildTelHref(selected.phone_e164) || undefined}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-200"
+          >
+            <Phone className="h-3.5 w-3.5" />
+            Call
+          </a>
+          <Link
+            href={messagesHref}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Quick SMS
+          </Link>
+          {(selected.lead_badge === "price_quoted" ||
+            selected.lead_badge === "callback" ||
+            openLeadHistory.length > 0) && (
+            <Link
+              href={followUpHref}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 text-xs font-semibold text-amber-100"
+            >
+              Send follow-up
+            </Link>
+          )}
+          <Link
+            href="/dashboard/scheduler"
+            className="inline-flex h-9 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-semibold text-zinc-200"
+          >
+            Open Scheduler
+          </Link>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
+          <button
+            type="button"
+            onClick={() => setEditContactOpen((o) => !o)}
+            className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+            aria-expanded={editContactOpen}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Edit contact
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
+                editContactOpen && "rotate-180"
+              )}
+              aria-hidden
+            />
+          </button>
+          {editContactOpen ? (
+            <div className="border-t border-zinc-800 px-3 pb-3 pt-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-[11px] text-zinc-500">
+                  Customer name
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g. David"
+                    className="mt-1 h-10 border-zinc-800 bg-zinc-950"
+                    autoComplete="name"
+                  />
+                </label>
+                <label className="block text-[11px] text-zinc-500">
+                  Appointment date &amp; time
+                  <Input
+                    type="datetime-local"
+                    value={editApptLocal}
+                    onChange={(e) => setEditApptLocal(e.target.value)}
+                    disabled={!editApptLeadId}
+                    className="mt-1 h-10 border-zinc-800 bg-zinc-950"
+                  />
+                  {!editApptLeadId ? (
+                    <span className="mt-1 block text-[10px] text-zinc-600">
+                      No open lead/job to schedule yet.
+                    </span>
+                  ) : null}
+                </label>
+                <label className="block text-[11px] text-zinc-500 sm:col-span-2">
+                  Notes
+                  <textarea
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    rows={2}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={saveBusy}
+                  onClick={() => void saveProfileEdits()}
+                >
+                  {saveBusy ? "Saving…" : "Save changes"}
+                </Button>
+                {saveMsg ? (
+                  <span
+                    className={cn(
+                      "text-xs",
+                      saveMsg === "Saved" ? "text-emerald-400" : "text-rose-300"
+                    )}
+                  >
+                    {saveMsg}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {profileLoading ? (
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading profile…
+          </div>
+        ) : null}
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Vehicle garage
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1 text-xs"
+              onClick={() => setAddingVehicle((v) => !v)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add vehicle
+            </Button>
+          </div>
+          {addingVehicle ? (
+            <div className="mb-3 grid gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-2">
+              {(
+                [
+                  ["year", "Year"],
+                  ["make", "Make"],
+                  ["model", "Model"],
+                  ["vin", "VIN"],
+                  ["fcc_id", "FCC ID"],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="block text-[11px] text-zinc-500">
+                  {label}
+                  <Input
+                    value={vehicleForm[key]}
+                    onChange={(e) =>
+                      setVehicleForm((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    className="mt-1 h-9 border-zinc-800 bg-zinc-950"
+                  />
+                </label>
+              ))}
+              <div className="flex gap-2 sm:col-span-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={vehicleBusy}
+                  onClick={() => void addVehicle()}
+                >
+                  {vehicleBusy ? "Saving…" : "Save vehicle"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setAddingVehicle(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {vehicles.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
+              No vehicles yet. Add one, or save YMM from intake (after migration 120).
+            </p>
+          ) : (
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {vehicles.map((v) => (
+                <li
+                  key={v.id}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                >
+                  <div className="flex items-start gap-2">
+                    <Car className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-100">
+                        {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
+                      </p>
+                      {v.vin ? (
+                        <p className="truncate text-[11px] text-zinc-500">VIN {v.vin}</p>
+                      ) : null}
+                      {v.fcc_id ? (
+                        <p className="truncate text-[11px] text-zinc-500">FCC {v.fcc_id}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Service history &amp; quotes
+          </h3>
+          {history.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
+              No jobs or leads for this phone yet.
+            </p>
+          ) : (
+            <ol className="space-y-2">
+              {history.map((item) => (
+                <li
+                  key={item.id}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-100">
+                      {item.summary?.trim() || item.vehicle_label || "Service"}
+                    </p>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                        item.status_tone === "emerald" && "bg-emerald-500/15 text-emerald-300",
+                        item.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
+                        item.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
+                        item.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
+                        item.status_tone === "neutral" && "bg-zinc-800 text-zinc-400"
+                      )}
+                    >
+                      {item.status_label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    {item.scheduled_at
+                      ? `Appt ${new Date(item.scheduled_at).toLocaleString()}`
+                      : item.at
+                        ? new Date(item.at).toLocaleString()
+                        : ""}
+                    {item.assigned_tech_name ? ` · ${item.assigned_tech_name}` : ""}
+                    {item.amount_cents != null && item.amount_cents > 0
+                      ? ` · ${formatMoney(item.amount_cents)}`
+                      : ""}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    )
+
+  const renderProfileMeta = () =>
+    selected ? (
+      <>
+        <span className="tabular-nums">{formatPhoneDisplay(selected.phone_e164)}</span>
+        {selected.company_name.trim() ? ` · ${selected.company_name}` : ""}
+        {" · "}
+        {BADGE_LABEL[selected.lead_badge]} · {selected.jobs_completed} completed ·{" "}
+        {formatMoney(selected.lifetime_revenue_cents)} LTV
+      </>
+    ) : null
 
   return (
     // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
       <header className="flex flex-col gap-1">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">CRM</p>
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -341,385 +623,150 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         </p>
       </header>
 
-      {/* List stays mounted; profile opens as an overlay sheet so the list never disappears. */}
-      <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-zinc-950/60 lg:max-h-[calc(100dvh-10rem)]">
-        <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search name or phone…"
-              className="h-10 border-zinc-800 bg-zinc-900/80 pl-9"
-              aria-label="Search customers"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="CRM filters">
-            {(
-              [
-                ["all", "All"],
-                ["leads", "Leads"],
-                ["clients", "Clients"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={filter === id}
-                onClick={() => setFilter(id)}
-                className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
-                  filter === id
-                    ? "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/40"
-                    : "bg-zinc-900 text-zinc-500 ring-1 ring-zinc-800 hover:text-zinc-300"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="p-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
-          {loading && rows.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading…
+      <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] md:items-start md:gap-4">
+        {/* List — always visible (dimmed behind the mobile dialog) */}
+        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-zinc-950/60 md:min-h-0 md:max-h-[calc(100dvh-10rem)]">
+          <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search name or phone…"
+                className="h-10 border-zinc-800 bg-zinc-900/80 pl-9"
+                aria-label="Search customers"
+              />
             </div>
-          ) : error ? (
-            <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
-          ) : rows.length === 0 ? (
-            <p className="px-2 py-8 text-center text-sm text-zinc-500">
-              No customers yet. Save a caller from intake — they’ll show up here.
-            </p>
-          ) : (
-            <ul className="space-y-1.5">
-              {rows.map((row) => {
-                const active = row.id === selectedId
-                const name = row.display_name.trim() || formatPhoneDisplay(row.phone_e164)
-                return (
-                  <li key={row.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(row.id)}
-                      className={cn(
-                        "w-full rounded-xl border px-3 py-2.5 text-left transition-colors",
-                        active
-                          ? "border-sky-500/40 bg-sky-500/10"
-                          : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
-                        <span className="shrink-0 rounded-md bg-zinc-950/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
-                          {BADGE_LABEL[row.lead_badge]}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs tabular-nums text-zinc-400">
-                        {formatPhoneDisplay(row.phone_e164)}
-                      </p>
-                      <p className="mt-1 text-[11px] text-zinc-500">
-                        {row.jobs_completed} job{row.jobs_completed === 1 ? "" : "s"} ·{" "}
-                        {formatMoney(row.lifetime_revenue_cents)} LTV
-                        {row.open_lead_count > 0
-                          ? ` · ${row.open_lead_count} open lead${row.open_lead_count === 1 ? "" : "s"}`
-                          : ""}
-                      </p>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-      </section>
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="CRM filters">
+              {(
+                [
+                  ["all", "All"],
+                  ["leads", "Leads"],
+                  ["clients", "Clients"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === id}
+                  onClick={() => setFilter(id)}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+                    filter === id
+                      ? "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/40"
+                      : "bg-zinc-900 text-zinc-500 ring-1 ring-zinc-800 hover:text-zinc-300"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <Sheet
-        open={profileSheetOpen}
+          <div className="p-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+            {loading && rows.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading…
+              </div>
+            ) : error ? (
+              <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
+            ) : rows.length === 0 ? (
+              <p className="px-2 py-8 text-center text-sm text-zinc-500">
+                No customers yet. Save a caller from intake — they’ll show up here.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {rows.map((row) => {
+                  const active = row.id === selectedId
+                  const name = row.display_name.trim() || formatPhoneDisplay(row.phone_e164)
+                  return (
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(row.id)}
+                        className={cn(
+                          "w-full rounded-xl border px-3 py-2.5 text-left transition-colors",
+                          active
+                            ? "border-sky-500/40 bg-sky-500/10"
+                            : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
+                          <span className="shrink-0 rounded-md bg-zinc-950/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                            {BADGE_LABEL[row.lead_badge]}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs tabular-nums text-zinc-400">
+                          {formatPhoneDisplay(row.phone_e164)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-zinc-500">
+                          {row.jobs_completed} job{row.jobs_completed === 1 ? "" : "s"} ·{" "}
+                          {formatMoney(row.lifetime_revenue_cents)} LTV
+                          {row.open_lead_count > 0
+                            ? ` · ${row.open_lead_count} open lead${row.open_lead_count === 1 ? "" : "s"}`
+                            : ""}
+                        </p>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* Desktop (md+): side panel — never a sheet/dialog */}
+        <section className="hidden rounded-2xl border border-zinc-800/90 bg-zinc-950/60 p-3 sm:p-4 md:sticky md:top-3 md:block md:min-h-[20rem] md:max-h-[calc(100dvh-10rem)] md:overflow-y-auto">
+          {!selectedId ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
+              <UserRound className="h-8 w-8 opacity-50" />
+              <p className="text-sm">Select a customer to see their profile.</p>
+            </div>
+          ) : (
+            <>
+              {selected ? (
+                <div className="mb-4 border-b border-zinc-800 pb-3">
+                  <h2 className="truncate text-lg font-semibold text-zinc-100">
+                    {editName.trim() || formatPhoneDisplay(selected.phone_e164)}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-zinc-400">{renderProfileMeta()}</p>
+                </div>
+              ) : null}
+              {renderProfileBody()}
+            </>
+          )}
+        </section>
+      </div>
+
+      {/* Mobile: compact centered floating dialog (list stays dimmed behind) */}
+      <Dialog
+        open={isMobile && profileOpen}
         onOpenChange={(open) => {
           if (!open) closeProfile()
         }}
       >
-        <SheetContent
-          side="bottom"
-          className="gap-0 overflow-y-auto bg-zinc-950 p-0 sm:mx-auto sm:max-w-2xl [&>button]:top-3 [&>button]:right-3"
+        <DialogContent
+          className={cn(
+            "gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 shadow-2xl",
+            "max-h-[min(85dvh,36rem)] w-[calc(100%-2rem)] max-w-md",
+            "[&>button]:top-3 [&>button]:right-3 [&>button]:text-zinc-400"
+          )}
         >
           {selected ? (
             <>
-              <SheetHeader className="border-b border-zinc-800 px-4 pb-3 pt-4 pr-12 text-left">
-                <SheetTitle className="truncate text-lg text-zinc-100">
+              <DialogHeader className="border-b border-zinc-800 px-4 pb-3 pt-4 pr-12 text-left">
+                <DialogTitle className="truncate text-lg text-zinc-100">
                   {editName.trim() || formatPhoneDisplay(selected.phone_e164)}
-                </SheetTitle>
-                <SheetDescription className="text-zinc-400">
-                  <span className="tabular-nums">{formatPhoneDisplay(selected.phone_e164)}</span>
-                  {selected.company_name.trim() ? ` · ${selected.company_name}` : ""}
-                  {" · "}
-                  {BADGE_LABEL[selected.lead_badge]} · {selected.jobs_completed} completed ·{" "}
-                  {formatMoney(selected.lifetime_revenue_cents)} LTV
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="space-y-5 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={buildTelHref(selected.phone_e164) || undefined}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-200"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    Call
-                  </a>
-                  <Link
-                    href={messagesHref}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    Quick SMS
-                  </Link>
-                  {(selected.lead_badge === "price_quoted" ||
-                    selected.lead_badge === "callback" ||
-                    openLeadHistory.length > 0) && (
-                    <Link
-                      href={followUpHref}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 text-xs font-semibold text-amber-100"
-                    >
-                      Send follow-up
-                    </Link>
-                  )}
-                  <Link
-                    href="/dashboard/scheduler"
-                    className="inline-flex h-9 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-semibold text-zinc-200"
-                  >
-                    Open Scheduler
-                  </Link>
-                </div>
-
-                {/* Collapsed by default so garage / history stay above the fold */}
-                <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
-                  <button
-                    type="button"
-                    onClick={() => setEditContactOpen((o) => !o)}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
-                    aria-expanded={editContactOpen}
-                  >
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      Edit contact
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
-                        editContactOpen && "rotate-180"
-                      )}
-                      aria-hidden
-                    />
-                  </button>
-                  {editContactOpen ? (
-                    <div className="border-t border-zinc-800 px-3 pb-3 pt-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block text-[11px] text-zinc-500">
-                          Customer name
-                          <Input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            placeholder="e.g. David"
-                            className="mt-1 h-10 border-zinc-800 bg-zinc-950"
-                            autoComplete="name"
-                          />
-                        </label>
-                        <label className="block text-[11px] text-zinc-500">
-                          Appointment date &amp; time
-                          <Input
-                            type="datetime-local"
-                            value={editApptLocal}
-                            onChange={(e) => setEditApptLocal(e.target.value)}
-                            disabled={!editApptLeadId}
-                            className="mt-1 h-10 border-zinc-800 bg-zinc-950"
-                          />
-                          {!editApptLeadId ? (
-                            <span className="mt-1 block text-[10px] text-zinc-600">
-                              No open lead/job to schedule yet.
-                            </span>
-                          ) : null}
-                        </label>
-                        <label className="block text-[11px] text-zinc-500 sm:col-span-2">
-                          Notes
-                          <textarea
-                            value={editNotes}
-                            onChange={(e) => setEditNotes(e.target.value)}
-                            rows={2}
-                            className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
-                          />
-                        </label>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={saveBusy}
-                          onClick={() => void saveProfileEdits()}
-                        >
-                          {saveBusy ? "Saving…" : "Save changes"}
-                        </Button>
-                        {saveMsg ? (
-                          <span
-                            className={cn(
-                              "text-xs",
-                              saveMsg === "Saved" ? "text-emerald-400" : "text-rose-300"
-                            )}
-                          >
-                            {saveMsg}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                {profileLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-zinc-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading profile…
-                  </div>
-                ) : null}
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      Vehicle garage
-                    </h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1 text-xs"
-                      onClick={() => setAddingVehicle((v) => !v)}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add vehicle
-                    </Button>
-                  </div>
-                  {addingVehicle ? (
-                    <div className="mb-3 grid gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-2">
-                      {(
-                        [
-                          ["year", "Year"],
-                          ["make", "Make"],
-                          ["model", "Model"],
-                          ["vin", "VIN"],
-                          ["fcc_id", "FCC ID"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <label key={key} className="block text-[11px] text-zinc-500">
-                          {label}
-                          <Input
-                            value={vehicleForm[key]}
-                            onChange={(e) =>
-                              setVehicleForm((prev) => ({ ...prev, [key]: e.target.value }))
-                            }
-                            className="mt-1 h-9 border-zinc-800 bg-zinc-950"
-                          />
-                        </label>
-                      ))}
-                      <div className="flex gap-2 sm:col-span-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={vehicleBusy}
-                          onClick={() => void addVehicle()}
-                        >
-                          {vehicleBusy ? "Saving…" : "Save vehicle"}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setAddingVehicle(false)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {vehicles.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-                      No vehicles yet. Add one, or save YMM from intake (after migration 120).
-                    </p>
-                  ) : (
-                    <ul className="grid gap-2 sm:grid-cols-2">
-                      {vehicles.map((v) => (
-                        <li
-                          key={v.id}
-                          className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
-                        >
-                          <div className="flex items-start gap-2">
-                            <Car className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-slate-100">
-                                {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
-                              </p>
-                              {v.vin ? (
-                                <p className="truncate text-[11px] text-zinc-500">VIN {v.vin}</p>
-                              ) : null}
-                              {v.fcc_id ? (
-                                <p className="truncate text-[11px] text-zinc-500">FCC {v.fcc_id}</p>
-                              ) : null}
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                    Service history &amp; quotes
-                  </h3>
-                  {history.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-                      No jobs or leads for this phone yet.
-                    </p>
-                  ) : (
-                    <ol className="space-y-2">
-                      {history.map((item) => (
-                        <li
-                          key={item.id}
-                          className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium text-slate-100">
-                              {item.summary?.trim() || item.vehicle_label || "Service"}
-                            </p>
-                            <span
-                              className={cn(
-                                "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
-                                item.status_tone === "emerald" &&
-                                  "bg-emerald-500/15 text-emerald-300",
-                                item.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
-                                item.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
-                                item.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
-                                item.status_tone === "neutral" && "bg-zinc-800 text-zinc-400"
-                              )}
-                            >
-                              {item.status_label}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[11px] text-zinc-500">
-                            {item.scheduled_at
-                              ? `Appt ${new Date(item.scheduled_at).toLocaleString()}`
-                              : item.at
-                                ? new Date(item.at).toLocaleString()
-                                : ""}
-                            {item.assigned_tech_name ? ` · ${item.assigned_tech_name}` : ""}
-                            {item.amount_cents != null && item.amount_cents > 0
-                              ? ` · ${formatMoney(item.amount_cents)}`
-                              : ""}
-                          </p>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
+                </DialogTitle>
+                <DialogDescription className="text-zinc-400">
+                  {renderProfileMeta()}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[min(72dvh,30rem)] overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                {renderProfileBody()}
               </div>
             </>
           ) : (
@@ -728,8 +775,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Loading…
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 })
