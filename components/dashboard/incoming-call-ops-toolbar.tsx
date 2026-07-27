@@ -24,12 +24,17 @@ const QUICK_SMS_TEMPLATES = [
 const BTN =
   "inline-flex items-center justify-center gap-1.5 rounded-lg border py-1.5 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
 
+/** Live-leg chrome next to Decline / SMS — mirrors intake header phase. */
+export type IncomingCallLinePhase = "ringing" | "answered" | "ended"
+
 type IncomingCallOpsToolbarProps = {
   phoneE164: string
   businessLineE164: string
   callLogId: string | null
   organizationId: string | null
-  isRinging: boolean
+  /** Prefer `linePhase`; `isRinging` kept for older call sites. */
+  linePhase?: IncomingCallLinePhase
+  isRinging?: boolean
   onDeclined: () => void
   className?: string
   /** Repeat-caller scan from useRepeatCallerUrgency (parent owns the hook). */
@@ -69,7 +74,8 @@ export function IncomingCallOpsToolbar({
   businessLineE164,
   callLogId,
   organizationId,
-  isRinging,
+  linePhase: linePhaseProp,
+  isRinging = false,
   onDeclined,
   className,
   urgency: urgencyProp,
@@ -77,6 +83,8 @@ export function IncomingCallOpsToolbar({
   const { toast } = useToast()
   const engine = useLyncEngineOptional()
   const urgency = urgencyProp ?? EMPTY_URGENCY
+  const linePhase: IncomingCallLinePhase =
+    linePhaseProp ?? (isRinging ? "ringing" : "answered")
   const [lookup, setLookup] = useState<SchedulerPhoneLookupResult | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [declining, setDeclining] = useState(false)
@@ -346,11 +354,16 @@ export function IncomingCallOpsToolbar({
           Text booking link
         </button>
 
-        {isRinging ? (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
-            Ringing
-          </span>
-        ) : null}
+        <span
+          className={cn(
+            "text-[10px] font-semibold uppercase tracking-wider",
+            linePhase === "ringing" && "text-primary/80",
+            linePhase === "answered" && "text-emerald-400/90",
+            linePhase === "ended" && "text-muted-foreground"
+          )}
+        >
+          {linePhase === "ringing" ? "Ringing" : linePhase === "ended" ? "Ended" : "Answered"}
+        </span>
       </div>
 
       {/* Lives inside the sheet — never clipped / buried by portal z-index */}

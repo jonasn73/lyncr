@@ -449,9 +449,34 @@ const ANSWERED_VISIBILITY_POLL_MS_FALLBACK = 3_000
 /** True when intake is mid-call (answered / on hold) — secondary rings should not steal the sheet. */
 function isIntakeCallActive(row: ActiveCallRow | null): boolean {
   if (!row) return false
+  // Hangup chrome (`completed` / ended_at) means the leg is dead — form stays open, call is not.
+  if (row.manualCallStatus === "completed" || row.ended_at) return false
   if (row.manualCallStatus === "answered" || row.manualCallStatus === "on_hold") return true
-  if (row.manualCallStatus === "ringing" || row.manualCallStatus === "completed") return false
+  if (row.manualCallStatus === "ringing") return false
   return Boolean(row.answered_at)
+}
+
+/** Match Pusher hangup payload to the open intake row (call_log id, ring alias, or caller digits). */
+function callRowMatchesHangup(row: ActiveCallRow, payload: OwnerCallCompletedPayload): boolean {
+  const callLogId = String(payload.call_log_id ?? "").trim()
+  const callSid = String(payload.call_sid ?? "").trim()
+  if (callLogId && (row.id === callLogId || row.sourceCallLogId === callLogId)) return true
+  if (callSid && row.id === `ring-${callSid}`) return true
+  const fromDigits = phoneDigitsKey(payload.from_number)
+  if (fromDigits && phoneDigitsKey(row.from_number) === fromDigits) return true
+  return false
+}
+
+function applyCallEndedPatch(
+  row: ActiveCallRow,
+  payload: OwnerCallCompletedPayload
+): ActiveCallRow {
+  return {
+    ...row,
+    manualCallStatus: "completed",
+    ended_at: payload.ended_at ?? new Date().toISOString(),
+    answered_at: row.answered_at ?? payload.answered_at ?? null,
+  }
 }
 
 function phoneDigitsKey(raw: string | null | undefined): string {
@@ -507,8 +532,10 @@ function showCallRow(
         ...prev,
         ...row,
         answered_at: row.answered_at ?? prev.answered_at,
+        ended_at: row.ended_at ?? prev.ended_at,
         caller_name: row.caller_name ?? prev.caller_name,
         recording_url: row.recording_url ?? prev.recording_url,
+        manualCallStatus: row.manualCallStatus ?? prev.manualCallStatus,
       }
     }
     return row
@@ -525,6 +552,8 @@ function rowFromAnsweredPayload(payload: OwnerCallAnsweredPayload): ActiveCallRo
     to_number: payload.to_number ?? "",
     caller_name: null,
     answered_at: payload.answered_at ?? new Date().toISOString(),
+    ended_at: null,
+    manualCallStatus: "answered",
   }
 }
 
@@ -541,6 +570,8 @@ function rowFromInitiatedPayload(payload: OwnerCallInitiatedPayload): ActiveCall
     to_number: payload.to_number ?? "",
     caller_name: null,
     answered_at: null,
+    ended_at: null,
+    manualCallStatus: "ringing",
   }
 }
 
@@ -599,7 +630,10 @@ function rowFromCompletedPayload(payload: OwnerCallCompletedPayload): ActiveCall
     from_number: payload.from_number,
     to_number: payload.to_number ?? "",
     caller_name: null,
-    answered_at: new Date().toISOString(),
+    answered_at: payload.answered_at ?? new Date().toISOString(),
+    ended_at: payload.ended_at ?? new Date().toISOString(),
+    // Hangup while intake was closed — reopen with ended chrome (form still usable).
+    manualCallStatus: "completed",
   }
 }
 
@@ -1446,9 +1480,33 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     const onCompleted = (payload: OwnerCallCompletedPayload) => {
-      const row = rowFromCompletedPayload(payload)
-      if (!row) return
-      showCallRow(setCurrent, row, dismissedRef.current)
+      // Prefer updating the open sheet in place — never auto-dismiss on hangup.
+      const callSid = String(payload.call_sid ?? "").trim()
+      const matchesOpenRow = (row: ActiveCallRow) =>
+        callRowMatchesHangup(row, payload) ||
+        (Boolean(callSid) && ringAliasRef.current === `ring-${callSid}`)
+
+      const openManual = manualCallRowRef.current
+      if (openManual && matchesOpenRow(openManual)) {
+        patchManualCallRow({
+          manualCallStatus: "completed",
+          ended_at: payload.ended_at ?? new Date().toISOString(),
+          answered_at: openManual.answered_at ?? payload.answered_at ?? null,
+        })
+        return
+      }
+
+      setCurrent((prev) => {
+        if (prev && matchesOpenRow(prev)) {
+          return applyCallEndedPatch(prev, payload)
+        }
+        // Fallback: open intake for answered legs that missed call-answered (existing behavior).
+        const row = rowFromCompletedPayload(payload)
+        if (!row) return prev
+        if (dismissedRef.current.has(row.id)) return prev
+        if (prev && isIntakeCallActive(prev)) return prev
+        return row
+      })
     }
 
     const onRecordingReady = (payload: OwnerCallRecordingReadyPayload) => {
@@ -1994,6 +2052,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       patchManualCallRow({
         manualCallStatus: status,
         answered_at: status === "ringing" ? null : effectiveCurrent?.answered_at ?? new Date().toISOString(),
+        // Manual "Completed" mirrors carrier hangup chrome.
+        ended_at: status === "completed" ? new Date().toISOString() : null,
       })
     },
     [effectiveCurrent?.answered_at, patchManualCallRow]
@@ -2354,10 +2414,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   if (!enabled && !manualCallRow) return null
 
+  const isCallEnded =
+    effectiveCurrent != null &&
+    (effectiveCurrent.manualCallStatus === "completed" || Boolean(effectiveCurrent.ended_at))
   const isRinging =
     effectiveCurrent != null &&
+    !isCallEnded &&
     (effectiveCurrent.manualCallStatus === "ringing" ||
       (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
+  const callLinePhase = isCallEnded ? "ended" : isRinging ? "ringing" : "answered"
+  const callHeaderLabel = isCallEnded
+    ? "Call ended"
+    : isRinging
+      ? "Incoming call"
+      : "Call answered"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
   const intakePhoneDisplay = formatPhoneDisplay(
@@ -2497,8 +2567,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>
                 <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
-                {isRinging ? "Incoming call" : "Call answered"}
+              <p
+                className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wide",
+                  isCallEnded ? "text-muted-foreground" : "text-primary"
+                )}
+              >
+                {callHeaderLabel}
               </p>
               <SheetTitle className="flex flex-wrap items-center gap-2 text-left text-lg">
                 <Phone
@@ -2533,6 +2608,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 businessLineE164={effectiveCurrent.to_number}
                 callLogId={effectiveCurrent.id}
                 organizationId={activeOrganizationId}
+                linePhase={callLinePhase}
                 isRinging={isRinging}
                 onDeclined={dismissOnly}
                 urgency={repeatUrgency}

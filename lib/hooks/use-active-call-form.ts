@@ -46,6 +46,8 @@ export type ActiveCallRow = {
   to_number: string
   caller_name: string | null
   answered_at: string | null
+  /** Carrier hangup time — drives Call ended chrome without closing intake. */
+  ended_at?: string | null
   /** Telnyx recording URL when the carrier callback has landed in call_logs. */
   recording_url?: string | null
   /** True when opened via openManualCallPanel (not a Telnyx webhook row). */
