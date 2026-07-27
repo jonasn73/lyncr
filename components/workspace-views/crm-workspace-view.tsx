@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
   Car,
+  ChevronDown,
   Loader2,
   MessageSquare,
   Phone,
@@ -110,6 +111,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [editApptLocal, setEditApptLocal] = useState("")
   const [saveBusy, setSaveBusy] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  // Collapsed by default so garage / history stay above the fold.
+  const [editContactOpen, setEditContactOpen] = useState(false)
 
   useEffect(() => {
     if (tabParam === "leads") setFilter("leads")
@@ -224,6 +227,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     }
     void loadProfile(selectedId)
   }, [selectedId, rows, loadProfile])
+
+  // Re-collapse when switching customers (not on list refresh).
+  useEffect(() => {
+    setEditContactOpen(false)
+  }, [selectedId])
 
   const openLeadHistory = useMemo(
     () => history.filter((h) => h.is_open_lead),
@@ -388,62 +396,85 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         </div>
       </div>
 
-      {/* Name + appointment — the fields users were missing while editing */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Edit contact
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-[11px] text-zinc-500">
-            Customer name
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="e.g. David"
-              className="mt-1 h-10 border-zinc-800 bg-zinc-950"
-              autoComplete="name"
-            />
-          </label>
-          <label className="block text-[11px] text-zinc-500">
-            Appointment date &amp; time
-            <Input
-              type="datetime-local"
-              value={editApptLocal}
-              onChange={(e) => setEditApptLocal(e.target.value)}
-              disabled={!editApptLeadId}
-              className="mt-1 h-10 border-zinc-800 bg-zinc-950"
-            />
-            {!editApptLeadId ? (
-              <span className="mt-1 block text-[10px] text-zinc-600">
-                No open lead/job to schedule yet.
-              </span>
-            ) : null}
-          </label>
-          <label className="block text-[11px] text-zinc-500 sm:col-span-2">
-            Notes
-            <textarea
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              rows={2}
-              className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
-            />
-          </label>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" disabled={saveBusy} onClick={() => void saveProfileEdits()}>
-            {saveBusy ? "Saving…" : "Save changes"}
-          </Button>
-          {saveMsg ? (
-            <span
-              className={cn(
-                "text-xs",
-                saveMsg === "Saved" ? "text-emerald-400" : "text-rose-300"
-              )}
-            >
-              {saveMsg}
-            </span>
-          ) : null}
-        </div>
+      {/* Name + appointment — collapsed by default to keep garage/history visible */}
+      <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
+        <button
+          type="button"
+          onClick={() => setEditContactOpen((o) => !o)}
+          className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+          aria-expanded={editContactOpen}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Edit contact
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
+              editContactOpen && "rotate-180"
+            )}
+            aria-hidden
+          />
+        </button>
+        {editContactOpen ? (
+          <div className="border-t border-zinc-800 px-3 pb-3 pt-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-[11px] text-zinc-500">
+                Customer name
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. David"
+                  className="mt-1 h-10 border-zinc-800 bg-zinc-950"
+                  autoComplete="name"
+                />
+              </label>
+              <label className="block text-[11px] text-zinc-500">
+                Appointment date &amp; time
+                <Input
+                  type="datetime-local"
+                  value={editApptLocal}
+                  onChange={(e) => setEditApptLocal(e.target.value)}
+                  disabled={!editApptLeadId}
+                  className="mt-1 h-10 border-zinc-800 bg-zinc-950"
+                />
+                {!editApptLeadId ? (
+                  <span className="mt-1 block text-[10px] text-zinc-600">
+                    No open lead/job to schedule yet.
+                  </span>
+                ) : null}
+              </label>
+              <label className="block text-[11px] text-zinc-500 sm:col-span-2">
+                Notes
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={saveBusy}
+                onClick={() => void saveProfileEdits()}
+              >
+                {saveBusy ? "Saving…" : "Save changes"}
+              </Button>
+              {saveMsg ? (
+                <span
+                  className={cn(
+                    "text-xs",
+                    saveMsg === "Saved" ? "text-emerald-400" : "text-rose-300"
+                  )}
+                >
+                  {saveMsg}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {profileLoading ? (
