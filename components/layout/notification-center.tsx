@@ -167,6 +167,8 @@ export const NotificationCenter = memo(function NotificationCenter() {
   const [unreadPortingAlerts, setUnreadPortingAlerts] = useState<PortingNotificationEnriched[]>(
     () => cachedPorting?.unreadPortingAlerts ?? []
   )
+  /** False until session + SMS + first porting settle — avoids empty-bell flash before count is known. */
+  const [alertsReady, setAlertsReady] = useState(false)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [smsView, setSmsView] = useState<SmsComplianceView | null>(null)
   const [smsDismissed, setSmsDismissed] = useState(true)
@@ -177,16 +179,17 @@ export const NotificationCenter = memo(function NotificationCenter() {
     outcome: "approved" | "rejected"
   } | null>(null)
 
-  const loadSession = useCallback(() => {
-    fetch("/api/auth/session", { credentials: "include" })
-      .then(async (res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const imp = data?.data?.impersonation as { active?: boolean } | undefined
-        setImpersonating(Boolean(imp?.active))
-        setViewingEmail((data?.data?.user?.email as string | undefined) ?? null)
-        setOwnerUserId((data?.data?.user?.id as string | undefined) ?? null)
-      })
-      .catch(() => setImpersonating(false))
+  const loadSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/session", { credentials: "include" })
+      const data = res.ok ? await res.json() : null
+      const imp = data?.data?.impersonation as { active?: boolean } | undefined
+      setImpersonating(Boolean(imp?.active))
+      setViewingEmail((data?.data?.user?.email as string | undefined) ?? null)
+      setOwnerUserId((data?.data?.user?.id as string | undefined) ?? null)
+    } catch {
+      setImpersonating(false)
+    }
   }, [])
 
   const refreshPorting = useCallback(async (syncFromTelnyx = false) => {
@@ -221,6 +224,8 @@ export const NotificationCenter = memo(function NotificationCenter() {
       setPortingOrders([])
       setUnreadPortingAlerts([])
     }
+    // Org switch: hide bell again until this workspace’s alert sources finish loading.
+    setAlertsReady(false)
   }, [activeOrganizationId])
 
   const loadSms = useCallback(async (organizationId: string | null) => {
@@ -237,9 +242,19 @@ export const NotificationCenter = memo(function NotificationCenter() {
   }, [])
 
   useEffect(() => {
-    loadSession()
-    void refreshPorting()
-    void loadSms(activeOrganizationId)
+    let cancelled = false
+    setAlertsReady(false)
+    void (async () => {
+      await Promise.all([
+        loadSession(),
+        refreshPorting(),
+        loadSms(activeOrganizationId),
+      ])
+      if (!cancelled) setAlertsReady(true)
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [loadSession, refreshPorting, loadSms, activeOrganizationId])
 
   useEffect(() => {
@@ -512,6 +527,15 @@ export const NotificationCenter = memo(function NotificationCenter() {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
+  // Session/SMS/porting settled, and activation (if present) finished loading — count is trustworthy.
+  const activationSettled = !activation || !activation.loading
+  const countKnown = alertsReady && activationSettled
+
+  // Close the panel if the last alert clears while it’s open.
+  useEffect(() => {
+    if (items.length === 0 && open) setOpen(false)
+  }, [items.length, open])
+
   // Explicit outside-click close — reliable on mobile when overlays / map chrome compete with Radix.
   useEffect(() => {
     if (!open) return
@@ -526,6 +550,11 @@ export const NotificationCenter = memo(function NotificationCenter() {
     return () => document.removeEventListener("pointerdown", onPointerDown, true)
   }, [open])
 
+  // Option 1: no empty bell. Stay hidden until count is known; stay hidden when empty (no flash).
+  if (!countKnown || items.length === 0) {
+    return null
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
@@ -535,17 +564,15 @@ export const NotificationCenter = memo(function NotificationCenter() {
           variant="ghost"
           size="icon"
           className="relative h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-          aria-label={items.length > 0 ? `${items.length} alerts` : "Alerts"}
+          aria-label={`${items.length} alerts`}
           aria-expanded={open}
           aria-haspopup="dialog"
           title="Alerts"
         >
           <Bell className="h-5 w-5" />
-          {items.length > 0 ? (
-            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-              {items.length > 9 ? "9+" : items.length}
-            </span>
-          ) : null}
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+            {items.length > 9 ? "9+" : items.length}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -562,66 +589,57 @@ export const NotificationCenter = memo(function NotificationCenter() {
         <div className="border-b border-border/60 px-4 py-3">
           <p className="text-sm font-semibold text-foreground">Alerts</p>
           <p className="text-xs text-muted-foreground">
-            {items.length === 0
-              ? "You're all caught up."
-              : `${items.length} item${items.length === 1 ? "" : "s"} need attention`}
+            {`${items.length} item${items.length === 1 ? "" : "s"} need attention`}
           </p>
         </div>
         <div className="max-h-[min(60vh,24rem)] overflow-y-auto p-2">
-          {items.length === 0 ? (
-            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-              <p>No porting or SMS setup alerts.</p>
-              <p className="mt-1 text-xs">Call alerts live on Lines.</p>
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {items.map((item) => {
-                const Icon = item.icon
-                const isSmsPending = item.id === "sms-10dlc" && item.tone === "warning"
-                return (
-                  <li
-                    key={item.id}
-                    className={cn("rounded-xl border px-3 py-3", toneClasses(item.tone))}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <Icon
-                        className={cn(
-                          "mt-0.5 h-4 w-4 shrink-0",
-                          item.id === "provisioning" && "animate-spin"
-                        )}
-                        aria-hidden
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-foreground">{item.title}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.message}</p>
-                        {item.actionLabel && item.onAction ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <ul className="flex flex-col gap-2">
+            {items.map((item) => {
+              const Icon = item.icon
+              const isSmsPending = item.id === "sms-10dlc" && item.tone === "warning"
+              return (
+                <li
+                  key={item.id}
+                  className={cn("rounded-xl border px-3 py-3", toneClasses(item.tone))}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Icon
+                      className={cn(
+                        "mt-0.5 h-4 w-4 shrink-0",
+                        item.id === "provisioning" && "animate-spin"
+                      )}
+                      aria-hidden
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground">{item.title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.message}</p>
+                      {item.actionLabel && item.onAction ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={item.id === "impersonation" && exitingImpersonation}
+                            onClick={item.onAction}
+                            className="rounded-md bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-background/90"
+                          >
+                            {item.actionLabel}
+                          </button>
+                          {isSmsPending ? (
                             <button
                               type="button"
-                              disabled={item.id === "impersonation" && exitingImpersonation}
-                              onClick={item.onAction}
-                              className="rounded-md bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-background/90"
+                              onClick={dismissSmsPending}
+                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
                             >
-                              {item.actionLabel}
+                              Dismiss
                             </button>
-                            {isSmsPending ? (
-                              <button
-                                type="button"
-                                onClick={dismissSmsPending}
-                                className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                              >
-                                Dismiss
-                              </button>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       </PopoverContent>
     </Popover>

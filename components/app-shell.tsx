@@ -59,26 +59,26 @@ const AppShellHeader = memo(function AppShellHeader({
       {useLinks ? (
         <Link
           href="/dashboard"
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:gap-2"
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
           aria-label="Go to home"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
-          {/* Always show wordmark; slightly smaller on mobile so mark + lyncr fit with org/alerts/wallet. */}
-          <BrandWordmark size="sm" className="inline-flex text-[11px] sm:text-base" />
+          {/* Mobile: cyan mark only so the org switcher isn’t crushed; sm+: mark + lyncr. */}
+          <BrandWordmark size="md" className="hidden sm:inline-flex" />
         </Link>
       ) : (
         <button
           type="button"
           onClick={() => onNavigate?.("dashboard")}
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:gap-2"
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
           aria-label="Go to routing"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
-          <BrandWordmark size="sm" className="inline-flex text-[11px] sm:text-base" />
+          <BrandWordmark size="md" className="hidden sm:inline-flex" />
         </button>
       )}
       </div>
