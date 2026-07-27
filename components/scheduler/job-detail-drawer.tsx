@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
 import {
   JobDetailOverview,
   type JobLifecycleQuickStatus,
@@ -124,6 +125,8 @@ export function JobDetailDrawer({
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  /** Complete confirm — optional immediate Thanks + review SMS. */
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<JobDetailViewMode>("overview")
@@ -475,8 +478,17 @@ export function JobDetailDrawer({
   }
 
   // Cancel / Referred / Complete — write job_status then close the drawer.
-  async function handleQuickLifecycleAction(status: JobLifecycleQuickStatus) {
+  // Complete may include send_review_sms after the confirm dialog.
+  async function handleQuickLifecycleAction(
+    status: JobLifecycleQuickStatus,
+    options?: { sendReviewSms?: boolean }
+  ) {
     if (!jobId || saving) return
+    // Complete needs a confirm (review SMS choice); other actions run immediately.
+    if (status === "completed" && options?.sendReviewSms === undefined) {
+      setCompleteConfirmOpen(true)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -502,7 +514,13 @@ export function JobDetailDrawer({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          // Waiting Pool / offline jobs can complete without scheduling a tech.
+          ...(status === "completed" && options?.sendReviewSms
+            ? { send_review_sms: true }
+            : {}),
+        }),
       })
       const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
       if (!res.ok) throw new Error(json.error ?? "Could not update job status")
@@ -512,9 +530,30 @@ export function JobDetailDrawer({
         onStatusChanged?.(event)
         onSaved?.(event)
       }
+      setCompleteConfirmOpen(false)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update job status")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /** Already-complete jobs: send Thanks + review via the existing owner endpoint. */
+  async function handleSendReviewSms() {
+    if (!jobId || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/owner/jobs/${encodeURIComponent(jobId)}/thanks-review`, {
+        method: "POST",
+        credentials: "include",
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Could not send review SMS")
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send review SMS")
     } finally {
       setSaving(false)
     }
@@ -563,6 +602,7 @@ export function JobDetailDrawer({
               onJobNotesChange={setJobNotes}
               onSaveJobNotes={() => void handleSaveJobNotes()}
               onQuickLifecycleAction={(status) => void handleQuickLifecycleAction(status)}
+              onSendReviewSms={() => void handleSendReviewSms()}
               onClose={requestClose}
             />
           ) : (
@@ -627,6 +667,45 @@ export function JobDetailDrawer({
             >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete job"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={completeConfirmOpen}
+        onOpenChange={(open) => {
+          if (saving) return
+          setCompleteConfirmOpen(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark job complete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Works from Waiting Pool without scheduling a tech. Send a thank-you + review text
+              now, or complete only.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogAction
+              className="bg-emerald-600 text-white hover:bg-emerald-600/90"
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleQuickLifecycleAction("completed", { sendReviewSms: true })
+              }}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete & send review text"}
+            </AlertDialogAction>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={saving}
+              onClick={() => void handleQuickLifecycleAction("completed", { sendReviewSms: false })}
+            >
+              Complete only
+            </Button>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

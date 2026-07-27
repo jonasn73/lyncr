@@ -315,6 +315,7 @@ export function UiComponentGallery() {
             onJobNotesChange={setDrawerNotes}
             onSaveJobNotes={() => undefined}
             onQuickLifecycleAction={() => undefined}
+            onSendReviewSms={() => undefined}
             onClose={() => undefined}
           />
         </div>

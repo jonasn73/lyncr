@@ -12,6 +12,7 @@ import {
   Pencil,
   Phone,
   Share2,
+  Star,
   UserRound,
   X,
 } from "lucide-react"
@@ -73,6 +74,8 @@ type JobDetailOverviewProps = {
   onJobNotesChange: (notes: string) => void
   onSaveJobNotes: () => void
   onQuickLifecycleAction: (status: JobLifecycleQuickStatus) => void
+  /** Send Thanks + review SMS (works after Complete, or anytime phone is on file). */
+  onSendReviewSms: () => void
   onClose: () => void
 }
 
@@ -152,6 +155,7 @@ export function JobDetailOverview({
   onJobNotesChange,
   onSaveJobNotes,
   onQuickLifecycleAction,
+  onSendReviewSms,
   onClose,
 }: JobDetailOverviewProps) {
   const { toast } = useToast()
@@ -176,7 +180,10 @@ export function JobDetailOverview({
   const scheduledAtIso = resolveJobScheduledAtIso(
     scheduledEvent ?? { scheduled_at: source.scheduled_at ?? null }
   )
-  const jobStatus = scheduledEvent?.job_status ?? null
+  const jobStatus =
+    scheduledEvent?.job_status ??
+    ("job_status" in source ? (source as SchedulerEvent).job_status : null) ??
+    null
   const scheduledDateLabel = formatScheduledDateDisplay(scheduledAtIso)
   const scheduledTimeLabel = formatScheduledTimeDisplay(scheduledAtIso)
   const appointmentPhase = useScheduleInteractionPhase({
@@ -437,8 +444,10 @@ export function JobDetailOverview({
             />
             {pipelineStatus !== "DISPATCHED" ? (
               <p className="text-[11px] leading-snug text-slate-500">
-                Set status to <span className="font-medium text-slate-300">Scheduled</span> to
-                assign a tech.
+                Tech assign needs{" "}
+                <span className="font-medium text-slate-300">Scheduled</span>. You can still{" "}
+                <span className="font-medium text-emerald-300">Complete</span> without a tech
+                (work done offline).
               </p>
             ) : null}
           </div>
@@ -502,21 +511,21 @@ export function JobDetailOverview({
           </section>
         ) : null}
 
-        {/* More actions — Cancel / Referred / Complete / Deposit; collapsed on mobile */}
+        {/* More actions — Cancel / Referred / Complete / Review / Deposit; collapsed on mobile */}
         <section className="mt-2">
           {isMobile ? (
             <CollapseToggle
               open={moreActionsOpen}
               onToggle={() => setMoreActionsOpen((v) => !v)}
               label="More actions"
-              hint="Cancel · Referred · Complete · Deposit"
+              hint="Cancel · Referred · Complete · Review · Deposit"
             />
           ) : (
             <p className={cn(SECTION_LABEL, "mb-1.5")}>Quick actions</p>
           )}
           {showMoreActions ? (
             <div className={cn(isMobile && "mt-1.5")}>
-              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3">
                 <button
                   type="button"
                   disabled={saving}
@@ -543,7 +552,7 @@ export function JobDetailOverview({
                 </button>
                 <button
                   type="button"
-                  disabled={saving}
+                  disabled={saving || (jobStatus ?? "").trim().toLowerCase() === "completed"}
                   onClick={() => onQuickLifecycleAction("completed")}
                   className={cn(
                     ACTION_BTN,
@@ -552,6 +561,18 @@ export function JobDetailOverview({
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
                   Complete
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || !customerPhone}
+                  onClick={onSendReviewSms}
+                  className={cn(
+                    ACTION_BTN,
+                    "border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                  )}
+                >
+                  <Star className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  Review SMS
                 </button>
                 <button
                   type="button"

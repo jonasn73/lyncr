@@ -15,6 +15,7 @@ import {
   sendDispatchPausedWaitCustomerSms,
 } from "@/lib/dispatch-customer-sms"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { onJobStateChange, sendManualThanksReviewSms } from "@/lib/sms-pipeline"
 
 export const dynamic = "force-dynamic"
 
@@ -40,8 +41,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const { id: leadId } = await context.params
   if (!leadId?.trim()) return NextResponse.json({ error: "Missing job id" }, { status: 400 })
 
-  const body = (await req.json().catch(() => ({}))) as { status?: string }
+  const body = (await req.json().catch(() => ({}))) as {
+    status?: string
+    /** When completing: send Thanks + review SMS immediately (drawer confirm). */
+    send_review_sms?: boolean
+  }
   const status = String(body.status || "").trim()
+  const sendReviewSms = body.send_review_sms === true
   if (!ALLOWED.has(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 })
   }
@@ -49,7 +55,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const previous = await getOwnerSchedulerEventById(userId, leadId.trim())
   if (!previous) return NextResponse.json({ error: "Job not found" }, { status: 404 })
 
-  // Owner may update field status without an assigned tech (solo / owner-run jobs).
+  // Owner may complete / cancel without an assigned tech (offline / waiting-pool close-out).
   // "assigned" alone still requires a tech id so the pipeline does not lie about staffing.
   if (status === "assigned" && !previous.assigned_tech_id) {
     return NextResponse.json({ error: "Assign a technician before marking assigned" }, { status: 400 })
@@ -105,8 +111,37 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       })
     }
 
+    // Complete from Waiting Pool / drawer: immediate review SMS or toggle-gated delayed pipeline.
+    if (status === "completed" && prevStatus !== "completed") {
+      after(async () => {
+        try {
+          if (sendReviewSms) {
+            await sendManualThanksReviewSms({
+              leadId: leadId.trim(),
+              expectedOwnerUserId: userId,
+              techName: previous.assigned_tech_name,
+            })
+          } else {
+            await onJobStateChange("COMPLETED", {
+              leadId: leadId.trim(),
+              expectedOwnerUserId: userId,
+              techName: previous.assigned_tech_name,
+            })
+          }
+        } catch (e) {
+          console.warn("[owner job status] completed review SMS failed:", e)
+        }
+      })
+    }
+
     const event = await getOwnerSchedulerEventById(userId, leadId.trim())
-    return NextResponse.json({ data: { event, status } })
+    return NextResponse.json({
+      data: {
+        event,
+        status,
+        send_review_sms: sendReviewSms,
+      },
+    })
   } catch (e) {
     console.error("[PATCH /api/owner/jobs/[id]/status]", e)
     return NextResponse.json({ error: "Could not update job status" }, { status: 500 })

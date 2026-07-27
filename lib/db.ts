@@ -9912,13 +9912,28 @@ export async function setJobStatusForOwner(
     status === "completed"
       ? await sql`
           UPDATE ai_leads
-          SET job_status = ${status},
-              collected = jsonb_set(
-                coalesce(collected, '{}'::jsonb),
-                '{completed_at}',
-                to_jsonb(now()::timestamptz::text),
-                true
+          SET
+            -- Terminal status for offline / waiting-pool close-out (tech optional).
+            job_status = ${status},
+            -- Promote quote/callback leads so Completed counts as a real finished job.
+            disposition = CASE
+              WHEN coalesce(nullif(trim(disposition), ''), '') IN ('', 'PENDING_TIME', 'lead', 'LEAD')
+                THEN 'BOOKED'
+              ELSE disposition
+            END,
+            collected =
+              coalesce(collected, '{}'::jsonb)
+              || jsonb_build_object(
+                'completed_at', now()::timestamptz::text,
+                'job_status', 'completed',
+                'pending_callback', false
               )
+              || CASE
+                WHEN lower(coalesce(nullif(trim(collected->>'disposition'), ''), ''))
+                  IN ('', 'pending_time', 'lead')
+                  THEN jsonb_build_object('disposition', 'BOOKED')
+                ELSE '{}'::jsonb
+              END
           WHERE id = ${leadId} AND user_id = ${ownerUserId}
           RETURNING id
         `
