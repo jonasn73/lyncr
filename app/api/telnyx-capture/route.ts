@@ -4,7 +4,7 @@
 // Day unanswered: Gather (1 = SMS, 2 = hold queue with calendar ETA).
 
 import { NextRequest, NextResponse } from "next/server"
-import { normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
+import { getCallLogSnapshotForTelemetry, normalizePhoneNumberE164, updateCallLog } from "@/lib/db"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { getAppUrl } from "@/lib/telnyx"
 import { toE164 } from "@/lib/phone-e164"
@@ -50,6 +50,7 @@ import {
   buildDayCaptureDialXml,
   buildHoldQueueGatherXml,
   isCaptureDialLineBusy,
+  isCaptureDialLiveHumanBridge,
   isCaptureDialUnanswered,
   resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
@@ -395,10 +396,69 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Day Dial action — answered → hangup; BUSY/CONGESTION → call-waiting SMS; else busy Gather.
+  // Day Dial action — live press-1 bridge → hangup; press-1 miss / VM → busy Gather;
+  // BUSY/CONGESTION → call-waiting SMS; else busy Gather.
   if (step === "day-fallback") {
-    if (dialStatus && !isCaptureDialUnanswered(dialStatus)) {
+    // Parse Dial talk / bridge fields Telnyx may include on the Dial `action` POST.
+    const dialCallDurationSec = parseInt(
+      pickField(fields, ["DialCallDuration", "DialCallDurationSeconds", "DialDuration"]),
+      10
+    )
+    const dialBridgedDurationSec = parseInt(
+      pickField(fields, ["DialBridgedDuration", "BridgeDuration", "BridgedDuration"]),
+      10
+    )
+    const dialBridgedTo = pickField(fields, [
+      "DialBridgedTo",
+      "DialBridgedNumber",
+      "BridgedTo",
+      "BridgeTarget",
+    ])
+    // Press-1 accept stamps answered_at; reject / voicemail leave it null.
+    let answeredAt: string | null = null
+    if (callSid) {
+      try {
+        const snap = await getCallLogSnapshotForTelemetry(callSid)
+        answeredAt = snap?.answered_at ?? null
+      } catch (e) {
+        console.warn("[telnyx-capture] answered_at lookup skipped:", e)
+      }
+    }
+
+    const liveBridge = isCaptureDialLiveHumanBridge({
+      dialStatus,
+      answeredAt,
+      dialCallDurationSec: Number.isFinite(dialCallDurationSec) ? dialCallDurationSec : 0,
+      dialBridgedDurationSec: Number.isFinite(dialBridgedDurationSec) ? dialBridgedDurationSec : 0,
+      dialBridgedTo,
+    })
+
+    // Only hang up the caller after a confirmed human bridge (press 1 / real talk).
+    // `DialCallStatus=completed` alone is NOT enough — press-1 timeout is also "completed".
+    if (liveBridge) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-capture-day-fallback-live-bridge-hangup",
+          callSid: callSid || null,
+          dialStatus: dialStatus || null,
+          hasAnsweredAt: Boolean(answeredAt),
+        })
+      )
       return xmlResponse(buildCaptureHangupXml())
+    }
+
+    // completed / answered without press-1 → treat like a miss and keep the caller in the funnel.
+    if (dialStatus && !isCaptureDialUnanswered(dialStatus)) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-capture-day-fallback-completed-without-bridge",
+          callSid: callSid || null,
+          dialStatus,
+          hasAnsweredAt: Boolean(answeredAt),
+          dialCallDurationSec: Number.isFinite(dialCallDurationSec) ? dialCallDurationSec : null,
+          note: "Press-1 reject / voicemail pickup — continue to busy Gather (do not silent-hangup)",
+        })
+      )
     }
 
     // Live call waiting — your cell is already on another call.

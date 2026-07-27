@@ -245,6 +245,9 @@ export function buildIvrBypassDialXml(opts: {
 /**
  * Day first ring — Dial owner cell, then action URL for unanswered fallback.
  * Optional numberUrl is fetched the instant the callee answers (opens intake / press-1).
+ *
+ * Always include Telnyx `ringTone="us"` with `answerOnBridge` so the caller hears
+ * clear US ringback while the cell rings (otherwise many legs sound like dead air).
  */
 export function buildDayCaptureDialXml(opts: {
   ringE164: string
@@ -253,6 +256,8 @@ export function buildDayCaptureDialXml(opts: {
   timeoutSeconds?: number
   /** TeXML <Number url> — e.g. receptionist-answer webhook for call-answered + intake. */
   numberUrl?: string | null
+  /** When false, omit ringTone (tests / rare hold-silence experiments). Default true. */
+  includeRingback?: boolean
 }): string {
   // Use configured ring delay when provided; otherwise the historic 15s default.
   const timeout = opts.timeoutSeconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS
@@ -267,10 +272,12 @@ export function buildDayCaptureDialXml(opts: {
     opts.numberUrl && opts.numberUrl.trim()
       ? ` url="${escapeTexml(opts.numberUrl.trim())}" method="POST"`
       : ""
+  // answerOnBridge without ringTone often leaves the A-leg silent until bridge / Dial timeout.
+  const ringToneAttr = opts.includeRingback === false ? "" : ` ringTone="us"`
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Dial timeout="${timeout}" answerOnBridge="true"${callerAttr} action="${safeAction}" method="POST">` +
+    `<Dial timeout="${timeout}" answerOnBridge="true"${ringToneAttr}${callerAttr} action="${safeAction}" method="POST">` +
     `<Number${numberUrlAttr}>${safeNumber}</Number>` +
     `</Dial>` +
     `</Response>`
@@ -328,6 +335,41 @@ export function isCaptureDialUnanswered(statusRaw: string): boolean {
     s === "congestion" ||
     s === ""
   )
+}
+
+/**
+ * True when the Your Phone / day Dial leg was a *confirmed* live bridge.
+ *
+ * Telnyx reports `DialCallStatus=completed` both when:
+ * - the owner pressed 1 and talked (real bridge), and
+ * - voicemail / press-1 timeout hung up the cell leg (NO bridge).
+ *
+ * Only treat as live when receptionist-answer stamped `answered_at` (press 1),
+ * or Dial callback shows bridge metadata + enough talk seconds.
+ * Otherwise day-fallback must continue to busy Gather / SMS — never silent Hangup.
+ */
+export function isCaptureDialLiveHumanBridge(opts: {
+  dialStatus: string
+  /** Set only after press-1 accept (or press-1 disabled). */
+  answeredAt?: string | null
+  dialCallDurationSec?: number
+  dialBridgedDurationSec?: number
+  dialBridgedTo?: string | null
+  minLiveSeconds?: number
+}): boolean {
+  // Normalize Telnyx status spelling (completed / completed, in_progress → in-progress).
+  const s = opts.dialStatus.trim().toLowerCase().replace(/_/g, "-")
+  // Only "completed" (or rare "answered") can mean a finished live pickup.
+  if (s !== "completed" && s !== "answered") return false
+  // Press-1 accept is the strongest signal — never hang up the caller without this when screening is on.
+  if (opts.answeredAt != null && String(opts.answeredAt).trim() !== "") return true
+  // Fallback when press-1 is disabled: require bridge metadata + minimum talk time.
+  const minLive = opts.minLiveSeconds ?? 5
+  const callDur = Number(opts.dialCallDurationSec ?? 0)
+  const bridgedDur = Number(opts.dialBridgedDurationSec ?? 0)
+  const bridgedDigits = String(opts.dialBridgedTo ?? "").replace(/\D/g, "").length
+  const hasBridgeMeta = bridgedDigits >= 10 || bridgedDur >= 1
+  return hasBridgeMeta && Number.isFinite(callDur) && callDur >= minLive
 }
 
 /** True when the cell line is already on another live call. */

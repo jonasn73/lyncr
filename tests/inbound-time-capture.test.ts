@@ -14,6 +14,7 @@ import {
   buildDayCaptureDialXml,
   buildNightCaptureGatherXml,
   currentHourInTimeZone,
+  isCaptureDialLiveHumanBridge,
   isCaptureDialUnanswered,
   isCaptureMissedLinkStatus,
   isNightMode,
@@ -47,12 +48,15 @@ describe("inbound time capture", () => {
   it("builds night Gather with closed-office prompt and Redirect default", () => {
     const xml = buildNightCaptureGatherXml("https://lyncr.app/api/telnyx-capture?step=night")
     expect(xml).toContain("<Gather")
-    expect(xml).toContain(NIGHT_CAPTURE_PROMPT)
+    // TTS rewrites "502" → "five oh two" inside <Say>; match stable fragments.
+    expect(xml).toContain("Our office is currently closed")
+    expect(xml).toContain("five oh two")
+    expect(NIGHT_CAPTURE_PROMPT).toContain("Key Squad 502")
     expect(xml).toContain('action="https://lyncr.app/api/telnyx-capture?step=night"')
     expect(xml).toContain("<Redirect")
   })
 
-  it("builds day Dial with configurable timeout and optional answer url", () => {
+  it("builds day Dial with ringback, configurable timeout, and optional answer url", () => {
     const xml = buildDayCaptureDialXml({
       ringE164: "+15022602716",
       actionUrl: "https://lyncr.app/api/telnyx-capture?step=day-fallback",
@@ -61,6 +65,9 @@ describe("inbound time capture", () => {
     expect(xml).toContain(`timeout="${DAY_CAPTURE_DIAL_TIMEOUT_SECONDS}"`)
     expect(xml).toContain("+15022602716")
     expect(xml).toContain("day-fallback")
+    // Caller must hear US ringback while answerOnBridge waits for the cell.
+    expect(xml).toContain('ringTone="us"')
+    expect(xml).toContain('answerOnBridge="true"')
 
     const withAnswer = buildDayCaptureDialXml({
       ringE164: "+15022602716",
@@ -71,6 +78,7 @@ describe("inbound time capture", () => {
     expect(withAnswer).toContain('timeout="30"')
     expect(withAnswer).toContain("receptionist-answer")
     expect(withAnswer).toContain('method="POST"')
+    expect(withAnswer).toContain('ringTone="us"')
   })
 
   it("builds day busy Gather prompt", () => {
@@ -83,6 +91,39 @@ describe("inbound time capture", () => {
     expect(isCaptureDialUnanswered("no-answer")).toBe(true)
     expect(isCaptureDialUnanswered("busy")).toBe(true)
     expect(isCaptureDialUnanswered("completed")).toBe(false)
+  })
+
+  it("does not treat press-1 reject completed as a live bridge", () => {
+    // Telnyx Dial action after voicemail / press-1 timeout — completed, no answered_at, no bridge.
+    expect(
+      isCaptureDialLiveHumanBridge({
+        dialStatus: "completed",
+        answeredAt: null,
+        dialCallDurationSec: 8,
+        dialBridgedDurationSec: 0,
+        dialBridgedTo: "",
+      })
+    ).toBe(false)
+
+    // Press-1 accept stamps answered_at → hang up caller leg after the conversation ends.
+    expect(
+      isCaptureDialLiveHumanBridge({
+        dialStatus: "completed",
+        answeredAt: "2026-07-27T20:18:20.289Z",
+        dialCallDurationSec: 21,
+      })
+    ).toBe(true)
+
+    // Press-1 disabled fallback: bridge metadata + enough talk seconds.
+    expect(
+      isCaptureDialLiveHumanBridge({
+        dialStatus: "completed",
+        answeredAt: null,
+        dialCallDurationSec: 45,
+        dialBridgedDurationSec: 40,
+        dialBridgedTo: "+15022602716",
+      })
+    ).toBe(true)
   })
 
   it("builds calendar full-day and partial busy Gather prompts", () => {
