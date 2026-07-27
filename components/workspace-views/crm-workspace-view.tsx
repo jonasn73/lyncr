@@ -7,13 +7,15 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import {
   Car,
-  ChevronDown,
+  Check,
   Loader2,
   MessageSquare,
+  Pencil,
   Phone,
   Plus,
   Search,
   UserRound,
+  X,
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -108,15 +110,16 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   })
   const [vehicleBusy, setVehicleBusy] = useState(false)
 
-  // Editable profile fields (name + appointment on the primary open lead/job).
+  // Profile fields — edited inline (no big form accordion).
   const [editName, setEditName] = useState("")
   const [editNotes, setEditNotes] = useState("")
   const [editApptLeadId, setEditApptLeadId] = useState<string | null>(null)
   const [editApptLocal, setEditApptLocal] = useState("")
   const [saveBusy, setSaveBusy] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
-  // Collapsed by default so garage / history stay above the fold.
-  const [editContactOpen, setEditContactOpen] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [editingAppt, setEditingAppt] = useState(false)
 
   useEffect(() => {
     if (tabParam === "leads") setFilter("leads")
@@ -219,6 +222,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setEditNotes("")
       setEditApptLeadId(null)
       setEditApptLocal("")
+      setEditingName(false)
+      setEditingNotes(false)
+      setEditingAppt(false)
       return
     }
     const fromList = rows.find((r) => r.id === selectedId) ?? null
@@ -227,13 +233,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setEditName(fromList.display_name || "")
       setEditNotes(fromList.notes || "")
     }
+    setEditingName(false)
+    setEditingNotes(false)
+    setEditingAppt(false)
     void loadProfile(selectedId)
   }, [selectedId, rows, loadProfile])
-
-  // Re-collapse when switching customers (not on list refresh).
-  useEffect(() => {
-    setEditContactOpen(false)
-  }, [selectedId])
 
   const openLeadHistory = useMemo(
     () => history.filter((h) => h.is_open_lead),
@@ -283,19 +287,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     }
   }
 
-  const saveProfileEdits = async () => {
-    if (!selectedId || saveBusy) return
+  /** Partial PATCH — only send the fields the user just edited. */
+  const patchProfile = async (body: Record<string, unknown>) => {
+    if (!selectedId || saveBusy) return false
     setSaveBusy(true)
     setSaveMsg(null)
     try {
-      const body: Record<string, unknown> = {
-        display_name: editName,
-        notes: editNotes,
-      }
-      if (editApptLeadId) {
-        body.appointment_lead_id = editApptLeadId
-        body.scheduled_at = datetimeLocalToIso(editApptLocal)
-      }
       const res = await fetch(`/api/crm/customers/${encodeURIComponent(selectedId)}`, {
         method: "PATCH",
         credentials: "include",
@@ -312,23 +309,131 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       } | null
       if (!res.ok) {
         setSaveMsg(json?.error || "Could not save")
-        return
+        return false
       }
       if (json) applyProfilePayload(json)
-      const name = editName.trim()
       setRows((prev) =>
-        prev.map((r) =>
-          r.id === selectedId ? { ...r, display_name: name, notes: editNotes } : r
-        )
+        prev.map((r) => {
+          if (r.id !== selectedId) return r
+          return {
+            ...r,
+            ...(typeof body.display_name === "string"
+              ? { display_name: String(body.display_name).trim() }
+              : {}),
+            ...(typeof body.notes === "string" ? { notes: String(body.notes) } : {}),
+          }
+        })
       )
       setSaveMsg("Saved")
+      return true
     } finally {
       setSaveBusy(false)
     }
   }
 
+  const saveName = async () => {
+    const ok = await patchProfile({ display_name: editName })
+    if (ok) setEditingName(false)
+  }
+
+  const saveNotes = async () => {
+    const ok = await patchProfile({ notes: editNotes })
+    if (ok) setEditingNotes(false)
+  }
+
+  const saveAppointment = async (localValue: string) => {
+    if (!editApptLeadId) return
+    const ok = await patchProfile({
+      appointment_lead_id: editApptLeadId,
+      scheduled_at: datetimeLocalToIso(localValue),
+    })
+    if (ok) setEditingAppt(false)
+  }
+
+  const clearAppointment = async () => {
+    if (!editApptLeadId) return
+    const ok = await patchProfile({
+      appointment_lead_id: editApptLeadId,
+      scheduled_at: null,
+    })
+    if (ok) {
+      setEditApptLocal("")
+      setEditingAppt(false)
+    }
+  }
+
   const closeProfile = () => setSelectedId(null)
   const profileOpen = selectedId != null
+
+  const apptLabel = editApptLocal
+    ? (() => {
+        const d = new Date(editApptLocal)
+        return Number.isNaN(d.getTime()) ? null : d.toLocaleString()
+      })()
+    : null
+
+  /** Name + pencil in the profile header (desktop panel + mobile dialog). */
+  const renderProfileName = (titleClassName: string) => {
+    if (!selected) return null
+    const fallback = formatPhoneDisplay(selected.phone_e164)
+    if (editingName) {
+      return (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Customer name"
+            className="h-9 min-w-0 flex-1 border-zinc-800 bg-zinc-950"
+            autoComplete="name"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void saveName()
+              if (e.key === "Escape") {
+                setEditName(selected.display_name || "")
+                setEditingName(false)
+              }
+            }}
+          />
+          <button
+            type="button"
+            disabled={saveBusy}
+            onClick={() => void saveName()}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50"
+            aria-label="Save name"
+          >
+            {saveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            disabled={saveBusy}
+            onClick={() => {
+              setEditName(selected.display_name || "")
+              setEditingName(false)
+            }}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+            aria-label="Cancel name edit"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )
+    }
+    return (
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className={cn("min-w-0 truncate", titleClassName)}>
+          {editName.trim() || fallback}
+        </span>
+        <button
+          type="button"
+          onClick={() => setEditingName(true)}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+          aria-label="Edit name"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
 
   // Factory so desktop panel + mobile dialog each get their own element tree.
   const renderProfileBody = () =>
@@ -372,85 +477,151 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           </Link>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
-          <button
-            type="button"
-            onClick={() => setEditContactOpen((o) => !o)}
-            className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
-            aria-expanded={editContactOpen}
-          >
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Edit contact
-            </span>
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
-                editContactOpen && "rotate-180"
-              )}
-              aria-hidden
-            />
-          </button>
-          {editContactOpen ? (
-            <div className="border-t border-zinc-800 px-3 pb-3 pt-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block text-[11px] text-zinc-500">
-                  Customer name
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="e.g. David"
-                    className="mt-1 h-10 border-zinc-800 bg-zinc-950"
-                    autoComplete="name"
-                  />
-                </label>
-                <label className="block text-[11px] text-zinc-500">
-                  Appointment date &amp; time
+        {/* Standalone appointment — not buried in an edit form */}
+        <div>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Appointment
+          </h3>
+          {!editApptLeadId ? (
+            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-3 text-xs text-zinc-500">
+              No open lead/job to schedule yet. Book from Scheduler or intake.
+            </p>
+          ) : editingAppt || !editApptLocal ? (
+            <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+              {!editApptLocal && !editingAppt ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setEditingAppt(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add appointment
+                </Button>
+              ) : (
+                <>
                   <Input
                     type="datetime-local"
                     value={editApptLocal}
                     onChange={(e) => setEditApptLocal(e.target.value)}
-                    disabled={!editApptLeadId}
-                    className="mt-1 h-10 border-zinc-800 bg-zinc-950"
+                    className="h-10 border-zinc-800 bg-zinc-950"
                   />
-                  {!editApptLeadId ? (
-                    <span className="mt-1 block text-[10px] text-zinc-600">
-                      No open lead/job to schedule yet.
-                    </span>
-                  ) : null}
-                </label>
-                <label className="block text-[11px] text-zinc-500 sm:col-span-2">
-                  Notes
-                  <textarea
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
-                  />
-                </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={saveBusy || !editApptLocal.trim()}
+                      onClick={() => void saveAppointment(editApptLocal)}
+                    >
+                      {saveBusy ? "Saving…" : "Save"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={saveBusy}
+                      onClick={() => {
+                        const open = history.find((h) => h.is_open_lead) ?? history[0] ?? null
+                        setEditApptLocal(isoToDatetimeLocal(open?.scheduled_at ?? null))
+                        setEditingAppt(false)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+              <p className="text-sm text-slate-100">
+                {apptLabel ?? "Scheduled"}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => setEditingAppt(true)}
+                >
+                  Change
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs text-zinc-400"
+                  disabled={saveBusy}
+                  onClick={() => void clearAppointment()}
+                >
+                  Clear
+                </Button>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+            </div>
+          )}
+        </div>
+
+        {/* Compact notes line — intake notes without a big form */}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Notes
+            </h3>
+            {!editingNotes ? (
+              <button
+                type="button"
+                onClick={() => setEditingNotes(true)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                aria-label="Edit notes"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+          {editingNotes ? (
+            <div className="space-y-2">
+              <textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
+                autoFocus
+              />
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
                   disabled={saveBusy}
-                  onClick={() => void saveProfileEdits()}
+                  onClick={() => void saveNotes()}
                 >
-                  {saveBusy ? "Saving…" : "Save changes"}
+                  {saveBusy ? "Saving…" : "Save"}
                 </Button>
-                {saveMsg ? (
-                  <span
-                    className={cn(
-                      "text-xs",
-                      saveMsg === "Saved" ? "text-emerald-400" : "text-rose-300"
-                    )}
-                  >
-                    {saveMsg}
-                  </span>
-                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={saveBusy}
+                  onClick={() => {
+                    setEditNotes(selected.notes || "")
+                    setEditingNotes(false)
+                  }}
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <p className="text-sm text-zinc-400">
+              {editNotes.trim() || "No notes yet."}
+            </p>
+          )}
         </div>
+
+        {saveMsg && saveMsg !== "Saved" ? (
+          <p className="text-xs text-rose-300">{saveMsg}</p>
+        ) : null}
 
         {profileLoading ? (
           <div className="flex items-center gap-2 text-sm text-zinc-500">
@@ -729,9 +900,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             <>
               {selected ? (
                 <div className="mb-4 border-b border-zinc-800 pb-3">
-                  <h2 className="truncate text-lg font-semibold text-zinc-100">
-                    {editName.trim() || formatPhoneDisplay(selected.phone_e164)}
-                  </h2>
+                  {renderProfileName("text-lg font-semibold text-zinc-100")}
                   <p className="mt-0.5 text-sm text-zinc-400">{renderProfileMeta()}</p>
                 </div>
               ) : null}
@@ -758,8 +927,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           {selected ? (
             <>
               <DialogHeader className="border-b border-zinc-800 px-4 pb-3 pt-4 pr-12 text-left">
-                <DialogTitle className="truncate text-lg text-zinc-100">
-                  {editName.trim() || formatPhoneDisplay(selected.phone_e164)}
+                <DialogTitle asChild>
+                  <div className="text-lg font-semibold text-zinc-100">
+                    {renderProfileName("text-lg font-semibold text-zinc-100")}
+                  </div>
                 </DialogTitle>
                 <DialogDescription className="text-zinc-400">
                   {renderProfileMeta()}
