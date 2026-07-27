@@ -33,16 +33,30 @@ export async function POST(
     typeof body[k] === "string" ? (body[k] as string) : body[k] != null ? String(body[k]) : ""
 
   try {
-    const vehicle = await createCustomerVehicleForUser({
-      userId,
-      customerId: customer.id,
-      year: str("year"),
-      make: str("make"),
-      model: str("model"),
-      vin: str("vin"),
-      fccId: str("fcc_id") || str("fccId"),
-      notes: str("notes"),
-    })
+    const year = str("year")
+    const make = str("make")
+    const model = str("model")
+    // Prefer upsert by YMM so intake re-saves don’t spam duplicate garage rows.
+    const vehicle =
+      (await upsertCustomerVehicleFromIntake({
+        userId,
+        customerId: customer.id,
+        year,
+        make,
+        model,
+        vin: str("vin"),
+        fccId: str("fcc_id") || str("fccId"),
+      })) ??
+      (await createCustomerVehicleForUser({
+        userId,
+        customerId: customer.id,
+        year,
+        make,
+        model,
+        vin: str("vin"),
+        fccId: str("fcc_id") || str("fccId"),
+        notes: str("notes"),
+      }))
     return NextResponse.json({ data: { vehicle } })
   } catch (e) {
     if (isUndefinedRelationError(e, "customer_vehicles")) {
