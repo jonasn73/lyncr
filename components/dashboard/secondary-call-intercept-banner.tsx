@@ -136,7 +136,8 @@ export function SecondaryCallInterceptBanner({
   return (
     <div
       className={cn(
-        "fixed top-4 left-4 right-4 bg-slate-950 border border-rose-500/40 rounded-xl p-3 z-[120] shadow-2xl",
+        // Above Map/Leaflet stacking (PiP / intake sheet sit at 6200–6010).
+        "fixed top-4 left-4 right-4 z-[6200] rounded-xl border border-rose-500/40 bg-slate-950 p-3 shadow-2xl",
         "md:left-auto md:right-6 md:w-[min(100%,24rem)]",
         className
       )}

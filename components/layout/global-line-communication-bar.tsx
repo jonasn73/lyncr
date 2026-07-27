@@ -46,7 +46,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
   return (
     <div
       className={cn(
-        "sticky top-0 z-[35] w-full border-b px-3 py-2 backdrop-blur-md",
+        "sticky top-0 z-[45] w-full border-b px-3 py-2 backdrop-blur-md",
         ringing
           ? "border-amber-500/30 bg-amber-950/80"
           : "border-cyan-500/30 bg-cyan-950/70"

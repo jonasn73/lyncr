@@ -244,8 +244,9 @@ export function DashboardShell({
                       </DashboardMainStreamGate>
                       <DashboardOperatorHeartbeatHost />
                       <PhotoUploadNotificationBanner />
-                      <DashboardAnsweredCallPopup enabled={popupEnabled} />
                     </AppShell>
+                    {/* Outside AppShell/main so Map Leaflet stacking never traps intake chrome. */}
+                    <DashboardAnsweredCallPopup enabled={popupEnabled} />
                   </DispatchCommandBridgeProvider>
                 </DashboardNumbersModalProvider>
               </DashboardBootstrapShellGate>

@@ -1183,6 +1183,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     let lookupInFlight = false
+    // Brief suppress so Map/Leaflet pointer noise can’t instantly dismiss a just-opened sheet.
+    const bumpOpenDismissGuard = () => {
+      suppressSheetDismissRef.current = true
+      window.setTimeout(() => {
+        suppressSheetDismissRef.current = false
+      }, 450)
+    }
     const tryShowActiveCall = () => {
       // Skip overlapping polls — under load these stacked every 800ms.
       if (lookupInFlight || cancelled) return
@@ -1191,12 +1198,24 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         .then((ringing) => {
           if (cancelled) return
           if (ringing) {
+            // Poll backup must pop like Pusher — don’t leave Map stuck on a buried PiP.
+            isMinimizedRef.current = false
+            setIsMinimized(false)
+            bumpOpenDismissGuard()
             showCallRow(setCurrent, ringing, dismissedRef.current)
             return
           }
           return fetchFirstUnseenAnsweredCall(dismissedRef.current).then((answered) => {
             if (cancelled || !answered) return
+            const sameLegMinimized =
+              isMinimizedRef.current && effectiveCurrentRef.current?.id === answered.id
             showCallRow(setCurrent, answered, dismissedRef.current)
+            // Keep intentional View-on-Map minimize for the same leg; new legs always expand.
+            if (!sameLegMinimized) {
+              isMinimizedRef.current = false
+              setIsMinimized(false)
+              bumpOpenDismissGuard()
+            }
             stopRingingFastPoll()
           })
         })
@@ -1306,11 +1325,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             return
           }
         }
-        // Force New Intake open on every inbound ring (even if the sheet was minimized).
+        // Force New Intake open on every inbound ring (even if the sheet was minimized on Map).
         dismissedRef.current.delete(row.id)
         if (payload.call_sid) dismissedRef.current.delete(`ring-${payload.call_sid}`)
         isMinimizedRef.current = false
         setIsMinimized(false)
+        bumpOpenDismissGuard()
         showCallRow(setCurrent, row, dismissedRef.current)
         scheduleRingingLookups()
       })
@@ -1335,6 +1355,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         }
         isMinimizedRef.current = false
         setIsMinimized(false)
+        bumpOpenDismissGuard()
         setCurrent((prev) => {
           if (prev?.id.startsWith("ring-") && phoneDigitsKey(prev.from_number) === phoneDigitsKey(row.from_number)) {
             ringAliasRef.current = prev.id
@@ -2313,6 +2334,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             e.preventDefault()
             return
           }
+          // Leaflet tiles/controls sit under the overlay but can still synthesize outside events.
+          if (target?.closest(".leaflet-container, .leaflet-pane, .leaflet-control")) {
+            e.preventDefault()
+            return
+          }
           if (target?.closest("[data-address-suggestions]")) e.preventDefault()
         }}
         onInteractOutside={(e) => {
@@ -2322,6 +2348,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           }
           const target = e.target as HTMLElement | null
           if (target?.closest("[data-return-to-intake]")) e.preventDefault()
+          if (target?.closest(".leaflet-container, .leaflet-pane, .leaflet-control")) {
+            e.preventDefault()
+          }
         }}
       >
         {effectiveCurrent ? (
