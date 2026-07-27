@@ -203,7 +203,8 @@ export function CustomerSmsComposer({
         body: JSON.stringify({
           phone_number: toPhone,
           business_line: fromLine?.trim() || undefined,
-          source: "activity_follow_up",
+          // Missed-call activity → apology SMS; otherwise plain booking link.
+          source: isMissed ? "missed_call_activity" : "activity_follow_up",
         }),
       })
       const json = (await res.json().catch(() => ({}))) as { error?: string }
@@ -223,7 +224,7 @@ export function CustomerSmsComposer({
     } finally {
       setBookingBusy(false)
     }
-  }, [fromLine, onSent, toPhone, toast])
+  }, [fromLine, isMissed, onSent, toPhone, toast])
 
   const busy = sending || bookingBusy
 

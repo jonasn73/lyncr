@@ -2,12 +2,36 @@
 
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
-import { normalizePhoneNumberE164, getUserByPhoneNumber } from "@/lib/db"
+import {
+  normalizePhoneNumberE164,
+  getUserByPhoneNumber,
+  getPhoneNumbers,
+} from "@/lib/db"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { toE164 } from "@/lib/phone-e164"
 import { getMissedCallTextbackEnabled } from "@/lib/missed-call-textback"
 import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
-import { buildTelnyxMenuBookingSms } from "@/lib/telnyx-menu"
+import {
+  buildTelnyxMenuBookingSms,
+  type BookingLinkSmsTone,
+} from "@/lib/telnyx-menu"
+
+/** Pick SMS tone from invite/source tags — missed recovery vs plain booking link. */
+export function bookingLinkSmsToneFromSource(source?: string | null): BookingLinkSmsTone {
+  const s = (source || "").trim().toLowerCase()
+  // Auto textback + Missed Call Rescue UI + missed-lead banner / activity missed.
+  if (
+    s === "missed_call_textback" ||
+    s === "missed_call_rescue_resend" ||
+    s === "missed_lead_banner" ||
+    s === "missed_call_activity" ||
+    s.startsWith("missed_")
+  ) {
+    return "missed_call"
+  }
+  // Operator “Text booking link” on a live call, IVR Digit 1, follow-ups, etc.
+  return "booking_link"
+}
 
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
@@ -147,29 +171,47 @@ export async function sendMissedCallRescueBookingLink(params: {
     normalizePhoneNumberE164(params.customerPhone) || toE164(params.customerPhone)
   if (!customer) return { ok: false, error: "invalid_customer_phone" }
 
+  const source = params.source || "missed_call_rescue_resend"
+  const tone = bookingLinkSmsToneFromSource(source)
+
+  // Prefer the DID from the call; otherwise use the owner's first active business line.
   const lineRaw = params.businessLine?.trim() || ""
-  const line = lineRaw
+  let line = lineRaw
     ? normalizePhoneNumberE164(lineRaw) || toE164(lineRaw) || lineRaw
     : ""
+  if (!line) {
+    try {
+      const owned = await getPhoneNumbers(params.ownerUserId)
+      const active = owned.find((p) => p.status === "active" && p.number?.trim())
+      const fallback = active?.number || owned[0]?.number || ""
+      line = fallback
+        ? normalizePhoneNumberE164(fallback) || toE164(fallback) || fallback
+        : ""
+    } catch (e) {
+      console.warn("[missed-call-rescue] owner line lookup failed:", e)
+    }
+  }
+  if (!line) {
+    return { ok: false, error: "missing_business_line" }
+  }
 
   let bookUrl = ""
-  if (line) {
-    const created = await createBookingInvite({
-      ownerUserId: params.ownerUserId,
-      businessLine: line,
-      callerPhone: customer,
-      source: params.source || "missed_call_rescue_resend",
-    })
-    bookUrl = created?.url || ""
-  }
+  const created = await createBookingInvite({
+    ownerUserId: params.ownerUserId,
+    businessLine: line,
+    callerPhone: customer,
+    source,
+  })
+  bookUrl = created?.url || ""
   if (!bookUrl) {
+    // Table missing / insert failed — query-string /book still works for availability.
     bookUrl = buildBookQueryUrl({
       callerPhone: customer,
-      businessLine: line || customer,
+      businessLine: line,
     })
   }
 
-  const text = buildTelnyxMenuBookingSms(customer, bookUrl, line || null)
+  const text = buildTelnyxMenuBookingSms(customer, bookUrl, line, tone)
 
   try {
     // Log outbound textback into sms_messages so Messages inbox shows the thread.

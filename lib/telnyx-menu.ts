@@ -77,16 +77,30 @@ export function escapeTexmlSayText(value: string): string {
   return escapeTexmlText(cleanTextForTTS(value))
 }
 
+/** SMS tone for public booking links — missed-call recovery vs plain “here’s the link”. */
+export type BookingLinkSmsTone = "missed_call" | "booking_link"
+
+/** Build the SMS body once we know the final booking URL. */
+function formatBookingLinkSmsBody(link: string, tone: BookingLinkSmsTone): string {
+  // Missed-call rescue: warm apology + invite to book.
+  if (tone === "missed_call") {
+    return `Sorry we missed your call — pick a time that works here: ${link}`
+  }
+  // Manual / IVR “send link” — short, no missed-call apology.
+  return `Here's your booking link: ${link}`
+}
+
 /** Secure booking deep-link SMS body — prefers opaque /book/[id] tracking URLs. */
 export function buildTelnyxMenuBookingSms(
   fromE164: string,
   bookUrlOrBase = "https://lyncr.app/book",
-  businessLineE164?: string | null
+  businessLineE164?: string | null,
+  tone: BookingLinkSmsTone = "booking_link"
 ): string {
   const trimmed = bookUrlOrBase.trim()
   // Already a full /book/<uuid> (or other absolute) tracking link.
   if (/^https?:\/\/.+/i.test(trimmed) && /\/book\/[^/?#]+/i.test(trimmed)) {
-    return `Here is your secure booking link: ${trimmed}`
+    return formatBookingLinkSmsBody(trimmed, tone)
   }
 
   const phone = encodeURIComponent(fromE164.trim())
@@ -95,7 +109,7 @@ export function buildTelnyxMenuBookingSms(
       ? `&line=${encodeURIComponent(businessLineE164.trim())}`
       : ""
   const link = `${trimmed.replace(/\/+$/, "")}?phone=${phone}${lineQs}`
-  return `Here is your secure booking link to lock in your spot: ${link}`
+  return formatBookingLinkSmsBody(link, tone)
 }
 
 /** Raw TeXML: polite hangup after SMS / reservation success. */

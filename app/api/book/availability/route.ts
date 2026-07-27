@@ -6,6 +6,7 @@ import {
   listOwnerSchedulerEvents,
   normalizePhoneNumberE164,
 } from "@/lib/db"
+import { listAvailableBookSlots } from "@/lib/book-availability"
 import { getUserRequireDeposit } from "@/lib/booking-deposit"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"

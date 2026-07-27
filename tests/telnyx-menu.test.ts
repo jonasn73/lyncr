@@ -53,7 +53,8 @@ describe("telnyx menu IVR helpers", () => {
   it("builds Digits=1 SMS with the From phone in the booking link", () => {
     const sms = buildTelnyxMenuBookingSms("+15025550100")
     expect(sms).toContain("https://lyncr.app/book?phone=%2B15025550100")
-    expect(sms).toContain("secure booking link")
+    expect(sms).toContain("Here's your booking link:")
+    expect(sms).not.toContain("missed your call")
   })
 
   it("builds Digits=1 SMS from an opaque /book/[id] tracking URL", () => {
@@ -63,6 +64,19 @@ describe("telnyx menu IVR helpers", () => {
     )
     expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
     expect(sms).not.toContain("phone=")
+    expect(sms).toContain("Here's your booking link:")
+  })
+
+  it("uses warm recovery copy for missed-call booking SMS", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      null,
+      "missed_call"
+    )
+    expect(sms).toContain("Sorry we missed your call")
+    expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+    expect(sms).not.toContain("Here's your booking link:")
   })
 
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with alice voice", () => {
