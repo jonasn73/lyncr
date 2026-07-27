@@ -945,7 +945,10 @@ export interface CrmServiceHistoryItem {
   assigned_tech_name: string | null
   amount_cents: number | null
   vehicle_label: string | null
+  /** Best display timestamp (scheduled_at when set, else updated/created). */
   at: string
+  /** Structured appointment time when the lead/job is booked — null if unscheduled. */
+  scheduled_at: string | null
   dispatch_status: string | null
   is_open_lead: boolean
 }

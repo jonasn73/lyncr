@@ -5133,6 +5133,97 @@ export async function getCustomerByIdForUser(
   }
 }
 
+/** Partial CRM profile edit — name / notes without wiping other customer fields. */
+export async function updateCustomerFieldsForUser(
+  userId: string,
+  customerId: string,
+  fields: { displayName?: string; notes?: string }
+): Promise<Customer | null> {
+  const sql = getSql()
+  const existing = await getCustomerByIdForUser(userId, customerId)
+  if (!existing) return null
+
+  const displayName =
+    fields.displayName !== undefined ? fields.displayName.trim() : existing.display_name
+  const notes = fields.notes !== undefined ? fields.notes : existing.notes
+
+  try {
+    const rows = await sql`
+      UPDATE customers
+      SET
+        display_name = ${displayName},
+        notes = ${notes},
+        updated_at = now()
+      WHERE user_id = ${userId} AND id = ${customerId}
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    const customer = parseCustomerRow(row)
+
+    // Keep open lead "customer_name" in sync so Scheduler / history match the CRM name.
+    if (fields.displayName !== undefined && displayName) {
+      const digits = crmDigits(customer.phone_e164)
+      if (digits.length >= 10) {
+        try {
+          await sql`
+            UPDATE ai_leads
+            SET
+              collected = coalesce(collected, '{}'::jsonb) || jsonb_build_object('customer_name', ${displayName}),
+              customer_id = coalesce(customer_id, ${customerId}::uuid)
+            WHERE user_id = ${userId}
+              AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) = ${digits}
+          `
+        } catch (e) {
+          if (!isUndefinedRelationError(e, "ai_leads")) {
+            console.warn("[updateCustomerFieldsForUser] lead name sync", e)
+          }
+        }
+      }
+    }
+
+    return customer
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customers")) return null
+    throw e
+  }
+}
+
+/** Set appointment time on a lead owned by this user (CRM profile editor). */
+export async function updateCrmLeadAppointmentForUser(
+  userId: string,
+  leadId: string,
+  scheduledAtIso: string | null
+): Promise<boolean> {
+  const sql = getSql()
+  try {
+    if (scheduledAtIso) {
+      const rows = await sql`
+        UPDATE ai_leads
+        SET
+          scheduled_at = ${scheduledAtIso}::timestamptz,
+          collected = coalesce(collected, '{}'::jsonb) || jsonb_build_object(
+            'scheduled_at', ${scheduledAtIso},
+            'preferred_time', ${scheduledAtIso}
+          )
+        WHERE id = ${leadId} AND user_id = ${userId}
+        RETURNING id
+      `
+      return rows.length > 0
+    }
+    const rows = await sql`
+      UPDATE ai_leads
+      SET scheduled_at = NULL
+      WHERE id = ${leadId} AND user_id = ${userId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || isMissingSchedulerColumnError(e)) return false
+    throw e
+  }
+}
+
 /** Service history for one customer — by customer_id and/or phone digits. */
 export async function listCrmServiceHistoryForCustomer(params: {
   userId: string
@@ -5150,18 +5241,16 @@ export async function listCrmServiceHistoryForCustomer(params: {
         summary,
         dispatch_status,
         job_status,
-        assigned_tech_name,
         collected,
         scheduled_at,
-        created_at,
-        updated_at
+        created_at
       FROM ai_leads
       WHERE user_id = ${params.userId}
         AND (
           customer_id = ${params.customerId}
           OR right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) = ${digits}
         )
-      ORDER BY coalesce(scheduled_at, updated_at, created_at) DESC
+      ORDER BY coalesce(scheduled_at, created_at) DESC
       LIMIT ${lim}
     `) as Record<string, unknown>[]
 
@@ -5206,24 +5295,29 @@ export async function listCrmServiceHistoryForCustomer(params: {
         status_label = "Booked"
         status_tone = "sky"
       }
-      const at =
+      const techName =
+        collected.assigned_tech_name != null ? String(collected.assigned_tech_name) : null
+      const scheduledAt =
         row.scheduled_at instanceof Date
           ? row.scheduled_at.toISOString()
           : row.scheduled_at
             ? String(row.scheduled_at)
-            : row.updated_at instanceof Date
-              ? row.updated_at.toISOString()
-              : String(row.updated_at ?? row.created_at ?? "")
+            : null
+      const at =
+        scheduledAt ??
+        (row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : String(row.created_at ?? ""))
       return {
         id: String(row.id),
         summary: row.summary != null ? String(row.summary) : null,
         status_label,
         status_tone,
-        assigned_tech_name:
-          row.assigned_tech_name != null ? String(row.assigned_tech_name) : null,
+        assigned_tech_name: techName,
         amount_cents: amount,
         vehicle_label: vehicleParts.length ? vehicleParts.join(" ") : null,
         at,
+        scheduled_at: scheduledAt,
         dispatch_status: ds || null,
         is_open_lead: isOpenLead,
       }
