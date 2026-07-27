@@ -110,6 +110,11 @@ export function buildBookQueryUrl(opts: {
   callerPhone?: string | null
   businessLine: string
   bookBaseUrl?: string
+  /**
+   * Missed-call recovery: open /book in availability + follow-up mode
+   * (no open-slot picker). Plain booking links leave this false.
+   */
+  callbackMode?: boolean
 }): string {
   const base = (opts.bookBaseUrl || "https://lyncr.app/book").replace(/\/+$/, "")
   const phone = opts.callerPhone?.trim()
@@ -121,5 +126,7 @@ export function buildBookQueryUrl(opts: {
     normalizePhoneNumberE164(opts.businessLine) || toE164(opts.businessLine) || opts.businessLine
   )
   const phoneQs = phone ? `phone=${phone}&` : ""
-  return `${base}?${phoneQs}line=${line}`
+  // ?mode=callback tells BookPageClient to skip the slot picker.
+  const modeQs = opts.callbackMode ? "&mode=callback" : ""
+  return `${base}?${phoneQs}line=${line}${modeQs}`
 }

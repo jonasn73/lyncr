@@ -75,7 +75,10 @@ describe("telnyx menu IVR helpers", () => {
       "missed_call"
     )
     expect(sms).toContain("Sorry we missed your call")
+    expect(sms).toContain("availability")
+    expect(sms).toContain("follow up ASAP")
     expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+    expect(sms).not.toContain("pick a time")
     expect(sms).not.toContain("Here's your booking link:")
   })
 

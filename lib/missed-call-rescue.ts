@@ -33,6 +33,15 @@ export function bookingLinkSmsToneFromSource(source?: string | null): BookingLin
   return "booking_link"
 }
 
+/**
+ * True when /book should show the availability + callback form
+ * (not the open-slot picker). Branch from invite `source` or ?mode=callback.
+ */
+export function isMissedCallBookingCallbackMode(source?: string | null): boolean {
+  // Same tags as warm SMS — missed path asks for availability, not a hard slot.
+  return bookingLinkSmsToneFromSource(source) === "missed_call"
+}
+
 function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
 }
@@ -204,10 +213,12 @@ export async function sendMissedCallRescueBookingLink(params: {
   })
   bookUrl = created?.url || ""
   if (!bookUrl) {
-    // Table missing / insert failed — query-string /book still works for availability.
+    // Table missing / insert failed — query-string /book with callback mode for missed path.
     bookUrl = buildBookQueryUrl({
       callerPhone: customer,
       businessLine: line,
+      // Missed SMS → form collects availability (not slot pick).
+      callbackMode: tone === "missed_call",
     })
   }
 

@@ -82,11 +82,11 @@ export type BookingLinkSmsTone = "missed_call" | "booking_link"
 
 /** Build the SMS body once we know the final booking URL. */
 function formatBookingLinkSmsBody(link: string, tone: BookingLinkSmsTone): string {
-  // Missed-call rescue: warm apology + invite to book.
+  // Missed-call rescue: apology → share info/availability → tech follows up (no slot pick).
   if (tone === "missed_call") {
-    return `Sorry we missed your call — pick a time that works here: ${link}`
+    return `Sorry we missed your call — share your info & availability here and a tech will follow up ASAP: ${link}`
   }
-  // Manual / IVR “send link” — short, no missed-call apology.
+  // Manual / IVR “send link” — short, keep “pick a time” slot booking.
   return `Here's your booking link: ${link}`
 }
 

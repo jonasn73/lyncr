@@ -217,8 +217,10 @@ export function CustomerSmsComposer({
         return
       }
       toast({
-        title: "Booking link sent",
-        description: "Customer can pick a time and enter their details.",
+        title: isMissed ? "Recovery link sent" : "Booking link sent",
+        description: isMissed
+          ? "Customer can share their info & availability — a tech will follow up ASAP."
+          : "Customer can pick a time and enter their details.",
       })
       onSent?.()
     } finally {

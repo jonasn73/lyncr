@@ -1,6 +1,6 @@
 "use client"
 
-// Public booking page — details + open slots + optional Stripe deposit checkout.
+// Public booking page — slot pick (plain link) OR availability callback (missed-call).
 
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -26,18 +26,34 @@ const JOB_TYPE_OPTIONS = [
   "Other",
 ] as const
 
+/** book = pick an open slot; callback = free-text availability + tech follow-up. */
+export type BookFormMode = "book" | "callback"
+
 export default function BookPageClient({
   initialLine = "",
   initialPhone = "",
+  initialFormMode = "book",
 }: {
   /** From /book/[id] invite resolution — used when query string is absent. */
   initialLine?: string
   initialPhone?: string
+  /**
+   * From invite `source`: missed-call → callback form; IVR / on_call → slot book.
+   * Query `?mode=callback` also forces callback (fallback links without invite rows).
+   */
+  initialFormMode?: BookFormMode
 } = {}) {
   const searchParams = useSearchParams()
   const phone = searchParams.get("phone")?.trim() || initialPhone.trim() || ""
   const line = searchParams.get("line")?.trim() || initialLine.trim() || ""
   const depositStatus = searchParams.get("deposit")?.trim() || ""
+  const modeQs = searchParams.get("mode")?.trim().toLowerCase() || ""
+
+  // Missed-call recovery branch: collect availability, not a hard-booked slot.
+  const isCallbackMode =
+    initialFormMode === "callback" ||
+    modeQs === "callback" ||
+    modeQs === "missed"
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,9 +64,17 @@ export default function BookPageClient({
 
   // Required capture fields (name / address / job type).
   const [customerName, setCustomerName] = useState("")
+  const [customerPhone, setCustomerPhone] = useState(phone)
   const [serviceAddress, setServiceAddress] = useState("")
   const [jobType, setJobType] = useState<string>(JOB_TYPE_OPTIONS[0])
   const [jobTypeOther, setJobTypeOther] = useState("")
+  // Free-text windows the customer is free (missed-call path only).
+  const [availabilityNotes, setAvailabilityNotes] = useState("")
+
+  useEffect(() => {
+    // Keep phone field in sync if invite hydrates after first paint.
+    if (phone && !customerPhone) setCustomerPhone(phone)
+  }, [phone, customerPhone])
 
   useEffect(() => {
     if (!line) {
@@ -60,6 +84,7 @@ export default function BookPageClient({
     }
     let cancelled = false
     setLoading(true)
+    // Still load business name (and slots for plain book mode).
     void fetch(`/api/book/availability?line=${encodeURIComponent(line)}`)
       .then(async (res) => {
         const json = (await res.json()) as { data?: AvailabilityPayload; error?: string }
@@ -95,6 +120,12 @@ export default function BookPageClient({
     serviceAddress.trim().length >= 5 &&
     resolvedJobType.length >= 2
 
+  // Callback mode also needs phone + free-text availability.
+  const callbackReady =
+    detailsReady &&
+    customerPhone.trim().replace(/\D/g, "").length >= 10 &&
+    availabilityNotes.trim().length >= 3
+
   async function handleRequestSlot() {
     if (!selected || !line || !detailsReady) return
     setSubmitting(true)
@@ -105,7 +136,7 @@ export default function BookPageClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           line,
-          phone,
+          phone: customerPhone.trim() || phone,
           scheduled_at: selected,
           customer_name: customerName.trim(),
           address_line1: serviceAddress.trim(),
@@ -133,6 +164,34 @@ export default function BookPageClient({
     }
   }
 
+  async function handleRequestCallback() {
+    if (!line || !callbackReady) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      // Creates a pending callback lead — tech follows up; no hard-booked slot.
+      const res = await fetch("/api/book/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          line,
+          phone: customerPhone.trim(),
+          customer_name: customerName.trim(),
+          address_line1: serviceAddress.trim(),
+          job_type: resolvedJobType,
+          availability: availabilityNotes.trim(),
+        }),
+      })
+      const json = (await res.json()) as { data?: { status?: string }; error?: string }
+      if (!res.ok) throw new Error(json.error || res.statusText)
+      setSubmitted(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not submit your request")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const depositLabel =
     data?.require_deposit && data.deposit_cents
       ? `Pay $${(data.deposit_cents / 100).toFixed(0)} deposit to hold`
@@ -148,15 +207,17 @@ export default function BookPageClient({
           {SITE_NAME}
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-          {data?.business_name || "Book a visit"}
+          {data?.business_name || (isCallbackMode ? "Request a callback" : "Book a visit")}
         </h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Tell us who you are and where to meet, then pick an open one-hour window.
+          {isCallbackMode
+            ? "Sorry we missed you — share your details and when you're free. A technician will follow up ASAP."
+            : "Tell us who you are and where to meet, then pick an open one-hour window."}
         </p>
-        {phone ? (
+        {!isCallbackMode && phone ? (
           <p className="mt-1 text-xs text-zinc-500">Booking for {phone}</p>
         ) : null}
-        {depositStatus === "cancelled" ? (
+        {depositStatus === "cancelled" && !isCallbackMode ? (
           <p className="mt-3 rounded-lg border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
             Deposit checkout was cancelled — your slot was not held. Pick a time again when ready.
           </p>
@@ -165,7 +226,7 @@ export default function BookPageClient({
         {loading ? (
           <div className="mt-10 flex items-center gap-2 text-sm text-zinc-400">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Loading open times…
+            {isCallbackMode ? "Loading…" : "Loading open times…"}
           </div>
         ) : error && !data ? (
           <p className="mt-8 rounded-xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
@@ -173,9 +234,11 @@ export default function BookPageClient({
           </p>
         ) : submitted ? (
           <p className="mt-8 rounded-xl border border-emerald-900/50 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
-            {depositStatus === "success"
-              ? "Deposit received — your appointment slot is confirmed. We will follow up shortly."
-              : "Thanks — we received your details and preferred time. A dispatcher will confirm shortly."}
+            {isCallbackMode
+              ? "Thanks — we got your info. A technician will follow up ASAP to confirm a time."
+              : depositStatus === "success"
+                ? "Deposit received — your appointment slot is confirmed. We will follow up shortly."
+                : "Thanks — we received your details and preferred time. A dispatcher will confirm shortly."}
           </p>
         ) : (
           <div className="mt-8 space-y-6">
@@ -194,6 +257,19 @@ export default function BookPageClient({
                   className={fieldClass}
                 />
               </label>
+              {isCallbackMode ? (
+                <label className="block text-sm text-zinc-300">
+                  Phone
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="Mobile number"
+                    className={fieldClass}
+                  />
+                </label>
+              ) : null}
               <label className="block text-sm text-zinc-300">
                 Service address
                 <input
@@ -231,43 +307,58 @@ export default function BookPageClient({
                   />
                 </label>
               ) : null}
+              {isCallbackMode ? (
+                <label className="block text-sm text-zinc-300">
+                  When are you available?
+                  <textarea
+                    value={availabilityNotes}
+                    onChange={(e) => setAvailabilityNotes(e.target.value)}
+                    placeholder="e.g. Weekdays after 3pm, or tomorrow morning"
+                    rows={3}
+                    className={fieldClass}
+                  />
+                </label>
+              ) : null}
             </section>
 
-            {slotsByDay.size === 0 ? (
-              <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-400">
-                Fully booked — no open slots in the next two weeks (calendar jobs or blockouts).
-                Please call us and we will help.
-              </p>
-            ) : (
-              [...slotsByDay.entries()].map(([dateKey, slots]) => (
-                <section key={dateKey}>
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    {dateKey}
-                  </h2>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {slots.map((slot) => {
-                      const active = selected === slot.scheduledAtIso
-                      return (
-                        <button
-                          key={slot.scheduledAtIso}
-                          type="button"
-                          onClick={() => setSelected(slot.scheduledAtIso)}
-                          className={
-                            active
-                              ? "rounded-lg border border-amber-400 bg-amber-500/20 px-3 py-2 text-sm font-semibold text-amber-100"
-                              : "rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-600"
-                          }
-                        >
-                          {slot.timeValue}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </section>
-              ))
-            )}
+            {/* Plain booking link only — show open slots to pick. */}
+            {!isCallbackMode ? (
+              slotsByDay.size === 0 ? (
+                <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-400">
+                  Fully booked — no open slots in the next two weeks (calendar jobs or blockouts).
+                  Please call us and we will help.
+                </p>
+              ) : (
+                [...slotsByDay.entries()].map(([dateKey, slots]) => (
+                  <section key={dateKey}>
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      {dateKey}
+                    </h2>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {slots.map((slot) => {
+                        const active = selected === slot.scheduledAtIso
+                        return (
+                          <button
+                            key={slot.scheduledAtIso}
+                            type="button"
+                            onClick={() => setSelected(slot.scheduledAtIso)}
+                            className={
+                              active
+                                ? "rounded-lg border border-amber-400 bg-amber-500/20 px-3 py-2 text-sm font-semibold text-amber-100"
+                                : "rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-600"
+                            }
+                          >
+                            {slot.timeValue}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ))
+              )
+            ) : null}
 
-            {(data?.blocked_dates?.length || 0) > 0 ? (
+            {!isCallbackMode && (data?.blocked_dates?.length || 0) > 0 ? (
               <p className="text-[11px] text-zinc-600">
                 Fully booked (all-day blockouts): {data?.blocked_dates.join(", ")}
               </p>
@@ -279,20 +370,41 @@ export default function BookPageClient({
               </p>
             ) : null}
 
-            <button
-              type="button"
-              disabled={!selected || !detailsReady || submitting}
-              onClick={() => void handleRequestSlot()}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              {depositLabel}
-            </button>
-            {!detailsReady ? (
-              <p className="text-center text-[11px] text-zinc-500">
-                Enter your name, address, and job type to continue.
-              </p>
-            ) : null}
+            {isCallbackMode ? (
+              <>
+                <button
+                  type="button"
+                  disabled={!callbackReady || submitting}
+                  onClick={() => void handleRequestCallback()}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  Submit — we&apos;ll follow up ASAP
+                </button>
+                {!callbackReady ? (
+                  <p className="text-center text-[11px] text-zinc-500">
+                    Enter your name, phone, address, job type, and availability to continue.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={!selected || !detailsReady || submitting}
+                  onClick={() => void handleRequestSlot()}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  {depositLabel}
+                </button>
+                {!detailsReady ? (
+                  <p className="text-center text-[11px] text-zinc-500">
+                    Enter your name, address, and job type to continue.
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         )}
       </div>

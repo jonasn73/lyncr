@@ -4297,7 +4297,8 @@ export async function getTextbackRescueRevenueCents(
           OR lower(trim(coalesce(collected->>'source', ''))) IN (
             'public_book',
             'booking_link',
-            'missed_call_textback'
+            'missed_call_textback',
+            'missed_call_callback'
           )
         )
         AND (

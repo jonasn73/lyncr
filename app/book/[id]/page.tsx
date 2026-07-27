@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import BookPageClient from "@/components/book-page-client"
 import { getBookingInviteById } from "@/lib/booking-invite"
+import { isMissedCallBookingCallbackMode } from "@/lib/missed-call-rescue"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +15,11 @@ export default async function BookInvitePage({
   const invite = await getBookingInviteById(id)
   if (!invite) notFound()
 
+  // Missed-call invites → availability + follow-up form; IVR / on_call keep slot pick.
+  const initialFormMode = isMissedCallBookingCallbackMode(invite.source)
+    ? "callback"
+    : "book"
+
   return (
     <Suspense
       fallback={
@@ -25,6 +31,7 @@ export default async function BookInvitePage({
       <BookPageClient
         initialLine={invite.businessLine}
         initialPhone={invite.callerPhone || ""}
+        initialFormMode={initialFormMode}
       />
     </Suspense>
   )
