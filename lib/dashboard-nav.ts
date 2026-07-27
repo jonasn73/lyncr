@@ -3,7 +3,7 @@ import {
   BarChart3,
   CalendarDays,
   ClipboardList,
-  Inbox,
+  ContactRound,
   Map,
   MessageSquare,
   Settings,
@@ -31,23 +31,23 @@ export type DashboardNavItem = {
   icon: LucideIcon
 }
 
-/** Primary command-dock destinations — Scheduler directly under Routing; Activity below Scheduler. */
+/** Primary command-dock — CRM (Customers & Leads) promoted; Scheduler stays dispatch. */
 export const dashboardNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Routing", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
+  { id: "customers", label: "CRM", icon: ContactRound },
   { id: "activity", label: "Activity", icon: ClipboardList },
   { id: "messages", label: "Messages", icon: MessageSquare },
-  { id: "leads", label: "Leads", icon: Inbox },
   { id: "contacts", label: "Map", icon: Map },
   { id: "pay", label: "Pay", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
-/** Mobile bottom bar — four primary destinations so icons are not squished on narrow screens. */
+/** Mobile bottom bar — CRM on the primary strip; Activities still in desktop dock / palette. */
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
-  { id: "activity", label: "Activities", icon: Activity },
+  { id: "customers", label: "CRM", icon: ContactRound },
   { id: "contacts", label: "Map", icon: Map },
 ]
 
@@ -56,7 +56,8 @@ export const DASHBOARD_PAGE_HREF: Record<PageId, string> = {
   dashboard: "/dashboard",
   activity: "/dashboard/activity",
   messages: "/dashboard/messages",
-  leads: "/dashboard/leads",
+  /** Legacy Leads URL opens the CRM hub (lead stages live there). */
+  leads: "/dashboard/customers?tab=leads",
   customers: "/dashboard/customers",
   contacts: "/dashboard/contacts",
   pay: "/dashboard/pay",

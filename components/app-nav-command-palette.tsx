@@ -9,8 +9,7 @@ import { useRouter } from "next/navigation"
 import {
   Zap,
   ClipboardList,
-  Inbox,
-  BookUser,
+  ContactRound,
   BarChart3,
   Settings,
   LifeBuoy,
@@ -42,10 +41,9 @@ import {
 const JUMP_PAGES = [
   { id: "dashboard", label: "Routing", href: "/dashboard", icon: Zap },
   { id: "scheduler", label: "Scheduler", href: "/dashboard/scheduler", icon: CalendarDays },
+  { id: "customers", label: "CRM — Customers & Leads", href: "/dashboard/customers", icon: ContactRound },
   { id: "activity", label: "Activity", href: "/dashboard/activity", icon: ClipboardList },
   { id: "messages", label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
-  { id: "leads", label: "Leads", href: "/dashboard/leads", icon: Inbox },
-  { id: "customers", label: "Customers", href: "/dashboard/customers", icon: BookUser },
   { id: "contacts", label: "Map", href: "/dashboard/contacts", icon: Map },
   { id: "pay", label: "Pay", href: "/dashboard/pay", icon: BarChart3 },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: Settings },

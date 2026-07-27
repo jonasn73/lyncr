@@ -906,6 +906,50 @@ export interface Customer {
   updated_at: string
 }
 
+/** Vehicle in a customer's garage (scripts/120-customer-vehicles-crm.sql). */
+export interface CustomerVehicle {
+  id: string
+  user_id: string
+  customer_id: string
+  year: string
+  make: string
+  model: string
+  vin: string
+  fcc_id: string
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+/** Enriched CRM list row — customer + quick stats + lead badge. */
+export type CrmLeadBadge =
+  | "booked_client"
+  | "price_quoted"
+  | "callback"
+  | "repeat_customer"
+  | "new_contact"
+
+export interface CrmCustomerListItem extends Customer {
+  jobs_completed: number
+  lifetime_revenue_cents: number
+  lead_badge: CrmLeadBadge
+  open_lead_count: number
+}
+
+/** One job / lead row on a CRM profile timeline. */
+export interface CrmServiceHistoryItem {
+  id: string
+  summary: string | null
+  status_label: string
+  status_tone: "neutral" | "amber" | "emerald" | "rose" | "sky"
+  assigned_tech_name: string | null
+  amount_cents: number | null
+  vehicle_label: string | null
+  at: string
+  dispatch_status: string | null
+  is_open_lead: boolean
+}
+
 // --- Routing Configuration ---
 export type FallbackType = "owner" | "ai" | "voicemail"
 

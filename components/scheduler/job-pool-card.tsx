@@ -232,15 +232,33 @@ export function JobPoolCard({
         </div>
       </div>
 
-      <span
+      <div
         className={cn(
-          "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-          sidebar ? "self-end" : "absolute bottom-2.5 right-2.5",
-          SCHEDULER_BADGE_STYLE.unassigned
+          "flex items-center gap-2",
+          sidebar ? "mt-2 self-stretch justify-between" : "absolute bottom-2 left-2.5 right-2.5"
         )}
       >
-        {SCHEDULER_STATUS_LABEL.unassigned}
-      </span>
+        {(touchInteraction && onMobileAssign) || onSelect ? (
+          <span
+            className={cn(
+              "inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+              "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+            )}
+          >
+            {touchInteraction && onMobileAssign ? "Tap to assign →" : "Assign →"}
+          </span>
+        ) : (
+          <span />
+        )}
+        <span
+          className={cn(
+            "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            SCHEDULER_BADGE_STYLE.unassigned
+          )}
+        >
+          {SCHEDULER_STATUS_LABEL.unassigned}
+        </span>
+      </div>
     </button>
   )
 }

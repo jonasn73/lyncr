@@ -10,7 +10,7 @@ import {
 
 /**
  * Main column: presence host for primary tabs (no mount/unmount on navigation).
- * Secondary routes (help, customers, …) still use server children.
+ * Secondary routes (help, inventory, …) still use server children.
  */
 export const DashboardMainContent = memo(function DashboardMainContent({
   activePage,

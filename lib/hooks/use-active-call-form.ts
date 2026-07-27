@@ -750,6 +750,30 @@ export function useActiveCallForm(
             }),
           })
           if (!customerRes.ok) throw new Error("Could not save customer record.")
+          // Keep CRM vehicle garage in sync when intake has YMM (needs migration 120).
+          const customerJson = (await customerRes.json().catch(() => null)) as {
+            data?: { id?: string }
+          } | null
+          const customerId = customerJson?.data?.id
+          if (
+            customerId &&
+            (form.vehicleYear.trim() || form.vehicleMake.trim() || form.vehicleModel.trim())
+          ) {
+            void fetch(`/api/crm/customers/${encodeURIComponent(customerId)}/vehicles`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                year: form.vehicleYear,
+                make: form.vehicleMake,
+                model: form.vehicleModel,
+                vin: form.vehicleVin || "",
+                fcc_id: form.keyFccId || "",
+              }),
+            }).catch(() => {
+              /* garage optional until migration 120 */
+            })
+          }
           setSaveState("saved")
         }
 

@@ -80,8 +80,8 @@ export function JobPoolTray({
               {poolIsEmpty
                 ? "Unassigned bookings land here"
                 : mobileTimeline || sidebar || embedded
-                  ? "Assign to a tech lane to dispatch"
-                  : "Drag onto a technician column to assign"}
+                  ? "Tap Assign on a card to pick a tech"
+                  : "Drag onto a technician column — or open the card to assign"}
             </p>
           </div>
         </div>
@@ -129,6 +129,24 @@ export function JobPoolTray({
             Rescue ({rescueJobs.length})
           </button>
         </div>
+      ) : null}
+
+      {!poolIsEmpty && visibleJobs[0] && (onMobileAssignJob || onSelectJob) ? (
+        <button
+          type="button"
+          onClick={() => {
+            const next = visibleJobs[0]
+            if (!next) return
+            if (onMobileAssignJob) onMobileAssignJob(next)
+            else onSelectJob?.(next)
+          }}
+          className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+        >
+          Assign next waiting job
+          <span className="truncate text-xs font-normal text-emerald-200/80">
+            {(visibleJobs[0].customer_name || visibleJobs[0].job_type || "Job").trim()}
+          </span>
+        </button>
       ) : null}
 
       <div

@@ -1,5 +1,6 @@
-import { DashboardTabView } from "@/components/dashboard-tab-views"
+import { redirect } from "next/navigation"
 
+/** Leads tab is folded into CRM — keep old bookmarks working. */
 export default function LeadsRoute() {
-  return <DashboardTabView tab="leads" />
+  redirect("/dashboard/customers?tab=leads")
 }

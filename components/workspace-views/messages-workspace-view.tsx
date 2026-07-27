@@ -157,6 +157,14 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
     setSelectedPhone(match?.customerPhone ?? q)
   }, [searchParams, threads, isActive])
 
+  // CRM follow-up: ?draft=prefilled body once the thread is selected.
+  useEffect(() => {
+    if (!isActive) return
+    const draftParam = searchParams.get("draft")?.trim()
+    if (!draftParam) return
+    setDraft(draftParam)
+  }, [searchParams, isActive])
+
   const activeThread = useMemo((): SmsThread | null => {
     if (!selectedPhone) return null
     const found = threads.find((t) => t.customerPhone === selectedPhone)

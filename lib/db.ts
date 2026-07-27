@@ -43,6 +43,10 @@ import type {
   AdminUserDetail,
   FeedbackCategory,
   Customer,
+  CustomerVehicle,
+  CrmCustomerListItem,
+  CrmLeadBadge,
+  CrmServiceHistoryItem,
   OnboardingProfile,
   UpdateOnboardingProfileRequest,
   LyncrAdminDirectoryRow,
@@ -4962,6 +4966,379 @@ export async function upsertCustomerForUser(params: {
   const row = rows[0] as Record<string, unknown> | undefined
   if (!row) throw new Error("upsertCustomerForUser: no row returned")
   return parseCustomerRow(row)
+}
+
+function parseCustomerVehicleRow(row: Record<string, unknown>): CustomerVehicle {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    customer_id: String(row.customer_id),
+    year: String(row.year ?? ""),
+    make: String(row.make ?? ""),
+    model: String(row.model ?? ""),
+    vin: String(row.vin ?? ""),
+    fcc_id: String(row.fcc_id ?? ""),
+    notes: String(row.notes ?? ""),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+  }
+}
+
+function crmDigits(phone: string): string {
+  const d = phone.replace(/\D/g, "")
+  return d.length >= 10 ? d.slice(-10) : d
+}
+
+function resolveCrmLeadBadge(args: {
+  jobsCompleted: number
+  openLeadCount: number
+  hasPriceQuoted: boolean
+  hasCallback: boolean
+}): CrmLeadBadge {
+  if (args.hasPriceQuoted) return "price_quoted"
+  if (args.hasCallback) return "callback"
+  if (args.jobsCompleted >= 2) return "repeat_customer"
+  if (args.jobsCompleted >= 1) return "booked_client"
+  return "new_contact"
+}
+
+/** CRM list with job counts / LTV / lead badge (phone-matched to ai_leads). */
+export async function listCrmCustomersForUser(
+  userId: string,
+  options?: { q?: string; limit?: number; filter?: "all" | "leads" | "clients" }
+): Promise<CrmCustomerListItem[]> {
+  const customers = await listCustomersForUser(userId, {
+    q: options?.q,
+    limit: options?.limit ?? 80,
+  })
+  if (customers.length === 0) return []
+
+  const sql = getSql()
+  const digitKeys = customers.map((c) => crmDigits(c.phone_e164)).filter((d) => d.length >= 10)
+
+  type Agg = {
+    completed: number
+    revenueCents: number
+    openLeads: number
+    priceQuoted: boolean
+    callback: boolean
+  }
+  const byDigits = new Map<string, Agg>()
+
+  if (digitKeys.length > 0) {
+  try {
+    const rows = (await sql`
+      SELECT
+        right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key,
+        lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), '')) AS ds,
+        lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) AS js,
+        coalesce(
+          nullif(trim(collected->>'quoted_price_cents'), '')::int,
+          nullif(trim(collected->>'last_quoted_price_cents'), '')::int,
+          nullif(trim(collected->>'booked_price_cents'), '')::int,
+          0
+        ) AS price_cents
+      FROM ai_leads
+      WHERE user_id = ${userId}
+        AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10)
+          = ANY(${digitKeys})
+    `) as Record<string, unknown>[]
+
+    for (const row of rows) {
+      const key = String(row.phone_key ?? "")
+      if (key.length < 10) continue
+      const prev = byDigits.get(key) ?? {
+        completed: 0,
+        revenueCents: 0,
+        openLeads: 0,
+        priceQuoted: false,
+        callback: false,
+      }
+      const ds = String(row.ds ?? "")
+      const js = String(row.js ?? "")
+      const price = Number(row.price_cents ?? 0)
+      const isCrmLead =
+        ds === CRM_LEAD_STATUS ||
+        ds === LOST_LEAD_STATUS ||
+        ds === UNASSIGNED_CALLBACK_STATUS ||
+        js === "price_denied" ||
+        js === "price_rejected"
+      const isCompleted =
+        js === "completed" || js === "done" || js === "paid" || ds === "completed"
+      if (isCompleted) {
+        prev.completed += 1
+        if (Number.isFinite(price) && price > 0) prev.revenueCents += price
+      }
+      if (isCrmLead) {
+        prev.openLeads += 1
+        if (ds === LOST_LEAD_STATUS || js.includes("price")) prev.priceQuoted = true
+        if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) prev.callback = true
+      }
+      byDigits.set(key, prev)
+    }
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "ai_leads")) {
+      console.warn("[listCrmCustomersForUser] lead agg failed", e)
+    }
+  }
+  }
+
+  const filter = options?.filter ?? "all"
+  const out: CrmCustomerListItem[] = []
+  for (const c of customers) {
+    const agg = byDigits.get(crmDigits(c.phone_e164)) ?? {
+      completed: 0,
+      revenueCents: 0,
+      openLeads: 0,
+      priceQuoted: false,
+      callback: false,
+    }
+    const badge = resolveCrmLeadBadge({
+      jobsCompleted: agg.completed,
+      openLeadCount: agg.openLeads,
+      hasPriceQuoted: agg.priceQuoted,
+      hasCallback: agg.callback,
+    })
+    if (filter === "leads" && agg.openLeads === 0 && badge !== "price_quoted" && badge !== "callback") {
+      continue
+    }
+    if (filter === "clients" && agg.completed === 0) continue
+    out.push({
+      ...c,
+      jobs_completed: agg.completed,
+      lifetime_revenue_cents: agg.revenueCents,
+      lead_badge: badge,
+      open_lead_count: agg.openLeads,
+    })
+  }
+  return out
+}
+
+export async function getCustomerByIdForUser(
+  userId: string,
+  customerId: string
+): Promise<Customer | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM customers
+      WHERE user_id = ${userId} AND id = ${customerId}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseCustomerRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customers")) return null
+    throw e
+  }
+}
+
+/** Service history for one customer — by customer_id and/or phone digits. */
+export async function listCrmServiceHistoryForCustomer(params: {
+  userId: string
+  customerId: string
+  phoneE164: string
+  limit?: number
+}): Promise<CrmServiceHistoryItem[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(params.limit ?? 40, 1), 100)
+  const digits = crmDigits(params.phoneE164)
+  try {
+    const rows = (await sql`
+      SELECT
+        id,
+        summary,
+        dispatch_status,
+        job_status,
+        assigned_tech_name,
+        collected,
+        scheduled_at,
+        created_at,
+        updated_at
+      FROM ai_leads
+      WHERE user_id = ${params.userId}
+        AND (
+          customer_id = ${params.customerId}
+          OR right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) = ${digits}
+        )
+      ORDER BY coalesce(scheduled_at, updated_at, created_at) DESC
+      LIMIT ${lim}
+    `) as Record<string, unknown>[]
+
+    return rows.map((row) => {
+      const collected = (row.collected as Record<string, unknown>) || {}
+      const ds = String(row.dispatch_status ?? collected.dispatch_status ?? "").toLowerCase()
+      const js = String(row.job_status ?? collected.job_status ?? "").toLowerCase()
+      const year = String(collected.vehicle_year ?? collected.year ?? "").trim()
+      const make = String(collected.vehicle_make ?? collected.make ?? "").trim()
+      const model = String(collected.vehicle_model ?? collected.model ?? "").trim()
+      const vehicleParts = [year, make, model].filter(Boolean)
+      const priceRaw =
+        collected.quoted_price_cents ??
+        collected.last_quoted_price_cents ??
+        collected.booked_price_cents ??
+        null
+      const amount =
+        priceRaw != null && Number.isFinite(Number(priceRaw)) ? Number(priceRaw) : null
+      const isOpenLead =
+        ds === CRM_LEAD_STATUS ||
+        ds === LOST_LEAD_STATUS ||
+        ds === UNASSIGNED_CALLBACK_STATUS ||
+        js.includes("price")
+      let status_label = "Job"
+      let status_tone: CrmServiceHistoryItem["status_tone"] = "neutral"
+      if (js === "completed" || js === "done" || js === "paid") {
+        status_label = "Completed"
+        status_tone = "emerald"
+      } else if (ds === UNASSIGNED_POOL_STATUS) {
+        status_label = "In pool"
+        status_tone = "amber"
+      } else if (ds === "dispatched" || js === "en_route" || js === "on_site") {
+        status_label = "Active"
+        status_tone = "sky"
+      } else if (ds === LOST_LEAD_STATUS || js.includes("price")) {
+        status_label = "Price quoted"
+        status_tone = "rose"
+      } else if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) {
+        status_label = "Call back"
+        status_tone = "amber"
+      } else if (row.scheduled_at) {
+        status_label = "Booked"
+        status_tone = "sky"
+      }
+      const at =
+        row.scheduled_at instanceof Date
+          ? row.scheduled_at.toISOString()
+          : row.scheduled_at
+            ? String(row.scheduled_at)
+            : row.updated_at instanceof Date
+              ? row.updated_at.toISOString()
+              : String(row.updated_at ?? row.created_at ?? "")
+      return {
+        id: String(row.id),
+        summary: row.summary != null ? String(row.summary) : null,
+        status_label,
+        status_tone,
+        assigned_tech_name:
+          row.assigned_tech_name != null ? String(row.assigned_tech_name) : null,
+        amount_cents: amount,
+        vehicle_label: vehicleParts.length ? vehicleParts.join(" ") : null,
+        at,
+        dispatch_status: ds || null,
+        is_open_lead: isOpenLead,
+      }
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || pgErrorCode(e) === "42703") return []
+    throw e
+  }
+}
+
+export async function listCustomerVehiclesForCustomer(
+  userId: string,
+  customerId: string
+): Promise<CustomerVehicle[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM customer_vehicles
+      WHERE user_id = ${userId} AND customer_id = ${customerId}
+      ORDER BY updated_at DESC
+    `
+    return (rows as Record<string, unknown>[]).map(parseCustomerVehicleRow)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customer_vehicles")) return []
+    throw e
+  }
+}
+
+export async function createCustomerVehicleForUser(params: {
+  userId: string
+  customerId: string
+  year?: string
+  make?: string
+  model?: string
+  vin?: string
+  fccId?: string
+  notes?: string
+}): Promise<CustomerVehicle> {
+  const sql = getSql()
+  const rows = await sql`
+    INSERT INTO customer_vehicles (
+      id, user_id, customer_id, year, make, model, vin, fcc_id, notes, created_at, updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      ${params.userId},
+      ${params.customerId},
+      ${params.year?.trim() || ""},
+      ${params.make?.trim() || ""},
+      ${params.model?.trim() || ""},
+      ${params.vin?.trim() || ""},
+      ${params.fccId?.trim() || ""},
+      ${params.notes?.trim() || ""},
+      now(),
+      now()
+    )
+    RETURNING *
+  `
+  const row = rows[0] as Record<string, unknown> | undefined
+  if (!row) throw new Error("createCustomerVehicleForUser: no row")
+  return parseCustomerVehicleRow(row)
+}
+
+/** Upsert a garage vehicle from intake YMM when the customer already exists. */
+export async function upsertCustomerVehicleFromIntake(params: {
+  userId: string
+  customerId: string
+  year?: string | null
+  make?: string | null
+  model?: string | null
+  vin?: string | null
+  fccId?: string | null
+}): Promise<CustomerVehicle | null> {
+  const year = String(params.year ?? "").trim()
+  const make = String(params.make ?? "").trim()
+  const model = String(params.model ?? "").trim()
+  if (!year && !make && !model) return null
+  const sql = getSql()
+  try {
+    const existing = await sql`
+      SELECT * FROM customer_vehicles
+      WHERE user_id = ${params.userId}
+        AND customer_id = ${params.customerId}
+        AND lower(trim(year)) = lower(${year})
+        AND lower(trim(make)) = lower(${make})
+        AND lower(trim(model)) = lower(${model})
+      LIMIT 1
+    `
+    const hit = existing[0] as Record<string, unknown> | undefined
+    if (hit) {
+      const vin = String(params.vin ?? "").trim()
+      const fcc = String(params.fccId ?? "").trim()
+      if (!vin && !fcc) return parseCustomerVehicleRow(hit)
+      const updated = await sql`
+        UPDATE customer_vehicles SET
+          vin = CASE WHEN ${vin} <> '' THEN ${vin} ELSE vin END,
+          fcc_id = CASE WHEN ${fcc} <> '' THEN ${fcc} ELSE fcc_id END,
+          updated_at = now()
+        WHERE id = ${String(hit.id)}
+        RETURNING *
+      `
+      return parseCustomerVehicleRow(updated[0] as Record<string, unknown>)
+    }
+    return await createCustomerVehicleForUser({
+      userId: params.userId,
+      customerId: params.customerId,
+      year,
+      make,
+      model,
+      vin: params.vin ?? "",
+      fccId: params.fccId ?? "",
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customer_vehicles")) return null
+    throw e
+  }
 }
 
 function parsePhoneNumberRow(row: Record<string, unknown>): PhoneNumber {
