@@ -5303,11 +5303,11 @@ export async function listCrmServiceHistoryForCustomer(params: {
           : row.scheduled_at
             ? String(row.scheduled_at)
             : null
+      // Call/lead created time — keep separate from structured appointment (scheduled_at).
       const at =
-        scheduledAt ??
-        (row.created_at instanceof Date
+        row.created_at instanceof Date
           ? row.created_at.toISOString()
-          : String(row.created_at ?? ""))
+          : String(row.created_at ?? "")
       return {
         id: String(row.id),
         summary: row.summary != null ? String(row.summary) : null,

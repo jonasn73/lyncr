@@ -110,16 +110,15 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   })
   const [vehicleBusy, setVehicleBusy] = useState(false)
 
-  // Profile fields — edited inline (no big form accordion).
+  // Profile fields — name inline; appointment edited on history rows.
   const [editName, setEditName] = useState("")
-  const [editNotes, setEditNotes] = useState("")
-  const [editApptLeadId, setEditApptLeadId] = useState<string | null>(null)
+  // Which history row is in micro-edit for scheduled appointment (lead/job id).
+  const [editingApptId, setEditingApptId] = useState<string | null>(null)
+  // datetime-local draft while editing that row’s appointment.
   const [editApptLocal, setEditApptLocal] = useState("")
   const [saveBusy, setSaveBusy] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
-  const [editingNotes, setEditingNotes] = useState(false)
-  const [editingAppt, setEditingAppt] = useState(false)
 
   useEffect(() => {
     if (tabParam === "leads") setFilter("leads")
@@ -182,14 +181,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           open_lead_count: prev?.id === c.id ? prev.open_lead_count : 0,
         }))
         setEditName(c.display_name ?? "")
-        setEditNotes("notes" in c ? String(c.notes ?? "") : "")
       }
       setVehicles(json.data?.vehicles ?? [])
       setHistory(hist)
-      const open = hist.find((h) => h.is_open_lead) ?? hist[0] ?? null
-      setEditApptLeadId(open?.id ?? null)
-      // Only prefill when a real appointment exists — don't use created_at as a fake time.
-      setEditApptLocal(isoToDatetimeLocal(open?.scheduled_at ?? null))
     },
     []
   )
@@ -219,23 +213,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setVehicles([])
       setHistory([])
       setEditName("")
-      setEditNotes("")
-      setEditApptLeadId(null)
+      setEditingApptId(null)
       setEditApptLocal("")
       setEditingName(false)
-      setEditingNotes(false)
-      setEditingAppt(false)
       return
     }
     const fromList = rows.find((r) => r.id === selectedId) ?? null
     setSelected(fromList)
     if (fromList) {
       setEditName(fromList.display_name || "")
-      setEditNotes(fromList.notes || "")
     }
     setEditingName(false)
-    setEditingNotes(false)
-    setEditingAppt(false)
+    setEditingApptId(null)
+    setEditApptLocal("")
     void loadProfile(selectedId)
   }, [selectedId, rows, loadProfile])
 
@@ -320,7 +310,6 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             ...(typeof body.display_name === "string"
               ? { display_name: String(body.display_name).trim() }
               : {}),
-            ...(typeof body.notes === "string" ? { notes: String(body.notes) } : {}),
           }
         })
       )
@@ -336,41 +325,37 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     if (ok) setEditingName(false)
   }
 
-  const saveNotes = async () => {
-    const ok = await patchProfile({ notes: editNotes })
-    if (ok) setEditingNotes(false)
+  /** Open compact appointment editor for one service-history lead/job row. */
+  const beginEditAppointment = (item: CrmServiceHistoryItem) => {
+    setEditingApptId(item.id)
+    // Prefill only a real scheduled_at — never the call/created time.
+    setEditApptLocal(isoToDatetimeLocal(item.scheduled_at ?? null))
+    setSaveMsg(null)
   }
 
-  const saveAppointment = async (localValue: string) => {
-    if (!editApptLeadId) return
+  const cancelEditAppointment = () => {
+    setEditingApptId(null)
+    setEditApptLocal("")
+  }
+
+  const saveAppointment = async (leadId: string, localValue: string) => {
     const ok = await patchProfile({
-      appointment_lead_id: editApptLeadId,
+      appointment_lead_id: leadId,
       scheduled_at: datetimeLocalToIso(localValue),
     })
-    if (ok) setEditingAppt(false)
+    if (ok) cancelEditAppointment()
   }
 
-  const clearAppointment = async () => {
-    if (!editApptLeadId) return
+  const clearAppointment = async (leadId: string) => {
     const ok = await patchProfile({
-      appointment_lead_id: editApptLeadId,
+      appointment_lead_id: leadId,
       scheduled_at: null,
     })
-    if (ok) {
-      setEditApptLocal("")
-      setEditingAppt(false)
-    }
+    if (ok) cancelEditAppointment()
   }
 
   const closeProfile = () => setSelectedId(null)
   const profileOpen = selectedId != null
-
-  const apptLabel = editApptLocal
-    ? (() => {
-        const d = new Date(editApptLocal)
-        return Number.isNaN(d.getTime()) ? null : d.toLocaleString()
-      })()
-    : null
 
   /** Name + pencil in the profile header (desktop panel + mobile dialog). */
   const renderProfileName = (titleClassName: string) => {
@@ -475,148 +460,6 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           >
             Open Scheduler
           </Link>
-        </div>
-
-        {/* Standalone appointment — not buried in an edit form */}
-        <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Appointment
-          </h3>
-          {!editApptLeadId ? (
-            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-3 text-xs text-zinc-500">
-              No open lead/job to schedule yet. Book from Scheduler or intake.
-            </p>
-          ) : editingAppt || !editApptLocal ? (
-            <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
-              {!editApptLocal && !editingAppt ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5 text-xs"
-                  onClick={() => setEditingAppt(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add appointment
-                </Button>
-              ) : (
-                <>
-                  <Input
-                    type="datetime-local"
-                    value={editApptLocal}
-                    onChange={(e) => setEditApptLocal(e.target.value)}
-                    className="h-10 border-zinc-800 bg-zinc-950"
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={saveBusy || !editApptLocal.trim()}
-                      onClick={() => void saveAppointment(editApptLocal)}
-                    >
-                      {saveBusy ? "Saving…" : "Save"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={saveBusy}
-                      onClick={() => {
-                        const open = history.find((h) => h.is_open_lead) ?? history[0] ?? null
-                        setEditApptLocal(isoToDatetimeLocal(open?.scheduled_at ?? null))
-                        setEditingAppt(false)
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-              <p className="text-sm text-slate-100">
-                {apptLabel ?? "Scheduled"}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={() => setEditingAppt(true)}
-                >
-                  Change
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-xs text-zinc-400"
-                  disabled={saveBusy}
-                  onClick={() => void clearAppointment()}
-                >
-                  Clear
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Compact notes line — intake notes without a big form */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Notes
-            </h3>
-            {!editingNotes ? (
-              <button
-                type="button"
-                onClick={() => setEditingNotes(true)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-                aria-label="Edit notes"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-          {editingNotes ? (
-            <div className="space-y-2">
-              <textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                rows={2}
-                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-foreground"
-                autoFocus
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={saveBusy}
-                  onClick={() => void saveNotes()}
-                >
-                  {saveBusy ? "Saving…" : "Save"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={saveBusy}
-                  onClick={() => {
-                    setEditNotes(selected.notes || "")
-                    setEditingNotes(false)
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-400">
-              {editNotes.trim() || "No notes yet."}
-            </p>
-          )}
         </div>
 
         {saveMsg && saveMsg !== "Saved" ? (
@@ -751,17 +594,97 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                       {item.status_label}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    {item.scheduled_at
-                      ? `Appt ${new Date(item.scheduled_at).toLocaleString()}`
-                      : item.at
-                        ? new Date(item.at).toLocaleString()
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
+                    {/* Call / lead timestamp — not the future appointment */}
+                    <span className="min-w-0 truncate">
+                      {item.at ? new Date(item.at).toLocaleString() : ""}
+                      {item.assigned_tech_name ? ` · ${item.assigned_tech_name}` : ""}
+                      {item.amount_cents != null && item.amount_cents > 0
+                        ? ` · ${formatMoney(item.amount_cents)}`
                         : ""}
-                    {item.assigned_tech_name ? ` · ${item.assigned_tech_name}` : ""}
-                    {item.amount_cents != null && item.amount_cents > 0
-                      ? ` · ${formatMoney(item.amount_cents)}`
-                      : ""}
-                  </p>
+                    </span>
+                    {/* Compact future-appointment control (distinct from call time) */}
+                    {editingApptId === item.id ? (
+                      <span className="inline-flex max-w-full flex-wrap items-center gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+                          Appt
+                        </span>
+                        <Input
+                          type="datetime-local"
+                          value={editApptLocal}
+                          onChange={(e) => setEditApptLocal(e.target.value)}
+                          className="h-7 w-[11.5rem] border-zinc-800 bg-zinc-950 px-1.5 text-[11px]"
+                          aria-label="Appointment date and time"
+                        />
+                        <button
+                          type="button"
+                          disabled={saveBusy || !editApptLocal.trim()}
+                          onClick={() => void saveAppointment(item.id, editApptLocal)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-emerald-300 hover:bg-zinc-800 disabled:opacity-40"
+                          aria-label="Save appointment"
+                          title="Save appointment"
+                        >
+                          {saveBusy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Check className="h-3 w-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saveBusy}
+                          onClick={cancelEditAppointment}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                          aria-label="Cancel"
+                          title="Cancel"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        {item.scheduled_at ? (
+                          <button
+                            type="button"
+                            disabled={saveBusy}
+                            onClick={() => void clearAppointment(item.id)}
+                            className="h-6 rounded px-1 text-[10px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                            title="Clear appointment"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => beginEditAppointment(item)}
+                        className="inline-flex h-5 max-w-full shrink-0 items-center gap-1 rounded px-0.5 text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300"
+                        title={
+                          item.scheduled_at
+                            ? "Edit scheduled appointment"
+                            : "Set scheduled appointment"
+                        }
+                        aria-label={
+                          item.scheduled_at
+                            ? "Edit scheduled appointment"
+                            : "Set scheduled appointment"
+                        }
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+                          Appt
+                        </span>
+                        {item.scheduled_at ? (
+                          <span className="truncate text-[10px] text-sky-300/90">
+                            {new Date(item.scheduled_at).toLocaleString(undefined, {
+                              month: "numeric",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        ) : null}
+                        <Pencil className="h-3 w-3 shrink-0 opacity-70" />
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ol>
