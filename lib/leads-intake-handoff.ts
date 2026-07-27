@@ -1,4 +1,4 @@
-/** Pass CRM lead context into the scheduler intake sheet after "Convert to Active Booking". */
+/** Pass CRM lead context into the scheduler intake sheet after "Convert to booking". */
 
 export const LEADS_INTAKE_HANDOFF_KEY = "lyncr_leads_intake_handoff"
 

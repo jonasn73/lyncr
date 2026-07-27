@@ -304,7 +304,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     [inboundCallPanel]
   )
 
-  /** Open intake sheet when redirected from CRM "Convert to Active Booking". */
+  /** Open intake sheet when redirected from CRM "Convert to booking". */
   useEffect(() => {
     if (!isActive || !inboundCallPanel) return
     const handoff = readAndClearLeadsIntakeHandoff()

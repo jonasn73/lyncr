@@ -116,6 +116,7 @@ import {
   saveIntakeDraft,
 } from "@/lib/intake-draft-storage"
 import type { StructuredAddress } from "@/lib/structured-address"
+import type { CustomerVehicle } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /** Manual intake micro-step views — branching by service type. */
@@ -138,6 +139,77 @@ const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   SCHEDULE_TIME: "Schedule",
   CUSTOMER_NAME: "Customer",
   BOOKING_COMPLETE: "Done",
+}
+
+function formatCrmQuoteChip(cents: number): string {
+  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  })
+}
+
+/**
+ * Compact CRM chips for returning callers — garage tap + open-quote hint.
+ * Kept light so it never blocks Answer or fights the minimize PiP.
+ */
+function RepeatCustomerCrmChips({
+  garageVehicles,
+  crmOpenLeadId,
+  crmOpenLeadQuoteCents,
+  activeYear,
+  activeMake,
+  activeModel,
+  onPickVehicle,
+  compact = false,
+}: {
+  garageVehicles: CustomerVehicle[]
+  crmOpenLeadId: string | null
+  crmOpenLeadQuoteCents: number | null
+  activeYear: string
+  activeMake: string
+  activeModel: string
+  onPickVehicle: (v: CustomerVehicle) => void
+  compact?: boolean
+}) {
+  const hasGarage = garageVehicles.length > 0
+  const hasOpenQuote = Boolean(crmOpenLeadId) && crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
+  if (!hasGarage && !hasOpenQuote) return null
+  return (
+    <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1" : "mt-1.5")}>
+      {hasOpenQuote ? (
+        <span
+          className="inline-flex items-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100"
+          title="Booking upgrades this open quote lead — no duplicate"
+        >
+          Open quote · {formatCrmQuoteChip(crmOpenLeadQuoteCents!)}
+        </span>
+      ) : null}
+      {garageVehicles.slice(0, 4).map((v) => {
+        const label = [v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"
+        const selected =
+          activeYear.trim() === (v.year?.trim() || "") &&
+          activeMake.trim().toLowerCase() === (v.make?.trim().toLowerCase() || "") &&
+          activeModel.trim().toLowerCase() === (v.model?.trim().toLowerCase() || "")
+        return (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => onPickVehicle(v)}
+            className={cn(
+              "inline-flex max-w-[11rem] truncate rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors",
+              selected
+                ? "border-sky-500/50 bg-sky-500/20 text-sky-100"
+                : "border-zinc-700 bg-zinc-900/80 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+            )}
+            title={`Use ${label}`}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 /**
@@ -614,6 +686,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const {
     form,
     matchedCustomer,
+    garageVehicles,
+    crmOpenLeadId,
+    crmOpenLeadQuoteCents,
+    applyGarageVehicle,
     resolvedPhoneNumber,
     patchForm,
     resetForm,
@@ -2436,6 +2512,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <RepeatCallerUrgencyBadge attemptCount={repeatUrgency.attemptCount} />
                 ) : null}
               </SheetTitle>
+              {/* P2-lite: ringing/answered open-quote chip — same CRM bind as Convert handoff */}
+              {matchedCustomer || crmOpenLeadId ? (
+                <RepeatCustomerCrmChips
+                  compact
+                  garageVehicles={garageVehicles}
+                  crmOpenLeadId={crmOpenLeadId}
+                  crmOpenLeadQuoteCents={crmOpenLeadQuoteCents}
+                  activeYear={form.vehicleYear}
+                  activeMake={form.vehicleMake}
+                  activeModel={form.vehicleModel}
+                  onPickVehicle={applyGarageVehicle}
+                />
+              ) : null}
                 </div>
               </div>
               <IncomingCallOpsToolbar
@@ -2508,6 +2597,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                       {matchedCustomer.notes.trim()}
                                     </p>
                                   ) : null}
+                                  <RepeatCustomerCrmChips
+                                    garageVehicles={garageVehicles}
+                                    crmOpenLeadId={crmOpenLeadId}
+                                    crmOpenLeadQuoteCents={crmOpenLeadQuoteCents}
+                                    activeYear={form.vehicleYear}
+                                    activeMake={form.vehicleMake}
+                                    activeModel={form.vehicleModel}
+                                    onPickVehicle={applyGarageVehicle}
+                                  />
                                 </div>
                               ) : null}
                               <ServiceQuoteCalculatorPanel
@@ -3431,6 +3529,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {matchedCustomer.notes.trim()}
                         </p>
                       ) : null}
+                      <RepeatCustomerCrmChips
+                        garageVehicles={garageVehicles}
+                        crmOpenLeadId={crmOpenLeadId}
+                        crmOpenLeadQuoteCents={crmOpenLeadQuoteCents}
+                        activeYear={form.vehicleYear}
+                        activeMake={form.vehicleMake}
+                        activeModel={form.vehicleModel}
+                        onPickVehicle={applyGarageVehicle}
+                      />
                     </div>
                   ) : null}
                 </fieldset>

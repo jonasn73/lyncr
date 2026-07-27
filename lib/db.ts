@@ -5316,6 +5316,10 @@ export async function listCrmServiceHistoryForCustomer(params: {
         assigned_tech_name: techName,
         amount_cents: amount,
         vehicle_label: vehicleParts.length ? vehicleParts.join(" ") : null,
+        // Keep YMM split so CRM → Scheduler handoff can prefill intake fields.
+        vehicle_year: year || null,
+        vehicle_make: make || null,
+        vehicle_model: model || null,
         at,
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,

@@ -4,8 +4,9 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
+  CalendarCheck,
   Car,
   Check,
   Loader2,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { writeLeadsIntakeHandoff } from "@/lib/leads-intake-handoff"
 import type {
   CrmCustomerListItem,
   CrmLeadBadge,
@@ -36,6 +38,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
+/** Prefer lead YMM, then garage, so Convert → intake opens with a vehicle already filled. */
+function resolveConvertVehicle(
+  lead: CrmServiceHistoryItem | null | undefined,
+  garage: CustomerVehicle[]
+): { year?: string; make?: string; model?: string } {
+  const fromLead = {
+    year: lead?.vehicle_year?.trim() || undefined,
+    make: lead?.vehicle_make?.trim() || undefined,
+    model: lead?.vehicle_model?.trim() || undefined,
+  }
+  if (fromLead.year || fromLead.make || fromLead.model) return fromLead
+  const v = garage[0]
+  if (!v) return {}
+  return {
+    year: v.year?.trim() || undefined,
+    make: v.make?.trim() || undefined,
+    model: v.model?.trim() || undefined,
+  }
+}
 
 type CrmFilter = "all" | "leads" | "clients"
 
@@ -84,6 +106,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   isActive?: boolean
 }) {
   const isMobile = useIsMobile()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
   const initialFilter: CrmFilter =
@@ -247,6 +270,39 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         followUpTemplate(editName.trim() || selected.display_name || "there", vehicleForFollowUp)
       )}`
     : messagesHref
+
+  const canConvertToBooking =
+    Boolean(selected) &&
+    (selected?.lead_badge === "price_quoted" ||
+      selected?.lead_badge === "callback" ||
+      openLeadHistory.length > 0)
+
+  /**
+   * Seed scheduler intake with this open quote/callback lead, then open Scheduler.
+   * Booking upgrades the same ai_leads row (no duplicate).
+   */
+  const convertToBooking = useCallback(
+    (lead?: CrmServiceHistoryItem | null) => {
+      if (!selected) return
+      const target = lead ?? openLeadHistory[0] ?? null
+      if (!target?.id) return
+      const ymm = resolveConvertVehicle(target, vehicles)
+      writeLeadsIntakeHandoff({
+        leadId: target.id,
+        phoneNumber: selected.phone_e164,
+        customerName: editName.trim() || selected.display_name || "",
+        vehicleYear: ymm.year,
+        vehicleMake: ymm.make,
+        vehicleModel: ymm.model,
+        quotedPriceCents:
+          target.amount_cents != null && target.amount_cents > 0
+            ? Math.round(target.amount_cents)
+            : undefined,
+      })
+      router.push("/dashboard/scheduler")
+    },
+    [selected, openLeadHistory, vehicles, editName, router]
+  )
 
   const addVehicle = async () => {
     if (!selectedId || vehicleBusy) return
@@ -454,6 +510,17 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Send follow-up
             </Link>
           )}
+          {canConvertToBooking && openLeadHistory[0] ? (
+            <button
+              type="button"
+              onClick={() => convertToBooking(openLeadHistory[0])}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-500/20 px-3 text-xs font-semibold text-emerald-100"
+              title="Open intake with this quote — booking upgrades the same lead"
+            >
+              <CalendarCheck className="h-3.5 w-3.5" />
+              Convert to booking
+            </button>
+          ) : null}
           <Link
             href="/dashboard/scheduler"
             className="inline-flex h-9 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-semibold text-zinc-200"
@@ -684,6 +751,18 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         <Pencil className="h-3 w-3 shrink-0 opacity-70" />
                       </button>
                     )}
+                    {/* Open quote/callback → same handoff the header Convert button uses */}
+                    {item.is_open_lead ? (
+                      <button
+                        type="button"
+                        onClick={() => convertToBooking(item)}
+                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold text-emerald-300/90 hover:bg-zinc-800 hover:text-emerald-200"
+                        title="Convert this quote to a booking"
+                      >
+                        <CalendarCheck className="h-3 w-3" />
+                        Convert to booking
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               ))}

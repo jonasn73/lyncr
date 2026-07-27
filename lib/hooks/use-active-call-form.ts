@@ -3,7 +3,7 @@
 // Client state for the answered-call intake sheet (CRM + vehicle + job dispatch).
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { Customer } from "@/lib/types"
+import type { CrmServiceHistoryItem, Customer, CustomerVehicle } from "@/lib/types"
 import {
   isCompleteStructuredAddress,
   type StructuredAddress,
@@ -213,6 +213,15 @@ export function useActiveCallForm(
   const [jobError, setJobError] = useState<string | null>(null)
   const [form, setForm] = useState<ActiveCallFormState>(EMPTY_FORM)
   const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(null)
+  /** Garage vehicles from CRM profile — compact picker chips on repeat callers. */
+  const [garageVehicles, setGarageVehicles] = useState<CustomerVehicle[]>([])
+  /**
+   * Open quote/callback lead id from CRM — booking / Save Quote upgrades this row
+   * instead of inserting a duplicate (same idea as CRM Convert handoff).
+   */
+  const [crmOpenLeadId, setCrmOpenLeadId] = useState<string | null>(null)
+  /** Last quoted cents from that open lead — shown as a light chip in the header. */
+  const [crmOpenLeadQuoteCents, setCrmOpenLeadQuoteCents] = useState<number | null>(null)
   const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const callLogId = current?.id ?? null
@@ -565,14 +574,24 @@ export function useActiveCallForm(
   useEffect(() => {
     if (!callLogId) {
       setMatchedCustomer(null)
+      setGarageVehicles([])
+      setCrmOpenLeadId(null)
+      setCrmOpenLeadQuoteCents(null)
       return
     }
     if (!hasCompleteIntakePhone(resolvedPhoneNumber)) {
       setMatchedCustomer(null)
+      setGarageVehicles([])
+      setCrmOpenLeadId(null)
+      setCrmOpenLeadQuoteCents(null)
       return
     }
 
     let cancel = false
+    // Clear prior CRM bind until this phone's profile loads (avoids stale existingLeadId).
+    setGarageVehicles([])
+    setCrmOpenLeadId(current?.existingLeadId?.trim() || null)
+    setCrmOpenLeadQuoteCents(null)
     const t = window.setTimeout(() => {
       const q = encodeURIComponent(resolvedPhoneNumber)
       void fetch(`/api/customers?phone=${q}`, { credentials: "include" })
@@ -581,11 +600,94 @@ export function useActiveCallForm(
           if (cancel) return
           const c = data.customers?.[0] ?? null
           setMatchedCustomer(c)
-          if (!c) return
+          if (!c) {
+            setGarageVehicles([])
+            if (!current?.existingLeadId?.trim()) {
+              setCrmOpenLeadId(null)
+              setCrmOpenLeadQuoteCents(null)
+            }
+            return
+          }
           setForm((prev) => formFromCustomer(c, prev))
+          // Load garage + open quote so returning callers skip re-entry / duplicate leads.
+          void fetch(`/api/crm/customers/${encodeURIComponent(c.id)}`, {
+            credentials: "include",
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .then(
+              (json: {
+                data?: {
+                  vehicles?: CustomerVehicle[]
+                  history?: CrmServiceHistoryItem[]
+                }
+              } | null) => {
+                if (cancel || !json?.data) return
+                const vehicles = json.data.vehicles ?? []
+                const history = json.data.history ?? []
+                setGarageVehicles(vehicles)
+                const openLead = history.find((h) => h.is_open_lead) ?? null
+                const openLeadId = openLead?.id?.trim() || null
+                // Row handoff (CRM Convert) wins; else bind the open quote for upgrade-on-book.
+                setCrmOpenLeadId(current?.existingLeadId?.trim() || openLeadId)
+                const quoteCents =
+                  openLead?.amount_cents != null && openLead.amount_cents > 0
+                    ? Math.round(openLead.amount_cents)
+                    : null
+                setCrmOpenLeadQuoteCents(quoteCents)
+                setForm((prev) => {
+                  const hasYmm =
+                    Boolean(prev.vehicleYear.trim()) ||
+                    Boolean(prev.vehicleMake.trim()) ||
+                    Boolean(prev.vehicleModel.trim())
+                  // Prefer open-lead YMM, else most recent garage vehicle.
+                  const leadYmm = {
+                    year: openLead?.vehicle_year?.trim() || "",
+                    make: openLead?.vehicle_make?.trim() || "",
+                    model: openLead?.vehicle_model?.trim() || "",
+                  }
+                  const garage = vehicles[0]
+                  const nextYmm = leadYmm.year || leadYmm.make || leadYmm.model
+                    ? leadYmm
+                    : garage
+                      ? {
+                          year: garage.year?.trim() || "",
+                          make: garage.make?.trim() || "",
+                          model: garage.model?.trim() || "",
+                        }
+                      : null
+                  const patch: Partial<ActiveCallFormState> = {}
+                  if (!hasYmm && nextYmm) {
+                    patch.vehicleYear = nextYmm.year
+                    patch.vehicleMake = nextYmm.make
+                    patch.vehicleModel = nextYmm.model
+                  }
+                  // Don't clobber a CRM-convert / manual seed quote.
+                  if (
+                    !prev.quotedPriceOverridden &&
+                    prev.quotedPriceCents <= 0 &&
+                    quoteCents != null &&
+                    quoteCents > 0
+                  ) {
+                    patch.quotedPriceCents = quoteCents
+                    patch.quotedPriceOverridden = true
+                  }
+                  return Object.keys(patch).length ? { ...prev, ...patch } : prev
+                })
+              }
+            )
+            .catch(() => {
+              /* CRM profile optional — phone match alone still works */
+            })
         })
         .catch(() => {
-          if (!cancel) setMatchedCustomer(null)
+          if (!cancel) {
+            setMatchedCustomer(null)
+            setGarageVehicles([])
+            if (!current?.existingLeadId?.trim()) {
+              setCrmOpenLeadId(null)
+              setCrmOpenLeadQuoteCents(null)
+            }
+          }
         })
     }, 350)
 
@@ -593,7 +695,13 @@ export function useActiveCallForm(
       cancel = true
       window.clearTimeout(t)
     }
-  }, [callLogId, resolvedPhoneNumber])
+  }, [callLogId, resolvedPhoneNumber, current?.existingLeadId])
+
+  // Keep row handoff lead id in sync if Convert opened after the phone match.
+  useEffect(() => {
+    const fromRow = current?.existingLeadId?.trim() || null
+    if (fromRow) setCrmOpenLeadId(fromRow)
+  }, [current?.existingLeadId])
 
   // When a repeat customer has a saved street/city/ZIP, verify it for the map pin automatically.
   useEffect(() => {
@@ -719,6 +827,7 @@ export function useActiveCallForm(
         const existingLeadId =
           jobOptions?.existingLeadId?.trim() ||
           current.existingLeadId?.trim() ||
+          crmOpenLeadId?.trim() ||
           null
         // Activities → sourceCallLogId; live rows → id; CRM-only convert → id (legacy); manuals provision below.
         let callLogIdForJob = current.sourceCallLogId?.trim() || current.id
@@ -921,7 +1030,7 @@ export function useActiveCallForm(
         return { ok: false }
       }
     },
-    [current, form, hookOptions?.linkManualCallLog, travelDistanceMilesValue, resolvedPhoneNumber]
+    [current, form, hookOptions?.linkManualCallLog, travelDistanceMilesValue, resolvedPhoneNumber, crmOpenLeadId]
   )
 
   const addressReady = isIntakeAddressReady(form)
@@ -1004,7 +1113,33 @@ export function useActiveCallForm(
   const resetForm = useCallback(() => {
     setForm(EMPTY_FORM)
     setMatchedCustomer(null)
+    setGarageVehicles([])
+    setCrmOpenLeadId(null)
+    setCrmOpenLeadQuoteCents(null)
     setSaveState("idle")
+  }, [])
+
+  /** Tap a garage chip to fill YMM without fighting plate/VIN decode later. */
+  const applyGarageVehicle = useCallback((vehicle: CustomerVehicle) => {
+    setForm((prev) => ({
+      ...prev,
+      vehicleYear: vehicle.year?.trim() || "",
+      vehicleMake: vehicle.make?.trim() || "",
+      vehicleModel: vehicle.model?.trim() || "",
+      vehicleVin: vehicle.vin?.trim() || prev.vehicleVin,
+      keyFccId: vehicle.fcc_id?.trim() || prev.keyFccId,
+      // Clear trim/key picks that belonged to a different car.
+      vehicleTrim: "",
+      factoryOptions: [],
+      keyStyle: "",
+      keyVariantId: "",
+      keyProfileId: "",
+      keyFrequency: "",
+      keyChipset: "",
+      programmingMethod: "",
+      tiSku: "",
+      vehicleClarificationAnswers: [],
+    }))
   }, [])
 
   const liveQuote = calculateServiceQuote({
@@ -1023,6 +1158,10 @@ export function useActiveCallForm(
   return {
     form,
     matchedCustomer,
+    garageVehicles,
+    crmOpenLeadId,
+    crmOpenLeadQuoteCents,
+    applyGarageVehicle,
     resolvedPhoneNumber,
     patchForm,
     resetForm,

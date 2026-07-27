@@ -945,6 +945,10 @@ export interface CrmServiceHistoryItem {
   assigned_tech_name: string | null
   amount_cents: number | null
   vehicle_label: string | null
+  /** Structured YMM from collected — used by Convert → intake handoff. */
+  vehicle_year: string | null
+  vehicle_make: string | null
+  vehicle_model: string | null
   /** Call/lead created timestamp (not the future appointment). */
   at: string
   /** Structured appointment time when the lead/job is booked — null if unscheduled. */
