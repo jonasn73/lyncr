@@ -280,6 +280,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   /**
    * Seed scheduler intake with this open quote/callback lead, then open Scheduler.
    * Booking upgrades the same ai_leads row (no duplicate).
+   * Close the CRM profile Dialog/panel first — workspace panes stay mounted, so an open
+   * Dialog (z-[7000]) would otherwise cover CallAnsweredModal intake (default sheet z-[6000]).
    */
   const convertToBooking = useCallback(
     (lead?: CrmServiceHistoryItem | null) => {
@@ -287,7 +289,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       const target = lead ?? openLeadHistory[0] ?? null
       if (!target?.id) return
       const ymm = resolveConvertVehicle(target, vehicles)
-      writeLeadsIntakeHandoff({
+      // Capture fields before closing — close clears selectedId / selected on next paint.
+      const handoff = {
         leadId: target.id,
         phoneNumber: selected.phone_e164,
         customerName: editName.trim() || selected.display_name || "",
@@ -298,7 +301,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           target.amount_cents != null && target.amount_cents > 0
             ? Math.round(target.amount_cents)
             : undefined,
-      })
+      }
+      // Drop the profile layer immediately so Scheduler intake is not trapped under it.
+      setSelectedId(null)
+      setSelected(null)
+      writeLeadsIntakeHandoff(handoff)
       router.push("/dashboard/scheduler")
     },
     [selected, openLeadHistory, vehicles, editName, router]
@@ -523,6 +530,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           ) : null}
           <Link
             href="/dashboard/scheduler"
+            onClick={() => {
+              // Same keep-alive pane issue as Convert — close profile before leaving CRM.
+              setSelectedId(null)
+              setSelected(null)
+            }}
             className="inline-flex h-9 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-semibold text-zinc-200"
           >
             Open Scheduler
@@ -912,9 +924,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         </section>
       </div>
 
-      {/* Mobile: compact centered floating dialog (list stays dimmed behind) */}
+      {/* Mobile: compact centered floating dialog (list stays dimmed behind).
+          Gate on isActive — CRM pane stays mounted when switching tabs; without this,
+          Convert to booking can leave the Dialog open over Scheduler intake. */}
       <Dialog
-        open={isMobile && profileOpen}
+        open={isActive && isMobile && profileOpen}
         onOpenChange={(open) => {
           if (!open) closeProfile()
         }}

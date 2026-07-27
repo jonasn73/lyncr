@@ -2468,7 +2468,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     >
       <SheetContent
         side="bottom"
-        className="flex h-[85vh] max-h-[750px] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
+        // Above CRM Dialog / Dialog overlay (z-[7000]/z-[7010]) so Convert-to-booking
+        // intake is never trapped under a still-mounted customer profile modal.
+        overlayClassName="z-[7200]"
+        className="z-[7210] flex h-[85vh] max-h-[750px] flex-col gap-0 overflow-hidden p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3"
         onPointerDownOutside={(e) => {
           if (suppressSheetDismissRef.current) {
             e.preventDefault()
