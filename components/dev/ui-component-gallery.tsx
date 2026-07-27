@@ -302,9 +302,7 @@ export function UiComponentGallery() {
             poolJob={overviewSource}
             technicians={MOCK_TECHS}
             activePipelineJobs={pipelineJobs}
-            quotedPriceDollars={185}
-            baselineQuotedDollars={220}
-            discountLabel="Rescue offer"
+            billingBalanceDollars={185}
             jobNotes={drawerNotes}
             pipelineStatus={pipelineStatus}
             assignedTechId={assignedTechId}

@@ -54,10 +54,14 @@ function UpcomingJobChip({
   // Unscheduled / unassigned jobs cannot be closed out — show Needs Dispatch instead.
   const needsDispatch = upcomingJobNeedsDispatch(job)
 
+  // Skip a second "Overdue" line when the countdown already says it.
+  const showUrgencyLabel =
+    !countdown && urgency !== "later" && urgency !== "unscheduled"
+
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 px-2.5 py-1.5 text-left",
+        "flex flex-col gap-0.5 px-2.5 py-1 text-left",
         stackLayout ? "w-full min-w-0" : "min-w-[12rem] shrink-0 snap-start",
         SCHEDULER_URGENCY_CHIP_CLASS[urgency]
       )}
@@ -71,6 +75,7 @@ function UpcomingJobChip({
         <span className={cn(SCHEDULER_METADATA_LABEL, "tabular-nums", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
           {timeLabel}
           {countdown ? ` · ${countdown}` : ""}
+          {needsDispatch ? " · Needs dispatch" : ""}
         </span>
         {/* Stack layout drops truncate so names like "Allen" are not sliced off. */}
         <span
@@ -84,15 +89,9 @@ function UpcomingJobChip({
         <span className={cn("block", stackLayout ? "break-words" : "truncate", SCHEDULER_METADATA_LABEL)}>
           {[job.job_type, status, job.assigned_tech_name].filter(Boolean).join(" · ")}
         </span>
-        {urgency !== "later" && urgency !== "unscheduled" ? (
+        {showUrgencyLabel ? (
           <span className={cn("mt-0.5 block", SCHEDULER_METADATA_LABEL)}>
             {SCHEDULER_URGENCY_LABEL[urgency]}
-          </span>
-        ) : null}
-        {needsDispatch ? (
-          // Low-profile tag — replaces Mark Done when the job still needs dispatch.
-          <span className="mt-1 inline-flex w-fit items-center rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
-            Needs Dispatch
           </span>
         ) : null}
       </button>

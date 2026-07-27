@@ -3,13 +3,11 @@
 import { useCallback, useState } from "react"
 import {
   Ban,
-  Car,
   CheckCircle2,
   ChevronDown,
   ExternalLink,
   Link2,
   Loader2,
-  MapPin,
   MessageSquare,
   Pencil,
   Phone,
@@ -39,13 +37,12 @@ import {
 import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useToast } from "@/hooks/use-toast"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import {
   SCHEDULER_FIELD_STACK,
-  SCHEDULER_GLASS_CARD,
   SCHEDULER_INPUT,
   SCHEDULER_METADATA_LABEL,
-  SCHEDULER_STACK,
 } from "@/lib/scheduler-ui-tokens"
 import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
@@ -91,11 +88,49 @@ function telHref(phone: string): string | null {
 const SECTION_LABEL =
   "text-[10px] uppercase font-bold tracking-widest text-slate-500"
 
+/** Compact Call / SMS chips — shorter than the old full-width stacked buttons. */
 const CONTACT_BTN =
-  "inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+  "inline-flex min-h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50"
 
+/** Smaller quick-action cells for the collapsed “More actions” grid. */
 const ACTION_BTN =
-  "flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-xl border px-2.5 py-2.5 text-[11px] font-semibold leading-tight transition-colors disabled:opacity-50"
+  "flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2 text-[10px] font-semibold leading-tight transition-colors disabled:opacity-50"
+
+/** Accordion toggle row for secondary sections. */
+function CollapseToggle({
+  open,
+  onToggle,
+  label,
+  hint,
+}: {
+  open: boolean
+  onToggle: () => void
+  label: string
+  hint?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/40 bg-slate-950/35 px-3 py-2 text-left transition-colors hover:bg-slate-950/55"
+    >
+      <span className="min-w-0">
+        <span className={cn(SECTION_LABEL, "block")}>{label}</span>
+        {!open && hint ? (
+          <span className="mt-0.5 block truncate text-[11px] text-slate-400">{hint}</span>
+        ) : null}
+      </span>
+      <ChevronDown
+        className={cn(
+          "h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform",
+          open && "rotate-180"
+        )}
+        aria-hidden
+      />
+    </button>
+  )
+}
 
 export function JobDetailOverview({
   source,
@@ -121,6 +156,8 @@ export function JobDetailOverview({
 }: JobDetailOverviewProps) {
   const { toast } = useToast()
   const { activeOrganizationId } = useDashboardWorkspace()
+  // Phone = collapse Key details / More actions / Notes by default.
+  const isMobile = useIsMobile()
   const customerName = (source.customer_name ?? "").trim() || "Customer"
   const customerPhone = (source.customer_phone ?? "").trim()
   const phoneHref = telHref(customerPhone)
@@ -150,10 +187,26 @@ export function JobDetailOverview({
   const statusPill = pipelineStatusPillLabel(pipelineStatus)
 
   const vehicleSummary = [vehicleBlock?.value, serviceBlock?.value].filter(Boolean).join(" — ")
+  const appointmentLabel = scheduledAtIso
+    ? [scheduledDateLabel, scheduledTimeLabel].filter(Boolean).join(" · ")
+    : "Not scheduled"
+  const billingLabel =
+    billingBalanceDollars > 0 ? `$${billingBalanceDollars}` : "No balance"
+  const notesPreview = jobNotes.trim()
+    ? jobNotes.trim().replace(/\s+/g, " ")
+    : "No notes yet"
+  const keyHint =
+    keyBlocks.length > 0
+      ? keyBlocks.map((b) => b.value).filter(Boolean).slice(0, 2).join(" · ")
+      : "None on file"
 
   const [depositSmsStaging, setDepositSmsStaging] = useState<string | null>(null)
   // Inline Telnyx SMS composer (popover was z-50 and opened behind this z-[1410] drawer).
   const [smsComposerOpen, setSmsComposerOpen] = useState(false)
+  // Secondary sections: collapsed by default on mobile so Dispatch stays above the fold.
+  const [keyDetailsOpen, setKeyDetailsOpen] = useState(false)
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
 
   const handleSecureDepositLink = useCallback(() => {
     const depositUrl = createMockSecureDepositLink(source.id)
@@ -168,6 +221,8 @@ export function JobDetailOverview({
         amountLabel,
       })
     )
+    // Opening deposit staging should also reveal More actions if collapsed.
+    setMoreActionsOpen(true)
   }, [source.id, billingBalanceDollars, customerName])
 
   const openSmsComposer = useCallback(() => {
@@ -182,17 +237,22 @@ export function JobDetailOverview({
     setSmsComposerOpen((open) => !open)
   }, [customerPhone, toast])
 
+  // Desktop can keep secondary sections open without hurting the fold.
+  const showKeyDetails = !isMobile || keyDetailsOpen
+  const showMoreActions = !isMobile || moreActionsOpen
+  const showNotes = !isMobile || notesOpen
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* HEADER — name, status, edit */}
-      <header className="relative shrink-0 border-b border-border/50 px-5 py-4 pr-14">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h2 className="min-w-0 truncate text-xl font-semibold tracking-tight text-foreground">
+      {/* Sticky header — name, badge, phone, Call/SMS, Edit stay visible while body scrolls */}
+      <header className="relative shrink-0 border-b border-border/50 px-4 py-2.5 pr-12">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
             {customerName}
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+              "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
               PIPELINE_STATUS_BADGE_STYLE[pipelineStatus]
             )}
           >
@@ -204,22 +264,32 @@ export function JobDetailOverview({
           <button
             type="button"
             onClick={onEdit}
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
           >
             <Pencil className="h-3 w-3" aria-hidden />
-            Edit Job Details
+            {/* Shorter label on narrow screens */}
+            <span className="md:hidden">Edit</span>
+            <span className="hidden md:inline">Edit Job Details</span>
           </button>
         </div>
 
-        {/* Phone + contact actions */}
-        <p className="mt-2 font-mono text-sm text-slate-300">
-          {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-2">
+        {/* Phone + compact contact actions on one tight block */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="font-mono text-xs text-slate-300">
+            {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
+          </p>
+        </div>
+        <div className="mt-1.5 flex gap-1.5">
           {phoneHref ? (
-            <a href={phoneHref} className={cn(CONTACT_BTN, "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20")}>
+            <a
+              href={phoneHref}
+              className={cn(
+                CONTACT_BTN,
+                "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+              )}
+            >
               <Phone className="h-3.5 w-3.5" aria-hidden />
-              Call Customer
+              Call
             </a>
           ) : (
             <button
@@ -228,7 +298,7 @@ export function JobDetailOverview({
               className={cn(CONTACT_BTN, "border-slate-800 bg-slate-950/40 text-slate-500")}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
-              Call Customer
+              Call
             </button>
           )}
           <button
@@ -244,13 +314,13 @@ export function JobDetailOverview({
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-            Quick SMS
+            SMS
           </button>
         </div>
 
         {/* Telnyx SMS composer — lives in the drawer so it is never clipped by z-index */}
         {smsComposerOpen ? (
-          <div className="mt-3">
+          <div className="mt-2">
             <CustomerSmsComposer
               toPhone={customerPhone}
               organizationId={activeOrganizationId}
@@ -264,106 +334,56 @@ export function JobDetailOverview({
         ) : null}
       </header>
 
-      <div
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-12",
-          SCHEDULER_STACK
-        )}
-      >
-        {/* Vehicle summary subtitle */}
-        <section className="flex items-start gap-3 rounded-2xl border border-border/50 bg-slate-950/45 px-4 py-3">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-300">
-            <Car className="h-4 w-4" aria-hidden />
-          </div>
-          <div className="min-w-0">
-            <p className={SECTION_LABEL}>Vehicle &amp; service</p>
-            <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-2.5 pb-8">
+        {/* Flattened summary — Attribute · Detail rows (no tall stacked cards) */}
+        <section className="space-y-1 border-b border-border/40 pb-2.5 text-[12px] leading-snug text-slate-300">
+          <p className="min-w-0">
+            <span className="font-semibold text-slate-500">Vehicle</span>
+            <span className="text-slate-600"> · </span>
+            <span className="font-medium text-slate-100">
               {vehicleSummary || "No vehicle / service on file yet"}
-            </p>
-          </div>
-        </section>
-
-        {/* Location + Google Maps */}
-        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-3")}>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
-            <p className={SECTION_LABEL}>Location</p>
-          </div>
-          {serviceAddress ? (
-            <>
-              <p className="text-sm leading-relaxed text-slate-100">{serviceAddress}</p>
-              <a
-                href={googleMapsSearchUrl(serviceAddress)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
-              >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                Open in Google Maps
-              </a>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No service address saved — use Edit Job Details to add one.
-            </p>
-          )}
-        </section>
-
-        {/* Billing + Appointment side-by-side */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-3">
-            <p className={cn(SECTION_LABEL, "text-emerald-500/80")}>Billing balance</p>
-            <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-emerald-300">
-              {billingBalanceDollars > 0 ? `$${billingBalanceDollars}` : "—"}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border/50 bg-slate-950/40 px-3 py-3">
-            <p className={SECTION_LABEL}>Appointment</p>
-            <p
+            </span>
+          </p>
+          <p className="min-w-0">
+            <span className="font-semibold text-slate-500">Address</span>
+            <span className="text-slate-600"> · </span>
+            {serviceAddress ? (
+              <>
+                <span className="font-medium text-slate-100">{serviceAddress}</span>
+                <a
+                  href={googleMapsSearchUrl(serviceAddress)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-300/90 underline-offset-2 hover:underline"
+                >
+                  Maps
+                  <ExternalLink className="h-3 w-3" aria-hidden />
+                </a>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No address saved</span>
+            )}
+          </p>
+          <p className="min-w-0">
+            <span className="font-semibold text-emerald-500/80">Balance</span>
+            <span className="text-slate-600"> · </span>
+            <span className="font-semibold tabular-nums text-emerald-300">{billingLabel}</span>
+            <span className="text-slate-600"> · </span>
+            <span className="font-semibold text-slate-500">Appt</span>
+            <span className="text-slate-600"> · </span>
+            <span
               className={cn(
-                "mt-1 text-sm font-semibold leading-snug",
+                "font-medium",
                 appointmentDelayed ? "text-rose-400" : "text-slate-100"
               )}
             >
-              {scheduledAtIso ? (
-                <>
-                  <span className="block">{scheduledDateLabel}</span>
-                  <span className="block text-xs font-medium text-slate-400">{scheduledTimeLabel}</span>
-                </>
-              ) : (
-                "Not scheduled"
-              )}
-            </p>
-          </div>
-        </div>
+              {appointmentLabel}
+            </span>
+          </p>
+        </section>
 
-        {/* Key specs (compact) */}
-        {keyBlocks.length > 0 ? (
-          <section className={cn(SCHEDULER_GLASS_CARD, "space-y-2")}>
-            <p className={SECTION_LABEL}>Key specifics</p>
-            <div className="grid grid-cols-2 gap-2">
-              {keyBlocks.map((block) => (
-                <div
-                  key={`${block.label}-${block.value}`}
-                  className="rounded-xl border border-border/50 bg-slate-950/40 px-3 py-2"
-                >
-                  <p className={SCHEDULER_METADATA_LABEL}>{block.label}</p>
-                  <p
-                    className={cn(
-                      "mt-0.5 truncate text-sm font-medium text-slate-100",
-                      block.label === "TI SKU" && "font-mono text-emerald-300"
-                    )}
-                  >
-                    {block.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {/* Dispatch controls — status, tech, quick actions */}
-        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-4")}>
+        {/* Dispatch first — Status + Assign tech near the top (why Convert opened this) */}
+        <section className="mt-2.5 space-y-2.5 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
@@ -371,7 +391,6 @@ export function JobDetailOverview({
             ) : null}
           </div>
 
-          {/* Single status selector — replaces the old chip grid + duplicate label */}
           <div className={SCHEDULER_FIELD_STACK}>
             <label htmlFor="active-job-pipeline-status" className={SECTION_LABEL}>
               Status
@@ -386,7 +405,7 @@ export function JobDetailOverview({
                 }
                 className={cn(
                   SCHEDULER_INPUT,
-                  "min-h-[44px] w-full appearance-none py-2.5 pr-10 text-sm font-medium"
+                  "min-h-[40px] w-full appearance-none py-2 pr-9 text-sm font-medium"
                 )}
                 aria-label="Job pipeline status"
               >
@@ -406,7 +425,7 @@ export function JobDetailOverview({
           <div className={SCHEDULER_FIELD_STACK}>
             <div className="flex items-center gap-1.5">
               <UserRound className="h-3 w-3 text-slate-500" aria-hidden />
-              <p className={SECTION_LABEL}>Tech assignment</p>
+              <p className={SECTION_LABEL}>Assign tech</p>
             </div>
             <TechAssignmentSelect
               technicians={technicians}
@@ -418,8 +437,8 @@ export function JobDetailOverview({
             />
             {pipelineStatus !== "DISPATCHED" ? (
               <p className="text-[11px] leading-snug text-slate-500">
-                Set status to <span className="font-medium text-slate-300">Scheduled</span> to assign
-                a tech.
+                Set status to <span className="font-medium text-slate-300">Scheduled</span> to
+                assign a tech.
               </p>
             ) : null}
           </div>
@@ -442,107 +461,175 @@ export function JobDetailOverview({
               )}
             </Button>
           ) : null}
+        </section>
 
-          <div className="border-t border-border/40 pt-3">
-            <p className={cn(SECTION_LABEL, "mb-2")}>Quick actions</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => onQuickLifecycleAction("cancelled")}
+        {/* Key specifics — accordion, collapsed by default on mobile */}
+        {keyBlocks.length > 0 ? (
+          <section className="mt-2">
+            {isMobile ? (
+              <CollapseToggle
+                open={keyDetailsOpen}
+                onToggle={() => setKeyDetailsOpen((v) => !v)}
+                label="Key details"
+                hint={keyHint}
+              />
+            ) : (
+              <p className={cn(SECTION_LABEL, "mb-1.5")}>Key details</p>
+            )}
+            {showKeyDetails ? (
+              <div
                 className={cn(
-                  ACTION_BTN,
-                  "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                  "space-y-1 text-[12px] leading-snug",
+                  isMobile && "mt-1.5 rounded-lg border border-border/40 bg-slate-950/30 px-3 py-2"
                 )}
               >
-                <Ban className="h-4 w-4 opacity-90" aria-hidden />
-                Cancel job
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => onQuickLifecycleAction("referred")}
-                className={cn(
-                  ACTION_BTN,
-                  "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
-                )}
-              >
-                <Share2 className="h-4 w-4 opacity-90" aria-hidden />
-                Mark referred
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => onQuickLifecycleAction("completed")}
-                className={cn(
-                  ACTION_BTN,
-                  "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
-                )}
-              >
-                <CheckCircle2 className="h-4 w-4 opacity-90" aria-hidden />
-                Complete
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={handleSecureDepositLink}
-                className={cn(
-                  ACTION_BTN,
-                  "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
-                )}
-              >
-                <Link2 className="h-4 w-4 opacity-90" aria-hidden />
-                Deposit link
-              </button>
+                {keyBlocks.map((block) => (
+                  <p key={`${block.label}-${block.value}`} className="min-w-0 truncate">
+                    <span className={cn(SCHEDULER_METADATA_LABEL, "inline")}>{block.label}</span>
+                    <span className="text-slate-600"> · </span>
+                    <span
+                      className={cn(
+                        "font-medium text-slate-100",
+                        block.label === "TI SKU" && "font-mono text-emerald-300"
+                      )}
+                    >
+                      {block.value}
+                    </span>
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* More actions — Cancel / Referred / Complete / Deposit; collapsed on mobile */}
+        <section className="mt-2">
+          {isMobile ? (
+            <CollapseToggle
+              open={moreActionsOpen}
+              onToggle={() => setMoreActionsOpen((v) => !v)}
+              label="More actions"
+              hint="Cancel · Referred · Complete · Deposit"
+            />
+          ) : (
+            <p className={cn(SECTION_LABEL, "mb-1.5")}>Quick actions</p>
+          )}
+          {showMoreActions ? (
+            <div className={cn(isMobile && "mt-1.5")}>
+              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onQuickLifecycleAction("cancelled")}
+                  className={cn(
+                    ACTION_BTN,
+                    "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                  )}
+                >
+                  <Ban className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onQuickLifecycleAction("referred")}
+                  className={cn(
+                    ACTION_BTN,
+                    "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
+                  )}
+                >
+                  <Share2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  Referred
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onQuickLifecycleAction("completed")}
+                  className={cn(
+                    ACTION_BTN,
+                    "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+                  )}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  Complete
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={handleSecureDepositLink}
+                  className={cn(
+                    ACTION_BTN,
+                    "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                  )}
+                >
+                  <Link2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  Deposit
+                </button>
+              </div>
+
+              {depositSmsStaging != null ? (
+                <div className="mt-2 space-y-1">
+                  <label htmlFor="deposit-sms-staging" className={SECTION_LABEL}>
+                    Deposit SMS staging
+                  </label>
+                  <textarea
+                    id="deposit-sms-staging"
+                    rows={2}
+                    value={depositSmsStaging}
+                    onChange={(e) => setDepositSmsStaging(e.target.value)}
+                    className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/60 p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
+                    placeholder="Edit the deposit SMS before sending…"
+                  />
+                </div>
+              ) : null}
             </div>
-          </div>
+          ) : null}
+        </section>
 
-          {depositSmsStaging != null ? (
-            <div className="space-y-1.5">
-              <label htmlFor="deposit-sms-staging" className={SECTION_LABEL}>
-                Deposit SMS staging
-              </label>
+        {/* Internal notes — collapsed / one-line preview on mobile */}
+        <section className="mt-2">
+          {isMobile ? (
+            <CollapseToggle
+              open={notesOpen}
+              onToggle={() => setNotesOpen((v) => !v)}
+              label="Internal notes"
+              hint={notesPreview}
+            />
+          ) : (
+            <label htmlFor="internal-dispatch-notes" className={cn(SECTION_LABEL, "mb-1.5 block")}>
+              Internal dispatch notes
+            </label>
+          )}
+          {showNotes ? (
+            <div
+              className={cn(
+                "rounded-xl border border-slate-800/80 bg-slate-950/70 p-0.5 shadow-inner",
+                isMobile && "mt-1.5"
+              )}
+            >
               <textarea
-                id="deposit-sms-staging"
-                rows={3}
-                value={depositSmsStaging}
-                onChange={(e) => setDepositSmsStaging(e.target.value)}
-                className="h-20 w-full resize-y rounded-xl border border-sky-900/40 bg-slate-950/60 p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
-                placeholder="Edit the deposit SMS before sending…"
+                id="internal-dispatch-notes"
+                rows={2}
+                disabled={saving}
+                value={jobNotes}
+                placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
+                onChange={(e) => onJobNotesChange(e.target.value)}
+                onBlur={() => onSaveJobNotes()}
+                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-2.5 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
               />
             </div>
           ) : null}
         </section>
 
-        {/* Dispatch notes */}
-        <section className={cn(SCHEDULER_GLASS_CARD, "space-y-2")}>
-          <label htmlFor="internal-dispatch-notes" className={SECTION_LABEL}>
-            Internal dispatch notes
-          </label>
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-1 shadow-inner">
-            <textarea
-              id="internal-dispatch-notes"
-              rows={3}
-              disabled={saving}
-              value={jobNotes}
-              placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
-              onChange={(e) => onJobNotesChange(e.target.value)}
-              onBlur={() => onSaveJobNotes()}
-              className="min-h-[80px] w-full resize-y rounded-xl bg-transparent px-3 py-2.5 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
-            />
-          </div>
-        </section>
-
-        {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-        {/* Extra room so Cancel / Referred / Complete stay clear of the Close footer */}
-        <div className="h-8 shrink-0" aria-hidden />
+        {error ? <p className="mt-2 text-sm text-rose-400">{error}</p> : null}
+        <div className="h-4 shrink-0" aria-hidden />
       </div>
 
-      <footer className="shrink-0 border-t border-border/40 bg-card/90 px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
+      <footer className="shrink-0 border-t border-border/40 bg-card/90 px-4 py-2 pb-[max(0.65rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
         >
           <X className="h-4 w-4 opacity-70" aria-hidden />
           Close
