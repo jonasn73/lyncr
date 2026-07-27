@@ -16,13 +16,16 @@ import {
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { DispatchMapLayers } from "@/components/workspace-views/dispatch-live-map"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { IntakeMapDestinationBanner } from "@/components/dashboard/intake-map-destination-banner"
 import {
+  clearActiveDispatchMapDestination,
   emitReturnToIntakeFromMap,
   getActiveDispatchMapDestination,
   LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT,
   LYNCR_FOCUS_DISPATCH_MAP_EVENT,
   type FocusDispatchMapDetail,
 } from "@/lib/dispatch-map-focus"
+import { useIntakeDestinationTravel } from "@/lib/hooks/use-intake-destination-travel"
 import { useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { cn } from "@/lib/utils"
@@ -71,7 +74,7 @@ export function MapTab() {
   // When the user taps a Job Pool row, pan the map to that pin.
   const [focusJobId, setFocusJobId] = useState<string | null>(null)
 
-  // Intake "View on Map Layout" — keep Return visible in Map chrome (not under layer chips).
+  // Intake "View on Map Layout" — rich Return card lives in Map chrome (Leaflet buries on-map UI).
   const [intakeDestination, setIntakeDestination] = useState<FocusDispatchMapDetail | null>(null)
   useEffect(() => {
     const sync = () => setIntakeDestination(getActiveDispatchMapDestination())
@@ -83,6 +86,12 @@ export function MapTab() {
       window.removeEventListener(LYNCR_CLEAR_DISPATCH_MAP_DESTINATION_EVENT, sync)
     }
   }, [])
+
+  // ETA / address / nearest tech for the chrome banner (same math as the old map overlay).
+  const { travelMetrics, nearestTech } = useIntakeDestinationTravel(
+    intakeDestination,
+    activeOrganizationId
+  )
 
   // Unassigned / hopper jobs for the Job Pool list.
   const { jobs: poolJobs, isLoading: poolLoading } = useJobPoolQuery(activeOrganizationId)
@@ -313,14 +322,14 @@ export function MapTab() {
           })}
         </div>
         {intakeDestination ? (
-          <button
-            type="button"
-            data-return-to-intake=""
-            onClick={() => emitReturnToIntakeFromMap()}
-            className="flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
-          >
-            ← Return to Intake Form
-          </button>
+          <IntakeMapDestinationBanner
+            variant="chrome"
+            destination={intakeDestination}
+            travelMetrics={travelMetrics}
+            nearestTech={nearestTech}
+            onClear={() => clearActiveDispatchMapDestination()}
+            onReturn={() => emitReturnToIntakeFromMap()}
+          />
         ) : null}
       </header>
 

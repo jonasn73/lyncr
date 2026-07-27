@@ -5,10 +5,11 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ExternalLink, MapPinned, X, Loader2, Phone, Crosshair, Maximize2, Navigation } from "lucide-react"
+import { MapPinned, X, Loader2, Phone, Crosshair, Maximize2, Navigation } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 import "@/app/leaflet-popup-overrides.css"
 import type { Map as LeafletMap, Marker } from "leaflet"
+import { IntakeMapDestinationBanner } from "@/components/dashboard/intake-map-destination-banner"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import type { DispatchJob } from "@/lib/types"
@@ -1017,117 +1018,20 @@ export function DispatchLiveMap({
         </div>
       ) : null}
 
-      {destination ? (
-        <div
-          className={cn(
-            // fillParent Map tab: chips live in the header now — pin card can sit at the top.
-            "pointer-events-auto absolute z-[60] max-w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur",
-            fillParent || hideChrome
-              ? "left-3 right-3 top-3 sm:right-auto"
-              : "left-3 top-3"
-          )}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
-            Intake target
-          </p>
-          <p className="truncate text-xs font-semibold text-slate-100">
-            {destination.label?.trim() || "Customer location"}
-          </p>
-          {destination.address ? (
-            <div className="mt-0.5 flex items-start gap-1.5">
-              {/* Customer street address — keep readable on a narrow floating card. */}
-              <p className="min-w-0 flex-1 line-clamp-2 text-[11px] text-slate-400">
-                {destination.address}
-              </p>
-              {/* Opens Google Maps (or the OS maps handler) for native turn-by-turn. */}
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination.address)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open in Maps"
-                aria-label="Open address in Google Maps"
-                className="mt-0.5 shrink-0 rounded p-0.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-sky-300"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-              </a>
-            </div>
-          ) : null}
-
-          {/* Distance / ETA from operator GPS (or business home city fallback). */}
-          {travelMetrics ? (
-            <div className="mt-2 space-y-0.5 border-t border-slate-800/80 pt-2 text-[10px] leading-relaxed text-slate-300">
-              <p>
-                🚗 Distance from current spot:{" "}
-                <span className="font-semibold tabular-nums text-slate-100">
-                  {travelMetrics.miles < 10
-                    ? travelMetrics.miles.toFixed(1)
-                    : Math.round(travelMetrics.miles)}{" "}
-                  mi
-                </span>
-                {!travelMetrics.fromGps ? (
-                  <span className="text-slate-500"> · shop baseline</span>
-                ) : null}
-              </p>
-              <p>
-                ⏱️ Estimated Drive Time:{" "}
-                <span className="font-semibold tabular-nums text-slate-100">
-                  {travelMetrics.durationMins} mins
-                </span>
-              </p>
-              {nearestTech ? (
-                <p className="text-amber-200/90">
-                  ⚡ Nearest available tech: {nearestTech.name} (
-                  {nearestTech.miles < 10
-                    ? nearestTech.miles.toFixed(1)
-                    : Math.round(nearestTech.miles)}{" "}
-                  mi away)
-                </p>
-              ) : null}
-            </div>
-          ) : nearestTech ? (
-            <p className="mt-2 border-t border-slate-800/80 pt-2 text-[10px] text-amber-200/90">
-              ⚡ Nearest available tech: {nearestTech.name} (
-              {nearestTech.miles < 10
-                ? nearestTech.miles.toFixed(1)
-                : Math.round(nearestTech.miles)}{" "}
-              mi away)
-            </p>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              clearActiveDispatchMapDestination()
-              setDestination(null)
-              didFit.current = false
-            }}
-            className="mt-1.5 text-[10px] font-semibold text-rose-300/90 underline-offset-2 hover:underline"
-          >
-            Clear pin
-          </button>
-          <button
-            type="button"
-            data-return-to-intake=""
-            onPointerDown={(e) => {
-              // Keep the click; only block bubble so Sheet outside listeners ignore this press.
-              e.stopPropagation()
-            }}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              // Re-open the minimized CallAnsweredModal intake drawer + leave Map tab.
-              emitReturnToIntakeFromMap()
-            }}
-            className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
-          >
-            ← Return to Intake Form
-          </button>
-        </div>
+      {/* Map tab owns the rich Return card in header chrome — Leaflet panes bury z-[60] overlays. */}
+      {destination && !(fillParent || hideChrome) ? (
+        <IntakeMapDestinationBanner
+          variant="overlay"
+          destination={destination}
+          travelMetrics={travelMetrics}
+          nearestTech={nearestTech}
+          onClear={() => {
+            clearActiveDispatchMapDestination()
+            setDestination(null)
+            didFit.current = false
+          }}
+          onReturn={() => emitReturnToIntakeFromMap()}
+        />
       ) : null}
 
       {selectedJob && (
