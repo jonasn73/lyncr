@@ -3,20 +3,37 @@
 // High-priority banner for unreturned missed prospects in the last 30 minutes.
 // Typography + actions adapt to multi vs high-urgency repeat vs single isolated lead.
 // Text actions open the SMS template interceptor sheet before sending.
+// High-urgency card opens a compact options dialog (call / intake / booking link / dismiss).
 
 import { memo, useCallback, useMemo, useState } from "react"
-import { Loader2, MessageSquare, Phone } from "lucide-react"
+import {
+  ClipboardList,
+  Link2,
+  Loader2,
+  MessageSquare,
+  MoreHorizontal,
+  Phone,
+  X,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { SmsTemplateInterceptorSheet } from "@/components/dashboard/sms-template-interceptor-sheet"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { buildTelHref } from "@/lib/phone-e164"
+import { buildTelHref, toE164 } from "@/lib/phone-e164"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import {
   classifyMissedLeadRecoveryMode,
   type MissedLeadHotProspect,
 } from "@/lib/missed-lead-aggregation"
 import type { MissedLeadSmsTemplate } from "@/lib/missed-lead-sms-templates"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
   prospects,
@@ -28,10 +45,14 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
   onIntercepted?: (phones: string[]) => void
 }) {
   const { toast } = useToast()
+  const inbound = useInboundCallPanelOptional()
   const { businessNumbers, activeOrganizationId, activeLine } = useDashboardWorkspace()
   const [sending, setSending] = useState(false)
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false)
   const [pendingPhones, setPendingPhones] = useState<string[]>([])
+  // High-urgency options dialog (Call back / Intake / Booking link / Dismiss).
+  const [urgencyOptionsOpen, setUrgencyOptionsOpen] = useState(false)
+  const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
 
   const mode = useMemo(() => classifyMissedLeadRecoveryMode(prospects), [prospects])
 
@@ -105,7 +126,8 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
     [pendingPhones, sendInterceptSms]
   )
 
-  const handleRescueCall = useCallback(
+  /** Dial only — does not clear the urgency banner (Dismiss does that). */
+  const dialPhone = useCallback(
     (phone: string) => {
       const href = buildTelHref(phone)
       if (!href) {
@@ -116,10 +138,92 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
         })
         return
       }
-      onIntercepted?.([phone])
       window.location.href = href
     },
-    [onIntercepted, toast]
+    [toast]
+  )
+
+  /** Single-lead Call still dials + clears (unchanged). High-urgency uses dialPhone + Dismiss. */
+  const handleRescueCall = useCallback(
+    (phone: string) => {
+      dialPhone(phone)
+      onIntercepted?.([phone])
+    },
+    [dialPhone, onIntercepted]
+  )
+
+  const handleOpenIntake = useCallback(
+    (phone: string) => {
+      const e164 = toE164(phone) || phone.trim()
+      if (!e164) {
+        toast({
+          title: "Could not open intake",
+          description: "That phone number is not usable.",
+          variant: "destructive",
+        })
+        return
+      }
+      setUrgencyOptionsOpen(false)
+      inbound?.openManualCallPanel({
+        phoneNumber: e164,
+        callStatus: "completed",
+        toNumber: fromNumber || undefined,
+        intakeMode: "quick",
+      })
+    },
+    [inbound, fromNumber, toast]
+  )
+
+  const handleTextBookingLink = useCallback(
+    async (phone: string) => {
+      const e164 = toE164(phone) || phone.trim()
+      if (!e164) {
+        toast({
+          title: "Could not send booking link",
+          description: "That phone number is not usable.",
+          variant: "destructive",
+        })
+        return
+      }
+      setBookingLinkBusy(true)
+      try {
+        const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone_number: e164,
+            business_line: fromNumber || undefined,
+            source: "missed_lead_banner",
+          }),
+        })
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        if (!res.ok) {
+          toast({
+            title: "Could not send booking link",
+            description: json.error || "Try again in a moment.",
+            variant: "destructive",
+          })
+          return
+        }
+        toast({
+          title: "Booking link sent",
+          description: "Customer can book a slot and enter their details.",
+        })
+        setUrgencyOptionsOpen(false)
+      } finally {
+        setBookingLinkBusy(false)
+      }
+    },
+    [fromNumber, toast]
+  )
+
+  const handleDismissUrgency = useCallback(
+    (phone: string) => {
+      setUrgencyOptionsOpen(false)
+      onIntercepted?.([phone])
+    },
+    [onIntercepted]
   )
 
   const templateSheet = (
@@ -172,17 +276,19 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
   }
 
   if (mode.kind === "high_urgency") {
-    // Full number on its own line so Call/Text never squeeze it into “…”
     const phoneLabel = formatPhoneDisplay(mode.prospect.from_number) || mode.prospect.from_number
-    // Same tel: dial path the old Rescue button used — whole card shares it.
     const rescuePhone = mode.prospect.from_number
+
+    const optionBtn =
+      "flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm font-semibold transition-colors touch-manipulation"
+
     return (
       <>
-        {/* One button for the whole card: big mobile tap target, keyboard focusable. */}
+        {/* Whole card opens the options sheet — does not dial or dismiss by itself. */}
         <button
           type="button"
-          onClick={() => handleRescueCall(rescuePhone)}
-          aria-label={`Rescue high urgency caller ${phoneLabel}`}
+          onClick={() => setUrgencyOptionsOpen(true)}
+          aria-label={`Options for high urgency caller ${phoneLabel}`}
           className={cn(
             "w-full text-left cursor-pointer",
             "border-rose-900 bg-rose-950/20 rounded-xl p-3",
@@ -201,7 +307,6 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
                 {phoneLabel}
               </p>
             </div>
-            {/* Visual Rescue affordance only — click is handled by the outer button. */}
             <span
               aria-hidden
               className={cn(
@@ -210,11 +315,88 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
                 "text-xs font-semibold text-rose-100"
               )}
             >
-              <Phone className="h-3.5 w-3.5" aria-hidden />
-              Rescue
+              <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+              Options
             </span>
           </div>
         </button>
+
+        <Dialog open={urgencyOptionsOpen} onOpenChange={setUrgencyOptionsOpen}>
+          <DialogContent
+            className={cn(
+              "gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 shadow-2xl",
+              "max-h-[min(85dvh,28rem)] w-[calc(100%-2rem)] max-w-sm",
+              "[&>button]:top-3 [&>button]:right-3 [&>button]:text-zinc-400"
+            )}
+          >
+            <DialogHeader className="border-b border-zinc-800 px-4 pb-3 pt-4 pr-12 text-left">
+              <DialogTitle className="text-base text-zinc-50">High urgency</DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                {phoneLabel} · called {mode.maxRepetitionCount}x
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-2 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setUrgencyOptionsOpen(false)
+                  dialPhone(rescuePhone)
+                }}
+                className={cn(
+                  optionBtn,
+                  "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                )}
+              >
+                <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                Call back
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOpenIntake(rescuePhone)}
+                className={cn(
+                  optionBtn,
+                  "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                )}
+              >
+                <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+                Open intake
+              </button>
+
+              <button
+                type="button"
+                disabled={bookingLinkBusy}
+                onClick={() => void handleTextBookingLink(rescuePhone)}
+                className={cn(
+                  optionBtn,
+                  "border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20",
+                  "disabled:opacity-60"
+                )}
+              >
+                {bookingLinkBusy ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Link2 className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                {bookingLinkBusy ? "Sending…" : "Text booking link"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDismissUrgency(rescuePhone)}
+                className={cn(
+                  optionBtn,
+                  "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-900"
+                )}
+              >
+                <X className="h-4 w-4 shrink-0" aria-hidden />
+                Dismiss
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {templateSheet}
       </>
     )
