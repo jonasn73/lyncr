@@ -262,21 +262,22 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     editPipelineJob(job)
   }
 
+  /** Coming Up Next / live-status chip tap — open the same job sheet as pool & pipeline cards. */
   const focusJobById = useCallback(
     (jobId: string) => {
       const pipeline = displayPipelineJobs.find((j) => j.id === jobId)
       if (pipeline) {
-        highlightPipelineJob(pipeline)
+        editPipelineJob(pipeline)
         return
       }
       const scheduled = dayEvents.find((ev) => ev.id === jobId)
       if (scheduled) {
-        setHighlightId(jobId)
+        editPipelineJob(scheduled)
         return
       }
       const pool = displayPoolJobs.find((j) => j.id === jobId)
       if (pool) {
-        setHighlightId(jobId)
+        editPipelineJob(pool)
       }
     },
     [displayPipelineJobs, dayEvents, displayPoolJobs]

@@ -62,7 +62,12 @@ function UpcomingJobChip({
         SCHEDULER_URGENCY_CHIP_CLASS[urgency]
       )}
     >
-      <button type="button" onClick={() => onSelectJob?.(job.id)} className="min-w-0 text-left">
+      {/* Whole chip (incl. Needs Dispatch) opens the job sheet — same as pool/pipeline rows. */}
+      <button
+        type="button"
+        onClick={() => onSelectJob?.(job.id)}
+        className="min-w-0 w-full cursor-pointer text-left"
+      >
         <span className={cn(SCHEDULER_METADATA_LABEL, "tabular-nums", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
           {timeLabel}
           {countdown ? ` · ${countdown}` : ""}
@@ -84,18 +89,22 @@ function UpcomingJobChip({
             {SCHEDULER_URGENCY_LABEL[urgency]}
           </span>
         ) : null}
+        {needsDispatch ? (
+          // Low-profile tag — replaces Mark Done when the job still needs dispatch.
+          <span className="mt-1 inline-flex w-fit items-center rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+            Needs Dispatch
+          </span>
+        ) : null}
       </button>
-      {needsDispatch ? (
-        // Low-profile tag — replaces Mark Done when the job still needs dispatch.
-        <span className="inline-flex w-fit items-center rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
-          Needs Dispatch
-        </span>
-      ) : onMarkComplete ? (
+      {!needsDispatch && onMarkComplete ? (
         <button
           type="button"
           disabled={isCompleting}
-          onClick={() => onMarkComplete(job.id)}
-          className="inline-flex items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-500/20"
+          onClick={(e) => {
+            e.stopPropagation()
+            onMarkComplete(job.id)
+          }}
+          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-500/20"
         >
           {isCompleting ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
           Mark done
