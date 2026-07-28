@@ -25,6 +25,7 @@ import {
   type IntakeRescueMeta,
 } from "@/components/dashboard/intake-job-photos-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
+import { IntakeSuggestFromCallButton } from "@/components/dashboard/intake-suggest-from-call-button"
 import { MissedCallQuickLogPanel } from "@/components/dashboard/missed-call-quick-log-panel"
 import { AppointmentConfirmSmsPanel } from "@/components/messaging/appointment-confirm-sms-panel"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
@@ -3048,6 +3049,48 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   />
                                 </div>
                               ) : null}
+                              {/* P4 AI triage — suggest only; owner confirms before any book. */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-2.5 py-2">
+                                <p className="text-[10px] leading-snug text-cyan-100/80">
+                                  Prefill from open quote / CRM / notes — you confirm, nothing auto-books.
+                                </p>
+                                <IntakeSuggestFromCallButton
+                                  compact
+                                  phone={form.phoneNumber || effectiveCurrent?.from_number}
+                                  notes={form.notes}
+                                  customerName={matchedCustomer?.display_name}
+                                  customerNotes={matchedCustomer?.notes}
+                                  openServiceTypeId={crmOpenLeadServiceTypeId || form.serviceQuoteTypeId}
+                                  openQuoteCents={crmOpenLeadQuoteCents}
+                                  vehicleYear={form.vehicleYear}
+                                  vehicleMake={form.vehicleMake}
+                                  vehicleModel={form.vehicleModel}
+                                  callContext={
+                                    [
+                                      form.notes,
+                                      rescueMeta?.special_notes,
+                                      effectiveCurrent?.recording_url ? "Recording available on this call" : null,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ") || null
+                                  }
+                                  onApply={(suggestion) => {
+                                    setServiceQuoteTypeId(suggestion.serviceTypeId)
+                                    if (suggestion.suggestedPriceCents != null && suggestion.suggestedPriceCents > 0) {
+                                      const dollars = suggestion.suggestedPriceCents / 100
+                                      setCustomPrice(String(dollars))
+                                      setQuotedPriceDollars(dollars)
+                                    }
+                                    const existing = form.notes.trim()
+                                    const nextNotes = existing.includes("[AI intake suggestion")
+                                      ? existing
+                                      : existing
+                                        ? `${existing}\n\n${suggestion.notesDraft}`
+                                        : suggestion.notesDraft
+                                    patchForm({ notes: nextNotes })
+                                  }}
+                                />
+                              </div>
                               <ServiceQuoteCalculatorPanel
                                 quote={liveQuote}
                                 serviceTypeId={selectorServiceTypeId}

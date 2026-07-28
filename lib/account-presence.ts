@@ -40,6 +40,11 @@ export type AccountPresence = {
   holidayGreetingText: string | null
   /** Auto-bypass to IVR when confirmed jobs today reach this count. */
   ivrCapacityThreshold: number
+  /**
+   * When true, Lines Smart Busy may auto-set Presence Busy when
+   * confirmed jobs today + unassigned pool exceed ivrCapacityThreshold.
+   */
+  smartBusyEnabled: boolean
 }
 
 export { DEFAULT_ON_JOB_GREETING_TEXT, DEFAULT_CLOSED_GREETING_TEXT }
@@ -55,6 +60,7 @@ export const DEFAULT_ACCOUNT_PRESENCE: AccountPresence = {
   holidayOverrideEnd: null,
   holidayGreetingText: null,
   ivrCapacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
+  smartBusyEnabled: false,
 }
 
 export function normalizePresenceStatus(raw: unknown): PresenceStatus {
@@ -137,6 +143,11 @@ function isMissingCapacityColumn(e: unknown): boolean {
   return msg.includes("ivr_capacity_threshold")
 }
 
+function isMissingSmartBusyColumn(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e)
+  return msg.includes("smart_busy_enabled")
+}
+
 function normalizeCapacityThreshold(raw: unknown): number {
   const n = typeof raw === "number" ? raw : Number(raw)
   if (!Number.isFinite(n) || n < 1) return SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD
@@ -169,6 +180,7 @@ type PresenceRow = {
   holiday_override_end?: string | Date | null
   holiday_greeting_text?: string | null
   ivr_capacity_threshold?: number | string | null
+  smart_busy_enabled?: boolean | null
 }
 
 function mapPresenceRow(row: PresenceRow): AccountPresence {
@@ -189,6 +201,7 @@ function mapPresenceRow(row: PresenceRow): AccountPresence {
         ? row.holiday_greeting_text.trim()
         : null,
     ivrCapacityThreshold: normalizeCapacityThreshold(row.ivr_capacity_threshold),
+    smartBusyEnabled: row.smart_busy_enabled === true,
   }
 }
 
@@ -208,7 +221,8 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
         holiday_override_start,
         holiday_override_end,
         holiday_greeting_text,
-        ivr_capacity_threshold
+        ivr_capacity_threshold,
+        smart_busy_enabled
       FROM account_settings
       WHERE user_id = ${ownerUserId}
       LIMIT 1
@@ -224,6 +238,32 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
     }
     return mapPresenceRow(row)
   } catch (e) {
+    // Pre-121: capacity exists but Smart Busy column does not.
+    if (isMissingSmartBusyColumn(e)) {
+      try {
+        const rows = await sql`
+          SELECT
+            presence_status,
+            presence_closed_manual,
+            on_job_greeting_text,
+            closed_greeting_text,
+            ivr_bypass_code,
+            ivr_voice_engine_model,
+            holiday_override_start,
+            holiday_override_end,
+            holiday_greeting_text,
+            ivr_capacity_threshold
+          FROM account_settings
+          WHERE user_id = ${ownerUserId}
+          LIMIT 1
+        `
+        const row = rows[0] as PresenceRow | undefined
+        if (!row) return { ...DEFAULT_ACCOUNT_PRESENCE }
+        return mapPresenceRow({ ...row, smart_busy_enabled: false })
+      } catch {
+        return { ...DEFAULT_ACCOUNT_PRESENCE }
+      }
+    }
     // Pre-102: everything else exists but capacity column does not.
     if (isMissingCapacityColumn(e)) {
       try {
@@ -367,6 +407,36 @@ export async function setAccountIvrCapacityThreshold(params: {
         "IVR capacity column missing — run scripts/102-ivr-capacity-threshold.sql in Neon."
       )
       ;(err as Error & { code?: string }).code = "IVR_CAPACITY_MIGRATION_REQUIRED"
+      throw err
+    }
+    throw e
+  }
+}
+
+/** Persist Smart Busy on/off (Lines → Presence). */
+export async function setAccountSmartBusyEnabled(params: {
+  ownerUserId: string
+  smartBusyEnabled: boolean
+}): Promise<AccountPresence> {
+  const enabled = params.smartBusyEnabled === true
+  const sql = sqlClient()
+  try {
+    await sql`
+      INSERT INTO account_settings (
+        user_id, presence_status, presence_closed_manual, smart_busy_enabled, updated_at
+      )
+      VALUES (${params.ownerUserId}, 'AVAILABLE', false, ${enabled}, now())
+      ON CONFLICT (user_id) DO UPDATE SET
+        smart_busy_enabled = EXCLUDED.smart_busy_enabled,
+        updated_at = now()
+    `
+    return getAccountPresence(params.ownerUserId)
+  } catch (e) {
+    if (isMissingSmartBusyColumn(e) || isMissingPresenceTable(e)) {
+      const err = new Error(
+        "Smart Busy column missing — run scripts/121-smart-busy-enabled.sql in Neon."
+      )
+      ;(err as Error & { code?: string }).code = "SMART_BUSY_MIGRATION_REQUIRED"
       throw err
     }
     throw e

@@ -123,6 +123,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 118 | `118-sms-status-templates.sql` | **Status SMS copy.** Adds **`onboarding_profiles.sms_status_templates`** (JSONB: late / arrived / paused_wait / paused_parts). Editable in SMS templates; used for Running late + auto status texts. **Required** for custom late/status customer SMS. |
 | 119 | `119-sms-delivery-and-review-clicks.sql` | **SMS delivery + review clicks.** Adds **`sms_messages.delivered_at` / `failed_at` / `delivery_error`** (Telnyx DLRs) and **`review_link_tokens`** for tracked **`lyncr.app/rv/{token}`** review links. **Required** for Delivered/Failed in Messages and “review link opened” on Just finished. |
 | 120 | `120-customer-vehicles-crm.sql` | **CRM vehicle garage.** Creates **`customer_vehicles`** (year/make/model/VIN/FCC per customer) and optional **`ai_leads.customer_id`**. Powers Customers & Leads CRM profile garage + service history linking. **Required** for Add Vehicle on CRM. |
+| 121 | `121-smart-busy-enabled.sql` | **Smart Busy.** Adds **`account_settings.smart_busy_enabled`**. Lines Presence can auto-set **Busy (ON_JOB)** when confirmed jobs today + unassigned pool exceed **`ivr_capacity_threshold`**. Reuses existing Busy TeXML (booking SMS/IVR). App falls back to localStorage until applied. |
 
 ## Platform admin (`admin@lyncr.app`)
 
