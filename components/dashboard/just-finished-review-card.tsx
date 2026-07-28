@@ -2,7 +2,7 @@
 
 // Lines “Latest” card — hot work only: unreplied inbound + jobs needing review SMS.
 
-import { memo, useCallback, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle2,
@@ -29,9 +29,51 @@ import {
   LINES_MOBILE_SECTION_LABEL,
 } from "@/lib/mobile-shell"
 import { openSmsAutomationModal } from "@/lib/settings-modals-events"
+import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { formatTimeAgo } from "@/lib/today-board"
+import type { SmsMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
+
+/** Last 10 digits — matches Messages inbox / Activity deep-links across formats. */
+function phoneMatchKey(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-10)
+}
+
+/** Same clock style as Messages conversation bubbles. */
+function formatMessageTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) {
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+  }
+  return d.toLocaleDateString([], { month: "short", day: "numeric" })
+}
+
+/** Keep only SMS for this customer phone (E.164 or display formats). */
+function filterThreadForPhone(messages: SmsMessage[], phone: string): SmsMessage[] {
+  const key = phoneMatchKey(phone)
+  if (key.length < 10) return []
+  const matched = messages.filter((m) => {
+    const customer = phoneMatchKey(m.customer_phone || "")
+    if (customer === key) return true
+    // Fallback: inbound from / outbound to this number.
+    const peer =
+      m.direction === "inbound"
+        ? phoneMatchKey(m.from_number || "")
+        : phoneMatchKey(m.to_number || "")
+    return peer === key
+  })
+  // Oldest → newest (Messages-consistent; newest at bottom).
+  return matched.sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+}
 
 export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   compact = false,
@@ -293,6 +335,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           {selected ? (
             <LatestActionDetail
               item={selected}
+              organizationId={activeOrganizationId}
               busyJobId={busyJobId}
               markingOpened={markingOpened}
               onSendThanks={(jobId) => void sendThanksReview(jobId)}
@@ -308,6 +351,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
 function LatestActionDetail({
   item,
+  organizationId,
   busyJobId,
   markingOpened,
   onSendThanks,
@@ -315,6 +359,7 @@ function LatestActionDetail({
   onOpenMessages,
 }: {
   item: LatestCustomerAction
+  organizationId: string | null
   busyJobId: string | null
   markingOpened: boolean
   onSendThanks: (jobId: string) => void
@@ -325,6 +370,57 @@ function LatestActionDetail({
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
   const needsReviewSend = item.event === "job_finished" && Boolean(item.completedJobId)
+  // Full SMS history only for reply detail — job “Send review” rows stay status-only.
+  const showSmsThread = item.event === "replied" && Boolean(item.customerPhone?.trim())
+  const [threadMessages, setThreadMessages] = useState<SmsMessage[]>([])
+  const [threadLoading, setThreadLoading] = useState(false)
+  const [threadError, setThreadError] = useState<string | null>(null)
+  const threadBottomRef = useRef<HTMLDivElement | null>(null)
+
+  const orgId =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
+
+  // Load the same Messages inbox feed, then filter to this phone.
+  useEffect(() => {
+    if (!showSmsThread || !item.customerPhone) return
+    let cancelled = false
+    setThreadLoading(true)
+    setThreadError(null)
+    const qs = orgId
+      ? `?organization_id=${encodeURIComponent(orgId)}&limit=200`
+      : "?limit=200"
+    void (async () => {
+      try {
+        const res = await fetch(`/api/messaging${qs}`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+        const json = (await res.json()) as {
+          error?: string
+          data?: { messages?: SmsMessage[] }
+        }
+        if (!res.ok) throw new Error(json.error || "Could not load messages")
+        if (cancelled) return
+        const all = Array.isArray(json.data?.messages) ? json.data!.messages! : []
+        setThreadMessages(filterThreadForPhone(all, item.customerPhone))
+      } catch (e) {
+        if (cancelled) return
+        setThreadError(e instanceof Error ? e.message : "Could not load messages")
+        setThreadMessages([])
+      } finally {
+        if (!cancelled) setThreadLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showSmsThread, item.customerPhone, orgId])
+
+  // Scroll to newest bubble after the thread paints.
+  useEffect(() => {
+    if (!showSmsThread || threadLoading) return
+    threadBottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [showSmsThread, threadLoading, threadMessages.length])
 
   const steps: Array<{ label: string; done: boolean; detail?: string }> = []
   if (item.event === "job_finished") {
@@ -454,25 +550,85 @@ function LatestActionDetail({
           </ul>
         </section>
 
-        {item.lastOutbound ? (
+        {showSmsThread ? (
           <section>
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Your text
+              Conversation
             </p>
-            <p className="mt-2 whitespace-pre-wrap rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 text-sm text-foreground">
-              {item.lastOutbound.body}
-            </p>
-          </section>
-        ) : null}
-
-        {item.lastInbound ? (
-          <section>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Their reply
-            </p>
-            <p className="mt-2 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-foreground">
-              {item.lastInbound.body}
-            </p>
+            {threadLoading ? (
+              <div className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading messages…
+              </div>
+            ) : threadError ? (
+              <p className="mt-2 text-xs text-rose-300">{threadError}</p>
+            ) : threadMessages.length === 0 ? (
+              // Fallback: still show last pair from Latest if the feed is empty.
+              <div className="mt-2 space-y-3">
+                {item.lastOutbound ? (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Your text
+                    </p>
+                    <p className="mt-1.5 whitespace-pre-wrap rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 text-sm text-foreground">
+                      {item.lastOutbound.body}
+                    </p>
+                  </div>
+                ) : null}
+                {item.lastInbound ? (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Their reply
+                    </p>
+                    <p className="mt-1.5 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-foreground">
+                      {item.lastInbound.body}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-2 max-h-[min(50vh,22rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-2.5 py-3">
+                {threadMessages.map((msg) => {
+                  const outbound = msg.direction === "outbound"
+                  const deliveryLabel = outbound ? formatSmsDeliveryLabel(msg) : null
+                  return (
+                    <div
+                      key={msg.id}
+                      className={cn("flex", outbound ? "justify-end" : "justify-start")}
+                    >
+                      <div
+                        className={cn(
+                          "max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug",
+                          outbound
+                            ? msg.status === "failed"
+                              ? "rounded-br-md bg-rose-700 text-white"
+                              : "rounded-br-md bg-emerald-600 text-white"
+                            : "rounded-bl-md border border-sky-500/35 bg-sky-500/10 text-foreground"
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                        <p
+                          className={cn(
+                            "mt-1 text-[10px] tabular-nums",
+                            outbound ? "text-emerald-100/80" : "text-muted-foreground",
+                            outbound && msg.status === "failed" && "text-rose-100/90"
+                          )}
+                        >
+                          {formatMessageTime(msg.created_at)}
+                          {deliveryLabel ? ` · ${deliveryLabel}` : ""}
+                        </p>
+                        {outbound && msg.status === "failed" && msg.delivery_error ? (
+                          <p className="mt-0.5 text-[10px] leading-snug text-rose-100/80">
+                            {msg.delivery_error}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                })}
+                <div ref={threadBottomRef} />
+              </div>
+            )}
           </section>
         ) : null}
       </div>

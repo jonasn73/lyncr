@@ -51,24 +51,34 @@ function phoneMatchKey(phone: string): string {
 }
 
 function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
-  const byPhone = new Map<string, SmsMessage[]>()
+  // Group by last-10 digits so +1… / local formats stay one conversation.
+  const byKey = new Map<string, { displayPhone: string; list: SmsMessage[] }>()
   for (const msg of messages) {
-    const key = msg.customer_phone?.trim() || msg.from_number
-    if (!key) continue
-    const list = byPhone.get(key) ?? []
-    list.push(msg)
-    byPhone.set(key, list)
+    const raw = (msg.customer_phone?.trim() || msg.from_number || "").trim()
+    if (!raw) continue
+    const key = phoneMatchKey(raw)
+    const mapKey = key.length >= 10 ? key : raw
+    const existing = byKey.get(mapKey)
+    if (existing) {
+      existing.list.push(msg)
+      // Prefer E.164-ish display when we see a longer/normalized value.
+      if (raw.startsWith("+") && !existing.displayPhone.startsWith("+")) {
+        existing.displayPhone = raw
+      }
+    } else {
+      byKey.set(mapKey, { displayPhone: raw, list: [msg] })
+    }
   }
 
   const threads: SmsThread[] = []
-  for (const [customerPhone, list] of byPhone) {
+  for (const { displayPhone, list } of byKey.values()) {
     const sorted = [...list].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )
     const lastMessage = sorted[sorted.length - 1]
     if (!lastMessage) continue
     threads.push({
-      customerPhone,
+      customerPhone: displayPhone,
       messages: sorted,
       lastMessage,
       needsReply: lastMessage.direction === "inbound",
@@ -147,13 +157,14 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 
   const threads = useMemo(() => groupIntoThreads(messages), [messages])
 
-  // Activity / rescue deep-link: /dashboard/messages?phone=+1…
+  // Activity / Latest / rescue deep-link: /dashboard/messages?phone=+1…
   useEffect(() => {
     if (!isActive) return
     const q = searchParams.get("phone")?.trim()
     if (!q) return
     const key = phoneMatchKey(q)
     if (key.length < 10) return
+    // Prefer the exact thread key from the inbox so history resolves immediately.
     const match = threads.find((t) => phoneMatchKey(t.customerPhone) === key)
     setSelectedPhone(match?.customerPhone ?? q)
   }, [searchParams, threads, isActive])
@@ -168,7 +179,13 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 
   const activeThread = useMemo((): SmsThread | null => {
     if (!selectedPhone) return null
-    const found = threads.find((t) => t.customerPhone === selectedPhone)
+    // Exact key first, then last-10 match (deep-link format may differ from DB).
+    const key = phoneMatchKey(selectedPhone)
+    const found =
+      threads.find((t) => t.customerPhone === selectedPhone) ||
+      (key.length >= 10
+        ? threads.find((t) => phoneMatchKey(t.customerPhone) === key)
+        : undefined)
     if (found) return found
     // Deep-link / new follow-up before any sms_messages row exists.
     const now = new Date().toISOString()
