@@ -2,9 +2,12 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import {
   clearIntakeDraft,
   getDraftByPhoneNumber,
+  intakeDraftPhonesMatch,
   intakeDraftStorageKey,
   isIntakeDraftFresh,
+  isIntakeDraftMeaningful,
   isIntakeDraftRestorable,
+  isIntakeDraftRestoreSecondary,
   loadIntakeDraft,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
@@ -51,6 +54,26 @@ const SAMPLE_FORM: ActiveCallFormState = {
   scheduledTime: "",
 }
 
+/** Blank Service + default Lockout — should never trigger Restore. */
+const THIN_FORM: ActiveCallFormState = {
+  ...SAMPLE_FORM,
+  phoneNumber: "+15025551234",
+  displayName: "",
+  addressLine1: "",
+  city: "",
+  region: "",
+  postalCode: "",
+  notes: "",
+  jobType: "",
+  keyReplacementMode: "",
+  vehicleYear: "",
+  vehicleMake: "",
+  vehicleModel: "",
+  serviceQuoteTypeId: "lockout",
+  quotedPriceCents: 0,
+  quotedPriceOverridden: false,
+}
+
 describe("intake draft storage", () => {
   beforeEach(() => {
     const store = new Map<string, string>()
@@ -75,6 +98,38 @@ describe("intake draft storage", () => {
     expect(intakeDraftStorageKey("+1 502-555-1234")).toBe("intake_draft_15025551234")
   })
 
+  it("rejects overlong digit strings instead of slicing into another key", () => {
+    expect(normalizeIntakeDraftPhone("15025551234999")).toBeNull()
+    expect(normalizeIntakeDraftPhone("502")).toBeNull()
+  })
+
+  it("matches phones only when normalized keys agree", () => {
+    expect(intakeDraftPhonesMatch("+15025551234", "(502) 555-1234")).toBe(true)
+    expect(intakeDraftPhonesMatch("+15025551234", "+15025559999")).toBe(false)
+    expect(intakeDraftPhonesMatch("502", "502")).toBe(false)
+  })
+
+  it("treats blank Service + Lockout as not meaningful", () => {
+    expect(
+      isIntakeDraftMeaningful({ form: THIN_FORM, currentStep: "SERVICE_SELECT" })
+    ).toBe(false)
+    expect(
+      isIntakeDraftMeaningful({ form: SAMPLE_FORM, currentStep: "ADDRESS_CONTACT" })
+    ).toBe(true)
+  })
+
+  it("does not persist thin drafts", () => {
+    saveIntakeDraft("5025551234", {
+      form: THIN_FORM,
+      currentStep: "SERVICE_SELECT",
+      customPrice: "",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+    })
+    expect(loadIntakeDraft("5025551234")).toBeNull()
+  })
+
   it("saves and reloads a draft keyed by phone number", () => {
     saveIntakeDraft("(502) 555-1234", {
       form: SAMPLE_FORM,
@@ -83,6 +138,7 @@ describe("intake draft storage", () => {
       failureReason: "__neutral__",
       recoveredViaRouteDiscount: false,
       negotiationStep: 1,
+      sourceCallLogId: "call-abc",
     })
 
     const loaded = loadIntakeDraft("5025551234")
@@ -91,6 +147,7 @@ describe("intake draft storage", () => {
     expect(loaded!.form.displayName).toBe("Alex")
     expect(loaded!.form.vehicleModel).toBe("Accord")
     expect(loaded!.customPrice).toBe("185")
+    expect(loaded!.sourceCallLogId).toBe("call-abc")
   })
 
   it("clears a saved draft on dismiss", () => {
@@ -140,7 +197,7 @@ describe("intake draft storage", () => {
 
   it("getDraftByPhoneNumber returns a fresh in-progress draft", () => {
     saveIntakeDraft("5025550000", {
-      form: SAMPLE_FORM,
+      form: { ...SAMPLE_FORM, phoneNumber: "+15025550000" },
       currentStep: "ADDRESS_CONTACT",
       customPrice: "120",
       failureReason: "__neutral__",
@@ -150,5 +207,40 @@ describe("intake draft storage", () => {
     const draft = getDraftByPhoneNumber("5025550000")
     expect(draft?.currentStep).toBe("ADDRESS_CONTACT")
     expect(draft?.form.displayName).toBe("Alex")
+  })
+
+  it("getDraftByPhoneNumber clears drafts whose form phone does not match the key", () => {
+    saveIntakeDraft("5025551234", {
+      form: { ...SAMPLE_FORM, phoneNumber: "+15025559999" },
+      currentStep: "VEHICLE_INFO",
+      customPrice: "",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+    })
+    expect(getDraftByPhoneNumber("5025551234")).toBeNull()
+    expect(loadIntakeDraft("5025551234")).toBeNull()
+  })
+
+  it("marks Restore secondary on a different call leg", () => {
+    expect(
+      isIntakeDraftRestoreSecondary(
+        { savedAt: new Date().toISOString(), sourceCallLogId: "call-old" },
+        "call-new"
+      )
+    ).toBe(true)
+    expect(
+      isIntakeDraftRestoreSecondary(
+        { savedAt: new Date().toISOString(), sourceCallLogId: "call-same" },
+        "call-same"
+      )
+    ).toBe(false)
+    // Legacy drafts without a call id → secondary on any new open.
+    expect(
+      isIntakeDraftRestoreSecondary(
+        { savedAt: new Date().toISOString(), sourceCallLogId: null },
+        "call-new"
+      )
+    ).toBe(true)
   })
 })

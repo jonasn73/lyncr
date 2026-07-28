@@ -25,6 +25,11 @@ export type IntakeDraftSnapshot = {
   savedAt: string
   /** True after Finalize & Secure Appointment — never auto-restore. */
   submitted?: boolean
+  /**
+   * call_logs.id (or manual row id) that was open when this draft was saved.
+   * Used so a brand-new inbound leg treats the prior draft as optional.
+   */
+  sourceCallLogId?: string | null
 }
 
 const STORAGE_VERSION = 1
@@ -32,23 +37,42 @@ const STORAGE_VERSION = 1
 /** Drafts older than this are treated as stale and ignored on open. */
 export const INTAKE_DRAFT_MAX_AGE_MS = 2 * 60 * 60 * 1000
 
+/**
+ * Soft window for “same session continue” — drafts older than this on a *new*
+ * call leg are still restorable but should not dominate the decision card.
+ */
+export const INTAKE_DRAFT_NEW_CALL_SOFT_AGE_MS = 30 * 60 * 1000
+
 type StoredEnvelope = {
   v: number
   data: IntakeDraftSnapshot
 }
 
-/** Normalize to stable US digits for storage keys (10 or 11 digits). */
+/**
+ * Normalize to a stable US key: exactly 10 digits, or 11 starting with 1.
+ * Rejects longer digit strings (avoids accidental cross-caller keys).
+ */
 export function normalizeIntakeDraftPhone(phone: string): string | null {
   const digits = phone.replace(/\D/g, "")
   if (digits.length === 11 && digits.startsWith("1")) return digits
   if (digits.length === 10) return `1${digits}`
-  if (digits.length > 11) return digits.slice(-11)
   return null
 }
 
 /** True when we have enough digits to key a draft. */
 export function isValidIntakeDraftPhone(phone: string): boolean {
   return normalizeIntakeDraftPhone(phone) != null
+}
+
+/**
+ * Strict phone equality for draft offer / restore.
+ * Prefers full normalized keys; falls back to last-10 only when both normalize.
+ */
+export function intakeDraftPhonesMatch(a: string, b: string): boolean {
+  const na = normalizeIntakeDraftPhone(a)
+  const nb = normalizeIntakeDraftPhone(b)
+  if (!na || !nb) return false
+  return na === nb
 }
 
 /** Browser localStorage key for a caller phone. */
@@ -88,6 +112,33 @@ function isFormSnapshot(value: unknown): value is ActiveCallFormState {
   )
 }
 
+/**
+ * True when the draft has real operator progress — not just the blank Service
+ * screen with default Lockout (or empty service) and empty fields.
+ */
+export function isIntakeDraftMeaningful(
+  draft: Pick<IntakeDraftSnapshot, "form" | "currentStep">
+): boolean {
+  const { form, currentStep } = draft
+  if (currentStep === "BOOKING_COMPLETE") return false
+  // Any step past Service means they started intake for real.
+  if (currentStep !== "SERVICE_SELECT") return true
+
+  if (form.vehicleYear?.trim() || form.vehicleMake?.trim() || form.vehicleModel?.trim()) {
+    return true
+  }
+  if (form.addressLine1?.trim() || form.city?.trim() || form.postalCode?.trim()) return true
+  if (form.notes?.trim()) return true
+  if (form.jobType?.trim()) return true
+  if (form.plateNumber?.trim() || form.vehicleVin?.trim()) return true
+  // CNAM / seeded schedule alone don't count — need operator or CRM field progress.
+  if ((form.quotedPriceCents ?? 0) > 0 || form.quotedPriceOverridden) return true
+  const service = String(form.serviceQuoteTypeId ?? "").trim()
+  // Empty or default Lockout alone on Service = thin — do not offer Restore.
+  if (service && service !== "lockout") return true
+  return false
+}
+
 /** True when the draft is recent enough to resume (default: under 2 hours). */
 export function isIntakeDraftFresh(
   draft: Pick<IntakeDraftSnapshot, "savedAt">,
@@ -98,11 +149,35 @@ export function isIntakeDraftFresh(
   return nowMs - saved <= INTAKE_DRAFT_MAX_AGE_MS
 }
 
-/** True when this draft should hydrate the open intake sheet. */
+/**
+ * True when this draft should be offered as Restore on the open intake sheet.
+ * Requires: fresh, not submitted, not complete, and meaningful progress.
+ */
 export function isIntakeDraftRestorable(draft: IntakeDraftSnapshot, nowMs: number = Date.now()): boolean {
   if (draft.submitted) return false
   if (draft.currentStep === "BOOKING_COMPLETE") return false
+  if (!isIntakeDraftMeaningful(draft)) return false
   return isIntakeDraftFresh(draft, nowMs)
+}
+
+/**
+ * True when Restore should be a secondary action (new inbound leg / soft-aged draft),
+ * not the primary path blocking New job.
+ */
+export function isIntakeDraftRestoreSecondary(
+  draft: Pick<IntakeDraftSnapshot, "savedAt" | "sourceCallLogId">,
+  currentCallLogId: string | null | undefined,
+  nowMs: number = Date.now()
+): boolean {
+  const currentId = String(currentCallLogId ?? "").trim()
+  const sourceId = String(draft.sourceCallLogId ?? "").trim()
+  // Same open call leg (refresh / crash mid-intake) → Restore can stay prominent.
+  if (currentId && sourceId && currentId === sourceId) return false
+  // No source id (legacy) or a different call leg → optional continue, not forced.
+  if (!sourceId || !currentId || sourceId !== currentId) return true
+  const saved = new Date(draft.savedAt).getTime()
+  if (!Number.isFinite(saved)) return true
+  return nowMs - saved > INTAKE_DRAFT_NEW_CALL_SOFT_AGE_MS
 }
 
 function parseStoredDraft(raw: string): IntakeDraftSnapshot | null {
@@ -124,6 +199,10 @@ function parseStoredDraft(raw: string): IntakeDraftSnapshot | null {
       negotiationStep: typeof data.negotiationStep === "number" ? data.negotiationStep : 1,
       savedAt: typeof data.savedAt === "string" ? data.savedAt : new Date().toISOString(),
       submitted: Boolean(data.submitted),
+      sourceCallLogId:
+        typeof data.sourceCallLogId === "string" && data.sourceCallLogId.trim()
+          ? data.sourceCallLogId.trim()
+          : null,
     }
   } catch {
     return null
@@ -146,16 +225,22 @@ export function loadIntakeDraft(phone: string): IntakeDraftSnapshot | null {
 
 /**
  * Resume helper for intake open — only returns a draft that is fresh,
- * not submitted, and not already on the booking-complete step.
+ * meaningful, not submitted, and not already on the booking-complete step.
  */
 export function getDraftByPhoneNumber(phone: string): IntakeDraftSnapshot | null {
   const draft = loadIntakeDraft(phone)
   if (!draft) return null
   if (!isIntakeDraftRestorable(draft)) {
-    // Drop stale / submitted entries so the next call starts clean.
-    if (draft.submitted || !isIntakeDraftFresh(draft)) {
+    // Drop stale / submitted / thin entries so the next call starts clean.
+    if (draft.submitted || !isIntakeDraftFresh(draft) || !isIntakeDraftMeaningful(draft)) {
       clearIntakeDraft(phone)
     }
+    return null
+  }
+  // Harden: stored form phone (when present) must match the lookup key.
+  const formPhone = draft.form.phoneNumber?.trim()
+  if (formPhone && !intakeDraftPhonesMatch(formPhone, phone)) {
+    clearIntakeDraft(phone)
     return null
   }
   return draft
@@ -169,6 +254,15 @@ export function saveIntakeDraft(
   if (typeof localStorage === "undefined") return
   const key = intakeDraftStorageKey(phone)
   if (!key) return
+  // Never persist empty Service + Lockout shells — they cause false Restore prompts.
+  if (
+    !isIntakeDraftMeaningful({
+      form: snapshot.form,
+      currentStep: normalizeIntakeDraftStep(snapshot.currentStep),
+    })
+  ) {
+    return
+  }
   try {
     const envelope: StoredEnvelope = {
       v: STORAGE_VERSION,
@@ -176,6 +270,10 @@ export function saveIntakeDraft(
         ...snapshot,
         currentStep: normalizeIntakeDraftStep(snapshot.currentStep),
         submitted: Boolean(snapshot.submitted),
+        sourceCallLogId:
+          typeof snapshot.sourceCallLogId === "string" && snapshot.sourceCallLogId.trim()
+            ? snapshot.sourceCallLogId.trim()
+            : snapshot.sourceCallLogId ?? null,
         savedAt: snapshot.savedAt || new Date().toISOString(),
       },
     }

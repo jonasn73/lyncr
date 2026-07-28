@@ -122,6 +122,9 @@ import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
 import {
   clearIntakeDraft,
   getDraftByPhoneNumber,
+  intakeDraftPhonesMatch,
+  isIntakeDraftMeaningful,
+  isIntakeDraftRestoreSecondary,
   isValidIntakeDraftPhone,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
@@ -240,6 +243,7 @@ function ReturningCallerDecisionCard({
   activeJobId,
   activeJobMeta,
   pendingDraft,
+  restoreSecondary,
   notesPreview,
   notesHasMore,
   emphasizeJob,
@@ -259,6 +263,8 @@ function ReturningCallerDecisionCard({
   activeJobId: string | null
   activeJobMeta: string | null
   pendingDraft: IntakeDraftSnapshot | null
+  /** New inbound leg / soft-aged draft — Restore is optional, not the primary CTA. */
+  restoreSecondary: boolean
   notesPreview: string | null
   notesHasMore: boolean
   emphasizeJob: boolean
@@ -314,15 +320,23 @@ function ReturningCallerDecisionCard({
       key="restore-draft"
       type="button"
       onClick={onRestoreDraft}
-      className="inline-flex flex-1 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-400/90 px-3 py-2 text-xs font-semibold text-zinc-950 touch-manipulation transition-colors hover:bg-amber-300 active:scale-[0.98]"
+      className={cn(
+        "inline-flex flex-1 items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold touch-manipulation transition-colors active:scale-[0.98]",
+        restoreSecondary
+          ? "border-zinc-600 bg-zinc-900/50 text-zinc-200 hover:border-zinc-500 hover:text-foreground"
+          : "border-amber-400/50 bg-amber-400/90 text-zinc-950 hover:bg-amber-300"
+      )}
     >
       Restore draft
     </button>
   ) : null
-  // Job-first when both job + quote (David); otherwise draft / quote first.
+  // New call leg: quote/job first, Restore optional. Same-leg crash: Restore can lead.
+  // Job-first when both job + quote (David).
   const actionRow = emphasizeJob
     ? [jobBtn, quoteBtn, draftBtn]
-    : [draftBtn, quoteBtn, jobBtn]
+    : restoreSecondary
+      ? [quoteBtn, jobBtn, draftBtn]
+      : [draftBtn, quoteBtn, jobBtn]
 
   return (
     <div className="mx-4 mt-2 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-3">
@@ -375,12 +389,19 @@ function ReturningCallerDecisionCard({
       <button
         type="button"
         onClick={onNewJob}
-        className="mt-1.5 inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs font-semibold text-zinc-200 touch-manipulation transition-colors hover:border-zinc-500 hover:text-foreground active:scale-[0.98]"
+        className={cn(
+          "mt-1.5 inline-flex w-full items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold touch-manipulation transition-colors active:scale-[0.98]",
+          restoreSecondary || !pendingDraft
+            ? "border-emerald-500/45 bg-emerald-500/15 text-emerald-50 hover:bg-emerald-500/25"
+            : "border-zinc-700 bg-zinc-900/70 text-zinc-200 hover:border-zinc-500 hover:text-foreground"
+        )}
       >
         New job
       </button>
       <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
-        We&apos;ll use what&apos;s already saved. New job starts fresh service pick.
+        {pendingDraft && restoreSecondary
+          ? "New job starts a fresh intake and clears the saved draft for this number."
+          : "We\u2019ll use what\u2019s already saved. New job starts fresh service pick."}
       </p>
 
       {notesPreview ? (
@@ -1147,13 +1168,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
 
   const activeDraftPhone = useMemo(() => {
-    const raw = (form.phoneNumber.trim() || effectiveCurrent?.from_number || "").trim()
+    // Prefer the live call's from_number so a call switch never offers the
+    // previous caller's draft while form state is still catching up.
+    const raw = (
+      effectiveCurrent?.from_number?.trim() ||
+      form.phoneNumber.trim() ||
+      ""
+    ).trim()
     return isValidIntakeDraftPhone(raw) ? raw : null
   }, [form.phoneNumber, effectiveCurrent?.from_number])
 
   /**
-   * Offer an explicit Restore draft chip when a fresh draft exists for THIS caller.
-   * Never auto-hydrate (avoids hijacking a brand-new different caller / fresh start).
+   * Offer an explicit Restore draft chip when a fresh, meaningful draft exists
+   * for THIS caller. Never auto-hydrate. Never offer another phone's snapshot.
    */
   useEffect(() => {
     if (!effectiveCurrent || !activeDraftPhone) {
@@ -1162,6 +1189,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
     if (!normalized) {
+      setPendingDraft(null)
+      return
+    }
+    // Form still on a different number than the open call — wait for sync.
+    const formPhone = form.phoneNumber.trim()
+    const callPhone = effectiveCurrent.from_number?.trim() || ""
+    if (
+      formPhone &&
+      callPhone &&
+      isValidIntakeDraftPhone(formPhone) &&
+      isValidIntakeDraftPhone(callPhone) &&
+      !intakeDraftPhonesMatch(formPhone, callPhone)
+    ) {
       setPendingDraft(null)
       return
     }
@@ -1176,7 +1216,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     // Only offer drafts keyed to the open caller — never another phone's snapshot.
     const draft = getDraftByPhoneNumber(activeDraftPhone)
     setPendingDraft(draft)
-  }, [effectiveCurrent, activeDraftPhone])
+  }, [effectiveCurrent, activeDraftPhone, form.phoneNumber])
 
   /** One-tap: restore form, clear false Lockout, land on first incomplete step. */
   const restorePendingDraft = useCallback(() => {
@@ -1188,6 +1228,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       pendingDraft.form.phoneNumber || activeDraftPhone
     )
     if (draftPhone && draftPhone !== normalized) {
+      clearIntakeDraft(activeDraftPhone)
+      setPendingDraft(null)
+      return
+    }
+    if (
+      pendingDraft.form.phoneNumber?.trim() &&
+      !intakeDraftPhonesMatch(pendingDraft.form.phoneNumber, activeDraftPhone)
+    ) {
+      clearIntakeDraft(activeDraftPhone)
       setPendingDraft(null)
       return
     }
@@ -1329,6 +1378,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     const timer = window.setTimeout(() => {
+      // Skip empty Service + Lockout shells — they cause false Restore on the next ring.
+      if (
+        !isIntakeDraftMeaningful({
+          form,
+          currentStep,
+        })
+      ) {
+        return
+      }
+      const sourceCallLogId =
+        effectiveCurrent.sourceCallLogId?.trim() || effectiveCurrent.id || null
       saveIntakeDraft(activeDraftPhone, {
         form,
         currentStep,
@@ -1337,6 +1397,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         recoveredViaRouteDiscount,
         negotiationStep,
         submitted: false,
+        sourceCallLogId,
       })
       setDraftPulse(true)
       if (draftPulseTimerRef.current) window.clearTimeout(draftPulseTimerRef.current)
@@ -2682,6 +2743,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     !callbackChooserDismissed &&
     currentStep === "SERVICE_SELECT" &&
     knownReturningCaller
+  /** New inbound / legacy draft → Restore secondary; same call leg crash → Restore primary. */
+  const restoreDraftSecondary = useMemo(() => {
+    if (!pendingDraft) return true
+    return isIntakeDraftRestoreSecondary(
+      pendingDraft,
+      effectiveCurrent?.sourceCallLogId?.trim() || effectiveCurrent?.id || null
+    )
+  }, [pendingDraft, effectiveCurrent?.id, effectiveCurrent?.sourceCallLogId])
   const returningCallerVehicleLabel = useMemo(() => {
     const fromForm = formatReturningCallerVehicleFact({
       year: form.vehicleYear,
@@ -2826,6 +2895,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setCallbackChooserDismissed(true)
     setCallbackForceNewJob(false)
     setContinuingDraft(false)
+    // Hide Restore chip for this session so Continue quote isn't buried under it.
+    if (activeDraftPhone) {
+      dismissedDraftPhoneRef.current = normalizeIntakeDraftPhone(activeDraftPhone)
+    }
+    setPendingDraft(null)
     const serviceId = (crmOpenLeadServiceTypeId ||
       form.serviceQuoteTypeId ||
       "") as ServiceQuoteTypeId | ""
@@ -2851,6 +2925,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           })
     setCurrentStep(next)
   }, [
+    activeDraftPhone,
     addressReady,
     applyOpenQuoteContinuePrefill,
     crmOpenLeadServiceTypeId,
@@ -2884,13 +2959,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   ])
 
   const handleNewJobForReturningCaller = useCallback(() => {
+    // Clear pending draft so New job is not stuck in a Restore loop on the next open.
+    if (activeDraftPhone) {
+      clearIntakeDraft(activeDraftPhone)
+      const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
+      dismissedDraftPhoneRef.current = normalized
+      lastLoadedDraftPhoneRef.current = null
+    }
+    setPendingDraft(null)
+    setContinuingDraft(false)
     startFreshJobForReturningCaller()
     setCallbackChooserDismissed(true)
     setCallbackForceNewJob(true)
-    setContinuingDraft(false)
     setVehicleLockoutIntake(false)
     setCurrentStep("SERVICE_SELECT")
-  }, [startFreshJobForReturningCaller])
+  }, [activeDraftPhone, startFreshJobForReturningCaller])
 
   const expandIntake = useCallback(() => {
     // PiP tray expand — same-click outside dismiss still needs a short suppress.
@@ -3233,6 +3316,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 activeJobId={activeCallbackJobId}
                 activeJobMeta={activeCallbackJobMeta}
                 pendingDraft={pendingDraft}
+                restoreSecondary={restoreDraftSecondary}
                 notesPreview={returningCallerNotes?.preview ?? null}
                 notesHasMore={Boolean(returningCallerNotes?.hasMore)}
                 emphasizeJob={Boolean(activeCallbackJobId)}
