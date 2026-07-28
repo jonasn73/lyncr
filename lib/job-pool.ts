@@ -19,6 +19,12 @@ export const CRM_LEAD_DISPATCH_STATUSES = [
   UNASSIGNED_CALLBACK_STATUS, // legacy rows saved before CRM_LEAD_STATUS
 ] as const
 
+/**
+ * Price denied / salvage outreach — same lane as call-disposition PRICE_REJECTED.
+ * Lives in CRM Recover (and optional hopper rescue tray), not Coming Up Next.
+ */
+export const SALVAGE_PENDING_STATUS = "salvage_pending"
+
 /** Placeholder street line for pending callback leads (no address yet). */
 export const PENDING_CALLBACK_ADDRESS = "PENDING_CALLBACK"
 
@@ -27,6 +33,39 @@ export const HOPPER_DISPATCH_STATUSES = [UNASSIGNED_POOL_STATUS] as const
 
 /** dispatch_status after a tech is assigned or claims a job. */
 export const DISPATCHED_STATUS = "DISPATCHED"
+
+/**
+ * True when a lead is CRM salvage / quote / lost — not bookable "Coming Up Next" work.
+ * Uses existing enums only (lead, lost_lead, salvage_pending, PRICE_REJECTED).
+ */
+export function isCrmSalvageOrQuoteDispatch(params: {
+  dispatch_status?: string | null
+  job_status?: string | null
+  disposition?: string | null
+}): boolean {
+  // Normalize columns once so callers can pass raw API rows.
+  const dispatch = (params.dispatch_status ?? "").trim().toLowerCase()
+  const jobStatus = (params.job_status ?? "").trim().toLowerCase()
+  const disposition = (params.disposition ?? "").trim().toUpperCase()
+
+  // Operator / receptionist price-rejected outcome.
+  if (disposition === "PRICE_REJECTED") return true
+  // Pipeline "Price denied" + intake lost-lead salvage.
+  if (dispatch === SALVAGE_PENDING_STATUS || dispatch === LOST_LEAD_STATUS) return true
+  // Pure CRM quote / callback leads (not scheduled field work).
+  if (
+    dispatch === CRM_LEAD_STATUS ||
+    dispatch === UNASSIGNED_CALLBACK_STATUS ||
+    jobStatus === CRM_LEAD_STATUS ||
+    jobStatus === LOST_LEAD_STATUS ||
+    jobStatus === "price_denied" ||
+    jobStatus === "price_rejected" ||
+    jobStatus.includes("price")
+  ) {
+    return true
+  }
+  return false
+}
 
 /** Pull a city / neighborhood label from a full street address. */
 export function neighborhoodFromLocation(location: string | null | undefined): string | null {

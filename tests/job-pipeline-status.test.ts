@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   isTerminalJobStatus,
   pipelineStatusFromJob,
+  pipelineStatusPatch,
   pipelineStatusPillLabel,
 } from "@/lib/job-pipeline-status"
 
@@ -46,5 +47,28 @@ describe("pipelineStatusFromJob", () => {
     expect(isTerminalJobStatus("completed")).toBe(true)
     expect(isTerminalJobStatus("referred")).toBe(true)
     expect(isTerminalJobStatus("en_route")).toBe(false)
+  })
+
+  it("maps Price denied to salvage_pending", () => {
+    expect(
+      pipelineStatusFromJob({
+        dispatch_status: "salvage_pending",
+        assigned_tech_id: null,
+      })
+    ).toBe("salvage_pending")
+    expect(
+      pipelineStatusFromJob({
+        dispatch_status: "lost_lead",
+        assigned_tech_id: null,
+      })
+    ).toBe("salvage_pending")
+  })
+
+  it("stamps PRICE_REJECTED when patching Price denied", () => {
+    expect(pipelineStatusPatch("salvage_pending")).toEqual({
+      dispatch_status: "salvage_pending",
+      is_salvageable: true,
+      disposition: "PRICE_REJECTED",
+    })
   })
 })

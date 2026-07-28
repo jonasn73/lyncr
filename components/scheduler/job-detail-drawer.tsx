@@ -247,13 +247,21 @@ export function JobDetailDrawer({
     }
   }, [open, jobId])
 
-  const buildSaveBody = useCallback((): Record<string, unknown> => {
+  // Optional statusOverride avoids stale React state when auto-saving Price denied.
+  const buildSaveBody = useCallback(
+    (options?: {
+      statusOverride?: JobPipelineStatusId
+      assignedTechOverride?: string
+    }): Record<string, unknown> => {
+    const statusForPatch = options?.statusOverride ?? pipelineStatus
+    const techForBody =
+      options?.assignedTechOverride !== undefined ? options.assignedTechOverride : assignedTechId
     const quotedPriceCents = resolveQuotedPriceCents()
     // Terminal completed is display-only — do not map it through the pool/dispatch patch helper.
     const pipelinePatch =
-      pipelineStatus === "completed"
-        ? { dispatch_status: "completed", is_salvageable: false }
-        : pipelineStatusPatch(pipelineStatus)
+      statusForPatch === "completed"
+        ? { dispatch_status: "completed", is_salvageable: false, disposition: null as string | null }
+        : pipelineStatusPatch(statusForPatch)
     const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
     // Keep the intake baseline snapshot — do not rewrite it from a live vehicle recalc.
     const persistedBaseline =
@@ -271,9 +279,11 @@ export function JobDetailDrawer({
       vehicle_vin: vehicleVin.trim() || null,
       job_address: location.trim() || null,
       job_notes: jobNotes.trim() || null,
-      assigned_tech_id: assignedTechId.trim() || null,
+      assigned_tech_id: techForBody.trim() || null,
       dispatch_status: pipelinePatch.dispatch_status,
       is_salvageable: pipelinePatch.is_salvageable,
+      // Price denied → PRICE_REJECTED so scheduler BOOKED/PENDING feeds drop the lead.
+      ...(pipelinePatch.disposition != null ? { disposition: pipelinePatch.disposition } : {}),
       service_quote_type_id: serviceQuoteTypeId,
       quoted_price_cents: quotedPriceCents > 0 ? quotedPriceCents : null,
       distance_miles: travelDistanceMilesValue,
@@ -289,7 +299,8 @@ export function JobDetailDrawer({
       field_verification_required: keyStyleRequiresFieldVerification(keyStyle),
       ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
     }
-  }, [
+  },
+  [
     assignedTechId,
     customerName,
     customerPhone,
@@ -514,7 +525,11 @@ export function JobDetailDrawer({
     setCommittedAssignedTechId(event.assigned_tech_id ?? "")
   }, [])
 
-  async function handleSave(options?: { fromScheduleIntent?: boolean }): Promise<boolean> {
+  async function handleSave(options?: {
+    fromScheduleIntent?: boolean
+    statusOverride?: JobPipelineStatusId
+    assignedTechOverride?: string
+  }): Promise<boolean> {
     if (!jobId) {
       setError("This job could not be found.")
       return false
@@ -526,7 +541,10 @@ export function JobDetailDrawer({
     setSaving(true)
     setError(null)
     try {
-      const body = buildSaveBody()
+      const body = buildSaveBody({
+        statusOverride: options?.statusOverride,
+        assignedTechOverride: options?.assignedTechOverride,
+      })
       const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
       if (scheduledAtIso) {
         body.scheduled_at = scheduledAtIso
@@ -788,6 +806,19 @@ export function JobDetailDrawer({
               onPipelineStatusChange={(status) => {
                 setPipelineStatus(status)
                 if (status !== "DISPATCHED") setAssignedTechId("")
+                // Price denied must persist immediately so Coming Up Next drops the lead.
+                if (status === "salvage_pending") {
+                  void (async () => {
+                    const ok = await handleSave({
+                      statusOverride: "salvage_pending",
+                      assignedTechOverride: "",
+                    })
+                    if (ok) {
+                      setCommittedPipelineStatus("salvage_pending")
+                      setCommittedAssignedTechId("")
+                    }
+                  })()
+                }
               }}
               onAssignedTechChange={(techId) => {
                 setAssignedTechId(techId)

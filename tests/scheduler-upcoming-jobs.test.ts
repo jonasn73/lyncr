@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  isBookableUpcomingDispatchJob,
   listUpcomingSchedulerJobs,
   upcomingJobNeedsDispatch,
 } from "@/lib/scheduler-upcoming-jobs"
@@ -43,11 +44,15 @@ describe("listUpcomingSchedulerJobs", () => {
           id: "later",
           customer_name: "Later",
           scheduled_at: "2026-07-01T13:30:00-04:00",
+          assigned_tech_id: "tech-1",
+          dispatch_status: "DISPATCHED",
         }),
         job({
           id: "sooner",
           customer_name: "Sooner",
           scheduled_at: "2026-07-01T12:45:00-04:00",
+          assigned_tech_id: "tech-1",
+          dispatch_status: "DISPATCHED",
         }),
       ],
       dayEvents: [],
@@ -64,6 +69,8 @@ describe("listUpcomingSchedulerJobs", () => {
         job({
           id: "future",
           scheduled_at: "2026-07-01T14:00:00-04:00",
+          assigned_tech_id: "tech-1",
+          dispatch_status: "DISPATCHED",
         }),
         job({
           id: "active",
@@ -89,6 +96,63 @@ describe("listUpcomingSchedulerJobs", () => {
       poolJobs: [],
     })
     expect(upcoming).toEqual([])
+  })
+
+  it("excludes price denied / salvage and pure quote leads", () => {
+    const upcoming = listUpcomingSchedulerJobs({
+      now,
+      selectedDay,
+      activePipelineJobs: [
+        job({
+          id: "booked",
+          scheduled_at: "2026-07-01T13:00:00-04:00",
+          assigned_tech_id: "tech-1",
+          dispatch_status: "DISPATCHED",
+        }),
+        job({
+          id: "price-denied",
+          scheduled_at: "2026-07-01T14:00:00-04:00",
+          dispatch_status: "salvage_pending",
+          job_status: null,
+        }),
+        job({
+          id: "quote-lead",
+          scheduled_at: "2026-07-01T12:00:00-04:00",
+          dispatch_status: "lead",
+        }),
+        job({
+          id: "lost",
+          scheduled_at: "2026-07-01T11:00:00-04:00",
+          dispatch_status: "lost_lead",
+        }),
+        job({
+          id: "cancelled",
+          scheduled_at: "2026-07-01T15:00:00-04:00",
+          job_status: "cancelled",
+          dispatch_status: "DISPATCHED",
+          assigned_tech_id: "tech-1",
+        }),
+      ],
+      dayEvents: [],
+      poolJobs: [],
+    })
+    expect(upcoming.map((j) => j.id)).toEqual(["booked"])
+  })
+})
+
+describe("isBookableUpcomingDispatchJob", () => {
+  it("rejects PRICE_REJECTED disposition even if dispatch still looks booked", () => {
+    expect(
+      isBookableUpcomingDispatchJob({
+        id: "x",
+        customer_name: "A",
+        scheduled_at: "2026-07-01T13:00:00-04:00",
+        job_type: "Lockout",
+        disposition: "PRICE_REJECTED",
+        dispatch_status: "DISPATCHED",
+        assigned_tech_id: "tech-1",
+      })
+    ).toBe(false)
   })
 })
 

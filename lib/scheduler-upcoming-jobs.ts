@@ -1,5 +1,6 @@
 // Upcoming jobs for the dispatch live status bar (client-safe, no I/O).
 
+import { isCrmSalvageOrQuoteDispatch } from "@/lib/job-pool"
 import {
   resolveOperatorJobPhase,
   schedulerLifecyclePhase,
@@ -29,6 +30,7 @@ type JobSource = {
   job_type: string | null
   job_status?: string | null
   dispatch_status?: string | null
+  disposition?: string | null
   assigned_tech_id?: string | null
   assigned_tech_name?: string | null
 }
@@ -46,8 +48,40 @@ function operatorPhaseFor(job: JobSource): OperatorJobPhase {
     job_status: job.job_status,
     dispatch_status: job.dispatch_status,
     assigned_tech_id: job.assigned_tech_id,
+    disposition: job.disposition,
     scheduled_at: job.scheduled_at,
   })
+}
+
+/**
+ * Bookable dispatch work only — exclude salvage, quote leads, and closed jobs.
+ * Price denied / PRICE_REJECTED belong in CRM Recover, not overdue Coming Up Next.
+ */
+export function isBookableUpcomingDispatchJob(job: JobSource): boolean {
+  // Terminal close-outs never belong in Coming Up Next.
+  const phase = phaseFor(job)
+  const operatorPhase = operatorPhaseFor(job)
+  if (phase === "completed") return false
+  if (
+    operatorPhase === "done" ||
+    operatorPhase === "cancelled" ||
+    operatorPhase === "referred" ||
+    operatorPhase === "unresolved"
+  ) {
+    return false
+  }
+  // Pure quotes + price-denied / lost_lead salvage are CRM work, not dispatch queue.
+  if (operatorPhase === "quote") return false
+  if (
+    isCrmSalvageOrQuoteDispatch({
+      dispatch_status: job.dispatch_status,
+      job_status: job.job_status,
+      disposition: job.disposition,
+    })
+  ) {
+    return false
+  }
+  return true
 }
 
 function scheduledOnDay(iso: string | null, day: Date): boolean {
@@ -110,9 +144,11 @@ export function listUpcomingSchedulerJobs(params: {
   const candidates: UpcomingSchedulerJob[] = []
 
   for (const job of merged) {
+    // Drop salvage / quote / cancelled — never show as overdue NEEDS DISPATCH.
+    if (!isBookableUpcomingDispatchJob(job)) continue
+
     const phase = phaseFor(job)
     const operatorPhase = operatorPhaseFor(job)
-    if (phase === "completed" || operatorPhase === "done") continue
 
     const onSelectedDay =
       scheduledOnDay(job.scheduled_at, params.selectedDay) ||

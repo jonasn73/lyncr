@@ -81,6 +81,8 @@ type PatchSchedulerBody = {
   baseline_quote_cents?: number | null
   dispatch_status?: string | null
   is_salvageable?: boolean | null
+  /** Operator outcome stamp — PRICE_REJECTED moves the lead to CRM salvage. */
+  disposition?: string | null
 }
 
 function isFullJobEdit(body: PatchSchedulerBody): boolean {
@@ -108,7 +110,8 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
     body.discount_applied !== undefined ||
     body.baseline_quote_cents !== undefined ||
     body.dispatch_status !== undefined ||
-    body.is_salvageable !== undefined
+    body.is_salvageable !== undefined ||
+    body.disposition !== undefined
   )
 }
 
@@ -226,6 +229,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
           : undefined,
       dispatchStatus: body.dispatch_status,
       isSalvageable: body.is_salvageable,
+      disposition: body.disposition,
     })
 
     if (!event) return NextResponse.json({ error: "Job not found" }, { status: 404 })

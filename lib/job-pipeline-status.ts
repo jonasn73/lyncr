@@ -1,7 +1,10 @@
 // Job pipeline status labels and helpers for the scheduler overview dispatch controller.
 
-import { neighborhoodFromLocation } from "@/lib/job-pool"
+import { neighborhoodFromLocation, SALVAGE_PENDING_STATUS } from "@/lib/job-pool"
 import type { SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
+
+/** Disposition stamps used by the pipeline patch (mirrors LeadDisposition in lib/db). */
+export type PipelineDispositionStamp = "BOOKED" | "PENDING_TIME" | "PRICE_REJECTED" | "FAILED"
 
 /** Structural dispatch_status values exposed in the overview pipeline dropdown. */
 export type JobPipelineStatusId =
@@ -56,7 +59,7 @@ export function pipelineStatusFromJob(params: {
   if (dispatch === "completed" || dispatch === "cancelled" || dispatch === "canceled" || dispatch === "referred" || dispatch === "unresolved") {
     return "completed"
   }
-  if (dispatch === "salvage_pending") return "salvage_pending"
+  if (dispatch === SALVAGE_PENDING_STATUS || dispatch === "lost_lead") return "salvage_pending"
   if (dispatch === "awaiting_time") return "awaiting_time"
   if (dispatch === "dispatched" || Boolean(params.assigned_tech_id?.trim())) return "DISPATCHED"
   return "unassigned_pool"
@@ -66,16 +69,23 @@ export function pipelineStatusFromJob(params: {
 export function pipelineStatusPatch(status: JobPipelineDropdownStatusId): {
   dispatch_status: string
   is_salvageable: boolean
+  /** When set, stamps ai_leads.disposition (PRICE_REJECTED leaves scheduler BOOKED/PENDING feeds). */
+  disposition?: PipelineDispositionStamp | null
 } {
   switch (status) {
     case "unassigned_pool":
-      return { dispatch_status: "unassigned_pool", is_salvageable: false }
+      return { dispatch_status: "unassigned_pool", is_salvageable: false, disposition: null }
     case "DISPATCHED":
-      return { dispatch_status: "DISPATCHED", is_salvageable: false }
+      return { dispatch_status: "DISPATCHED", is_salvageable: false, disposition: null }
     case "awaiting_time":
-      return { dispatch_status: "awaiting_time", is_salvageable: false }
+      return { dispatch_status: "awaiting_time", is_salvageable: false, disposition: null }
     case "salvage_pending":
-      return { dispatch_status: "salvage_pending", is_salvageable: true }
+      // Align with call-disposition + P2 CRM Recover — not Coming Up Next.
+      return {
+        dispatch_status: SALVAGE_PENDING_STATUS,
+        is_salvageable: true,
+        disposition: "PRICE_REJECTED",
+      }
   }
 }
 

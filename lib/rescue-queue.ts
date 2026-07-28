@@ -1,5 +1,4 @@
-// Price-denied rescue queue helpers for the scheduler hopper.
-
+import { SALVAGE_PENDING_STATUS } from "@/lib/job-pool"
 import { recoveryStepPrices } from "@/lib/price-negotiation"
 import type { UnassignedPoolJob } from "@/lib/types"
 
@@ -7,7 +6,7 @@ import type { UnassignedPoolJob } from "@/lib/types"
 export function isPriceDeniedRescueJob(job: {
   dispatch_status?: string | null
 }): boolean {
-  return (job.dispatch_status ?? "").trim().toLowerCase() === "salvage_pending"
+  return (job.dispatch_status ?? "").trim().toLowerCase() === SALVAGE_PENDING_STATUS
 }
 
 /** Suggested rescue offer in cents (baseline minus ~15%). */

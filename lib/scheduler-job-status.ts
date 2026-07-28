@@ -93,13 +93,15 @@ export function resolveOperatorJobPhase(params: OperatorJobPhaseInput): Operator
   if (status === "arrived" || status === "on_site") return "on_site"
   if (status === "en_route") return "en_route"
 
-  // Open quote / callback lead — before hopper pool.
+  // Open quote / callback / price-denied salvage — CRM Recover, not hopper.
   if (
     dispatch === "lead" ||
     dispatch === "lost_lead" ||
     dispatch === "unassigned_callback" ||
+    dispatch === "salvage_pending" ||
     disposition === "lead" ||
     disposition === "pending_time" ||
+    disposition === "price_rejected" ||
     status === "lead" ||
     status.includes("price")
   ) {

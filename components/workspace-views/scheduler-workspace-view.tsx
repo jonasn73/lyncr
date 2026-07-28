@@ -23,6 +23,7 @@ import {
   dateAtLocalHour,
 } from "@/lib/scheduler-utils"
 import { isActivePipelineFeedJob, isHopperPoolJob } from "@/lib/scheduler-job-status"
+import { isCrmSalvageOrQuoteDispatch } from "@/lib/job-pool"
 import { schedulerEventToPoolJob } from "@/lib/job-pipeline-status"
 import {
   buildCrmReturnUrl,
@@ -509,8 +510,32 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   )
 
   function applyJobEventUpdate(event: SchedulerEvent) {
-    const inHopper = isHopperPoolJob(event)
     setHighlightId(event.id)
+
+    // Price denied / CRM quote salvage — leave calendar + hopper; live in CRM Recover.
+    const isSalvageOrQuote = isCrmSalvageOrQuoteDispatch({
+      dispatch_status: event.dispatch_status,
+      job_status: event.job_status,
+      disposition: event.disposition,
+    })
+    if (isSalvageOrQuote) {
+      setEvents((prev) => prev.filter((ev) => ev.id !== event.id))
+      void mutatePool(
+        (current) => (current ?? []).filter((j) => j.id !== event.id),
+        { revalidate: true }
+      )
+      void mutateActivePipeline(
+        (current) => (current ?? []).filter((j) => j.id !== event.id),
+        { revalidate: true }
+      )
+      // Keep the drawer open on the saved salvage row so the operator can close it.
+      setDrawerScheduledEvent(event)
+      setDrawerPoolJob(null)
+      refreshSchedulerData()
+      return
+    }
+
+    const inHopper = isHopperPoolJob(event)
 
     if (inHopper) {
       setDrawerPoolJob(schedulerEventToPoolJob(event))

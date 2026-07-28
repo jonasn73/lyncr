@@ -9229,6 +9229,8 @@ export async function updateOwnerSchedulerJob(params: {
   fieldVerificationRequired?: boolean | null
   dispatchStatus?: string | null
   isSalvageable?: boolean | null
+  /** When PRICE_REJECTED, lead leaves BOOKED/PENDING_TIME scheduler feeds. */
+  disposition?: string | null
 }): Promise<import("@/lib/types").SchedulerEvent | null> {
   const sql = getSql()
   const existingRows = await sql`
@@ -9366,6 +9368,16 @@ export async function updateOwnerSchedulerJob(params: {
   if (params.isSalvageable !== undefined) {
     collectedPatch.is_salvageable = params.isSalvageable === true
   }
+  // Mirror disposition into collected so CRM + salvage queries stay in sync.
+  const dispositionStamp = params.disposition?.trim().toUpperCase() || null
+  if (
+    dispositionStamp === "BOOKED" ||
+    dispositionStamp === "PENDING_TIME" ||
+    dispositionStamp === "PRICE_REJECTED" ||
+    dispositionStamp === "FAILED"
+  ) {
+    collectedPatch.disposition = dispositionStamp
+  }
   if (
     params.serviceQuoteTypeId?.trim() &&
     params.quotedPriceCents != null &&
@@ -9437,6 +9449,23 @@ export async function updateOwnerSchedulerJob(params: {
     } catch (e) {
       if (!isMissingSchedulerColumnError(e)) throw e
     }
+  }
+  // Price denied / salvage — stamp disposition so Coming Up Next + calendar drop the lead.
+  if (
+    dispositionStamp === "BOOKED" ||
+    dispositionStamp === "PENDING_TIME" ||
+    dispositionStamp === "PRICE_REJECTED" ||
+    dispositionStamp === "FAILED"
+  ) {
+    const dispatchForDisposition =
+      params.dispatchStatus?.trim() ||
+      (dispositionStamp === "PRICE_REJECTED" ? "salvage_pending" : null)
+    await applyLeadDisposition(params.leadId, {
+      disposition: dispositionStamp,
+      dispatch_status: dispatchForDisposition,
+      is_salvageable:
+        params.isSalvageable === true || dispositionStamp === "PRICE_REJECTED",
+    }).catch((e) => console.warn("[updateOwnerSchedulerJob] applyLeadDisposition", e))
   }
 
   const explicitDispatch = params.dispatchStatus?.trim().toLowerCase()
