@@ -962,6 +962,8 @@ export interface CrmServiceHistoryItem {
   scheduled_at: string | null
   dispatch_status: string | null
   is_open_lead: boolean
+  /** Completed job still needs Thanks + review SMS (Latest backup on CRM). */
+  needs_review_sms?: boolean
 }
 
 // --- Routing Configuration ---

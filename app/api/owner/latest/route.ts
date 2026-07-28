@@ -5,6 +5,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import {
   getDefaultOrganizationForOwner,
   getOrganizationForOwner,
+  listOwnerJobsNeedingReviewSms,
   listOwnerSchedulerEvents,
   listSmsMessagesForOrganization,
   listSmsMessagesForOwner,
@@ -16,7 +17,7 @@ import {
   type LatestCompletedJobHint,
 } from "@/lib/latest-customer-actions"
 import { listReviewLinkClickHintsForOwner } from "@/lib/review-link-token"
-import { buildTodayJustFinishedJobs, todayLocalRangeIso } from "@/lib/today-board"
+import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
 function phoneKey(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10)
@@ -39,9 +40,15 @@ export async function GET(req: NextRequest) {
         ? await getOrganizationForOwner(organizationId, userId)
         : null
 
-    const { fromIso, toIso } = todayLocalRangeIso(new Date())
+    // Browser TZ — Vercel runs UTC; calendar “today” must match the owner’s day.
+    const timezone = sanitizeIanaTimezone(req.nextUrl.searchParams.get("timezone"))
 
-    const [orgMessages, dayEvents, reviewHints] = await Promise.all([
+    // Name hints: recent scheduler window (48h), not UTC midnight day bounds.
+    const toMs = Date.now()
+    const fromIso = new Date(toMs - 48 * 60 * 60 * 1000).toISOString()
+    const toIso = new Date(toMs).toISOString()
+
+    const [orgMessages, dayEvents, reviewHints, reviewJobs] = await Promise.all([
       org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
       listOwnerSchedulerEvents({
         ownerUserId: userId,
@@ -50,17 +57,26 @@ export async function GET(req: NextRequest) {
         limit: 80,
       }),
       listReviewLinkClickHintsForOwner(userId, 40),
+      // Completed today (owner TZ) with review_sms_sent_at still null — includes Jason after 8pm ET.
+      listOwnerJobsNeedingReviewSms({
+        ownerUserId: userId,
+        timezone,
+        organizationId: org?.id ?? null,
+        limit: 12,
+      }),
     ])
 
     // If this workspace has no SMS rows, still show owner-wide texts (null/other org).
     const messages =
       orgMessages.length > 0 ? orgMessages : await listSmsMessagesForOwner(userId, 120)
 
-    // Map phones → customer names + completed job ids from today’s calendar.
+    // Map phones → customer names from recent calendar + completed review jobs.
     const nameHints: LatestActionNameHint[] = []
-    const sortedEvents = [...dayEvents].sort((a, b) => {
-      const aT = Date.parse(a.scheduled_at || a.created_at) || 0
-      const bT = Date.parse(b.scheduled_at || b.created_at) || 0
+    const sortedEvents = [...dayEvents, ...reviewJobs].sort((a, b) => {
+      const aT =
+        Date.parse(a.completed_at || a.scheduled_at || a.created_at) || 0
+      const bT =
+        Date.parse(b.completed_at || b.scheduled_at || b.created_at) || 0
       return bT - aT
     })
     for (const ev of sortedEvents) {
@@ -76,20 +92,16 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const finishedJobs = buildTodayJustFinishedJobs(dayEvents, 6)
-    const completedJobs: LatestCompletedJobHint[] = finishedJobs.map((job) => {
-      const ev = dayEvents.find((e) => e.id === job.id)
-      return {
-        id: job.id,
-        customerPhone: job.customerPhone,
-        customerName: job.customerName,
-        location: job.location,
-        summary: job.summary,
-        at: job.scheduledAt || new Date().toISOString(),
-        reviewSmsSentAt: ev?.review_sms_sent_at ?? null,
-        reviewLinkOpenedAt: ev?.review_link_opened_at ?? null,
-      }
-    })
+    const completedJobs: LatestCompletedJobHint[] = reviewJobs.map((ev) => ({
+      id: ev.id,
+      customerPhone: ev.customer_phone,
+      customerName: ev.customer_name,
+      location: ev.location,
+      summary: ev.summary,
+      at: ev.completed_at || ev.scheduled_at || ev.created_at || new Date().toISOString(),
+      reviewSmsSentAt: ev.review_sms_sent_at ?? null,
+      reviewLinkOpenedAt: ev.review_link_opened_at ?? null,
+    }))
 
     // For recent SMS phones missing a today-calendar name, look up the latest job.
     const known = new Set(
@@ -140,6 +152,7 @@ export async function GET(req: NextRequest) {
       data: {
         latest,
         organization_id: org?.id ?? null,
+        timezone,
       },
     })
   } catch (e) {

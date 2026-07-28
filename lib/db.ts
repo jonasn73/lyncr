@@ -5355,6 +5355,9 @@ export async function listCrmServiceHistoryForCustomer(params: {
         row.created_at instanceof Date
           ? row.created_at.toISOString()
           : String(row.created_at ?? "")
+      const reviewSent = String(collected.review_sms_sent_at ?? "").trim()
+      const needsReviewSms =
+        (js === "completed" || js === "done" || js === "paid") && !reviewSent
       return {
         id: String(row.id),
         summary: row.summary != null ? String(row.summary) : null,
@@ -5373,6 +5376,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,
         is_open_lead: isOpenLead,
+        needs_review_sms: needsReviewSms,
       }
     })
   } catch (e) {
@@ -8779,6 +8783,104 @@ function syntheticSchedulerEventFromCreate(params: {
 }
 
 /** Calendar events for the owner scheduler (BOOKED + PENDING_TIME in date range). */
+/**
+ * Completed jobs that still need a Thanks + review SMS.
+ * Uses the owner's IANA timezone for “today” (not the UTC server clock) and
+ * prefers collected.completed_at so pool jobs / reschedules still qualify.
+ */
+export async function listOwnerJobsNeedingReviewSms(params: {
+  ownerUserId: string
+  timezone?: string | null
+  organizationId?: string | null
+  limit?: number
+}): Promise<import("@/lib/types").SchedulerEvent[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(params.limit ?? 12, 1), 40)
+  const tz = sanitizeIanaTimezone(params.timezone)
+  const orgId = params.organizationId?.trim() || null
+  try {
+    const rows = orgId
+      ? await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${params.ownerUserId}
+            AND LOWER(TRIM(COALESCE(l.job_status, ''))) = 'completed'
+            AND NULLIF(TRIM(COALESCE(l.collected->>'review_sms_sent_at', '')), '') IS NULL
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+            AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
+            AND date_trunc(
+              'day',
+              timezone(
+                ${tz},
+                COALESCE(
+                  CASE
+                    WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
+                      THEN (l.collected->>'completed_at')::timestamptz
+                    ELSE NULL
+                  END,
+                  l.created_at
+                )
+              )
+            ) = date_trunc('day', timezone(${tz}, now()))
+          ORDER BY COALESCE(
+            CASE
+              WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
+                THEN (l.collected->>'completed_at')::timestamptz
+              ELSE NULL
+            END,
+            l.created_at
+          ) DESC
+          LIMIT ${lim}
+        `
+      : await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.disposition, l.scheduled_at, l.created_at,
+                 l.assigned_tech_id, l.job_status, l.dispatch_status, t.name AS assigned_tech_name
+          FROM ai_leads l
+          LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
+          WHERE l.user_id = ${params.ownerUserId}
+            AND LOWER(TRIM(COALESCE(l.job_status, ''))) = 'completed'
+            AND NULLIF(TRIM(COALESCE(l.collected->>'review_sms_sent_at', '')), '') IS NULL
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+            AND date_trunc(
+              'day',
+              timezone(
+                ${tz},
+                COALESCE(
+                  CASE
+                    WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
+                      THEN (l.collected->>'completed_at')::timestamptz
+                    ELSE NULL
+                  END,
+                  l.created_at
+                )
+              )
+            ) = date_trunc('day', timezone(${tz}, now()))
+          ORDER BY COALESCE(
+            CASE
+              WHEN NULLIF(TRIM(COALESCE(l.collected->>'completed_at', '')), '') IS NOT NULL
+                THEN (l.collected->>'completed_at')::timestamptz
+              ELSE NULL
+            END,
+            l.created_at
+          ) DESC
+          LIMIT ${lim}
+        `
+    return rows.map((r) => schedulerEventFromRow(r as Record<string, unknown>))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || isMissingSchedulerColumnError(e)) return []
+    if (pgErrorCode(e) === "42703") return []
+    throw e
+  }
+}
+
 export async function listOwnerSchedulerEvents(params: {
   ownerUserId: string
   fromIso: string

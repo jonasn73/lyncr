@@ -215,4 +215,28 @@ describe("buildLatestCustomerActions", () => {
     expect(isHotLatestAction({ event: "sent" })).toBe(false)
     expect(isHotLatestAction({ event: "replied" } as never)).toBe(true)
   })
+
+  it("keeps job_finished when completed_at is evening ET (UTC next calendar day)", () => {
+    // 8:45pm ET Jul 27 = 00:45 UTC Jul 28 — server UTC “today” would miss this job.
+    const latest = buildLatestCustomerActions({
+      nowMs: Date.parse("2026-07-28T00:45:00.000Z"),
+      messages: [],
+      completedJobs: [
+        {
+          id: "0649fe4d-d5e6-4994-9f17-d38ea6b17662",
+          customerPhone: "+15023818063",
+          customerName: "Jason",
+          location: null,
+          summary: "Key replacement — Origination",
+          at: "2026-07-27T23:50:55.807Z",
+          reviewSmsSentAt: null,
+        },
+      ],
+      limit: 6,
+    })
+    expect(latest).toHaveLength(1)
+    expect(latest[0]?.event).toBe("job_finished")
+    expect(latest[0]?.customerName).toBe("Jason")
+    expect(latest[0]?.completedJobId).toBe("0649fe4d-d5e6-4994-9f17-d38ea6b17662")
+  })
 })

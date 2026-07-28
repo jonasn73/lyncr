@@ -15,6 +15,7 @@ import {
   Phone,
   Plus,
   Search,
+  Star,
   UserRound,
   X,
 } from "lucide-react"
@@ -156,6 +157,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [saveBusy, setSaveBusy] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
+  // Job id while CRM “Send review” backup is in flight.
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null)
 
   useEffect(() => {
     if (tabParam === "leads") setFilter("leads")
@@ -426,6 +429,28 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       scheduled_at: null,
     })
     if (ok) cancelEditAppointment()
+  }
+
+  /** Backup when Lines Latest is empty — same Thanks + review endpoint. */
+  const sendReviewSms = async (leadId: string) => {
+    setReviewBusyId(leadId)
+    setSaveMsg(null)
+    try {
+      const res = await fetch(
+        `/api/owner/jobs/${encodeURIComponent(leadId)}/thanks-review`,
+        { method: "POST", credentials: "include" }
+      )
+      const json = (await res.json().catch(() => null)) as { error?: string } | null
+      if (!res.ok) throw new Error(json?.error || "Could not send review SMS")
+      setHistory((prev) =>
+        prev.map((h) => (h.id === leadId ? { ...h, needs_review_sms: false } : h))
+      )
+      setSaveMsg("Thanks + review SMS sent")
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Could not send review SMS")
+    } finally {
+      setReviewBusyId(null)
+    }
   }
 
   const closeProfile = () => setSelectedId(null)
@@ -790,6 +815,22 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         </button>
                       )
                     })()}
+                    {item.needs_review_sms ? (
+                      <button
+                        type="button"
+                        disabled={reviewBusyId === item.id}
+                        onClick={() => void sendReviewSms(item.id)}
+                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold text-amber-300/95 hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-50"
+                        title="Send thanks + Google review SMS"
+                      >
+                        {reviewBusyId === item.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Star className="h-3 w-3" />
+                        )}
+                        Send review
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               ))}

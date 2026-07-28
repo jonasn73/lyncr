@@ -7,6 +7,7 @@ import {
   isHotLatestAction,
   type LatestCustomerAction,
 } from "@/lib/latest-customer-actions"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 type LatestCache = { items: LatestCustomerAction[] }
@@ -47,11 +48,14 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
   if (existing) return existing
 
   const promise = (async () => {
-    const orgQs =
-      organizationId && !organizationId.startsWith("legacy-")
-        ? `?organization_id=${encodeURIComponent(organizationId)}`
-        : ""
-    const res = await fetch(`/api/owner/latest${orgQs}`, {
+    const params = new URLSearchParams()
+    if (organizationId && !organizationId.startsWith("legacy-")) {
+      params.set("organization_id", organizationId)
+    }
+    // Owner’s local calendar day — server UTC must not drop evening completions.
+    params.set("timezone", resolveBrowserTimezone())
+    const qs = params.toString()
+    const res = await fetch(`/api/owner/latest${qs ? `?${qs}` : ""}`, {
       credentials: "include",
       cache: "no-store",
     })
