@@ -3,7 +3,10 @@
 // Shared Latest feed for Lines — one fetch + session cache (mobile/desktop twins share this).
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react"
-import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
+import {
+  isHotLatestAction,
+  type LatestCustomerAction,
+} from "@/lib/latest-customer-actions"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 type LatestCache = { items: LatestCustomerAction[] }
@@ -14,17 +17,25 @@ function cacheKey(organizationId: string | null | undefined): string {
   return persistedCacheKey("owner-latest", id)
 }
 
+function sanitizeItems(items: unknown): LatestCustomerAction[] {
+  if (!Array.isArray(items)) return []
+  // Drop legacy outbound “sent” cards from older session cache.
+  return items.filter(isHotLatestAction)
+}
+
 function readLatestCache(organizationId: string | null | undefined): LatestCustomerAction[] | null {
   const cached = readPersistedCache<LatestCache>(cacheKey(organizationId))
   if (!cached || !Array.isArray(cached.items)) return null
-  return cached.items
+  return sanitizeItems(cached.items)
 }
 
 function writeLatestCache(
   organizationId: string | null | undefined,
   items: LatestCustomerAction[]
 ) {
-  writePersistedCache(cacheKey(organizationId), { items } satisfies LatestCache)
+  writePersistedCache(cacheKey(organizationId), {
+    items: sanitizeItems(items),
+  } satisfies LatestCache)
 }
 
 /** In-flight dedupe so compact + desktop card mounts don’t double-hit the API. */
@@ -50,7 +61,7 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
     if (!res.ok || !json?.data) {
       throw new Error("latest-load-failed")
     }
-    const items = json.data.latest ?? []
+    const items = sanitizeItems(json.data.latest ?? [])
     writeLatestCache(organizationId, items)
     return items
   })().finally(() => {

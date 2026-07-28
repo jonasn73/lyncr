@@ -1,4 +1,4 @@
-// GET /api/owner/latest — recent customer SMS + finished jobs for the Lines “Latest” card.
+// GET /api/owner/latest — hot Latest for Lines: unreplied inbound + jobs needing review SMS.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"

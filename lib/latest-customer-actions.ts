@@ -1,4 +1,4 @@
-// Build “Latest” rows for Lines: most recent customer SMS action per thread.
+// Build “Latest” rows for Lines: hot work only — unreplied inbound + jobs needing review SMS.
 
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
@@ -6,15 +6,18 @@ import type { SmsMessage } from "@/lib/types"
 /** Kind of outbound text (heuristic from body), or a finished job with no text yet. */
 export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other" | "job"
 
-/** One thread’s latest action for the Latest strip. */
+/**
+ * One Latest row. Only `replied` (needs operator reply) and `job_finished`
+ * (needs Thanks + review SMS) are surfaced — outbound “we sent X” never stays here.
+ */
 export type LatestCustomerAction = {
   id: string
   customerPhone: string
   customerName: string
-  /** What happened most recently. */
-  event: "sent" | "replied" | "job_finished"
+  /** What needs attention. */
+  event: "replied" | "job_finished"
   kind: LatestSmsKind
-  /** e.g. “Review link sent to Jessica” */
+  /** e.g. “David replied” / “Jason · job finished” */
   headline: string
   /** Short status under the headline. */
   statusLine: string
@@ -23,7 +26,7 @@ export type LatestCustomerAction = {
   deliveryLabel: string | null
   reviewLinkOpened: boolean
   reviewLinkClicks: number
-  /** Last outbound in the thread (for detail + delivery). */
+  /** Last outbound in the thread (for detail + delivery context). */
   lastOutbound: {
     id: string
     body: string
@@ -53,7 +56,7 @@ export type LatestCompletedJobHint = {
   summary: string | null
   /** When the job finished / was scheduled (for sorting). */
   at: string
-  /** Thanks + review already sent (job stamp), even if inbox row is missing. */
+  /** Thanks + review already sent (job stamp) — excludes from Latest. */
   reviewSmsSentAt?: string | null
   /** Owner confirmed / tracked review open (job stamp). */
   reviewLinkOpenedAt?: string | null
@@ -78,21 +81,6 @@ export function classifyOutboundSmsKind(body: string): LatestSmsKind {
   if (/\brunning late\b|\barrived\b|\bpaused\b|\bon site\b/.test(b)) return "status"
   if (/\bbooked\b|\bappointment\b|\bconfirmed\b|\bscheduled\b/.test(b)) return "booking"
   return "other"
-}
-
-function kindLabel(kind: LatestSmsKind): string {
-  switch (kind) {
-    case "review":
-      return "Review link"
-    case "booking":
-      return "Booking text"
-    case "en_route":
-      return "On the way"
-    case "status":
-      return "Status update"
-    default:
-      return "Text"
-  }
 }
 
 type ThreadBundle = {
@@ -140,9 +128,16 @@ export type LatestReviewHint = {
   click_count: number
 }
 
+/** Default: drop unreplied inbound older than this (stale “2d ago” noise). */
+export const LATEST_INBOUND_MAX_AGE_HOURS = 72
+
 /**
- * Turn recent SMS + today’s completed jobs into Latest rows (newest first).
- * SMS threads win when both exist for the same phone.
+ * Hot Latest only:
+ * 1) Unreplied inbound SMS (customer last messaged you) — age-capped
+ * 2) Today’s completed jobs that still need a Thanks + review text
+ *
+ * Outbound-only threads (“Review link sent…”) are never listed.
+ * Cap ~4–6; unreplied first, then action-needed jobs.
  */
 export function buildLatestCustomerActions(params: {
   messages: SmsMessage[]
@@ -150,10 +145,17 @@ export function buildLatestCustomerActions(params: {
   reviewHints?: LatestReviewHint[]
   completedJobs?: LatestCompletedJobHint[]
   limit?: number
+  /** Drop unreplied inbound older than this many hours (default 72). */
+  maxAgeHours?: number
+  /** Injected clock for tests. */
+  nowMs?: number
 }): LatestCustomerAction[] {
-  const limit = params.limit ?? 5
+  const limit = Math.min(Math.max(params.limit ?? 5, 1), 6)
+  const maxAgeHours = params.maxAgeHours ?? LATEST_INBOUND_MAX_AGE_HOURS
+  const nowMs = params.nowMs ?? Date.now()
+  const inboundCutoff = nowMs - maxAgeHours * 60 * 60 * 1000
+
   const nameByPhone = new Map<string, string>()
-  const jobByPhone = new Map<string, string>()
   const openedByPhone = new Map<string, string>()
   for (const h of params.nameHints ?? []) {
     const k = phoneKey(h.phone)
@@ -161,12 +163,11 @@ export function buildLatestCustomerActions(params: {
     const n = (h.name || "").trim()
     // First non-empty name wins (hints should be newest-first).
     if (n && !nameByPhone.has(k)) nameByPhone.set(k, n)
-    // Prefer any completed job id for Thanks + review.
-    if (h.completedJobId && !jobByPhone.has(k)) jobByPhone.set(k, h.completedJobId)
     if (h.reviewLinkOpenedAt?.trim() && !openedByPhone.has(k)) {
       openedByPhone.set(k, h.reviewLinkOpenedAt.trim())
     }
   }
+
   const reviewByPhone = new Map<string, number>()
   for (const r of params.reviewHints ?? []) {
     const k = phoneKey(r.phone)
@@ -174,15 +175,32 @@ export function buildLatestCustomerActions(params: {
     reviewByPhone.set(k, Math.max(reviewByPhone.get(k) ?? 0, r.click_count))
   }
 
+  // Jobs that still need a review text (today-scoped by the API).
+  const jobsNeedingReview = (params.completedJobs ?? []).filter(
+    (job) => !(job.reviewSmsSentAt || "").trim()
+  )
+  const reviewJobByPhone = new Map<string, LatestCompletedJobHint>()
+  for (const job of jobsNeedingReview) {
+    const k = phoneKey(job.customerPhone || "")
+    if (k && !reviewJobByPhone.has(k)) reviewJobByPhone.set(k, job)
+  }
+
   const threads = groupThreads(params.messages)
   const out: LatestCustomerAction[] = []
-  const phonesWithSms = new Set<string>()
+  const phonesWithReply = new Set<string>()
 
   for (const thread of threads) {
-    const key = phoneKey(thread.customerPhone)
-    if (key) phonesWithSms.add(key)
-    const name = nameByPhone.get(key) || "Customer"
     const last = thread.lastMessage
+    // Outbound-only / last-touch-was-us → hide immediately (not hot work).
+    if (last.direction !== "inbound") continue
+
+    const atMs = Date.parse(last.created_at) || 0
+    if (atMs && atMs < inboundCutoff) continue
+
+    const key = phoneKey(thread.customerPhone)
+    if (key) phonesWithReply.add(key)
+
+    const name = (key && nameByPhone.get(key)) || "Customer"
     const lastOutbound =
       [...thread.messages].reverse().find((m) => m.direction === "outbound") ?? null
     const lastInbound =
@@ -190,51 +208,26 @@ export function buildLatestCustomerActions(params: {
 
     const kind = lastOutbound ? classifyOutboundSmsKind(lastOutbound.body) : "other"
     const deliveryLabel = lastOutbound ? formatSmsDeliveryLabel(lastOutbound) : null
-    const clicks = reviewByPhone.get(key) ?? 0
-    const openedStamp = openedByPhone.get(key)
+    const clicks = (key && reviewByPhone.get(key)) || 0
+    const openedStamp = key ? openedByPhone.get(key) : undefined
     const reviewOpened = clicks > 0 || Boolean(openedStamp)
-    const event: "sent" | "replied" = last.direction === "inbound" ? "replied" : "sent"
 
-    let headline: string
-    if (event === "replied") {
-      headline = `${name} replied`
-    } else if (kind === "review") {
-      headline = `Review link sent to ${name}`
-    } else {
-      headline = `${kindLabel(kind)} sent to ${name}`
-    }
+    // Only attach a job id when today’s completed job still needs a review text.
+    const reviewJob = key ? reviewJobByPhone.get(key) : undefined
+    const completedJobId = reviewJob?.id ?? null
 
-    const statusParts: string[] = []
-    if (event === "replied") {
-      statusParts.push("New reply")
-      if (deliveryLabel && lastOutbound) statusParts.push(`Prior text: ${deliveryLabel}`)
-    } else if (deliveryLabel) {
-      statusParts.push(deliveryLabel)
-    }
-    if (kind === "review") {
-      if (reviewOpened) {
-        statusParts.push(clicks > 1 ? `Link opened (${clicks}×)` : "Link opened")
-      } else if (event === "sent") {
-        statusParts.push("Waiting for open")
-      }
-    }
-    const statusLine = statusParts.join(" · ") || "Sent"
-    const preview =
-      event === "replied" && lastInbound
-        ? truncate(lastInbound.body)
-        : lastOutbound
-          ? truncate(lastOutbound.body)
-          : truncate(last.body)
+    const statusParts: string[] = ["Needs reply"]
+    if (deliveryLabel && lastOutbound) statusParts.push(`Prior text: ${deliveryLabel}`)
 
     out.push({
-      id: `${key}-${last.id}`,
+      id: `${key || thread.customerPhone}-reply-${last.id}`,
       customerPhone: thread.customerPhone,
       customerName: name,
-      event,
+      event: "replied",
       kind,
-      headline,
-      statusLine,
-      preview,
+      headline: `${name} replied`,
+      statusLine: statusParts.join(" · "),
+      preview: lastInbound ? truncate(lastInbound.body) : truncate(last.body),
       at: last.created_at,
       deliveryLabel,
       reviewLinkOpened: reviewOpened,
@@ -258,53 +251,20 @@ export function buildLatestCustomerActions(params: {
             created_at: lastInbound.created_at,
           }
         : null,
-      completedJobId: jobByPhone.get(key) ?? null,
+      completedJobId,
     })
   }
 
-  // Completed jobs with no SMS thread yet — same “Just finished” surface as before.
-  for (const job of params.completedJobs ?? []) {
+  // Completed today, review SMS not sent yet — amber “Send thanks + review” slot.
+  for (const job of jobsNeedingReview) {
     const phone = (job.customerPhone || "").trim()
     const key = phoneKey(phone)
-    if (key && phonesWithSms.has(key)) continue
-    const name = (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
-    const reviewSentAt = (job.reviewSmsSentAt || "").trim() || null
-    const openedAt = (job.reviewLinkOpenedAt || "").trim() || null
-    const clicks = key ? reviewByPhone.get(key) ?? 0 : 0
-    const reviewOpened = clicks > 0 || Boolean(openedAt)
-    if (reviewSentAt) {
-      out.push({
-        id: `job-${job.id}-review`,
-        customerPhone: phone,
-        customerName: name,
-        event: "sent",
-        kind: "review",
-        headline: `Review link sent to ${name}`,
-        statusLine: reviewOpened
-          ? clicks > 1
-            ? `Sent · Link opened (${clicks}×)`
-            : "Sent · Link opened"
-          : "Sent · Waiting for open",
-        preview: (job.location || job.summary || "Thanks + review").trim(),
-        at: reviewSentAt,
-        deliveryLabel: "Sent",
-        reviewLinkOpened: reviewOpened,
-        reviewLinkClicks: Math.max(clicks, reviewOpened ? 1 : 0),
-        lastOutbound: {
-          id: `lead-review-${job.id}`,
-          body: "Thanks + review text",
-          status: "sent",
-          created_at: reviewSentAt,
-          delivered_at: null,
-          failed_at: null,
-          delivery_error: null,
-          deliveryTracked: false,
-        },
-        lastInbound: null,
-        completedJobId: job.id,
-      })
-      continue
-    }
+    // Same phone already in Latest as unreplied inbound — keep reply priority.
+    if (key && phonesWithReply.has(key)) continue
+
+    const name =
+      (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
+
     out.push({
       id: `job-${job.id}`,
       customerPhone: phone,
@@ -312,7 +272,7 @@ export function buildLatestCustomerActions(params: {
       event: "job_finished",
       kind: "job",
       headline: `${name} · job finished`,
-      statusLine: "Send Thanks + review",
+      statusLine: "Send thanks + review",
       preview: (job.location || job.summary || "Completed").trim(),
       at: job.at,
       deliveryLabel: null,
@@ -324,6 +284,20 @@ export function buildLatestCustomerActions(params: {
     })
   }
 
-  out.sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+  // Unreplied first, then jobs needing review; newest within each bucket.
+  out.sort((a, b) => {
+    const rank = (ev: LatestCustomerAction["event"]) => (ev === "replied" ? 0 : 1)
+    const r = rank(a.event) - rank(b.event)
+    if (r !== 0) return r
+    return (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)
+  })
+
   return out.slice(0, limit)
+}
+
+/** Drop stale session-cache rows that used the old outbound “sent” shape. */
+export function isHotLatestAction(
+  item: LatestCustomerAction | { event?: string }
+): item is LatestCustomerAction {
+  return item.event === "replied" || item.event === "job_finished"
 }

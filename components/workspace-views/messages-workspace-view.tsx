@@ -16,6 +16,7 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
 
@@ -191,6 +192,12 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
       needsReply: false,
     }
   }, [threads, selectedPhone])
+
+  // Opening a thread clears the Latest unread dot for that phone.
+  useEffect(() => {
+    if (!isActive || !selectedPhone) return
+    markLatestReplySeen(selectedPhone)
+  }, [isActive, selectedPhone])
 
   // Never scrollIntoView while hidden — it moves the shared <main> under Activities.
   useEffect(() => {

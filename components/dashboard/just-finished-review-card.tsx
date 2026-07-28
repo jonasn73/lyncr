@@ -1,6 +1,6 @@
 "use client"
 
-// Lines “Latest” card — most recent customer text action; tap for delivery / reply / review status.
+// Lines “Latest” card — hot work only: unreplied inbound + jobs needing review SMS.
 
 import { memo, useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
+import { isLatestReplyUnread, markLatestReplySeen } from "@/lib/latest-seen"
 import {
   LINES_MOBILE_CARD,
   LINES_MOBILE_SECTION_LABEL,
@@ -41,10 +42,12 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
   // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
-  const { items, loading, refresh: load } = useOwnerLatest(activeOrganizationId)
+  const { items, loading, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   const [markingOpened, setMarkingOpened] = useState(false)
+  // Bumps when we mark a reply seen so unread dots re-render.
+  const [seenTick, setSeenTick] = useState(0)
 
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
   const selectedPhone = selected?.customerPhone ?? null
@@ -52,7 +55,24 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     if (!selectedPhone) return
     const next = items.find((i) => i.customerPhone === selectedPhone)
     if (next) setSelected(next)
+    else setSelected(null)
   }, [items, selectedPhone])
+
+  const markSeen = useCallback((phone: string) => {
+    if (!phone.trim()) return
+    markLatestReplySeen(phone)
+    setSeenTick((n) => n + 1)
+  }, [])
+
+  const openDetail = useCallback(
+    (item: LatestCustomerAction) => {
+      if (item.event === "replied" && item.customerPhone) {
+        markSeen(item.customerPhone)
+      }
+      setSelected(item)
+    },
+    [markSeen]
+  )
 
   const sendThanksReview = useCallback(
     async (jobId: string) => {
@@ -64,9 +84,14 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         )
         const json = (await res.json().catch(() => null)) as { error?: string } | null
         if (!res.ok) throw new Error(json?.error || "Could not send review SMS")
+        // Outbound hide: drop this job from Latest immediately (no “Review sent” card).
+        setItems((prev) =>
+          prev.filter((i) => i.completedJobId !== jobId && i.id !== `job-${jobId}`)
+        )
+        if (selected?.completedJobId === jobId) setSelected(null)
         toast({
           title: "Thanks + review sent",
-          description: "Latest will show Sent, then Delivered when the carrier confirms.",
+          description: "Removed from Latest. It’ll come back only if they reply.",
         })
         await load()
       } catch (e) {
@@ -79,7 +104,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         setBusyJobId(null)
       }
     },
-    [load, toast]
+    [load, selected?.completedJobId, setItems, toast]
   )
 
   const markReviewOpened = useCallback(
@@ -92,7 +117,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         )
         const json = (await res.json().catch(() => null)) as { error?: string } | null
         if (!res.ok) throw new Error(json?.error || "Could not update")
-        toast({ title: "Marked review received", description: "Latest status updated." })
+        toast({ title: "Marked review received", description: "Status updated." })
         await load()
       } catch (e) {
         toast({
@@ -109,11 +134,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
   const openInMessages = useCallback(
     (phone: string) => {
+      if (phone.trim()) markSeen(phone)
       setSelected(null)
       router.push(`/dashboard/messages?phone=${encodeURIComponent(phone)}`)
     },
-    [router]
+    [markSeen, router]
   )
+
+  // Re-read unread dots when returning to the tab (Messages may have marked seen).
+  useEffect(() => {
+    const onFocus = () => setSeenTick((n) => n + 1)
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [])
 
   return (
     <>
@@ -138,7 +171,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               Recent activity
             </p>
             <p className={cn("text-zinc-500", compact ? "text-xs leading-snug" : "mt-1 text-sm")}>
-              Finished jobs, texts you send, and customer replies.
+              Replies waiting on you, and finished jobs that still need a review text.
             </p>
           </div>
           <button
@@ -161,39 +194,95 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             </div>
           ) : items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
-              Nothing yet today. Finish a job or send Thanks + review — it’ll show up here with delivery
-              status.
+              Nothing hot right now. Customer replies and finished jobs that need a review text show up
+              here.
             </p>
           ) : (
             <ul className="space-y-2">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(item)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                      item.event === "replied"
-                        ? "border-sky-500/25 bg-sky-500/5 hover:bg-sky-500/10"
-                        : "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
-                    )}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="truncate text-sm font-medium text-foreground">{item.headline}</p>
-                        <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
-                          {formatTimeAgo(item.at)}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs font-medium text-zinc-400">{item.statusLine}</p>
-                      {item.preview ? (
-                        <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
+              {items.map((item) => {
+                // seenTick re-reads localStorage after markSeen / window focus.
+                void seenTick
+                const unread =
+                  item.event === "replied" &&
+                  Boolean(item.lastInbound) &&
+                  isLatestReplyUnread(item.customerPhone, item.lastInbound!.created_at)
+                const isJob = item.event === "job_finished"
+                return (
+                  <li key={item.id}>
+                    <div
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                        isJob
+                          ? "border-amber-500/40 bg-amber-500/10"
+                          : unread
+                            ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
+                            : "border-sky-500/25 bg-sky-500/5"
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openDetail(item)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        {item.event === "replied" ? (
+                          <span
+                            className={cn(
+                              "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                              unread ? "bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-sky-500/35"
+                            )}
+                            aria-hidden
+                          />
+                        ) : (
+                          <span
+                            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
+                            aria-hidden
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {item.headline}
+                            </p>
+                            <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
+                              {formatTimeAgo(item.at)}
+                            </span>
+                          </div>
+                          <p
+                            className={cn(
+                              "mt-0.5 truncate text-xs font-semibold",
+                              isJob ? "text-amber-200" : unread ? "text-sky-200" : "text-sky-300/80"
+                            )}
+                          >
+                            {item.statusLine}
+                          </p>
+                          {item.preview ? (
+                            <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
+                          ) : null}
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                      </button>
+                      {isJob && item.completedJobId ? (
+                        <button
+                          type="button"
+                          disabled={busyJobId === item.completedJobId}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void sendThanksReview(item.completedJobId!)
+                          }}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-amber-500/90 px-2.5 py-1.5 text-[11px] font-bold text-zinc-950 hover:bg-amber-400 disabled:opacity-50"
+                        >
+                          {busyJobId === item.completedJobId ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Star className="h-3.5 w-3.5" />
+                          )}
+                          Send
+                        </button>
                       ) : null}
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
-                  </button>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
@@ -235,7 +324,7 @@ function LatestActionDetail({
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
-  const alreadySentReview = item.kind === "review" && Boolean(item.lastOutbound)
+  const needsReviewSend = item.event === "job_finished" && Boolean(item.completedJobId)
 
   const steps: Array<{ label: string; done: boolean; detail?: string }> = []
   if (item.event === "job_finished") {
@@ -306,6 +395,11 @@ function LatestActionDetail({
       done: true,
       detail: formatTimeAgo(item.lastInbound.created_at),
     })
+    steps.push({
+      label: "Needs reply",
+      done: false,
+      detail: "Open Messages to answer",
+    })
   }
 
   return (
@@ -316,6 +410,9 @@ function LatestActionDetail({
         </SheetTitle>
         <p className="text-sm text-zinc-500">{phoneLabel}</p>
         <p className="mt-1 text-sm font-medium text-foreground">{item.headline}</p>
+        {item.event === "replied" ? (
+          <p className="mt-1 text-xs font-semibold text-sky-300">Needs reply</p>
+        ) : null}
       </SheetHeader>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
@@ -331,13 +428,19 @@ function LatestActionDetail({
                   "rounded-xl border px-3 py-2.5",
                   step.done
                     ? "border-emerald-500/25 bg-emerald-500/5"
-                    : "border-border/60 bg-muted/20"
+                    : step.label === "Needs reply"
+                      ? "border-sky-500/35 bg-sky-500/10"
+                      : "border-border/60 bg-muted/20"
                 )}
               >
                 <p
                   className={cn(
                     "text-sm font-medium",
-                    step.done ? "text-emerald-200" : "text-zinc-400"
+                    step.done
+                      ? "text-emerald-200"
+                      : step.label === "Needs reply"
+                        ? "text-sky-200"
+                        : "text-zinc-400"
                   )}
                 >
                   {step.done ? "✓ " : "○ "}
@@ -367,7 +470,7 @@ function LatestActionDetail({
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Their reply
             </p>
-            <p className="mt-2 whitespace-pre-wrap rounded-xl border border-sky-500/25 bg-sky-500/5 px-3 py-2.5 text-sm text-foreground">
+            <p className="mt-2 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-foreground">
               {item.lastInbound.body}
             </p>
           </section>
@@ -382,7 +485,7 @@ function LatestActionDetail({
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20"
           >
             <MessageSquare className="h-4 w-4" />
-            Open in Messages
+            {item.event === "replied" ? "Reply in Messages" : "Open in Messages"}
           </button>
         ) : null}
         {item.completedJobId && item.kind === "review" && !item.reviewLinkOpened ? (
@@ -407,9 +510,9 @@ function LatestActionDetail({
             onClick={() => onSendThanks(item.completedJobId!)}
             className={cn(
               "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50",
-              alreadySentReview
-                ? "border border-border/60 bg-muted/30 text-zinc-300 hover:bg-muted/50"
-                : "bg-emerald-600/90 text-white hover:bg-emerald-500"
+              needsReviewSend
+                ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                : "border border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
             )}
           >
             {busyJobId === item.completedJobId ? (
@@ -417,7 +520,7 @@ function LatestActionDetail({
             ) : (
               <CheckCircle2 className="h-4 w-4" />
             )}
-            {alreadySentReview ? "Send again" : "Send Thanks + review"}
+            Send thanks + review
           </button>
         ) : null}
       </div>
