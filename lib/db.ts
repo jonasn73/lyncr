@@ -8420,6 +8420,17 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     }
     return null
   }
+  const pickNum = (keys: string[]): number | null => {
+    for (const k of keys) {
+      const v = collected[k]
+      if (typeof v === "number" && Number.isFinite(v)) return v
+      if (v != null && String(v).trim()) {
+        const n = Number(v)
+        if (Number.isFinite(n)) return n
+      }
+    }
+    return null
+  }
   const lat = firstNumericField(collected, ["customer_lat", "lat", "latitude", "geo_lat", "location_lat", "service_lat"])
   const lng = firstNumericField(collected, ["customer_lng", "lng", "longitude", "geo_lng", "location_lng", "service_lng", "lon"])
   const pickBool = (keys: string[]): boolean | null => {
@@ -8431,6 +8442,40 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     }
     return null
   }
+  // Prefer column scheduled_at, then collected mirrors (same spine as scheduler events).
+  const scheduledRaw = row.scheduled_at ?? collected.scheduled_at ?? collected.preferred_time
+  const scheduledAt =
+    scheduledRaw instanceof Date
+      ? scheduledRaw.toISOString()
+      : scheduledRaw != null && String(scheduledRaw).trim()
+        ? String(scheduledRaw)
+        : null
+  const pricingMeta =
+    collected.pricing_metadata != null && typeof collected.pricing_metadata === "object"
+      ? (collected.pricing_metadata as Record<string, unknown>)
+      : null
+  // Same quote preference as owner Active Job — never invent a live calculator total.
+  const quotedCents = (() => {
+    const fromCollected = pickNum([
+      "final_booked_total_cents",
+      "last_quoted_price_cents",
+      "quoted_price_cents",
+    ])
+    if (fromCollected != null && fromCollected > 0) return fromCollected
+    const fromColumn =
+      row.final_booked_total_cents != null && Number.isFinite(Number(row.final_booked_total_cents))
+        ? Number(row.final_booked_total_cents)
+        : null
+    if (fromColumn != null && fromColumn > 0) return fromColumn
+    if (
+      pricingMeta?.quoted_price_cents != null &&
+      Number.isFinite(Number(pricingMeta.quoted_price_cents)) &&
+      Number(pricingMeta.quoted_price_cents) > 0
+    ) {
+      return Number(pricingMeta.quoted_price_cents)
+    }
+    return null
+  })()
   return {
     id: String(row.id),
     customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
@@ -8439,7 +8484,10 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
       (row.caller_e164 != null ? String(row.caller_e164) : null),
     location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
     summary: row.summary != null ? String(row.summary) : null,
-    job_status: row.job_status != null ? String(row.job_status) : null,
+    job_status:
+      row.job_status != null && String(row.job_status).trim()
+        ? String(row.job_status)
+        : pick(["job_status"]),
     assigned_tech_id: row.assigned_tech_id != null ? String(row.assigned_tech_id) : null,
     assigned_tech_name: row.assigned_tech_name != null ? String(row.assigned_tech_name) : null,
     latitude: lat != null && Math.abs(lat) <= 90 ? lat : null,
@@ -8449,6 +8497,25 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     vehicle_year: pick(["vehicle_year", "year"]),
     vehicle_make: pick(["vehicle_make", "make"]),
     vehicle_model: pick(["vehicle_model", "model"]),
+    job_type: pick(["job_type", "service_type", "service_package"]),
+    service_quote_type_id:
+      pick(["service_quote_type_id"]) ??
+      (pricingMeta?.service_type_id != null ? String(pricingMeta.service_type_id) : null),
+    key_frequency: pick(["key_frequency"]),
+    key_style: pick(["key_style"]),
+    key_chipset: pick(["key_chipset", "chip_id"]),
+    key_fcc_id: pick(["key_fcc_id", "fcc_id"]),
+    fcc_id: pick(["key_fcc_id", "fcc_id"]),
+    ti_sku: pick(["ti_sku", "tiSku"]),
+    programming_method: pick(["programming_method"]),
+    job_notes: pick(["job_notes", "notes", "symptoms"]),
+    scheduled_at: scheduledAt,
+    dispatch_status:
+      row.dispatch_status != null && String(row.dispatch_status).trim()
+        ? String(row.dispatch_status)
+        : pick(["dispatch_status"]),
+    quoted_price_cents: quotedCents,
+    billing_balance_cents: quotedCents,
   }
 }
 
@@ -9651,8 +9718,10 @@ export async function listJobsForTech(techUserId: string, limit = 50): Promise<D
   const sql = getSql()
   const lim = Math.min(Math.max(limit, 1), 100)
   try {
+    // scheduled_at + dispatch_status let the shared JobCardSummary match owner Active Job.
     const rows = await sql`
-      SELECT id, caller_e164, collected, summary, job_status, assigned_tech_id, created_at
+      SELECT id, caller_e164, collected, summary, job_status, assigned_tech_id,
+             scheduled_at, dispatch_status, created_at
       FROM ai_leads
       WHERE assigned_tech_id = ${techUserId}
       ORDER BY created_at DESC
@@ -9660,6 +9729,22 @@ export async function listJobsForTech(techUserId: string, limit = 50): Promise<D
     `
     return rows.map(dispatchJobFromRow)
   } catch (e) {
+    // Older schemas may lack scheduled_at / dispatch_status — fall back to the slim select.
+    if (pgErrorCode(e) === "42703") {
+      try {
+        const rows = await sql`
+          SELECT id, caller_e164, collected, summary, job_status, assigned_tech_id, created_at
+          FROM ai_leads
+          WHERE assigned_tech_id = ${techUserId}
+          ORDER BY created_at DESC
+          LIMIT ${lim}
+        `
+        return rows.map(dispatchJobFromRow)
+      } catch (e2) {
+        if (isMissingAssignedTechColumnError(e2) || isUndefinedRelationError(e2, "ai_leads")) return []
+        throw e2
+      }
+    }
     if (isMissingAssignedTechColumnError(e) || isUndefinedRelationError(e, "ai_leads")) return []
     throw e
   }

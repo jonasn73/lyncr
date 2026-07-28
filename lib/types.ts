@@ -156,6 +156,21 @@ export interface DispatchJob {
   vehicle_year?: string | null
   vehicle_make?: string | null
   vehicle_model?: string | null
+  /** Shared with owner Active Job card — service / key / money / schedule spine. */
+  job_type?: string | null
+  service_quote_type_id?: string | null
+  key_frequency?: string | null
+  key_style?: string | null
+  key_chipset?: string | null
+  key_fcc_id?: string | null
+  fcc_id?: string | null
+  ti_sku?: string | null
+  programming_method?: string | null
+  job_notes?: string | null
+  scheduled_at?: string | null
+  dispatch_status?: string | null
+  quoted_price_cents?: number | null
+  billing_balance_cents?: number | null
 }
 
 /** Owner calendar event derived from ai_leads (BOOKED / PENDING_TIME). */

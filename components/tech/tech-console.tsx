@@ -1,45 +1,35 @@
-// Field tech mobile console: a performance-badge strip, a linear stack of assigned job cards with
-// click-to-call / click-to-navigate, and a status toggle (Start Route → Arrived → Complete). While a
-// tech is en route or on site, the console quietly streams their location to the dispatch map.
+// Field tech mobile console: shared JobCardSummary spine + status actions
+// (Start Route → Arrived → Work Complete → Payment). GPS streams while en route / on site.
 // Live-updates via Pusher (channel technician-{userId}) with a polling fallback.
 
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Phone, CheckCircle2, Navigation, LogOut, RefreshCw, Loader2, Route, Inbox, Car, AlertTriangle } from "lucide-react"
+import {
+  MapPin,
+  Phone,
+  CheckCircle2,
+  Navigation,
+  LogOut,
+  RefreshCw,
+  Loader2,
+  Route,
+  Inbox,
+  Car,
+  AlertTriangle,
+  CreditCard,
+} from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { TechPaymentModal } from "@/components/tech/tech-payment-modal"
 import { TechWalletCard } from "@/components/tech/tech-wallet-card"
+import { JobCardSummary } from "@/components/jobs/job-card-summary"
+import { buildJobCardSummary } from "@/lib/job-card-summary"
+import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import { cn } from "@/lib/utils"
 import type { TechBadge } from "@/lib/tech-badges"
 import type { DispatchJob, UnassignedPoolJob } from "@/lib/types"
-
-/** Universal maps link — opens the default navigation app on iOS/Android. */
-function mapsLink(address: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  assigned: "Assigned",
-  en_route: "En route",
-  arrived: "On site",
-  paused_wait: "Paused — waiting",
-  paused_parts: "Paused — parts",
-  work_complete: "Work complete",
-  completed: "Completed",
-}
-
-const STATUS_STYLE: Record<string, string> = {
-  assigned: "bg-zinc-700/60 text-zinc-200",
-  en_route: "bg-sky-500/20 text-sky-300",
-  arrived: "bg-amber-500/20 text-amber-200",
-  paused_wait: "bg-orange-500/20 text-orange-200",
-  paused_parts: "bg-orange-500/20 text-orange-200",
-  work_complete: "bg-violet-500/20 text-violet-200",
-  completed: "bg-emerald-500/20 text-emerald-300",
-}
 
 /** Derive the tech's overall live status from their active jobs. */
 function deriveTechStatus(jobs: DispatchJob[]): "idle" | "en_route" | "on_site" {
@@ -437,7 +427,10 @@ function JobCard(props: {
 }) {
   const { job } = props
   const status = job.job_status || "assigned"
-  const phoneDigits = (job.customer_phone || "").replace(/[^\d+]/g, "")
+  // Shared view-model — same facts the owner Active Job card shows.
+  const summary = buildJobCardSummary(job)
+  const phoneHref = summary.phoneHref
+  const mapsHref = job.location ? googleMapsSearchUrl(job.location) : null
   const workComplete = status === "work_complete"
   const canMarkWorkComplete =
     status === "arrived" ||
@@ -446,64 +439,67 @@ function JobCard(props: {
     status === "work_complete"
   const showPauseActions =
     status === "arrived" || status === "paused_wait" || status === "paused_parts"
+  // work_complete is still "on site" for the shared operator phase badge.
+  const statusOverride =
+    status === "work_complete"
+      ? {
+          label: "Work complete",
+          className: "border-violet-500/40 bg-violet-500/10 text-violet-200",
+        }
+      : status === "paused_wait"
+        ? {
+            label: "Paused — waiting",
+            className: summary.statusBadgeClass,
+          }
+        : status === "paused_parts"
+          ? {
+              label: "Paused — parts",
+              className: summary.statusBadgeClass,
+            }
+          : null
 
   return (
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-start gap-2">
-            <h2 className="truncate text-base font-semibold text-white">
-              {job.customer_name || "New customer"}
-            </h2>
-            {job.field_verification_required ? (
-              <span
-                title="Verify key style on vehicle before cutting a blank"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300"
-              >
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-              </span>
-            ) : null}
-          </div>
-          {job.summary && <p className="mt-0.5 line-clamp-2 text-sm text-zinc-400">{job.summary}</p>}
-          {job.field_verification_required ? (
-            <p className="mt-1.5 text-[11px] font-medium text-amber-300">
-              Field verification required — confirm dashboard / door lock config before programming.
-            </p>
-          ) : null}
-        </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_STYLE[status] || STATUS_STYLE.assigned}`}>
-          {STATUS_LABEL[status] || "Assigned"}
-        </span>
-      </div>
+      {/* Same glass facts as owner JobDetailOverview */}
+      <JobCardSummary
+        source={job}
+        showHeader
+        statusLabel={statusOverride?.label}
+        statusBadgeClass={statusOverride?.className}
+      />
 
-      {/* Contact + navigate */}
+      {/* Contact + navigate — field actions stay on the tech glass */}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <a
-          href={phoneDigits ? `tel:${phoneDigits}` : undefined}
-          className={`flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98] ${
-            phoneDigits ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
-          }`}
+          href={phoneHref ?? undefined}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98]",
+            phoneHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
+          )}
         >
           <Phone className="h-4 w-4" /> Call
         </a>
         <a
-          href={job.location ? mapsLink(job.location) : undefined}
+          href={mapsHref ?? undefined}
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98] ${
-            job.location ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
-          }`}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98]",
+            mapsHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
+          )}
         >
           <Navigation className="h-4 w-4" /> Navigate
         </a>
       </div>
 
-      {job.location && (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-zinc-500">
-          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{job.location}</span>
+      {/* Balance collect entry — tech payment path already exists; no full Money rail */}
+      {summary.billingBalanceDollars > 0 ? (
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300/90">
+          <CreditCard className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Booked balance {summary.billingLabel}
+          {workComplete ? " — ready to collect" : ""}
         </p>
-      )}
+      ) : null}
 
       {/* Status: Start Route → Arrived → Work Complete → Proceed to Payment */}
       <div className="mt-4 grid grid-cols-2 gap-2">

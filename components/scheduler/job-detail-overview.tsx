@@ -5,7 +5,6 @@ import {
   Ban,
   CheckCircle2,
   ChevronDown,
-  ExternalLink,
   Loader2,
   MessageSquare,
   Pencil,
@@ -19,7 +18,6 @@ import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildJobTechnicalSpecBlocks } from "@/lib/scheduler-job-spec-blocks"
 import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interaction"
-import { useScheduleInteractionPhase } from "@/components/scheduler/schedule-interaction-badge"
 import {
   JOB_PIPELINE_STATUS_OPTIONS,
   type JobPipelineStatusId,
@@ -29,11 +27,7 @@ import {
   OPERATOR_JOB_PHASE_LABEL,
   resolveOperatorJobPhase,
 } from "@/lib/scheduler-job-status"
-import {
-  formatScheduledDateDisplay,
-  formatScheduledTimeDisplay,
-} from "@/lib/scheduler-utils"
-import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
+import { jobCardTelHref } from "@/lib/job-card-summary"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useToast } from "@/hooks/use-toast"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -45,6 +39,7 @@ import {
 } from "@/lib/scheduler-ui-tokens"
 import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
 import { JobMoneyRail } from "@/components/scheduler/job-money-rail"
+import { JobCardSummary } from "@/components/jobs/job-card-summary"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -80,15 +75,6 @@ type JobDetailOverviewProps = {
   /** Open Collect / pay modal for this job (card, tap, pay link, receipt). */
   onCollectPayment: () => void
   onClose: () => void
-}
-
-function telHref(phone: string): string | null {
-  const trimmed = phone.trim()
-  if (!trimmed) return null
-  const digits = trimmed.replace(/\D/g, "")
-  if (digits.length < 10) return null
-  if (trimmed.startsWith("+")) return `tel:${trimmed}`
-  return `tel:+1${digits.slice(-10)}`
 }
 
 const SECTION_LABEL =
@@ -169,11 +155,8 @@ export function JobDetailOverview({
   const isMobile = useIsMobile()
   const customerName = (source.customer_name ?? "").trim() || "Customer"
   const customerPhone = (source.customer_phone ?? "").trim()
-  const phoneHref = telHref(customerPhone)
-  const serviceAddress = (source.location ?? "").trim()
+  const phoneHref = jobCardTelHref(customerPhone)
   const specBlocks = buildJobTechnicalSpecBlocks(source)
-  const vehicleBlock = specBlocks.find((block) => block.label === "Vehicle")
-  const serviceBlock = specBlocks.find((block) => block.label === "Service")
   const keyBlocks = specBlocks.filter(
     (block) =>
       block.label === "Key" ||
@@ -205,21 +188,6 @@ export function JobDetailOverview({
   })
   const statusPill = OPERATOR_JOB_PHASE_LABEL[operatorPhase]
   const isJobDone = operatorPhase === "done"
-  const scheduledDateLabel = formatScheduledDateDisplay(scheduledAtIso)
-  const scheduledTimeLabel = formatScheduledTimeDisplay(scheduledAtIso)
-  const appointmentPhase = useScheduleInteractionPhase({
-    scheduled_at: scheduledAtIso,
-    job_status: jobStatus,
-  })
-  const appointmentDelayed = appointmentPhase === "overdue"
-
-  const vehicleSummary = [vehicleBlock?.value, serviceBlock?.value].filter(Boolean).join(" — ")
-  // Appointment time is metadata — never a second conflicting status next to the badge.
-  const appointmentLabel = scheduledAtIso
-    ? [scheduledDateLabel, scheduledTimeLabel].filter(Boolean).join(" · ")
-    : "No appointment time"
-  const billingLabel =
-    billingBalanceDollars > 0 ? `$${billingBalanceDollars}` : "No balance"
   const notesPreview = jobNotes.trim()
     ? jobNotes.trim().replace(/\s+/g, " ")
     : "No notes yet"
@@ -227,6 +195,15 @@ export function JobDetailOverview({
     keyBlocks.length > 0
       ? keyBlocks.map((b) => b.value).filter(Boolean).slice(0, 2).join(" · ")
       : "None on file"
+  // Shared card source — same spine the tech console renders.
+  const cardSource = {
+    ...source,
+    job_status: jobStatus,
+    assigned_tech_id: assignedTechForPhase,
+    dispatch_status: scheduledEvent?.dispatch_status ?? source.dispatch_status ?? null,
+    scheduled_at: scheduledAtIso,
+    job_notes: jobNotes,
+  }
 
   // Inline Telnyx SMS composer (popover was z-50 and opened behind this z-[1410] drawer).
   const [smsComposerOpen, setSmsComposerOpen] = useState(false)
@@ -345,52 +322,12 @@ export function JobDetailOverview({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-2.5 pb-8">
-        {/* Flattened summary — Attribute · Detail rows (no tall stacked cards) */}
-        <section className="space-y-1 border-b border-border/40 pb-2.5 text-[12px] leading-snug text-slate-300">
-          <p className="min-w-0">
-            <span className="font-semibold text-slate-500">Vehicle</span>
-            <span className="text-slate-600"> · </span>
-            <span className="font-medium text-slate-100">
-              {vehicleSummary || "No vehicle / service on file yet"}
-            </span>
-          </p>
-          <p className="min-w-0">
-            <span className="font-semibold text-slate-500">Address</span>
-            <span className="text-slate-600"> · </span>
-            {serviceAddress ? (
-              <>
-                <span className="font-medium text-slate-100">{serviceAddress}</span>
-                <a
-                  href={googleMapsSearchUrl(serviceAddress)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-300/90 underline-offset-2 hover:underline"
-                >
-                  Maps
-                  <ExternalLink className="h-3 w-3" aria-hidden />
-                </a>
-              </>
-            ) : (
-              <span className="text-muted-foreground">No address saved</span>
-            )}
-          </p>
-          <p className="min-w-0">
-            <span className="font-semibold text-emerald-500/80">Balance</span>
-            <span className="text-slate-600"> · </span>
-            <span className="font-semibold tabular-nums text-emerald-300">{billingLabel}</span>
-            <span className="text-slate-600"> · </span>
-            <span className="font-semibold text-slate-500">Appt</span>
-            <span className="text-slate-600"> · </span>
-            <span
-              className={cn(
-                "font-medium",
-                appointmentDelayed ? "text-rose-400" : "text-slate-100"
-              )}
-            >
-              {appointmentLabel}
-            </span>
-          </p>
-        </section>
+        {/* Shared job-card facts — same component the tech console uses */}
+        <JobCardSummary
+          source={cardSource}
+          billingBalanceDollars={billingBalanceDollars}
+          className="border-b border-border/40 pb-2.5"
+        />
 
         {/* Money-on-the-job: balance → deposit pay link → collect → review */}
         <JobMoneyRail
