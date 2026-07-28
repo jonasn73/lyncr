@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   WorkspacePage,
-  WorkspacePageHeader,
   WorkspacePanel,
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
@@ -113,6 +112,9 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+  // Scroll the message list only — never the whole page (avoids jumping shared <main>).
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null)
+  const threadOpen = Boolean(selectedPhone)
 
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -216,10 +218,12 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
     markLatestReplySeen(selectedPhone)
   }, [isActive, selectedPhone])
 
-  // Never scrollIntoView while hidden — it moves the shared <main> under Activities.
+  // Keep the latest bubble in view inside the list — do not scroll the page shell.
   useEffect(() => {
     if (!isActive || !selectedPhone) return
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    const scroller = messagesScrollRef.current
+    if (!scroller) return
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" })
   }, [isActive, selectedPhone, activeThread?.messages.length])
 
   async function sendReply() {
@@ -261,27 +265,55 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   }
 
   return (
-    <WorkspacePage className="pb-8">
-      <WorkspacePageHeader
-        eyebrow="SMS"
-        title="Messages"
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            onClick={() => void loadMessages()}
+    <WorkspacePage
+      className={cn(
+        // Tighter page chrome on phones; even tighter when a thread owns the screen.
+        threadOpen
+          ? "gap-2 pb-[calc(env(safe-area-inset-bottom)+1rem)] md:gap-6 md:pb-8"
+          : "gap-3 pb-8 md:gap-6"
+      )}
+    >
+      {/* Title row — compact + single-line on mobile when a conversation is open */}
+      <div
+        className={cn(
+          "flex min-w-0 items-center justify-between gap-2",
+          !threadOpen && "items-start gap-3 sm:flex-row sm:flex-wrap sm:justify-between"
+        )}
+      >
+        <div className="min-w-0">
+          {!threadOpen ? (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">SMS</p>
+          ) : null}
+          <h1
+            className={cn(
+              "font-semibold tracking-tight text-foreground",
+              threadOpen
+                ? "text-lg md:text-2xl"
+                : "mt-1 text-xl sm:text-2xl md:text-3xl"
+            )}
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Refresh"}
-          </Button>
-        }
-      />
+            Messages
+          </h1>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("shrink-0", threadOpen && "h-8 px-2.5 text-xs")}
+          disabled={loading}
+          onClick={() => void loadMessages()}
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Refresh"}
+        </Button>
+      </div>
 
-      <p className="max-w-2xl text-sm text-muted-foreground">
-        Texts to and from your business line — including Missed Call Rescue textbacks and customer
-        replies. Select a conversation to reply.
-      </p>
+      {/* Non-actionable blurb: desktop inbox only — never when a thread is open */}
+      {!threadOpen ? (
+        <p className="hidden max-w-2xl text-sm text-muted-foreground md:block">
+          Texts to and from your business line — including Missed Call Rescue textbacks and customer
+          replies. Select a conversation to reply.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -291,15 +323,18 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 
       <WorkspacePanel
         className={cn(
-          "grid overflow-hidden md:grid-cols-[minmax(240px,320px)_1fr]",
-          MOBILE_PANEL_VIEWPORT_MIN_H
+          "overflow-hidden md:grid md:grid-cols-[minmax(240px,320px)_1fr] md:grid-rows-1",
+          // Thread open: fill remaining shell (header + dock + compact title) so only bubbles scroll.
+          threadOpen
+            ? "flex h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-3.75rem)] flex-col md:h-[calc(100dvh-var(--shell-header-h)-10rem)]"
+            : cn("grid", MOBILE_PANEL_VIEWPORT_MIN_H)
         )}
       >
         {/* Thread list — hidden on mobile when a conversation is open */}
         <div
           className={cn(
-            "flex min-h-[50vh] flex-col border-border/60 md:min-h-0 md:border-r",
-            selectedPhone ? "hidden md:flex" : "flex"
+            "flex min-h-0 flex-col border-border/60 md:border-r",
+            selectedPhone ? "hidden md:flex" : "flex min-h-[50vh] md:min-h-0"
           )}
         >
           <div className="border-b border-border/60 px-4 py-3">
@@ -367,11 +402,11 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
           </div>
         </div>
 
-        {/* Conversation pane */}
+        {/* Conversation pane — message list scrolls; composer stays pinned */}
         <div
           className={cn(
-            "flex min-h-[50vh] flex-col md:min-h-0",
-            selectedPhone ? "flex" : "hidden md:flex"
+            "flex min-h-0 flex-col",
+            selectedPhone ? "flex flex-1" : "hidden min-h-[50vh] md:flex md:min-h-0"
           )}
         >
           {!activeThread ? (
@@ -381,7 +416,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 border-b border-border/60 px-3 py-3 md:px-4">
+              <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2 md:px-4 md:py-3">
                 <button
                   type="button"
                   className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground md:hidden"
@@ -401,7 +436,10 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                 </div>
               </div>
 
-              <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4 md:px-4">
+              <div
+                ref={messagesScrollRef}
+                className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4"
+              >
                 {activeThread.messages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatOutboundDeliveryLabel(msg) : null
@@ -443,7 +481,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                 <div ref={bottomRef} />
               </div>
 
-              <div className="border-t border-border/60 px-3 py-3 md:px-4">
+              <div className="shrink-0 border-t border-border/60 px-3 py-2.5 md:px-4 md:py-3">
                 {sendError ? (
                   <p className="mb-2 text-xs text-red-300">{sendError}</p>
                 ) : null}
@@ -454,7 +492,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                     placeholder="Type a reply…"
                     rows={2}
                     disabled={sending}
-                    className="min-h-[44px] flex-1 resize-none bg-background"
+                    className="min-h-[40px] flex-1 resize-none bg-background md:min-h-[44px]"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()
