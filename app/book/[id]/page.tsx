@@ -24,7 +24,7 @@ export default async function BookInvitePage({
     <Suspense
       fallback={
         <main className="flex min-h-dvh items-center justify-center bg-zinc-950 text-sm text-zinc-400">
-          Loading booking…
+          Loading your booking…
         </main>
       }
     >

@@ -84,21 +84,49 @@ export async function createTrackedReviewUrl(params: {
 
 /** Look up token and record a click; returns destination URL or null. */
 export async function resolveAndClickReviewToken(token: string): Promise<string | null> {
+  const resolved = await resolveReviewTokenForPortal(token)
+  return resolved?.destinationUrl ?? null
+}
+
+/**
+ * Record a review-link open and return destination + business label for the
+ * branded /rv/{token} interstitial (SMS URLs stay the same).
+ */
+export async function resolveReviewTokenForPortal(
+  token: string
+): Promise<{ destinationUrl: string; businessName: string | null } | null> {
   const t = token.trim()
   if (!t) return null
   const sql = getSql()
   try {
     const rows = await sql`
-      UPDATE review_link_tokens
+      UPDATE review_link_tokens AS r
       SET
         click_count = click_count + 1,
         first_clicked_at = COALESCE(first_clicked_at, now()),
         last_clicked_at = now()
-      WHERE token = ${t}
-      RETURNING destination_url
+      WHERE r.token = ${t}
+      RETURNING r.destination_url, r.owner_user_id
     `
-    const dest = rows[0]?.destination_url
-    return dest != null ? String(dest) : null
+    const row = rows[0] as
+      | { destination_url?: unknown; owner_user_id?: unknown }
+      | undefined
+    if (!row?.destination_url) return null
+    const destinationUrl = String(row.destination_url)
+    let businessName: string | null = null
+    const ownerId = row.owner_user_id != null ? String(row.owner_user_id) : ""
+    if (ownerId) {
+      try {
+        const owners = await sql`
+          SELECT business_name FROM users WHERE id = ${ownerId}::uuid LIMIT 1
+        `
+        const name = owners[0]?.business_name
+        if (name != null && String(name).trim()) businessName = String(name).trim()
+      } catch {
+        // Owner lookup is best-effort for portal chrome.
+      }
+    }
+    return { destinationUrl, businessName }
   } catch (e) {
     if (isMissingReviewTokensTable(e)) return null
     throw e

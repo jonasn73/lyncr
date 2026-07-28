@@ -3,9 +3,8 @@
 "use client"
 
 import { Suspense, useEffect, useState } from "react"
-import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { SITE_NAME } from "@/lib/brand"
+import { CustomerPortalShell } from "@/components/customer-portal-shell"
 
 function PayThanksInner() {
   const searchParams = useSearchParams()
@@ -47,22 +46,20 @@ function PayThanksInner() {
   }, [sessionId])
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-[#0b1220] px-6 text-center text-slate-100">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
-        {SITE_NAME}
-      </p>
-      <h1 className="mt-3 text-2xl font-bold">Payment received</h1>
-      <p className="mt-2 max-w-sm text-sm text-slate-400">
-        Thanks — your payment went through. You can close this window.
-      </p>
-      {note ? <p className="mt-3 text-xs text-emerald-300/90">{note}</p> : null}
-      <Link
-        href="/"
-        className="mt-8 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
-      >
-        Done
-      </Link>
-    </main>
+    <CustomerPortalShell
+      businessName="Payment received"
+      mode="pay"
+      currentStep="done"
+      subtitle="Thanks — your payment went through. You can close this window."
+      centered
+    >
+      <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-4 py-5 text-center">
+        {note ? <p className="text-sm text-emerald-200/90">{note}</p> : null}
+        <p className="mt-2 text-xs text-zinc-400">
+          After the job, watch for a thank-you text with a review link — same lyncr page style.
+        </p>
+      </div>
+    </CustomerPortalShell>
   )
 }
 
@@ -70,9 +67,15 @@ export default function PayThanksPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-dvh items-center justify-center bg-[#0b1220] text-slate-400">
-          Confirming payment…
-        </main>
+        <CustomerPortalShell
+          businessName="Confirming payment"
+          mode="pay"
+          currentStep="pay"
+          subtitle="One moment…"
+          centered
+        >
+          <p className="text-center text-sm text-zinc-400">Confirming payment…</p>
+        </CustomerPortalShell>
       }
     >
       <PayThanksInner />
