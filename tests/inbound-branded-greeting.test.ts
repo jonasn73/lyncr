@@ -116,9 +116,9 @@ describe("resolveInboundPstnForwardAnswerOnBridge", () => {
     vi.unstubAllEnvs()
   })
 
-  it("disables ringback after pass-1 greeting on pass 2", () => {
+  it("keeps answerOnBridge after greeting so US ringback can play", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
-    expect(resolveInboundPstnForwardAnswerOnBridge(true, true)).toBe(false)
+    expect(resolveInboundPstnForwardAnswerOnBridge(true, true)).toBe(true)
     expect(resolveInboundPstnForwardAnswerOnBridge(false, true)).toBe(true)
   })
 

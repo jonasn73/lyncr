@@ -488,35 +488,17 @@ async function handleCallInitiated(
       )
     }
 
-    const refinedAnswerState = encodeTelnyxCallControlState(
-      baseState(
-        routing,
-        businessLineE164,
-        callerE164,
-        dialTargetE164,
-        ringTimeoutSec,
-        "await_caller_answered"
-      )
-    )
-
-    // Stamp real routing onto the live leg so call.answered dials the correct cell.
+    // Do NOT fire a late client_state_update here. call.answered already re-resolves
+    // routing + dial target. A fire-and-forget refine to `await_caller_answered` races
+    // with speak's `await_greeting_end` and leaves callers in greeting→silence (no Dial).
     if (answerRes.ok) {
-      void telnyxCallControlClientStateUpdate(callControlId, refinedAnswerState).then((updateRes) => {
-        if (!updateRes.ok) {
-          console.warn(
-            JSON.stringify({
-              zing: "telnyx-cc-initiated-client-state-refine-failed",
-              callControlId,
-              error: updateRes.error,
-            })
-          )
-        }
-      })
       console.log(
         JSON.stringify({
           zing: "telnyx-cc-answer-ok",
           callControlId,
           dialTargetTail4: dialTargetE164.replace(/\D/g, "").slice(-4),
+          ringTimeoutSec,
+          userId: routing.user_id,
         })
       )
       return
@@ -652,7 +634,25 @@ async function handleSpeakEnded(
   const state = event.clientState
   if (!state) return
 
-  if (state.phase === "await_greeting_end") {
+  // `await_greeting_end` is the happy path. Also dial when phase is still
+  // `await_caller_answered` — a late client_state refine can overwrite speak's
+  // greeting phase (production: greeting plays, speak.ended ignored, cell never rings).
+  const shouldDialAfterGreeting =
+    state.phase === "await_greeting_end" || state.phase === "await_caller_answered"
+
+  if (shouldDialAfterGreeting) {
+    if (state.phase === "await_caller_answered") {
+      console.warn(
+        JSON.stringify({
+          zing: "telnyx-cc-speak-ended-stale-phase-recover-dial",
+          callControlId: event.callControlId,
+          phase: state.phase,
+          dialTargetTail4: String(state.dialTargetE164 || "")
+            .replace(/\D/g, "")
+            .slice(-4) || null,
+        })
+      )
+    }
     let routing = await resolveCallControlRouting(state.businessLineE164)
     if (!routing) {
       routing = buildFailsafeRouting({

@@ -165,13 +165,16 @@ export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean, gr
   return !greetingPassDone && greetingEnabled && readInboundGreetingFirstPassEnabled()
 }
 
-/** When false (default), callers hear silence — not US ringback — while the team phone rings after the greeting. */
+/**
+ * After the branded greeting, play US ringback while the cell rings (default on).
+ * Set `ZING_INBOUND_RINGBACK_AFTER_GREETING=0` only for hold-silence experiments.
+ */
 export function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_RINGBACK_AFTER_GREETING || "0").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+  const raw = (process.env.ZING_INBOUND_RINGBACK_AFTER_GREETING || "1").trim().toLowerCase()
+  return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }
 
-/** Greeting off → straight ringback. Greeting on → silence after message while cell rings (unless env override). */
+/** Greeting off → ringback. Greeting on (pass 2) → US ringback while cell rings (default). */
 export function shouldPlayCallerRingbackDuringDial(
   greetingPassDone: boolean,
   greetingEnabled = true
@@ -181,12 +184,13 @@ export function shouldPlayCallerRingbackDuringDial(
   return readInboundCallerRingbackAfterGreetingEnabled()
 }
 
-/** PSTN cell forward — ringback only when caller greeting is disabled (straight ring mode). */
+/**
+ * Keep `answerOnBridge` so Telnyx can play `ringTone="us"` during the B-leg setup.
+ * Turning this off after the greeting caused dead air even when the cell was ringing.
+ */
 export function resolveInboundPstnForwardAnswerOnBridge(
-  greetingPassDone: boolean,
-  greetingEnabled = true
+  _greetingPassDone: boolean,
+  _greetingEnabled = true
 ): boolean {
-  if (!greetingEnabled || !readInboundGreetingFirstPassEnabled()) return readTelnyxDialAnswerOnBridge()
-  if (greetingPassDone) return false
   return readTelnyxDialAnswerOnBridge()
 }
