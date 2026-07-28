@@ -68,6 +68,15 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     if (status === "en_route" || status === "assigned") {
       await setLeadDispatchStatus(leadId.trim(), "DISPATCHED").catch(() => {})
     }
+    // Belt-and-suspenders: terminal close-outs leave lead/pool dispatch (CRM + pipeline pill).
+    if (
+      status === "completed" ||
+      status === "cancelled" ||
+      status === "referred" ||
+      status === "unresolved"
+    ) {
+      await setLeadDispatchStatus(leadId.trim(), status).catch(() => {})
+    }
 
     await publishOwnerEvent(userId, "job-status-updated", { leadId: leadId.trim(), status }).catch(
       () => {}

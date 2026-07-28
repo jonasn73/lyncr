@@ -4997,11 +4997,25 @@ function resolveCrmLeadBadge(args: {
   hasPriceQuoted: boolean
   hasCallback: boolean
 }): CrmLeadBadge {
-  if (args.hasPriceQuoted) return "price_quoted"
-  if (args.hasCallback) return "callback"
+  // Prefer Booked client when nothing is still an open lead (stale quoted/callback flags).
+  if (args.openLeadCount > 0 && args.hasPriceQuoted) return "price_quoted"
+  if (args.openLeadCount > 0 && args.hasCallback) return "callback"
   if (args.jobsCompleted >= 2) return "repeat_customer"
   if (args.jobsCompleted >= 1) return "booked_client"
   return "new_contact"
+}
+
+/** Terminal job_status values — never count as CRM open leads. */
+function isCrmTerminalJobStatus(js: string): boolean {
+  return (
+    js === "completed" ||
+    js === "done" ||
+    js === "paid" ||
+    js === "cancelled" ||
+    js === "canceled" ||
+    js === "unresolved" ||
+    js === "referred"
+  )
 }
 
 /** CRM list with job counts / LTV / lead badge (phone-matched to ai_leads). */
@@ -5059,15 +5073,22 @@ export async function listCrmCustomersForUser(
       const ds = String(row.ds ?? "")
       const js = String(row.js ?? "")
       const price = Number(row.price_cents ?? 0)
-      const isCrmLead =
-        ds === CRM_LEAD_STATUS ||
-        ds === LOST_LEAD_STATUS ||
-        ds === UNASSIGNED_CALLBACK_STATUS ||
-        js === "price_denied" ||
-        js === "price_rejected"
       const isCompleted =
-        js === "completed" || js === "done" || js === "paid" || ds === "completed"
-      if (isCompleted) {
+        isCrmTerminalJobStatus(js) ||
+        ds === "completed" ||
+        ds === "cancelled" ||
+        ds === "canceled" ||
+        ds === "referred" ||
+        ds === "unresolved"
+      // Open lead only while still a quote/callback — completed must never stay "open".
+      const isCrmLead =
+        !isCompleted &&
+        (ds === CRM_LEAD_STATUS ||
+          ds === LOST_LEAD_STATUS ||
+          ds === UNASSIGNED_CALLBACK_STATUS ||
+          js === "price_denied" ||
+          js === "price_rejected")
+      if (isCompleted && (js === "completed" || js === "done" || js === "paid" || ds === "completed")) {
         prev.completed += 1
         if (Number.isFinite(price) && price > 0) prev.revenueCents += price
       }
@@ -5271,20 +5292,31 @@ export async function listCrmServiceHistoryForCustomer(params: {
         null
       const amount =
         priceRaw != null && Number.isFinite(Number(priceRaw)) ? Number(priceRaw) : null
+      // Belt-and-suspenders: completed/done/paid (and other terminals) are never open leads.
       const isOpenLead =
-        ds === CRM_LEAD_STATUS ||
-        ds === LOST_LEAD_STATUS ||
-        ds === UNASSIGNED_CALLBACK_STATUS ||
-        js.includes("price")
+        !isCrmTerminalJobStatus(js) &&
+        (ds === CRM_LEAD_STATUS ||
+          ds === LOST_LEAD_STATUS ||
+          ds === UNASSIGNED_CALLBACK_STATUS ||
+          js.includes("price"))
       let status_label = "Job"
       let status_tone: CrmServiceHistoryItem["status_tone"] = "neutral"
       if (js === "completed" || js === "done" || js === "paid") {
         status_label = "Completed"
         status_tone = "emerald"
+      } else if (js === "cancelled" || js === "canceled") {
+        status_label = "Cancelled"
+        status_tone = "neutral"
+      } else if (js === "referred") {
+        status_label = "Referred"
+        status_tone = "neutral"
+      } else if (js === "unresolved") {
+        status_label = "Unresolved"
+        status_tone = "neutral"
       } else if (ds === UNASSIGNED_POOL_STATUS) {
         status_label = "In pool"
         status_tone = "amber"
-      } else if (ds === "dispatched" || js === "en_route" || js === "on_site") {
+      } else if (ds === "dispatched" || js === "en_route" || js === "on_site" || js === "arrived") {
         status_label = "Active"
         status_tone = "sky"
       } else if (ds === LOST_LEAD_STATUS || js.includes("price")) {
@@ -9892,12 +9924,40 @@ export async function setJobStatusForTech(
   status: string
 ): Promise<boolean> {
   const sql = getSql()
-  const rows = await sql`
-    UPDATE ai_leads
-    SET job_status = ${status}
-    WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
-    RETURNING id
-  `
+  const isTerminal =
+    status === "completed" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "referred" ||
+    status === "unresolved"
+  // Mirror terminal job_status onto dispatch so CRM/scheduler stop treating the row as a lead/pool.
+  const rows = isTerminal
+    ? await sql`
+        UPDATE ai_leads
+        SET
+          job_status = ${status},
+          dispatch_status = ${status === "completed" ? "completed" : status},
+          collected =
+            coalesce(collected, '{}'::jsonb)
+            || jsonb_build_object(
+              'job_status', ${status},
+              'dispatch_status', ${status === "completed" ? "completed" : status},
+              'pending_callback', false
+            )
+            || CASE
+              WHEN ${status} = 'completed'
+                THEN jsonb_build_object('completed_at', now()::timestamptz::text)
+              ELSE '{}'::jsonb
+            END
+        WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
+        RETURNING id
+      `
+    : await sql`
+        UPDATE ai_leads
+        SET job_status = ${status}
+        WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
+        RETURNING id
+      `
   return rows.length > 0
 }
 
@@ -9915,6 +9975,8 @@ export async function setJobStatusForOwner(
           SET
             -- Terminal status for offline / waiting-pool close-out (tech optional).
             job_status = ${status},
+            -- Leave lead/pool so CRM is_open_lead + scheduler pill are not "Waiting Pool".
+            dispatch_status = 'completed',
             -- Promote quote/callback leads so Completed counts as a real finished job.
             disposition = CASE
               WHEN coalesce(nullif(trim(disposition), ''), '') IN ('', 'PENDING_TIME', 'lead', 'LEAD')
@@ -9926,6 +9988,7 @@ export async function setJobStatusForOwner(
               || jsonb_build_object(
                 'completed_at', now()::timestamptz::text,
                 'job_status', 'completed',
+                'dispatch_status', 'completed',
                 'pending_callback', false
               )
               || CASE
@@ -9937,12 +10000,31 @@ export async function setJobStatusForOwner(
           WHERE id = ${leadId} AND user_id = ${ownerUserId}
           RETURNING id
         `
-      : await sql`
-          UPDATE ai_leads
-          SET job_status = ${status}
-          WHERE id = ${leadId} AND user_id = ${ownerUserId}
-          RETURNING id
-        `
+      : status === "cancelled" ||
+          status === "canceled" ||
+          status === "referred" ||
+          status === "unresolved"
+        ? await sql`
+            UPDATE ai_leads
+            SET
+              job_status = ${status},
+              dispatch_status = ${status},
+              collected =
+                coalesce(collected, '{}'::jsonb)
+                || jsonb_build_object(
+                  'job_status', ${status},
+                  'dispatch_status', ${status},
+                  'pending_callback', false
+                )
+            WHERE id = ${leadId} AND user_id = ${ownerUserId}
+            RETURNING id
+          `
+        : await sql`
+            UPDATE ai_leads
+            SET job_status = ${status}
+            WHERE id = ${leadId} AND user_id = ${ownerUserId}
+            RETURNING id
+          `
   return rows.length > 0
 }
 

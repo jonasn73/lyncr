@@ -9,10 +9,15 @@ export type JobPipelineStatusId =
   | "DISPATCHED"
   | "awaiting_time"
   | "salvage_pending"
+  /** Terminal close-out — display only (not in the pipeline dropdown). */
+  | "completed"
+
+/** Dropdown-selectable pipeline ids (excludes terminal completed). */
+export type JobPipelineDropdownStatusId = Exclude<JobPipelineStatusId, "completed">
 
 /** One row in the job-status dropdown (id maps to dispatch_status). */
 export type JobPipelineStatusOption = {
-  id: JobPipelineStatusId
+  id: JobPipelineDropdownStatusId
   label: string
 }
 
@@ -24,12 +29,33 @@ export const JOB_PIPELINE_STATUS_OPTIONS: JobPipelineStatusOption[] = [
   { id: "salvage_pending", label: "Price Denied (Outreach / Lower Price Offer)" },
 ]
 
+/** True when job_status is a terminal close-out (done / cancelled / referred). */
+export function isTerminalJobStatus(jobStatus?: string | null): boolean {
+  const status = (jobStatus ?? "").trim().toLowerCase()
+  return (
+    status === "completed" ||
+    status === "done" ||
+    status === "paid" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "unresolved" ||
+    status === "referred"
+  )
+}
+
 /** Infer the pipeline dropdown value from stored job columns. */
 export function pipelineStatusFromJob(params: {
   dispatch_status?: string | null
   assigned_tech_id?: string | null
+  /** When terminal, prefer completed over leftover Waiting Pool / lead dispatch. */
+  job_status?: string | null
 }): JobPipelineStatusId {
+  const jobStatus = (params.job_status ?? "").trim().toLowerCase()
+  if (isTerminalJobStatus(jobStatus)) return "completed"
   const dispatch = (params.dispatch_status ?? "").trim().toLowerCase()
+  if (dispatch === "completed" || dispatch === "cancelled" || dispatch === "canceled" || dispatch === "referred" || dispatch === "unresolved") {
+    return "completed"
+  }
   if (dispatch === "salvage_pending") return "salvage_pending"
   if (dispatch === "awaiting_time") return "awaiting_time"
   if (dispatch === "dispatched" || Boolean(params.assigned_tech_id?.trim())) return "DISPATCHED"
@@ -37,7 +63,7 @@ export function pipelineStatusFromJob(params: {
 }
 
 /** Database patch for a pipeline dropdown selection. */
-export function pipelineStatusPatch(status: JobPipelineStatusId): {
+export function pipelineStatusPatch(status: JobPipelineDropdownStatusId): {
   dispatch_status: string
   is_salvageable: boolean
 } {
@@ -55,6 +81,7 @@ export function pipelineStatusPatch(status: JobPipelineStatusId): {
 
 /** Human label for a pipeline status id. */
 export function pipelineStatusLabel(status: JobPipelineStatusId): string {
+  if (status === "completed") return "Completed"
   return JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status
 }
 
@@ -69,6 +96,8 @@ export function pipelineStatusPillLabel(status: JobPipelineStatusId): string {
       return "Needs Follow Up"
     case "salvage_pending":
       return "Price Denied"
+    case "completed":
+      return "Completed"
     default:
       return pipelineStatusLabel(status)
   }
@@ -80,6 +109,7 @@ export const PIPELINE_STATUS_BADGE_STYLE: Record<JobPipelineStatusId, string> = 
   DISPATCHED: "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/30",
   awaiting_time: "bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/30",
   salvage_pending: "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/30",
+  completed: "bg-zinc-500/20 text-zinc-200 ring-1 ring-zinc-500/30",
 }
 
 /** Swimlane / grid card accent when dispatch_status is a pipeline-specific value. */

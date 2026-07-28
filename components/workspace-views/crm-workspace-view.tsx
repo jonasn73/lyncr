@@ -49,6 +49,38 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   new_contact: "New contact",
 }
 
+/** CRM → Scheduler action label for a history row (no more overloaded "Convert"). */
+type CrmJobNavAction = "Book job" | "Open job" | "View job"
+
+const TERMINAL_HISTORY_LABELS = new Set(["Completed", "Cancelled", "Referred", "Unresolved"])
+
+/** Open quote/callback → Book; pool/active → Open; terminal → View. */
+function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
+  if (TERMINAL_HISTORY_LABELS.has(item.status_label)) return "View job"
+  if (item.is_open_lead) return "Book job"
+  // Existing non-lead jobs (pool / scheduled / active / booked).
+  if (
+    item.status_label === "In pool" ||
+    item.status_label === "Active" ||
+    item.status_label === "Booked" ||
+    item.status_label === "Job"
+  ) {
+    return "Open job"
+  }
+  return null
+}
+
+function crmJobNavTitle(action: CrmJobNavAction): string {
+  switch (action) {
+    case "Book job":
+      return "Open this quote on Scheduler to schedule and assign"
+    case "Open job":
+      return "Open this job on Scheduler"
+    case "View job":
+      return "View this job on Scheduler"
+  }
+}
+
 function formatMoney(cents: number): string {
   return (Math.max(0, cents) / 100).toLocaleString("en-US", {
     style: "currency",
@@ -89,6 +121,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
+  // Return-from-Scheduler deep link — reopen this customer profile.
+  const customerParam = searchParams.get("customer")?.trim() || null
   const initialFilter: CrmFilter =
     tabParam === "leads" ? "leads" : tabParam === "clients" ? "clients" : "all"
 
@@ -98,7 +132,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [rows, setRows] = useState<CrmCustomerListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(customerParam)
   const [profileLoading, setProfileLoading] = useState(false)
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([])
   const [history, setHistory] = useState<CrmServiceHistoryItem[]>([])
@@ -127,6 +161,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     if (tabParam === "leads") setFilter("leads")
     else if (tabParam === "clients") setFilter("clients")
   }, [tabParam])
+
+  // Reopen profile when Scheduler returns with ?customer= (or operator shares the link).
+  useEffect(() => {
+    if (!customerParam) return
+    setSelectedId(customerParam)
+  }, [customerParam])
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 280)
@@ -251,33 +291,35 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       )}`
     : messagesHref
 
-  const canConvertToBooking =
-    Boolean(selected) &&
-    (selected?.lead_badge === "price_quoted" ||
-      selected?.lead_badge === "callback" ||
-      openLeadHistory.length > 0)
+  // Header CTA only for a truly open lead (quote/callback) — never for completed-only profiles.
+  const headerOpenLead = openLeadHistory[0] ?? null
+  const headerJobAction: CrmJobNavAction | null = headerOpenLead
+    ? crmJobNavAction(headerOpenLead) === "Book job"
+      ? "Book job"
+      : "Open job"
+    : null
 
   /**
-   * Convert = open the existing job on Scheduler (JobDetailDrawer), not restart intake.
-   * The lead/job already went through CallAnsweredModal — operator sets Scheduled + assigns tech there.
+   * Open the existing job on Scheduler (JobDetailDrawer) with return-to-CRM context.
    * Close the CRM profile first so the drawer is not trapped under the Dialog (z-[7000]).
-   * Rare: no history lead id → just open Scheduler (operator can tap New Intake).
    */
-  const convertToBooking = useCallback(
+  const openJobOnScheduler = useCallback(
     (lead?: CrmServiceHistoryItem | null) => {
       if (!selected) return
-      const target = lead ?? openLeadHistory[0] ?? null
+      const target = lead ?? headerOpenLead ?? null
+      const customerId = selected.id
       // Drop the profile layer immediately so Scheduler UI is not covered by it.
       setSelectedId(null)
       setSelected(null)
       if (target?.id) {
-        // Same deep-link Coming Up Next / post-book uses — opens JobDetailDrawer.
-        router.push(buildSchedulerFocusUrl(target.id))
+        router.push(
+          buildSchedulerFocusUrl(target.id, { fromCrm: true, customerId })
+        )
         return
       }
       router.push("/dashboard/scheduler")
     },
-    [selected, openLeadHistory, router]
+    [selected, headerOpenLead, router]
   )
 
   const addVehicle = async () => {
@@ -486,21 +528,21 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Send follow-up
             </Link>
           )}
-          {canConvertToBooking && openLeadHistory[0] ? (
+          {headerJobAction && headerOpenLead ? (
             <button
               type="button"
-              onClick={() => convertToBooking(openLeadHistory[0])}
+              onClick={() => openJobOnScheduler(headerOpenLead)}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-500/20 px-3 text-xs font-semibold text-emerald-100"
-              title="Open intake with this quote — booking upgrades the same lead"
+              title={crmJobNavTitle(headerJobAction)}
             >
               <CalendarCheck className="h-3.5 w-3.5" />
-              Convert to booking
+              {headerJobAction}
             </button>
           ) : null}
           <Link
             href="/dashboard/scheduler"
             onClick={() => {
-              // Same keep-alive pane issue as Convert — close profile before leaving CRM.
+              // Same keep-alive pane issue as Book/Open job — close profile before leaving CRM.
               setSelectedId(null)
               setSelected(null)
             }}
@@ -732,18 +774,22 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         <Pencil className="h-3 w-3 shrink-0 opacity-70" />
                       </button>
                     )}
-                    {/* Open quote/callback → same handoff the header Convert button uses */}
-                    {item.is_open_lead ? (
-                      <button
-                        type="button"
-                        onClick={() => convertToBooking(item)}
-                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold text-emerald-300/90 hover:bg-zinc-800 hover:text-emerald-200"
-                        title="Convert this quote to a booking"
-                      >
-                        <CalendarCheck className="h-3 w-3" />
-                        Convert to booking
-                      </button>
-                    ) : null}
+                    {/* Book / Open / View — never "Convert" on completed rows */}
+                    {(() => {
+                      const action = crmJobNavAction(item)
+                      if (!action) return null
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => openJobOnScheduler(item)}
+                          className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold text-emerald-300/90 hover:bg-zinc-800 hover:text-emerald-200"
+                          title={crmJobNavTitle(action)}
+                        >
+                          <CalendarCheck className="h-3 w-3" />
+                          {action}
+                        </button>
+                      )
+                    })()}
                   </div>
                 </li>
               ))}
@@ -895,7 +941,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
 
       {/* Mobile: compact centered floating dialog (list stays dimmed behind).
           Gate on isActive — CRM pane stays mounted when switching tabs; without this,
-          Convert to booking can leave the Dialog open over the Scheduler job drawer. */}
+          Book/Open job can leave the Dialog open over the Scheduler job drawer. */}
       <Dialog
         open={isActive && isMobile && profileOpen}
         onOpenChange={(open) => {

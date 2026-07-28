@@ -24,7 +24,10 @@ import {
 } from "@/lib/scheduler-utils"
 import { isActivePipelineFeedJob, isHopperPoolJob } from "@/lib/scheduler-job-status"
 import { schedulerEventToPoolJob } from "@/lib/job-pipeline-status"
-import { parseSchedulerFocusSearch } from "@/lib/scheduler-focus-url"
+import {
+  buildCrmReturnUrl,
+  parseSchedulerFocusSearch,
+} from "@/lib/scheduler-focus-url"
 import {
   optimisticRemovePoolJob,
   useActivePipelineQuery,
@@ -105,11 +108,20 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const suppressUrlFocusRef = useRef(false)
   /** Avoid re-fetching the same CRM Convert focus id when lists miss it. */
   const focusFetchAttemptedRef = useRef<string | null>(null)
+  /** CRM return context survives URL clear when the drawer opens from ?from=crm. */
+  const crmReturnRef = useRef<{ customerId: string | null } | null>(null)
 
-  const { focusLeadId, scheduleFromIntake } = useMemo(
+  const { focusLeadId, scheduleFromIntake, fromCrm, customerId: focusCustomerId } = useMemo(
     () => parseSchedulerFocusSearch(searchParams.toString()),
     [searchParams]
   )
+
+  // Capture CRM return before openJobForEdit clears focus/from/customer params.
+  useEffect(() => {
+    if (fromCrm) {
+      crmReturnRef.current = { customerId: focusCustomerId }
+    }
+  }, [fromCrm, focusCustomerId])
 
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
   const orgId =
@@ -197,7 +209,11 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   /** Clear intake deep-link params so URL focus logic does not override manual job clicks. */
   const clearSchedulerFocusUrl = useCallback(() => {
-    const hasFocus = searchParams.get("focus") || searchParams.get("schedule")
+    const hasFocus =
+      searchParams.get("focus") ||
+      searchParams.get("schedule") ||
+      searchParams.get("from") ||
+      searchParams.get("customer")
     if (!hasFocus) return
     setScheduleIntentLeadId(null)
     router.replace("/dashboard/scheduler", { scroll: false })
@@ -564,6 +580,14 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     suppressUrlFocusRef.current = false
     setDrawerPoolJob(null)
     setDrawerScheduledEvent(null)
+    // Journey started in CRM — return to customers (reopen profile when customer id known).
+    const crmReturn = crmReturnRef.current
+    if (crmReturn) {
+      crmReturnRef.current = null
+      router.push(buildCrmReturnUrl(crmReturn.customerId))
+      return
+    }
+    clearSchedulerFocusUrl()
   }
 
   const completeScheduleIntent = useCallback(

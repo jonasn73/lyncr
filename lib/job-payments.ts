@@ -350,15 +350,19 @@ export async function createAdhocPaymentIntent(params: {
 /** Mark job completed (owner or assigned tech path). */
 export async function markJobCompletedForPayment(job: JobPaymentContext): Promise<void> {
   const sql = getSql()
+  // Also clear lead/pool dispatch so CRM + scheduler treat the job as finished.
   await sql`
     UPDATE ai_leads
     SET job_status = 'completed',
-        collected = jsonb_set(
-          coalesce(collected, '{}'::jsonb),
-          '{completed_at}',
-          to_jsonb(now()::timestamptz::text),
-          true
-        )
+        dispatch_status = 'completed',
+        collected =
+          coalesce(collected, '{}'::jsonb)
+          || jsonb_build_object(
+            'completed_at', now()::timestamptz::text,
+            'job_status', 'completed',
+            'dispatch_status', 'completed',
+            'pending_callback', false
+          )
     WHERE id = ${job.jobId}
   `
 }

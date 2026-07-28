@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildCrmReturnUrl,
   buildSchedulerFocusUrl,
   isCompleteDatetimeLocalValue,
   parseSchedulerFocusSearch,
@@ -14,14 +15,35 @@ describe("scheduler focus url", () => {
     )
   })
 
+  it("builds CRM return context on focus links", () => {
+    expect(
+      buildSchedulerFocusUrl("lead-1", { fromCrm: true, customerId: "cust-9" })
+    ).toBe("/dashboard/scheduler?focus=lead-1&from=crm&customer=cust-9")
+  })
+
+  it("builds CRM return urls", () => {
+    expect(buildCrmReturnUrl(null)).toBe("/dashboard/customers")
+    expect(buildCrmReturnUrl("cust-9")).toBe("/dashboard/customers?customer=cust-9")
+  })
+
   it("parses focus search params", () => {
     expect(parseSchedulerFocusSearch("focus=abc&schedule=1")).toEqual({
       focusLeadId: "abc",
       scheduleFromIntake: true,
+      fromCrm: false,
+      customerId: null,
     })
     expect(parseSchedulerFocusSearch("focus=abc")).toEqual({
       focusLeadId: "abc",
       scheduleFromIntake: false,
+      fromCrm: false,
+      customerId: null,
+    })
+    expect(parseSchedulerFocusSearch("focus=abc&from=crm&customer=cust-9")).toEqual({
+      focusLeadId: "abc",
+      scheduleFromIntake: false,
+      fromCrm: true,
+      customerId: "cust-9",
     })
   })
 

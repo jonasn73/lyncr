@@ -192,7 +192,11 @@ export function JobDetailDrawer({
 
   const buildSaveBody = useCallback((): Record<string, unknown> => {
     const quotedPriceCents = resolveQuotedPriceCents()
-    const pipelinePatch = pipelineStatusPatch(pipelineStatus)
+    // Terminal completed is display-only — do not map it through the pool/dispatch patch helper.
+    const pipelinePatch =
+      pipelineStatus === "completed"
+        ? { dispatch_status: "completed", is_salvageable: false }
+        : pipelineStatusPatch(pipelineStatus)
     const scheduledAtIso = combineScheduledDateTimeLocal(scheduledDate, scheduledTime)
     // Keep the intake baseline snapshot — do not rewrite it from a live vehicle recalc.
     const persistedBaseline =
@@ -313,6 +317,7 @@ export function JobDetailDrawer({
     const loadedPipeline = pipelineStatusFromJob({
       dispatch_status: scheduledEvent?.dispatch_status ?? poolJob?.dispatch_status ?? null,
       assigned_tech_id: scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? null,
+      job_status: scheduledEvent?.job_status ?? poolWithTech?.job_status ?? localJobStatus,
     })
     setPipelineStatus(loadedPipeline)
     setCommittedPipelineStatus(loadedPipeline)
@@ -380,12 +385,14 @@ export function JobDetailDrawer({
       pipelineStatusFromJob({
         dispatch_status: event.dispatch_status,
         assigned_tech_id: event.assigned_tech_id,
+        job_status: event.job_status,
       })
     )
     setCommittedPipelineStatus(
       pipelineStatusFromJob({
         dispatch_status: event.dispatch_status,
         assigned_tech_id: event.assigned_tech_id,
+        job_status: event.job_status,
       })
     )
     setCommittedAssignedTechId(event.assigned_tech_id ?? "")

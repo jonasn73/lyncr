@@ -405,7 +405,7 @@ export function JobDetailOverview({
             <div className="relative">
               <select
                 id="active-job-pipeline-status"
-                disabled={saving}
+                disabled={saving || pipelineStatus === "completed"}
                 value={pipelineStatus}
                 onChange={(e) =>
                   onPipelineStatusChange(e.target.value as JobPipelineStatusId)
@@ -416,6 +416,9 @@ export function JobDetailOverview({
                 )}
                 aria-label="Job pipeline status"
               >
+                {pipelineStatus === "completed" ? (
+                  <option value="completed">Completed</option>
+                ) : null}
                 {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
