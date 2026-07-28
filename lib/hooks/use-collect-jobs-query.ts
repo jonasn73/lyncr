@@ -53,7 +53,7 @@ export function useCollectJobsQuery(enabled: boolean) {
     {
       ...defaultSwrConfig,
       fallbackData,
-      revalidateOnFocus: true,
+      revalidateOnFocus: false,
       keepPreviousData: true,
       // Prefer showing last session list over a spinner.
       revalidateIfStale: true,

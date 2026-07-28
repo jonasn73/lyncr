@@ -9,7 +9,6 @@ import {
   computeLyncrApplicationFeeCents,
   getConnectBalanceSummary,
   getConnectReadyState,
-  syncConnectAccountFromStripe,
 } from "@/lib/stripe-connect"
 
 export const dynamic = "force-dynamic"
@@ -47,19 +46,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // getConnectReadyState already syncs Stripe on TTL — skip the extra retrieve + second ready check.
     const state = await getConnectReadyState(statusUserId)
-    if (state.accountId) {
-      await syncConnectAccountFromStripe(statusUserId, state.accountId).catch(() => null)
-    }
-    const refreshed = await getConnectReadyState(statusUserId)
-    const row = refreshed.row
+    const row = state.row
 
     let availableCents = 0
     let pendingCents = 0
     let currency = "usd"
-    if (refreshed.accountId) {
+    if (state.accountId) {
       try {
-        const bal = await getConnectBalanceSummary(refreshed.accountId)
+        const bal = await getConnectBalanceSummary(state.accountId)
         availableCents = bal.availableCents
         pendingCents = bal.pendingCents
         currency = bal.currency
@@ -68,7 +64,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const status = refreshed.ready
+    const status = state.ready
       ? ("ready" as const)
       : row?.stripe_connect_details_submitted
         ? ("under_review" as const)
@@ -79,9 +75,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       data: {
         configured: true,
-        ready: refreshed.ready,
+        ready: state.ready,
         status,
-        accountId: refreshed.accountId,
+        accountId: state.accountId,
         chargesEnabled: row?.stripe_connect_charges_enabled === true,
         payoutsEnabled: row?.stripe_connect_payouts_enabled === true,
         detailsSubmitted: row?.stripe_connect_details_submitted === true,
@@ -90,7 +86,7 @@ export async function GET(req: NextRequest) {
         currency,
         feeExampleCents: computeLyncrApplicationFeeCents(10000),
         feeLabel: "2.9% + $0.30 per card payment",
-        message: refreshed.ready ? null : refreshed.reason,
+        message: state.ready ? null : state.reason,
       },
     })
   } catch (e) {

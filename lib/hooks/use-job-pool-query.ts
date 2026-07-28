@@ -30,12 +30,17 @@ export async function revalidateSchedulerJobPoolCaches(
 ): Promise<void> {
   const { mutate: globalMutate } = await import("swr")
   const hopperUrl = jobPoolHopperUrl(activeOrganizationId ?? null)
-  await globalMutate(hopperUrl, undefined, { revalidate: true })
-  await globalMutate(
-    (key) => typeof key === "string" && key.startsWith("/api/owner/jobs/pool") && key.includes("scope=active"),
-    undefined,
-    { revalidate: true }
-  )
+  await Promise.all([
+    globalMutate(hopperUrl, undefined, { revalidate: true }),
+    globalMutate(
+      (key) =>
+        typeof key === "string" &&
+        key.startsWith("/api/owner/jobs/pool") &&
+        key.includes("scope=active"),
+      undefined,
+      { revalidate: true }
+    ),
+  ])
 }
 
 /** Immediately drop a deleted job from hopper + active pipeline caches, then revalidate. */
@@ -54,25 +59,26 @@ export async function optimisticRemovePoolJob(
   const withoutId = <T extends { id: string }>(list: T[] | undefined): T[] =>
     Array.isArray(list) ? list.filter((row) => row.id !== jobId) : []
 
-  await globalMutate(
-    hopperUrl,
-    (current) => {
-      const next = withoutId(current as UnassignedPoolJob[] | undefined)
-      writePersistedCache(hopperCache, next)
-      return next
-    },
-    { revalidate: true, populateCache: true }
-  )
-
-  await globalMutate(
-    pipelineUrl,
-    (current) => {
-      const next = withoutId(current as ActivePipelineJob[] | undefined)
-      writePersistedCache(pipelineCache, next)
-      return next
-    },
-    { revalidate: true, populateCache: true }
-  )
+  await Promise.all([
+    globalMutate(
+      hopperUrl,
+      (current) => {
+        const next = withoutId(current as UnassignedPoolJob[] | undefined)
+        writePersistedCache(hopperCache, next)
+        return next
+      },
+      { revalidate: true, populateCache: true }
+    ),
+    globalMutate(
+      pipelineUrl,
+      (current) => {
+        const next = withoutId(current as ActivePipelineJob[] | undefined)
+        writePersistedCache(pipelineCache, next)
+        return next
+      },
+      { revalidate: true, populateCache: true }
+    ),
+  ])
 }
 
 export function useJobPoolQuery(
@@ -130,7 +136,7 @@ export function useJobPoolSuspenseQuery(activeOrganizationId: string | null) {
         writePersistedCache(cacheKey, jobs)
         return jobs
       }),
-    { ...defaultSwrConfig, fallbackData, suspense: true }
+    { ...defaultSwrConfig, fallbackData, suspense: true, revalidateOnFocus: false }
   )
   return useMemo(() => data ?? fallbackData ?? EMPTY_POOL_JOBS, [data, fallbackData])
 }
@@ -199,7 +205,7 @@ export function useActivePipelineSuspenseQuery(
         writePersistedCache(cacheKey, jobs)
         return jobs
       }),
-    { ...defaultSwrConfig, fallbackData, suspense: true }
+    { ...defaultSwrConfig, fallbackData, suspense: true, revalidateOnFocus: false }
   )
   return useMemo(() => data ?? fallbackData ?? EMPTY_PIPELINE_JOBS, [data, fallbackData])
 }

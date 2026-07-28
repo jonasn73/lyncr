@@ -455,11 +455,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     return () => window.removeEventListener("lyncr-workspace-data-changed", onWorkspaceChanged)
   }, [refreshSchedulerData])
 
-  useEffect(() => {
-    if (!pollEnabled) return
-    void mutatePool(undefined, { revalidate: true })
-    void mutateActivePipeline(undefined, { revalidate: true })
-  }, [pollEnabled, mutatePool, mutateActivePipeline])
+  // Pool/pipeline SWR already fetch when keys are live — don't burst-revalidate on every tab focus.
 
   useEffect(() => {
     if (!ownerUserId) return

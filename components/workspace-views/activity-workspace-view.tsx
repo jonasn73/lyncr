@@ -113,7 +113,7 @@ function playBookingPing() {
 type BookingAlert = { id: string; caller: string | null; summary: string | null; created_at: string }
 
 /** Poll for newly-BOOKED operator jobs and fire a toast + audio ping for each. */
-function useBookingAlerts() {
+function useBookingAlerts(enabled: boolean) {
   const { toast } = useToast()
   const session = useDashboardSessionOptional()
   const [noisyAlerts, setNoisyAlerts] = useState(() =>
@@ -141,6 +141,7 @@ function useBookingAlerts() {
   }, [session])
 
   useEffect(() => {
+    if (!enabled) return
     let stopped = false
     async function poll() {
       try {
@@ -174,7 +175,7 @@ function useBookingAlerts() {
       stopped = true
       window.clearInterval(timer)
     }
-  }, [toast, noisyAlerts])
+  }, [toast, noisyAlerts, enabled])
 }
 
 /** Split call time into a scannable day label + clock time. */
@@ -1384,7 +1385,7 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
     if (param === "missed" || param === "missed_leads") return "missed"
     return "all"
   })
-  useBookingAlerts()
+  useBookingAlerts(pollEnabled)
 
   useEffect(() => {
     const param = searchParams.get("filter")

@@ -72,28 +72,26 @@ export default async function DashboardLayout({
   }
   if (isPlatformAdminUser(user)) redirect("/admin")
 
+  // Do not await bootstrap here — it blocked TTFB on every /dashboard load.
+  // Client paints from session seed; these promises stream into the shell.
   const mainBootstrapPromise = shouldStreamMainBootstrap ? dashboardMainBootstrapPromise(user) : undefined
-  const initialMainBootstrap = mainBootstrapPromise ? await mainBootstrapPromise : undefined
-  const resolvedMainBootstrapPromise = initialMainBootstrap
-    ? Promise.resolve(initialMainBootstrap)
-    : mainBootstrapPromise
-  const linesPromise = resolvedMainBootstrapPromise
-    ? resolvedMainBootstrapPromise.then((b) => b.phoneLines)
+  const linesPromise = mainBootstrapPromise
+    ? mainBootstrapPromise.then((b) => b.phoneLines)
     : phoneLinesPromise(user)
-  const routingPromise = resolvedMainBootstrapPromise
-    ? resolvedMainBootstrapPromise.then((b) => b.routing)
+  const routingPromise = mainBootstrapPromise
+    ? mainBootstrapPromise.then((b) => b.routing)
     : isMainRoutingDashboard
       ? routingBootstrapPromise(user)
       : undefined
-  const orgsPromise = resolvedMainBootstrapPromise
-    ? resolvedMainBootstrapPromise.then((b) => b.organizations)
+  const orgsPromise = mainBootstrapPromise
+    ? mainBootstrapPromise.then((b) => b.organizations)
     : organizationsPromise(user)
   const hopperPromise = shouldStreamMainBootstrap ? jobPoolPromise(user) : undefined
   const pipelinePromise = shouldStreamMainBootstrap ? activePipelinePromise(user) : undefined
 
   return (
     <DashboardStreamProvider
-      dashboardMainBootstrapPromise={resolvedMainBootstrapPromise}
+      dashboardMainBootstrapPromise={mainBootstrapPromise}
       phoneLinesPromise={linesPromise}
       routingBootstrapPromise={routingPromise}
       organizationsPromise={orgsPromise}
@@ -103,7 +101,7 @@ export default async function DashboardLayout({
       <DashboardShell
         pathnameFromRequest={pathnameFromRequest}
         sessionBusinessName={user.business_name}
-        initialBootstrap={initialMainBootstrap}
+        initialBootstrap={null}
         initialActiveOrganizationId={initialActiveOrganizationId}
         sessionAccount={{
           name: user.name?.trim() || "Account",

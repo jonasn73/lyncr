@@ -76,11 +76,11 @@ function routingForNumber(businessNumber: string, configs: RoutingConfig[]): Rou
   return def
 }
 
-async function mapBusinessNumbers(userId: string, account?: User | null): Promise<DashboardBusinessNumber[]> {
-  const [numbers, allConfigs] = await Promise.all([
-    getCachedPhoneNumbers(userId),
-    getCachedAllRoutingConfigs(userId),
-  ])
+function mapBusinessNumbersFromRows(
+  numbers: Awaited<ReturnType<typeof getCachedPhoneNumbers>>,
+  allConfigs: RoutingConfig[],
+  account?: User | null
+): DashboardBusinessNumber[] {
   const assistantLinked = Boolean(account?.telnyx_ai_assistant_id?.trim())
 
   const numbersWithRouting = numbers.map((row) => {
@@ -112,6 +112,14 @@ async function mapBusinessNumbers(userId: string, account?: User | null): Promis
   )
 }
 
+async function mapBusinessNumbers(userId: string, account?: User | null): Promise<DashboardBusinessNumber[]> {
+  const [numbers, allConfigs] = await Promise.all([
+    getCachedPhoneNumbers(userId),
+    getCachedAllRoutingConfigs(userId),
+  ])
+  return mapBusinessNumbersFromRows(numbers, allConfigs, account)
+}
+
 function mapRoutingFields(cfg: RoutingConfig | null): DashboardRoutingBootstrap["routing"] {
   const strat = cfg?.routing_strategy
   return {
@@ -132,11 +140,17 @@ function mapRoutingFields(cfg: RoutingConfig | null): DashboardRoutingBootstrap[
   }
 }
 
-async function loadRoutingBootstrap(user: User): Promise<DashboardRoutingBootstrap> {
+async function loadRoutingBootstrap(
+  user: User,
+  shared?: {
+    numbers: Awaited<ReturnType<typeof getCachedPhoneNumbers>>
+    configs: RoutingConfig[]
+  }
+): Promise<DashboardRoutingBootstrap> {
   const [receptionists, numbers, configs, profile, completedPortTargets] = await Promise.all([
     getCachedReceptionists(user.id),
-    getCachedPhoneNumbers(user.id),
-    getCachedAllRoutingConfigs(user.id),
+    shared?.numbers ?? getCachedPhoneNumbers(user.id),
+    shared?.configs ?? getCachedAllRoutingConfigs(user.id),
     getOnboardingProfile(user.id),
     listCompletedPortPhoneNumbersForOwner(user.id),
   ])
@@ -175,11 +189,52 @@ async function loadRoutingBootstrap(user: User): Promise<DashboardRoutingBootstr
 }
 
 async function loadDashboardMainBootstrap(user: User): Promise<DashboardMainBootstrap> {
-  const [organizations, phoneLines, routing] = await Promise.all([
-    getCachedOrganizations(user.id),
-    mapBusinessNumbers(user.id, user),
-    loadRoutingBootstrap(user),
-  ])
+  // Single fan-out — phone lines + routing share numbers/configs (no duplicate Neon hits).
+  const [organizations, numbers, configs, receptionists, profile, completedPortTargets] =
+    await Promise.all([
+      getCachedOrganizations(user.id),
+      getCachedPhoneNumbers(user.id),
+      getCachedAllRoutingConfigs(user.id),
+      getCachedReceptionists(user.id),
+      getOnboardingProfile(user.id),
+      listCompletedPortPhoneNumbersForOwner(user.id),
+    ])
+
+  const phoneLines = mapBusinessNumbersFromRows(numbers, configs, user)
+
+  const visible = numbers.filter((n) => isDashboardVisibleLineStatus(n.status))
+  const ordered = orderPhoneLinesForOrganization(
+    visible.map((row) => ({
+      number: row.number,
+      status: row.status,
+      label: row.label ?? undefined,
+      organization_id: row.organization_id ?? null,
+      provider_number_sid: row.provider_number_sid,
+      twilio_sid: row.twilio_sid,
+    })),
+    null,
+    { reservedNumber: profile?.reserved_number, completedPortTargets }
+  )
+  const primaryLine = pickPreferredCustomerLine({
+    lines: ordered,
+    reservedNumber: profile?.reserved_number,
+    completedPortTargets,
+  })
+  const cfg = primaryLine ? routingForNumber(primaryLine, configs) : defaultRoutingConfig(configs)
+
+  const routing: DashboardRoutingBootstrap = {
+    ownerPhone: user.phone ?? null,
+    receptionists: receptionists.map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      initials: r.initials?.trim() || r.name.slice(0, 2).toUpperCase() || "??",
+      color: r.color?.trim() || "bg-primary",
+    })),
+    routing: mapRoutingFields(cfg),
+    primaryLineNumber: primaryLine,
+  }
+
   return { organizations, phoneLines, routing }
 }
 

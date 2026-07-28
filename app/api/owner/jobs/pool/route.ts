@@ -1,6 +1,6 @@
 // GET /api/owner/jobs/pool — hopper (unassigned) or active day pipeline (map dispatch)
 
-import { NextRequest, NextResponse } from "next/server"
+import { after, NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
   listOwnerActivePipelineJobsForDay,
@@ -19,7 +19,8 @@ export const dynamic = "force-dynamic"
 
 type PoolJobRow = UnassignedPoolJob | ActivePipelineJob
 
-async function enrichPoolJobsWithGeocode(jobs: PoolJobRow[]): Promise<PoolJobRow[]> {
+/** Persist missing pins after the response — do not block Scheduler/Map first paint. */
+async function enrichPoolJobsWithGeocode(jobs: PoolJobRow[]): Promise<void> {
   const coordCounts = new Map<string, number>()
   for (const job of jobs) {
     if (job.latitude == null || job.longitude == null) continue
@@ -27,10 +28,9 @@ async function enrichPoolJobsWithGeocode(jobs: PoolJobRow[]): Promise<PoolJobRow
     coordCounts.set(key, (coordCounts.get(key) ?? 0) + 1)
   }
 
-  const updated: PoolJobRow[] = [...jobs]
   let geocoded = 0
-  for (let i = 0; i < updated.length && geocoded < 8; i++) {
-    const job = updated[i]
+  for (let i = 0; i < jobs.length && geocoded < 8; i++) {
+    const job = jobs[i]
     const key =
       job.latitude != null && job.longitude != null
         ? poolCoordKey(job.latitude, job.longitude)
@@ -46,7 +46,6 @@ async function enrichPoolJobsWithGeocode(jobs: PoolJobRow[]): Promise<PoolJobRow
     if (!coords) continue
 
     await setLeadCoordinates(job.id, coords.lat, coords.lng).catch(() => {})
-    updated[i] = { ...job, latitude: coords.lat, longitude: coords.lng }
 
     if (key) {
       coordCounts.set(key, (coordCounts.get(key) ?? 1) - 1)
@@ -56,8 +55,6 @@ async function enrichPoolJobsWithGeocode(jobs: PoolJobRow[]): Promise<PoolJobRow
     coordCounts.set(newKey, (coordCounts.get(newKey) ?? 0) + 1)
     geocoded += 1
   }
-
-  return updated
 }
 
 export async function GET(req: NextRequest) {
@@ -84,8 +81,16 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const updated = await enrichPoolJobsWithGeocode(jobs)
-    return NextResponse.json({ data: { jobs: updated, scope: scope === "active" ? "active" : "hopper" } })
+    // Geocode in the background so hopper/map responses stay fast.
+    after(() => {
+      void enrichPoolJobsWithGeocode(jobs).catch((e) => {
+        console.warn("[GET /api/owner/jobs/pool] background geocode:", e)
+      })
+    })
+
+    return NextResponse.json({
+      data: { jobs, scope: scope === "active" ? "active" : "hopper" },
+    })
   } catch (e) {
     console.error("[GET /api/owner/jobs/pool]", e)
     return NextResponse.json({ data: { jobs: [], scope: "hopper" }, degraded: true })

@@ -117,9 +117,9 @@ export function useDispatchMapData(
     key,
     () => fetchDispatchMapData(organizationId, includeLeads),
     {
-      // Poll only while enabled; SWR skips interval when key is null too.
+      // Poll only while enabled; skip focus storms (interval covers live updates).
       refreshInterval: enabled ? 25_000 : 0,
-      revalidateOnFocus: enabled,
+      revalidateOnFocus: false,
       keepPreviousData: true,
     }
   )
