@@ -43,9 +43,13 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
-/** Mobile bottom bar — CRM on the primary strip; Activities still in desktop dock / palette. */
+/**
+ * Mobile bottom bar — Activity sits next to Lines for missed-call callbacks.
+ * Order: Lines · Activity · Scheduler · CRM · Map.
+ */
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
+  { id: "activity", label: "Activity", icon: ClipboardList },
   { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "customers", label: "CRM", icon: ContactRound },
   { id: "contacts", label: "Map", icon: Map },

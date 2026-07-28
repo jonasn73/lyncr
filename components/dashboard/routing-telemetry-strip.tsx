@@ -1,7 +1,8 @@
 "use client"
 
 import { memo, useCallback, useState } from "react"
-import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
+import Link from "next/link"
+import { ChevronRight, Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
@@ -20,7 +21,12 @@ import {
   formatMissedTickerLabel,
   formatMissedTickerSublabel,
 } from "@/lib/missed-lead-aggregation"
+import { DASHBOARD_MOBILE_PAGE_HREF, DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
 import { LINES_MOBILE_CARD } from "@/lib/mobile-shell"
+
+/** Full call log — same deep link the Activity mobile tab uses. */
+const ALL_CALLS_HREF =
+  DASHBOARD_MOBILE_PAGE_HREF.activity ?? `${DASHBOARD_PAGE_HREF.activity}?filter=all`
 
 type TelemetryPillProps = {
   label: string
@@ -200,7 +206,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <>
       <section
-        className={cn("w-full py-0 md:hidden", className)}
+        className={cn("w-full space-y-2 py-0 md:hidden", className)}
         aria-label="Dispatch performance"
       >
         <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
@@ -230,45 +236,74 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
+        {/* Deep-link to the full Activity call log (missed callbacks + history). */}
+        <Link
+          href={ALL_CALLS_HREF}
+          prefetch
+          scroll={false}
+          className={cn(
+            LINES_MOBILE_CARD,
+            "flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5",
+            "text-sm font-semibold text-foreground touch-manipulation",
+            "transition-colors hover:bg-zinc-900/60 active:scale-[0.99]"
+          )}
+        >
+          <span className="inline-flex items-center gap-2">
+            <PhoneIncoming className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
+            All calls
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+        </Link>
       </section>
       <section
-        className={cn(
-          "hidden md:grid grid-cols-3 gap-2 w-full rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md",
-          className
-        )}
+        className={cn("hidden w-full space-y-2 md:block", className)}
         aria-label="Workspace telemetry"
       >
-        <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
-        <TelemetryPill
-          label="Daily calls"
-          value={dailyCalls}
-          icon={PhoneIncoming}
-          onClick={() => openCallHistory("daily")}
-        />
-        <TelemetryPill
-          label={missedDesktopLabel}
-          value={missedCalls}
-          icon={PhoneMissed}
-          tone={missedCalls > 0 ? "amber" : "default"}
-          valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
-          labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
-          onClick={openMissedRescue}
-        />
-        <TelemetryPill
-          label="Booking rate"
-          value={bookingDisplay}
-          icon={Percent}
-          tone="teal"
-          valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
-        />
-        <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
-        <TelemetryPill
-          label="Rescue revenue"
-          value={rescueDisplay}
-          icon={DollarSign}
-          tone={rescueHot ? "amber" : "emerald"}
-          valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
-        />
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md">
+          <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
+          <TelemetryPill
+            label="Daily calls"
+            value={dailyCalls}
+            icon={PhoneIncoming}
+            onClick={() => openCallHistory("daily")}
+          />
+          <TelemetryPill
+            label={missedDesktopLabel}
+            value={missedCalls}
+            icon={PhoneMissed}
+            tone={missedCalls > 0 ? "amber" : "default"}
+            valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
+            labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
+            onClick={openMissedRescue}
+          />
+          <TelemetryPill
+            label="Booking rate"
+            value={bookingDisplay}
+            icon={Percent}
+            tone="teal"
+            valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
+          />
+          <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
+          <TelemetryPill
+            label="Rescue revenue"
+            value={rescueDisplay}
+            icon={DollarSign}
+            tone={rescueHot ? "amber" : "emerald"}
+            valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+          />
+        </div>
+        <Link
+          href={ALL_CALLS_HREF}
+          prefetch
+          scroll={false}
+          className={cn(
+            "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-1 py-1.5",
+            "text-xs font-semibold text-primary hover:underline"
+          )}
+        >
+          All calls
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
       </section>
 
       <RoutingCallHistoryDialog
