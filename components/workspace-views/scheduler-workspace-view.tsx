@@ -36,7 +36,8 @@ import {
   useActivePipelineQuery,
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
-import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
@@ -71,6 +72,29 @@ function shiftCalendarDay(day: Date, delta: number): Date {
   const next = new Date(day)
   next.setDate(next.getDate() + delta)
   return next
+}
+
+type SchedulerBootstrapCache = {
+  events: SchedulerEvent[]
+  blockouts: ScheduleBlockout[]
+  technicians: FieldTechnician[]
+  lineIndustryTags: string[]
+  ownerUserId: string | null
+}
+
+function schedulerBootstrapCacheKey(monthKey: string, orgId: string | null): string {
+  return persistedCacheKey("scheduler-bootstrap", `${orgId ?? "default"}:${monthKey}`)
+}
+
+function readSchedulerBootstrapCache(
+  monthKey: string,
+  orgId: string | null
+): SchedulerBootstrapCache | null {
+  const cached = readPersistedCache<SchedulerBootstrapCache>(
+    schedulerBootstrapCacheKey(monthKey, orgId)
+  )
+  if (!cached || !Array.isArray(cached.events)) return null
+  return cached
 }
 
 export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
@@ -139,6 +163,26 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
+  const bootstrapSeed = useClientSnapshot(
+    () => readSchedulerBootstrapCache(monthKey, orgId),
+    () => null
+  )
+  const bootstrapCacheIdentity = `${orgId ?? "default"}:${monthKey}`
+  const appliedBootstrapSeedRef = useRef<string | null>(null)
+
+  // Paint last month bootstrap once per month/org — do not re-apply after live refresh writes cache.
+  useEffect(() => {
+    if (appliedBootstrapSeedRef.current === bootstrapCacheIdentity) return
+    const seed = bootstrapSeed ?? readSchedulerBootstrapCache(monthKey, orgId)
+    if (!seed) return
+    appliedBootstrapSeedRef.current = bootstrapCacheIdentity
+    setEvents(seed.events)
+    setBlockouts(seed.blockouts)
+    setTechnicians(seed.technicians)
+    setLineIndustryTags(seed.lineIndustryTags)
+    if (seed.ownerUserId) setOwnerUserId(seed.ownerUserId)
+    setLoading(false)
+  }, [bootstrapCacheIdentity, bootstrapSeed, monthKey, orgId])
 
   // Pause hopper + pipeline SWR while Scheduler pane / browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
@@ -339,7 +383,9 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
 
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current
-    if (!initialBootstrapDoneRef.current) setLoading(true)
+    const seeded = Boolean(readSchedulerBootstrapCache(monthKey, orgId))
+    // Keep calendar painted from session cache while silently refreshing.
+    if (!seeded && !initialBootstrapDoneRef.current) setLoading(true)
     const bootstrapUrl = `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQuery}`
 
     const bootstrapFetch = fetch(bootstrapUrl, { credentials: "include", cache: "no-store" })
@@ -357,27 +403,41 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
           if (seq !== loadSeqRef.current) return
           const deleted = deletedJobIdsRef.current
           const rawEvents = Array.isArray(j.data?.events) ? j.data!.events! : []
-          setEvents(
+          const nextEvents =
             deleted.size > 0 ? rawEvents.filter((ev) => !deleted.has(ev.id)) : rawEvents
-          )
-          setBlockouts(Array.isArray(j.data?.blockouts) ? j.data!.blockouts! : [])
-          setTechnicians(Array.isArray(j.data?.technicians) ? j.data!.technicians! : [])
-          setLineIndustryTags(Array.isArray(j.data?.lineIndustryTags) ? j.data!.lineIndustryTags! : [])
-          if (j.data?.ownerUserId) setOwnerUserId(j.data.ownerUserId)
+          const nextBlockouts = Array.isArray(j.data?.blockouts) ? j.data!.blockouts! : []
+          const nextTechs = Array.isArray(j.data?.technicians) ? j.data!.technicians! : []
+          const nextTags = Array.isArray(j.data?.lineIndustryTags) ? j.data!.lineIndustryTags! : []
+          const nextOwner = j.data?.ownerUserId ?? null
+          setEvents(nextEvents)
+          setBlockouts(nextBlockouts)
+          setTechnicians(nextTechs)
+          setLineIndustryTags(nextTags)
+          if (nextOwner) setOwnerUserId(nextOwner)
+          writePersistedCache(schedulerBootstrapCacheKey(monthKey, orgId), {
+            events: nextEvents,
+            blockouts: nextBlockouts,
+            technicians: nextTechs,
+            lineIndustryTags: nextTags,
+            ownerUserId: nextOwner,
+          } satisfies SchedulerBootstrapCache)
         }
       )
       .catch(() => {
-        setEvents([])
-        setBlockouts([])
-        setTechnicians([])
-        setLineIndustryTags([])
+        // Keep seed on failure — only blank when we had nothing to show.
+        if (!seeded) {
+          setEvents([])
+          setBlockouts([])
+          setTechnicians([])
+          setLineIndustryTags([])
+        }
       })
 
     return bootstrapFetch.finally(() => {
       initialBootstrapDoneRef.current = true
       setLoading(false)
     })
-  }, [monthKey, orgQuery])
+  }, [monthKey, orgQuery, orgId])
 
   useEffect(() => {
     void load()

@@ -109,19 +109,25 @@ export function DashboardSettingsModalsHost({
           businessName: String(u?.business_name ?? "").trim() || "My Business",
         }
       }
-      try {
-        const { profile: ob, carrierLive } = await fetchOnboardingProfile()
+      // Onboarding + email-recordings are independent — fetch together.
+      const [onboardingResult, recRes] = await Promise.all([
+        fetchOnboardingProfile()
+          .then((r) => ({ ok: true as const, ...r }))
+          .catch(() => null),
+        fetch("/api/settings/email-recordings", { credentials: "include" }),
+      ])
+      if (onboardingResult?.ok) {
         next = {
           ...next,
-          subscriptionActive: isVerifiedActiveSubscription(ob, carrierLive),
-          billingCycleEnd: ob?.billing_cycle_end?.trim() || null,
-          smsLeadsEnabled: ob?.sms_leads_enabled === true,
-          dispatchSmsPhone: ob?.dispatch_sms_phone?.trim() || "",
+          subscriptionActive: isVerifiedActiveSubscription(
+            onboardingResult.profile,
+            onboardingResult.carrierLive
+          ),
+          billingCycleEnd: onboardingResult.profile?.billing_cycle_end?.trim() || null,
+          smsLeadsEnabled: onboardingResult.profile?.sms_leads_enabled === true,
+          dispatchSmsPhone: onboardingResult.profile?.dispatch_sms_phone?.trim() || "",
         }
-      } catch {
-        /* optional */
       }
-      const recRes = await fetch("/api/settings/email-recordings", { credentials: "include" })
       if (recRes.ok) {
         const recJson = await recRes.json()
         next.emailRecordingsEnabled = recJson?.data?.email_recordings_enabled === true

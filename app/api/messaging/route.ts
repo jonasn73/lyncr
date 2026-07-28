@@ -15,18 +15,25 @@ export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
-  const user = await getUser(userId)
-  if (!user || user.account_role !== "owner") {
-    return NextResponse.json({ error: "Only business owners can view SMS threads" }, { status: 403 })
-  }
-
   try {
     let organizationId = req.nextUrl.searchParams.get("organization_id")?.trim() ?? ""
-    if (!organizationId) {
-      const def = await getDefaultOrganizationForOwner(userId)
-      organizationId = def?.id ?? ""
+
+    // Owner check + org resolve in parallel (was a cold-start waterfall).
+    const [user, org] = await Promise.all([
+      getUser(userId),
+      (async () => {
+        if (!organizationId) {
+          const def = await getDefaultOrganizationForOwner(userId)
+          organizationId = def?.id ?? ""
+        }
+        if (!organizationId || organizationId.startsWith("legacy-")) return null
+        return getOrganizationForOwner(organizationId, userId)
+      })(),
+    ])
+
+    if (!user || user.account_role !== "owner") {
+      return NextResponse.json({ error: "Only business owners can view SMS threads" }, { status: 403 })
     }
-    const org = organizationId ? await getOrganizationForOwner(organizationId, userId) : null
     if (!org || org.id.startsWith("legacy-")) {
       return NextResponse.json({ data: { messages: [], organization_id: null } })
     }

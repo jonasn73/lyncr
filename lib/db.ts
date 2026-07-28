@@ -5109,6 +5109,8 @@ export async function listCrmCustomersForUser(
       WHERE user_id = ${userId}
         AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10)
           = ANY(${digitKeys})
+        AND coalesce(created_at, now()) > now() - interval '24 months'
+      LIMIT 2500
     `) as Record<string, unknown>[]
 
     for (const row of rows) {

@@ -30,16 +30,6 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
   try {
-    let organizationId = req.nextUrl.searchParams.get("organization_id")?.trim() ?? ""
-    if (!organizationId) {
-      const def = await getDefaultOrganizationForOwner(userId)
-      organizationId = def?.id ?? ""
-    }
-    const org =
-      organizationId && !organizationId.startsWith("legacy-")
-        ? await getOrganizationForOwner(organizationId, userId)
-        : null
-
     // Browser TZ — Vercel runs UTC; calendar “today” must match the owner’s day.
     const timezone = sanitizeIanaTimezone(req.nextUrl.searchParams.get("timezone"))
 
@@ -48,8 +38,19 @@ export async function GET(req: NextRequest) {
     const fromIso = new Date(toMs - 48 * 60 * 60 * 1000).toISOString()
     const toIso = new Date(toMs).toISOString()
 
-    const [orgMessages, dayEvents, reviewHints, reviewJobs] = await Promise.all([
-      org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
+    // Resolve org in parallel with independent calendar/review queries (cut waterfall).
+    const orgPromise = (async () => {
+      let organizationId = req.nextUrl.searchParams.get("organization_id")?.trim() ?? ""
+      if (!organizationId) {
+        const def = await getDefaultOrganizationForOwner(userId)
+        organizationId = def?.id ?? ""
+      }
+      if (!organizationId || organizationId.startsWith("legacy-")) return null
+      return getOrganizationForOwner(organizationId, userId)
+    })()
+
+    const [org, dayEvents, reviewHints] = await Promise.all([
+      orgPromise,
       listOwnerSchedulerEvents({
         ownerUserId: userId,
         fromIso,
@@ -57,6 +58,10 @@ export async function GET(req: NextRequest) {
         limit: 80,
       }),
       listReviewLinkClickHintsForOwner(userId, 40),
+    ])
+
+    const [orgMessages, reviewJobs] = await Promise.all([
+      org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
       // Completed today (owner TZ) with review_sms_sent_at still null — includes Jason after 8pm ET.
       listOwnerJobsNeedingReviewSms({
         ownerUserId: userId,

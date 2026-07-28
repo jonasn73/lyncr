@@ -8,6 +8,8 @@ import { formatUsdFromCents } from "@/lib/billing-pricing"
 import { confirmCreditPackCheckout, startCreditPackCheckout, startStripeSubscriptionCheckout } from "@/lib/onboarding-profile-client"
 import { LOW_CARRIER_CREDIT_THRESHOLD_USD } from "@/lib/carrier-credit-threshold"
 import { CHECKOUT_TIER_OPTIONS, type CheckoutSubscriptionTier } from "@/lib/subscription-checkout"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useToast } from "@/hooks/use-toast"
 import {
   WorkspacePage,
@@ -46,6 +48,19 @@ type TalkTimeCall = {
   status: string
 }
 
+const BILLING_CACHE_KEY = persistedCacheKey("billing-summary", "default")
+const CALLS_LEDGER_CACHE_KEY = persistedCacheKey("pay-talk-ledger", "default")
+const EMPTY_CALLS: TalkTimeCall[] = []
+
+function readBillingCache(): BillingSummary | null {
+  return readPersistedCache<BillingSummary>(BILLING_CACHE_KEY) ?? null
+}
+
+function readCallsLedgerCache(): TalkTimeCall[] {
+  const cached = readPersistedCache<{ calls: TalkTimeCall[] }>(CALLS_LEDGER_CACHE_KEY)
+  return Array.isArray(cached?.calls) ? cached.calls : EMPTY_CALLS
+}
+
 function formatLedgerDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return "—"
@@ -62,12 +77,16 @@ function minutesFromSeconds(seconds: number): number {
 export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
-  const [billing, setBilling] = useState<BillingSummary | null>(null)
+  const billingSeed = useClientSnapshot(readBillingCache, () => null)
+  const callsSeed = useClientSnapshot(readCallsLedgerCache, () => EMPTY_CALLS)
+  const [liveBilling, setLiveBilling] = useState<BillingSummary | null>(null)
+  const billing = liveBilling ?? billingSeed
   const [loadError, setLoadError] = useState<string | null>(null)
   const [buyingPack, setBuyingPack] = useState<number | null>(null)
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier | null>(null)
-  const [calls, setCalls] = useState<TalkTimeCall[]>([])
-  const [callsLoaded, setCallsLoaded] = useState(false)
+  const [liveCalls, setLiveCalls] = useState<TalkTimeCall[] | null>(null)
+  const calls = liveCalls ?? callsSeed
+  const [callsLoaded, setCallsLoaded] = useState(() => callsSeed.length > 0)
 
   const refreshBilling = useCallback(async () => {
     setLoadError(null)
@@ -78,15 +97,18 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
       throw new Error(j.error || "Billing unavailable")
     }
     const json = (await res.json()) as { data?: BillingSummary }
-    setBilling(json.data ?? null)
+    const next = json.data ?? null
+    setLiveBilling(next)
+    if (next) writePersistedCache(BILLING_CACHE_KEY, next)
   }, [])
 
   useEffect(() => {
     void refreshBilling().catch((e) => {
-      setBilling(null)
+      // Keep session seed on failure — avoid blanking a painted wallet.
+      if (!billingSeed) setLiveBilling(null)
       setLoadError(e instanceof Error ? e.message : "Could not load billing")
     })
-  }, [refreshBilling])
+  }, [refreshBilling, billingSeed])
 
   useEffect(() => {
     let cancelled = false
@@ -94,7 +116,9 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("calls"))))
       .then((j: { calls?: TalkTimeCall[] }) => {
         if (cancelled) return
-        setCalls(Array.isArray(j.calls) ? j.calls : [])
+        const next = Array.isArray(j.calls) ? j.calls : []
+        setLiveCalls(next)
+        writePersistedCache(CALLS_LEDGER_CACHE_KEY, { calls: next })
       })
       .catch(() => {})
       .finally(() => {

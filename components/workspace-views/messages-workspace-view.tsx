@@ -15,10 +15,24 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import type { SmsMessage } from "@/lib/types"
+
+const EMPTY_MESSAGES: SmsMessage[] = []
+
+function messagesCacheKey(orgId: string | null): string {
+  return persistedCacheKey("messages-inbox", orgId ?? "default")
+}
+
+function readMessagesCache(orgId: string | null): SmsMessage[] {
+  const cached = readPersistedCache<{ messages: SmsMessage[] }>(messagesCacheKey(orgId))
+  if (!cached || !Array.isArray(cached.messages)) return EMPTY_MESSAGES
+  return cached.messages
+}
 
 type SmsThread = {
   customerPhone: string
@@ -107,8 +121,14 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
       ? activeOrganizationId
       : null
 
-  const [messages, setMessages] = useState<SmsMessage[]>([])
-  const [loading, setLoading] = useState(true)
+  const cachedMessages = useClientSnapshot(
+    () => readMessagesCache(orgId),
+    () => EMPTY_MESSAGES
+  )
+  const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
+  const messages = liveMessages ?? cachedMessages
+  // Spinner only on cold cache — seeded inbox paints immediately on revisit.
+  const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
@@ -119,9 +139,13 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
   const threadOpen = Boolean(selectedPhone)
 
+  const hasPaintedMessagesRef = useRef(cachedMessages.length > 0)
+  if (messages.length > 0) hasPaintedMessagesRef.current = true
+
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!opts?.silent) setLoading(true)
+      const silent = opts?.silent ?? hasPaintedMessagesRef.current
+      if (!silent) setLoading(true)
       setError(null)
       try {
         const qs = orgId
@@ -136,15 +160,26 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
           data?: { messages?: SmsMessage[] }
         }
         if (!res.ok) throw new Error(json.error || "Could not load messages")
-        setMessages(Array.isArray(json.data?.messages) ? json.data!.messages! : [])
+        const next = Array.isArray(json.data?.messages) ? json.data!.messages! : []
+        setLiveMessages(next)
+        writePersistedCache(messagesCacheKey(orgId), { messages: next })
+        hasPaintedMessagesRef.current = true
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load messages")
       } finally {
-        if (!opts?.silent) setLoading(false)
+        setLoading(false)
       }
     },
     [orgId]
   )
+
+  // Org switch — drop live override so the matching seed can show.
+  useEffect(() => {
+    setLiveMessages(null)
+    const seeded = readMessagesCache(orgId).length > 0
+    hasPaintedMessagesRef.current = seeded
+    setLoading(!seeded)
+  }, [orgId])
 
   useEffect(() => {
     if (!pollEnabled) return
@@ -252,7 +287,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
       }
       if (!res.ok) throw new Error(json.error || "Could not send message")
       if (json.data?.message) {
-        setMessages((prev) => [json.data!.message!, ...prev])
+        setLiveMessages((prev) => [json.data!.message!, ...(prev ?? cachedMessages)])
       } else {
         await loadMessages({ silent: true })
       }

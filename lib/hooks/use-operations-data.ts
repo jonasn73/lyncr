@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -221,28 +222,31 @@ export type UseOperationsDataOptions = {
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
   const enabled = options?.enabled !== false
-  const seed = operationsCache
+  // Session seed paints in the same hydration commit (no layout-effect flash).
+  const sessionSeed = useClientSnapshot(
+    () => operationsCache ?? readSessionOperationsCache(),
+    () => null
+  )
+  const seed = sessionSeed ?? operationsCache
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
   // Full-page skeleton only when we have never loaded successfully in this tab.
-  const [loading, setLoading] = useState(() => operationsCache === null)
+  const [loading, setLoading] = useState(() => seed == null)
   const [loadError, setLoadError] = useState<string | null>(null)
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
 
-  // Restore last successful payload before paint so refresh / Activity tab does not flash a loading shell.
-  useLayoutEffect(() => {
-    if (operationsCache && cacheIsFresh(operationsCache)) return
-    const stored = readSessionOperationsCache()
-    if (!stored) return
-    operationsCache = stored
-    setCalls(stored.calls.map(normalizeUiCallRecord))
-    setQuality(stored.quality)
-    setInsights(stored.insights)
+  // Apply session seed once client snapshot is available (SSR → client).
+  useEffect(() => {
+    if (!sessionSeed) return
+    operationsCache = sessionSeed
+    setCalls(sessionSeed.calls.map(normalizeUiCallRecord))
+    setQuality(sessionSeed.quality)
+    setInsights(sessionSeed.insights)
     setLoading(false)
-  }, [])
+  }, [sessionSeed])
 
   useEffect(() => {
     if (!enabled) return

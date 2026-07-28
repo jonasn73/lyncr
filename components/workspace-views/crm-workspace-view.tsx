@@ -355,6 +355,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     [applyProfilePayload]
   )
 
+  // List refresh must not re-hit the profile API (was a CRM drawer refetch storm).
   useEffect(() => {
     if (!selectedId) {
       setSelected(null)
@@ -366,16 +367,26 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setEditingName(false)
       return
     }
-    const fromList = rows.find((r) => r.id === selectedId) ?? null
-    setSelected(fromList)
-    if (fromList) {
-      setEditName(fromList.display_name || "")
-    }
     setEditingName(false)
     setEditingApptId(null)
     setEditApptLocal("")
     void loadProfile(selectedId)
-  }, [selectedId, rows, loadProfile])
+  }, [selectedId, loadProfile])
+
+  // Keep the selected row summary in sync when the list poll updates badges/counts.
+  useEffect(() => {
+    if (!selectedId) return
+    const fromList = rows.find((r) => r.id === selectedId) ?? null
+    if (!fromList) return
+    setSelected((prev) => {
+      if (!prev || prev.id !== fromList.id) return fromList
+      return {
+        ...prev,
+        ...fromList,
+      }
+    })
+    setEditName((prev) => (prev.trim() ? prev : fromList.display_name || ""))
+  }, [selectedId, rows])
 
   const openLeadHistory = useMemo(
     () => history.filter((h) => h.is_open_lead),

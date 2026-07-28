@@ -233,15 +233,14 @@ export function GetPaidSheet({
 
   useEffect(() => {
     if (!open) return
-    void refreshStatus({ quiet: Boolean(status) })
+    // Status + payout history in parallel — don’t wait for status.ready to start bank list.
+    void Promise.all([
+      refreshStatus({ quiet: Boolean(status) }),
+      refreshPayouts(),
+    ])
     // Only re-run when the sheet opens — not on every status update.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional open-only refresh
-  }, [open, refreshStatus])
-
-  useEffect(() => {
-    if (!open || !status?.ready) return
-    void refreshPayouts()
-  }, [open, status?.ready, refreshPayouts])
+  }, [open, refreshStatus, refreshPayouts])
 
   async function startEmbedded(components: "onboarding" | "management" | "both") {
     setSessionBusy(true)
