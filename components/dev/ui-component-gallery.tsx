@@ -316,6 +316,7 @@ export function UiComponentGallery() {
             onSaveJobNotes={() => undefined}
             onQuickLifecycleAction={() => undefined}
             onSendReviewSms={() => undefined}
+            onCollectPayment={() => undefined}
             onClose={() => undefined}
           />
         </div>

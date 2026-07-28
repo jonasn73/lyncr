@@ -3,6 +3,7 @@
 // Right slide-over for reviewing and editing scheduler jobs (overview vs stepped edit workflow).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { Loader2 } from "lucide-react"
 import { ToastAction } from "@/components/ui/toast"
 import { useToast } from "@/hooks/use-toast"
@@ -56,7 +57,55 @@ import { type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
-import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
+import type {
+  ActivePipelineJob,
+  DispatchJob,
+  FieldTechnician,
+  SchedulerEvent,
+  UnassignedPoolJob,
+} from "@/lib/types"
+
+/** Collect modal needs a DispatchJob shape + quoted_price_cents for invoice prefill. */
+type CollectDispatchJob = DispatchJob & { quoted_price_cents?: number | null }
+
+const TechPaymentModal = dynamic(
+  () =>
+    import("@/components/tech/tech-payment-modal").then((m) => ({
+      default: m.TechPaymentModal,
+    })),
+  { ssr: false }
+)
+
+/** Map Active Job / pool row into the Collect Payment job card. */
+function toCollectDispatchJob(
+  source: UnassignedPoolJob | SchedulerEvent
+): CollectDispatchJob {
+  const assignedTechId =
+    "assigned_tech_id" in source ? source.assigned_tech_id ?? null : null
+  const assignedTechName =
+    "assigned_tech_name" in source ? source.assigned_tech_name ?? null : null
+  const jobStatus = "job_status" in source ? source.job_status ?? null : null
+  return {
+    id: source.id,
+    customer_name: source.customer_name,
+    customer_phone: source.customer_phone,
+    location: source.location,
+    summary: source.summary ?? null,
+    job_status: jobStatus,
+    assigned_tech_id: assignedTechId,
+    assigned_tech_name: assignedTechName,
+    latitude: source.latitude ?? null,
+    longitude: source.longitude ?? null,
+    created_at: source.created_at,
+    vehicle_year: source.vehicle_year ?? null,
+    vehicle_make: source.vehicle_make ?? null,
+    vehicle_model: source.vehicle_model ?? null,
+    field_verification_required: source.field_verification_required ?? null,
+    // Prefill Collect / pay-link amount from the booked balance.
+    quoted_price_cents:
+      source.quoted_price_cents ?? source.billing_balance_cents ?? null,
+  }
+}
 
 type JobDetailViewMode = "overview" | "edit"
 
@@ -155,6 +204,8 @@ export function JobDetailDrawer({
 
   // Overview billing: persisted API amount only (never client calculator).
   const billingBalanceDollars = billingBalanceDollarsFromJob(source)
+  // Money rail → Collect (card / tap / pay link / receipt) for this job.
+  const [collectJob, setCollectJob] = useState<CollectDispatchJob | null>(null)
 
   const resolveQuotedPriceCents = useCallback(() => {
     // Edit mode may change the price field; still fall back to the saved DB quote only.
@@ -748,6 +799,7 @@ export function JobDetailDrawer({
               onQuickLifecycleAction={(status) => void handleQuickLifecycleAction(status)}
               onSendReviewSms={() => void handleSendReviewSms()}
               reviewSmsFailed={reviewSmsFailed}
+              onCollectPayment={() => setCollectJob(toCollectDispatchJob(source))}
               onClose={requestClose}
             />
           ) : (
@@ -854,6 +906,34 @@ export function JobDetailDrawer({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Money-on-the-job Collect — same modal techs use (pay link → tip → receipt). */}
+      {collectJob ? (
+        <TechPaymentModal
+          job={collectJob}
+          onClose={() => setCollectJob(null)}
+          onCompleted={() => {
+            setCollectJob(null)
+            toast({
+              title: "Payment recorded",
+              description: "Send a receipt from Collect if you have not already.",
+            })
+            // Refresh Active Job so paid pay-link badges can catch up.
+            if (jobId) {
+              void fetch(`/api/owner/scheduler/${encodeURIComponent(jobId)}`, {
+                credentials: "include",
+                cache: "no-store",
+              })
+                .then(async (res) => {
+                  if (!res.ok) return
+                  const json = (await res.json()) as { data?: SchedulerEvent }
+                  if (json.data) setHydratedEvent(json.data)
+                })
+                .catch(() => {})
+            }
+          }}
+        />
+      ) : null}
     </>
   )
 }

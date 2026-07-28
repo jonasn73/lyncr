@@ -77,3 +77,27 @@ export function billingBalanceDollarsFromJob(job: {
   if (cents == null || !Number.isFinite(cents) || cents <= 0) return 0
   return Math.round(cents / 100)
 }
+
+/**
+ * Suggested booking deposit in cents for Money-on-the-job.
+ * Rule: ~20% of balance, at least $25 when the job is large enough,
+ * never more than the balance, and never below Stripe’s $0.50 floor.
+ * Returns 0 when there is nothing collectible.
+ */
+export function suggestedJobDepositCents(balanceCents: number): number {
+  if (!Number.isFinite(balanceCents) || balanceCents < 50) return 0
+  const twentyPercent = Math.round(balanceCents * 0.2)
+  // Prefer a meaningful deposit, but never overcharge the booked total.
+  const withFloor = Math.max(2500, twentyPercent)
+  return Math.min(withFloor, balanceCents)
+}
+
+/** Format cents as a short USD label for buttons/toasts (e.g. "$40"). */
+export function formatJobMoneyCents(cents: number): string {
+  if (!Number.isFinite(cents) || cents <= 0) return "$0"
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  })
+}

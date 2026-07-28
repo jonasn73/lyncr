@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ExternalLink,
-  Link2,
   Loader2,
   MessageSquare,
   Pencil,
@@ -34,10 +33,6 @@ import {
   formatScheduledDateDisplay,
   formatScheduledTimeDisplay,
 } from "@/lib/scheduler-utils"
-import {
-  buildDepositSmsStagingTemplate,
-  createMockSecureDepositLink,
-} from "@/lib/secure-deposit-link"
 import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useToast } from "@/hooks/use-toast"
@@ -49,6 +44,7 @@ import {
   SCHEDULER_METADATA_LABEL,
 } from "@/lib/scheduler-ui-tokens"
 import { TechAssignmentSelect } from "@/components/scheduler/tech-assignment-select"
+import { JobMoneyRail } from "@/components/scheduler/job-money-rail"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import type { ActivePipelineJob, FieldTechnician, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -81,6 +77,8 @@ type JobDetailOverviewProps = {
   onSendReviewSms: () => void
   /** Last send attempt failed — button shows Retry. */
   reviewSmsFailed?: boolean
+  /** Open Collect / pay modal for this job (card, tap, pay link, receipt). */
+  onCollectPayment: () => void
   onClose: () => void
 }
 
@@ -162,6 +160,7 @@ export function JobDetailOverview({
   onQuickLifecycleAction,
   onSendReviewSms,
   reviewSmsFailed = false,
+  onCollectPayment,
   onClose,
 }: JobDetailOverviewProps) {
   const { toast } = useToast()
@@ -229,30 +228,12 @@ export function JobDetailOverview({
       ? keyBlocks.map((b) => b.value).filter(Boolean).slice(0, 2).join(" · ")
       : "None on file"
 
-  const [depositSmsStaging, setDepositSmsStaging] = useState<string | null>(null)
   // Inline Telnyx SMS composer (popover was z-50 and opened behind this z-[1410] drawer).
   const [smsComposerOpen, setSmsComposerOpen] = useState(false)
   // Secondary sections: collapsed by default on mobile so Dispatch stays above the fold.
   const [keyDetailsOpen, setKeyDetailsOpen] = useState(false)
   const [moreActionsOpen, setMoreActionsOpen] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
-
-  const handleSecureDepositLink = useCallback(() => {
-    const depositUrl = createMockSecureDepositLink(source.id)
-    const amountLabel =
-      billingBalanceDollars > 0
-        ? `$${Math.max(25, Math.round(billingBalanceDollars * 0.2))}`
-        : null
-    setDepositSmsStaging(
-      buildDepositSmsStagingTemplate({
-        customerName,
-        depositUrl,
-        amountLabel,
-      })
-    )
-    // Opening deposit staging should also reveal More actions if collapsed.
-    setMoreActionsOpen(true)
-  }, [source.id, billingBalanceDollars, customerName])
 
   const openSmsComposer = useCallback(() => {
     if (!customerPhone) {
@@ -410,6 +391,19 @@ export function JobDetailOverview({
             </span>
           </p>
         </section>
+
+        {/* Money-on-the-job: balance → deposit pay link → collect → review */}
+        <JobMoneyRail
+          jobId={source.id}
+          customerName={customerName}
+          customerPhone={customerPhone}
+          billingBalanceDollars={billingBalanceDollars}
+          isJobDone={isJobDone}
+          saving={saving}
+          reviewSmsFailed={reviewSmsFailed}
+          onCollect={onCollectPayment}
+          onSendReviewSms={onSendReviewSms}
+        />
 
         {/* Complete from anywhere — pool / unscheduled / no-tech, above the fold */}
         {!isJobDone ? (
@@ -623,14 +617,14 @@ export function JobDetailOverview({
               open={moreActionsOpen}
               onToggle={() => setMoreActionsOpen((v) => !v)}
               label="More actions"
-              hint="Cancel · Referred · Complete · Review · Deposit"
+              hint="Cancel · Referred · Complete · Review"
             />
           ) : (
             <p className={cn(SECTION_LABEL, "mb-1.5")}>Quick actions</p>
           )}
           {showMoreActions ? (
             <div className={cn(isMobile && "mt-1.5")}>
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 <button
                   type="button"
                   disabled={saving}
@@ -681,35 +675,7 @@ export function JobDetailOverview({
                   <Star className="h-3.5 w-3.5 opacity-90" aria-hidden />
                   {reviewSmsFailed ? "Retry SMS" : "Review SMS"}
                 </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleSecureDepositLink}
-                  className={cn(
-                    ACTION_BTN,
-                    "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
-                  )}
-                >
-                  <Link2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                  Deposit
-                </button>
               </div>
-
-              {depositSmsStaging != null ? (
-                <div className="mt-2 space-y-1">
-                  <label htmlFor="deposit-sms-staging" className={SECTION_LABEL}>
-                    Deposit SMS staging
-                  </label>
-                  <textarea
-                    id="deposit-sms-staging"
-                    rows={2}
-                    value={depositSmsStaging}
-                    onChange={(e) => setDepositSmsStaging(e.target.value)}
-                    className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/60 p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
-                    placeholder="Edit the deposit SMS before sending…"
-                  />
-                </div>
-              ) : null}
             </div>
           ) : null}
         </section>

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { calculateTechETA, sortTechsByProximityEta } from "@/lib/dispatch-eta"
 import { appendAiTranscriptDraftToNotes, AI_TRANSCRIPT_DRAFT_BULLET } from "@/lib/call-transcript-stub"
-import { buildDepositSmsStagingTemplate, createMockSecureDepositLink } from "@/lib/secure-deposit-link"
+import {
+  buildDepositSmsStagingTemplate,
+  buildSuggestedDepositSmsPreview,
+  createMockSecureDepositLink,
+} from "@/lib/secure-deposit-link"
 
 describe("calculateTechETA", () => {
   it("returns null when either pin is missing", () => {
@@ -32,8 +36,8 @@ describe("calculateTechETA", () => {
   })
 })
 
-describe("secure deposit stub", () => {
-  it("builds a pay.lyncr.app mock URL and SMS staging body", () => {
+describe("secure deposit helpers", () => {
+  it("builds a legacy mock URL and SMS staging body", () => {
     const url = createMockSecureDepositLink("abc-123")
     expect(url).toMatch(/^https:\/\/pay\.lyncr\.app\/d\//)
     const sms = buildDepositSmsStagingTemplate({
@@ -44,6 +48,18 @@ describe("secure deposit stub", () => {
     expect(sms).toContain("Alex")
     expect(sms).toContain(url)
     expect(sms).toContain("$50")
+  })
+
+  it("previews a suggested deposit SMS for a booked balance", () => {
+    const preview = buildSuggestedDepositSmsPreview({
+      customerName: "Alex",
+      balanceCents: 20000,
+      depositUrl: "https://lyncr.app/pay/AbC123",
+    })
+    expect(preview.depositCents).toBe(4000)
+    expect(preview.amountLabel).toBe("$40")
+    expect(preview.smsBody).toContain("Alex")
+    expect(preview.smsBody).toContain("https://lyncr.app/pay/AbC123")
   })
 })
 

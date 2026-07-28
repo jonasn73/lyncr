@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
   billingBalanceDollarsFromJob,
+  formatJobMoneyCents,
   pickPersistedJobQuoteCents,
   resolveJobBaselineDollars,
   resolveJobBillingBalanceCents,
+  suggestedJobDepositCents,
 } from "@/lib/job-billing-balance"
 
 describe("resolveJobBillingBalanceCents", () => {
@@ -60,5 +62,21 @@ describe("billingBalanceDollarsFromJob", () => {
     expect(billingBalanceDollarsFromJob({ quoted_price_cents: 18500 })).toBe(185)
     expect(billingBalanceDollarsFromJob({ billing_balance_cents: 33500 })).toBe(335)
     expect(billingBalanceDollarsFromJob({ quoted_price_cents: null })).toBe(0)
+  })
+})
+
+describe("suggestedJobDepositCents", () => {
+  it("uses 20% with a $25 floor, never over the balance", () => {
+    expect(suggestedJobDepositCents(20000)).toBe(4000) // $40 on $200
+    expect(suggestedJobDepositCents(10000)).toBe(2500) // $25 floor on $100
+    expect(suggestedJobDepositCents(2000)).toBe(2000) // full $20 when under floor
+    expect(suggestedJobDepositCents(40)).toBe(0) // below Stripe $0.50
+  })
+})
+
+describe("formatJobMoneyCents", () => {
+  it("formats whole dollars without cents noise", () => {
+    expect(formatJobMoneyCents(4000)).toBe("$40")
+    expect(formatJobMoneyCents(2550)).toBe("$25.50")
   })
 })
