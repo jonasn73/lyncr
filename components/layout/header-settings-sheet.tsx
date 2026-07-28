@@ -232,7 +232,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           size="sm"
           onClick={openCollect}
           onPointerEnter={() => prefetchCollectJobs()}
-          className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20"
+          // Keep teal amount readable on dark theme — outline variant's hover:text-accent-foreground is dark.
+          className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
             monthLabel
               ? `Collect payment — ${monthLabel} this month, ${todayLabel} today. Open for history.`

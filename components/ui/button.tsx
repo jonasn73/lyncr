@@ -51,7 +51,8 @@ function Button({
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      // Merge outside cva so twMerge can beat variant hover:text-* (e.g. wallet chip).
+      className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     />
   )

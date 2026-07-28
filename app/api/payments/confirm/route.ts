@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
       stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : undefined
     )
     const jobId = intent.metadata?.job_id?.trim()
+    const kind = intent.metadata?.lyncr_kind?.trim()
     if (jobId) {
       const job = await getJobPaymentContext(jobId)
       if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 })
@@ -121,11 +122,15 @@ export async function POST(req: NextRequest) {
       if (!allowed) {
         return NextResponse.json({ error: "Not allowed to confirm this payment" }, { status: 403 })
       }
-    } else if (intent.metadata?.lyncr_kind === "adhoc_payment") {
+    } else if (kind === "adhoc_payment") {
+      // Require an owner match — missing metadata must not let any logged-in user settle.
       const ownerId = intent.metadata?.owner_user_id?.trim()
-      if (ownerId && ownerId !== userId) {
+      if (!ownerId || ownerId !== userId) {
         return NextResponse.json({ error: "Not allowed to confirm this payment" }, { status: 403 })
       }
+    } else {
+      // Unknown / non-Lyncr PaymentIntents are not confirmable from the client path.
+      return NextResponse.json({ error: "Not allowed to confirm this payment" }, { status: 403 })
     }
 
     return await settleAndRespond(paymentIntentId, stripeConnectAccountId, intent)
