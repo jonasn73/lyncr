@@ -42,7 +42,7 @@ const OPTIONS: PresenceUiOption[] = [
 ]
 
 export function PresenceStatusBar({ className }: { className?: string }) {
-  const { presenceStatus, loading, saving, setPresenceStatus } = useAccountPresence()
+  const { presenceStatus, presenceReady, loading, saving, setPresenceStatus } = useAccountPresence()
   const smartBusy = useSmartBusy()
 
   return (
@@ -65,7 +65,8 @@ export function PresenceStatusBar({ className }: { className?: string }) {
       </div>
       <div className="grid grid-cols-2 gap-2">
         {OPTIONS.map((opt) => {
-          const active = opt.isActive(presenceStatus)
+          // Until cache/API lands, keep both chips muted — never flash Available then Busy.
+          const active = presenceReady && opt.isActive(presenceStatus)
           return (
             <button
               key={opt.label}

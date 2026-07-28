@@ -2,12 +2,13 @@
 
 // Shared Latest feed for Lines — one fetch + session cache (mobile/desktop twins share this).
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   isHotLatestAction,
   type LatestCustomerAction,
 } from "@/lib/latest-customer-actions"
 import { useDocumentVisible } from "@/lib/hooks/use-poll-budget"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
@@ -81,27 +82,30 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
   return promise
 }
 
+const EMPTY_LATEST: LatestCustomerAction[] = []
+
 /** Latest customer actions with instant paint from session cache. */
 export function useOwnerLatest(activeOrganizationId: string | null | undefined) {
-  const [items, setItems] = useState<LatestCustomerAction[]>([])
+  const cachedItems = useClientSnapshot(
+    () => readLatestCache(activeOrganizationId) ?? EMPTY_LATEST,
+    () => EMPTY_LATEST
+  )
+  const [liveItems, setLiveItems] = useState<LatestCustomerAction[] | null>(null)
+  const items = liveItems ?? cachedItems
   // True only when we have nothing to show yet (cache miss).
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => cachedItems.length === 0)
   // Slow the Latest poll when the browser tab is backgrounded (don't stop — Lines stays hot).
   const documentVisible = useDocumentVisible()
 
-  // Restore last list before paint — stops “Loading…” flash on hard refresh.
-  useLayoutEffect(() => {
-    const cached = readLatestCache(activeOrganizationId)
-    if (cached) {
-      setItems(cached)
-      setLoading(false)
-    }
-  }, [activeOrganizationId])
+  // Keep loading false once a seed or live list exists (avoids empty→list blink).
+  useEffect(() => {
+    if (items.length > 0) setLoading(false)
+  }, [items.length])
 
   const load = useCallback(async () => {
     try {
       const next = await fetchLatest(activeOrganizationId)
-      setItems(next)
+      setLiveItems(next)
     } catch {
       /* keep last good list */
     } finally {
@@ -109,7 +113,19 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     }
   }, [activeOrganizationId])
 
+  const setItems = useCallback(
+    (next: LatestCustomerAction[] | ((prev: LatestCustomerAction[]) => LatestCustomerAction[])) => {
+      setLiveItems((prev) => {
+        const base = prev ?? cachedItems
+        return typeof next === "function" ? next(base) : next
+      })
+    },
+    [cachedItems]
+  )
+
   useEffect(() => {
+    // Org switch — clear live override so the new org’s seed can show.
+    setLiveItems(null)
     void load()
     // Poll budget: full speed in foreground; 4× slower when the tab is hidden.
     const intervalMs = documentVisible ? LATEST_POLL_VISIBLE_MS : LATEST_POLL_HIDDEN_MS

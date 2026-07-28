@@ -18,7 +18,14 @@ import {
 import { PRESENCE_BUSY_WRITE_STATUS } from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { useToast } from "@/hooks/use-toast"
+
+const EMPTY_LOCAL: SmartBusyLocalState = {
+  enabled: false,
+  engaged: false,
+  suppressed: false,
+}
 
 export type UseSmartBusyResult = {
   smartBusyEnabled: boolean
@@ -44,15 +51,17 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
   const { presenceStatus, setPresenceStatus, saving: presenceSaving } = useAccountPresence()
   const overflow = useSmartOverflowAutopilot(routingBusinessNumber)
 
-  const initial = readSmartBusyLocalState()
-  const [local, setLocal] = useState<SmartBusyLocalState>(initial)
+  // localStorage seed on first client snapshot (useState initializer is stuck on SSR false).
+  const cachedLocal = useClientSnapshot(readSmartBusyLocalState, () => EMPTY_LOCAL)
+  const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState | null>(null)
+  const local = liveLocal ?? cachedLocal
   const [poolCount, setPoolCount] = useState(0)
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
   const autoActionRef = useRef<"engage" | "revert" | null>(null)
 
   const persistLocal = useCallback((next: SmartBusyLocalState) => {
-    setLocal(next)
+    setLiveLocal(next)
     writeSmartBusyLocalState(next)
   }, [])
 
@@ -289,7 +298,8 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
     capacityLoad,
     capacityThreshold,
     capacitySummary,
-    loading: !hydrated || overflow.loading,
+    // Cached localStorage means the toggle can paint without waiting on the API.
+    loading: (!hydrated && liveLocal == null && !cachedLocal.enabled) || overflow.loading,
     saving: saving || presenceSaving,
     enableBusy,
     revertToAvailable,

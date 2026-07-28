@@ -1,8 +1,5 @@
 "use client"
 
-// Shared React hook: owner-dashboard call metrics + live in-progress tracking via Pusher.
-// One baseline REST read on mount/org change; all live updates are event-driven (no interval polling).
-
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
@@ -38,6 +35,7 @@ import {
   telemetryMonthPeriodKey,
   telemetryWeekPeriodKey,
 } from "@/lib/daily-call-telemetry"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 
 /** Tracks one ringing/connected leg until call-completed removes it. */
 export type ActiveCallSession = {
@@ -129,22 +127,29 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const { businessNumbers, activeLineE164 } = options
   const { activeOrganizationId } = useDashboardWorkspace()
 
-  const cachedMetrics = useMemo(
-    () => readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot(),
-    [activeOrganizationId]
+  const emptySnap = useMemo(() => emptyRoutingTelemetrySnapshot(), [])
+  const cachedMetrics = useClientSnapshot(
+    () => readRoutingTelemetryCache(activeOrganizationId) ?? emptySnap,
+    () => emptySnap
   )
 
-  const [dailyCalls, setDailyCalls] = useState(cachedMetrics.dailyCalls)
-  const [missedCalls, setMissedCalls] = useState(cachedMetrics.missedCalls)
-  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(cachedMetrics.dailyTalkSeconds)
-  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(cachedMetrics.weeklyTalkSeconds)
-  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(cachedMetrics.monthlyTalkSeconds)
-  const [bookingRatePercent, setBookingRatePercent] = useState(cachedMetrics.bookingRatePercent)
-  const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState(
-    cachedMetrics.avgDispatchSpeedMinutes
-  )
-  const [rescueRevenueCents, setRescueRevenueCents] = useState(cachedMetrics.rescueRevenueCents)
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(cachedMetrics.ownerUserId)
+  // Until we copy cache / API into React state, return the client seed (avoids 0→N flash).
+  const [hasLiveBaseline, setHasLiveBaseline] = useState(false)
+  const [statsOrgId, setStatsOrgId] = useState(activeOrganizationId)
+  if (statsOrgId !== activeOrganizationId) {
+    setStatsOrgId(activeOrganizationId)
+    setHasLiveBaseline(false)
+  }
+
+  const [dailyCalls, setDailyCalls] = useState(0)
+  const [missedCalls, setMissedCalls] = useState(0)
+  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(0)
+  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(0)
+  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(0)
+  const [bookingRatePercent, setBookingRatePercent] = useState(0)
+  const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState<number | null>(null)
+  const [rescueRevenueCents, setRescueRevenueCents] = useState(0)
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   /** Bumps every second while answered legs are live so talk pills keep ticking. */
@@ -280,13 +285,16 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     }, 0)
   }, [activeCallSessions, liveTalkTick])
 
-  const liveDailyTalkSeconds = dailyTalkSeconds + inProgressTalkSeconds
-  const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
-  const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
+  const liveDailyTalkSeconds =
+    (hasLiveBaseline ? dailyTalkSeconds : cachedMetrics.dailyTalkSeconds) + inProgressTalkSeconds
+  const liveWeeklyTalkSeconds =
+    (hasLiveBaseline ? weeklyTalkSeconds : cachedMetrics.weeklyTalkSeconds) + inProgressTalkSeconds
+  const liveMonthlyTalkSeconds =
+    (hasLiveBaseline ? monthlyTalkSeconds : cachedMetrics.monthlyTalkSeconds) +
+    inProgressTalkSeconds
 
-  // Apply session cache before paint so LIVE/CALLS/MISSED don’t flash 0 → real on refresh.
+  // Copy session cache into mutable state before paint (live events update these setters).
   useLayoutEffect(() => {
-    const snap = readRoutingTelemetryCache(activeOrganizationId) ?? emptyRoutingTelemetrySnapshot()
     applySnapshot(
       {
         setDailyCalls,
@@ -299,9 +307,10 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         setRescueRevenueCents,
         setOwnerUserId,
       },
-      snap
+      cachedMetrics
     )
-  }, [activeOrganizationId])
+    setHasLiveBaseline(true)
+  }, [activeOrganizationId, cachedMetrics])
 
   useEffect(() => {
     void refreshBaseline()
@@ -497,17 +506,25 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
 
   return useMemo(
     () => ({
-      dailyCalls,
-      missedCalls,
-      dailyTalkSeconds,
-      weeklyTalkSeconds,
-      monthlyTalkSeconds,
+      dailyCalls: hasLiveBaseline ? dailyCalls : cachedMetrics.dailyCalls,
+      missedCalls: hasLiveBaseline ? missedCalls : cachedMetrics.missedCalls,
+      dailyTalkSeconds: hasLiveBaseline ? dailyTalkSeconds : cachedMetrics.dailyTalkSeconds,
+      weeklyTalkSeconds: hasLiveBaseline ? weeklyTalkSeconds : cachedMetrics.weeklyTalkSeconds,
+      monthlyTalkSeconds: hasLiveBaseline
+        ? monthlyTalkSeconds
+        : cachedMetrics.monthlyTalkSeconds,
       liveDailyTalkSeconds,
       liveWeeklyTalkSeconds,
       liveMonthlyTalkSeconds,
-      bookingRatePercent,
-      avgDispatchSpeedMinutes,
-      rescueRevenueCents,
+      bookingRatePercent: hasLiveBaseline
+        ? bookingRatePercent
+        : cachedMetrics.bookingRatePercent,
+      avgDispatchSpeedMinutes: hasLiveBaseline
+        ? avgDispatchSpeedMinutes
+        : cachedMetrics.avgDispatchSpeedMinutes,
+      rescueRevenueCents: hasLiveBaseline
+        ? rescueRevenueCents
+        : cachedMetrics.rescueRevenueCents,
       liveLineCount,
       activeCallsOnSelectedLine,
       activeCallSessions,
@@ -515,6 +532,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       refreshBaseline,
     }),
     [
+      hasLiveBaseline,
+      cachedMetrics,
       dailyCalls,
       missedCalls,
       dailyTalkSeconds,

@@ -2,7 +2,7 @@
 
 // Profile avatar opens Settings; wallet chip opens Collect Payment.
 
-import { memo, useCallback, useEffect, useLayoutEffect, useState, Suspense } from "react"
+import { memo, useCallback, useEffect, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
@@ -20,6 +20,7 @@ import {
   SETTINGS_CHILD_OPEN_EVENTS,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
@@ -106,11 +107,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Start null on server + first client paint so SSR HTML matches (no $0 → $968 flash).
-  const [todayCents, setTodayCents] = useState<number | null>(null)
-  const [monthCents, setMonthCents] = useState<number | null>(null)
-  // True after sessionStorage / first fetch — amount slot stays reserved either way.
-  const [amountReady, setAmountReady] = useState(false)
+  // Live totals from API; session cache paints immediately via useClientSnapshot below.
+  const [liveTodayCents, setLiveTodayCents] = useState<number | null>(null)
+  const [liveMonthCents, setLiveMonthCents] = useState<number | null>(null)
+  const cachedSummary = useClientSnapshot(readCachedCollectedSummary, () => null)
+  const todayCents = liveTodayCents ?? cachedSummary?.todayCents ?? null
+  const monthCents = liveMonthCents ?? cachedSummary?.monthCents ?? null
+  // Prefer last-known cached total over an empty skeleton on refresh.
+  const amountReady = todayCents != null || monthCents != null
   const isMobile = useIsMobile()
 
   const refreshCollected = useCallback(() => {
@@ -120,30 +124,18 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         const today = j?.data?.todayCents
         const month = j?.data?.monthCents
         if (typeof today !== "number" || typeof month !== "number") {
-          setAmountReady(true)
           return
         }
-        setTodayCents(today)
-        setMonthCents(month)
-        setAmountReady(true)
+        setLiveTodayCents(today)
+        setLiveMonthCents(month)
         writePersistedCache(COLLECTED_SUMMARY_CACHE_KEY, {
           todayCents: today,
           monthCents: month,
         } satisfies CollectedHeaderCache)
       })
       .catch(() => {
-        setAmountReady(true)
+        /* keep last-known cache / live values */
       })
-  }, [])
-
-  // Pull last-known total before paint so the chip rarely shows an empty flash on refresh.
-  useLayoutEffect(() => {
-    const cached = readCachedCollectedSummary()
-    if (cached) {
-      setTodayCents(cached.todayCents)
-      setMonthCents(cached.monthCents)
-      setAmountReady(true)
-    }
   }, [])
 
   useEffect(() => {

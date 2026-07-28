@@ -2,7 +2,7 @@
 
 // Fetch today's call logs and derive unique missed leads + recent unreturned prospects.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import {
@@ -14,6 +14,7 @@ import {
   type MissedLeadInsights,
 } from "@/lib/missed-lead-aggregation"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 const EMPTY: MissedLeadInsights = {
@@ -50,25 +51,24 @@ function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null
   }
 }
 
-function readCachedMissedLeads(): MissedLeadCallRow[] | null {
+const EMPTY_ROWS: MissedLeadCallRow[] = []
+
+function readCachedMissedLeads(): MissedLeadCallRow[] {
   const cached = readPersistedCache<MissedLeadsCache>(MISSED_LEADS_CACHE_KEY)
-  if (!cached || !Array.isArray(cached.rows)) return null
-  return cached.rows
+  if (!cached || !Array.isArray(cached.rows)) return EMPTY_ROWS
+  return cached.rows.length > 0 ? cached.rows : EMPTY_ROWS
 }
 
 export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]) {
-  const [rows, setRows] = useState<MissedLeadCallRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const cachedRows = useClientSnapshot(readCachedMissedLeads, () => EMPTY_ROWS)
+  const [liveRows, setLiveRows] = useState<MissedLeadCallRow[] | null>(null)
+  const rows = liveRows ?? cachedRows
+  const [loading, setLoading] = useState(() => cachedRows.length === 0)
   const [interceptTick, setInterceptTick] = useState(0)
 
-  // Restore last call-log rows before paint so the Unreturned banner doesn’t jump in late.
-  useLayoutEffect(() => {
-    const cached = readCachedMissedLeads()
-    if (cached && cached.length > 0) {
-      setRows(cached)
-      setLoading(false)
-    }
-  }, [])
+  useEffect(() => {
+    if (rows.length > 0) setLoading(false)
+  }, [rows.length])
 
   const load = useCallback(async () => {
     try {
@@ -85,7 +85,7 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
             businessNumbersMatch(String(row.to_number ?? ""), line.number)
           )
         })
-      setRows(parsed)
+      setLiveRows(parsed)
       // Cache raw rows + summary so the next refresh can paint the banner immediately.
       const summary = summarizeMissedLeadInsights(parsed, {
         interceptedKeys: readInterceptedPhoneKeys(),

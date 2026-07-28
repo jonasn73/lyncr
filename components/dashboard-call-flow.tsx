@@ -519,7 +519,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   adminRoutingOverridePhone,
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
-  const { presenceStatus, presenceBypass } = useAccountPresence()
+  const { presenceStatus, presenceBypass, presenceReady } = useAccountPresence()
   // Live calendar capacity + next open 1-hour block for Smart Overflow IVR Menu.
   const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
   // Who Answers primary mode — gates the entire IVR configuration deck.
@@ -572,7 +572,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 
   // Smart IVR / capacity overflow must NOT claim "100% automation" while Available —
   // Available always rings the cell first; automation is only the unanswered fallback.
-  const presenceIsAvailable = presenceStatus === "AVAILABLE"
+  const presenceIsAvailable = presenceReady && presenceStatus === "AVAILABLE"
   const showIvrDeck =
     activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
   // Live "owns first answer" only when presence actually bypasses the cell.

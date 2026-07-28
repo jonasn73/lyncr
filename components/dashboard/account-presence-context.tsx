@@ -7,7 +7,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -15,10 +14,16 @@ import {
 } from "react"
 import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 import { useToast } from "@/hooks/use-toast"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 type AccountPresenceContextValue = {
   presenceStatus: PresenceStatus
+  /**
+   * False until session cache or API provides a real status.
+   * UI should not highlight Available/Busy while false (avoids Available→Busy flash).
+   */
+  presenceReady: boolean
   loading: boolean
   saving: boolean
   /** True when cell ring is skipped (Presence Busy). */
@@ -53,44 +58,44 @@ function writeCachedPresence(status: PresenceStatus) {
 
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast()
-  // Neutral default for SSR; real value comes from cache (before paint) or API.
-  const [presenceStatus, setStatus] = useState<PresenceStatus>("AVAILABLE")
-  // False when we already painted from cache — avoids spinner/selection flash on refresh.
-  const [loading, setLoading] = useState(true)
+  // Client snapshot of last-known status (null on SSR / cache miss).
+  const cachedSeed = useClientSnapshot(readCachedPresence, () => null)
+  const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
-  // True after sessionStorage hydrate — later fetches stay silent (no spinner).
+  const [fetching, setFetching] = useState(false)
+
+  const presenceStatus = liveStatus ?? cachedSeed ?? "AVAILABLE"
+  const presenceReady = liveStatus != null || cachedSeed != null
+
   const paintedFromCacheRef = useRef(false)
+  if (presenceReady) paintedFromCacheRef.current = true
 
-  // Apply last-known presence before the browser paints (stops Available → Busy flash).
-  useLayoutEffect(() => {
-    const cached = readCachedPresence()
-    if (cached) {
-      paintedFromCacheRef.current = true
-      setStatus(cached)
-      setLoading(false)
-    }
+  const setStatus = useCallback((next: PresenceStatus) => {
+    setLiveStatus(next)
+    writeCachedPresence(next)
   }, [])
 
-  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
-    // Default: silent after cache paint; interval passes silent:true; manual can pass false.
-    const silent = opts?.silent ?? paintedFromCacheRef.current
-    if (!silent) setLoading(true)
-    try {
-      const res = await fetch("/api/routing/presence", { credentials: "include" })
-      const json = (await res.json()) as { data?: { presence_status?: string } }
-      const next = parsePresenceStatus(json.data?.presence_status)
-      setStatus(next)
-      writeCachedPresence(next)
-      paintedFromCacheRef.current = true
-    } catch {
-      // Keep cached / current status on network errors — don’t snap to Available.
-      if (!paintedFromCacheRef.current) {
-        setStatus("AVAILABLE")
+  const refresh = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? paintedFromCacheRef.current
+      if (!silent) setFetching(true)
+      try {
+        const res = await fetch("/api/routing/presence", { credentials: "include" })
+        const json = (await res.json()) as { data?: { presence_status?: string } }
+        const next = parsePresenceStatus(json.data?.presence_status)
+        setStatus(next)
+        paintedFromCacheRef.current = true
+      } catch {
+        // Keep cached / current status on network errors — don’t snap to Available.
+        if (!paintedFromCacheRef.current) {
+          setStatus("AVAILABLE")
+        }
+      } finally {
+        setFetching(false)
       }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [setStatus]
+  )
 
   useEffect(() => {
     void refresh()
@@ -108,7 +113,6 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     async (next: PresenceStatus) => {
       const prev = presenceStatus
       setStatus(next)
-      writeCachedPresence(next)
       setSaving(true)
       try {
         const res = await fetch("/api/routing/presence", {
@@ -124,7 +128,6 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         }
         if (!res.ok) {
           setStatus(prev)
-          writeCachedPresence(prev)
           toast({
             title: "Could not update presence",
             description: json.migration
@@ -136,10 +139,8 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         }
         const saved = parsePresenceStatus(json.data?.presence_status || next)
         setStatus(saved)
-        writeCachedPresence(saved)
       } catch (e) {
         setStatus(prev)
-        writeCachedPresence(prev)
         toast({
           title: "Could not update presence",
           description: e instanceof Error ? e.message : "Try again.",
@@ -149,19 +150,21 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         setSaving(false)
       }
     },
-    [presenceStatus, toast]
+    [presenceStatus, setStatus, toast]
   )
 
   const value = useMemo<AccountPresenceContextValue>(
     () => ({
       presenceStatus,
-      loading,
+      presenceReady,
+      // Spinner only when we have nothing to show yet (not during silent revalidate).
+      loading: !presenceReady && fetching,
       saving,
-      presenceBypass: isBusyPresenceStatus(presenceStatus),
+      presenceBypass: presenceReady && isBusyPresenceStatus(presenceStatus),
       setPresenceStatus,
       refresh: () => refresh({ silent: false }),
     }),
-    [presenceStatus, loading, saving, setPresenceStatus, refresh]
+    [presenceStatus, presenceReady, fetching, saving, setPresenceStatus, refresh]
   )
 
   return (
@@ -174,6 +177,7 @@ export function useAccountPresence(): AccountPresenceContextValue {
   if (!ctx) {
     return {
       presenceStatus: "AVAILABLE",
+      presenceReady: false,
       loading: false,
       saving: false,
       presenceBypass: false,

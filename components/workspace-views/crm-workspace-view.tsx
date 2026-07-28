@@ -37,6 +37,8 @@ import type {
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -174,6 +176,18 @@ function datetimeLocalToIso(local: string): string | null {
   return d.toISOString()
 }
 
+const EMPTY_CRM_ROWS: CrmCustomerListItem[] = []
+
+function crmListCacheKey(filter: CrmFilter, q: string): string {
+  return persistedCacheKey("crm-customers", `${filter}:${q.trim().toLowerCase() || "all"}`)
+}
+
+function readCrmListCache(filter: CrmFilter, q: string): CrmCustomerListItem[] {
+  const cached = readPersistedCache<{ customers: CrmCustomerListItem[] }>(crmListCacheKey(filter, q))
+  if (!cached || !Array.isArray(cached.customers)) return EMPTY_CRM_ROWS
+  return cached.customers.length > 0 ? cached.customers : EMPTY_CRM_ROWS
+}
+
 export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   isActive = true,
 }: {
@@ -194,8 +208,13 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
   const [filter, setFilter] = useState<CrmFilter>(initialFilter)
-  const [rows, setRows] = useState<CrmCustomerListItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const cachedRows = useClientSnapshot(
+    () => readCrmListCache(filter, debounced),
+    () => EMPTY_CRM_ROWS
+  )
+  const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
+  const rows = liveRows ?? cachedRows
+  const [loading, setLoading] = useState(() => cachedRows.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(customerParam)
   const [profileLoading, setProfileLoading] = useState(false)
@@ -248,7 +267,6 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
 
   const loadList = useCallback(() => {
     if (!pollEnabled) return
-    setLoading(true)
     const params = new URLSearchParams()
     if (debounced) params.set("q", debounced)
     params.set("filter", filter)
@@ -262,7 +280,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       })
       .then((json) => {
         const list = json.data?.customers ?? []
-        setRows(list)
+        setLiveRows(list)
+        writePersistedCache(crmListCacheKey(filter, debounced), {
+          customers: list,
+        })
         setError(null)
         setSelectedId((prev) => {
           if (prev && list.some((r) => r.id === prev)) return prev
@@ -272,6 +293,17 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false))
   }, [debounced, filter, pollEnabled])
+
+  // Filter/search change — drop live override so the matching seed can show.
+  useEffect(() => {
+    setLiveRows(null)
+    // Show spinner only when this filter/q has no seed yet.
+    if (readCrmListCache(filter, debounced).length === 0) setLoading(true)
+  }, [filter, debounced])
+
+  useEffect(() => {
+    if (rows.length > 0) setLoading(false)
+  }, [rows.length])
 
   useEffect(() => {
     void loadList()
@@ -606,8 +638,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         return false
       }
       if (json) applyProfilePayload(json)
-      setRows((prev) =>
-        prev.map((r) => {
+      setLiveRows((prev) =>
+        (prev ?? cachedRows).map((r) => {
           if (r.id !== selectedId) return r
           return {
             ...r,

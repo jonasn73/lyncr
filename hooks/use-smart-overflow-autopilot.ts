@@ -3,7 +3,7 @@
 // Live Smart Overflow IVR Menu — calendar capacity → ivr_menu_enabled sync.
 // Presence On-Job / Closed is controlled only by the top Presence bar (no Off-duty switch).
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import {
   DEFAULT_SMART_OVERFLOW_CONFIG,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/smart-overflow-autopilot"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import type { SchedulerEvent } from "@/lib/types"
+import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Lightweight snapshot so the IVR card doesn’t insert late on hard refresh. */
@@ -90,41 +91,36 @@ export type UseSmartOverflowAutopilotResult = {
 export function useSmartOverflowAutopilot(
   routingBusinessNumber?: string | null
 ): UseSmartOverflowAutopilotResult {
-  const [config, setConfigState] = useState<SmartOverflowConfig>({
+  const overflowSeed = useClientSnapshot(readOverflowCache, () => null)
+  const seededThreshold = overflowSeed
+    ? Math.max(1, Math.min(40, Math.floor(overflowSeed.capacityThreshold) || 5))
+    : null
+
+  const [liveConfig, setConfigState] = useState<SmartOverflowConfig | null>(null)
+  const config: SmartOverflowConfig = liveConfig ?? {
     ...DEFAULT_SMART_OVERFLOW_CONFIG,
     mode: "auto_capacity",
     manualEnabled: false,
-    capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
-  })
+    capacityThreshold: seededThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
+  }
+
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [eventsReady, setEventsReady] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [hydrated, setHydrated] = useState(false)
+  const [loading, setLoading] = useState(() => overflowSeed == null)
+  const [hydrated, setHydrated] = useState(() => overflowSeed != null)
   const [capacitySaving, setCapacitySaving] = useState(false)
   const [retellOfferText, setRetellOfferText] = useState<string | null>(null)
-  const [retellConnected, setRetellConnected] = useState(false)
+  const [retellConnected, setRetellConnected] = useState(
+    () => overflowSeed?.retellConnected === true
+  )
   // Seeded from sessionStorage so overflow card can paint before calendar fetch.
-  const [seedConfirmedJobs, setSeedConfirmedJobs] = useState<number | null>(null)
-  const [seedNextSlotText, setSeedNextSlotText] = useState<string | null>(null)
-  const hasOverflowCacheRef = useRef(false)
+  const seedConfirmedJobs =
+    overflowSeed && typeof overflowSeed.confirmedJobsToday === "number"
+      ? overflowSeed.confirmedJobsToday
+      : null
+  const seedNextSlotText = overflowSeed?.nextAvailableSlotText ?? null
+  const hasOverflowCacheRef = useRef(overflowSeed != null)
   const lastSyncedIvrEnabled = useRef<boolean | null>(null)
-
-  // Restore last overflow snapshot before paint (stops IVR card popping in under Latest).
-  useLayoutEffect(() => {
-    const cached = readOverflowCache()
-    if (!cached) return
-    hasOverflowCacheRef.current = true
-    setConfigState({
-      mode: "auto_capacity",
-      manualEnabled: false,
-      capacityThreshold: Math.max(1, Math.min(40, Math.floor(cached.capacityThreshold) || 5)),
-    })
-    setSeedConfirmedJobs(cached.confirmedJobsToday)
-    setSeedNextSlotText(cached.nextAvailableSlotText)
-    setRetellConnected(cached.retellConnected)
-    setHydrated(true)
-    setLoading(false)
-  }, [])
 
   // Load capacity threshold from account_settings (source of truth).
   useEffect(() => {
@@ -165,12 +161,11 @@ export function useSmartOverflowAutopilot(
 
   const setCapacityThreshold = useCallback(async (next: number) => {
     const threshold = Math.max(1, Math.min(40, Math.floor(next) || 1))
-    setConfigState((prev) => ({
-      ...prev,
+    setConfigState({
       mode: "auto_capacity",
       manualEnabled: false,
       capacityThreshold: threshold,
-    }))
+    })
     setCapacitySaving(true)
     try {
       const res = await fetch("/api/routing/ivr-capacity", {
