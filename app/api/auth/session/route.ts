@@ -12,7 +12,7 @@ import {
   getSessionCookieName,
   getSessionCookieOptions,
 } from "@/lib/auth"
-import { getUser } from "@/lib/db"
+import { getUser, userFacingDatabaseError } from "@/lib/db"
 import { globalPlatformSessionFields } from "@/lib/platform-admin"
 import { resolveAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import {
@@ -114,6 +114,10 @@ export async function GET(req: NextRequest) {
     return res
   } catch (error) {
     console.error("[lyncr] Session error:", error)
+    const dbError = userFacingDatabaseError(error)
+    if (dbError) {
+      return NextResponse.json({ error: dbError }, { status: 503 })
+    }
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 }

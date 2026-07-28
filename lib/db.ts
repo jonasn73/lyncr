@@ -191,6 +191,31 @@ function pgErrorMessage(e: unknown): string {
   return (e instanceof Error ? e.message : String(e)).toLowerCase()
 }
 
+/**
+ * Neon Free plan: when the monthly compute (CU-hour) quota is exhausted, queries
+ * fail with HTTP 402. Login/session look like a generic 500 unless we detect this.
+ */
+export function isNeonComputeQuotaExceededError(e: unknown): boolean {
+  const msg = pgErrorMessage(e)
+  if (msg.includes("compute time quota") || msg.includes("exceeded the compute")) return true
+  if (msg.includes("402") && (msg.includes("quota") || msg.includes("upgrade your plan"))) return true
+  // NeonDbError sometimes surfaces status on the object rather than only in the message.
+  if (e && typeof e === "object") {
+    const status = "status" in e ? Number((e as { status: unknown }).status) : NaN
+    const http = "httpStatus" in e ? Number((e as { httpStatus: unknown }).httpStatus) : NaN
+    if (status === 402 || http === 402) return true
+  }
+  return false
+}
+
+/** Safe user-facing message for DB outages (or null if not a known infra failure). */
+export function userFacingDatabaseError(e: unknown): string | null {
+  if (isNeonComputeQuotaExceededError(e)) {
+    return "Database is temporarily unavailable: Neon Free compute quota exceeded. Upgrade the Neon org to Launch (or wait for the monthly quota reset), then try again."
+  }
+  return null
+}
+
 // Lazy Neon client so we only connect when DATABASE_URL is set (prefers pooled endpoint).
 let cachedSql: ReturnType<typeof neon> | null = null
 function getSql(): ReturnType<typeof neon> {

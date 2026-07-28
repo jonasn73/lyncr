@@ -1,7 +1,7 @@
 // POST /api/auth/forgot-password — issue a time-limited reset link (email delivery TBD).
 
 import { NextRequest, NextResponse } from "next/server"
-import { getAuthUserByEmail } from "@/lib/db"
+import { getAuthUserByEmail, userFacingDatabaseError } from "@/lib/db"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
 import { getAppUrl } from "@/lib/telnyx"
 
@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
         { error: "Server misconfiguration: SESSION_SECRET is missing in production." },
         { status: 500 }
       )
+    }
+    const dbError = userFacingDatabaseError(error)
+    if (dbError) {
+      return NextResponse.json({ error: dbError }, { status: 503 })
     }
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }

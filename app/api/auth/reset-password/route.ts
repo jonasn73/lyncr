@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { getUser, setUserPasswordHash } from "@/lib/db"
+import { getUser, setUserPasswordHash, userFacingDatabaseError } from "@/lib/db"
 import { verifyPasswordResetToken } from "@/lib/password-reset-token"
 
 export async function POST(req: NextRequest) {
@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "Password updated. You can log in now." })
   } catch (error) {
     console.error("[lyncr] reset-password:", error)
+    const dbError = userFacingDatabaseError(error)
+    if (dbError) {
+      return NextResponse.json({ error: dbError }, { status: 503 })
+    }
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

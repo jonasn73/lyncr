@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { getAuthUserByEmail } from "@/lib/db"
+import { getAuthUserByEmail, userFacingDatabaseError } from "@/lib/db"
 import {
   createSessionCookie,
   getSessionCookieName,
@@ -89,6 +89,10 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       )
+    }
+    const dbError = userFacingDatabaseError(error)
+    if (dbError) {
+      return NextResponse.json({ error: dbError }, { status: 503 })
     }
     return NextResponse.json(
       { error: "Something went wrong" },
