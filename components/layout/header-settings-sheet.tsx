@@ -262,15 +262,16 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           type="button"
           variant="outline"
           onClick={() => setOpen(true)}
+          // Keep initials/name readable on dark theme — outline variant's hover:text-accent-foreground is dark.
           className={cn(
-            "h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 shadow-sm sm:max-w-[11rem] sm:gap-2 sm:px-2"
+            "group h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 text-foreground shadow-sm hover:text-foreground focus-visible:text-foreground sm:max-w-[11rem] sm:gap-2 sm:px-2"
           )}
           aria-label="Open settings"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
           <Avatar className="h-7 w-7 shrink-0">
-            <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary">
+            <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary group-hover:text-primary group-focus-visible:text-primary">
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
