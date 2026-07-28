@@ -17,8 +17,10 @@
   --secondary-foreground: oklch(0.92 0.01 275);
   --muted: oklch(0.23 0.022 268);
   --muted-foreground: oklch(0.62 0.02 275);
-  --accent: oklch(0.87 0.14 181);
-  --accent-foreground: oklch(0.12 0.04 181);
+  /* Accent = hover/focus surface (not brand teal). Bright teal + near-black
+     made outline/ghost buttons and menus unreadable (teal-on-teal / dark-on-dark). */
+  --accent: oklch(0.26 0.022 268);
+  --accent-foreground: oklch(0.96 0.01 275);
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.95 0 0);
   --border: oklch(0.30 0.022 268);

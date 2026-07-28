@@ -262,23 +262,38 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           type="button"
           variant="outline"
           onClick={() => setOpen(true)}
-          // Keep initials/name readable on dark theme — outline variant's hover:text-accent-foreground is dark.
+          // Explicit hover surface: muted (not primary/accent teal). Initials stay
+          // text-primary on a dark muted chip — never teal-on-teal or dark-on-dark.
           className={cn(
-            "group h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 text-foreground shadow-sm hover:text-foreground focus-visible:text-foreground sm:max-w-[11rem] sm:gap-2 sm:px-2"
+            "group h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 text-foreground shadow-sm",
+            "hover:bg-muted hover:text-foreground",
+            "focus-visible:bg-muted focus-visible:text-foreground",
+            "active:bg-muted/80 active:text-foreground",
+            "sm:max-w-[11rem] sm:gap-2 sm:px-2"
           )}
           aria-label="Open settings"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
           <Avatar className="h-7 w-7 shrink-0">
-            <AvatarFallback className="bg-primary/15 text-[11px] font-semibold text-primary group-hover:text-primary group-focus-visible:text-primary">
+            <AvatarFallback
+              className={cn(
+                "bg-primary/15 text-[11px] font-semibold text-primary",
+                "group-hover:bg-primary/20 group-hover:text-primary",
+                "group-focus-visible:bg-primary/20 group-focus-visible:text-primary",
+                "group-active:text-primary"
+              )}
+            >
               {initialsFromName(name)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden min-w-0 truncate text-xs font-medium text-foreground sm:inline">
+          <span className="hidden min-w-0 truncate text-xs font-medium text-foreground group-hover:text-foreground group-focus-visible:text-foreground sm:inline">
             {firstName}
           </span>
-          <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />
+          <ChevronDown
+            className="hidden h-4 w-4 shrink-0 text-muted-foreground group-hover:text-muted-foreground group-focus-visible:text-muted-foreground sm:block"
+            aria-hidden
+          />
         </Button>
       </div>
 
@@ -340,7 +355,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <Link
                 href={DASHBOARD_PAGE_HREF.help}
                 onClick={() => setOpen(false)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-900"
+                // Light label on slightly lifted slate — avoid accent (was dark-on-teal).
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
               >
                 <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
                 Help
