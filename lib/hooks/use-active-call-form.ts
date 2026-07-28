@@ -788,6 +788,8 @@ export function useActiveCallForm(
         isPriceOverridden?: boolean
         recoveredViaRouteDiscount?: boolean
         existingLeadId?: string | null
+        /** Explicit New job — server skips open-quote auto-upgrade. */
+        forceNewJob?: boolean
       }
     ): Promise<
       | {
@@ -851,11 +853,14 @@ export function useActiveCallForm(
       try {
         const dispatchJobType = formatIntakeJobTypeForDispatch(form.jobType, form.keyReplacementMode)
         // Prefer explicit CRM lead id; never treat a call_logs id as a lead id.
-        const existingLeadId =
-          jobOptions?.existingLeadId?.trim() ||
-          current.existingLeadId?.trim() ||
-          crmOpenLeadId?.trim() ||
-          null
+        // Continue quote / CRM bind upgrades; New job clears crmOpenLeadId + sets forceNewJob.
+        const forceNewJob = jobOptions?.forceNewJob === true
+        const existingLeadId = forceNewJob
+          ? null
+          : jobOptions?.existingLeadId?.trim() ||
+            current.existingLeadId?.trim() ||
+            crmOpenLeadId?.trim() ||
+            null
         // Activities → sourceCallLogId; live rows → id; CRM-only convert → id (legacy); manuals provision below.
         let callLogIdForJob = current.sourceCallLogId?.trim() || current.id
         const addressLine1 = form.addressLine1.trim()
@@ -1027,6 +1032,7 @@ export function useActiveCallForm(
             isPriceOverridden: jobOptions?.isPriceOverridden === true,
             recovered_via_route_discount: jobOptions?.recoveredViaRouteDiscount === true,
             existing_lead_id: existingLeadId,
+            force_new_job: forceNewJob,
           }),
         })
         const json = (await res.json()) as {

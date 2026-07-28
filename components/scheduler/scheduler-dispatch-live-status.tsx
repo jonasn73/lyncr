@@ -22,7 +22,7 @@ import {
   SCHEDULER_URGENCY_TIME_CLASS,
 } from "@/lib/scheduler-job-urgency"
 import { SCHEDULER_LIVE_STATUS_SHELL, SCHEDULER_METADATA_LABEL } from "@/lib/scheduler-ui-tokens"
-import { SCHEDULER_STATUS_LABEL } from "@/lib/scheduler-job-status"
+import { OPERATOR_JOB_PHASE_LABEL, SCHEDULER_STATUS_LABEL } from "@/lib/scheduler-job-status"
 import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 function UpcomingJobChip({
@@ -43,7 +43,11 @@ function UpcomingJobChip({
 }) {
   const name = job.customer_name?.trim() || "Unknown customer"
   const timeLabel = job.isActiveNow ? "Now" : formatUpcomingJobTime(job.scheduled_at)
-  const status = SCHEDULER_STATUS_LABEL[job.phase]
+  // Prefer operator glossary when Coming Up Next carries full status fields.
+  const status =
+    job.operatorPhase != null
+      ? OPERATOR_JOB_PHASE_LABEL[job.operatorPhase]
+      : SCHEDULER_STATUS_LABEL[job.phase]
   const urgency = resolveSchedulerJobUrgency({
     now,
     scheduled_at: job.scheduled_at,
@@ -51,7 +55,7 @@ function UpcomingJobChip({
   })
   const countdown = job.isActiveNow ? null : formatSchedulerJobCountdown(now, job.scheduled_at)
   const isCompleting = completingJobId === job.id
-  // Unscheduled / unassigned jobs cannot be closed out — show Needs Dispatch instead.
+  // Hint only — Complete still works from In pool / no appointment time.
   const needsDispatch = upcomingJobNeedsDispatch(job)
 
   // Skip a second "Overdue" line when the countdown already says it.
@@ -95,7 +99,7 @@ function UpcomingJobChip({
           </span>
         ) : null}
       </button>
-      {!needsDispatch && onMarkComplete ? (
+      {onMarkComplete ? (
         <button
           type="button"
           disabled={isCompleting}

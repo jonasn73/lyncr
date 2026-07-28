@@ -25,6 +25,7 @@ import {
   SchedulerJobSheetCloseButton,
 } from "@/components/scheduler/scheduler-job-slide-sheet"
 import {
+  operatorJobPhaseLabel,
   SCHEDULER_STATUS_LABEL,
   schedulerJobStatusDisplayLabel,
   schedulerLifecyclePhase,
@@ -275,8 +276,16 @@ export function JobDetailDrawer({
     assigned_tech_id: scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? null,
   })
   const rawJobStatus = localJobStatus ?? scheduledEvent?.job_status ?? poolWithTech?.job_status ?? null
+  // Prefer single operator glossary over raw job_status / conflicting pills.
   const statusLabel =
-    schedulerJobStatusDisplayLabel(rawJobStatus) ?? SCHEDULER_STATUS_LABEL[lifecyclePhase]
+    operatorJobPhaseLabel({
+      job_status: rawJobStatus,
+      dispatch_status: scheduledEvent?.dispatch_status ?? poolJob?.dispatch_status ?? null,
+      assigned_tech_id: scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? null,
+      scheduled_at: scheduledEvent?.scheduled_at ?? poolJob?.scheduled_at ?? null,
+    }) ||
+    schedulerJobStatusDisplayLabel(rawJobStatus) ||
+    SCHEDULER_STATUS_LABEL[lifecyclePhase]
 
   useEffect(() => {
     if (!source) return
@@ -689,8 +698,8 @@ export function JobDetailDrawer({
           <AlertDialogHeader>
             <AlertDialogTitle>Mark job complete?</AlertDialogTitle>
             <AlertDialogDescription>
-              Works from Waiting Pool without scheduling a tech. Send a thank-you + review text
-              now, or complete only.
+              Works from In pool without scheduling a tech. Send a thank-you + review text now,
+              or complete only.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">

@@ -1,6 +1,11 @@
 // Upcoming jobs for the dispatch live status bar (client-safe, no I/O).
 
-import { schedulerLifecyclePhase, type SchedulerLifecyclePhase } from "@/lib/scheduler-job-status"
+import {
+  resolveOperatorJobPhase,
+  schedulerLifecyclePhase,
+  type OperatorJobPhase,
+  type SchedulerLifecyclePhase,
+} from "@/lib/scheduler-job-status"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
 import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
@@ -10,6 +15,8 @@ export type UpcomingSchedulerJob = {
   scheduled_at: string | null
   job_type: string | null
   phase: SchedulerLifecyclePhase
+  /** Single operator glossary label source (Coming Up Next chip). */
+  operatorPhase: OperatorJobPhase
   assigned_tech_name: string | null
   /** En route or on-site — shown first in the list. */
   isActiveNow: boolean
@@ -31,6 +38,15 @@ function phaseFor(job: JobSource): SchedulerLifecyclePhase {
     job_status: job.job_status,
     dispatch_status: job.dispatch_status,
     assigned_tech_id: job.assigned_tech_id,
+  })
+}
+
+function operatorPhaseFor(job: JobSource): OperatorJobPhase {
+  return resolveOperatorJobPhase({
+    job_status: job.job_status,
+    dispatch_status: job.dispatch_status,
+    assigned_tech_id: job.assigned_tech_id,
+    scheduled_at: job.scheduled_at,
   })
 }
 
@@ -95,7 +111,8 @@ export function listUpcomingSchedulerJobs(params: {
 
   for (const job of merged) {
     const phase = phaseFor(job)
-    if (phase === "completed") continue
+    const operatorPhase = operatorPhaseFor(job)
+    if (phase === "completed" || operatorPhase === "done") continue
 
     const onSelectedDay =
       scheduledOnDay(job.scheduled_at, params.selectedDay) ||
@@ -111,6 +128,7 @@ export function listUpcomingSchedulerJobs(params: {
       scheduled_at: job.scheduled_at,
       job_type: job.job_type,
       phase,
+      operatorPhase,
       assigned_tech_name: job.assigned_tech_name ?? null,
       isActiveNow,
     })
@@ -133,14 +151,15 @@ export function formatUpcomingJobTime(iso: string | null): string {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
 }
 
-/** True when Mark Done is invalid — job is still unassigned or has no start time. */
+/**
+ * True when the job still needs a tech/time for dispatch hygiene.
+ * Does NOT block Complete / Mark done (offline close-out is allowed).
+ */
 export function upcomingJobNeedsDispatch(job: {
   phase: SchedulerLifecyclePhase
   scheduled_at: string | null
 }): boolean {
-  // Unassigned pool / no tech yet.
   if (job.phase === "unassigned") return true
-  // Scheduled_at missing means the job is still "Unscheduled".
   if (!job.scheduled_at?.trim()) return true
   return false
 }

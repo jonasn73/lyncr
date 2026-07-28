@@ -23,10 +23,13 @@ import { resolveJobScheduledAtIso } from "@/lib/scheduler-appointment-interactio
 import { useScheduleInteractionPhase } from "@/components/scheduler/schedule-interaction-badge"
 import {
   JOB_PIPELINE_STATUS_OPTIONS,
-  PIPELINE_STATUS_BADGE_STYLE,
-  pipelineStatusPillLabel,
   type JobPipelineStatusId,
 } from "@/lib/job-pipeline-status"
+import {
+  OPERATOR_JOB_PHASE_BADGE_STYLE,
+  OPERATOR_JOB_PHASE_LABEL,
+  resolveOperatorJobPhase,
+} from "@/lib/scheduler-job-status"
 import {
   formatScheduledDateDisplay,
   formatScheduledTimeDisplay,
@@ -184,6 +187,22 @@ export function JobDetailOverview({
     scheduledEvent?.job_status ??
     ("job_status" in source ? (source as SchedulerEvent).job_status : null) ??
     null
+  const assignedTechForPhase =
+    scheduledEvent?.assigned_tech_id ??
+    ("assigned_tech_id" in source
+      ? (source as SchedulerEvent).assigned_tech_id
+      : null) ??
+    assignedTechId ??
+    null
+  // One human status — job_status terminals win over leftover pool dispatch.
+  const operatorPhase = resolveOperatorJobPhase({
+    job_status: jobStatus,
+    dispatch_status: scheduledEvent?.dispatch_status ?? source.dispatch_status ?? null,
+    assigned_tech_id: assignedTechForPhase,
+    scheduled_at: scheduledAtIso,
+  })
+  const statusPill = OPERATOR_JOB_PHASE_LABEL[operatorPhase]
+  const isJobDone = operatorPhase === "done"
   const scheduledDateLabel = formatScheduledDateDisplay(scheduledAtIso)
   const scheduledTimeLabel = formatScheduledTimeDisplay(scheduledAtIso)
   const appointmentPhase = useScheduleInteractionPhase({
@@ -191,12 +210,12 @@ export function JobDetailOverview({
     job_status: jobStatus,
   })
   const appointmentDelayed = appointmentPhase === "overdue"
-  const statusPill = pipelineStatusPillLabel(pipelineStatus)
 
   const vehicleSummary = [vehicleBlock?.value, serviceBlock?.value].filter(Boolean).join(" — ")
+  // Appointment time is metadata — never a second conflicting status next to the badge.
   const appointmentLabel = scheduledAtIso
     ? [scheduledDateLabel, scheduledTimeLabel].filter(Boolean).join(" · ")
-    : "Not scheduled"
+    : "No appointment time"
   const billingLabel =
     billingBalanceDollars > 0 ? `$${billingBalanceDollars}` : "No balance"
   const notesPreview = jobNotes.trim()
@@ -259,8 +278,8 @@ export function JobDetailOverview({
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              PIPELINE_STATUS_BADGE_STYLE[pipelineStatus]
+              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+              OPERATOR_JOB_PHASE_BADGE_STYLE[operatorPhase]
             )}
           >
             {statusPill}
@@ -389,7 +408,46 @@ export function JobDetailOverview({
           </p>
         </section>
 
-        {/* Dispatch first — Status + Assign tech near the top (why Convert opened this) */}
+        {/* Complete from anywhere — pool / unscheduled / no-tech, above the fold */}
+        {!isJobDone ? (
+          <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+            <p className={SECTION_LABEL}>Close out</p>
+            <p className="text-[11px] leading-snug text-emerald-100/80">
+              Works from In pool without scheduling a tech. Next step chooses Complete only or
+              Complete &amp; send review.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
+              disabled={saving}
+              onClick={() => onQuickLifecycleAction("completed")}
+            >
+              {saving ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle2 className="mr-2 h-3.5 w-3.5" aria-hidden />
+              )}
+              Complete…
+            </Button>
+          </section>
+        ) : (
+          <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
+            <p className={SECTION_LABEL}>Done</p>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full border border-amber-500/35 bg-amber-500/15 text-amber-50 hover:bg-amber-500/25"
+              disabled={saving || !customerPhone}
+              onClick={onSendReviewSms}
+            >
+              <Star className="mr-2 h-3.5 w-3.5" aria-hidden />
+              Send review SMS
+            </Button>
+          </section>
+        )}
+
+        {/* Dispatch — pipeline dropdown is internal control; badge above is the truth */}
         <section className="mt-2.5 space-y-2.5 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
@@ -445,12 +503,12 @@ export function JobDetailOverview({
               activePipelineJobs={activePipelineJobs}
               onChange={onAssignedTechChange}
             />
-            {pipelineStatus !== "DISPATCHED" ? (
+            {pipelineStatus !== "DISPATCHED" && !isJobDone ? (
               <p className="text-[11px] leading-snug text-slate-500">
                 Tech assign needs{" "}
-                <span className="font-medium text-slate-300">Scheduled</span>. You can still{" "}
-                <span className="font-medium text-emerald-300">Complete</span> without a tech
-                (work done offline).
+                <span className="font-medium text-slate-300">Scheduled</span>. Use{" "}
+                <span className="font-medium text-emerald-300">Complete</span> above anytime —
+                no tech required.
               </p>
             ) : null}
           </div>

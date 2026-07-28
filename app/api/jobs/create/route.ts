@@ -59,6 +59,8 @@ type CreateJobBody = {
   isPriceOverridden?: boolean
   recovered_via_route_discount?: boolean
   existing_lead_id?: string | null
+  /** Explicit New job — do not auto-upgrade an open quote for this phone. */
+  force_new_job?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -143,6 +145,7 @@ export async function POST(req: NextRequest) {
       isPriceOverridden: body.is_price_overridden === true || body.isPriceOverridden === true,
       recoveredViaRouteDiscount: body.recovered_via_route_discount === true,
       existingLeadId: body.existing_lead_id?.trim() || null,
+      forceNewJob: body.force_new_job === true,
       // Operator reviews / edits confirmation SMS in the intake sheet before send.
       deferCustomerSms: true,
     })

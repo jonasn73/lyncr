@@ -93,7 +93,7 @@ describe("listUpcomingSchedulerJobs", () => {
 })
 
 describe("upcomingJobNeedsDispatch", () => {
-  it("flags unassigned and unscheduled jobs", () => {
+  it("flags unassigned and unscheduled jobs as needing dispatch hygiene (Complete still allowed)", () => {
     expect(
       upcomingJobNeedsDispatch({ phase: "unassigned", scheduled_at: "2026-07-01T13:00:00Z" })
     ).toBe(true)
@@ -101,5 +101,34 @@ describe("upcomingJobNeedsDispatch", () => {
     expect(
       upcomingJobNeedsDispatch({ phase: "scheduled", scheduled_at: "2026-07-01T13:00:00Z" })
     ).toBe(false)
+  })
+})
+
+describe("listUpcomingSchedulerJobs operatorPhase", () => {
+  it("attaches operatorPhase and excludes done leftovers", () => {
+    const now = new Date("2026-07-01T12:32:00-04:00")
+    const selectedDay = new Date("2026-07-01T08:00:00-04:00")
+    const upcoming = listUpcomingSchedulerJobs({
+      now,
+      selectedDay,
+      activePipelineJobs: [
+        job({
+          id: "pool",
+          scheduled_at: null,
+          dispatch_status: "unassigned_pool",
+          job_status: "unassigned",
+        }),
+        job({
+          id: "done-stale-pool",
+          scheduled_at: null,
+          dispatch_status: "unassigned_pool",
+          job_status: "completed",
+        }),
+      ],
+      dayEvents: [],
+      poolJobs: [],
+    })
+    expect(upcoming.map((j) => j.id)).toEqual(["pool"])
+    expect(upcoming[0]?.operatorPhase).toBe("in_pool")
   })
 })

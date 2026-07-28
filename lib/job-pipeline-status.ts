@@ -23,10 +23,10 @@ export type JobPipelineStatusOption = {
 
 /** Dropdown options shown in Job Pipeline Control (overview drawer). */
 export const JOB_PIPELINE_STATUS_OPTIONS: JobPipelineStatusOption[] = [
-  { id: "unassigned_pool", label: "Unassigned / Waiting Pool" },
-  { id: "DISPATCHED", label: "Scheduled (Time/Location Locked)" },
-  { id: "awaiting_time", label: "Needs Follow Up" },
-  { id: "salvage_pending", label: "Price Denied (Outreach / Lower Price Offer)" },
+  { id: "unassigned_pool", label: "In pool" },
+  { id: "DISPATCHED", label: "Scheduled" },
+  { id: "awaiting_time", label: "Needs follow up" },
+  { id: "salvage_pending", label: "Price denied" },
 ]
 
 /** True when job_status is a terminal close-out (done / cancelled / referred). */
@@ -85,19 +85,19 @@ export function pipelineStatusLabel(status: JobPipelineStatusId): string {
   return JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status
 }
 
-/** Short pill label for the Active Job header. */
+/** Short pill label for the Active Job header (human copy only). */
 export function pipelineStatusPillLabel(status: JobPipelineStatusId): string {
   switch (status) {
     case "unassigned_pool":
-      return "Waiting Pool"
+      return "In pool"
     case "DISPATCHED":
-      return "Dispatched"
+      return "Scheduled"
     case "awaiting_time":
-      return "Needs Follow Up"
+      return "Needs follow up"
     case "salvage_pending":
-      return "Price Denied"
+      return "Price denied"
     case "completed":
-      return "Completed"
+      return "Done"
     default:
       return pipelineStatusLabel(status)
   }

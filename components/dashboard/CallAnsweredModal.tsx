@@ -753,6 +753,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [keySkipArmed, setKeySkipArmed] = useState(false)
   /** Hide callback chooser after View job / Continue quote / New job. */
   const [callbackChooserDismissed, setCallbackChooserDismissed] = useState(false)
+  /** Only true after explicit New job — allows insert instead of open-quote upgrade. */
+  const [callbackForceNewJob, setCallbackForceNewJob] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   /** Confirmation SMS draft after book — must send or skip before Done / Scheduler. */
   const [confirmSmsDraft, setConfirmSmsDraft] = useState<string | null>(null)
@@ -925,6 +927,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setShowMoreJobTypes(false)
     setKeySkipArmed(false)
     setCallbackChooserDismissed(false)
+    setCallbackForceNewJob(false)
     lastLoadedDraftPhoneRef.current = null
     // Reset attachments when a new call / ticket opens.
     setJobPhotos([])
@@ -1215,9 +1218,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         finalBookedTotalCents: finalCents > 0 ? finalCents : null,
         isPriceOverridden: Boolean(flatPriceMeta?.isOverridden),
         recoveredViaRouteDiscount,
+        forceNewJob: callbackForceNewJob,
       }
     },
     [
+      callbackForceNewJob,
       flatPriceMeta,
       negotiationDiscountApplied,
       liveQuote.totalCents,
@@ -2142,13 +2147,45 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const handleManualServiceTypeChange = useCallback(
     (serviceType: ServiceQuoteTypeId) => {
+      // Gate: open quote / active job must choose View / Continue / New before Lockout path.
+      if (!callbackChooserDismissed) {
+        const phone = (form.phoneNumber || effectiveCurrent?.from_number || "")
+          .replace(/\D/g, "")
+          .slice(-10)
+        const enginePhone =
+          lyncEngine?.primaryCall?.fromNumber.replace(/\D/g, "").slice(-10) ?? ""
+        const hasActiveJob =
+          Boolean(phone) &&
+          enginePhone === phone &&
+          lyncEngine?.primaryCall?.callerContext?.kind === "active_job"
+        const hasOpenQuote =
+          Boolean(crmOpenLeadId) &&
+          crmOpenLeadQuoteCents != null &&
+          crmOpenLeadQuoteCents > 0
+        if (hasActiveJob || hasOpenQuote) {
+          toast({
+            title: "Pick what this call is about",
+            description: "View job, Continue open quote, or New job — then choose a service.",
+          })
+          return
+        }
+      }
       setVehicleLockoutIntake(false)
       setShowMoreJobTypes(false)
       setKeySkipArmed(false)
       setServiceQuoteTypeId(serviceType)
       setCurrentStep(manualIntakeStepAfterService(serviceType))
     },
-    [setServiceQuoteTypeId]
+    [
+      callbackChooserDismissed,
+      crmOpenLeadId,
+      crmOpenLeadQuoteCents,
+      effectiveCurrent?.from_number,
+      form.phoneNumber,
+      lyncEngine?.primaryCall,
+      setServiceQuoteTypeId,
+      toast,
+    ]
   )
 
   /** JOB_TYPE step — AKL vs Spare (etc.) after YMM; then Key details. */
@@ -2433,6 +2470,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const handleContinueOpenQuote = useCallback(() => {
     applyOpenQuoteContinuePrefill()
     setCallbackChooserDismissed(true)
+    setCallbackForceNewJob(false)
     const serviceId = (crmOpenLeadServiceTypeId ||
       form.serviceQuoteTypeId ||
       "") as ServiceQuoteTypeId | ""
@@ -2468,6 +2506,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const handleNewJobForReturningCaller = useCallback(() => {
     startFreshJobForReturningCaller()
     setCallbackChooserDismissed(true)
+    setCallbackForceNewJob(true)
     setVehicleLockoutIntake(false)
     setCurrentStep("SERVICE_SELECT")
   }, [startFreshJobForReturningCaller])

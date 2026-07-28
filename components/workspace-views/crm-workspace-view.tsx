@@ -53,17 +53,27 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
 /** CRM → Scheduler action label for a history row (no more overloaded "Convert"). */
 type CrmJobNavAction = "Book job" | "Open job" | "View job"
 
-const TERMINAL_HISTORY_LABELS = new Set(["Completed", "Cancelled", "Referred", "Unresolved"])
+const TERMINAL_HISTORY_LABELS = new Set([
+  "Done",
+  "Completed", // legacy rows before operator glossary rename
+  "Cancelled",
+  "Referred",
+  "Unresolved",
+])
 
 /** Open quote/callback → Book; pool/active → Open; terminal → View. */
 function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
   if (TERMINAL_HISTORY_LABELS.has(item.status_label)) return "View job"
   if (item.is_open_lead) return "Book job"
-  // Existing non-lead jobs (pool / scheduled / active / booked).
+  // Existing non-lead jobs (pool / scheduled / field progress).
   if (
     item.status_label === "In pool" ||
-    item.status_label === "Active" ||
-    item.status_label === "Booked" ||
+    item.status_label === "Scheduled" ||
+    item.status_label === "En route" ||
+    item.status_label === "On site" ||
+    item.status_label === "Paused" ||
+    item.status_label === "Active" || // legacy
+    item.status_label === "Booked" || // legacy
     item.status_label === "Job"
   ) {
     return "Open job"

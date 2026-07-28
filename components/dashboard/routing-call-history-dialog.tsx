@@ -172,12 +172,11 @@ function effectiveTalkSeconds(row: CallHistoryRow): number {
 }
 
 function isTalkableRow(row: CallHistoryRow): boolean {
+  // Missed / IVR / short-bridge legs never count as talk — even if status says completed.
+  if (isMissedRow(row)) return false
   if (effectiveTalkSeconds(row) > 0) return true
   const status = row.status.toLowerCase()
-  return (
-    (status === "completed" || status === "in-progress" || status === "answered") &&
-    row.call_type.toLowerCase() !== "missed"
-  )
+  return status === "completed" || status === "in-progress" || status === "answered"
 }
 
 function matchesWorkspaceLine(row: CallHistoryRow, businessNumbers: DashboardBusinessNumber[]): boolean {
@@ -221,9 +220,11 @@ function buildSummary(rows: CallHistoryRow[]): CallSummary {
   let answeredCount = 0
   for (const row of rows) {
     callers.add(row.from_number.replace(/\D/g, "") || row.from_number)
-    const talk = effectiveTalkSeconds(row)
+    const missed = isMissedRow(row)
+    const talk = missed ? 0 : effectiveTalkSeconds(row)
     totalTalkSeconds += talk
-    if (talk > 0 || ["completed", "in-progress", "answered"].includes(row.status.toLowerCase())) {
+    // Answered must agree with missed rules — never count a miss as answered via status alone.
+    if (!missed && (talk > 0 || ["completed", "in-progress", "answered"].includes(row.status.toLowerCase()))) {
       answeredCount += 1
     }
   }

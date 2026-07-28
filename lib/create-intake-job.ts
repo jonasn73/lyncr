@@ -90,6 +90,11 @@ export type CreateIntakeJobInput = {
   recoveredViaRouteDiscount?: boolean
   /** Update an existing ai_leads row (CRM convert → intake complete) instead of inserting. */
   existingLeadId?: string | null
+  /**
+   * Explicit "New job" on a known callback — skip open-quote auto-upgrade for this phone.
+   * Without this, an open lead/callback for the same digits is upgraded instead of duplicated.
+   */
+  forceNewJob?: boolean
   /** Save without map-ready address — lands in hopper as a callback lead. */
   pendingCallback?: boolean
   /**
@@ -146,6 +151,51 @@ function formatAddress(params: CreateIntakeJobInput): string | null {
     params.country?.trim() && params.country.trim() !== "US" ? params.country.trim() : null,
   ].filter(Boolean)
   return parts.length > 0 ? parts.join(", ") : null
+}
+
+/**
+ * Open quote/callback for this phone — upgrade instead of inserting a duplicate Lockout.
+ * Skips terminal job_status so Done rows never get "re-opened" by accident.
+ */
+async function findOpenLeadIdForCaller(
+  sql: ReturnType<typeof neon>,
+  ownerUserId: string,
+  phoneE164: string
+): Promise<string | null> {
+  const digits = phoneE164.replace(/\D/g, "").slice(-10)
+  if (digits.length < 10) return null
+  try {
+    const rows = (await sql`
+      SELECT id
+      FROM ai_leads
+      WHERE user_id = ${ownerUserId}
+        AND lower(coalesce(nullif(trim(job_status), ''), '')) NOT IN (
+          'completed', 'done', 'paid', 'cancelled', 'canceled', 'unresolved', 'referred'
+        )
+        AND lower(coalesce(nullif(trim(dispatch_status), ''), '')) IN (
+          ${CRM_LEAD_STATUS}, ${LOST_LEAD_STATUS}, ${UNASSIGNED_CALLBACK_STATUS}
+        )
+        AND right(
+          regexp_replace(
+            coalesce(
+              nullif(trim(caller_e164), ''),
+              nullif(trim(collected->>'customer_phone'), ''),
+              ''
+            ),
+            '\\D',
+            '',
+            'g'
+          ),
+          10
+        ) = ${digits}
+      ORDER BY coalesce(scheduled_at, created_at) DESC
+      LIMIT 1
+    `) as { id?: string }[]
+    const id = rows[0]?.id?.trim()
+    return id || null
+  } catch {
+    return null
+  }
 }
 
 export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput): Promise<CreateIntakeJobResult> {
@@ -441,7 +491,11 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   }
 
   const sql = getSql()
-  const existingLeadId = input.existingLeadId?.trim() || null
+  // Prefer explicit id; else upgrade the phone's open quote/callback unless New job was chosen.
+  let existingLeadId = input.existingLeadId?.trim() || null
+  if (!existingLeadId && !input.forceNewJob) {
+    existingLeadId = await findOpenLeadIdForCaller(sql, input.ownerUserId, phone)
+  }
   const id = existingLeadId ?? crypto.randomUUID()
   const orgId = input.organizationId?.trim() || null
   const collectedJson = JSON.stringify(collected)

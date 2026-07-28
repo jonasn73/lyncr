@@ -5312,35 +5312,42 @@ export async function listCrmServiceHistoryForCustomer(params: {
           ds === LOST_LEAD_STATUS ||
           ds === UNASSIGNED_CALLBACK_STATUS ||
           js.includes("price"))
+      // Same human glossary as Scheduler (Quote → In pool → Scheduled → … → Done).
       let status_label = "Job"
       let status_tone: CrmServiceHistoryItem["status_tone"] = "neutral"
-      if (js === "completed" || js === "done" || js === "paid") {
-        status_label = "Completed"
+      if (js === "completed" || js === "done" || js === "paid" || ds === "completed") {
+        status_label = "Done"
         status_tone = "emerald"
-      } else if (js === "cancelled" || js === "canceled") {
+      } else if (js === "cancelled" || js === "canceled" || ds === "cancelled" || ds === "canceled") {
         status_label = "Cancelled"
         status_tone = "neutral"
-      } else if (js === "referred") {
+      } else if (js === "referred" || ds === "referred") {
         status_label = "Referred"
         status_tone = "neutral"
-      } else if (js === "unresolved") {
+      } else if (js === "unresolved" || ds === "unresolved") {
         status_label = "Unresolved"
         status_tone = "neutral"
+      } else if (js === "en_route") {
+        status_label = "En route"
+        status_tone = "sky"
+      } else if (js === "arrived" || js === "on_site") {
+        status_label = "On site"
+        status_tone = "sky"
+      } else if (js === "paused_wait" || js === "paused_parts") {
+        status_label = "Paused"
+        status_tone = "amber"
       } else if (ds === UNASSIGNED_POOL_STATUS) {
         status_label = "In pool"
         status_tone = "amber"
-      } else if (ds === "dispatched" || js === "en_route" || js === "on_site" || js === "arrived") {
-        status_label = "Active"
+      } else if (ds === "dispatched" || Boolean(row.scheduled_at)) {
+        status_label = "Scheduled"
         status_tone = "sky"
       } else if (ds === LOST_LEAD_STATUS || js.includes("price")) {
-        status_label = "Price quoted"
+        status_label = "Quote"
         status_tone = "rose"
       } else if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) {
-        status_label = "Call back"
+        status_label = "Quote"
         status_tone = "amber"
-      } else if (row.scheduled_at) {
-        status_label = "Booked"
-        status_tone = "sky"
       }
       const techName =
         collected.assigned_tech_name != null ? String(collected.assigned_tech_name) : null

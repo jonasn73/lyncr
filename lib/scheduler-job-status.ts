@@ -20,10 +20,153 @@ export type SchedulerLifecyclePhase =
   | "paused"
   | "completed"
 
+/**
+ * Single human lifecycle for operators (JobDetail / Coming Up / CRM).
+ * Internal columns (job_status / dispatch_status / disposition) stay as writers only.
+ */
+export type OperatorJobPhase =
+  | "quote"
+  | "in_pool"
+  | "scheduled"
+  | "en_route"
+  | "on_site"
+  | "paused"
+  | "done"
+  | "cancelled"
+  | "referred"
+  | "unresolved"
+
+export type OperatorJobPhaseInput = {
+  job_status?: string | null
+  dispatch_status?: string | null
+  assigned_tech_id?: string | null
+  /** Optional — quote leads when disposition is still lead/PENDING_TIME. */
+  disposition?: string | null
+  scheduled_at?: string | null
+}
+
 /** True when the tech paused mid-job (wait on site or waiting on parts). */
 export function isPausedJobStatus(jobStatus?: string | null): boolean {
   const status = (jobStatus ?? "").trim().toLowerCase()
   return status === "paused_wait" || status === "paused_parts"
+}
+
+/** Terminal close-outs — never show Waiting Pool / In pool after these. */
+export function isTerminalOperatorJobStatus(jobStatus?: string | null): boolean {
+  const status = (jobStatus ?? "").trim().toLowerCase()
+  return (
+    status === "completed" ||
+    status === "done" ||
+    status === "paid" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "unresolved" ||
+    status === "referred"
+  )
+}
+
+/** One operator-facing phase — reconciles leftover pool dispatch after complete. */
+export function resolveOperatorJobPhase(params: OperatorJobPhaseInput): OperatorJobPhase {
+  const status = (params.job_status ?? "").trim().toLowerCase()
+  const dispatch = (params.dispatch_status ?? "").trim().toLowerCase()
+  const disposition = (params.disposition ?? "").trim().toLowerCase()
+
+  // job_status wins for terminals so stale unassigned_pool never reads as In pool.
+  if (status === "completed" || status === "done" || status === "paid") return "done"
+  if (status === "cancelled" || status === "canceled") return "cancelled"
+  if (status === "referred") return "referred"
+  if (status === "unresolved") return "unresolved"
+  if (
+    dispatch === "completed" ||
+    dispatch === "cancelled" ||
+    dispatch === "canceled" ||
+    dispatch === "referred" ||
+    dispatch === "unresolved"
+  ) {
+    if (dispatch === "completed") return "done"
+    if (dispatch === "referred") return "referred"
+    if (dispatch === "unresolved") return "unresolved"
+    return "cancelled"
+  }
+
+  if (isPausedJobStatus(status)) return "paused"
+  if (status === "arrived" || status === "on_site") return "on_site"
+  if (status === "en_route") return "en_route"
+
+  // Open quote / callback lead — before hopper pool.
+  if (
+    dispatch === "lead" ||
+    dispatch === "lost_lead" ||
+    dispatch === "unassigned_callback" ||
+    disposition === "lead" ||
+    disposition === "pending_time" ||
+    status === "lead" ||
+    status.includes("price")
+  ) {
+    return "quote"
+  }
+
+  if (
+    dispatch === "unassigned_pool" ||
+    status === "unassigned" ||
+    !params.assigned_tech_id?.trim()
+  ) {
+    return "in_pool"
+  }
+
+  return "scheduled"
+}
+
+/** Human copy only — never expose raw enums to operators. */
+export const OPERATOR_JOB_PHASE_LABEL: Record<OperatorJobPhase, string> = {
+  quote: "Quote",
+  in_pool: "In pool",
+  scheduled: "Scheduled",
+  en_route: "En route",
+  on_site: "On site",
+  paused: "Paused",
+  done: "Done",
+  cancelled: "Cancelled",
+  referred: "Referred",
+  unresolved: "Unresolved",
+}
+
+export const OPERATOR_JOB_PHASE_BADGE_STYLE: Record<OperatorJobPhase, string> = {
+  quote: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+  in_pool: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  scheduled: "border-teal-500/40 bg-teal-500/10 text-teal-300",
+  en_route: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  on_site: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
+  paused: "border-orange-500/40 bg-orange-500/10 text-orange-300",
+  done: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  cancelled: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
+  referred: "border-violet-500/40 bg-violet-500/10 text-violet-200",
+  unresolved: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
+}
+
+/** Map operator phase → existing scheduler board phase (cards / map pins). */
+export function operatorPhaseToSchedulerPhase(
+  phase: OperatorJobPhase
+): SchedulerLifecyclePhase {
+  switch (phase) {
+    case "done":
+    case "cancelled":
+    case "referred":
+    case "unresolved":
+      return "completed"
+    case "quote":
+    case "in_pool":
+      return "unassigned"
+    case "en_route":
+      return "en_route"
+    case "on_site":
+      return "on_site"
+    case "paused":
+      return "paused"
+    case "scheduled":
+    default:
+      return "scheduled"
+  }
 }
 
 /** Derive UI phase from dispatch + field progress columns. */
@@ -32,26 +175,8 @@ export function schedulerLifecyclePhase(params: {
   dispatch_status?: string | null
   assigned_tech_id?: string | null
 }): SchedulerLifecyclePhase {
-  const status = (params.job_status ?? "").trim().toLowerCase()
-  // Terminal close-outs leave the active board (completed styling).
-  if (
-    status === "completed" ||
-    status === "cancelled" ||
-    status === "canceled" ||
-    status === "unresolved" ||
-    status === "referred"
-  ) {
-    return "completed"
-  }
-  if (isPausedJobStatus(status)) return "paused"
-  if (status === "arrived") return "on_site"
-  if (status === "en_route") return "en_route"
-  if (status === "unassigned") return "unassigned"
-  const dispatch = (params.dispatch_status ?? "").trim().toLowerCase()
-  if (dispatch === "unassigned_pool" || dispatch === "unassigned_callback" || !params.assigned_tech_id?.trim()) {
-    return "unassigned"
-  }
-  return "scheduled"
+  // Prefer the operator resolver so done/paid never map to unassigned/pool.
+  return operatorPhaseToSchedulerPhase(resolveOperatorJobPhase(params))
 }
 
 type SchedulerJobPhaseInput = {
@@ -94,12 +219,12 @@ export const SCHEDULER_CARD_STYLE: Record<SchedulerLifecyclePhase, string> = {
 export const SCHEDULER_TIMELINE_CARD_HOVER = SCHEDULER_INTERACTIVE_HOVER
 
 export const SCHEDULER_STATUS_LABEL: Record<SchedulerLifecyclePhase, string> = {
-  unassigned: "Unassigned",
-  scheduled: "Assigned",
+  unassigned: "In pool",
+  scheduled: "Scheduled",
   en_route: "En route",
-  on_site: "In progress",
+  on_site: "On site",
   paused: "Paused",
-  completed: "Completed",
+  completed: "Done",
 }
 
 /** Human label for the raw job_status column (covers close-out statuses). */
@@ -109,14 +234,19 @@ export function schedulerJobStatusDisplayLabel(jobStatus?: string | null): strin
   if (status === "cancelled" || status === "canceled") return "Cancelled"
   if (status === "unresolved") return "Unresolved"
   if (status === "referred") return "Referred"
-  if (status === "completed") return "Completed"
-  if (status === "arrived") return "In progress"
+  if (status === "completed" || status === "done" || status === "paid") return "Done"
+  if (status === "arrived" || status === "on_site") return "On site"
   if (status === "en_route") return "En route"
   if (status === "paused_wait") return "Paused — waiting"
   if (status === "paused_parts") return "Paused — parts"
-  if (status === "assigned") return "Assigned"
-  if (status === "unassigned") return "Unassigned"
+  if (status === "assigned") return "Scheduled"
+  if (status === "unassigned") return "In pool"
   return null
+}
+
+/** Convenience: one human status string for drawers / chips / CRM. */
+export function operatorJobPhaseLabel(params: OperatorJobPhaseInput): string {
+  return OPERATOR_JOB_PHASE_LABEL[resolveOperatorJobPhase(params)]
 }
 
 /** Left-panel group order for the dispatch split view (most urgent first). */
@@ -129,12 +259,12 @@ export const PIPELINE_PANEL_GROUP_ORDER: SchedulerLifecyclePhase[] = [
 ]
 
 export const PIPELINE_PANEL_GROUP_TITLE: Record<SchedulerLifecyclePhase, string> = {
-  unassigned: "Unassigned",
-  scheduled: "Assigned",
+  unassigned: "In pool",
+  scheduled: "Scheduled",
   en_route: "En route",
-  on_site: "In progress",
+  on_site: "On site",
   paused: "Paused",
-  completed: "Completed",
+  completed: "Done",
 }
 
 /** Pin fill color for numbered route stops on the map. */

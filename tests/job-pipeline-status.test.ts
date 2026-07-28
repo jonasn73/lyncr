@@ -6,17 +6,17 @@ import {
 } from "@/lib/job-pipeline-status"
 
 describe("pipelineStatusFromJob", () => {
-  it("defaults leftover pool dispatch to Waiting Pool", () => {
+  it("defaults leftover pool dispatch to In pool", () => {
     expect(
       pipelineStatusFromJob({
         dispatch_status: "unassigned_pool",
         assigned_tech_id: null,
       })
     ).toBe("unassigned_pool")
-    expect(pipelineStatusPillLabel("unassigned_pool")).toBe("Waiting Pool")
+    expect(pipelineStatusPillLabel("unassigned_pool")).toBe("In pool")
   })
 
-  it("shows Completed when job_status is terminal even if dispatch is still pool/lead", () => {
+  it("shows Done when job_status is terminal even if dispatch is still pool/lead", () => {
     expect(
       pipelineStatusFromJob({
         dispatch_status: "unassigned_pool",
@@ -30,7 +30,7 @@ describe("pipelineStatusFromJob", () => {
         job_status: "completed",
       })
     ).toBe("completed")
-    expect(pipelineStatusPillLabel("completed")).toBe("Completed")
+    expect(pipelineStatusPillLabel("completed")).toBe("Done")
   })
 
   it("treats completed dispatch_status as terminal", () => {
