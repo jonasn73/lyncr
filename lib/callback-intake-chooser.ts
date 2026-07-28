@@ -98,6 +98,121 @@ export function continueOpenQuoteStep(params: {
   return "SCHEDULE_TIME"
 }
 
+/** Draft / wizard step order — higher means further along the intake path. */
+const DRAFT_RESUME_STEP_ORDER: Record<string, number> = {
+  SERVICE_SELECT: 0,
+  VEHICLE_INFO: 1,
+  JOB_TYPE: 2,
+  KEY_SPECIFICS: 3,
+  ADDRESS_CONTACT: 4,
+  SCHEDULE_TIME: 5,
+  CUSTOMER_NAME: 6,
+  BOOKING_COMPLETE: 7,
+  FINAL_DISPATCH: 5, // legacy alias of SCHEDULE_TIME
+}
+
+/** Steps Restore may land on (Continue-quote set + mid-flow key/name steps). */
+export type DraftResumeStep =
+  | CallbackContinueStep
+  | "JOB_TYPE"
+  | "KEY_SPECIFICS"
+  | "CUSTOMER_NAME"
+
+/**
+ * True when Lockout looks intentional — not just the blank-form default autosaved on Service.
+ * Mirror Continue-quote: clear false Lockout unless notes/job type/step prove a real pick.
+ */
+export function draftClearlyChoseLockout(
+  form: {
+    serviceQuoteTypeId?: string | null
+    notes?: string | null
+    jobType?: string | null
+  },
+  savedStep?: string | null
+): boolean {
+  if (String(form.serviceQuoteTypeId ?? "").trim() !== "lockout") return false
+  const notes = String(form.notes ?? "")
+  const jobType = String(form.jobType ?? "")
+  if (/lockout/i.test(notes) || /lockout/i.test(jobType)) return true
+  const step = String(savedStep ?? "SERVICE_SELECT").trim() || "SERVICE_SELECT"
+  // Advanced past Service with lockout still selected → operator confirmed it.
+  return step !== "SERVICE_SELECT" && step !== "BOOKING_COMPLETE"
+}
+
+/**
+ * Resolve service id when Restore applies a draft — prefer CRM over false Lockout default.
+ */
+export function resolveRestoredDraftServiceTypeId(params: {
+  draftServiceTypeId: string | null | undefined
+  crmServiceTypeId?: ServiceQuoteTypeId | null
+  notes?: string | null
+  jobType?: string | null
+  savedStep?: string | null
+}): ServiceQuoteTypeId | "" {
+  const draft = String(params.draftServiceTypeId ?? "").trim()
+  const crm = params.crmServiceTypeId ?? null
+  const clearlyLockout = draftClearlyChoseLockout(
+    { serviceQuoteTypeId: draft, notes: params.notes, jobType: params.jobType },
+    params.savedStep
+  )
+  // CRM known type wins over an autosaved Lockout default.
+  if (crm && (draft === "" || draft === "lockout") && !clearlyLockout) {
+    return crm
+  }
+  if (draft === "lockout" && !clearlyLockout) return ""
+  if (draft && (SERVICE_QUOTE_TYPE_IDS as readonly string[]).includes(draft)) {
+    return draft as ServiceQuoteTypeId
+  }
+  return (crm ?? "") as ServiceQuoteTypeId | ""
+}
+
+/**
+ * After Restore draft: land on first incomplete step (Continue-quote spirit).
+ * Prefer the later of saved vs computed incomplete so mid-flow drafts are not yanked backward.
+ * Mid key/name steps Continue does not model stay put when service is known.
+ */
+export function resumeDraftIntakeStep(params: {
+  serviceTypeId: ServiceQuoteTypeId | ""
+  vehicleYear: string
+  vehicleMake: string
+  vehicleModel: string
+  addressReady: boolean
+  savedStep: string | null | undefined
+}): DraftResumeStep {
+  const incomplete = continueOpenQuoteStep({
+    serviceTypeId: params.serviceTypeId,
+    vehicleYear: params.vehicleYear,
+    vehicleMake: params.vehicleMake,
+    vehicleModel: params.vehicleModel,
+    addressReady: params.addressReady,
+  })
+  const rawSaved = String(params.savedStep ?? "SERVICE_SELECT").trim() || "SERVICE_SELECT"
+  const saved = rawSaved === "FINAL_DISPATCH" ? "SCHEDULE_TIME" : rawSaved
+  if (saved === "BOOKING_COMPLETE") return incomplete
+
+  // Mid key / name steps Continue does not model — keep when service is known.
+  if (
+    (saved === "JOB_TYPE" || saved === "KEY_SPECIFICS" || saved === "CUSTOMER_NAME") &&
+    params.serviceTypeId
+  ) {
+    return saved
+  }
+
+  const savedOrder = DRAFT_RESUME_STEP_ORDER[saved] ?? 0
+  const incompleteOrder = DRAFT_RESUME_STEP_ORDER[incomplete] ?? 0
+  // Prefer later of saved vs incomplete so mid-flow Address/Schedule is not yanked back.
+  if (
+    savedOrder > incompleteOrder &&
+    (saved === "SERVICE_SELECT" ||
+      saved === "VEHICLE_INFO" ||
+      saved === "ADDRESS_CONTACT" ||
+      saved === "SCHEDULE_TIME")
+  ) {
+    return saved
+  }
+  return incomplete
+}
+
 /**
  * True when this phone should get the returning-caller decision card
  * (not a cold Service-first intake).

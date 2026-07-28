@@ -107,6 +107,9 @@ import {
   formatReturningCallerVehicleFact,
   hasContinueableOpenLead,
   isKnownReturningCaller,
+  resolveOpenQuoteYmm,
+  resolveRestoredDraftServiceTypeId,
+  resumeDraftIntakeStep,
   summarizeReturningCallerNotes,
 } from "@/lib/callback-intake-chooser"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
@@ -920,6 +923,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [callbackChooserDismissed, setCallbackChooserDismissed] = useState(false)
   /** Only true after explicit New job — allows insert instead of open-quote upgrade. */
   const [callbackForceNewJob, setCallbackForceNewJob] = useState(false)
+  /** Compact “Continuing draft for {name}” banner after Restore (not the full decision card). */
+  const [continuingDraft, setContinuingDraft] = useState(false)
   /** Expand truncated CRM notes on the returning-caller card. */
   const [returningCallerNotesExpanded, setReturningCallerNotesExpanded] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
@@ -1100,6 +1105,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setKeySkipArmed(false)
     setCallbackChooserDismissed(false)
     setCallbackForceNewJob(false)
+    setContinuingDraft(false)
     setReturningCallerNotesExpanded(false)
     lastLoadedDraftPhoneRef.current = null
     dismissedDraftPhoneRef.current = null
@@ -1172,7 +1178,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setPendingDraft(draft)
   }, [effectiveCurrent, activeDraftPhone])
 
-  /** One-tap: restore step + form from the pending draft for the current phone. */
+  /** One-tap: restore form, clear false Lockout, land on first incomplete step. */
   const restorePendingDraft = useCallback(() => {
     if (!pendingDraft || !activeDraftPhone || !effectiveCurrent) return
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
@@ -1185,28 +1191,95 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setPendingDraft(null)
       return
     }
+    const draftForm = pendingDraft.form
+    // Prefer CRM type over an autosaved Lockout default (same spirit as Continue quote).
+    const resolvedService = resolveRestoredDraftServiceTypeId({
+      draftServiceTypeId: draftForm.serviceQuoteTypeId,
+      crmServiceTypeId: crmOpenLeadServiceTypeId,
+      notes: draftForm.notes,
+      jobType: draftForm.jobType,
+      savedStep: pendingDraft.currentStep,
+    })
+    // Fill missing YMM from garage / CRM so Restore can skip Vehicle when the car is known.
+    const ymm = resolveOpenQuoteYmm({
+      lead: {
+        vehicle_year: draftForm.vehicleYear,
+        vehicle_make: draftForm.vehicleMake,
+        vehicle_model: draftForm.vehicleModel,
+      },
+      garage: garageVehicles[0] ?? null,
+    })
+    const year = draftForm.vehicleYear.trim() || ymm.year
+    const make = draftForm.vehicleMake.trim() || ymm.make
+    const model = draftForm.vehicleModel.trim() || ymm.model
+    // Keep CRM address when the draft never collected one (notes-only thin drafts).
+    const addressLine1 = draftForm.addressLine1.trim() || form.addressLine1
+    const city = draftForm.city.trim() || form.city
+    const addressReadyNow =
+      addressReady ||
+      isFlatAddressReadyForDispatch({ addressLine1, city })
+
     skipNextDraftSaveRef.current = true
-    patchForm(pendingDraft.form)
-    if (!pendingDraft.form.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
+    patchForm({
+      ...draftForm,
+      serviceQuoteTypeId: resolvedService,
+      displayName: draftForm.displayName.trim() || form.displayName,
+      vehicleYear: year,
+      vehicleMake: make,
+      vehicleModel: model,
+      addressLine1,
+      addressLine2: draftForm.addressLine2.trim() || form.addressLine2,
+      city,
+      region: draftForm.region.trim() || form.region,
+      postalCode: draftForm.postalCode.trim() || form.postalCode,
+      serviceAddress: draftForm.serviceAddress || form.serviceAddress,
+    })
+    if (!draftForm.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
       patchForm({ phoneNumber: effectiveCurrent.from_number.trim() })
     }
-    setCurrentStep(pendingDraft.currentStep as WorkflowStep)
+    // First incomplete step — prefer later of saved vs computed so mid-flow is not yanked back.
+    const next = resumeDraftIntakeStep({
+      serviceTypeId: resolvedService,
+      vehicleYear: year,
+      vehicleMake: make,
+      vehicleModel: model,
+      addressReady: addressReadyNow,
+      savedStep: pendingDraft.currentStep,
+    })
+    setCurrentStep(next as WorkflowStep)
     setCustomPrice(pendingDraft.customPrice)
     setFailureReason(pendingDraft.failureReason || FAILURE_REASON_NEUTRAL)
     setRecoveredViaRouteDiscount(pendingDraft.recoveredViaRouteDiscount)
     setNegotiationStep(pendingDraft.negotiationStep)
     setVehicleLockoutIntake(
-      pendingDraft.form.serviceQuoteTypeId === "lockout" &&
-        /vehicle\s*lockout/i.test(pendingDraft.form.notes || "")
+      resolvedService === "lockout" &&
+        /vehicle\s*lockout/i.test(draftForm.notes || "")
     )
-    // Leave decision card so draft step (or Service) is the focus.
+    // Leave decision card; show compact continuing-draft banner instead.
     setCallbackChooserDismissed(true)
+    setCallbackForceNewJob(false)
+    setContinuingDraft(true)
     lastLoadedDraftPhoneRef.current = normalized
     setPendingDraft(null)
     setDraftRestoredFlash(true)
     if (draftRestoredTimerRef.current) window.clearTimeout(draftRestoredTimerRef.current)
     draftRestoredTimerRef.current = window.setTimeout(() => setDraftRestoredFlash(false), 4200)
-  }, [pendingDraft, activeDraftPhone, effectiveCurrent, patchForm])
+  }, [
+    addressReady,
+    crmOpenLeadServiceTypeId,
+    effectiveCurrent,
+    form.addressLine1,
+    form.addressLine2,
+    form.city,
+    form.displayName,
+    form.postalCode,
+    form.region,
+    form.serviceAddress,
+    garageVehicles,
+    pendingDraft,
+    activeDraftPhone,
+    patchForm,
+  ])
 
   /** Dismiss keeps the draft in storage for later; hide the chip this session. */
   const dismissPendingDraft = useCallback(() => {
@@ -2124,6 +2197,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setLostLeadError(null)
     setDraftPulse(false)
     setDraftRestoredFlash(false)
+    setContinuingDraft(false)
     setPendingDraft(null)
     lastLoadedDraftPhoneRef.current = null
     dismissedDraftPhoneRef.current = null
@@ -2732,6 +2806,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const id = jobId.trim()
       if (!id) return
       setCallbackChooserDismissed(true)
+      setContinuingDraft(false)
       // Remember Lines/Routing so drawer close can expand PiP again.
       intakeReturnTabRef.current = activeTab === "contacts" ? "dashboard" : activeTab
       minimizeIntake()
@@ -2750,6 +2825,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     applyOpenQuoteContinuePrefill()
     setCallbackChooserDismissed(true)
     setCallbackForceNewJob(false)
+    setContinuingDraft(false)
     const serviceId = (crmOpenLeadServiceTypeId ||
       form.serviceQuoteTypeId ||
       "") as ServiceQuoteTypeId | ""
@@ -2811,6 +2887,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     startFreshJobForReturningCaller()
     setCallbackChooserDismissed(true)
     setCallbackForceNewJob(true)
+    setContinuingDraft(false)
     setVehicleLockoutIntake(false)
     setCurrentStep("SERVICE_SELECT")
   }, [startFreshJobForReturningCaller])
@@ -3168,6 +3245,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 notesExpanded={returningCallerNotesExpanded}
               />
             ) : null}
+            {/* Compact sticky banner after Restore — not the full decision card. */}
+            {continuingDraft && !showReturningCallerCard ? (
+              <div
+                className="sticky top-0 z-20 shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-4 py-1.5"
+                role="status"
+              >
+                <p className="truncate text-[11px] font-medium text-amber-50/95">
+                  Continuing draft for{" "}
+                  <span className="font-semibold text-amber-50">
+                    {matchedCustomer?.display_name?.trim() ||
+                      form.displayName.trim() ||
+                      "this caller"}
+                  </span>
+                </p>
+              </div>
+            ) : null}
             {stepIntake && !isManual && !showReturningCallerCard ? (
               <IntakeStepProgress path={manualPath} currentStep={currentStep} />
             ) : null}
@@ -3212,7 +3305,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   — pick the service.
                                 </p>
                               ) : null}
-                              {/* P4 AI triage — suggest only; owner confirms before any book. */}
+                              {/* Continuing draft: name is in the sticky banner — skip cold Suggest strip. */}
+                              {!continuingDraft ? (
                               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-2.5 py-2">
                                 <p className="text-[10px] leading-snug text-cyan-100/80">
                                   Prefill from open quote / CRM / notes — you confirm, nothing auto-books.
@@ -3254,6 +3348,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   }}
                                 />
                               </div>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Pick the service for this draft — Lockout is not assumed.
+                                </p>
+                              )}
                               <ServiceQuoteCalculatorPanel
                                 quote={liveQuote}
                                 serviceTypeId={selectorServiceTypeId}

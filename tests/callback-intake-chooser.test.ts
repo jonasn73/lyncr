@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest"
 import {
   continueOpenQuoteStep,
+  draftClearlyChoseLockout,
   formatReturningCallerVehicleFact,
   hasContinueableOpenLead,
   isKnownReturningCaller,
   isOpenLeadPoolReady,
   resolveOpenQuoteYmm,
+  resolveRestoredDraftServiceTypeId,
+  resumeDraftIntakeStep,
   serviceQuoteTypeIdFromCrmHistory,
   summarizeReturningCallerNotes,
 } from "@/lib/callback-intake-chooser"
@@ -104,6 +107,88 @@ describe("continueOpenQuoteStep", () => {
         addressReady: true,
       })
     ).toBe("VEHICLE_INFO")
+  })
+})
+
+describe("resumeDraftIntakeStep / restore Lockout clear", () => {
+  it("jumps past Service when draft never left Service but form is complete enough", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: false,
+        savedStep: "SERVICE_SELECT",
+      })
+    ).toBe("ADDRESS_CONTACT")
+  })
+
+  it("keeps mid KEY_SPECIFICS instead of jumping to Address", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: false,
+        savedStep: "KEY_SPECIFICS",
+      })
+    ).toBe("KEY_SPECIFICS")
+  })
+
+  it("does not yank Address drafts back to Vehicle", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "",
+        vehicleMake: "",
+        vehicleModel: "",
+        addressReady: true,
+        savedStep: "ADDRESS_CONTACT",
+      })
+    ).toBe("ADDRESS_CONTACT")
+  })
+
+  it("stays on Service for thin notes-only drafts", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "",
+        vehicleYear: "",
+        vehicleMake: "",
+        vehicleModel: "",
+        addressReady: false,
+        savedStep: "SERVICE_SELECT",
+      })
+    ).toBe("SERVICE_SELECT")
+  })
+
+  it("clears false Lockout default unless draft clearly chose it", () => {
+    expect(draftClearlyChoseLockout({ serviceQuoteTypeId: "lockout" }, "SERVICE_SELECT")).toBe(
+      false
+    )
+    expect(
+      draftClearlyChoseLockout(
+        { serviceQuoteTypeId: "lockout", notes: "Vehicle lockout at Walmart" },
+        "SERVICE_SELECT"
+      )
+    ).toBe(true)
+    expect(
+      draftClearlyChoseLockout({ serviceQuoteTypeId: "lockout" }, "ADDRESS_CONTACT")
+    ).toBe(true)
+    expect(
+      resolveRestoredDraftServiceTypeId({
+        draftServiceTypeId: "lockout",
+        crmServiceTypeId: "key_generation",
+        savedStep: "SERVICE_SELECT",
+      })
+    ).toBe("key_generation")
+    expect(
+      resolveRestoredDraftServiceTypeId({
+        draftServiceTypeId: "lockout",
+        savedStep: "SERVICE_SELECT",
+      })
+    ).toBe("")
   })
 })
 
