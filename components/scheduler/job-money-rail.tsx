@@ -42,8 +42,14 @@ type JobMoneyRailProps = {
   isJobDone: boolean
   saving?: boolean
   reviewSmsFailed?: boolean
+  /** ISO stamp when review SMS was last sent (done-state chip). */
+  reviewSmsSentAt?: string | null
+  /** ISO stamp when customer opened the review link. */
+  reviewLinkOpenedAt?: string | null
   onCollect: () => void
   onSendReviewSms: () => void
+  /** Mark job complete (same confirm flow as More actions). */
+  onComplete?: () => void
 }
 
 export function JobMoneyRail({
@@ -54,8 +60,11 @@ export function JobMoneyRail({
   isJobDone,
   saving = false,
   reviewSmsFailed = false,
+  reviewSmsSentAt = null,
+  reviewLinkOpenedAt = null,
   onCollect,
   onSendReviewSms,
+  onComplete,
 }: JobMoneyRailProps) {
   const { toast } = useToast()
   const [busy, setBusy] = useState<"deposit" | "refresh" | null>(null)
@@ -193,8 +202,17 @@ export function JobMoneyRail({
     toast,
   ])
 
+  // Review SMS chip when job is already done (Opened / Sent / Failed).
+  const reviewStatusLabel = reviewLinkOpenedAt
+    ? "Opened"
+    : reviewSmsFailed
+      ? "Failed"
+      : reviewSmsSentAt
+        ? "Sent"
+        : null
+
   return (
-    <section className="mt-2.5 space-y-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-3 py-2.5">
+    <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-3 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className={SECTION_LABEL}>Money</p>
         <button
@@ -235,53 +253,76 @@ export function JobMoneyRail({
             </span>
           </>
         ) : null}
+        {isJobDone && reviewStatusLabel ? (
+          <>
+            <span className="text-slate-600"> · </span>
+            <span
+              className={cn(
+                "font-semibold",
+                reviewStatusLabel === "Failed"
+                  ? "text-rose-300"
+                  : reviewStatusLabel === "Opened"
+                    ? "text-emerald-300"
+                    : "text-amber-200/90"
+              )}
+            >
+              Review {reviewStatusLabel}
+            </span>
+          </>
+        ) : null}
       </p>
 
       {!isJobDone ? (
-        <>
-          <p className="text-[11px] leading-snug text-emerald-100/75">
-            Deposit locks the booking · Collect takes the balance · Complete
-            sends review.
-          </p>
-          <div className="grid grid-cols-2 gap-1.5">
+        // Deposit · Collect · Complete — no helper blurbs; Complete lives here (no Close Out section).
+        <div className={cn("grid gap-1.5", onComplete ? "grid-cols-3" : "grid-cols-2")}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="border-sky-500/40 bg-sky-500/10 px-1.5 text-sky-50 hover:bg-sky-500/20"
+            disabled={saving || busy === "deposit" || depositCents < 50}
+            onClick={() => void handleSendDeposit()}
+            title="Send deposit pay link by SMS"
+          >
+            {busy === "deposit" ? (
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden />
+            )}
+            {depositLabel ? `Deposit ${depositLabel}` : "Deposit"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-emerald-600 px-1.5 text-white hover:bg-emerald-600/90"
+            disabled={saving || balanceCents < 50}
+            onClick={onCollect}
+            title="Collect remaining balance"
+          >
+            <CreditCard className="mr-1 h-3.5 w-3.5" aria-hidden />
+            Collect
+          </Button>
+          {onComplete ? (
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="border-sky-500/40 bg-sky-500/10 text-sky-50 hover:bg-sky-500/20"
-              disabled={saving || busy === "deposit" || depositCents < 50}
-              onClick={() => void handleSendDeposit()}
+              className="border-emerald-500/40 bg-emerald-500/15 px-1.5 text-emerald-50 hover:bg-emerald-500/25"
+              disabled={saving}
+              onClick={onComplete}
+              title="Complete job — works from In pool; no tech required"
             >
-              {busy === "deposit" ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
-              ) : (
-                <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              )}
-              {depositLabel ? `Deposit ${depositLabel}` : "Deposit"}
+              <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden />
+              Complete
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-emerald-600 text-white hover:bg-emerald-600/90"
-              disabled={saving || balanceCents < 50}
-              onClick={onCollect}
-            >
-              <CreditCard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Collect
-            </Button>
-          </div>
-        </>
+          ) : null}
+        </div>
       ) : (
-        <>
-          <p className="text-[11px] leading-snug text-emerald-100/75">
-            Job done — ask for the review. Receipts go out from Collect after a
-            card/tap charge.
-          </p>
+        <div className="grid grid-cols-2 gap-1.5">
           <Button
             type="button"
             size="sm"
             className={cn(
-              "w-full",
               reviewSmsFailed
                 ? "border border-rose-500/40 bg-rose-500/20 text-rose-50 hover:bg-rose-500/30"
                 : "border border-amber-500/35 bg-amber-500/15 text-amber-50 hover:bg-amber-500/25"
@@ -289,23 +330,37 @@ export function JobMoneyRail({
             disabled={saving || !customerPhone.trim()}
             onClick={onSendReviewSms}
           >
-            <Star className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-            {reviewSmsFailed ? "Retry review SMS" : "Send review SMS"}
+            <Star className="mr-1 h-3.5 w-3.5" aria-hidden />
+            {reviewSmsFailed
+              ? "Retry review"
+              : reviewSmsSentAt
+                ? "Resend review"
+                : "Send review"}
           </Button>
           {balanceCents >= 50 ? (
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="w-full border-emerald-500/35 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/20"
+              className="border-emerald-500/35 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/20"
               disabled={saving}
               onClick={onCollect}
             >
-              <CreditCard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Collect remaining
+              <CreditCard className="mr-1 h-3.5 w-3.5" aria-hidden />
+              Collect
             </Button>
-          ) : null}
-        </>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-emerald-500/25 text-emerald-100/70"
+              disabled
+            >
+              Paid up
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Copy-paste fallback when SMS fails or owner wants to resend manually */}

@@ -910,8 +910,7 @@ export function JobDetailDrawer({
           <AlertDialogHeader>
             <AlertDialogTitle>Mark job complete?</AlertDialogTitle>
             <AlertDialogDescription>
-              Works from In pool without scheduling a tech. Send a thank-you + review text now,
-              or complete only.
+              Send a thank-you + review text, or complete only.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">

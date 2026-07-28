@@ -329,7 +329,7 @@ export function JobDetailOverview({
           className="border-b border-border/40 pb-2.5"
         />
 
-        {/* Money-on-the-job: balance → deposit pay link → collect → review */}
+        {/* Money: balance → Deposit / Collect / Complete (Complete merged in — no Close Out block) */}
         <JobMoneyRail
           jobId={source.id}
           customerName={customerName}
@@ -338,92 +338,25 @@ export function JobDetailOverview({
           isJobDone={isJobDone}
           saving={saving}
           reviewSmsFailed={reviewSmsFailed}
+          reviewSmsSentAt={
+            "review_sms_sent_at" in source
+              ? (source as SchedulerEvent).review_sms_sent_at
+              : null
+          }
+          reviewLinkOpenedAt={
+            "review_link_opened_at" in source
+              ? (source as SchedulerEvent).review_link_opened_at
+              : null
+          }
           onCollect={onCollectPayment}
           onSendReviewSms={onSendReviewSms}
+          onComplete={
+            isJobDone ? undefined : () => onQuickLifecycleAction("completed")
+          }
         />
 
-        {/* Complete from anywhere — pool / unscheduled / no-tech, above the fold */}
-        {!isJobDone ? (
-          <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
-            <p className={SECTION_LABEL}>Close out</p>
-            <p className="text-[11px] leading-snug text-emerald-100/80">
-              Works from In pool without scheduling a tech. Next step chooses Complete only or
-              Complete &amp; send review.
-            </p>
-            <Button
-              type="button"
-              size="sm"
-              className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
-              disabled={saving}
-              onClick={() => onQuickLifecycleAction("completed")}
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden />
-              ) : (
-                <CheckCircle2 className="mr-2 h-3.5 w-3.5" aria-hidden />
-              )}
-              Complete…
-            </Button>
-          </section>
-        ) : (
-          <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
-            <p className={SECTION_LABEL}>Done</p>
-            {/* Simple review SMS status from job stamps (migration 119 clicks + send stamp). */}
-            {(() => {
-              const openedAt =
-                "review_link_opened_at" in source
-                  ? (source as SchedulerEvent).review_link_opened_at
-                  : null
-              const sentAt =
-                "review_sms_sent_at" in source
-                  ? (source as SchedulerEvent).review_sms_sent_at
-                  : null
-              const statusLabel = openedAt
-                ? "Opened"
-                : reviewSmsFailed
-                  ? "Failed"
-                  : sentAt
-                    ? "Sent"
-                    : null
-              return statusLabel ? (
-                <p
-                  className={cn(
-                    "text-[11px] font-semibold",
-                    statusLabel === "Failed"
-                      ? "text-rose-300"
-                      : statusLabel === "Opened"
-                        ? "text-emerald-300"
-                        : "text-amber-200/90"
-                  )}
-                >
-                  Review SMS · {statusLabel}
-                </p>
-              ) : null
-            })()}
-            <Button
-              type="button"
-              size="sm"
-              className={cn(
-                "w-full",
-                reviewSmsFailed
-                  ? "border border-rose-500/40 bg-rose-500/20 text-rose-50 hover:bg-rose-500/30"
-                  : "border border-amber-500/35 bg-amber-500/15 text-amber-50 hover:bg-amber-500/25"
-              )}
-              disabled={saving || !customerPhone}
-              onClick={onSendReviewSms}
-            >
-              <Star className="mr-2 h-3.5 w-3.5" aria-hidden />
-              {reviewSmsFailed
-                ? "Retry review SMS"
-                : "review_sms_sent_at" in source && (source as SchedulerEvent).review_sms_sent_at
-                  ? "Resend review SMS"
-                  : "Send review SMS"}
-            </Button>
-          </section>
-        )}
-
-        {/* Dispatch — pipeline dropdown is internal control; badge above is the truth */}
-        <section className="mt-2.5 space-y-2.5 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2.5">
+        {/* Dispatch — status + tech; assign placeholder explains Scheduled gate */}
+        <section className="mt-2 space-y-2 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
@@ -478,14 +411,6 @@ export function JobDetailOverview({
               activePipelineJobs={activePipelineJobs}
               onChange={onAssignedTechChange}
             />
-            {pipelineStatus !== "DISPATCHED" && !isJobDone ? (
-              <p className="text-[11px] leading-snug text-slate-500">
-                Tech assign needs{" "}
-                <span className="font-medium text-slate-300">Scheduled</span>. Use{" "}
-                <span className="font-medium text-emerald-300">Complete</span> above anytime —
-                no tech required.
-              </p>
-            ) : null}
           </div>
 
           {pipelineDirty ? (
