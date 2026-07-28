@@ -76,6 +76,18 @@ describe("P2 CRM engagement actions", () => {
     ).toBe("Recover")
   })
 
+  it("keeps Recover distinct from Book job for salvageable leads only", () => {
+    expect(
+      crmJobNavAction(
+        historyStub({
+          status_label: "Needs call",
+          is_open_lead: true,
+          is_salvageable: false,
+        })
+      )
+    ).toBe("Book job")
+  })
+
   it("keeps pool jobs on Open job (not Recover)", () => {
     expect(
       crmJobNavAction(

@@ -40,19 +40,26 @@ import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+import { buildRescueOfferSmsPreview } from "@/lib/rescue-queue"
+import { recoveryStepPrices } from "@/lib/price-negotiation"
 
 type CrmFilter = "all" | "leads" | "clients"
 
 const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   booked_client: "Booked client",
   price_quoted: "Price quoted",
+  // Salvage / PRICE_REJECTED — not “Price quoted” next to Recover.
+  needs_recovery: "Needs recovery",
   // Missed-call / pending callback leads — operator should call back.
   callback: "Needs call",
   repeat_customer: "Repeat customer",
@@ -92,12 +99,28 @@ function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
   return null
 }
 
+/** Header / row button text — one schedule CTA matching lead state. */
+function crmJobNavButtonLabel(action: CrmJobNavAction, opts?: { poolReady?: boolean }): string {
+  switch (action) {
+    case "Book job":
+      // Thin quote → Continue intake; pool-ready → Book on Scheduler.
+      return opts?.poolReady === false ? "Continue" : "Book job"
+    case "Recover":
+      return "Recover quote"
+    case "Open job":
+      return "Open this job"
+    case "View job":
+      return "View job"
+  }
+}
+
 function crmJobNavTitle(action: CrmJobNavAction): string {
   switch (action) {
     case "Book job":
       return "Upgrade this quote — schedule on Scheduler, or continue intake if details are thin"
     case "Recover":
-      return "Recover this lost/price-rejected lead — continue quote or book on Scheduler"
+      // Not a discount SMS — reopen the quote / continue booking.
+      return "Reopen quote / continue booking"
     case "Open job":
       return "Open this job on Scheduler"
     case "View job":
@@ -125,6 +148,13 @@ function followUpTemplate(name: string, vehicleLabel: string | null): string {
   const who = name.trim() || "there"
   const vehicle = vehicleLabel?.trim() || "your vehicle"
   return `Hi ${who}, just checking in regarding your quote for the ${vehicle}. We still have tech availability today—let us know if you'd like to get on the schedule!`
+}
+
+/** Suggested rescue dollars from a quoted amount (same ~15% step as rescue-queue). */
+function rescueOfferDollarsFromCents(amountCents: number | null | undefined): number {
+  const dollars = Math.max(0, Math.round((amountCents ?? 0) / 100))
+  if (dollars <= 0) return 0
+  return recoveryStepPrices(dollars).step2Price
 }
 
 /** datetime-local value from ISO (browser local timezone). */
@@ -193,6 +223,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [editingName, setEditingName] = useState(false)
   // Job id while CRM “Send review” backup is in flight.
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null)
+  // SMS preview sheet — follow-up / rescue draft before real send.
+  const [smsPreviewOpen, setSmsPreviewOpen] = useState(false)
+  const [smsPreviewKind, setSmsPreviewKind] = useState<"follow_up" | "rescue">("follow_up")
+  const [smsPreviewDraft, setSmsPreviewDraft] = useState("")
+  const [smsPreviewSending, setSmsPreviewSending] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (tabParam === "leads") setFilter("leads")
@@ -322,21 +358,127 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     ? `/dashboard/messages?phone=${encodeURIComponent(selected.phone_e164)}`
     : "/dashboard/messages"
 
-  const followUpHref = selected
-    ? `/dashboard/messages?phone=${encodeURIComponent(selected.phone_e164)}&draft=${encodeURIComponent(
-        followUpTemplate(editName.trim() || selected.display_name || "there", vehicleForFollowUp)
-      )}`
-    : messagesHref
+  const customerDisplayName = editName.trim() || selected?.display_name || "there"
 
-  // Header CTA only for a truly open lead (quote/callback/salvage) — never completed-only.
-  const headerOpenLead = openLeadHistory[0] ?? null
-  const headerJobAction: CrmJobNavAction | null = headerOpenLead
-    ? (() => {
-        const a = crmJobNavAction(headerOpenLead)
-        if (a === "Book job" || a === "Recover") return a
-        return "Open job"
-      })()
+  // First salvageable open lead — powers Recover CTA + Draft rescue offer.
+  const salvageOpenLead = useMemo(
+    () => openLeadHistory.find((h) => h.is_salvageable) ?? null,
+    [openLeadHistory]
+  )
+
+  // Header: one schedule CTA — open lead first, else active job, else latest terminal.
+  const headerJobTarget = useMemo((): CrmServiceHistoryItem | null => {
+    if (openLeadHistory[0]) return openLeadHistory[0]
+    const openJob = history.find((h) => crmJobNavAction(h) === "Open job")
+    if (openJob) return openJob
+    const viewJob = history.find((h) => crmJobNavAction(h) === "View job")
+    return viewJob ?? null
+  }, [openLeadHistory, history])
+
+  const headerJobAction: CrmJobNavAction | null = headerJobTarget
+    ? crmJobNavAction(headerJobTarget)
     : null
+
+  // Pool-ready drives Continue vs Book job on the header CTA.
+  const headerPoolReady =
+    headerJobTarget != null &&
+    selected != null &&
+    (headerJobAction === "Book job" || headerJobAction === "Recover")
+      ? isOpenLeadPoolReady({
+          lead: headerJobTarget,
+          customerAddressReady: crmCustomerAddressReady(selected),
+          garage: vehicles[0] ?? null,
+        })
+      : true
+
+  /** Open SMS preview with follow-up template filled (editable before send). */
+  const openFollowUpPreview = () => {
+    if (!selected) return
+    setSmsPreviewKind("follow_up")
+    setSmsPreviewDraft(followUpTemplate(customerDisplayName, vehicleForFollowUp))
+    setSmsPreviewOpen(true)
+  }
+
+  /** Open SMS preview with rescue / lower-price draft (salvage leads only). */
+  const openRescuePreview = () => {
+    if (!selected || !salvageOpenLead) return
+    const offer = rescueOfferDollarsFromCents(salvageOpenLead.amount_cents)
+    if (offer <= 0) {
+      toast({
+        title: "No quoted price",
+        description: "Add a quote amount before drafting a rescue offer.",
+        variant: "destructive",
+      })
+      return
+    }
+    setSmsPreviewKind("rescue")
+    setSmsPreviewDraft(
+      buildRescueOfferSmsPreview({
+        customerName: customerDisplayName,
+        offerDollars: offer,
+      })
+    )
+    setSmsPreviewOpen(true)
+  }
+
+  /** POST the preview draft via Messages send API — Send means send. */
+  const sendSmsPreview = async () => {
+    if (!selected || smsPreviewSending) return
+    const text = smsPreviewDraft.trim()
+    if (!text) {
+      toast({
+        title: "Empty message",
+        description: "Type a message before sending.",
+        variant: "destructive",
+      })
+      return
+    }
+    setSmsPreviewSending(true)
+    try {
+      const res = await fetch("/api/messaging/send", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: selected.phone_e164,
+          text,
+          lead_id: salvageOpenLead?.id || openLeadHistory[0]?.id || undefined,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        toast({
+          title: "SMS failed",
+          description: json.error || "Could not send the text.",
+          variant: "destructive",
+        })
+        return
+      }
+      toast({ title: "SMS sent", description: text })
+      setSmsPreviewOpen(false)
+      setSaveMsg("SMS sent")
+    } catch {
+      toast({
+        title: "SMS failed",
+        description: "Could not send the text.",
+        variant: "destructive",
+      })
+    } finally {
+      setSmsPreviewSending(false)
+    }
+  }
+
+  /** Jump to Messages with the edited draft (does not send). */
+  const editSmsInMessages = () => {
+    if (!selected) return
+    const href = `/dashboard/messages?phone=${encodeURIComponent(selected.phone_e164)}&draft=${encodeURIComponent(
+      smsPreviewDraft
+    )}`
+    setSmsPreviewOpen(false)
+    setSelectedId(null)
+    setSelected(null)
+    router.push(href)
+  }
 
   /**
    * Universal job sheet: Open/View (and pool-ready Book) → Scheduler JobDetailDrawer.
@@ -346,7 +488,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const openJobOnScheduler = useCallback(
     (lead?: CrmServiceHistoryItem | null) => {
       if (!selected) return
-      const target = lead ?? headerOpenLead ?? null
+      const target = lead ?? headerJobTarget ?? null
       const customerId = selected.id
       const customerPhone = selected.phone_e164
       const customerName = editName.trim() || selected.display_name || ""
@@ -407,7 +549,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       }
       router.push("/dashboard/scheduler")
     },
-    [selected, headerOpenLead, router, inboundCallPanel, vehicles, editName]
+    [selected, headerJobTarget, router, inboundCallPanel, vehicles, editName]
   )
 
   const addVehicle = async () => {
@@ -624,24 +766,39 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           <Link
             href={messagesHref}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200"
+            title="Open Messages with a blank composer for this phone"
+            aria-label="Open Messages with a blank composer for this phone"
           >
             <MessageSquare className="h-3.5 w-3.5" />
-            Quick SMS
+            Open Messages
           </Link>
           {(selected.lead_badge === "price_quoted" ||
+            selected.lead_badge === "needs_recovery" ||
             selected.lead_badge === "callback" ||
             openLeadHistory.length > 0) && (
-            <Link
-              href={followUpHref}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 text-xs font-semibold text-amber-100"
-            >
-              Send follow-up
-            </Link>
-          )}
-          {headerJobAction && headerOpenLead ? (
             <button
               type="button"
-              onClick={() => openJobOnScheduler(headerOpenLead)}
+              onClick={openFollowUpPreview}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 text-xs font-semibold text-amber-100"
+              title="Preview follow-up SMS before sending"
+            >
+              Draft follow-up
+            </button>
+          )}
+          {salvageOpenLead ? (
+            <button
+              type="button"
+              onClick={openRescuePreview}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 text-xs font-semibold text-rose-100"
+              title="Preview a lower-price rescue SMS before sending"
+            >
+              Draft rescue offer
+            </button>
+          ) : null}
+          {headerJobAction && headerJobTarget ? (
+            <button
+              type="button"
+              onClick={() => openJobOnScheduler(headerJobTarget)}
               className={cn(
                 "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
                 headerJobAction === "Recover"
@@ -651,20 +808,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               title={crmJobNavTitle(headerJobAction)}
             >
               <CalendarCheck className="h-3.5 w-3.5" />
-              {headerJobAction}
+              {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
             </button>
           ) : null}
-          <Link
-            href="/dashboard/scheduler"
-            onClick={() => {
-              // Same keep-alive pane issue as Book/Open job — close profile before leaving CRM.
-              setSelectedId(null)
-              setSelected(null)
-            }}
-            className="inline-flex h-9 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-semibold text-zinc-200"
-          >
-            Open Scheduler
-          </Link>
         </div>
 
         {saveMsg && saveMsg !== "Saved" ? (
@@ -893,6 +1039,15 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                     {(() => {
                       const action = crmJobNavAction(item)
                       if (!action) return null
+                      // History rows keep short labels; Recover tooltip clarifies it’s not SMS.
+                      const rowLabel =
+                        action === "Recover"
+                          ? "Recover"
+                          : action === "Open job"
+                            ? "Open job"
+                            : action === "View job"
+                              ? "View job"
+                              : "Book job"
                       return (
                         <button
                           type="button"
@@ -906,7 +1061,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                           title={crmJobNavTitle(action)}
                         >
                           <CalendarCheck className="h-3 w-3" />
-                          {action}
+                          {rowLabel}
                         </button>
                       )
                     })()}
@@ -958,7 +1113,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         </h1>
         <p className="hidden text-sm text-zinc-500 md:block">
           One place for people, vehicles, history, and follow-ups — including Needs call callbacks and
-          Recover on lost/price-rejected leads. Scheduler stays for assigning work.
+          Recover quote on lost/price-rejected leads. Scheduler stays for assigning work.
         </p>
       </header>
 
@@ -1116,6 +1271,70 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Loading…
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* SMS preview — above mobile CRM profile (z-7100+) so Send means send after edit. */}
+      <Dialog
+        open={smsPreviewOpen}
+        onOpenChange={(open) => {
+          if (!open && !smsPreviewSending) setSmsPreviewOpen(false)
+        }}
+      >
+        <DialogContent
+          showCloseButton={!smsPreviewSending}
+          overlayClassName="z-[7100]"
+          className="z-[7110] border-zinc-800 bg-zinc-950 sm:max-w-md"
+        >
+          <DialogHeader>
+            <DialogTitle>Here’s the text we’re about to send</DialogTitle>
+            <DialogDescription>
+              {smsPreviewKind === "rescue"
+                ? "Rescue offer — edit if needed, then Send or open Messages."
+                : "Follow-up — edit if needed, then Send or open Messages."}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={smsPreviewDraft}
+            onChange={(e) => setSmsPreviewDraft(e.target.value)}
+            rows={5}
+            disabled={smsPreviewSending}
+            className="min-h-[7.5rem] border-zinc-800 bg-zinc-900 text-sm text-zinc-100"
+            aria-label="SMS message draft"
+          />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={smsPreviewSending}
+              onClick={() => setSmsPreviewOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={smsPreviewSending || !smsPreviewDraft.trim()}
+              onClick={editSmsInMessages}
+            >
+              Edit in Messages
+            </Button>
+            <Button
+              type="button"
+              disabled={smsPreviewSending || !smsPreviewDraft.trim()}
+              onClick={() => void sendSmsPreview()}
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              {smsPreviewSending ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                "Send"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

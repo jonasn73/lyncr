@@ -5017,9 +5017,12 @@ function resolveCrmLeadBadge(args: {
   jobsCompleted: number
   openLeadCount: number
   hasPriceQuoted: boolean
+  hasSalvage: boolean
   hasCallback: boolean
 }): CrmLeadBadge {
   // Prefer Booked client when nothing is still an open lead (stale quoted/callback flags).
+  // Salvage / PRICE_REJECTED → Needs recovery (not “Price quoted” next to Recover).
+  if (args.openLeadCount > 0 && args.hasSalvage) return "needs_recovery"
   if (args.openLeadCount > 0 && args.hasPriceQuoted) return "price_quoted"
   if (args.openLeadCount > 0 && args.hasCallback) return "callback"
   if (args.jobsCompleted >= 2) return "repeat_customer"
@@ -5059,6 +5062,7 @@ export async function listCrmCustomersForUser(
     revenueCents: number
     openLeads: number
     priceQuoted: boolean
+    hasSalvage: boolean
     callback: boolean
   }
   const byDigits = new Map<string, Agg>()
@@ -5090,6 +5094,7 @@ export async function listCrmCustomersForUser(
         revenueCents: 0,
         openLeads: 0,
         priceQuoted: false,
+        hasSalvage: false,
         callback: false,
       }
       const ds = String(row.ds ?? "")
@@ -5111,17 +5116,21 @@ export async function listCrmCustomersForUser(
           ds === "salvage_pending" ||
           js === "price_denied" ||
           js === "price_rejected")
+      const isSalvage =
+        ds === LOST_LEAD_STATUS ||
+        ds === "salvage_pending" ||
+        js === "price_denied" ||
+        js === "price_rejected" ||
+        js.includes("price")
       if (isCompleted && (js === "completed" || js === "done" || js === "paid" || ds === "completed")) {
         prev.completed += 1
         if (Number.isFinite(price) && price > 0) prev.revenueCents += price
       }
       if (isCrmLead) {
         prev.openLeads += 1
-        if (
-          ds === LOST_LEAD_STATUS ||
-          ds === "salvage_pending" ||
-          js.includes("price")
-        ) {
+        if (isSalvage) {
+          prev.hasSalvage = true
+        } else if (Number.isFinite(price) && price > 0) {
           prev.priceQuoted = true
         }
         if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) prev.callback = true
@@ -5143,15 +5152,23 @@ export async function listCrmCustomersForUser(
       revenueCents: 0,
       openLeads: 0,
       priceQuoted: false,
+      hasSalvage: false,
       callback: false,
     }
     const badge = resolveCrmLeadBadge({
       jobsCompleted: agg.completed,
       openLeadCount: agg.openLeads,
       hasPriceQuoted: agg.priceQuoted,
+      hasSalvage: agg.hasSalvage,
       hasCallback: agg.callback,
     })
-    if (filter === "leads" && agg.openLeads === 0 && badge !== "price_quoted" && badge !== "callback") {
+    if (
+      filter === "leads" &&
+      agg.openLeads === 0 &&
+      badge !== "price_quoted" &&
+      badge !== "needs_recovery" &&
+      badge !== "callback"
+    ) {
       continue
     }
     if (filter === "clients" && agg.completed === 0) continue
@@ -5372,17 +5389,17 @@ export async function listCrmServiceHistoryForCustomer(params: {
       } else if (js === "paused_wait" || js === "paused_parts") {
         status_label = "Paused"
         status_tone = "amber"
+      } else if (isSalvageLead) {
+        // Before Scheduled — salvage must not look booked when scheduled_at is stale.
+        status_label =
+          ds === LOST_LEAD_STATUS || ds === "salvage_pending" ? "Needs recovery" : "Price rejected"
+        status_tone = "rose"
       } else if (ds === UNASSIGNED_POOL_STATUS) {
         status_label = "In pool"
         status_tone = "amber"
       } else if (ds === "dispatched" || Boolean(row.scheduled_at)) {
         status_label = "Scheduled"
         status_tone = "sky"
-      } else if (isSalvageLead) {
-        // P2: price-rejected / lost — distinct from active callback quotes.
-        status_label =
-          ds === LOST_LEAD_STATUS || ds === "salvage_pending" ? "Needs recovery" : "Price rejected"
-        status_tone = "rose"
       } else if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) {
         status_label = "Needs call"
         status_tone = "amber"

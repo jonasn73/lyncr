@@ -940,6 +940,7 @@ export interface CustomerVehicle {
 export type CrmLeadBadge =
   | "booked_client"
   | "price_quoted"
+  | "needs_recovery"
   | "callback"
   | "repeat_customer"
   | "new_contact"
