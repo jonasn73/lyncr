@@ -29,6 +29,7 @@ import {
   parseSchedulerFocusSearch,
 } from "@/lib/scheduler-focus-url"
 import { emitReturnToIntakeFromMap } from "@/lib/dispatch-map-focus"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import {
   optimisticRemovePoolJob,
   useActivePipelineQuery,
@@ -138,11 +139,14 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
 
+  // Pause hopper + pipeline SWR while Scheduler pane / browser tab is hidden.
+  const pollEnabled = usePollBudget(isActive)
+
   const {
     jobs: poolJobs,
     isLoading: poolLoading,
     mutate: mutatePool,
-  } = useJobPoolQuery(activeOrganizationId)
+  } = useJobPoolQuery(activeOrganizationId, pollEnabled)
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
   const streamedPipelineDayKey = dayKeyLocal(new Date())
@@ -151,7 +155,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const {
     jobs: activePipelineJobs,
     mutate: mutateActivePipeline,
-  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, isActive)
+  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, pollEnabled)
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -391,10 +395,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [refreshSchedulerData])
 
   useEffect(() => {
-    if (!isActive) return
+    if (!pollEnabled) return
     void mutatePool(undefined, { revalidate: true })
     void mutateActivePipeline(undefined, { revalidate: true })
-  }, [isActive, mutatePool, mutateActivePipeline])
+  }, [pollEnabled, mutatePool, mutateActivePipeline])
 
   useEffect(() => {
     if (!ownerUserId) return

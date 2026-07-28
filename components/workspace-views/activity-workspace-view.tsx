@@ -57,6 +57,7 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import {
   formatCallChronologyLine,
   formatGroupedCallSummary,
@@ -1368,9 +1369,11 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
 }: {
   isActive?: boolean
 }) {
+  // Pause Activity polls when the pane or browser tab is hidden.
+  const pollEnabled = usePollBudget(isActive)
   const { calls, loading, loadError } = useOperationsData({
     refetchIntervalMs: 12_000,
-    enabled: isActive,
+    enabled: pollEnabled,
   })
   const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()

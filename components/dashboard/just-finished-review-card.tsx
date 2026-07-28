@@ -386,7 +386,14 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       </div>
 
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent side="right" variant="drawer" className={WORKSPACE_SHEET_CLASS}>
+        <SheetContent
+          side="right"
+          variant="drawer"
+          className={cn(
+            WORKSPACE_SHEET_CLASS,
+            "pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+          )}
+        >
           {selected ? (
             <LatestActionDetail
               item={selected}

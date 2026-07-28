@@ -115,6 +115,7 @@ import {
   isValidIntakeDraftPhone,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
+  type IntakeDraftSnapshot,
 } from "@/lib/intake-draft-storage"
 import type { StructuredAddress } from "@/lib/structured-address"
 import type { CustomerVehicle } from "@/lib/types"
@@ -486,6 +487,57 @@ function IntakeAutoSaveStatus({
   )
 }
 
+/** Relative age label for the restore chip (e.g. "12 min ago"). */
+function formatDraftSavedAgo(savedAt: string, nowMs = Date.now()): string {
+  const saved = new Date(savedAt).getTime()
+  if (!Number.isFinite(saved)) return "earlier"
+  const mins = Math.max(0, Math.round((nowMs - saved) / 60_000))
+  if (mins < 1) return "just now"
+  if (mins === 1) return "1 min ago"
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.round(mins / 60)
+  return hours === 1 ? "1 hr ago" : `${hours} hr ago`
+}
+
+/** Clear chip: one-tap restore after refresh/crash; dismiss keeps draft for later. */
+function IntakeDraftRestoreBanner({
+  draft,
+  onRestore,
+  onDismiss,
+}: {
+  draft: IntakeDraftSnapshot
+  onRestore: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div
+      className="mx-3 mt-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 sm:mx-4"
+      role="status"
+      aria-live="polite"
+    >
+      <p className="min-w-0 flex-1 text-xs font-medium text-amber-50">
+        Saved draft from {formatDraftSavedAgo(draft.savedAt)}
+      </p>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="inline-flex h-8 items-center rounded-lg bg-amber-400/90 px-2.5 text-[11px] font-semibold text-zinc-950 hover:bg-amber-300"
+        >
+          Restore draft
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="inline-flex h-8 items-center rounded-lg px-2 text-[11px] font-semibold text-amber-100/80 hover:bg-amber-500/20 hover:text-amber-50"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
   return (
     <AnimatePresence>
@@ -501,7 +553,7 @@ function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
           aria-live="polite"
         >
           <p className="rounded-full border border-emerald-500/40 bg-slate-950/95 px-4 py-2 text-xs font-medium text-emerald-100 shadow-lg backdrop-blur">
-            🔄 Progress automatically restored.
+            Draft restored.
           </p>
         </motion.div>
       ) : null}
@@ -760,10 +812,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [confirmSmsDraft, setConfirmSmsDraft] = useState<string | null>(null)
   const [confirmSmsResolved, setConfirmSmsResolved] = useState(false)
   const [draftPulse, setDraftPulse] = useState(false)
+  /** Phone we already restored this session — do not re-offer the banner. */
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
+  /** Phone whose restore banner was dismissed (draft kept in storage for later). */
+  const dismissedDraftPhoneRef = useRef<string | null>(null)
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextDraftSaveRef = useRef(false)
-  // Friendly flash when a prior draft is hydrated into the open sheet.
+  /** Restorable draft for the current caller — shown as an explicit Restore chip. */
+  const [pendingDraft, setPendingDraft] = useState<IntakeDraftSnapshot | null>(null)
+  // Friendly flash after the operator taps Restore draft.
   const [draftRestoredFlash, setDraftRestoredFlash] = useState(false)
   const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
@@ -929,6 +986,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setCallbackChooserDismissed(false)
     setCallbackForceNewJob(false)
     lastLoadedDraftPhoneRef.current = null
+    dismissedDraftPhoneRef.current = null
+    setPendingDraft(null)
     // Reset attachments when a new call / ticket opens.
     setJobPhotos([])
     setRescueMeta(null)
@@ -970,37 +1029,74 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return isValidIntakeDraftPhone(raw) ? raw : null
   }, [form.phoneNumber, effectiveCurrent?.from_number])
 
-  /** Resume partial intake when the same customer calls back / sheet reopens. */
+  /**
+   * Offer an explicit Restore draft chip when a fresh draft exists for THIS caller.
+   * Never auto-hydrate (avoids hijacking a brand-new different caller / fresh start).
+   */
   useEffect(() => {
-    if (!effectiveCurrent || !activeDraftPhone) return
+    if (!effectiveCurrent || !activeDraftPhone) {
+      setPendingDraft(null)
+      return
+    }
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
-    if (!normalized || lastLoadedDraftPhoneRef.current === normalized) return
-
-    // Prefer the restorable helper (fresh + not submitted).
+    if (!normalized) {
+      setPendingDraft(null)
+      return
+    }
+    // Already restored or dismissed for this phone this session.
+    if (
+      lastLoadedDraftPhoneRef.current === normalized ||
+      dismissedDraftPhoneRef.current === normalized
+    ) {
+      setPendingDraft(null)
+      return
+    }
+    // Only offer drafts keyed to the open caller — never another phone's snapshot.
     const draft = getDraftByPhoneNumber(activeDraftPhone)
-    lastLoadedDraftPhoneRef.current = normalized
-    if (!draft) return
+    setPendingDraft(draft)
+  }, [effectiveCurrent, activeDraftPhone])
 
-    // Avoid immediately re-writing the same snapshot during hydrate.
+  /** One-tap: restore step + form from the pending draft for the current phone. */
+  const restorePendingDraft = useCallback(() => {
+    if (!pendingDraft || !activeDraftPhone || !effectiveCurrent) return
+    const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
+    if (!normalized) return
+    // Guard: draft form phone must match the open caller.
+    const draftPhone = normalizeIntakeDraftPhone(
+      pendingDraft.form.phoneNumber || activeDraftPhone
+    )
+    if (draftPhone && draftPhone !== normalized) {
+      setPendingDraft(null)
+      return
+    }
     skipNextDraftSaveRef.current = true
-    patchForm(draft.form)
-    if (!draft.form.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
+    patchForm(pendingDraft.form)
+    if (!pendingDraft.form.phoneNumber?.trim() && effectiveCurrent.from_number?.trim()) {
       patchForm({ phoneNumber: effectiveCurrent.from_number.trim() })
     }
-    setCurrentStep(draft.currentStep as WorkflowStep)
-    setCustomPrice(draft.customPrice)
-    setFailureReason(draft.failureReason || FAILURE_REASON_NEUTRAL)
-    setRecoveredViaRouteDiscount(draft.recoveredViaRouteDiscount)
-    setNegotiationStep(draft.negotiationStep)
-    // Resume vehicle-lockout branch when notes mark it.
+    setCurrentStep(pendingDraft.currentStep as WorkflowStep)
+    setCustomPrice(pendingDraft.customPrice)
+    setFailureReason(pendingDraft.failureReason || FAILURE_REASON_NEUTRAL)
+    setRecoveredViaRouteDiscount(pendingDraft.recoveredViaRouteDiscount)
+    setNegotiationStep(pendingDraft.negotiationStep)
     setVehicleLockoutIntake(
-      draft.form.serviceQuoteTypeId === "lockout" &&
-        /vehicle\s*lockout/i.test(draft.form.notes || "")
+      pendingDraft.form.serviceQuoteTypeId === "lockout" &&
+        /vehicle\s*lockout/i.test(pendingDraft.form.notes || "")
     )
+    lastLoadedDraftPhoneRef.current = normalized
+    setPendingDraft(null)
     setDraftRestoredFlash(true)
     if (draftRestoredTimerRef.current) window.clearTimeout(draftRestoredTimerRef.current)
     draftRestoredTimerRef.current = window.setTimeout(() => setDraftRestoredFlash(false), 4200)
-  }, [effectiveCurrent, activeDraftPhone, patchForm])
+  }, [pendingDraft, activeDraftPhone, effectiveCurrent, patchForm])
+
+  /** Dismiss keeps the draft in storage for later; hide the chip this session. */
+  const dismissPendingDraft = useCallback(() => {
+    if (activeDraftPhone) {
+      dismissedDraftPhoneRef.current = normalizeIntakeDraftPhone(activeDraftPhone)
+    }
+    setPendingDraft(null)
+  }, [activeDraftPhone])
 
   // useLyncEngine onCallDisconnect may inject an AI transcript stub into the draft —
   // merge into the open form so autosave does not clobber it.
@@ -1029,6 +1125,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       skipNextDraftSaveRef.current = false
       return
     }
+    const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
+    // While a Restore chip is offered, do not overwrite the stored draft with a blank form.
+    if (
+      pendingDraft ||
+      (normalized &&
+        lastLoadedDraftPhoneRef.current !== normalized &&
+        dismissedDraftPhoneRef.current !== normalized &&
+        getDraftByPhoneNumber(activeDraftPhone))
+    ) {
+      return
+    }
 
     const timer = window.setTimeout(() => {
       saveIntakeDraft(activeDraftPhone, {
@@ -1055,6 +1162,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     failureReason,
     recoveredViaRouteDiscount,
     negotiationStep,
+    pendingDraft,
   ])
 
   useEffect(
@@ -1878,6 +1986,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const phone = (form.phoneNumber.trim() || effectiveCurrent?.from_number || "").trim()
     if (isValidIntakeDraftPhone(phone)) clearIntakeDraft(phone)
     lastLoadedDraftPhoneRef.current = null
+    dismissedDraftPhoneRef.current = null
+    setPendingDraft(null)
   }, [form.phoneNumber, effectiveCurrent?.from_number])
 
   const resetIntakeUiState = useCallback(() => {
@@ -1896,7 +2006,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setLostLeadError(null)
     setDraftPulse(false)
     setDraftRestoredFlash(false)
+    setPendingDraft(null)
     lastLoadedDraftPhoneRef.current = null
+    dismissedDraftPhoneRef.current = null
   }, [resetForm])
 
   const dismissWithDraftClear = useCallback(() => {
@@ -2857,6 +2969,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
             )}
+            {/* Obvious restore after refresh/crash — same phone only; never auto-hijack. */}
+            {pendingDraft && sheetOpen ? (
+              <IntakeDraftRestoreBanner
+                draft={pendingDraft}
+                onRestore={restorePendingDraft}
+                onDismiss={dismissPendingDraft}
+              />
+            ) : null}
             {/* Above Service step dots — not buried under Repeat Customer / calculator. */}
             {showCallbackChooser ? (
               <CallbackIntakeChooser

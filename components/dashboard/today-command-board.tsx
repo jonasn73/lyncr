@@ -26,6 +26,7 @@ import {
 } from "@/lib/mobile-shell"
 import { buildTelHref } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { useDocumentVisible } from "@/lib/hooks/use-poll-budget"
 import {
   formatTimeAgo,
   type TodayBoardPayload,
@@ -57,6 +58,8 @@ export const TodayCommandBoard = memo(function TodayCommandBoard({
 }) {
   const { toast } = useToast()
   const { activeOrganizationId } = useDashboardWorkspace()
+  // Slow Today board while the browser tab is backgrounded (Lines stays mounted).
+  const documentVisible = useDocumentVisible()
   const [data, setData] = useState<TodayBoardPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -94,9 +97,14 @@ export const TodayCommandBoard = memo(function TodayCommandBoard({
 
   useEffect(() => {
     void load()
-    const id = window.setInterval(() => void load(true), 45_000)
+    // Poll budget: full speed in foreground; 3× slower when the tab is hidden.
+    const intervalMs = documentVisible ? 45_000 : 135_000
+    const id = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return
+      void load(true)
+    }, intervalMs)
     return () => window.clearInterval(id)
-  }, [load])
+  }, [load, documentVisible])
 
   const patchStatus = useCallback(
     async (jobId: string, status: string) => {

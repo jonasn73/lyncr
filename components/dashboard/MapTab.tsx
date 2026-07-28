@@ -27,6 +27,7 @@ import {
 } from "@/lib/dispatch-map-focus"
 import { useIntakeDestinationTravel } from "@/lib/hooks/use-intake-destination-travel"
 import { useJobPoolQuery } from "@/lib/hooks/use-job-pool-query"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { cn } from "@/lib/utils"
 
@@ -58,9 +59,11 @@ const LAYER_TOGGLES = [
   { key: "you" as const, short: "You", long: "Show You" },
 ] as const
 
-export function MapTab() {
+export function MapTab({ isActive = true }: { isActive?: boolean }) {
   // Active org scopes the hopper Job Pool list.
   const { activeOrganizationId } = useDashboardWorkspace()
+  // Pause Map/hopper polls when this presence pane or the browser tab is hidden.
+  const pollEnabled = usePollBudget(isActive)
 
   // Layer toggles (Jobs / Techs / Leads / You).
   const [layers, setLayers] = useState<DispatchMapLayers>(INITIAL_LAYERS)
@@ -90,11 +93,15 @@ export function MapTab() {
   // ETA / address / nearest tech for the chrome banner (same math as the old map overlay).
   const { travelMetrics, nearestTech } = useIntakeDestinationTravel(
     intakeDestination,
-    activeOrganizationId
+    activeOrganizationId,
+    { enabled: pollEnabled || Boolean(intakeDestination) }
   )
 
-  // Unassigned / hopper jobs for the Job Pool list.
-  const { jobs: poolJobs, isLoading: poolLoading } = useJobPoolQuery(activeOrganizationId)
+  // Unassigned / hopper jobs for the Job Pool list — paused off-tab.
+  const { jobs: poolJobs, isLoading: poolLoading } = useJobPoolQuery(
+    activeOrganizationId,
+    pollEnabled
+  )
 
   // Desktop: open side panel. Phone: keep the map clear (bottom sheet stays closed).
   useEffect(() => {
@@ -163,7 +170,7 @@ export function MapTab() {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {drawerTab === "pool" ? (
           <div className="p-2">
-            <p className="mb-2 px-1 text-[11px] text-slate-500">
+            <p className="mb-2 hidden px-1 text-[11px] text-slate-500 md:block">
               Tap a job to center its pin on the map.
             </p>
             {poolLoading && sortedPool.length === 0 ? (
@@ -236,7 +243,10 @@ export function MapTab() {
             )}
           </div>
         ) : (
-          <TeamLiveRoster className="rounded-none border-0 bg-transparent" />
+          <TeamLiveRoster
+            className="rounded-none border-0 bg-transparent"
+            isActive={pollEnabled && drawerTab === "roster"}
+          />
         )}
       </div>
     </>
@@ -341,6 +351,7 @@ export function MapTab() {
           layers={layers}
           focusJobId={focusJobId}
           onFocusJobConsumed={onFocusJobConsumed}
+          pollEnabled={pollEnabled}
           className="absolute inset-0 z-0 h-full w-full"
         />
 

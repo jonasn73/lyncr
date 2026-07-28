@@ -36,6 +36,7 @@ import type {
   CustomerVehicle,
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -152,6 +153,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const router = useRouter()
   const inboundCallPanel = useInboundCallPanelOptional()
   const searchParams = useSearchParams()
+  // Pause CRM list fetches when the pane or browser tab is hidden.
+  const pollEnabled = usePollBudget(isActive)
   const tabParam = searchParams.get("tab")
   // Return-from-Scheduler deep link — reopen this customer profile.
   const customerParam = searchParams.get("customer")?.trim() || null
@@ -208,7 +211,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   }, [q])
 
   const loadList = useCallback(() => {
-    if (!isActive) return
+    if (!pollEnabled) return
     setLoading(true)
     const params = new URLSearchParams()
     if (debounced) params.set("q", debounced)
@@ -232,7 +235,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false))
-  }, [debounced, filter, isActive])
+  }, [debounced, filter, pollEnabled])
 
   useEffect(() => {
     void loadList()
@@ -947,8 +950,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
       <header className="flex flex-col gap-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">CRM</p>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:block">
+          CRM
+        </p>
+        <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
           Customers &amp; Leads
         </h1>
         <p className="hidden text-sm text-zinc-500 md:block">

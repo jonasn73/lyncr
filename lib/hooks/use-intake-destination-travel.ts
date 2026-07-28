@@ -16,13 +16,19 @@ import type {
 
 export function useIntakeDestinationTravel(
   destination: FocusDispatchMapDetail | null,
-  organizationId: string | null | undefined
+  organizationId: string | null | undefined,
+  options?: { enabled?: boolean }
 ): {
   travelMetrics: IntakeTravelMetrics | null
   nearestTech: IntakeNearestTech | null
 } {
-  const dispatcherLocation = useDispatcherLocation(Boolean(destination))
-  const { data: mapData } = useDispatchMapData(organizationId)
+  const enabled = options?.enabled !== false
+  const dispatcherLocation = useDispatcherLocation(Boolean(destination) && enabled)
+  // Reuse active-dispatch feed only (no lead pins) for nearest-tech math.
+  const { data: mapData } = useDispatchMapData(organizationId, {
+    enabled: enabled && Boolean(destination),
+    includeLeads: false,
+  })
   const techs = mapData?.techs ?? []
 
   const originPoint = useMemo(() => {

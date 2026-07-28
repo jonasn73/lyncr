@@ -75,8 +75,13 @@ export async function optimisticRemovePoolJob(
   )
 }
 
-export function useJobPoolQuery(activeOrganizationId: string | null) {
-  const url = jobPoolHopperUrl(activeOrganizationId)
+export function useJobPoolQuery(
+  activeOrganizationId: string | null,
+  /** Pause hopper fetches when Scheduler/Map pane is hidden. Default true. */
+  enabled = true
+) {
+  // Null key pauses this subscriber without wiping the shared hopper cache.
+  const url = enabled ? jobPoolHopperUrl(activeOrganizationId) : null
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
 
   const fallbackData = useMemo(

@@ -7,8 +7,13 @@ import {
   isHotLatestAction,
   type LatestCustomerAction,
 } from "@/lib/latest-customer-actions"
+import { useDocumentVisible } from "@/lib/hooks/use-poll-budget"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+
+/** Slow backup poll while the browser tab is hidden (Lines stays mounted). */
+const LATEST_POLL_VISIBLE_MS = 30_000
+const LATEST_POLL_HIDDEN_MS = 120_000
 
 type LatestCache = { items: LatestCustomerAction[] }
 
@@ -81,6 +86,8 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   const [items, setItems] = useState<LatestCustomerAction[]>([])
   // True only when we have nothing to show yet (cache miss).
   const [loading, setLoading] = useState(true)
+  // Slow the Latest poll when the browser tab is backgrounded (don't stop — Lines stays hot).
+  const documentVisible = useDocumentVisible()
 
   // Restore last list before paint — stops “Loading…” flash on hard refresh.
   useLayoutEffect(() => {
@@ -104,9 +111,11 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
 
   useEffect(() => {
     void load()
-    const id = window.setInterval(() => void load(), 30_000)
+    // Poll budget: full speed in foreground; 4× slower when the tab is hidden.
+    const intervalMs = documentVisible ? LATEST_POLL_VISIBLE_MS : LATEST_POLL_HIDDEN_MS
+    const id = window.setInterval(() => void load(), intervalMs)
     return () => window.clearInterval(id)
-  }, [load])
+  }, [load, documentVisible])
 
   return { items, loading, refresh: load, setItems }
 }

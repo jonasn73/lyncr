@@ -145,7 +145,14 @@ const PRESENCE_LABEL: Record<RosterPresence, string> = {
   away: "Away",
 }
 
-export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { className?: string }) {
+export const TeamLiveRoster = memo(function TeamLiveRoster({
+  className,
+  /** Pause roster polls when Map pane / roster tab is hidden. */
+  isActive = true,
+}: {
+  className?: string
+  isActive?: boolean
+}) {
   const { activeOrganizationId } = useDashboardWorkspace()
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
@@ -194,11 +201,13 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({ className }: { clas
     })
   }, [orgId])
 
+  // Poll budget: only while Map roster is the visible pane.
   useEffect(() => {
+    if (!isActive) return
     load()
     const id = window.setInterval(load, 30_000)
     return () => window.clearInterval(id)
-  }, [load])
+  }, [load, isActive])
 
   const rows = useMemo(
     () => buildRosterRows(techs, jobs, techLocations),

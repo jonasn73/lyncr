@@ -234,6 +234,7 @@ export function DispatchLiveMap({
   onFocusJobConsumed,
   hideChrome = false,
   fillParent = false,
+  pollEnabled = true,
 }: {
   /** Map tab: tall full-bleed canvas that always mounts (even with no pins yet). */
   fullViewport?: boolean
@@ -247,6 +248,8 @@ export function DispatchLiveMap({
   hideChrome?: boolean
   /** Stretch to fill a parent flex container (unified Map tab). */
   fillParent?: boolean
+  /** Pause map SWR / GPS when the Map pane or browser tab is hidden. */
+  pollEnabled?: boolean
 }) {
   const router = useRouter()
   const layers: DispatchMapLayers = { ...DEFAULT_LAYERS, ...layersProp }
@@ -276,8 +279,11 @@ export function DispatchLiveMap({
 
   const { activeOrganizationId } = useDashboardWorkspace()
 
-  // Shared SWR cache — Map tab and Activities embed show the same active pins.
-  const { data: mapData, mutate: mutateMapData } = useDispatchMapData(activeOrganizationId)
+  // Active dispatch pins by default; lead pins only when the Leads layer is on.
+  const { data: mapData, mutate: mutateMapData } = useDispatchMapData(activeOrganizationId, {
+    enabled: pollEnabled,
+    includeLeads: layers.leads,
+  })
   const technicians = mapData?.technicians ?? []
   const ownerUserId = mapData?.ownerUserId ?? null
   const techs = mapData?.techs ?? []
@@ -304,8 +310,8 @@ export function DispatchLiveMap({
     return out
   }, [jobs, leadJobs, layers.jobs, layers.leads])
 
-  // Always track the logged-in operator on the Dispatch Map (proximity radar).
-  const dispatcherLocation = useDispatcherLocation(true)
+  // GPS only while Map is the visible pane (saves battery when backgrounded).
+  const dispatcherLocation = useDispatcherLocation(pollEnabled && layers.you)
 
   const userLocation = useMemo(() => {
     if (

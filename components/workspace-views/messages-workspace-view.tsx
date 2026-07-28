@@ -15,6 +15,7 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
@@ -99,6 +100,8 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 }) {
   const { activeOrganizationId } = useDashboardWorkspace()
   const searchParams = useSearchParams()
+  // Pause when Messages pane OR browser tab is hidden.
+  const pollEnabled = usePollBudget(isActive)
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
       ? activeOrganizationId
@@ -144,18 +147,18 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   )
 
   useEffect(() => {
-    if (!isActive) return
+    if (!pollEnabled) return
     void loadMessages()
-  }, [loadMessages, isActive])
+  }, [loadMessages, pollEnabled])
 
-  // Poll only while Messages is the visible tab (pane stays mounted across tabs).
+  // Poll only while Messages pane + browser tab are visible (presence host keeps pane mounted).
   useEffect(() => {
-    if (!isActive) return
+    if (!pollEnabled) return
     const id = window.setInterval(() => {
       void loadMessages({ silent: true })
     }, 12_000)
     return () => window.clearInterval(id)
-  }, [loadMessages, isActive])
+  }, [loadMessages, pollEnabled])
 
   const threads = useMemo(() => groupIntoThreads(messages), [messages])
 
@@ -267,10 +270,10 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   return (
     <WorkspacePage
       className={cn(
-        // Tighter page chrome on phones; even tighter when a thread owns the screen.
+        // Tighter page chrome on phones; clear the dock + home indicator on list + thread.
         threadOpen
           ? "gap-2 pb-[calc(env(safe-area-inset-bottom)+1rem)] md:gap-6 md:pb-8"
-          : "gap-3 pb-8 md:gap-6"
+          : "gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:gap-6 md:pb-8"
       )}
     >
       {/* Title row — compact + single-line on mobile when a conversation is open */}
@@ -282,14 +285,16 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
       >
         <div className="min-w-0">
           {!threadOpen ? (
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">SMS</p>
+            <p className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block">
+              SMS
+            </p>
           ) : null}
           <h1
             className={cn(
               "font-semibold tracking-tight text-foreground",
               threadOpen
                 ? "text-lg md:text-2xl"
-                : "mt-1 text-xl sm:text-2xl md:text-3xl"
+                : "text-xl sm:text-2xl md:mt-1 md:text-3xl"
             )}
           >
             Messages
