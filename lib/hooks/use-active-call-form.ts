@@ -77,7 +77,7 @@ export type ActiveCallRow = {
   /** When true, CallAnsweredModal auto-runs Continue open quote (skip Service). */
   continueOpenQuote?: boolean
   /** Landing step after Continue-quote auto-start. */
-  intakeStartStep?: "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
+  intakeStartStep?: "SERVICE_SELECT" | "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
 }
 
 export type ActiveCallFormState = {

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
   continueOpenQuoteStep,
+  formatReturningCallerVehicleFact,
+  hasContinueableOpenLead,
+  isKnownReturningCaller,
   isOpenLeadPoolReady,
   resolveOpenQuoteYmm,
   serviceQuoteTypeIdFromCrmHistory,
+  summarizeReturningCallerNotes,
 } from "@/lib/callback-intake-chooser"
 
 describe("serviceQuoteTypeIdFromCrmHistory", () => {
@@ -78,16 +82,114 @@ describe("continueOpenQuoteStep", () => {
     ).toBe("SCHEDULE_TIME")
   })
 
-  it("asks for Vehicle when open quote cleared service type and YMM is empty", () => {
+  it("lands on Service when open quote has unknown type", () => {
     expect(
       continueOpenQuoteStep({
         serviceTypeId: "",
+        vehicleYear: "2017",
+        vehicleMake: "Toyota",
+        vehicleModel: "Yaris",
+        addressReady: true,
+      })
+    ).toBe("SERVICE_SELECT")
+  })
+
+  it("asks for Vehicle when lockout quote is missing YMM", () => {
+    expect(
+      continueOpenQuoteStep({
+        serviceTypeId: "lockout",
         vehicleYear: "",
         vehicleMake: "",
         vehicleModel: "",
         addressReady: true,
       })
     ).toBe("VEHICLE_INFO")
+  })
+})
+
+describe("isKnownReturningCaller / notes / vehicle fact", () => {
+  it("treats CRM match, draft, open lead, garage, or active job as known", () => {
+    expect(
+      isKnownReturningCaller({
+        hasMatchedCustomer: true,
+        hasPendingDraft: false,
+        openLeadId: null,
+        garageVehicleCount: 0,
+        activeJobId: null,
+      })
+    ).toBe(true)
+    expect(
+      isKnownReturningCaller({
+        hasMatchedCustomer: false,
+        hasPendingDraft: true,
+        openLeadId: null,
+        garageVehicleCount: 0,
+        activeJobId: null,
+      })
+    ).toBe(true)
+    expect(
+      isKnownReturningCaller({
+        hasMatchedCustomer: false,
+        hasPendingDraft: false,
+        openLeadId: "lead-1",
+        garageVehicleCount: 0,
+        activeJobId: null,
+      })
+    ).toBe(true)
+    expect(
+      isKnownReturningCaller({
+        hasMatchedCustomer: false,
+        hasPendingDraft: false,
+        openLeadId: null,
+        garageVehicleCount: 1,
+        activeJobId: null,
+      })
+    ).toBe(true)
+    expect(
+      isKnownReturningCaller({
+        hasMatchedCustomer: false,
+        hasPendingDraft: false,
+        openLeadId: null,
+        garageVehicleCount: 0,
+        activeJobId: "job-1",
+      })
+    ).toBe(true)
+    expect(
+      isKnownReturningCaller({
+        hasMatchedCustomer: false,
+        hasPendingDraft: false,
+        openLeadId: null,
+        garageVehicleCount: 0,
+        activeJobId: null,
+      })
+    ).toBe(false)
+  })
+
+  it("allows Continue on open lead without a price", () => {
+    expect(hasContinueableOpenLead("lead-1")).toBe(true)
+    expect(hasContinueableOpenLead(null)).toBe(false)
+  })
+
+  it("strips Confirmed clarification spam and truncates notes", () => {
+    const summary = summarizeReturningCallerNotes(
+      "costomer need help · Confirmed Yaris iA sedan · Confirmed hatchback Yaris · Customer confirmed turn-key ignition"
+    )
+    expect(summary?.preview).toBe("costomer need help")
+    expect(summary?.hasMore).toBe(false)
+
+    const long = summarizeReturningCallerNotes(
+      "Customer needs a spare key for the weekend trip downtown and wants evening appointment",
+      40
+    )
+    expect(long?.preview?.endsWith("…")).toBe(true)
+    expect(long?.hasMore).toBe(true)
+  })
+
+  it("formats a compact vehicle fact", () => {
+    expect(
+      formatReturningCallerVehicleFact({ year: "2017", make: "Toyota", model: "Yaris iA" })
+    ).toBe("2017 Toyota Yaris iA")
+    expect(formatReturningCallerVehicleFact({})).toBeNull()
   })
 })
 

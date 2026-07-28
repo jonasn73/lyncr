@@ -40,8 +40,8 @@ export type OpenManualCallPanelInput = {
    * Aligns with callback chooser “Continue open quote”.
    */
   continueOpenQuote?: boolean
-  /** Precomputed Continue-quote step (VEHICLE_INFO | ADDRESS_CONTACT | SCHEDULE_TIME). */
-  intakeStartStep?: "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
+  /** Precomputed Continue-quote step (SERVICE_SELECT | VEHICLE_INFO | ADDRESS_CONTACT | SCHEDULE_TIME). */
+  intakeStartStep?: "SERVICE_SELECT" | "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
 }
 
 type InboundCallPanelContextValue = {

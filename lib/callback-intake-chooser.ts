@@ -64,13 +64,14 @@ export function serviceQuoteTypeIdFromCrmHistory(
 
 /** Manual intake steps the Continue-quote path may land on. */
 export type CallbackContinueStep =
+  | "SERVICE_SELECT"
   | "VEHICLE_INFO"
   | "ADDRESS_CONTACT"
   | "SCHEDULE_TIME"
 
 /**
- * After Continue open quote: skip Service and land on the next useful confirm step.
- * Vehicle confirm when YMM missing; Address when location missing; else Schedule.
+ * After Continue open quote: skip Service when type is known; otherwise land on Service.
+ * Then Vehicle confirm when YMM missing; Address when location missing; else Schedule.
  */
 export function continueOpenQuoteStep(params: {
   serviceTypeId: ServiceQuoteTypeId | ""
@@ -80,19 +81,85 @@ export function continueOpenQuoteStep(params: {
   addressReady: boolean
 }): CallbackContinueStep {
   const serviceId = (params.serviceTypeId || "") as ServiceQuoteTypeId | ""
+  // Unknown type — show Service wizard (decision card already dismissed).
+  if (!serviceId) return "SERVICE_SELECT"
   const ymmComplete = Boolean(
     params.vehicleYear.trim() && params.vehicleMake.trim() && params.vehicleModel.trim()
   )
   // Key / ignition / lockout-with-vehicle paths still need YMM confirm when empty.
-  if (serviceId && serviceTypeRequiresVehicle(serviceId) && !ymmComplete) {
+  if (serviceTypeRequiresVehicle(serviceId) && !ymmComplete) {
     return "VEHICLE_INFO"
   }
   // Lockout with garage YMM missing — still confirm vehicle before address.
-  if ((!serviceId || serviceId === "lockout") && !ymmComplete) {
+  if (serviceId === "lockout" && !ymmComplete) {
     return "VEHICLE_INFO"
   }
   if (!params.addressReady) return "ADDRESS_CONTACT"
   return "SCHEDULE_TIME"
+}
+
+/**
+ * True when this phone should get the returning-caller decision card
+ * (not a cold Service-first intake).
+ */
+export function isKnownReturningCaller(params: {
+  hasMatchedCustomer: boolean
+  hasPendingDraft: boolean
+  openLeadId: string | null | undefined
+  garageVehicleCount: number
+  activeJobId: string | null | undefined
+}): boolean {
+  return Boolean(
+    params.hasMatchedCustomer ||
+      params.hasPendingDraft ||
+      String(params.openLeadId ?? "").trim() ||
+      params.garageVehicleCount > 0 ||
+      String(params.activeJobId ?? "").trim()
+  )
+}
+
+/** Open lead/quote exists — price optional (Allen-class thin leads still Continue). */
+export function hasContinueableOpenLead(openLeadId: string | null | undefined): boolean {
+  return Boolean(String(openLeadId ?? "").trim())
+}
+
+/**
+ * Strip clarification spam ("Confirmed…") and truncate for the decision card.
+ * Returns null when nothing useful remains.
+ */
+export function summarizeReturningCallerNotes(
+  notes: string | null | undefined,
+  maxLen = 72
+): { preview: string; hasMore: boolean } | null {
+  const raw = String(notes ?? "").trim()
+  if (!raw) return null
+  const parts = raw
+    .split(/\s*[·•|]\s*|\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const kept = parts.filter((p) => {
+    const lower = p.toLowerCase()
+    if (lower.startsWith("confirmed ")) return false
+    if (lower.startsWith("customer confirmed ")) return false
+    return true
+  })
+  const cleaned = (kept.length > 0 ? kept : parts).join(" · ").replace(/\s+/g, " ").trim()
+  if (!cleaned) return null
+  if (cleaned.length <= maxLen) return { preview: cleaned, hasMore: false }
+  return { preview: `${cleaned.slice(0, Math.max(1, maxLen - 1)).trimEnd()}…`, hasMore: true }
+}
+
+/** Compact YMM line for the decision card (garage / lead / form). */
+export function formatReturningCallerVehicleFact(params: {
+  year?: string | null
+  make?: string | null
+  model?: string | null
+}): string | null {
+  const label = [params.year, params.make, params.model]
+    .map((p) => String(p ?? "").trim())
+    .filter(Boolean)
+    .join(" ")
+  return label || null
 }
 
 /** Garage / CRM vehicle chips used to fill missing lead YMM. */

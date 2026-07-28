@@ -102,7 +102,13 @@ import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
-import { continueOpenQuoteStep } from "@/lib/callback-intake-chooser"
+import {
+  continueOpenQuoteStep,
+  formatReturningCallerVehicleFact,
+  hasContinueableOpenLead,
+  isKnownReturningCaller,
+  summarizeReturningCallerNotes,
+} from "@/lib/callback-intake-chooser"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
 import {
   loadAnsweredIntakeDismissed,
@@ -176,7 +182,8 @@ function RepeatCustomerCrmChips({
   compact?: boolean
 }) {
   const hasGarage = garageVehicles.length > 0
-  const hasOpenQuote = Boolean(crmOpenLeadId) && crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
+  // Show chip for any open lead — price optional (thin callback leads still count).
+  const hasOpenQuote = Boolean(crmOpenLeadId)
   if (!hasGarage && !hasOpenQuote) return null
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1" : "mt-1.5")}>
@@ -185,7 +192,9 @@ function RepeatCustomerCrmChips({
           className="inline-flex items-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100"
           title="Booking upgrades this open quote lead — no duplicate"
         >
-          Open quote · {formatCrmQuoteChip(crmOpenLeadQuoteCents!)}
+          {crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
+            ? `Open quote · ${formatCrmQuoteChip(crmOpenLeadQuoteCents)}`
+            : "Open quote"}
         </span>
       ) : null}
       {garageVehicles.slice(0, 4).map((v) => {
@@ -216,27 +225,54 @@ function RepeatCustomerCrmChips({
 }
 
 /**
- * Callback intent chooser — sits above Service step dots when a known job and/or open quote exists.
- * Both present (David case): emphasize View / update job, then Continue open quote.
+ * Returning-caller decision card — who + structured facts + actions.
+ * Hides the Service wizard until Restore / Continue / View job / New job.
  */
-function CallbackIntakeChooser({
-  activeJobId,
-  hasOpenQuote,
+function ReturningCallerDecisionCard({
+  customerName,
+  vehicleLabel,
+  openLeadId,
   openQuoteCents,
+  serviceTypeLabel,
+  activeJobId,
+  activeJobMeta,
+  pendingDraft,
+  notesPreview,
+  notesHasMore,
   emphasizeJob,
-  onViewJob,
+  onRestoreDraft,
+  onDismissDraft,
   onContinueQuote,
+  onViewJob,
   onNewJob,
+  onToggleNotes,
+  notesExpanded,
 }: {
-  activeJobId: string | null
-  hasOpenQuote: boolean
+  customerName: string
+  vehicleLabel: string | null
+  openLeadId: string | null
   openQuoteCents: number | null
+  serviceTypeLabel: string | null
+  activeJobId: string | null
+  activeJobMeta: string | null
+  pendingDraft: IntakeDraftSnapshot | null
+  notesPreview: string | null
+  notesHasMore: boolean
   emphasizeJob: boolean
-  onViewJob: () => void
+  onRestoreDraft: () => void
+  onDismissDraft: () => void
   onContinueQuote: () => void
+  onViewJob: () => void
   onNewJob: () => void
+  onToggleNotes: () => void
+  notesExpanded: boolean
 }) {
-  if (!activeJobId && !hasOpenQuote) return null
+  const hasOpenLead = hasContinueableOpenLead(openLeadId)
+  const draftStepLabel =
+    pendingDraft?.currentStep && WORKFLOW_STEP_LABELS[pendingDraft.currentStep as WorkflowStep]
+      ? WORKFLOW_STEP_LABELS[pendingDraft.currentStep as WorkflowStep]
+      : null
+
   const jobBtn = activeJobId ? (
     <button
       key="view-job"
@@ -249,10 +285,10 @@ function CallbackIntakeChooser({
           : "border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
       )}
     >
-      View / update job
+      View job
     </button>
   ) : null
-  const quoteBtn = hasOpenQuote ? (
+  const quoteBtn = hasOpenLead ? (
     <button
       key="continue-quote"
       type="button"
@@ -264,27 +300,103 @@ function CallbackIntakeChooser({
           : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
       )}
     >
-      Continue open quote
+      Continue quote
       {openQuoteCents != null && openQuoteCents > 0
         ? ` · ${formatCrmQuoteChip(openQuoteCents)}`
         : ""}
     </button>
   ) : null
-  // Job-first order when both exist so the active workstream is the primary CTA.
-  const primaryRow = emphasizeJob ? [jobBtn, quoteBtn] : [quoteBtn, jobBtn]
+  const draftBtn = pendingDraft ? (
+    <button
+      key="restore-draft"
+      type="button"
+      onClick={onRestoreDraft}
+      className="inline-flex flex-1 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-400/90 px-3 py-2 text-xs font-semibold text-zinc-950 touch-manipulation transition-colors hover:bg-amber-300 active:scale-[0.98]"
+    >
+      Restore draft
+    </button>
+  ) : null
+  // Job-first when both job + quote (David); otherwise draft / quote first.
+  const actionRow = emphasizeJob
+    ? [jobBtn, quoteBtn, draftBtn]
+    : [draftBtn, quoteBtn, jobBtn]
+
   return (
-    <div className="mx-4 mt-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
-        Callback — pick what this call is about
-      </p>
-      <div className="mt-2 flex flex-col gap-1.5 sm:flex-row">{primaryRow}</div>
+    <div className="mx-4 mt-2 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-3">
+      <p className="text-[11px] font-semibold text-amber-100">Returning caller</p>
+      <p className="mt-0.5 text-base font-semibold text-foreground">{customerName}</p>
+
+      <ul className="mt-2 space-y-1 text-[11px] leading-snug text-muted-foreground">
+        {vehicleLabel ? (
+          <li>
+            <span className="text-zinc-400">Vehicle · </span>
+            <span className="text-zinc-200">{vehicleLabel}</span>
+          </li>
+        ) : null}
+        {hasOpenLead ? (
+          <li>
+            <span className="text-zinc-400">Open quote · </span>
+            <span className="text-zinc-200">
+              {openQuoteCents != null && openQuoteCents > 0
+                ? formatCrmQuoteChip(openQuoteCents)
+                : "Saved lead"}
+              {serviceTypeLabel ? ` · ${serviceTypeLabel}` : ""}
+            </span>
+          </li>
+        ) : null}
+        {activeJobId ? (
+          <li>
+            <span className="text-zinc-400">Active job · </span>
+            <span className="text-zinc-200">{activeJobMeta || "In progress"}</span>
+          </li>
+        ) : null}
+        {pendingDraft ? (
+          <li>
+            <span className="text-zinc-400">Saved draft · </span>
+            <span className="text-zinc-200">
+              {formatDraftSavedAgo(pendingDraft.savedAt)}
+              {draftStepLabel ? ` · stopped on ${draftStepLabel}` : ""}
+            </span>
+            <button
+              type="button"
+              onClick={onDismissDraft}
+              className="ml-2 text-[10px] font-medium text-amber-200/70 underline-offset-2 hover:text-amber-100 hover:underline"
+            >
+              Dismiss
+            </button>
+          </li>
+        ) : null}
+      </ul>
+
+      <div className="mt-2.5 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">{actionRow}</div>
       <button
         type="button"
         onClick={onNewJob}
-        className="mt-1.5 w-full rounded-md px-2 py-1.5 text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        className="mt-1.5 inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs font-semibold text-zinc-200 touch-manipulation transition-colors hover:border-zinc-500 hover:text-foreground active:scale-[0.98]"
       >
-        New job for this customer
+        New job
       </button>
+      <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+        We&apos;ll use what&apos;s already saved. New job starts fresh service pick.
+      </p>
+
+      {notesPreview ? (
+        <div className="mt-2 border-t border-amber-500/20 pt-2">
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            <span className="text-zinc-500">Notes · </span>
+            {notesPreview}
+          </p>
+          {notesHasMore || notesExpanded ? (
+            <button
+              type="button"
+              onClick={onToggleNotes}
+              className="mt-1 text-[10px] font-medium text-amber-200/80 underline-offset-2 hover:underline"
+            >
+              {notesExpanded ? "Hide notes" : "View notes"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -804,10 +916,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [showMoreJobTypes, setShowMoreJobTypes] = useState(false)
   /** Soft-gate: second tap skips Key details without a blank (non-AKL). */
   const [keySkipArmed, setKeySkipArmed] = useState(false)
-  /** Hide callback chooser after View job / Continue quote / New job. */
+  /** Hide returning-caller decision card after View job / Continue / New job / Restore. */
   const [callbackChooserDismissed, setCallbackChooserDismissed] = useState(false)
   /** Only true after explicit New job — allows insert instead of open-quote upgrade. */
   const [callbackForceNewJob, setCallbackForceNewJob] = useState(false)
+  /** Expand truncated CRM notes on the returning-caller card. */
+  const [returningCallerNotesExpanded, setReturningCallerNotesExpanded] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   /** Confirmation SMS draft after book — must send or skip before Done / Scheduler. */
   const [confirmSmsDraft, setConfirmSmsDraft] = useState<string | null>(null)
@@ -986,6 +1100,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setKeySkipArmed(false)
     setCallbackChooserDismissed(false)
     setCallbackForceNewJob(false)
+    setReturningCallerNotesExpanded(false)
     lastLoadedDraftPhoneRef.current = null
     dismissedDraftPhoneRef.current = null
     setPendingDraft(null)
@@ -1084,6 +1199,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       pendingDraft.form.serviceQuoteTypeId === "lockout" &&
         /vehicle\s*lockout/i.test(pendingDraft.form.notes || "")
     )
+    // Leave decision card so draft step (or Service) is the focus.
+    setCallbackChooserDismissed(true)
     lastLoadedDraftPhoneRef.current = normalized
     setPendingDraft(null)
     setDraftRestoredFlash(true)
@@ -2260,7 +2377,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const handleManualServiceTypeChange = useCallback(
     (serviceType: ServiceQuoteTypeId) => {
-      // Gate: open quote / active job must choose View / Continue / New before Lockout path.
+      // Gate: known returning callers must choose Restore / Continue / View / New first.
       if (!callbackChooserDismissed) {
         const phone = (form.phoneNumber || effectiveCurrent?.from_number || "")
           .replace(/\D/g, "")
@@ -2271,14 +2388,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           Boolean(phone) &&
           enginePhone === phone &&
           lyncEngine?.primaryCall?.callerContext?.kind === "active_job"
-        const hasOpenQuote =
-          Boolean(crmOpenLeadId) &&
-          crmOpenLeadQuoteCents != null &&
-          crmOpenLeadQuoteCents > 0
-        if (hasActiveJob || hasOpenQuote) {
+        const known = isKnownReturningCaller({
+          hasMatchedCustomer: Boolean(matchedCustomer),
+          hasPendingDraft: Boolean(pendingDraft),
+          openLeadId: crmOpenLeadId,
+          garageVehicleCount: garageVehicles.length,
+          activeJobId: hasActiveJob
+            ? lyncEngine?.primaryCall?.callerContext?.kind === "active_job"
+              ? lyncEngine.primaryCall.callerContext.jobId
+              : null
+            : null,
+        })
+        if (known) {
           toast({
             title: "Pick what this call is about",
-            description: "View job, Continue open quote, or New job — then choose a service.",
+            description: "Restore draft, Continue quote, View job, or New job — then choose a service.",
           })
           return
         }
@@ -2292,10 +2416,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [
       callbackChooserDismissed,
       crmOpenLeadId,
-      crmOpenLeadQuoteCents,
       effectiveCurrent?.from_number,
       form.phoneNumber,
+      garageVehicles.length,
       lyncEngine?.primaryCall,
+      matchedCustomer,
+      pendingDraft,
       setServiceQuoteTypeId,
       toast,
     ]
@@ -2461,9 +2587,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return ctx?.kind === "active_job" ? ctx.jobId : null
   }, [effectiveCurrent?.from_number, form.phoneNumber, lyncEngine?.primaryCall])
 
-  const hasCallbackOpenQuote =
-    Boolean(crmOpenLeadId) && crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
-
   // Empty string = open-quote cleared Lockout; path still needs a concrete id for branch shape.
   const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
   const selectorServiceTypeId = (form.serviceQuoteTypeId.trim()
@@ -2473,10 +2596,50 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     () => manualWorkflowPath(serviceTypeId, vehicleLockoutIntake),
     [serviceTypeId, vehicleLockoutIntake]
   )
-  const showCallbackChooser =
+  const knownReturningCaller = isKnownReturningCaller({
+    hasMatchedCustomer: Boolean(matchedCustomer),
+    hasPendingDraft: Boolean(pendingDraft),
+    openLeadId: crmOpenLeadId,
+    garageVehicleCount: garageVehicles.length,
+    activeJobId: activeCallbackJobId,
+  })
+  // Decision card first — hide Service wizard until intent is chosen.
+  const showReturningCallerCard =
     !callbackChooserDismissed &&
     currentStep === "SERVICE_SELECT" &&
-    Boolean(activeCallbackJobId || hasCallbackOpenQuote)
+    knownReturningCaller
+  const returningCallerVehicleLabel = useMemo(() => {
+    const fromForm = formatReturningCallerVehicleFact({
+      year: form.vehicleYear,
+      make: form.vehicleMake,
+      model: form.vehicleModel,
+    })
+    if (fromForm) return fromForm
+    const garage = garageVehicles[0]
+    return formatReturningCallerVehicleFact({
+      year: garage?.year,
+      make: garage?.make,
+      model: garage?.model,
+    })
+  }, [form.vehicleMake, form.vehicleModel, form.vehicleYear, garageVehicles])
+  const returningCallerNotes = useMemo(
+    () =>
+      summarizeReturningCallerNotes(
+        matchedCustomer?.notes,
+        returningCallerNotesExpanded ? 400 : 72
+      ),
+    [matchedCustomer?.notes, returningCallerNotesExpanded]
+  )
+  const returningCallerServiceLabel = useMemo(() => {
+    const id = (crmOpenLeadServiceTypeId || form.serviceQuoteTypeId || "").trim()
+    if (!id) return null
+    return SERVICE_QUOTE_TYPES.find((s) => s.id === id)?.label ?? null
+  }, [crmOpenLeadServiceTypeId, form.serviceQuoteTypeId])
+  const activeCallbackJobMeta = useMemo(() => {
+    const ctx = lyncEngine?.primaryCall?.callerContext
+    if (ctx?.kind !== "active_job") return null
+    return ctx.vehicleLabel || ctx.customerName || null
+  }, [lyncEngine?.primaryCall?.callerContext])
   const isManual = Boolean(effectiveCurrent?.isManual)
   /** One step wizard for everyone — keeps negotiation / lost-lead / ops on the same path. */
   const stepIntake = true
@@ -2970,27 +3133,42 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
             )}
-            {/* Obvious restore after refresh/crash — same phone only; never auto-hijack. */}
-            {pendingDraft && sheetOpen ? (
+            {/* Standalone draft strip only when decision card is not already offering Restore. */}
+            {pendingDraft && sheetOpen && !showReturningCallerCard ? (
               <IntakeDraftRestoreBanner
                 draft={pendingDraft}
                 onRestore={restorePendingDraft}
                 onDismiss={dismissPendingDraft}
               />
             ) : null}
-            {/* Above Service step dots — not buried under Repeat Customer / calculator. */}
-            {showCallbackChooser ? (
-              <CallbackIntakeChooser
-                activeJobId={activeCallbackJobId}
-                hasOpenQuote={hasCallbackOpenQuote}
+            {/* Decision card first — Service wizard stays hidden until intent is chosen. */}
+            {showReturningCallerCard ? (
+              <ReturningCallerDecisionCard
+                customerName={
+                  matchedCustomer?.display_name?.trim() ||
+                  form.displayName.trim() ||
+                  "Returning caller"
+                }
+                vehicleLabel={returningCallerVehicleLabel}
+                openLeadId={crmOpenLeadId}
                 openQuoteCents={crmOpenLeadQuoteCents}
+                serviceTypeLabel={returningCallerServiceLabel}
+                activeJobId={activeCallbackJobId}
+                activeJobMeta={activeCallbackJobMeta}
+                pendingDraft={pendingDraft}
+                notesPreview={returningCallerNotes?.preview ?? null}
+                notesHasMore={Boolean(returningCallerNotes?.hasMore)}
                 emphasizeJob={Boolean(activeCallbackJobId)}
-                onViewJob={handleViewUpdateJob}
+                onRestoreDraft={restorePendingDraft}
+                onDismissDraft={dismissPendingDraft}
                 onContinueQuote={handleContinueOpenQuote}
+                onViewJob={handleViewUpdateJob}
                 onNewJob={handleNewJobForReturningCaller}
+                onToggleNotes={() => setReturningCallerNotesExpanded((v) => !v)}
+                notesExpanded={returningCallerNotesExpanded}
               />
             ) : null}
-            {stepIntake && !isManual ? (
+            {stepIntake && !isManual && !showReturningCallerCard ? (
               <IntakeStepProgress path={manualPath} currentStep={currentStep} />
             ) : null}
 
@@ -3023,31 +3201,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               "pb-32"
                           )}
                         >
-                          {currentStep === "SERVICE_SELECT" ? (
+                          {currentStep === "SERVICE_SELECT" && !showReturningCallerCard ? (
                             <div className="space-y-3">
-                              {matchedCustomer ? (
-                                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200">
-                                    Repeat Customer
-                                  </p>
-                                  <p className="mt-0.5 text-sm font-semibold text-foreground">
-                                    {matchedCustomer.display_name?.trim() || "Known caller"}
-                                  </p>
-                                  {matchedCustomer.notes?.trim() ? (
-                                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                                      {matchedCustomer.notes.trim()}
-                                    </p>
-                                  ) : null}
-                                  <RepeatCustomerCrmChips
-                                    garageVehicles={garageVehicles}
-                                    crmOpenLeadId={crmOpenLeadId}
-                                    crmOpenLeadQuoteCents={crmOpenLeadQuoteCents}
-                                    activeYear={form.vehicleYear}
-                                    activeMake={form.vehicleMake}
-                                    activeModel={form.vehicleModel}
-                                    onPickVehicle={applyGarageVehicle}
-                                  />
-                                </div>
+                              {callbackForceNewJob && matchedCustomer ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                  New job for{" "}
+                                  <span className="font-medium text-foreground">
+                                    {matchedCustomer.display_name?.trim() || "this customer"}
+                                  </span>{" "}
+                                  — pick the service.
+                                </p>
                               ) : null}
                               {/* P4 AI triage — suggest only; owner confirms before any book. */}
                               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-2.5 py-2">
@@ -4001,17 +4164,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </div>
                   {matchedCustomer ? (
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200">
-                        Repeat Customer
-                      </p>
+                      <p className="text-[11px] font-semibold text-amber-200">Returning caller</p>
                       <p className="mt-0.5 text-sm font-semibold text-foreground">
-                        {matchedCustomer.display_name?.trim() || "Known caller"}
+                        {matchedCustomer.display_name?.trim() || "Returning caller"}
                       </p>
-                      {matchedCustomer.notes?.trim() ? (
-                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                          {matchedCustomer.notes.trim()}
-                        </p>
-                      ) : null}
+                      {(() => {
+                        const noteSummary = summarizeReturningCallerNotes(matchedCustomer.notes)
+                        return noteSummary ? (
+                          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                            Notes · {noteSummary.preview}
+                          </p>
+                        ) : null
+                      })()}
                       <RepeatCustomerCrmChips
                         garageVehicles={garageVehicles}
                         crmOpenLeadId={crmOpenLeadId}
