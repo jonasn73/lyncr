@@ -94,3 +94,55 @@ export function continueOpenQuoteStep(params: {
   if (!params.addressReady) return "ADDRESS_CONTACT"
   return "SCHEDULE_TIME"
 }
+
+/** Garage / CRM vehicle chips used to fill missing lead YMM. */
+export type GarageYmmSource = {
+  year?: string | null
+  make?: string | null
+  model?: string | null
+}
+
+/**
+ * Resolve YMM for Book / Continue — prefer lead collected, else garage head.
+ * Keeps Quote→Book from restarting on a blank Service/Lockout vehicle step.
+ */
+export function resolveOpenQuoteYmm(params: {
+  lead?: OpenQuotePrefillSource | null
+  garage?: GarageYmmSource | null
+}): { year: string; make: string; model: string } {
+  const leadYear = String(params.lead?.vehicle_year ?? "").trim()
+  const leadMake = String(params.lead?.vehicle_make ?? "").trim()
+  const leadModel = String(params.lead?.vehicle_model ?? "").trim()
+  if (leadYear || leadMake || leadModel) {
+    return { year: leadYear, make: leadMake, model: leadModel }
+  }
+  return {
+    year: String(params.garage?.year ?? "").trim(),
+    make: String(params.garage?.make ?? "").trim(),
+    model: String(params.garage?.model ?? "").trim(),
+  }
+}
+
+/**
+ * Pool-ready open quote: enough to schedule/assign in JobDetailDrawer.
+ * Thin quote (missing vehicle or address) should Continue-intake instead.
+ */
+export function isOpenLeadPoolReady(params: {
+  lead: OpenQuotePrefillSource & { has_job_address?: boolean | null }
+  /** Customer profile street/city when lead collected has no job address. */
+  customerAddressReady?: boolean
+  garage?: GarageYmmSource | null
+}): boolean {
+  const serviceTypeId = serviceQuoteTypeIdFromCrmHistory(params.lead) ?? ""
+  const ymm = resolveOpenQuoteYmm({ lead: params.lead, garage: params.garage })
+  const addressReady = Boolean(params.lead.has_job_address) || Boolean(params.customerAddressReady)
+  return (
+    continueOpenQuoteStep({
+      serviceTypeId,
+      vehicleYear: ymm.year,
+      vehicleMake: ymm.make,
+      vehicleModel: ymm.model,
+      addressReady,
+    }) === "SCHEDULE_TIME"
+  )
+}

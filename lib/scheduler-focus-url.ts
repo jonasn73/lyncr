@@ -17,6 +17,11 @@ export type SchedulerFocusUrlOptions = {
   schedule?: boolean
   /** When true, closing the job drawer returns to CRM customers. */
   fromCrm?: boolean
+  /**
+   * When true, closing the job drawer restores intake PiP / expand
+   * (View job / Recent Job Active from an active call).
+   */
+  fromIntake?: boolean
   /** CRM customer id — reopens that profile when returning from Scheduler. */
   customerId?: string | null
 }
@@ -29,12 +34,15 @@ export function buildSchedulerFocusUrl(leadId: string, options?: SchedulerFocusU
   if (options?.schedule) {
     params.set(SCHEDULER_SCHEDULE_PARAM, "1")
   }
+  // CRM wins if both are set — Book/Open/View return to the customer profile.
   if (options?.fromCrm) {
     params.set(SCHEDULER_FROM_PARAM, "crm")
     const customerId = options.customerId?.trim()
     if (customerId) {
       params.set(SCHEDULER_CUSTOMER_PARAM, customerId)
     }
+  } else if (options?.fromIntake) {
+    params.set(SCHEDULER_FROM_PARAM, "intake")
   }
   return `/dashboard/scheduler?${params.toString()}`
 }
@@ -46,19 +54,22 @@ export function buildCrmReturnUrl(customerId?: string | null): string {
   return `/dashboard/customers?customer=${encodeURIComponent(id)}`
 }
 
-/** Read `focus`, `schedule`, and CRM return context from the current URL search string. */
+/** Read `focus`, `schedule`, and CRM / intake return context from the current URL search string. */
 export function parseSchedulerFocusSearch(search: string): {
   focusLeadId: string | null
   scheduleFromIntake: boolean
   fromCrm: boolean
+  fromIntake: boolean
   customerId: string | null
 } {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search)
   const focusLeadId = params.get(SCHEDULER_FOCUS_PARAM)?.trim() || null
   const scheduleFromIntake = params.get(SCHEDULER_SCHEDULE_PARAM) === "1"
-  const fromCrm = (params.get(SCHEDULER_FROM_PARAM) ?? "").trim().toLowerCase() === "crm"
+  const fromRaw = (params.get(SCHEDULER_FROM_PARAM) ?? "").trim().toLowerCase()
+  const fromCrm = fromRaw === "crm"
+  const fromIntake = fromRaw === "intake"
   const customerId = params.get(SCHEDULER_CUSTOMER_PARAM)?.trim() || null
-  return { focusLeadId, scheduleFromIntake, fromCrm, customerId }
+  return { focusLeadId, scheduleFromIntake, fromCrm, fromIntake, customerId }
 }
 
 /** True when a `datetime-local` value is complete enough to save (YYYY-MM-DDTHH:mm). */

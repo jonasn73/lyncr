@@ -72,6 +72,12 @@ export type ActiveCallRow = {
    * `full` = normal answered booking intake.
    */
   intakeMode?: "full" | "quick"
+  /** Prefill calculator id (CRM Book Continue-quote — avoids false Lockout). */
+  serviceQuoteTypeId?: string
+  /** When true, CallAnsweredModal auto-runs Continue open quote (skip Service). */
+  continueOpenQuote?: boolean
+  /** Landing step after Continue-quote auto-start. */
+  intakeStartStep?: "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
 }
 
 export type ActiveCallFormState = {
@@ -467,6 +473,7 @@ export function useActiveCallForm(
       typeof current.quotedPriceCents === "number" && current.quotedPriceCents > 0
         ? Math.round(current.quotedPriceCents)
         : 0
+    const seededService = current.serviceQuoteTypeId?.trim() || ""
     setForm({
       ...EMPTY_FORM,
       scheduledDate: defaultIntakeScheduleDate(),
@@ -476,6 +483,8 @@ export function useActiveCallForm(
       vehicleYear: current.vehicleYear?.trim() || "",
       vehicleMake: current.vehicleMake?.trim() || "",
       vehicleModel: current.vehicleModel?.trim() || "",
+      // CRM Book / Continue-quote seed — never leave blank form as Lockout default.
+      serviceQuoteTypeId: seededService,
       ...(seededQuote > 0
         ? { quotedPriceCents: seededQuote, quotedPriceOverridden: true }
         : {}),
@@ -488,6 +497,7 @@ export function useActiveCallForm(
     current?.vehicleMake,
     current?.vehicleModel,
     current?.quotedPriceCents,
+    current?.serviceQuoteTypeId,
   ])
 
   // Keep phone state synced with the active Telnyx caller ID when the field is still empty.

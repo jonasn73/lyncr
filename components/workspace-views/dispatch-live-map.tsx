@@ -5,6 +5,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { MapPinned, X, Loader2, Phone, Crosshair, Maximize2, Navigation } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 import "@/app/leaflet-popup-overrides.css"
@@ -33,6 +34,7 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { calculateTechETA } from "@/lib/dispatch-eta"
 import { estimateTravelMinutes, formatDistanceMiles, travelDistanceMiles } from "@/lib/geo"
 import { googleMapsDirectionsUrl } from "@/lib/google-maps-search-url"
+import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import { cn } from "@/lib/utils"
 
 // Status → dot color for tech live markers.
@@ -246,6 +248,7 @@ export function DispatchLiveMap({
   /** Stretch to fill a parent flex container (unified Map tab). */
   fillParent?: boolean
 }) {
+  const router = useRouter()
   const layers: DispatchMapLayers = { ...DEFAULT_LAYERS, ...layersProp }
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMap | null>(null)
@@ -1086,6 +1089,14 @@ export function DispatchLiveMap({
           {selectedJob.assigned_tech_name && (
             <p className="mt-2 text-xs text-emerald-400">Dispatched to {selectedJob.assigned_tech_name}</p>
           )}
+          {/* Same JobDetailDrawer as Scheduler Coming Up Next / CRM Open job. */}
+          <button
+            type="button"
+            onClick={() => router.push(buildSchedulerFocusUrl(selectedJob.id))}
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25"
+          >
+            Open job sheet
+          </button>
         </div>
       )}
     </div>

@@ -20,6 +20,8 @@ export type OpenManualCallPanelInput = {
   vehicleMake?: string
   vehicleModel?: string
   quotedPriceCents?: number
+  /** Calculator id for Continue-quote / Book thin-lead handoff (never invent Lockout). */
+  serviceQuoteTypeId?: string
   callStatus?: ManualCallStatus
   toNumber?: string
   /** Existing ai_leads id when converting from CRM — intake completes that row. */
@@ -33,6 +35,13 @@ export type OpenManualCallPanelInput = {
    * Default `full` keeps the answered-call wizard.
    */
   intakeMode?: "full" | "quick"
+  /**
+   * CRM Book on a thin quote — skip Service / chooser and land on Continue-quote step.
+   * Aligns with callback chooser “Continue open quote”.
+   */
+  continueOpenQuote?: boolean
+  /** Precomputed Continue-quote step (VEHICLE_INFO | ADDRESS_CONTACT | SCHEDULE_TIME). */
+  intakeStartStep?: "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
 }
 
 type InboundCallPanelContextValue = {
@@ -82,6 +91,10 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
     existingLeadId: leadId || undefined,
     // Missed Activities → quick note; everything else uses the full wizard.
     intakeMode: input?.intakeMode === "quick" ? "quick" : "full",
+    serviceQuoteTypeId: input?.serviceQuoteTypeId?.trim() || undefined,
+    // Thin CRM Book → same Continue-quote path as the callback chooser.
+    continueOpenQuote: input?.continueOpenQuote === true,
+    intakeStartStep: input?.intakeStartStep,
   }
 }
 

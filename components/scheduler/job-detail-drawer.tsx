@@ -297,6 +297,7 @@ export function JobDetailDrawer({
         ? normalizeServiceQuoteTypeId(source.service_quote_type_id)
         : serviceQuoteTypeFromJobType(source.job_type ?? "")
     )
+    // Prefer job collected YMM; garage fill runs below when collected is empty.
     setVehicleYear(source.vehicle_year ?? "")
     setVehicleMake(source.vehicle_make ?? "")
     setVehicleModel(source.vehicle_model ?? "")
@@ -338,6 +339,51 @@ export function JobDetailDrawer({
     if (!open || !jobId) return
     setViewMode(scheduleIntent ? "edit" : "overview")
   }, [open, jobId, scheduleIntent])
+
+  // Garage as vehicle SoT when job collected YMM is blank (Book / returning caller sheet).
+  useEffect(() => {
+    if (!open || !jobId) return
+    const phone = (customerPhone || source?.customer_phone || "").trim()
+    if (!phone) return
+    const hasYmm =
+      Boolean(vehicleYear.trim()) || Boolean(vehicleMake.trim()) || Boolean(vehicleModel.trim())
+    if (hasYmm) return
+    let cancelled = false
+    void fetch(`/api/customers?phone=${encodeURIComponent(phone)}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { customers?: Array<{ id?: string }> } | null) => {
+        const customerId = data?.customers?.[0]?.id?.trim()
+        if (!customerId || cancelled) return null
+        return fetch(`/api/crm/customers/${encodeURIComponent(customerId)}`, {
+          credentials: "include",
+        })
+      })
+      .then(async (res) => {
+        if (!res || !res.ok || cancelled) return
+        const json = (await res.json().catch(() => null)) as {
+          data?: { vehicles?: Array<{ year?: string; make?: string; model?: string; vin?: string; fcc_id?: string }> }
+        } | null
+        const garage = json?.data?.vehicles?.[0]
+        if (!garage || cancelled) return
+        setVehicleYear((prev) => prev.trim() || String(garage.year ?? "").trim())
+        setVehicleMake((prev) => prev.trim() || String(garage.make ?? "").trim())
+        setVehicleModel((prev) => prev.trim() || String(garage.model ?? "").trim())
+        setVehicleVin((prev) => prev.trim() || String(garage.vin ?? "").trim())
+        setKeyFccId((prev) => prev.trim() || String(garage.fcc_id ?? "").trim())
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [
+    open,
+    jobId,
+    customerPhone,
+    source?.customer_phone,
+    vehicleYear,
+    vehicleMake,
+    vehicleModel,
+  ])
 
   useEffect(() => {
     if (!open) setViewMode("overview")
@@ -440,6 +486,36 @@ export function JobDetailDrawer({
       setViewMode("overview")
       if (options?.fromScheduleIntent) {
         onScheduleCommitted?.(event)
+      }
+      // Keep garage SoT in sync with job collected YMM (same upsert intake uses).
+      const phone = (event.customer_phone || customerPhone).trim()
+      const year = (event.vehicle_year || vehicleYear).trim()
+      const make = (event.vehicle_make || vehicleMake).trim()
+      const model = (event.vehicle_model || vehicleModel).trim()
+      if (phone && (year || make || model)) {
+        void fetch(`/api/customers?phone=${encodeURIComponent(phone)}`, {
+          credentials: "include",
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data: { customers?: Array<{ id?: string }> } | null) => {
+            const customerId = data?.customers?.[0]?.id?.trim()
+            if (!customerId) return
+            return fetch(`/api/crm/customers/${encodeURIComponent(customerId)}/vehicles`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                year,
+                make,
+                model,
+                vin: (event.vehicle_vin || vehicleVin).trim(),
+                fcc_id: (event.key_fcc_id || keyFccId).trim(),
+              }),
+            })
+          })
+          .catch(() => {
+            /* garage optional until migration 120 */
+          })
       }
       return true
     } catch (e) {

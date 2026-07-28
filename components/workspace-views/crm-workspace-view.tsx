@@ -22,6 +22,13 @@ import {
 import { buildTelHref } from "@/lib/phone-e164"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import {
+  continueOpenQuoteStep,
+  isOpenLeadPoolReady,
+  resolveOpenQuoteYmm,
+  serviceQuoteTypeIdFromCrmHistory,
+} from "@/lib/callback-intake-chooser"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import type {
   CrmCustomerListItem,
   CrmLeadBadge,
@@ -84,12 +91,20 @@ function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
 function crmJobNavTitle(action: CrmJobNavAction): string {
   switch (action) {
     case "Book job":
-      return "Open this quote on Scheduler to schedule and assign"
+      return "Upgrade this quote — schedule on Scheduler, or continue intake if details are thin"
     case "Open job":
       return "Open this job on Scheduler"
     case "View job":
       return "View this job on Scheduler"
   }
+}
+
+/** Customer street + city is enough for Book pool-ready when lead collected has no address. */
+function crmCustomerAddressReady(customer: {
+  address_line1?: string | null
+  city?: string | null
+}): boolean {
+  return Boolean(String(customer.address_line1 ?? "").trim() && String(customer.city ?? "").trim())
 }
 
 function formatMoney(cents: number): string {
@@ -130,6 +145,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
 }) {
   const isMobile = useIsMobile()
   const router = useRouter()
+  const inboundCallPanel = useInboundCallPanelOptional()
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
   // Return-from-Scheduler deep link — reopen this customer profile.
@@ -313,14 +329,59 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     : null
 
   /**
-   * Open the existing job on Scheduler (JobDetailDrawer) with return-to-CRM context.
-   * Close the CRM profile first so the drawer is not trapped under the Dialog (z-[7000]).
+   * Universal job sheet: Open/View (and pool-ready Book) → Scheduler JobDetailDrawer.
+   * Thin Book → Continue-intake with existing_lead_id (upgrade, not blank Service/Lockout).
+   * Always close the CRM profile first so Dialog z-[7000] cannot bury the drawer/intake.
    */
   const openJobOnScheduler = useCallback(
     (lead?: CrmServiceHistoryItem | null) => {
       if (!selected) return
       const target = lead ?? headerOpenLead ?? null
       const customerId = selected.id
+      const customerPhone = selected.phone_e164
+      const customerName = editName.trim() || selected.display_name || ""
+      const action = target ? crmJobNavAction(target) : null
+
+      // Book on a thin quote → Continue-intake (same as callback chooser), not a blank restart.
+      if (action === "Book job" && target?.id && inboundCallPanel) {
+        const garageHead = vehicles[0] ?? null
+        const poolReady = isOpenLeadPoolReady({
+          lead: target,
+          customerAddressReady: crmCustomerAddressReady(selected),
+          garage: garageHead,
+        })
+        if (!poolReady) {
+          const ymm = resolveOpenQuoteYmm({ lead: target, garage: garageHead })
+          const serviceId = serviceQuoteTypeIdFromCrmHistory(target) ?? ""
+          const startStep = continueOpenQuoteStep({
+            serviceTypeId: serviceId,
+            vehicleYear: ymm.year,
+            vehicleMake: ymm.make,
+            vehicleModel: ymm.model,
+            addressReady:
+              Boolean(target.has_job_address) || crmCustomerAddressReady(selected),
+          })
+          setSelectedId(null)
+          setSelected(null)
+          inboundCallPanel.openManualCallPanel({
+            phoneNumber: customerPhone,
+            customerName,
+            vehicleYear: ymm.year,
+            vehicleMake: ymm.make,
+            vehicleModel: ymm.model,
+            quotedPriceCents:
+              target.amount_cents != null && target.amount_cents > 0
+                ? target.amount_cents
+                : undefined,
+            serviceQuoteTypeId: serviceId || undefined,
+            leadId: target.id,
+            continueOpenQuote: true,
+            intakeStartStep: startStep,
+          })
+          return
+        }
+      }
+
       // Drop the profile layer immediately so Scheduler UI is not covered by it.
       setSelectedId(null)
       setSelected(null)
@@ -332,7 +393,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       }
       router.push("/dashboard/scheduler")
     },
-    [selected, headerOpenLead, router]
+    [selected, headerOpenLead, router, inboundCallPanel, vehicles, editName]
   )
 
   const addVehicle = async () => {

@@ -21,6 +21,12 @@ describe("scheduler focus url", () => {
     ).toBe("/dashboard/scheduler?focus=lead-1&from=crm&customer=cust-9")
   })
 
+  it("builds intake return context on focus links", () => {
+    expect(buildSchedulerFocusUrl("lead-1", { fromIntake: true })).toBe(
+      "/dashboard/scheduler?focus=lead-1&from=intake"
+    )
+  })
+
   it("builds CRM return urls", () => {
     expect(buildCrmReturnUrl(null)).toBe("/dashboard/customers")
     expect(buildCrmReturnUrl("cust-9")).toBe("/dashboard/customers?customer=cust-9")
@@ -31,19 +37,29 @@ describe("scheduler focus url", () => {
       focusLeadId: "abc",
       scheduleFromIntake: true,
       fromCrm: false,
+      fromIntake: false,
       customerId: null,
     })
     expect(parseSchedulerFocusSearch("focus=abc")).toEqual({
       focusLeadId: "abc",
       scheduleFromIntake: false,
       fromCrm: false,
+      fromIntake: false,
       customerId: null,
     })
     expect(parseSchedulerFocusSearch("focus=abc&from=crm&customer=cust-9")).toEqual({
       focusLeadId: "abc",
       scheduleFromIntake: false,
       fromCrm: true,
+      fromIntake: false,
       customerId: "cust-9",
+    })
+    expect(parseSchedulerFocusSearch("focus=abc&from=intake")).toEqual({
+      focusLeadId: "abc",
+      scheduleFromIntake: false,
+      fromCrm: false,
+      fromIntake: true,
+      customerId: null,
     })
   })
 

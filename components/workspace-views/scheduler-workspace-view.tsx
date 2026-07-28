@@ -28,6 +28,7 @@ import {
   buildCrmReturnUrl,
   parseSchedulerFocusSearch,
 } from "@/lib/scheduler-focus-url"
+import { emitReturnToIntakeFromMap } from "@/lib/dispatch-map-focus"
 import {
   optimisticRemovePoolJob,
   useActivePipelineQuery,
@@ -110,18 +111,27 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const focusFetchAttemptedRef = useRef<string | null>(null)
   /** CRM return context survives URL clear when the drawer opens from ?from=crm. */
   const crmReturnRef = useRef<{ customerId: string | null } | null>(null)
+  /** Intake View job — close drawer should expand PiP / restore the sheet. */
+  const intakeReturnRef = useRef(false)
 
-  const { focusLeadId, scheduleFromIntake, fromCrm, customerId: focusCustomerId } = useMemo(
-    () => parseSchedulerFocusSearch(searchParams.toString()),
-    [searchParams]
-  )
+  const {
+    focusLeadId,
+    scheduleFromIntake,
+    fromCrm,
+    fromIntake,
+    customerId: focusCustomerId,
+  } = useMemo(() => parseSchedulerFocusSearch(searchParams.toString()), [searchParams])
 
-  // Capture CRM return before openJobForEdit clears focus/from/customer params.
+  // Capture CRM / intake return before openJobForEdit clears focus/from/customer params.
   useEffect(() => {
     if (fromCrm) {
       crmReturnRef.current = { customerId: focusCustomerId }
+      intakeReturnRef.current = false
+    } else if (fromIntake) {
+      intakeReturnRef.current = true
+      crmReturnRef.current = null
     }
-  }, [fromCrm, focusCustomerId])
+  }, [fromCrm, fromIntake, focusCustomerId])
 
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
   const orgId =
@@ -584,7 +594,15 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     const crmReturn = crmReturnRef.current
     if (crmReturn) {
       crmReturnRef.current = null
+      intakeReturnRef.current = false
       router.push(buildCrmReturnUrl(crmReturn.customerId))
+      return
+    }
+    // Intake View job / Recent Job Active — expand PiP or reopen the sheet if still active.
+    if (intakeReturnRef.current) {
+      intakeReturnRef.current = false
+      clearSchedulerFocusUrl()
+      emitReturnToIntakeFromMap()
       return
     }
     clearSchedulerFocusUrl()

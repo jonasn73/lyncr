@@ -956,6 +956,11 @@ export interface CrmServiceHistoryItem {
   service_quote_type_id: string | null
   /** Dispatch job_type label from the lead row or collected — fallback for intake prefill. */
   job_type: string | null
+  /**
+   * True when collected has a usable job/service street (Book → drawer vs Continue-intake).
+   * Customer profile address may still make a thin lead pool-ready.
+   */
+  has_job_address: boolean
   /** Call/lead created timestamp (not the future appointment). */
   at: string
   /** Structured appointment time when the lead/job is booked — null if unscheduled. */

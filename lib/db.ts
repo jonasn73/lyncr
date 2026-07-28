@@ -5365,6 +5365,20 @@ export async function listCrmServiceHistoryForCustomer(params: {
       const reviewSent = String(collected.review_sms_sent_at ?? "").trim()
       const needsReviewSms =
         (js === "completed" || js === "done" || js === "paid") && !reviewSent
+      // Job sheet / Book branching — street or locality from intake collected.
+      const jobAddressLine = String(
+        collected.job_address ??
+          collected.location ??
+          collected.service_address ??
+          collected.address ??
+          collected.address_line1 ??
+          collected.job_address_full ??
+          ""
+      ).trim()
+      const jobLocality = String(
+        collected.job_address_locality ?? collected.city ?? collected.locality ?? ""
+      ).trim()
+      const has_job_address = Boolean(jobAddressLine) || Boolean(jobLocality)
       return {
         id: String(row.id),
         summary: row.summary != null ? String(row.summary) : null,
@@ -5379,6 +5393,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
         vehicle_model: model || null,
         service_quote_type_id: serviceQuoteRaw || null,
         job_type: jobTypeRaw || null,
+        has_job_address,
         at,
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,

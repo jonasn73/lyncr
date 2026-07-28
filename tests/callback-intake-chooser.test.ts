@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   continueOpenQuoteStep,
+  isOpenLeadPoolReady,
+  resolveOpenQuoteYmm,
   serviceQuoteTypeIdFromCrmHistory,
 } from "@/lib/callback-intake-chooser"
 
@@ -86,5 +88,69 @@ describe("continueOpenQuoteStep", () => {
         addressReady: true,
       })
     ).toBe("VEHICLE_INFO")
+  })
+})
+
+describe("isOpenLeadPoolReady / resolveOpenQuoteYmm", () => {
+  it("prefers lead YMM over garage", () => {
+    expect(
+      resolveOpenQuoteYmm({
+        lead: { vehicle_year: "2024", vehicle_make: "Ford", vehicle_model: "F-150" },
+        garage: { year: "2018", make: "Toyota", model: "Camry" },
+      })
+    ).toEqual({ year: "2024", make: "Ford", model: "F-150" })
+  })
+
+  it("falls back to garage when lead YMM is blank", () => {
+    expect(
+      resolveOpenQuoteYmm({
+        lead: {},
+        garage: { year: "2018", make: "Toyota", model: "Camry" },
+      })
+    ).toEqual({ year: "2018", make: "Toyota", model: "Camry" })
+  })
+
+  it("treats address + YMM + service as pool-ready for Book → drawer", () => {
+    expect(
+      isOpenLeadPoolReady({
+        lead: {
+          service_quote_type_id: "key_generation",
+          vehicle_year: "2025",
+          vehicle_make: "Jeep",
+          vehicle_model: "Wrangler",
+          has_job_address: true,
+        },
+      })
+    ).toBe(true)
+  })
+
+  it("keeps thin quotes off the drawer when address is missing", () => {
+    expect(
+      isOpenLeadPoolReady({
+        lead: {
+          service_quote_type_id: "key_generation",
+          vehicle_year: "2025",
+          vehicle_make: "Jeep",
+          vehicle_model: "Wrangler",
+          has_job_address: false,
+        },
+        customerAddressReady: false,
+      })
+    ).toBe(false)
+  })
+
+  it("uses customer profile address when lead collected has none", () => {
+    expect(
+      isOpenLeadPoolReady({
+        lead: {
+          service_quote_type_id: "lockout",
+          vehicle_year: "2020",
+          vehicle_make: "Honda",
+          vehicle_model: "Civic",
+          has_job_address: false,
+        },
+        customerAddressReady: true,
+      })
+    ).toBe(true)
   })
 })

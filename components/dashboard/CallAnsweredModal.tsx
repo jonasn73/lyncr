@@ -2456,10 +2456,13 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       const id = jobId.trim()
       if (!id) return
       setCallbackChooserDismissed(true)
+      // Remember Lines/Routing so drawer close can expand PiP again.
+      intakeReturnTabRef.current = activeTab === "contacts" ? "dashboard" : activeTab
       minimizeIntake()
-      router.push(buildSchedulerFocusUrl(id))
+      // from=intake → Scheduler closeJobDrawer emits return-to-intake.
+      router.push(buildSchedulerFocusUrl(id, { fromIntake: true }))
     },
-    [minimizeIntake, router]
+    [activeTab, minimizeIntake, router]
   )
 
   const handleViewUpdateJob = useCallback(() => {
@@ -2478,18 +2481,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (serviceId && serviceId !== "lockout") {
       setVehicleLockoutIntake(false)
     }
-    const next = continueOpenQuoteStep({
-      serviceTypeId: serviceId,
-      vehicleYear: form.vehicleYear,
-      vehicleMake: form.vehicleMake,
-      vehicleModel: form.vehicleModel,
-      addressReady:
-        addressReady ||
-        isFlatAddressReadyForDispatch({
-          addressLine1: form.addressLine1,
-          city: form.city,
-        }),
-    })
+    // CRM Book may precompute the landing step; otherwise match chooser Continue logic.
+    const next =
+      manualCallRow?.continueOpenQuote && manualCallRow.intakeStartStep
+        ? manualCallRow.intakeStartStep
+        : continueOpenQuoteStep({
+            serviceTypeId: serviceId,
+            vehicleYear: form.vehicleYear,
+            vehicleMake: form.vehicleMake,
+            vehicleModel: form.vehicleModel,
+            addressReady:
+              addressReady ||
+              isFlatAddressReadyForDispatch({
+                addressLine1: form.addressLine1,
+                city: form.city,
+              }),
+          })
     setCurrentStep(next)
   }, [
     addressReady,
@@ -2501,6 +2508,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     form.vehicleMake,
     form.vehicleModel,
     form.vehicleYear,
+    manualCallRow?.continueOpenQuote,
+    manualCallRow?.intakeStartStep,
+  ])
+
+  // CRM Book (thin quote) → auto Continue open quote once per handoff row.
+  const continueQuoteAppliedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const rowId = manualCallRow?.id?.trim() || null
+    if (!manualCallRow?.continueOpenQuote || !rowId) {
+      if (!rowId) continueQuoteAppliedRef.current = null
+      return
+    }
+    if (!manualCallRow.existingLeadId?.trim()) return
+    if (continueQuoteAppliedRef.current === rowId) return
+    continueQuoteAppliedRef.current = rowId
+    handleContinueOpenQuote()
+  }, [
+    manualCallRow?.id,
+    manualCallRow?.continueOpenQuote,
+    manualCallRow?.existingLeadId,
+    handleContinueOpenQuote,
   ])
 
   const handleNewJobForReturningCaller = useCallback(() => {

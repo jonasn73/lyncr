@@ -28,6 +28,7 @@ import {
   LINES_MOBILE_CARD,
   LINES_MOBILE_SECTION_LABEL,
 } from "@/lib/mobile-shell"
+import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import { openSmsAutomationModal } from "@/lib/settings-modals-events"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { formatTimeAgo } from "@/lib/today-board"
@@ -366,6 +367,7 @@ function LatestActionDetail({
   onMarkReviewOpened: (jobId: string) => void
   onOpenMessages: (phone: string) => void
 }) {
+  const router = useRouter()
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
@@ -677,6 +679,16 @@ function LatestActionDetail({
               <CheckCircle2 className="h-4 w-4" />
             )}
             Send thanks + review
+          </button>
+        ) : null}
+        {/* Same JobDetailDrawer as Scheduler / CRM View job (Complete + Send review live there too). */}
+        {item.completedJobId ? (
+          <button
+            type="button"
+            onClick={() => router.push(buildSchedulerFocusUrl(item.completedJobId!))}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-muted/40"
+          >
+            Open job
           </button>
         ) : null}
       </div>
