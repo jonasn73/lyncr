@@ -121,26 +121,49 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     // Complete from Waiting Pool / drawer: immediate review SMS or toggle-gated delayed pipeline.
+    // Await immediate send so the drawer can toast + retry on failure (P2).
+    let reviewSmsResult: { sent: boolean; error: string | null } | null = null
     if (status === "completed" && prevStatus !== "completed") {
-      after(async () => {
+      if (sendReviewSms) {
         try {
-          if (sendReviewSms) {
-            await sendManualThanksReviewSms({
-              leadId: leadId.trim(),
-              expectedOwnerUserId: userId,
-              techName: previous.assigned_tech_name,
-            })
+          const result = await sendManualThanksReviewSms({
+            leadId: leadId.trim(),
+            expectedOwnerUserId: userId,
+            techName: previous.assigned_tech_name,
+          })
+          if (!result.ok) {
+            reviewSmsResult = {
+              sent: false,
+              error:
+                result.reason === "no-customer-phone"
+                  ? "This job has no customer phone number."
+                  : result.reason === "send-failed"
+                    ? "SMS failed to send — check your line and try again."
+                    : "Could not send thank-you SMS.",
+            }
           } else {
+            reviewSmsResult = { sent: true, error: null }
+          }
+        } catch (e) {
+          console.warn("[owner job status] completed review SMS failed:", e)
+          reviewSmsResult = {
+            sent: false,
+            error: e instanceof Error ? e.message : "Could not send thank-you SMS.",
+          }
+        }
+      } else {
+        after(async () => {
+          try {
             await onJobStateChange("COMPLETED", {
               leadId: leadId.trim(),
               expectedOwnerUserId: userId,
               techName: previous.assigned_tech_name,
             })
+          } catch (e) {
+            console.warn("[owner job status] completed review SMS failed:", e)
           }
-        } catch (e) {
-          console.warn("[owner job status] completed review SMS failed:", e)
-        }
-      })
+        })
+      }
     }
 
     const event = await getOwnerSchedulerEventById(userId, leadId.trim())
@@ -149,6 +172,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         event,
         status,
         send_review_sms: sendReviewSms,
+        review_sms: reviewSmsResult,
       },
     })
   } catch (e) {

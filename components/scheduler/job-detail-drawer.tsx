@@ -4,6 +4,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
+import { ToastAction } from "@/components/ui/toast"
+import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,7 +131,10 @@ export function JobDetailDrawer({
   /** Complete confirm — optional immediate Thanks + review SMS. */
   const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Last Thanks+review send failed — overview shows Retry. */
+  const [reviewSmsFailed, setReviewSmsFailed] = useState(false)
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
+  const { toast } = useToast()
   const [viewMode, setViewMode] = useState<JobDetailViewMode>("overview")
   const [committedPipelineStatus, setCommittedPipelineStatus] =
     useState<JobPipelineStatusId>("unassigned_pool")
@@ -334,6 +339,11 @@ export function JobDetailDrawer({
     setCommittedAssignedTechId(scheduledEvent?.assigned_tech_id ?? poolWithTech?.assigned_tech_id ?? "")
     setError(null)
   }, [source, scheduledEvent, poolJob, poolWithTech?.assigned_tech_id])
+
+  // Clear review-SMS failure only when switching jobs (not on hydrate after Complete).
+  useEffect(() => {
+    setReviewSmsFailed(false)
+  }, [jobId])
 
   useEffect(() => {
     if (!open || !jobId) return
@@ -614,7 +624,13 @@ export function JobDetailDrawer({
             : {}),
         }),
       })
-      const json = (await res.json()) as { error?: string; data?: { event?: SchedulerEvent } }
+      const json = (await res.json()) as {
+        error?: string
+        data?: {
+          event?: SchedulerEvent
+          review_sms?: { sent: boolean; error: string | null } | null
+        }
+      }
       if (!res.ok) throw new Error(json.error ?? "Could not update job status")
       const event = json.data?.event
       if (event) {
@@ -623,6 +639,28 @@ export function JobDetailDrawer({
         onSaved?.(event)
       }
       setCompleteConfirmOpen(false)
+      // Complete succeeded — surface review SMS failure without losing the close-out.
+      const reviewSms = json.data?.review_sms
+      if (options?.sendReviewSms && reviewSms && !reviewSms.sent) {
+        setReviewSmsFailed(true)
+        const msg = reviewSms.error || "Could not send review SMS"
+        setError(msg)
+        toast({
+          title: "Job completed — review SMS failed",
+          description: msg,
+          variant: "destructive",
+          action: (
+            <ToastAction altText="Retry review SMS" onClick={() => void handleSendReviewSms()}>
+              Retry
+            </ToastAction>
+          ),
+        })
+        return
+      }
+      if (options?.sendReviewSms) {
+        setReviewSmsFailed(false)
+        toast({ title: "Completed + review SMS sent" })
+      }
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update job status")
@@ -643,9 +681,23 @@ export function JobDetailDrawer({
       })
       const json = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) throw new Error(json.error ?? "Could not send review SMS")
+      setReviewSmsFailed(false)
+      toast({ title: "Thanks + review sent" })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send review SMS")
+      const msg = e instanceof Error ? e.message : "Could not send review SMS"
+      setReviewSmsFailed(true)
+      setError(msg)
+      toast({
+        title: "Could not send review SMS",
+        description: msg,
+        variant: "destructive",
+        action: (
+          <ToastAction altText="Retry review SMS" onClick={() => void handleSendReviewSms()}>
+            Retry
+          </ToastAction>
+        ),
+      })
     } finally {
       setSaving(false)
     }
@@ -695,6 +747,7 @@ export function JobDetailDrawer({
               onSaveJobNotes={() => void handleSaveJobNotes()}
               onQuickLifecycleAction={(status) => void handleQuickLifecycleAction(status)}
               onSendReviewSms={() => void handleSendReviewSms()}
+              reviewSmsFailed={reviewSmsFailed}
               onClose={requestClose}
             />
           ) : (

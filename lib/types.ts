@@ -967,6 +967,8 @@ export interface CrmServiceHistoryItem {
   scheduled_at: string | null
   dispatch_status: string | null
   is_open_lead: boolean
+  /** Price-rejected / lost_lead / salvage_pending — show Recover in CRM. */
+  is_salvageable?: boolean
   /** Completed job still needs Thanks + review SMS (Latest backup on CRM). */
   needs_review_sms?: boolean
 }

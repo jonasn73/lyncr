@@ -79,6 +79,8 @@ type JobDetailOverviewProps = {
   onQuickLifecycleAction: (status: JobLifecycleQuickStatus) => void
   /** Send Thanks + review SMS (works after Complete, or anytime phone is on file). */
   onSendReviewSms: () => void
+  /** Last send attempt failed — button shows Retry. */
+  reviewSmsFailed?: boolean
   onClose: () => void
 }
 
@@ -159,6 +161,7 @@ export function JobDetailOverview({
   onSaveJobNotes,
   onQuickLifecycleAction,
   onSendReviewSms,
+  reviewSmsFailed = false,
   onClose,
 }: JobDetailOverviewProps) {
   const { toast } = useToast()
@@ -434,15 +437,56 @@ export function JobDetailOverview({
         ) : (
           <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
             <p className={SECTION_LABEL}>Done</p>
+            {/* Simple review SMS status from job stamps (migration 119 clicks + send stamp). */}
+            {(() => {
+              const openedAt =
+                "review_link_opened_at" in source
+                  ? (source as SchedulerEvent).review_link_opened_at
+                  : null
+              const sentAt =
+                "review_sms_sent_at" in source
+                  ? (source as SchedulerEvent).review_sms_sent_at
+                  : null
+              const statusLabel = openedAt
+                ? "Opened"
+                : reviewSmsFailed
+                  ? "Failed"
+                  : sentAt
+                    ? "Sent"
+                    : null
+              return statusLabel ? (
+                <p
+                  className={cn(
+                    "text-[11px] font-semibold",
+                    statusLabel === "Failed"
+                      ? "text-rose-300"
+                      : statusLabel === "Opened"
+                        ? "text-emerald-300"
+                        : "text-amber-200/90"
+                  )}
+                >
+                  Review SMS · {statusLabel}
+                </p>
+              ) : null
+            })()}
             <Button
               type="button"
               size="sm"
-              className="w-full border border-amber-500/35 bg-amber-500/15 text-amber-50 hover:bg-amber-500/25"
+              className={cn(
+                "w-full",
+                reviewSmsFailed
+                  ? "border border-rose-500/40 bg-rose-500/20 text-rose-50 hover:bg-rose-500/30"
+                  : "border border-amber-500/35 bg-amber-500/15 text-amber-50 hover:bg-amber-500/25"
+              )}
               disabled={saving || !customerPhone}
               onClick={onSendReviewSms}
             >
               <Star className="mr-2 h-3.5 w-3.5" aria-hidden />
-              Send review SMS
+              {reviewSmsFailed
+                ? "Retry review SMS"
+                : "review_sms_sent_at" in source && (source as SchedulerEvent).review_sms_sent_at
+                  ? "Resend review SMS"
+                  : "Send review SMS"}
             </Button>
           </section>
         )}
@@ -629,11 +673,13 @@ export function JobDetailOverview({
                   onClick={onSendReviewSms}
                   className={cn(
                     ACTION_BTN,
-                    "border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                    reviewSmsFailed
+                      ? "border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
+                      : "border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
                   )}
                 >
                   <Star className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                  Review SMS
+                  {reviewSmsFailed ? "Retry SMS" : "Review SMS"}
                 </button>
                 <button
                   type="button"

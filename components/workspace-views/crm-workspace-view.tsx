@@ -52,13 +52,14 @@ type CrmFilter = "all" | "leads" | "clients"
 const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   booked_client: "Booked client",
   price_quoted: "Price quoted",
-  callback: "Call back",
+  // Missed-call / pending callback leads — operator should call back.
+  callback: "Needs call",
   repeat_customer: "Repeat customer",
   new_contact: "New contact",
 }
 
 /** CRM → Scheduler action label for a history row (no more overloaded "Convert"). */
-type CrmJobNavAction = "Book job" | "Open job" | "View job"
+type CrmJobNavAction = "Book job" | "Open job" | "View job" | "Recover"
 
 const TERMINAL_HISTORY_LABELS = new Set([
   "Done",
@@ -68,9 +69,11 @@ const TERMINAL_HISTORY_LABELS = new Set([
   "Unresolved",
 ])
 
-/** Open quote/callback → Book; pool/active → Open; terminal → View. */
+/** Open quote/callback → Book; salvage → Recover; pool/active → Open; terminal → View. */
 function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
   if (TERMINAL_HISTORY_LABELS.has(item.status_label)) return "View job"
+  // P2: fold PRICE_REJECTED / lost into CRM Leads with Recover (same Book/Continue path).
+  if (item.is_open_lead && item.is_salvageable) return "Recover"
   if (item.is_open_lead) return "Book job"
   // Existing non-lead jobs (pool / scheduled / field progress).
   if (
@@ -92,6 +95,8 @@ function crmJobNavTitle(action: CrmJobNavAction): string {
   switch (action) {
     case "Book job":
       return "Upgrade this quote — schedule on Scheduler, or continue intake if details are thin"
+    case "Recover":
+      return "Recover this lost/price-rejected lead — continue quote or book on Scheduler"
     case "Open job":
       return "Open this job on Scheduler"
     case "View job":
@@ -320,17 +325,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       )}`
     : messagesHref
 
-  // Header CTA only for a truly open lead (quote/callback) — never for completed-only profiles.
+  // Header CTA only for a truly open lead (quote/callback/salvage) — never completed-only.
   const headerOpenLead = openLeadHistory[0] ?? null
   const headerJobAction: CrmJobNavAction | null = headerOpenLead
-    ? crmJobNavAction(headerOpenLead) === "Book job"
-      ? "Book job"
-      : "Open job"
+    ? (() => {
+        const a = crmJobNavAction(headerOpenLead)
+        if (a === "Book job" || a === "Recover") return a
+        return "Open job"
+      })()
     : null
 
   /**
    * Universal job sheet: Open/View (and pool-ready Book) → Scheduler JobDetailDrawer.
-   * Thin Book → Continue-intake with existing_lead_id (upgrade, not blank Service/Lockout).
+   * Thin Book / Recover → Continue-intake with existing_lead_id (upgrade, not blank Service/Lockout).
    * Always close the CRM profile first so Dialog z-[7000] cannot bury the drawer/intake.
    */
   const openJobOnScheduler = useCallback(
@@ -342,8 +349,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       const customerName = editName.trim() || selected.display_name || ""
       const action = target ? crmJobNavAction(target) : null
 
-      // Book on a thin quote → Continue-intake (same as callback chooser), not a blank restart.
-      if (action === "Book job" && target?.id && inboundCallPanel) {
+      // Book / Recover on a thin quote → Continue-intake (same as callback chooser).
+      if (
+        (action === "Book job" || action === "Recover") &&
+        target?.id &&
+        inboundCallPanel
+      ) {
         const garageHead = vehicles[0] ?? null
         const poolReady = isOpenLeadPoolReady({
           lead: target,
@@ -628,7 +639,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             <button
               type="button"
               onClick={() => openJobOnScheduler(headerOpenLead)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-500/20 px-3 text-xs font-semibold text-emerald-100"
+              className={cn(
+                "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
+                headerJobAction === "Recover"
+                  ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
+                  : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+              )}
               title={crmJobNavTitle(headerJobAction)}
             >
               <CalendarCheck className="h-3.5 w-3.5" />
@@ -870,7 +886,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         <Pencil className="h-3 w-3 shrink-0 opacity-70" />
                       </button>
                     )}
-                    {/* Book / Open / View — never "Convert" on completed rows */}
+                    {/* Book / Recover / Open / View — never "Convert" on completed rows */}
                     {(() => {
                       const action = crmJobNavAction(item)
                       if (!action) return null
@@ -878,7 +894,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         <button
                           type="button"
                           onClick={() => openJobOnScheduler(item)}
-                          className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold text-emerald-300/90 hover:bg-zinc-800 hover:text-emerald-200"
+                          className={cn(
+                            "inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold hover:bg-zinc-800",
+                            action === "Recover"
+                              ? "text-rose-300/95 hover:text-rose-200"
+                              : "text-emerald-300/90 hover:text-emerald-200"
+                          )}
                           title={crmJobNavTitle(action)}
                         >
                           <CalendarCheck className="h-3 w-3" />
@@ -931,7 +952,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           Customers &amp; Leads
         </h1>
         <p className="hidden text-sm text-zinc-500 md:block">
-          One place for people, vehicles, history, and follow-ups. Scheduler stays for assigning work.
+          One place for people, vehicles, history, and follow-ups — including Needs call callbacks and
+          Recover on lost/price-rejected leads. Scheduler stays for assigning work.
         </p>
       </header>
 

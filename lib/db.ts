@@ -4913,6 +4913,28 @@ export async function getCustomerByPhoneForUser(userId: string, phoneE164: strin
   return row ? parseCustomerRow(row) : null
 }
 
+/** Attach an ai_leads row to a customers profile (CRM list + history join). */
+export async function linkAiLeadToCustomerForUser(
+  userId: string,
+  leadId: string,
+  customerId: string
+): Promise<boolean> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE ai_leads
+      SET customer_id = coalesce(customer_id, ${customerId}::uuid)
+      WHERE id = ${leadId} AND user_id = ${userId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    // Pre-migration 120: customer_id column may be missing — CRM still phone-matches.
+    if (isUndefinedRelationError(e, "ai_leads") || pgErrorCode(e) === "42703") return false
+    throw e
+  }
+}
+
 export async function upsertCustomerForUser(params: {
   userId: string
   phoneE164: string
@@ -5080,12 +5102,13 @@ export async function listCrmCustomersForUser(
         ds === "canceled" ||
         ds === "referred" ||
         ds === "unresolved"
-      // Open lead only while still a quote/callback — completed must never stay "open".
+      // Open lead: quote/callback + salvage / price-rejected (P2 CRM Recover).
       const isCrmLead =
         !isCompleted &&
         (ds === CRM_LEAD_STATUS ||
           ds === LOST_LEAD_STATUS ||
           ds === UNASSIGNED_CALLBACK_STATUS ||
+          ds === "salvage_pending" ||
           js === "price_denied" ||
           js === "price_rejected")
       if (isCompleted && (js === "completed" || js === "done" || js === "paid" || ds === "completed")) {
@@ -5094,7 +5117,13 @@ export async function listCrmCustomersForUser(
       }
       if (isCrmLead) {
         prev.openLeads += 1
-        if (ds === LOST_LEAD_STATUS || js.includes("price")) prev.priceQuoted = true
+        if (
+          ds === LOST_LEAD_STATUS ||
+          ds === "salvage_pending" ||
+          js.includes("price")
+        ) {
+          prev.priceQuoted = true
+        }
         if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) prev.callback = true
       }
       byDigits.set(key, prev)
@@ -5306,11 +5335,18 @@ export async function listCrmServiceHistoryForCustomer(params: {
       ).trim()
       const jobTypeRaw = String(collected.job_type ?? collected.service_type ?? "").trim()
       // Belt-and-suspenders: completed/done/paid (and other terminals) are never open leads.
+      const isSalvageLead =
+        ds === "salvage_pending" ||
+        ds === LOST_LEAD_STATUS ||
+        js === "price_denied" ||
+        js === "price_rejected" ||
+        js.includes("price")
       const isOpenLead =
         !isCrmTerminalJobStatus(js) &&
         (ds === CRM_LEAD_STATUS ||
           ds === LOST_LEAD_STATUS ||
           ds === UNASSIGNED_CALLBACK_STATUS ||
+          ds === "salvage_pending" ||
           js.includes("price"))
       // Same human glossary as Scheduler (Quote → In pool → Scheduled → … → Done).
       let status_label = "Job"
@@ -5342,11 +5378,13 @@ export async function listCrmServiceHistoryForCustomer(params: {
       } else if (ds === "dispatched" || Boolean(row.scheduled_at)) {
         status_label = "Scheduled"
         status_tone = "sky"
-      } else if (ds === LOST_LEAD_STATUS || js.includes("price")) {
-        status_label = "Quote"
+      } else if (isSalvageLead) {
+        // P2: price-rejected / lost — distinct from active callback quotes.
+        status_label =
+          ds === LOST_LEAD_STATUS || ds === "salvage_pending" ? "Needs recovery" : "Price rejected"
         status_tone = "rose"
       } else if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) {
-        status_label = "Quote"
+        status_label = "Needs call"
         status_tone = "amber"
       }
       const techName =
@@ -5398,6 +5436,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,
         is_open_lead: isOpenLead,
+        is_salvageable: Boolean(isOpenLead && isSalvageLead),
         needs_review_sms: needsReviewSms,
       }
     })

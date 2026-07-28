@@ -4,10 +4,12 @@ import {
   applyLeadDisposition,
   getUser,
   isReasonablePstnDialString,
+  linkAiLeadToCustomerForUser,
   markCallLogOwnerIntakeDismissed,
   normalizePhoneNumberE164,
   setLeadCoordinates,
   updateAiLeadSmsOutcome,
+  upsertCustomerForUser,
 } from "@/lib/db"
 import { geocodeAddress } from "@/lib/geocode"
 import { UNASSIGNED_POOL_STATUS, UNASSIGNED_CALLBACK_STATUS, PENDING_CALLBACK_ADDRESS, CRM_LEAD_STATUS, LOST_LEAD_STATUS } from "@/lib/job-pool"
@@ -381,12 +383,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
           : "active_booking",
     job_status: jobStatusColumn,
     is_salvageable: false,
+    // Prefer explicit intakeSource (e.g. missed_call_callback) over generic pending label.
     source: isSpecialOrder
       ? "answered_call_special_order"
       : isReferredOut
         ? "answered_call_referred_out"
         : pendingCallback
-          ? "answered_call_pending_callback"
+          ? input.intakeSource?.trim() || "answered_call_pending_callback"
           : input.intakeSource?.trim() || "answered_call_intake",
     ...(pendingCallback
       ? { pending_callback: true, sales_recovery_stage: "pending_callbacks" }
@@ -663,6 +666,29 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       jobType,
     })
     await updateAiLeadSmsOutcome(id, { sms_sent: sms.sent, sms_error: sms.error })
+  }
+
+  // Callback / salvage-style leads must appear in CRM Leads (customers-first list).
+  if (pendingCallback || isReferredOut) {
+    try {
+      const customer = await upsertCustomerForUser({
+        userId: input.ownerUserId,
+        phoneE164: phone,
+        displayName: customerName,
+        companyName: input.companyName?.trim() || "",
+        addressLine1: addressLine1 === PENDING_CALLBACK_ADDRESS ? "" : addressLine1 || "",
+        addressLine2: input.addressLine2?.trim() || "",
+        city: city === "CALLBACK" ? "" : city || "",
+        region: region || "",
+        postalCode: postalCode || "",
+        country: country || "US",
+        notes: input.notes?.trim() || "",
+        sourceLastCallLogId: input.callLogId?.trim() || null,
+      })
+      await linkAiLeadToCustomerForUser(input.ownerUserId, id, customer.id)
+    } catch (e) {
+      console.warn("[create-intake-job] CRM customer upsert failed:", e)
+    }
   }
 
   await publishOwnerEvent(
