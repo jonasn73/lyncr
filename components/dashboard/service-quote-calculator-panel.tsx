@@ -91,7 +91,8 @@ function servicesForSector(
 }
 
 type ServiceSectorSelectorProps = {
-  serviceTypeId: ServiceQuoteTypeId
+  /** Empty string = no selection yet (open-quote cleared false Lockout default). */
+  serviceTypeId: ServiceQuoteTypeId | ""
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
   compact?: boolean
   /**
@@ -107,7 +108,9 @@ function ServiceSectorSelector({
   compact,
   deferAutomotiveKeyTypes = false,
 }: ServiceSectorSelectorProps) {
-  const [activeSector, setActiveSector] = useState<ServiceSector>(() => serviceSectorForType(serviceTypeId))
+  const [activeSector, setActiveSector] = useState<ServiceSector>(() =>
+    serviceSectorForType(serviceTypeId || "lockout")
+  )
   const [sectorDirection, setSectorDirection] = useState(1)
 
   const visibleServices = useMemo(
@@ -117,10 +120,12 @@ function ServiceSectorSelector({
   const carKeyFobActive =
     deferAutomotiveKeyTypes &&
     activeSector === "automotive" &&
+    Boolean(serviceTypeId) &&
     (AUTOMOTIVE_JOB_TYPE_IDS as readonly string[]).includes(serviceTypeId)
 
   /** Keep the sector pill aligned when a phone-keyed draft restores a saved service type. */
   useEffect(() => {
+    if (!serviceTypeId) return
     setActiveSector(serviceSectorForType(serviceTypeId))
   }, [serviceTypeId])
 
@@ -276,7 +281,8 @@ function ServiceSectorSelector({
 
 type ServiceQuoteCalculatorPanelProps = {
   quote: ServiceQuoteResult
-  serviceTypeId: ServiceQuoteTypeId
+  /** Empty = no card selected yet (returning-caller open quote cleared Lockout). */
+  serviceTypeId: ServiceQuoteTypeId | ""
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string

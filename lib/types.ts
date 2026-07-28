@@ -949,6 +949,13 @@ export interface CrmServiceHistoryItem {
   vehicle_year: string | null
   vehicle_make: string | null
   vehicle_model: string | null
+  /**
+   * Calculator id from collected (service_quote_type_id / pricing_metadata).
+   * Null when the lead never stored a typed service — intake must not invent Lockout.
+   */
+  service_quote_type_id: string | null
+  /** Dispatch job_type label from the lead row or collected — fallback for intake prefill. */
+  job_type: string | null
   /** Call/lead created timestamp (not the future appointment). */
   at: string
   /** Structured appointment time when the lead/job is booked — null if unscheduled. */

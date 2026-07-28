@@ -101,6 +101,7 @@ import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import { continueOpenQuoteStep } from "@/lib/callback-intake-chooser"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
 import {
   loadAnsweredIntakeDismissed,
@@ -208,6 +209,80 @@ function RepeatCustomerCrmChips({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Callback intent chooser — sits above Service step dots when a known job and/or open quote exists.
+ * Both present (David case): emphasize View / update job, then Continue open quote.
+ */
+function CallbackIntakeChooser({
+  activeJobId,
+  hasOpenQuote,
+  openQuoteCents,
+  emphasizeJob,
+  onViewJob,
+  onContinueQuote,
+  onNewJob,
+}: {
+  activeJobId: string | null
+  hasOpenQuote: boolean
+  openQuoteCents: number | null
+  emphasizeJob: boolean
+  onViewJob: () => void
+  onContinueQuote: () => void
+  onNewJob: () => void
+}) {
+  if (!activeJobId && !hasOpenQuote) return null
+  const jobBtn = activeJobId ? (
+    <button
+      key="view-job"
+      type="button"
+      onClick={onViewJob}
+      className={cn(
+        "inline-flex flex-1 items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold touch-manipulation transition-colors active:scale-[0.98]",
+        emphasizeJob
+          ? "border-amber-400/60 bg-amber-500/20 text-amber-50 hover:bg-amber-500/30"
+          : "border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+      )}
+    >
+      View / update job
+    </button>
+  ) : null
+  const quoteBtn = hasOpenQuote ? (
+    <button
+      key="continue-quote"
+      type="button"
+      onClick={onContinueQuote}
+      className={cn(
+        "inline-flex flex-1 items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold touch-manipulation transition-colors active:scale-[0.98]",
+        !emphasizeJob
+          ? "border-sky-400/60 bg-sky-500/20 text-sky-50 hover:bg-sky-500/30"
+          : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+      )}
+    >
+      Continue open quote
+      {openQuoteCents != null && openQuoteCents > 0
+        ? ` · ${formatCrmQuoteChip(openQuoteCents)}`
+        : ""}
+    </button>
+  ) : null
+  // Job-first order when both exist so the active workstream is the primary CTA.
+  const primaryRow = emphasizeJob ? [jobBtn, quoteBtn] : [quoteBtn, jobBtn]
+  return (
+    <div className="mx-4 mt-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+        Callback — pick what this call is about
+      </p>
+      <div className="mt-2 flex flex-col gap-1.5 sm:flex-row">{primaryRow}</div>
+      <button
+        type="button"
+        onClick={onNewJob}
+        className="mt-1.5 w-full rounded-md px-2 py-1.5 text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      >
+        New job for this customer
+      </button>
     </div>
   )
 }
@@ -676,6 +751,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [showMoreJobTypes, setShowMoreJobTypes] = useState(false)
   /** Soft-gate: second tap skips Key details without a blank (non-AKL). */
   const [keySkipArmed, setKeySkipArmed] = useState(false)
+  /** Hide callback chooser after View job / Continue quote / New job. */
+  const [callbackChooserDismissed, setCallbackChooserDismissed] = useState(false)
   const [bookedLeadId, setBookedLeadId] = useState<string | null>(null)
   /** Confirmation SMS draft after book — must send or skip before Done / Scheduler. */
   const [confirmSmsDraft, setConfirmSmsDraft] = useState<string | null>(null)
@@ -723,7 +800,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     garageVehicles,
     crmOpenLeadId,
     crmOpenLeadQuoteCents,
+    crmOpenLeadServiceTypeId,
     applyGarageVehicle,
+    applyOpenQuoteContinuePrefill,
+    startFreshJobForReturningCaller,
     resolvedPhoneNumber,
     patchForm,
     resetForm,
@@ -844,6 +924,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setVehicleLockoutIntake(false)
     setShowMoreJobTypes(false)
     setKeySkipArmed(false)
+    setCallbackChooserDismissed(false)
     lastLoadedDraftPhoneRef.current = null
     // Reset attachments when a new call / ticket opens.
     setJobPhotos([])
@@ -2220,11 +2301,32 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [currentStep]
   )
 
+  // Active/recent job from the same engine context that powers RECENT JOB ACTIVE.
+  const activeCallbackJobId = useMemo(() => {
+    const phone = (form.phoneNumber || effectiveCurrent?.from_number || "").replace(/\D/g, "").slice(-10)
+    if (!phone || !lyncEngine?.primaryCall) return null
+    const enginePhone = lyncEngine.primaryCall.fromNumber.replace(/\D/g, "").slice(-10)
+    if (enginePhone !== phone) return null
+    const ctx = lyncEngine.primaryCall.callerContext
+    return ctx?.kind === "active_job" ? ctx.jobId : null
+  }, [effectiveCurrent?.from_number, form.phoneNumber, lyncEngine?.primaryCall])
+
+  const hasCallbackOpenQuote =
+    Boolean(crmOpenLeadId) && crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
+
+  // Empty string = open-quote cleared Lockout; path still needs a concrete id for branch shape.
   const serviceTypeId = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
+  const selectorServiceTypeId = (form.serviceQuoteTypeId.trim()
+    ? form.serviceQuoteTypeId
+    : "") as ServiceQuoteTypeId | ""
   const manualPath = useMemo(
     () => manualWorkflowPath(serviceTypeId, vehicleLockoutIntake),
     [serviceTypeId, vehicleLockoutIntake]
   )
+  const showCallbackChooser =
+    !callbackChooserDismissed &&
+    currentStep === "SERVICE_SELECT" &&
+    Boolean(activeCallbackJobId || hasCallbackOpenQuote)
   const isManual = Boolean(effectiveCurrent?.isManual)
   /** One step wizard for everyone — keeps negotiation / lost-lead / ops on the same path. */
   const stepIntake = true
@@ -2310,6 +2412,65 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     isMinimizedRef.current = true
     setIsMinimized(true)
   }, [])
+
+  /** Same focus path as CRM Open job — minimize intake so the drawer isn't buried. */
+  const openActiveJobOnScheduler = useCallback(
+    (jobId: string) => {
+      const id = jobId.trim()
+      if (!id) return
+      setCallbackChooserDismissed(true)
+      minimizeIntake()
+      router.push(buildSchedulerFocusUrl(id))
+    },
+    [minimizeIntake, router]
+  )
+
+  const handleViewUpdateJob = useCallback(() => {
+    if (!activeCallbackJobId) return
+    openActiveJobOnScheduler(activeCallbackJobId)
+  }, [activeCallbackJobId, openActiveJobOnScheduler])
+
+  const handleContinueOpenQuote = useCallback(() => {
+    applyOpenQuoteContinuePrefill()
+    setCallbackChooserDismissed(true)
+    const serviceId = (crmOpenLeadServiceTypeId ||
+      form.serviceQuoteTypeId ||
+      "") as ServiceQuoteTypeId | ""
+    // Prefill may set a non-lockout type — vehicle-lockout branch only for explicit lockout.
+    if (serviceId && serviceId !== "lockout") {
+      setVehicleLockoutIntake(false)
+    }
+    const next = continueOpenQuoteStep({
+      serviceTypeId: serviceId,
+      vehicleYear: form.vehicleYear,
+      vehicleMake: form.vehicleMake,
+      vehicleModel: form.vehicleModel,
+      addressReady:
+        addressReady ||
+        isFlatAddressReadyForDispatch({
+          addressLine1: form.addressLine1,
+          city: form.city,
+        }),
+    })
+    setCurrentStep(next)
+  }, [
+    addressReady,
+    applyOpenQuoteContinuePrefill,
+    crmOpenLeadServiceTypeId,
+    form.addressLine1,
+    form.city,
+    form.serviceQuoteTypeId,
+    form.vehicleMake,
+    form.vehicleModel,
+    form.vehicleYear,
+  ])
+
+  const handleNewJobForReturningCaller = useCallback(() => {
+    startFreshJobForReturningCaller()
+    setCallbackChooserDismissed(true)
+    setVehicleLockoutIntake(false)
+    setCurrentStep("SERVICE_SELECT")
+  }, [startFreshJobForReturningCaller])
 
   const expandIntake = useCallback(() => {
     // PiP tray expand — same-click outside dismiss still needs a short suppress.
@@ -2615,6 +2776,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 isRinging={isRinging}
                 onDeclined={dismissOnly}
                 urgency={repeatUrgency}
+                onOpenActiveJob={openActiveJobOnScheduler}
               />
               {effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
@@ -2628,6 +2790,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
             )}
+            {/* Above Service step dots — not buried under Repeat Customer / calculator. */}
+            {showCallbackChooser ? (
+              <CallbackIntakeChooser
+                activeJobId={activeCallbackJobId}
+                hasOpenQuote={hasCallbackOpenQuote}
+                openQuoteCents={crmOpenLeadQuoteCents}
+                emphasizeJob={Boolean(activeCallbackJobId)}
+                onViewJob={handleViewUpdateJob}
+                onContinueQuote={handleContinueOpenQuote}
+                onNewJob={handleNewJobForReturningCaller}
+              />
+            ) : null}
             {stepIntake && !isManual ? (
               <IntakeStepProgress path={manualPath} currentStep={currentStep} />
             ) : null}
@@ -2689,7 +2863,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               ) : null}
                               <ServiceQuoteCalculatorPanel
                                 quote={liveQuote}
-                                serviceTypeId={serviceTypeId}
+                                serviceTypeId={selectorServiceTypeId}
                                 vehicleYear={form.vehicleYear}
                                 vehicleMake={form.vehicleMake}
                                 vehicleModel={form.vehicleModel}

@@ -22,6 +22,7 @@ import {
 } from "@/lib/service-quote-calculator"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { DEFAULT_SERVICE_RATE_CARD } from "@/lib/service-rate-card"
+import { serviceQuoteTypeIdFromCrmHistory } from "@/lib/callback-intake-chooser"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
@@ -224,6 +225,10 @@ export function useActiveCallForm(
   const [crmOpenLeadId, setCrmOpenLeadId] = useState<string | null>(null)
   /** Last quoted cents from that open lead — shown as a light chip in the header. */
   const [crmOpenLeadQuoteCents, setCrmOpenLeadQuoteCents] = useState<number | null>(null)
+  /** Service type from the open quote lead — used by Continue quote / Lockout clear. */
+  const [crmOpenLeadServiceTypeId, setCrmOpenLeadServiceTypeId] = useState<ServiceQuoteTypeId | null>(
+    null
+  )
   const [rateCard, setRateCard] = useState<ServiceRateCard | null>(null)
   const [rateCardSource, setRateCardSource] = useState<"onboarding_profiles.service_rules" | "default">("default")
   const callLogId = current?.id ?? null
@@ -525,6 +530,8 @@ export function useActiveCallForm(
   // Keep job type + quote total in sync with YMM + service quote selection.
   useEffect(() => {
     if (!callLogId) return
+    // Empty id = open-quote cleared Lockout default — wait for an explicit pick.
+    if (!form.serviceQuoteTypeId.trim()) return
     const quote = calculateServiceQuote({
       serviceTypeId: (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId,
       vehicleYear: form.vehicleYear,
@@ -579,6 +586,7 @@ export function useActiveCallForm(
       setGarageVehicles([])
       setCrmOpenLeadId(null)
       setCrmOpenLeadQuoteCents(null)
+      setCrmOpenLeadServiceTypeId(null)
       return
     }
     if (!hasCompleteIntakePhone(resolvedPhoneNumber)) {
@@ -586,6 +594,7 @@ export function useActiveCallForm(
       setGarageVehicles([])
       setCrmOpenLeadId(null)
       setCrmOpenLeadQuoteCents(null)
+      setCrmOpenLeadServiceTypeId(null)
       return
     }
 
@@ -594,6 +603,7 @@ export function useActiveCallForm(
     setGarageVehicles([])
     setCrmOpenLeadId(current?.existingLeadId?.trim() || null)
     setCrmOpenLeadQuoteCents(null)
+    setCrmOpenLeadServiceTypeId(null)
     const t = window.setTimeout(() => {
       const q = encodeURIComponent(resolvedPhoneNumber)
       void fetch(`/api/customers?phone=${q}`, { credentials: "include" })
@@ -607,6 +617,7 @@ export function useActiveCallForm(
             if (!current?.existingLeadId?.trim()) {
               setCrmOpenLeadId(null)
               setCrmOpenLeadQuoteCents(null)
+              setCrmOpenLeadServiceTypeId(null)
             }
             return
           }
@@ -636,6 +647,8 @@ export function useActiveCallForm(
                     ? Math.round(openLead.amount_cents)
                     : null
                 setCrmOpenLeadQuoteCents(quoteCents)
+                const resolvedServiceType = serviceQuoteTypeIdFromCrmHistory(openLead)
+                setCrmOpenLeadServiceTypeId(resolvedServiceType)
                 setForm((prev) => {
                   const hasYmm =
                     Boolean(prev.vehicleYear.trim()) ||
@@ -673,6 +686,17 @@ export function useActiveCallForm(
                     patch.quotedPriceCents = quoteCents
                     patch.quotedPriceOverridden = true
                   }
+                  // Stop false "new Lockout" when an open quote is loaded.
+                  // Only rewrite the blank-form default — never fight a user/draft pick.
+                  const stillDefaultLockout = prev.serviceQuoteTypeId === "lockout"
+                  if (stillDefaultLockout && (resolvedServiceType || (quoteCents != null && quoteCents > 0))) {
+                    if (resolvedServiceType && resolvedServiceType !== "lockout") {
+                      patch.serviceQuoteTypeId = resolvedServiceType
+                    } else if (!resolvedServiceType && quoteCents != null && quoteCents > 0) {
+                      // Known quote, unknown type — clear selection until Continue / user picks.
+                      patch.serviceQuoteTypeId = ""
+                    }
+                  }
                   return Object.keys(patch).length ? { ...prev, ...patch } : prev
                 })
               }
@@ -688,6 +712,7 @@ export function useActiveCallForm(
             if (!current?.existingLeadId?.trim()) {
               setCrmOpenLeadId(null)
               setCrmOpenLeadQuoteCents(null)
+              setCrmOpenLeadServiceTypeId(null)
             }
           }
         })
@@ -1118,8 +1143,50 @@ export function useActiveCallForm(
     setGarageVehicles([])
     setCrmOpenLeadId(null)
     setCrmOpenLeadQuoteCents(null)
+    setCrmOpenLeadServiceTypeId(null)
     setSaveState("idle")
   }, [])
+
+  /**
+   * Explicit "New job" on a known callback — keep customer + garage, drop open-quote bind
+   * so booking inserts a fresh lead instead of upgrading the wrong quote.
+   */
+  const startFreshJobForReturningCaller = useCallback(() => {
+    setCrmOpenLeadId(null)
+    setCrmOpenLeadQuoteCents(null)
+    setCrmOpenLeadServiceTypeId(null)
+    setForm((prev) => ({
+      ...prev,
+      // Clear Lockout default + quote dollars that belonged to the prior open lead.
+      serviceQuoteTypeId: "",
+      quotedPriceCents: 0,
+      quotedPriceOverridden: false,
+      jobType: "",
+      keyReplacementMode: "",
+    }))
+  }, [])
+
+  /** Apply open-quote service + YMM + price for the Continue-quote path (keeps crmOpenLeadId). */
+  const applyOpenQuoteContinuePrefill = useCallback(() => {
+    setForm((prev) => {
+      const patch: Partial<ActiveCallFormState> = {}
+      if (crmOpenLeadServiceTypeId) {
+        patch.serviceQuoteTypeId = crmOpenLeadServiceTypeId
+      } else if (!prev.serviceQuoteTypeId.trim() || prev.serviceQuoteTypeId === "lockout") {
+        // Still unknown — leave empty so Service isn't forced Lockout mid-continue.
+        patch.serviceQuoteTypeId = prev.serviceQuoteTypeId === "lockout" ? "" : prev.serviceQuoteTypeId
+      }
+      if (
+        crmOpenLeadQuoteCents != null &&
+        crmOpenLeadQuoteCents > 0 &&
+        (!prev.quotedPriceOverridden || prev.quotedPriceCents <= 0)
+      ) {
+        patch.quotedPriceCents = crmOpenLeadQuoteCents
+        patch.quotedPriceOverridden = true
+      }
+      return Object.keys(patch).length ? { ...prev, ...patch } : prev
+    })
+  }, [crmOpenLeadQuoteCents, crmOpenLeadServiceTypeId])
 
   /** Tap a garage chip to fill YMM without fighting plate/VIN decode later. */
   const applyGarageVehicle = useCallback((vehicle: CustomerVehicle) => {
@@ -1163,7 +1230,10 @@ export function useActiveCallForm(
     garageVehicles,
     crmOpenLeadId,
     crmOpenLeadQuoteCents,
+    crmOpenLeadServiceTypeId,
     applyGarageVehicle,
+    applyOpenQuoteContinuePrefill,
+    startFreshJobForReturningCaller,
     resolvedPhoneNumber,
     patchForm,
     resetForm,

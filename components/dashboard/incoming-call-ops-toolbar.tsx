@@ -39,6 +39,8 @@ type IncomingCallOpsToolbarProps = {
   className?: string
   /** Repeat-caller scan from useRepeatCallerUrgency (parent owns the hook). */
   urgency?: RepeatCallerUrgency | null
+  /** Open Scheduler job drawer for the matched active/recent job (RECENT JOB ACTIVE). */
+  onOpenActiveJob?: (jobId: string) => void
 }
 
 const EMPTY_URGENCY: RepeatCallerUrgency = {
@@ -79,6 +81,7 @@ export function IncomingCallOpsToolbar({
   onDeclined,
   className,
   urgency: urgencyProp,
+  onOpenActiveJob,
 }: IncomingCallOpsToolbarProps) {
   const { toast } = useToast()
   const engine = useLyncEngineOptional()
@@ -279,9 +282,21 @@ export function IncomingCallOpsToolbar({
           </p>
         ) : context.kind === "active_job" ? (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
-              ⚠️ Recent Job Active
-            </span>
+            {onOpenActiveJob ? (
+              <button
+                type="button"
+                onClick={() => onOpenActiveJob(context.jobId)}
+                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
+                title="Open this job on Scheduler"
+                aria-label={`Open recent job for ${context.metaLine}`}
+              >
+                ⚠️ Recent Job Active
+              </button>
+            ) : (
+              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                ⚠️ Recent Job Active
+              </span>
+            )}
             <span className="text-[11px] font-medium text-slate-300">{context.metaLine}</span>
           </div>
         ) : (

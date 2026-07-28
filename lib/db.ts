@@ -5258,6 +5258,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
   const lim = Math.min(Math.max(params.limit ?? 40, 1), 100)
   const digits = crmDigits(params.phoneE164)
   try {
+    // job_type lives in collected JSON (column optional / not on every Neon) — avoid 42703.
     const rows = (await sql`
       SELECT
         id,
@@ -5279,6 +5280,10 @@ export async function listCrmServiceHistoryForCustomer(params: {
 
     return rows.map((row) => {
       const collected = (row.collected as Record<string, unknown>) || {}
+      const pricingMeta =
+        collected.pricing_metadata && typeof collected.pricing_metadata === "object"
+          ? (collected.pricing_metadata as Record<string, unknown>)
+          : null
       const ds = String(row.dispatch_status ?? collected.dispatch_status ?? "").toLowerCase()
       const js = String(row.job_status ?? collected.job_status ?? "").toLowerCase()
       const year = String(collected.vehicle_year ?? collected.year ?? "").trim()
@@ -5292,6 +5297,14 @@ export async function listCrmServiceHistoryForCustomer(params: {
         null
       const amount =
         priceRaw != null && Number.isFinite(Number(priceRaw)) ? Number(priceRaw) : null
+      // Prefer explicit calculator id; fall back to dispatch job_type string for intake.
+      const serviceQuoteRaw = String(
+        collected.service_quote_type_id ??
+          collected.service_type_id ??
+          pricingMeta?.service_type_id ??
+          ""
+      ).trim()
+      const jobTypeRaw = String(collected.job_type ?? collected.service_type ?? "").trim()
       // Belt-and-suspenders: completed/done/paid (and other terminals) are never open leads.
       const isOpenLead =
         !isCrmTerminalJobStatus(js) &&
@@ -5354,6 +5367,8 @@ export async function listCrmServiceHistoryForCustomer(params: {
         vehicle_year: year || null,
         vehicle_make: make || null,
         vehicle_model: model || null,
+        service_quote_type_id: serviceQuoteRaw || null,
+        job_type: jobTypeRaw || null,
         at,
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,
