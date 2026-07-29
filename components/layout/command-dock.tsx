@@ -30,32 +30,42 @@ function useDockIndicator(
   orientation: DockOrientation,
   items: DashboardNavItem[]
 ) {
-  const [indicator, setIndicator] = useState<DockIndicator>({ offset: 0, size: 44, visible: true })
+  const [indicator, setIndicator] = useState<DockIndicator>({ offset: 0, size: 44, visible: false })
 
   useLayoutEffect(() => {
-    const idx = items.findIndex((item) => item.id === activePage)
-    const el = itemRefs.current[idx]
-    const nav = navRef.current
-    if (!el || !nav || idx < 0) {
-      setIndicator((prev) => ({ ...prev, visible: false }))
-      return
-    }
-    const navRect = nav.getBoundingClientRect()
-    const elRect = el.getBoundingClientRect()
-    if (orientation === "vertical") {
-      setIndicator({
-        offset: elRect.top - navRect.top,
-        size: elRect.height,
-        visible: true,
+    const measure = () => {
+      const idx = items.findIndex((item) => item.id === activePage)
+      const el = itemRefs.current[idx]
+      const nav = navRef.current
+      if (!el || !nav || idx < 0) {
+        // Bail out with same state reference — `{ ...prev }` always re-renders and can loop.
+        setIndicator((prev) => (prev.visible ? { ...prev, visible: false } : prev))
+        return
+      }
+      const navRect = nav.getBoundingClientRect()
+      // Hidden docks (display:none) report a zero box — don't fight layout with setState.
+      if (navRect.width < 1 && navRect.height < 1) {
+        setIndicator((prev) => (prev.visible ? { ...prev, visible: false } : prev))
+        return
+      }
+      const elRect = el.getBoundingClientRect()
+      const offset =
+        orientation === "vertical" ? elRect.top - navRect.top : elRect.left - navRect.left
+      const size = orientation === "vertical" ? elRect.height : elRect.width
+      setIndicator((prev) => {
+        if (
+          prev.visible &&
+          Math.abs(prev.offset - offset) < 0.5 &&
+          Math.abs(prev.size - size) < 0.5
+        ) {
+          return prev
+        }
+        return { offset, size, visible: true }
       })
-      return
     }
-    setIndicator({
-      offset: elRect.left - navRect.left,
-      size: elRect.width,
-      visible: true,
-    })
-  }, [activePage, itemRefs, items, navRef, orientation])
+
+    measure()
+  }, [activePage, items, orientation, itemRefs, navRef])
 
   return indicator
 }
@@ -224,7 +234,8 @@ const CommandDockInner = memo(function CommandDockInner({
   onNavigate?: (page: PageId) => void
 }) {
   const desktopNavRef = useRef<HTMLElement | null>(null)
-  const mobileNavRef = useRef<HTMLElement | null>(null)
+  // Measure against the relative row (not the outer safe-area nav).
+  const mobileNavRef = useRef<HTMLDivElement | null>(null)
   const desktopItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
   const mobileItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
   const engine = useLyncEngineOptional()
@@ -274,9 +285,7 @@ const CommandDockInner = memo(function CommandDockInner({
           nav), so offset matches the abspos containing block.
         */}
         <div
-          ref={(node) => {
-            mobileNavRef.current = node
-          }}
+          ref={mobileNavRef}
           className="relative flex h-16 w-full items-center justify-around"
         >
           <DockNavItems
