@@ -59,7 +59,7 @@ function writeCachedPresence(status: PresenceStatus) {
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast()
   // Client snapshot of last-known status (null on SSR / cache miss).
-  const cachedSeed = useClientSnapshot(readCachedPresence, () => null)
+  const cachedSeed = useClientSnapshot(readCachedPresence, () => null, "account-presence")
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)

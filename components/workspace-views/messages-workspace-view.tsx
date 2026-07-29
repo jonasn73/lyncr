@@ -123,7 +123,8 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 
   const cachedMessages = useClientSnapshot(
     () => readMessagesCache(orgId),
-    () => EMPTY_MESSAGES
+    () => EMPTY_MESSAGES,
+    orgId ?? "default"
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   const messages = liveMessages ?? cachedMessages

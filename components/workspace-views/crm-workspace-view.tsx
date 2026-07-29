@@ -210,7 +210,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [filter, setFilter] = useState<CrmFilter>(initialFilter)
   const cachedRows = useClientSnapshot(
     () => readCrmListCache(filter, debounced),
-    () => EMPTY_CRM_ROWS
+    () => EMPTY_CRM_ROWS,
+    `${filter}:${debounced}`
   )
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
   const rows = liveRows ?? cachedRows

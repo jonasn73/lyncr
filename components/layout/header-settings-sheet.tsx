@@ -110,7 +110,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   // Live totals from API; session cache paints immediately via useClientSnapshot below.
   const [liveTodayCents, setLiveTodayCents] = useState<number | null>(null)
   const [liveMonthCents, setLiveMonthCents] = useState<number | null>(null)
-  const cachedSummary = useClientSnapshot(readCachedCollectedSummary, () => null)
+  const cachedSummary = useClientSnapshot(
+    readCachedCollectedSummary,
+    () => null,
+    "collected-summary-header"
+  )
   const todayCents = liveTodayCents ?? cachedSummary?.todayCents ?? null
   const monthCents = liveMonthCents ?? cachedSummary?.monthCents ?? null
   // Prefer last-known cached total over an empty skeleton on refresh.

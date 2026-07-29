@@ -225,7 +225,8 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   // Session seed paints in the same hydration commit (no layout-effect flash).
   const sessionSeed = useClientSnapshot(
     () => operationsCache ?? readSessionOperationsCache(),
-    () => null
+    () => null,
+    "operations-cache"
   )
   const seed = sessionSeed ?? operationsCache
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])

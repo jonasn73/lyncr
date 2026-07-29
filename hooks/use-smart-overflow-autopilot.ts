@@ -91,18 +91,26 @@ export type UseSmartOverflowAutopilotResult = {
 export function useSmartOverflowAutopilot(
   routingBusinessNumber?: string | null
 ): UseSmartOverflowAutopilotResult {
-  const overflowSeed = useClientSnapshot(readOverflowCache, () => null)
+  // Org id is part of the cache key — re-read seed when the workspace changes.
+  const overflowRevision =
+    typeof window !== "undefined" ? readActiveOrganizationId() || "default" : "default"
+  const overflowSeed = useClientSnapshot(readOverflowCache, () => null, overflowRevision)
   const seededThreshold = overflowSeed
     ? Math.max(1, Math.min(40, Math.floor(overflowSeed.capacityThreshold) || 5))
     : null
 
   const [liveConfig, setConfigState] = useState<SmartOverflowConfig | null>(null)
-  const config: SmartOverflowConfig = liveConfig ?? {
-    ...DEFAULT_SMART_OVERFLOW_CONFIG,
-    mode: "auto_capacity",
-    manualEnabled: false,
-    capacityThreshold: seededThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
-  }
+  // Stable fallback object — a new `{}` every render made `now` churn and could loop effects.
+  const config = useMemo<SmartOverflowConfig>(
+    () =>
+      liveConfig ?? {
+        ...DEFAULT_SMART_OVERFLOW_CONFIG,
+        mode: "auto_capacity",
+        manualEnabled: false,
+        capacityThreshold: seededThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
+      },
+    [liveConfig, seededThreshold]
+  )
 
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [eventsReady, setEventsReady] = useState(false)
@@ -229,7 +237,12 @@ export function useSmartOverflowAutopilot(
     }
   }, [])
 
-  const now = useMemo(() => new Date(), [events, config, hydrated])
+  // Depend on capacity threshold (primitive), not `config` object identity.
+  const now = useMemo(
+    () => new Date(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh slot math when calendar / threshold settles
+    [events, config.capacityThreshold, hydrated]
+  )
   const todayKey = defaultIntakeScheduleDate(now)
   const confirmedFromEvents = useMemo(
     () => countConfirmedJobsOnDay(events, todayKey),

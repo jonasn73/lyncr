@@ -128,18 +128,16 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const { activeOrganizationId } = useDashboardWorkspace()
 
   const emptySnap = useMemo(() => emptyRoutingTelemetrySnapshot(), [])
+  // revisionKey re-reads the session seed when the workspace org changes.
+  const telemetryRevision = activeOrganizationId ?? "default"
   const cachedMetrics = useClientSnapshot(
     () => readRoutingTelemetryCache(activeOrganizationId) ?? emptySnap,
-    () => emptySnap
+    () => emptySnap,
+    telemetryRevision
   )
 
   // Until we copy cache / API into React state, return the client seed (avoids 0→N flash).
   const [hasLiveBaseline, setHasLiveBaseline] = useState(false)
-  const [statsOrgId, setStatsOrgId] = useState(activeOrganizationId)
-  if (statsOrgId !== activeOrganizationId) {
-    setStatsOrgId(activeOrganizationId)
-    setHasLiveBaseline(false)
-  }
 
   const [dailyCalls, setDailyCalls] = useState(0)
   const [missedCalls, setMissedCalls] = useState(0)

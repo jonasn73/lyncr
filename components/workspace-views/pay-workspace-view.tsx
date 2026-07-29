@@ -77,8 +77,8 @@ function minutesFromSeconds(seconds: number): number {
 export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
-  const billingSeed = useClientSnapshot(readBillingCache, () => null)
-  const callsSeed = useClientSnapshot(readCallsLedgerCache, () => EMPTY_CALLS)
+  const billingSeed = useClientSnapshot(readBillingCache, () => null, "billing-summary")
+  const callsSeed = useClientSnapshot(readCallsLedgerCache, () => EMPTY_CALLS, "calls-ledger")
   const [liveBilling, setLiveBilling] = useState<BillingSummary | null>(null)
   const billing = liveBilling ?? billingSeed
   const [loadError, setLoadError] = useState<string | null>(null)

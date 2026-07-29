@@ -60,7 +60,7 @@ function readCachedMissedLeads(): MissedLeadCallRow[] {
 }
 
 export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]) {
-  const cachedRows = useClientSnapshot(readCachedMissedLeads, () => EMPTY_ROWS)
+  const cachedRows = useClientSnapshot(readCachedMissedLeads, () => EMPTY_ROWS, "missed-leads")
   const [liveRows, setLiveRows] = useState<MissedLeadCallRow[] | null>(null)
   const rows = liveRows ?? cachedRows
   const [loading, setLoading] = useState(() => cachedRows.length === 0)

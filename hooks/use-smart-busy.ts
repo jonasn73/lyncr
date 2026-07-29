@@ -13,6 +13,7 @@ import {
   shouldAutoRevertBusy,
   shouldRecommendBusy,
   writeSmartBusyLocalState,
+  SMART_BUSY_EMPTY_LOCAL,
   type SmartBusyLocalState,
 } from "@/lib/smart-busy"
 import { PRESENCE_BUSY_WRITE_STATUS } from "@/lib/account-presence"
@@ -20,12 +21,6 @@ import { useAccountPresence } from "@/components/dashboard/account-presence-cont
 import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
 import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { useToast } from "@/hooks/use-toast"
-
-const EMPTY_LOCAL: SmartBusyLocalState = {
-  enabled: false,
-  engaged: false,
-  suppressed: false,
-}
 
 export type UseSmartBusyResult = {
   smartBusyEnabled: boolean
@@ -52,7 +47,11 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
   const overflow = useSmartOverflowAutopilot(routingBusinessNumber)
 
   // localStorage seed on first client snapshot (useState initializer is stuck on SSR false).
-  const cachedLocal = useClientSnapshot(readSmartBusyLocalState, () => EMPTY_LOCAL)
+  const cachedLocal = useClientSnapshot(
+    readSmartBusyLocalState,
+    () => SMART_BUSY_EMPTY_LOCAL,
+    "smart-busy-local"
+  )
   const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState | null>(null)
   const local = liveLocal ?? cachedLocal
   const [poolCount, setPoolCount] = useState(0)

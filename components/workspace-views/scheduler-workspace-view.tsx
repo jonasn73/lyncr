@@ -165,7 +165,8 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
   const bootstrapSeed = useClientSnapshot(
     () => readSchedulerBootstrapCache(monthKey, orgId),
-    () => null
+    () => null,
+    `${orgId ?? "default"}:${monthKey}`
   )
   const bootstrapCacheIdentity = `${orgId ?? "default"}:${monthKey}`
   const appliedBootstrapSeedRef = useRef<string | null>(null)

@@ -10,11 +10,16 @@
  * useSyncExternalStore is the supported way to read a browser store that differs
  * from the server: SSR uses getServerSnapshot; after hydrate, getClientSnapshot wins
  * in the same commit as hydration (no “Available → Busy” / “$0 → $real” blink).
+ *
+ * CRITICAL (#185): with a no-op subscribe, getSnapshot MUST return a referentially
+ * stable value across consecutive calls. Re-parsing storage every call and swapping
+ * the cache when JSON differs (or key order / Date.now noise) makes React schedule
+ * another render forever → “Maximum update depth exceeded”.
  */
 
 import { useCallback, useRef, useState, useSyncExternalStore } from "react"
 
-/** Subscribe that never fires — snapshots are re-read each render from storage. */
+/** Subscribe that never fires — snapshots are frozen after the first client read per key. */
 function subscribeNever(): () => void {
   return () => {}
 }
@@ -40,20 +45,49 @@ function defaultEqual<T>(a: T, b: T): boolean {
 /**
  * Browser-only snapshot (sessionStorage / localStorage / cookies).
  * `getServerSnapshot` must be pure and match the SSR HTML you want before JS.
- * Object snapshots are referentially stabilized when deep-equal.
+ *
+ * After the first client read for a given `revisionKey`, the value is frozen for
+ * that key (subscribeNever cannot safely observe storage writes). Pass a new
+ * `revisionKey` (e.g. org id) when the seed source should be re-read.
  */
 export function useClientSnapshot<T>(
   getClientSnapshot: () => T,
-  getServerSnapshot: () => T
+  getServerSnapshot: () => T,
+  /** When this changes, re-read storage once (org switch, month change, …). */
+  revisionKey: string | number | null | undefined = ""
 ): T {
-  const cacheRef = useRef<T | undefined>(undefined)
+  // Frozen snapshot for the current revisionKey (survives re-renders).
+  const cacheRef = useRef<{ key: string | number | null | undefined; value: T } | undefined>(
+    undefined
+  )
+  // Same value for every getSnapshot call inside one React consistency check.
+  const passValueRef = useRef<T | undefined>(undefined)
+
+  // New render → clear per-pass memo (cacheRef still freezes across renders).
+  passValueRef.current = undefined
 
   const getStableClientSnapshot = () => {
-    const next = getClientSnapshot()
-    if (cacheRef.current !== undefined && defaultEqual(cacheRef.current, next)) {
-      return cacheRef.current
+    // Within one render / store check, always return the identical reference.
+    if (passValueRef.current !== undefined) {
+      return passValueRef.current
     }
-    cacheRef.current = next
+
+    // Already froze a snapshot for this revision — never swap mid-flight (#185).
+    if (cacheRef.current && cacheRef.current.key === revisionKey) {
+      passValueRef.current = cacheRef.current.value
+      return cacheRef.current.value
+    }
+
+    const next = getClientSnapshot()
+    // If deep-equal to a prior freeze, keep that reference.
+    if (cacheRef.current && defaultEqual(cacheRef.current.value, next)) {
+      cacheRef.current = { key: revisionKey, value: cacheRef.current.value }
+      passValueRef.current = cacheRef.current.value
+      return cacheRef.current.value
+    }
+
+    cacheRef.current = { key: revisionKey, value: next }
+    passValueRef.current = next
     return next
   }
 
@@ -64,7 +98,8 @@ export function useClientSnapshot<T>(
 export function useIsClient(): boolean {
   return useClientSnapshot(
     () => true,
-    () => false
+    () => false,
+    "is-client"
   )
 }
 

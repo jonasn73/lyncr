@@ -88,7 +88,8 @@ const EMPTY_LATEST: LatestCustomerAction[] = []
 export function useOwnerLatest(activeOrganizationId: string | null | undefined) {
   const cachedItems = useClientSnapshot(
     () => readLatestCache(activeOrganizationId) ?? EMPTY_LATEST,
-    () => EMPTY_LATEST
+    () => EMPTY_LATEST,
+    activeOrganizationId ?? "default"
   )
   const [liveItems, setLiveItems] = useState<LatestCustomerAction[] | null>(null)
   const items = liveItems ?? cachedItems

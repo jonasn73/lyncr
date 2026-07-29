@@ -89,21 +89,28 @@ export type SmartBusyLocalState = {
   suppressed: boolean
 }
 
+/** Stable empty seed — never allocate a new `{}` per read (useClientSnapshot / #185). */
+export const SMART_BUSY_EMPTY_LOCAL: SmartBusyLocalState = {
+  enabled: false,
+  engaged: false,
+  suppressed: false,
+}
+
 export function readSmartBusyLocalState(): SmartBusyLocalState {
   if (typeof window === "undefined") {
-    return { enabled: false, engaged: false, suppressed: false }
+    return SMART_BUSY_EMPTY_LOCAL
   }
   try {
     const raw = window.localStorage.getItem(SMART_BUSY_STORAGE_KEY)
-    if (!raw) return { enabled: false, engaged: false, suppressed: false }
+    if (!raw) return SMART_BUSY_EMPTY_LOCAL
     const parsed = JSON.parse(raw) as Partial<SmartBusyLocalState>
-    return {
-      enabled: parsed.enabled === true,
-      engaged: parsed.engaged === true,
-      suppressed: parsed.suppressed === true,
-    }
+    const enabled = parsed.enabled === true
+    const engaged = parsed.engaged === true
+    const suppressed = parsed.suppressed === true
+    if (!enabled && !engaged && !suppressed) return SMART_BUSY_EMPTY_LOCAL
+    return { enabled, engaged, suppressed }
   } catch {
-    return { enabled: false, engaged: false, suppressed: false }
+    return SMART_BUSY_EMPTY_LOCAL
   }
 }
 
