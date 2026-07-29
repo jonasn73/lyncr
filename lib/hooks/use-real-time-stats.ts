@@ -1,13 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   isDashboardVisibleLineStatus,
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
 import {
-  emptyRoutingTelemetrySnapshot,
   parseTalkSecondsFromDisplay,
   writeRoutingTelemetryCache,
   type RoutingTelemetrySnapshot,
@@ -125,13 +124,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const { businessNumbers, activeLineE164 } = options
   const { activeOrganizationId } = useDashboardWorkspace()
 
-  const emptySnap = useMemo(() => emptyRoutingTelemetrySnapshot(), [])
-  // Session seeds disabled (React #185) — paint zeros until API / layout baseline lands.
-  const cachedMetrics = emptySnap
-
-  // Until we copy cache / API into React state, return the client seed (avoids 0→N flash).
-  const [hasLiveBaseline, setHasLiveBaseline] = useState(false)
-
+  // Session seeds disabled (React #185) — paint zeros until API baseline lands.
   const [dailyCalls, setDailyCalls] = useState(0)
   const [missedCalls, setMissedCalls] = useState(0)
   const [dailyTalkSeconds, setDailyTalkSeconds] = useState(0)
@@ -276,35 +269,12 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     }, 0)
   }, [activeCallSessions, liveTalkTick])
 
-  const liveDailyTalkSeconds =
-    (hasLiveBaseline ? dailyTalkSeconds : cachedMetrics.dailyTalkSeconds) + inProgressTalkSeconds
-  const liveWeeklyTalkSeconds =
-    (hasLiveBaseline ? weeklyTalkSeconds : cachedMetrics.weeklyTalkSeconds) + inProgressTalkSeconds
-  const liveMonthlyTalkSeconds =
-    (hasLiveBaseline ? monthlyTalkSeconds : cachedMetrics.monthlyTalkSeconds) +
-    inProgressTalkSeconds
+  const liveDailyTalkSeconds = dailyTalkSeconds + inProgressTalkSeconds
+  const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
+  const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
 
-  // Copy session cache into mutable state before paint (live events update these setters).
-  // Depend only on org id — never on cachedMetrics identity (JSON re-reads can churn and loop #185).
-  useLayoutEffect(() => {
-    applySnapshot(
-      {
-        setDailyCalls,
-        setMissedCalls,
-        setDailyTalkSeconds,
-        setWeeklyTalkSeconds,
-        setMonthlyTalkSeconds,
-        setBookingRatePercent,
-        setAvgDispatchSpeedMinutes,
-        setRescueRevenueCents,
-        setOwnerUserId,
-      },
-      cachedMetrics
-    )
-    setHasLiveBaseline(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once per org; refreshBaseline owns live updates
-  }, [activeOrganizationId])
-
+  // Fetch baseline on org change only. Do not apply an empty snapshot first —
+  // that was a multi-setState storm on every mount (React #185 flash→error).
   useEffect(() => {
     void refreshBaseline()
   }, [activeOrganizationId, refreshBaseline])
@@ -499,25 +469,17 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
 
   return useMemo(
     () => ({
-      dailyCalls: hasLiveBaseline ? dailyCalls : cachedMetrics.dailyCalls,
-      missedCalls: hasLiveBaseline ? missedCalls : cachedMetrics.missedCalls,
-      dailyTalkSeconds: hasLiveBaseline ? dailyTalkSeconds : cachedMetrics.dailyTalkSeconds,
-      weeklyTalkSeconds: hasLiveBaseline ? weeklyTalkSeconds : cachedMetrics.weeklyTalkSeconds,
-      monthlyTalkSeconds: hasLiveBaseline
-        ? monthlyTalkSeconds
-        : cachedMetrics.monthlyTalkSeconds,
+      dailyCalls,
+      missedCalls,
+      dailyTalkSeconds,
+      weeklyTalkSeconds,
+      monthlyTalkSeconds,
       liveDailyTalkSeconds,
       liveWeeklyTalkSeconds,
       liveMonthlyTalkSeconds,
-      bookingRatePercent: hasLiveBaseline
-        ? bookingRatePercent
-        : cachedMetrics.bookingRatePercent,
-      avgDispatchSpeedMinutes: hasLiveBaseline
-        ? avgDispatchSpeedMinutes
-        : cachedMetrics.avgDispatchSpeedMinutes,
-      rescueRevenueCents: hasLiveBaseline
-        ? rescueRevenueCents
-        : cachedMetrics.rescueRevenueCents,
+      bookingRatePercent,
+      avgDispatchSpeedMinutes,
+      rescueRevenueCents,
       liveLineCount,
       activeCallsOnSelectedLine,
       activeCallSessions,
@@ -525,8 +487,6 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       refreshBaseline,
     }),
     [
-      hasLiveBaseline,
-      cachedMetrics,
       dailyCalls,
       missedCalls,
       dailyTalkSeconds,

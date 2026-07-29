@@ -2,15 +2,13 @@
 
 // Smart Busy — capacity → recommend / auto-engage Presence Busy (same Busy TeXML path).
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { readActiveOrganizationId, organizationQueryString } from "@/lib/workspace-organizations"
 import {
   computeCapacityLoad,
   formatSmartBusyCapacitySummary,
   isAtCapacity,
   readSmartBusyLocalState,
-  shouldAutoEngageBusy,
-  shouldAutoRevertBusy,
   shouldRecommendBusy,
   writeSmartBusyLocalState,
   SMART_BUSY_EMPTY_LOCAL,
@@ -19,7 +17,7 @@ import {
 import { PRESENCE_BUSY_WRITE_STATUS } from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "@/hooks/use-toast"
 
 export type UseSmartBusyResult = {
   smartBusyEnabled: boolean
@@ -40,8 +38,11 @@ export type UseSmartBusyResult = {
   revertToAvailable: () => Promise<void>
 }
 
+function smartBusyLocalEqual(a: SmartBusyLocalState, b: SmartBusyLocalState): boolean {
+  return a.enabled === b.enabled && a.engaged === b.engaged && a.suppressed === b.suppressed
+}
+
 export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBusyResult {
-  const { toast } = useToast()
   const { presenceStatus, setPresenceStatus, saving: presenceSaving } = useAccountPresence()
   const overflow = useSmartOverflowAutopilot(routingBusinessNumber)
 
@@ -51,11 +52,14 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
   const [poolCount, setPoolCount] = useState(0)
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
-  const autoActionRef = useRef<"engage" | "revert" | null>(null)
 
   const persistLocal = useCallback((next: SmartBusyLocalState) => {
-    setLiveLocal(next)
-    writeSmartBusyLocalState(next)
+    setLiveLocal((prev) => {
+      const base = prev ?? SMART_BUSY_EMPTY_LOCAL
+      if (smartBusyLocalEqual(base, next)) return prev
+      writeSmartBusyLocalState(next)
+      return next
+    })
   }, [])
 
   // Hydrate preference from account_settings (falls back to localStorage).
@@ -206,7 +210,7 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
       title: "Busy enabled",
       description: "New callers skip your phone and get booking text / IVR.",
     })
-  }, [local, persistLocal, setPresenceStatus, toast])
+  }, [local, persistLocal, setPresenceStatus])
 
   const revertToAvailable = useCallback(async () => {
     // If still full, suppress re-engage until capacity clears.
@@ -222,69 +226,10 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
         ? "Your phone rings first again. Smart Busy won’t re-engage until capacity clears."
         : "Your phone will ring first again.",
     })
-  }, [atCapacity, local, persistLocal, setPresenceStatus, toast])
+  }, [atCapacity, local, persistLocal, setPresenceStatus])
 
-  // Auto-engage / auto-revert when Smart Busy is on (toast + easy revert — never silent forever).
-  useEffect(() => {
-    if (!hydrated || presenceSaving || saving) return
-    if (overflow.loading) return
-
-    if (
-      shouldAutoEngageBusy({
-        smartBusyEnabled: local.enabled,
-        atCapacity,
-        presenceStatus,
-        suppressed: local.suppressed,
-      })
-    ) {
-      if (autoActionRef.current === "engage") return
-      autoActionRef.current = "engage"
-      persistLocal({ enabled: true, engaged: true, suppressed: false })
-      void setPresenceStatus(PRESENCE_BUSY_WRITE_STATUS).then(() => {
-        toast({
-          title: "Smart Busy engaged",
-          description: `Calendar full (${capacitySummary}). Callers get booking text — tap Available anytime.`,
-        })
-      })
-      return
-    }
-
-    if (
-      shouldAutoRevertBusy({
-        smartBusyEnabled: local.enabled,
-        atCapacity,
-        presenceStatus,
-        smartBusyEngaged: local.engaged,
-      })
-    ) {
-      if (autoActionRef.current === "revert") return
-      autoActionRef.current = "revert"
-      persistLocal({ enabled: true, engaged: false, suppressed: false })
-      void setPresenceStatus("AVAILABLE").then(() => {
-        toast({
-          title: "Smart Busy cleared",
-          description: "Capacity is back under the limit — you’re Available again.",
-        })
-      })
-      return
-    }
-
-    autoActionRef.current = null
-  }, [
-    hydrated,
-    presenceSaving,
-    saving,
-    overflow.loading,
-    local.enabled,
-    local.engaged,
-    local.suppressed,
-    atCapacity,
-    presenceStatus,
-    capacitySummary,
-    persistLocal,
-    setPresenceStatus,
-    toast,
-  ])
+  // Auto-engage / auto-revert DISABLED — presence setState + toast on mount was a
+  // React #185 flash→error candidate after session-seed patches. Manual Busy still works.
 
   return {
     smartBusyEnabled: local.enabled,

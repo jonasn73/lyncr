@@ -145,10 +145,10 @@ type Toast = Omit<ToasterToast, 'id'>
 function toast({ ...props }: Toast) {
   const id = genId()
 
-  const update = (props: ToasterToast) =>
+  const update = (next: ToasterToast) =>
     dispatch({
       type: 'UPDATE_TOAST',
-      toast: { ...props, id },
+      toast: { ...next, id },
     })
   const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id })
 
@@ -159,8 +159,11 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       duration: TOAST_AUTO_DISMISS_MS,
+      // Avoid sync dismiss storms during mount/replace (can contribute to React #185).
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        if (!open) {
+          queueMicrotask(() => dismiss())
+        }
       },
     },
   })
@@ -182,6 +185,8 @@ function toast({ ...props }: Toast) {
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
+  // Subscribe once — `[state]` re-subscribed on every toast update and could
+  // contribute to React #185 (max update depth) when many dashboard trees call useToast().
   React.useEffect(() => {
     listeners.push(setState)
     return () => {
@@ -190,7 +195,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, [])
 
   return {
     ...state,

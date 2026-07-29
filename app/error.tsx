@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+
 // Next.js segment error boundary: shows when an error occurs in this segment or a child
 export default function Error({
   error,
@@ -8,6 +10,11 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Always log the full error so we can diagnose production crashes (e.g. React #185).
+  useEffect(() => {
+    console.error("[lyncr] app/error.tsx", error.message, error.digest, error.stack)
+  }, [error])
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
       <p className="text-center text-foreground">Something went wrong.</p>

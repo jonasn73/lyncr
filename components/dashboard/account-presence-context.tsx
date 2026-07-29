@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react"
 import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "@/hooks/use-toast"
 import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 type AccountPresenceContextValue = {
@@ -50,7 +50,6 @@ function writeCachedPresence(status: PresenceStatus) {
 }
 
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
-  const { toast } = useToast()
   // No session-seed snapshot (useClientSnapshot caused React #185). Fetch owns status.
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
@@ -63,7 +62,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   if (presenceReady) paintedFromCacheRef.current = true
 
   const setStatus = useCallback((next: PresenceStatus) => {
-    setLiveStatus(next)
+    setLiveStatus((prev) => (prev === next ? prev : next))
     writeCachedPresence(next)
   }, [])
 
@@ -142,7 +141,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         setSaving(false)
       }
     },
-    [presenceStatus, setStatus, toast]
+    [presenceStatus, setStatus]
   )
 
   const value = useMemo<AccountPresenceContextValue>(
