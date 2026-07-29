@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { memo, useLayoutEffect, useRef, useState, type MutableRefObject, type RefObject } from "react"
+import { memo } from "react"
 import { cn } from "@/lib/utils"
 import {
   DASHBOARD_PAGE_HREF,
@@ -13,62 +13,9 @@ import {
 } from "@/lib/dashboard-nav"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import { useLyncEngineOptional } from "@/lib/lync-engine-context"
-import { COMMAND_DOCK_ACCENT, SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
+import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 
 type DockOrientation = "vertical" | "horizontal"
-
-type DockIndicator = {
-  offset: number
-  size: number
-  visible: boolean
-}
-
-function useDockIndicator(
-  navRef: RefObject<HTMLElement | null>,
-  itemRefs: MutableRefObject<(HTMLAnchorElement | HTMLButtonElement | null)[]>,
-  activePage: PageId,
-  orientation: DockOrientation,
-  items: DashboardNavItem[]
-) {
-  const [indicator, setIndicator] = useState<DockIndicator>({ offset: 0, size: 44, visible: false })
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const idx = items.findIndex((item) => item.id === activePage)
-      const el = itemRefs.current[idx]
-      const nav = navRef.current
-      if (!el || !nav || idx < 0) {
-        // Bail out with same state reference — `{ ...prev }` always re-renders and can loop.
-        setIndicator((prev) => (prev.visible ? { ...prev, visible: false } : prev))
-        return
-      }
-      const navRect = nav.getBoundingClientRect()
-      // Hidden docks (display:none) report a zero box — don't fight layout with setState.
-      if (navRect.width < 1 && navRect.height < 1) {
-        setIndicator((prev) => (prev.visible ? { ...prev, visible: false } : prev))
-        return
-      }
-      const elRect = el.getBoundingClientRect()
-      const offset =
-        orientation === "vertical" ? elRect.top - navRect.top : elRect.left - navRect.left
-      const size = orientation === "vertical" ? elRect.height : elRect.width
-      setIndicator((prev) => {
-        if (
-          prev.visible &&
-          Math.abs(prev.offset - offset) < 0.5 &&
-          Math.abs(prev.size - size) < 0.5
-        ) {
-          return prev
-        }
-        return { offset, size, visible: true }
-      })
-    }
-
-    measure()
-  }, [activePage, items, orientation, itemRefs, navRef])
-
-  return indicator
-}
 
 const DockNavItems = memo(function DockNavItems({
   items,
@@ -76,8 +23,6 @@ const DockNavItems = memo(function DockNavItems({
   useLinks,
   onNavigate,
   orientation,
-  navRef,
-  itemRefs,
   hrefOverrides,
   badgeCounts,
 }: {
@@ -86,37 +31,16 @@ const DockNavItems = memo(function DockNavItems({
   useLinks: boolean
   onNavigate?: (page: PageId) => void
   orientation: DockOrientation
-  navRef: RefObject<HTMLElement | null>
-  itemRefs: MutableRefObject<(HTMLAnchorElement | HTMLButtonElement | null)[]>
   /** When set (mobile dock), overrides default tab hrefs. */
   hrefOverrides?: Partial<Record<PageId, string>>
   /** Optional unread / alert dots per tab (e.g. Activities missed). */
   badgeCounts?: Partial<Record<PageId, number>>
 }) {
   const isVertical = orientation === "vertical"
-  const indicator = useDockIndicator(navRef, itemRefs, activePage, orientation, items)
 
   return (
     <>
-      <span
-        aria-hidden
-        className={cn(
-          // left-0/top-0 required: without them, abspos static position in a flex
-          // container is "sole item" (centered with justify-around) and the bar
-          // sits ~2 tabs right of the active tab on mobile.
-          "pointer-events-none absolute left-0 top-0 rounded-full transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          COMMAND_DOCK_ACCENT,
-          isVertical ? "w-0.5" : "h-0.5",
-          indicator.visible ? "opacity-100" : "opacity-0"
-        )}
-        style={
-          isVertical
-            ? { transform: `translateY(${indicator.offset}px)`, height: indicator.size }
-            : { transform: `translateX(${indicator.offset}px)`, width: indicator.size }
-        }
-      />
-
-      {items.map((item, index) => {
+      {items.map((item) => {
         const Icon = item.icon
         const isActive = activePage === item.id
         const badge = badgeCounts?.[item.id] ?? 0
@@ -192,9 +116,6 @@ const DockNavItems = memo(function DockNavItems({
               href={href}
               prefetch
               scroll={false}
-              ref={(node) => {
-                itemRefs.current[index] = node
-              }}
               className={className}
               aria-current={isActive ? "page" : undefined}
               title={item.label}
@@ -208,9 +129,6 @@ const DockNavItems = memo(function DockNavItems({
           <button
             key={item.id}
             type="button"
-            ref={(node) => {
-              itemRefs.current[index] = node
-            }}
             onClick={() => onNavigate?.(item.id)}
             className={className}
             aria-current={isActive ? "page" : undefined}
@@ -233,11 +151,6 @@ const CommandDockInner = memo(function CommandDockInner({
   useLinks: boolean
   onNavigate?: (page: PageId) => void
 }) {
-  const desktopNavRef = useRef<HTMLElement | null>(null)
-  // Measure against the relative row (not the outer safe-area nav).
-  const mobileNavRef = useRef<HTMLDivElement | null>(null)
-  const desktopItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
-  const mobileItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
   const engine = useLyncEngineOptional()
   const badgeCounts: Partial<Record<PageId, number>> | undefined =
     engine && engine.activityBadgeCount > 0
@@ -254,7 +167,6 @@ const CommandDockInner = memo(function CommandDockInner({
         aria-label="Command dock"
       >
         <nav
-          ref={desktopNavRef}
           className="relative flex flex-1 flex-col items-center gap-1.5 px-2 py-4"
           role="navigation"
           aria-label="Main navigation"
@@ -265,8 +177,6 @@ const CommandDockInner = memo(function CommandDockInner({
             useLinks={useLinks}
             onNavigate={onNavigate}
             orientation="vertical"
-            navRef={desktopNavRef}
-            itemRefs={desktopItemRefs}
             badgeCounts={badgeCounts}
           />
         </nav>
@@ -280,22 +190,13 @@ const CommandDockInner = memo(function CommandDockInner({
         role="navigation"
         aria-label="Main navigation"
       >
-        {/*
-          Measure/position the underline against this relative row (not the outer
-          nav), so offset matches the abspos containing block.
-        */}
-        <div
-          ref={mobileNavRef}
-          className="relative flex h-16 w-full items-center justify-around"
-        >
+        <div className="relative flex h-16 w-full items-center justify-around">
           <DockNavItems
             items={mobileBottomNavItems}
             activePage={activePage}
             useLinks={useLinks}
             onNavigate={onNavigate}
             orientation="horizontal"
-            navRef={mobileNavRef}
-            itemRefs={mobileItemRefs}
             hrefOverrides={DASHBOARD_MOBILE_PAGE_HREF}
             badgeCounts={badgeCounts}
           />

@@ -147,9 +147,15 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
   useEffect(() => {
     if (!hydrated) return
     if (!atCapacity && local.suppressed) {
-      persistLocal({ ...local, suppressed: false })
+      persistLocal({
+        enabled: local.enabled,
+        engaged: local.engaged,
+        suppressed: false,
+      })
     }
-  }, [hydrated, atCapacity, local, persistLocal])
+    // Intentionally omit `local` object identity — only these fields gate the write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, atCapacity, local.suppressed, local.enabled, local.engaged, persistLocal])
 
   const setSmartBusyEnabled = useCallback(
     async (next: boolean) => {

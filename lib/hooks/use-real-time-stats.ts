@@ -294,6 +294,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     inProgressTalkSeconds
 
   // Copy session cache into mutable state before paint (live events update these setters).
+  // Depend only on org id — never on cachedMetrics identity (JSON re-reads can churn and loop #185).
   useLayoutEffect(() => {
     applySnapshot(
       {
@@ -310,7 +311,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       cachedMetrics
     )
     setHasLiveBaseline(true)
-  }, [activeOrganizationId, cachedMetrics])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once per org; refreshBaseline owns live updates
+  }, [activeOrganizationId])
 
   useEffect(() => {
     void refreshBaseline()

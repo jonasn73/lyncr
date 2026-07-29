@@ -238,9 +238,11 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
 
-  // Apply session seed once client snapshot is available (SSR → client).
+  // Apply session seed once (SSR → client). Ref-gated so cache identity churn cannot loop #185.
+  const appliedSessionSeedRef = useRef(false)
   useEffect(() => {
-    if (!sessionSeed) return
+    if (!sessionSeed || appliedSessionSeedRef.current) return
+    appliedSessionSeedRef.current = true
     operationsCache = sessionSeed
     setCalls(sessionSeed.calls.map(normalizeUiCallRecord))
     setQuality(sessionSeed.quality)
