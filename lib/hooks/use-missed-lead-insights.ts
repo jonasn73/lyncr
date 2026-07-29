@@ -14,8 +14,7 @@ import {
   type MissedLeadInsights,
 } from "@/lib/missed-lead-aggregation"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 const EMPTY: MissedLeadInsights = {
   totalMissedToday: 0,
@@ -53,17 +52,11 @@ function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null
 
 const EMPTY_ROWS: MissedLeadCallRow[] = []
 
-function readCachedMissedLeads(): MissedLeadCallRow[] {
-  const cached = readPersistedCache<MissedLeadsCache>(MISSED_LEADS_CACHE_KEY)
-  if (!cached || !Array.isArray(cached.rows)) return EMPTY_ROWS
-  return cached.rows.length > 0 ? cached.rows : EMPTY_ROWS
-}
-
 export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]) {
-  const cachedRows = useClientSnapshot(readCachedMissedLeads, () => EMPTY_ROWS, "missed-leads")
+  const cachedRows = EMPTY_ROWS
   const [liveRows, setLiveRows] = useState<MissedLeadCallRow[] | null>(null)
   const rows = liveRows ?? cachedRows
-  const [loading, setLoading] = useState(() => cachedRows.length === 0)
+  const [loading, setLoading] = useState(true)
   const [interceptTick, setInterceptTick] = useState(0)
 
   useEffect(() => {

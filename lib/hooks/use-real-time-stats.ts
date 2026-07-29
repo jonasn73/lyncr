@@ -9,7 +9,6 @@ import {
 import {
   emptyRoutingTelemetrySnapshot,
   parseTalkSecondsFromDisplay,
-  readRoutingTelemetryCache,
   writeRoutingTelemetryCache,
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
@@ -35,7 +34,6 @@ import {
   telemetryMonthPeriodKey,
   telemetryWeekPeriodKey,
 } from "@/lib/daily-call-telemetry"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 
 /** Tracks one ringing/connected leg until call-completed removes it. */
 export type ActiveCallSession = {
@@ -128,13 +126,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const { activeOrganizationId } = useDashboardWorkspace()
 
   const emptySnap = useMemo(() => emptyRoutingTelemetrySnapshot(), [])
-  // revisionKey re-reads the session seed when the workspace org changes.
-  const telemetryRevision = activeOrganizationId ?? "default"
-  const cachedMetrics = useClientSnapshot(
-    () => readRoutingTelemetryCache(activeOrganizationId) ?? emptySnap,
-    () => emptySnap,
-    telemetryRevision
-  )
+  // Session seeds disabled (React #185) — paint zeros until API / layout baseline lands.
+  const cachedMetrics = emptySnap
 
   // Until we copy cache / API into React state, return the client seed (avoids 0→N flash).
   const [hasLiveBaseline, setHasLiveBaseline] = useState(false)

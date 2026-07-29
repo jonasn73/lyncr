@@ -8,9 +8,8 @@ import {
   type LatestCustomerAction,
 } from "@/lib/latest-customer-actions"
 import { useDocumentVisible } from "@/lib/hooks/use-poll-budget"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Slow backup poll while the browser tab is hidden (Lines stays mounted). */
 const LATEST_POLL_VISIBLE_MS = 30_000
@@ -28,12 +27,6 @@ function sanitizeItems(items: unknown): LatestCustomerAction[] {
   if (!Array.isArray(items)) return []
   // Drop legacy outbound “sent” cards from older session cache.
   return items.filter(isHotLatestAction)
-}
-
-function readLatestCache(organizationId: string | null | undefined): LatestCustomerAction[] | null {
-  const cached = readPersistedCache<LatestCache>(cacheKey(organizationId))
-  if (!cached || !Array.isArray(cached.items)) return null
-  return sanitizeItems(cached.items)
 }
 
 function writeLatestCache(
@@ -84,17 +77,13 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
 
 const EMPTY_LATEST: LatestCustomerAction[] = []
 
-/** Latest customer actions with instant paint from session cache. */
+/** Latest customer actions — fetch on mount (session seeds disabled — React #185). */
 export function useOwnerLatest(activeOrganizationId: string | null | undefined) {
-  const cachedItems = useClientSnapshot(
-    () => readLatestCache(activeOrganizationId) ?? EMPTY_LATEST,
-    () => EMPTY_LATEST,
-    activeOrganizationId ?? "default"
-  )
+  const cachedItems = EMPTY_LATEST
   const [liveItems, setLiveItems] = useState<LatestCustomerAction[] | null>(null)
   const items = liveItems ?? cachedItems
   // True only when we have nothing to show yet (cache miss).
-  const [loading, setLoading] = useState(() => cachedItems.length === 0)
+  const [loading, setLoading] = useState(true)
   // Slow the Latest poll when the browser tab is backgrounded (don't stop — Lines stays hot).
   const documentVisible = useDocumentVisible()
 

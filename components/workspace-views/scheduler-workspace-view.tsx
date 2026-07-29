@@ -37,7 +37,6 @@ import {
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
@@ -163,11 +162,7 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
-  const bootstrapSeed = useClientSnapshot(
-    () => readSchedulerBootstrapCache(monthKey, orgId),
-    () => null,
-    `${orgId ?? "default"}:${monthKey}`
-  )
+  const bootstrapSeed = null as ReturnType<typeof readSchedulerBootstrapCache>
   const bootstrapCacheIdentity = `${orgId ?? "default"}:${monthKey}`
   const appliedBootstrapSeedRef = useRef<string | null>(null)
 

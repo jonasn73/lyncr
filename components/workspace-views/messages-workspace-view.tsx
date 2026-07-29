@@ -15,7 +15,6 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
@@ -121,15 +120,11 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
       ? activeOrganizationId
       : null
 
-  const cachedMessages = useClientSnapshot(
-    () => readMessagesCache(orgId),
-    () => EMPTY_MESSAGES,
-    orgId ?? "default"
-  )
+  const cachedMessages = EMPTY_MESSAGES
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   const messages = liveMessages ?? cachedMessages
   // Spinner only on cold cache — seeded inbox paints immediately on revisit.
-  const [loading, setLoading] = useState(() => cachedMessages.length === 0)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const [draft, setDraft] = useState("")

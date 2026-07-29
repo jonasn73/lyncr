@@ -19,7 +19,6 @@ import {
 import { PRESENCE_BUSY_WRITE_STATUS } from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { useToast } from "@/hooks/use-toast"
 
 export type UseSmartBusyResult = {
@@ -46,14 +45,9 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
   const { presenceStatus, setPresenceStatus, saving: presenceSaving } = useAccountPresence()
   const overflow = useSmartOverflowAutopilot(routingBusinessNumber)
 
-  // localStorage seed on first client snapshot (useState initializer is stuck on SSR false).
-  const cachedLocal = useClientSnapshot(
-    readSmartBusyLocalState,
-    () => SMART_BUSY_EMPTY_LOCAL,
-    "smart-busy-local"
-  )
+  // localStorage preference loads via API hydrate below (no useClientSnapshot — React #185).
   const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState | null>(null)
-  const local = liveLocal ?? cachedLocal
+  const local = liveLocal ?? SMART_BUSY_EMPTY_LOCAL
   const [poolCount, setPoolCount] = useState(0)
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -304,7 +298,7 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
     capacityThreshold,
     capacitySummary,
     // Cached localStorage means the toggle can paint without waiting on the API.
-    loading: (!hydrated && liveLocal == null && !cachedLocal.enabled) || overflow.loading,
+    loading: !hydrated || overflow.loading,
     saving: saving || presenceSaving,
     enableBusy,
     revertToAvailable,

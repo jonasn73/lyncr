@@ -20,8 +20,8 @@ import {
   SETTINGS_CHILD_OPEN_EVENTS,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useToast } from "@/hooks/use-toast"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
 const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[4.75rem] flex-col items-end leading-none"
@@ -29,20 +29,6 @@ const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[4.75rem] flex-col items-end leadin
 const COLLECTED_SUMMARY_CACHE_KEY = persistedCacheKey("collected-summary", "header")
 
 type CollectedHeaderCache = { todayCents: number; monthCents: number }
-
-function readCachedCollectedSummary(): CollectedHeaderCache | null {
-  const cached = readPersistedCache<CollectedHeaderCache>(COLLECTED_SUMMARY_CACHE_KEY)
-  if (
-    cached &&
-    typeof cached.todayCents === "number" &&
-    typeof cached.monthCents === "number" &&
-    Number.isFinite(cached.todayCents) &&
-    Number.isFinite(cached.monthCents)
-  ) {
-    return cached
-  }
-  return null
-}
 
 // Heavy Stripe bundles — load only when Collect / Get paid actually open.
 const OwnerCollectPaymentSheet = dynamic(
@@ -107,16 +93,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Live totals from API; session cache paints immediately via useClientSnapshot below.
+  // Live totals from API only (session seeds disabled — React #185).
   const [liveTodayCents, setLiveTodayCents] = useState<number | null>(null)
   const [liveMonthCents, setLiveMonthCents] = useState<number | null>(null)
-  const cachedSummary = useClientSnapshot(
-    readCachedCollectedSummary,
-    () => null,
-    "collected-summary-header"
-  )
-  const todayCents = liveTodayCents ?? cachedSummary?.todayCents ?? null
-  const monthCents = liveMonthCents ?? cachedSummary?.monthCents ?? null
+  const todayCents = liveTodayCents
+  const monthCents = liveMonthCents
   // Prefer last-known cached total over an empty skeleton on refresh.
   const amountReady = todayCents != null || monthCents != null
   const isMobile = useIsMobile()

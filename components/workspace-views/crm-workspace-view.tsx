@@ -37,7 +37,6 @@ import type {
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
@@ -208,14 +207,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
   const [filter, setFilter] = useState<CrmFilter>(initialFilter)
-  const cachedRows = useClientSnapshot(
-    () => readCrmListCache(filter, debounced),
-    () => EMPTY_CRM_ROWS,
-    `${filter}:${debounced}`
-  )
+  const cachedRows = EMPTY_CRM_ROWS
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
   const rows = liveRows ?? cachedRows
-  const [loading, setLoading] = useState(() => cachedRows.length === 0)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(customerParam)
   const [profileLoading, setProfileLoading] = useState(false)

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -87,28 +86,6 @@ function cacheIsFresh(c: OperationsCache) {
 const SESSION_STORAGE_KEY = "zing_operations_v2"
 /** Keep JSON small for sessionStorage quota (~5MB). */
 const SESSION_MAX_CALLS = 80
-/** Drop storage older than this so we do not show very stale KPIs forever without refetch. */
-const SESSION_MAX_AGE_MS = 24 * 60 * 60_000
-
-function readSessionOperationsCache(): OperationsCache | null {
-  if (typeof window === "undefined") return null
-  try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
-    if (!raw) return null
-    const p = JSON.parse(raw) as OperationsCache
-    if (!p || typeof p.fetchedAt !== "number" || !Array.isArray(p.calls)) return null
-    if (Date.now() - p.fetchedAt > SESSION_MAX_AGE_MS) {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY)
-      return null
-    }
-    return {
-      ...p,
-      calls: p.calls.map((c) => normalizeUiCallRecord(c as UiCallRecord)),
-    }
-  } catch {
-    return null
-  }
-}
 
 function writeSessionOperationsCache(c: OperationsCache) {
   if (typeof window === "undefined") return
@@ -222,13 +199,8 @@ export type UseOperationsDataOptions = {
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
   const enabled = options?.enabled !== false
-  // Session seed paints in the same hydration commit (no layout-effect flash).
-  const sessionSeed = useClientSnapshot(
-    () => operationsCache ?? readSessionOperationsCache(),
-    () => null,
-    "operations-cache"
-  )
-  const seed = sessionSeed ?? operationsCache
+  // Session seeds disabled (React #185) — in-memory operationsCache still helps within the tab.
+  const seed = operationsCache
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
@@ -238,18 +210,6 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
-
-  // Apply session seed once (SSR → client). Ref-gated so cache identity churn cannot loop #185.
-  const appliedSessionSeedRef = useRef(false)
-  useEffect(() => {
-    if (!sessionSeed || appliedSessionSeedRef.current) return
-    appliedSessionSeedRef.current = true
-    operationsCache = sessionSeed
-    setCalls(sessionSeed.calls.map(normalizeUiCallRecord))
-    setQuality(sessionSeed.quality)
-    setInsights(sessionSeed.insights)
-    setLoading(false)
-  }, [sessionSeed])
 
   useEffect(() => {
     if (!enabled) return

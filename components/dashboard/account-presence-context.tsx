@@ -14,8 +14,7 @@ import {
 } from "react"
 import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 import { useToast } from "@/hooks/use-toast"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 type AccountPresenceContextValue = {
   presenceStatus: PresenceStatus
@@ -46,26 +45,19 @@ function parsePresenceStatus(raw: string | undefined | null): PresenceStatus {
   return "AVAILABLE"
 }
 
-function readCachedPresence(): PresenceStatus | null {
-  const cached = readPersistedCache<PresenceCache>(PRESENCE_CACHE_KEY)
-  if (!cached?.status) return null
-  return parsePresenceStatus(cached.status)
-}
-
 function writeCachedPresence(status: PresenceStatus) {
   writePersistedCache(PRESENCE_CACHE_KEY, { status } satisfies PresenceCache)
 }
 
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast()
-  // Client snapshot of last-known status (null on SSR / cache miss).
-  const cachedSeed = useClientSnapshot(readCachedPresence, () => null, "account-presence")
+  // No session-seed snapshot (useClientSnapshot caused React #185). Fetch owns status.
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
 
-  const presenceStatus = liveStatus ?? cachedSeed ?? "AVAILABLE"
-  const presenceReady = liveStatus != null || cachedSeed != null
+  const presenceStatus = liveStatus ?? "AVAILABLE"
+  const presenceReady = liveStatus != null
 
   const paintedFromCacheRef = useRef(false)
   if (presenceReady) paintedFromCacheRef.current = true

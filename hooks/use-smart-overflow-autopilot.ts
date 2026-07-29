@@ -18,8 +18,7 @@ import {
 } from "@/lib/smart-overflow-autopilot"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import type { SchedulerEvent } from "@/lib/types"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Lightweight snapshot so the IVR card doesn’t insert late on hard refresh. */
 type SmartOverflowCache = {
@@ -32,12 +31,6 @@ type SmartOverflowCache = {
 
 function overflowCacheKey(): string {
   return persistedCacheKey("smart-overflow", readActiveOrganizationId() || "default")
-}
-
-function readOverflowCache(): SmartOverflowCache | null {
-  const cached = readPersistedCache<SmartOverflowCache>(overflowCacheKey())
-  if (!cached || typeof cached.capacityThreshold !== "number") return null
-  return cached
 }
 
 function writeOverflowCache(snap: SmartOverflowCache) {
@@ -91,14 +84,7 @@ export type UseSmartOverflowAutopilotResult = {
 export function useSmartOverflowAutopilot(
   routingBusinessNumber?: string | null
 ): UseSmartOverflowAutopilotResult {
-  // Org id is part of the cache key — re-read seed when the workspace changes.
-  const overflowRevision =
-    typeof window !== "undefined" ? readActiveOrganizationId() || "default" : "default"
-  const overflowSeed = useClientSnapshot(readOverflowCache, () => null, overflowRevision)
-  const seededThreshold = overflowSeed
-    ? Math.max(1, Math.min(40, Math.floor(overflowSeed.capacityThreshold) || 5))
-    : null
-
+  // Session seeds disabled (React #185) — fetch owns Smart Overflow state.
   const [liveConfig, setConfigState] = useState<SmartOverflowConfig | null>(null)
   // Stable fallback object — a new `{}` every render made `now` churn and could loop effects.
   const config = useMemo<SmartOverflowConfig>(
@@ -107,27 +93,21 @@ export function useSmartOverflowAutopilot(
         ...DEFAULT_SMART_OVERFLOW_CONFIG,
         mode: "auto_capacity",
         manualEnabled: false,
-        capacityThreshold: seededThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
+        capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
       },
-    [liveConfig, seededThreshold]
+    [liveConfig]
   )
 
   const [events, setEvents] = useState<SchedulerEvent[]>([])
   const [eventsReady, setEventsReady] = useState(false)
-  const [loading, setLoading] = useState(() => overflowSeed == null)
-  const [hydrated, setHydrated] = useState(() => overflowSeed != null)
+  const [loading, setLoading] = useState(true)
+  const [hydrated, setHydrated] = useState(false)
   const [capacitySaving, setCapacitySaving] = useState(false)
   const [retellOfferText, setRetellOfferText] = useState<string | null>(null)
-  const [retellConnected, setRetellConnected] = useState(
-    () => overflowSeed?.retellConnected === true
-  )
-  // Seeded from sessionStorage so overflow card can paint before calendar fetch.
-  const seedConfirmedJobs =
-    overflowSeed && typeof overflowSeed.confirmedJobsToday === "number"
-      ? overflowSeed.confirmedJobsToday
-      : null
-  const seedNextSlotText = overflowSeed?.nextAvailableSlotText ?? null
-  const hasOverflowCacheRef = useRef(overflowSeed != null)
+  const [retellConnected, setRetellConnected] = useState(false)
+  const seedConfirmedJobs: number | null = null
+  const seedNextSlotText: string | null = null
+  const hasOverflowCacheRef = useRef(false)
   const lastSyncedIvrEnabled = useRef<boolean | null>(null)
 
   // Load capacity threshold from account_settings (source of truth).

@@ -8,8 +8,7 @@ import { formatUsdFromCents } from "@/lib/billing-pricing"
 import { confirmCreditPackCheckout, startCreditPackCheckout, startStripeSubscriptionCheckout } from "@/lib/onboarding-profile-client"
 import { LOW_CARRIER_CREDIT_THRESHOLD_USD } from "@/lib/carrier-credit-threshold"
 import { CHECKOUT_TIER_OPTIONS, type CheckoutSubscriptionTier } from "@/lib/subscription-checkout"
-import { useClientSnapshot } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useToast } from "@/hooks/use-toast"
 import {
   WorkspacePage,
@@ -52,15 +51,6 @@ const BILLING_CACHE_KEY = persistedCacheKey("billing-summary", "default")
 const CALLS_LEDGER_CACHE_KEY = persistedCacheKey("pay-talk-ledger", "default")
 const EMPTY_CALLS: TalkTimeCall[] = []
 
-function readBillingCache(): BillingSummary | null {
-  return readPersistedCache<BillingSummary>(BILLING_CACHE_KEY) ?? null
-}
-
-function readCallsLedgerCache(): TalkTimeCall[] {
-  const cached = readPersistedCache<{ calls: TalkTimeCall[] }>(CALLS_LEDGER_CACHE_KEY)
-  return Array.isArray(cached?.calls) ? cached.calls : EMPTY_CALLS
-}
-
 function formatLedgerDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return "—"
@@ -77,8 +67,8 @@ function minutesFromSeconds(seconds: number): number {
 export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
-  const billingSeed = useClientSnapshot(readBillingCache, () => null, "billing-summary")
-  const callsSeed = useClientSnapshot(readCallsLedgerCache, () => EMPTY_CALLS, "calls-ledger")
+  const billingSeed: BillingSummary | null = null
+  const callsSeed = EMPTY_CALLS
   const [liveBilling, setLiveBilling] = useState<BillingSummary | null>(null)
   const billing = liveBilling ?? billingSeed
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -86,7 +76,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier | null>(null)
   const [liveCalls, setLiveCalls] = useState<TalkTimeCall[] | null>(null)
   const calls = liveCalls ?? callsSeed
-  const [callsLoaded, setCallsLoaded] = useState(() => callsSeed.length > 0)
+  const [callsLoaded, setCallsLoaded] = useState(false)
 
   const refreshBilling = useCallback(async () => {
     setLoadError(null)
