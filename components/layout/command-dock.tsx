@@ -91,9 +91,12 @@ const DockNavItems = memo(function DockNavItems({
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute rounded-full transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          // left-0/top-0 required: without them, abspos static position in a flex
+          // container is "sole item" (centered with justify-around) and the bar
+          // sits ~2 tabs right of the active tab on mobile.
+          "pointer-events-none absolute left-0 top-0 rounded-full transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           COMMAND_DOCK_ACCENT,
-          isVertical ? "left-0 w-0.5" : "top-0 h-0.5",
+          isVertical ? "w-0.5" : "h-0.5",
           indicator.visible ? "opacity-100" : "opacity-0"
         )}
         style={
@@ -220,8 +223,8 @@ const CommandDockInner = memo(function CommandDockInner({
   useLinks: boolean
   onNavigate?: (page: PageId) => void
 }) {
-  const desktopNavRef = useRef<HTMLElement>(null)
-  const mobileNavRef = useRef<HTMLElement>(null)
+  const desktopNavRef = useRef<HTMLElement | null>(null)
+  const mobileNavRef = useRef<HTMLElement | null>(null)
   const desktopItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
   const mobileItemRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([])
   const engine = useLyncEngineOptional()
@@ -259,7 +262,6 @@ const CommandDockInner = memo(function CommandDockInner({
       </aside>
 
       <nav
-        ref={mobileNavRef}
         className={cn(
           "fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t border-zinc-800 bg-zinc-950 md:hidden",
           "pb-[env(safe-area-inset-bottom,0px)]"
@@ -267,7 +269,16 @@ const CommandDockInner = memo(function CommandDockInner({
         role="navigation"
         aria-label="Main navigation"
       >
-        <div className="relative flex h-16 w-full items-center justify-around">
+        {/*
+          Measure/position the underline against this relative row (not the outer
+          nav), so offset matches the abspos containing block.
+        */}
+        <div
+          ref={(node) => {
+            mobileNavRef.current = node
+          }}
+          className="relative flex h-16 w-full items-center justify-around"
+        >
           <DockNavItems
             items={mobileBottomNavItems}
             activePage={activePage}
