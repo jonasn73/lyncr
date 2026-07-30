@@ -7806,8 +7806,21 @@ export async function updateNotificationPreferencesDb(params: {
     return profile
   } catch (e) {
     if (isMissingSmsNotificationColumnError(e)) {
+      const msg = pgErrorMessage(e)
+      // Point at the specific missing column so Neon migrate steps are clearer.
+      if (msg.includes("sms_latest_enabled")) {
+        throw new Error(
+          "SMS Latest reminders need migration 122-sms-latest-attention.sql in Neon."
+        )
+      }
+      if (msg.includes("dispatch_sms_phone")) {
+        throw new Error("SMS notification settings need migration 045-dispatch-sms-phone.sql in Neon.")
+      }
+      if (msg.includes("sms_leads_enabled") || msg.includes("notification_phone")) {
+        throw new Error("SMS notification settings need migration 044-sms-lead-notifications.sql in Neon.")
+      }
       throw new Error(
-        "SMS notification settings require migrations 044, 045, and 122-sms-latest-attention.sql in Neon."
+        "SMS notification settings need Neon migrations 044, 045, and/or 122-sms-latest-attention.sql."
       )
     }
     throw e

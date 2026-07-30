@@ -479,7 +479,7 @@ export function OrganizationSwitcher({
               id="workspace-rename"
               value={renameDraft}
               onChange={(e) => setRenameDraft(e.target.value)}
-              autoFocus
+              // Avoid autoFocus select-all on mobile; dialog open focus is enough without highlighting.
               onKeyDown={(e) => {
                 if (e.key === "Enter") void submitRename()
               }}

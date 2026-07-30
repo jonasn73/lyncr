@@ -140,7 +140,11 @@ export function BusinessProfileModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(92vh,900px)] overflow-hidden border-border/80 bg-card/95 sm:max-w-lg">
+      <DialogContent
+        className="max-h-[min(92vh,900px)] overflow-hidden border-border/80 bg-card/95 sm:max-w-lg"
+        // Don't autofocus the first field — on mobile that selects all business-name text.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Business profile</DialogTitle>
           <DialogDescription>
@@ -164,6 +168,18 @@ export function BusinessProfileModal({
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 maxLength={120}
+                // Collapse select-all if the browser still highlights everything on focus/tap.
+                onFocus={(e) => {
+                  const el = e.currentTarget
+                  const len = el.value.length
+                  // Only undo full-selection (autofocus/select-all), not a real caret tap.
+                  requestAnimationFrame(() => {
+                    if (document.activeElement !== el || len === 0) return
+                    if (el.selectionStart === 0 && el.selectionEnd === len) {
+                      el.setSelectionRange(len, len)
+                    }
+                  })
+                }}
               />
             </label>
             <button
