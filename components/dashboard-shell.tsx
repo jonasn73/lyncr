@@ -263,6 +263,7 @@ export function DashboardShell({
               </DashboardRealtimeStatsHost>
               </LyncEngineProvider>
               ) : (
+              <RealTimeStatsStubProvider>
               <InboundCallPanelProvider>
               <DashboardBootstrapShellGate initialBootstrap={initialBootstrap}>
                 <DashboardBusinessNumbersSync />
@@ -287,6 +288,7 @@ export function DashboardShell({
                 </DashboardNumbersModalProvider>
               </DashboardBootstrapShellGate>
               </InboundCallPanelProvider>
+              </RealTimeStatsStubProvider>
               )}
             </DashboardWorkspaceProvider>
           </SwrProvider>
