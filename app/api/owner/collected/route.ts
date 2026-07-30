@@ -1,4 +1,4 @@
-// GET /api/owner/collected — today's + MTD settled payment totals for the header.
+// GET /api/owner/collected — today / week / month / all-time settled payment totals.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"

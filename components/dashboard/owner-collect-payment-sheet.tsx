@@ -263,8 +263,9 @@ export function OwnerCollectPaymentSheet({
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
-  /** Today + month totals so owners see yesterday did not “disappear”. */
+  /** Collected period totals (sales) — separate from Stripe “in account” balance. */
   const [collectedTodayCents, setCollectedTodayCents] = useState(0)
+  const [collectedWeekCents, setCollectedWeekCents] = useState(0)
   const [collectedMonthCents, setCollectedMonthCents] = useState(0)
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
@@ -358,7 +359,7 @@ export function OwnerCollectPaymentSheet({
     void loadPaymentHistory()
   }, [open, mode, listTab, loadPaymentHistory])
 
-  // Refresh today / month totals whenever Collect opens on the list.
+  // Refresh collected (sales) totals whenever Collect opens on the list.
   useEffect(() => {
     if (!open || mode !== "list") return
     let cancelled = false
@@ -369,11 +370,14 @@ export function OwnerCollectPaymentSheet({
           cache: "no-store",
         })
         const json = (await res.json()) as {
-          data?: { todayCents?: number; monthCents?: number }
+          data?: { todayCents?: number; weekCents?: number; monthCents?: number }
         }
         if (cancelled || !res.ok) return
         if (typeof json.data?.todayCents === "number") {
           setCollectedTodayCents(json.data.todayCents)
+        }
+        if (typeof json.data?.weekCents === "number") {
+          setCollectedWeekCents(json.data.weekCents)
         }
         if (typeof json.data?.monthCents === "number") {
           setCollectedMonthCents(json.data.monthCents)
@@ -1155,22 +1159,29 @@ export function OwnerCollectPaymentSheet({
             </div>
             {mode === "list" ? (
               <>
-                <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                      Today
-                    </p>
-                    <p className="text-sm font-bold tabular-nums text-emerald-100">
-                      {formatCollectedDollars(collectedTodayCents)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                      This month
-                    </p>
-                    <p className="text-sm font-bold tabular-nums text-emerald-100">
-                      {formatCollectedDollars(collectedMonthCents)}
-                    </p>
+                <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                    Collected (sales — not bank balance)
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-[10px] font-medium text-emerald-200/55">Today</p>
+                      <p className="text-sm font-bold tabular-nums text-emerald-100">
+                        {formatCollectedDollars(collectedTodayCents)}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] font-medium text-emerald-200/55">This week</p>
+                      <p className="text-sm font-bold tabular-nums text-emerald-100">
+                        {formatCollectedDollars(collectedWeekCents)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-medium text-emerald-200/55">This month</p>
+                      <p className="text-sm font-bold tabular-nums text-emerald-100">
+                        {formatCollectedDollars(collectedMonthCents)}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
