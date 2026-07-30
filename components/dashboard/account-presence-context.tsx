@@ -144,6 +144,9 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     [presenceStatus, setStatus]
   )
 
+  // Stable wrapper so context consumers do not see a new `refresh` identity every paint.
+  const refreshLoud = useCallback(() => refresh({ silent: false }), [refresh])
+
   const value = useMemo<AccountPresenceContextValue>(
     () => ({
       presenceStatus,
@@ -153,9 +156,9 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       saving,
       presenceBypass: presenceReady && isBusyPresenceStatus(presenceStatus),
       setPresenceStatus,
-      refresh: () => refresh({ silent: false }),
+      refresh: refreshLoud,
     }),
-    [presenceStatus, presenceReady, fetching, saving, setPresenceStatus, refresh]
+    [presenceStatus, presenceReady, fetching, saving, setPresenceStatus, refreshLoud]
   )
 
   return (

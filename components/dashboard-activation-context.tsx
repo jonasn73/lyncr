@@ -266,9 +266,11 @@ export function DashboardActivationProvider({
   const showProvisioningBanner = Boolean(reservedDisplay) && subscriptionActive && !carrierLive
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
+  const hasActivationSeed = Boolean(activationSeed)
+
   useEffect(() => {
-    void refreshProfile({ silent: Boolean(activationSeed) })
-  }, [refreshProfile, activationSeed])
+    void refreshProfile({ silent: hasActivationSeed })
+  }, [refreshProfile, hasActivationSeed])
 
   useEffect(() => {
     const onActivated = () => void refreshProfile()

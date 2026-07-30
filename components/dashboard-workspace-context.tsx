@@ -200,6 +200,12 @@ export function DashboardWorkspaceProvider({
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
   }, [workspaceSeed])
 
+  // Bail out when the E.164 string is unchanged — prevents flip-flop loops across formats
+  // that still match via businessNumbersMatch but differ as raw strings.
+  const setActiveLineStable = useCallback((line: string | null) => {
+    setActiveLine((prev) => (prev === line ? prev : line))
+  }, [])
+
   const setActiveTab = useCallback(
     (tab: PageId) => {
       router.push(PAGE_HREF[tab])
@@ -220,7 +226,7 @@ export function DashboardWorkspaceProvider({
       activeTab,
       setActiveTab,
       activeLine,
-      setActiveLine,
+      setActiveLine: setActiveLineStable,
       businessNumbers,
       setBusinessNumbers,
       businessNumbersLoading,
@@ -241,6 +247,7 @@ export function DashboardWorkspaceProvider({
       activeTab,
       setActiveTab,
       activeLine,
+      setActiveLineStable,
       businessNumbers,
       businessNumbersLoading,
       activityLogs,

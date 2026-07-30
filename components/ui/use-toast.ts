@@ -155,8 +155,11 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      // Avoid sync dismiss storms during mount/replace (can contribute to React #185).
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        if (!open) {
+          queueMicrotask(() => dismiss())
+        }
       },
     },
   })
@@ -171,6 +174,8 @@ function toast({ ...props }: Toast) {
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
+  // Subscribe once — `[state]` re-subscribed on every toast update and caused
+  // React #185 (max update depth) when Toaster + many callers shared this store.
   React.useEffect(() => {
     listeners.push(setState)
     return () => {
@@ -179,7 +184,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, [])
 
   return {
     ...state,

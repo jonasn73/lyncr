@@ -46,13 +46,11 @@ export function RealTimeStatsStubProvider({ children }: { children: ReactNode })
   return <RealTimeStatsContext.Provider value={value}>{children}</RealTimeStatsContext.Provider>
 }
 
-/** Read shared live call metrics (must sit under RealTimeStatsProvider). */
+/** Read shared live call metrics — falls back to zeros if provider is missing (safe mode). */
 export function useRealTimeStatsContext(): UseRealTimeStatsResult {
   const ctx = useContext(RealTimeStatsContext)
-  if (!ctx) {
-    throw new Error("useRealTimeStatsContext must be used within RealTimeStatsProvider")
-  }
-  return ctx
+  // Never throw — missing provider used to crash /dashboard (and can flash into #185 recovery).
+  return ctx ?? EMPTY_STATS
 }
 
 /** Optional read when provider is absent (returns null instead of throwing). */

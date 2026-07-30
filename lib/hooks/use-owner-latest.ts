@@ -95,7 +95,17 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   const load = useCallback(async () => {
     try {
       const next = await fetchLatest(activeOrganizationId)
-      setLiveItems(next)
+      // Skip no-op updates so twin mobile/desktop cards do not thrash setState.
+      setLiveItems((prev) => {
+        if (
+          prev &&
+          prev.length === next.length &&
+          prev.every((row, i) => row.id === next[i]?.id)
+        ) {
+          return prev
+        }
+        return next
+      })
     } catch {
       /* keep last good list */
     } finally {
@@ -114,10 +124,8 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   )
 
   useEffect(() => {
-    // Org switch — clear live override so the new org’s seed can show.
-    setLiveItems(null)
+    // Org / visibility change — reload; do not clear to [] first (avoids empty flash + extra paints).
     void load()
-    // Poll budget: full speed in foreground; 4× slower when the tab is hidden.
     const intervalMs = documentVisible ? LATEST_POLL_VISIBLE_MS : LATEST_POLL_HIDDEN_MS
     const id = window.setInterval(() => void load(), intervalMs)
     return () => window.clearInterval(id)

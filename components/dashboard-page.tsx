@@ -333,7 +333,9 @@ export function DashboardPage() {
   useEffect(() => {
     if (routedNumbers.length === 0) return
     if (!activeLine || !routedNumbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
-      setActiveLine(routedNumbers[0].number)
+      const next = routedNumbers[0].number
+      // Only write when digits differ — avoid E.164 vs raw flip-flops (React #185).
+      if (!businessNumbersMatch(activeLine, next)) setActiveLine(next)
     }
   }, [routedNumbers, activeLine, setActiveLine])
 
