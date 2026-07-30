@@ -105,6 +105,29 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         }
       })
     }
+    // Tech marks job done → Latest job_finished until owner sends Thanks + review.
+    if (status === "completed" || status === "work_complete") {
+      after(async () => {
+        try {
+          const ownerId = await getOwnerIdForLead(id)
+          if (!ownerId) return
+          const { getOwnerSchedulerEventById } = await import("@/lib/db")
+          const event = await getOwnerSchedulerEventById(ownerId, id)
+          // Skip if review SMS already went out (job would not stay in Latest).
+          if (event?.review_sms_sent_at) return
+          const { notifyOwnerLatestNeedsAttention } = await import("@/lib/latest-attention-sms")
+          await notifyOwnerLatestNeedsAttention({
+            userId: ownerId,
+            event: "job_finished",
+            jobId: id,
+            customerPhone: event?.customer_phone ?? null,
+            customerName: event?.customer_name ?? null,
+          })
+        } catch (e) {
+          console.warn("[tech status] latest attention SMS failed:", e)
+        }
+      })
+    }
     return NextResponse.json({ data: { id, status } })
   } catch (e) {
     console.error("[PATCH /api/tech/jobs/[id]] failed:", e)

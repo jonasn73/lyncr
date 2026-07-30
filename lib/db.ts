@@ -149,18 +149,20 @@ function isMissingOnboardingProfileColumnError(e: unknown): boolean {
     msg.includes("account_status") ||
     msg.includes("custom_routing_note") ||
     msg.includes("sms_leads_enabled") ||
+    msg.includes("sms_latest_enabled") ||
     msg.includes("notification_phone") ||
     msg.includes("dispatch_sms_phone") ||
     msg.includes("admin_routing_override_phone")
   )
 }
 
-/** Missing SMS alert columns (scripts/044–045). */
+/** Missing SMS alert columns (scripts/044–045 / 122). */
 function isMissingSmsNotificationColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   const msg = pgErrorMessage(e)
   return (
     msg.includes("sms_leads_enabled") ||
+    msg.includes("sms_latest_enabled") ||
     msg.includes("notification_phone") ||
     msg.includes("dispatch_sms_phone")
   )
@@ -7776,10 +7778,11 @@ export async function updateAiLeadSmsOutcome(
   }
 }
 
-/** Persist instant SMS lead alert preferences on onboarding_profiles. */
+/** Persist instant SMS lead + Latest-attention alert preferences on onboarding_profiles. */
 export async function updateNotificationPreferencesDb(params: {
   userId: string
   sms_leads_enabled: boolean
+  sms_latest_enabled: boolean
   dispatch_sms_phone: string | null
   notification_phone?: string | null
 }): Promise<OnboardingProfile> {
@@ -7792,6 +7795,7 @@ export async function updateNotificationPreferencesDb(params: {
       UPDATE onboarding_profiles
       SET
         sms_leads_enabled = ${params.sms_leads_enabled},
+        sms_latest_enabled = ${params.sms_latest_enabled},
         dispatch_sms_phone = ${params.dispatch_sms_phone},
         notification_phone = coalesce(${notificationPhone}, notification_phone),
         updated_at = now()
@@ -7803,10 +7807,58 @@ export async function updateNotificationPreferencesDb(params: {
   } catch (e) {
     if (isMissingSmsNotificationColumnError(e)) {
       throw new Error(
-        "SMS notification settings require migrations 044-sms-lead-notifications.sql and 045-dispatch-sms-phone.sql in Neon."
+        "SMS notification settings require migrations 044, 045, and 122-sms-latest-attention.sql in Neon."
       )
     }
     throw e
+  }
+}
+
+/**
+ * Claim a Latest-attention SMS send slot (anti-spam).
+ * Returns true if this send is allowed; false if rate-limited / already claimed.
+ * For `replied`, cooldownMs refreshes an expired row; for `job_finished`, once forever.
+ */
+export async function tryClaimLatestAttentionSmsSlot(params: {
+  userId: string
+  eventType: "replied" | "job_finished"
+  dedupeKey: string
+  /** When set (replied), allow a new send after this many ms since last send. */
+  cooldownMs: number | null
+}): Promise<boolean> {
+  const userId = params.userId.trim()
+  const dedupeKey = params.dedupeKey.trim()
+  if (!userId || !dedupeKey) return false
+  const sql = getSql()
+  try {
+    if (params.cooldownMs != null && params.cooldownMs > 0) {
+      const cooldownSeconds = Math.max(1, Math.floor(params.cooldownMs / 1000))
+      // Delete expired reply claims so a fresh INSERT can succeed.
+      await sql`
+        DELETE FROM latest_attention_sms_sent
+        WHERE user_id = ${userId}
+          AND event_type = ${params.eventType}
+          AND dedupe_key = ${dedupeKey}
+          AND sent_at < now() - (${cooldownSeconds}::int * interval '1 second')
+      `
+    }
+    const rows = await sql`
+      INSERT INTO latest_attention_sms_sent (user_id, event_type, dedupe_key)
+      VALUES (${userId}, ${params.eventType}, ${dedupeKey})
+      ON CONFLICT (user_id, event_type, dedupe_key) DO NOTHING
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "latest_attention_sms_sent")) {
+      console.warn(
+        "[latest-attention-sms] table missing — run scripts/122-sms-latest-attention.sql in Neon"
+      )
+      // Fail open once so owners still get alerted before migration.
+      return true
+    }
+    console.warn("[latest-attention-sms] claim failed:", e)
+    return false
   }
 }
 
@@ -13359,6 +13411,7 @@ function mapOnboardingProfileRow(row: Record<string, unknown>): OnboardingProfil
     account_status: row.account_status != null ? String(row.account_status) : "active",
     custom_routing_note: row.custom_routing_note != null ? String(row.custom_routing_note) : null,
     sms_leads_enabled: row.sms_leads_enabled === true || row.sms_leads_enabled === "t",
+    sms_latest_enabled: row.sms_latest_enabled === true || row.sms_latest_enabled === "t",
     notification_phone: row.notification_phone != null ? String(row.notification_phone) : null,
     dispatch_sms_phone: row.dispatch_sms_phone != null ? String(row.dispatch_sms_phone) : null,
     updated_at: pgTimestamptzToIso(row.updated_at) ?? new Date().toISOString(),
@@ -13554,7 +13607,7 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
              has_active_subscription,
              subscription_tier, carrier_credit,
              total_calls_routed, total_minutes_used, account_status, custom_routing_note,
-             sms_leads_enabled, notification_phone, dispatch_sms_phone,
+             sms_leads_enabled, sms_latest_enabled, notification_phone, dispatch_sms_phone,
              billing_cycle_start, billing_cycle_end,
              stripe_customer_id, stripe_subscription_id,
              updated_at
@@ -13567,6 +13620,28 @@ export async function getOnboardingProfile(userId: string): Promise<OnboardingPr
     return mapOnboardingProfileRow(row)
   } catch (e) {
     if (isMissingOnboardingProfileColumnError(e)) {
+      // Pre-122 — lead-alert columns exist but sms_latest_enabled does not yet.
+      try {
+        const rows = await sql`
+          SELECT user_id, reserved_number, reserved_number_display, reserved_number_method,
+                 port_carrier, fallback_type, trade_category, opening_line,
+                 has_active_subscription,
+                 subscription_tier, carrier_credit,
+                 total_calls_routed, total_minutes_used, account_status, custom_routing_note,
+                 sms_leads_enabled, notification_phone, dispatch_sms_phone,
+                 billing_cycle_start, billing_cycle_end,
+                 stripe_customer_id, stripe_subscription_id,
+                 updated_at
+          FROM onboarding_profiles
+          WHERE user_id = ${userId}
+          LIMIT 1
+        `
+        const row = rows[0] as Record<string, unknown> | undefined
+        if (!row) return null
+        return mapOnboardingProfileRow(row)
+      } catch (pre122Error) {
+        if (!isMissingOnboardingProfileColumnError(pre122Error)) throw pre122Error
+      }
       // Tier 028 — subscription_tier + carrier_credit when scripts/029 not applied yet.
       try {
         const rows = await sql`

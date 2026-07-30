@@ -408,6 +408,8 @@ export interface OnboardingProfile {
   custom_routing_note: string | null
   /** Instant SMS when AI intake saves a lead (`044-sms-lead-notifications.sql`). */
   sms_leads_enabled: boolean
+  /** SMS when Latest hot work needs attention (`122-sms-latest-attention.sql`). */
+  sms_latest_enabled: boolean
   /** Primary profile alert number (`044`). */
   notification_phone: string | null
   /** Dedicated dispatch SMS target — overrides notification_phone for lead texts (`045`). */
@@ -438,6 +440,7 @@ export type UpdateOnboardingProfileRequest = {
   account_status?: string
   custom_routing_note?: string | null
   sms_leads_enabled?: boolean
+  sms_latest_enabled?: boolean
   notification_phone?: string | null
   dispatch_sms_phone?: string | null
 }

@@ -79,6 +79,7 @@ export type SandboxEnvironment = {
   business_line_id: string | null
   business_line_e164: string | null
   sms_leads_enabled: boolean
+  sms_latest_enabled: boolean
   dispatch_sms_phone: string | null
   certification_code: string
   test_receptionist_user_id: string | null
@@ -163,6 +164,7 @@ function buildEnvironmentFromParts(params: {
     business_line_id: params.lineId,
     business_line_e164: params.lineE164,
     sms_leads_enabled: params.profile?.sms_leads_enabled ?? false,
+    sms_latest_enabled: params.profile?.sms_latest_enabled ?? false,
     dispatch_sms_phone: params.profile?.dispatch_sms_phone ?? null,
     certification_code: "automotive_core",
     test_receptionist_user_id: params.testReceptionistUserId,
@@ -349,6 +351,7 @@ export async function seedSandboxData(): Promise<SeedSandboxDataResult> {
       await updateNotificationPreferencesDb({
         userId: owner.id,
         sms_leads_enabled: true,
+        sms_latest_enabled: true,
         dispatch_sms_phone: dispatchSms,
         notification_phone: dispatchSms,
       })

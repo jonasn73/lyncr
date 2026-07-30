@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     await updateNotificationPreferencesDb({
       userId: owner.id,
       sms_leads_enabled: true,
+      sms_latest_enabled: true,
       dispatch_sms_phone: dispatchTo,
       notification_phone: dispatchTo,
     })

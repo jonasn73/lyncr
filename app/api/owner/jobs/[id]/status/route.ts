@@ -163,6 +163,21 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
             console.warn("[owner job status] completed review SMS failed:", e)
           }
         })
+        // Latest job_finished — owner still needs to send Thanks + review.
+        after(async () => {
+          try {
+            const { notifyOwnerLatestNeedsAttention } = await import("@/lib/latest-attention-sms")
+            await notifyOwnerLatestNeedsAttention({
+              userId,
+              event: "job_finished",
+              jobId: leadId.trim(),
+              customerPhone: previous.customer_phone,
+              customerName: previous.customer_name,
+            })
+          } catch (e) {
+            console.warn("[owner job status] latest attention SMS failed:", e)
+          }
+        })
       }
     }
 

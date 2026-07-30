@@ -445,6 +445,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                 <Row label="Line" value={environment.business_line_e164 ?? "—"} mono />
                 <Row label="Line ID" value={environment.business_line_id ?? "—"} mono />
                 <Row label="SMS leads" value={environment.sms_leads_enabled ? "Enabled" : "Off"} />
+                <Row label="Latest SMS" value={environment.sms_latest_enabled ? "Enabled" : "Off"} />
                 <Row label="Dispatch SMS" value={environment.dispatch_sms_phone ?? "—"} mono />
                 <Row label="Quiz module" value={environment.certification_code} mono />
                 <Row

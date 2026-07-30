@@ -125,5 +125,19 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
     console.warn(
       `[sms-inbound] could not persist message (run scripts/069-sms-messages.sql?) — ${fromE164} → ${toE164}`
     )
+    return
+  }
+
+  // Latest “replied” hot action — optional owner SMS reminder (rate-limited).
+  try {
+    const { notifyOwnerLatestNeedsAttention } = await import("@/lib/latest-attention-sms")
+    await notifyOwnerLatestNeedsAttention({
+      userId: line.user_id,
+      event: "replied",
+      customerPhone: fromE164,
+      preview: text,
+    })
+  } catch (e) {
+    console.warn("[sms-inbound] latest attention SMS failed:", e)
   }
 }

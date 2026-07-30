@@ -32,6 +32,7 @@ export type SettingsModalsProfile = {
   businessName: string
   companyUserId: string
   smsLeadsEnabled: boolean
+  smsLatestEnabled: boolean
   dispatchSmsPhone: string
   emailRecordingsEnabled: boolean
   subscriptionActive: boolean
@@ -44,6 +45,7 @@ const EMPTY_PROFILE: SettingsModalsProfile = {
   businessName: "",
   companyUserId: "",
   smsLeadsEnabled: false,
+  smsLatestEnabled: false,
   dispatchSmsPhone: "",
   emailRecordingsEnabled: false,
   subscriptionActive: false,
@@ -125,6 +127,7 @@ export function DashboardSettingsModalsHost({
           ),
           billingCycleEnd: onboardingResult.profile?.billing_cycle_end?.trim() || null,
           smsLeadsEnabled: onboardingResult.profile?.sms_leads_enabled === true,
+          smsLatestEnabled: onboardingResult.profile?.sms_latest_enabled === true,
           dispatchSmsPhone: onboardingResult.profile?.dispatch_sms_phone?.trim() || "",
         }
       }
@@ -255,6 +258,7 @@ export function DashboardSettingsModalsHost({
         initialEmail={profile.email}
         initialBusinessName={profile.businessName}
         initialSmsLeadsEnabled={profile.smsLeadsEnabled}
+        initialSmsLatestEnabled={profile.smsLatestEnabled}
         initialDispatchSmsPhone={profile.dispatchSmsPhone}
         initialEmailRecordingsEnabled={profile.emailRecordingsEnabled}
         companyUserId={profile.companyUserId}

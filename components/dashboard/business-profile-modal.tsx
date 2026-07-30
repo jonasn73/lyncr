@@ -22,6 +22,8 @@ type Props = {
   initialEmail?: string
   initialBusinessName?: string
   initialSmsLeadsEnabled?: boolean
+  /** SMS when Latest / recent activity needs attention. */
+  initialSmsLatestEnabled?: boolean
   initialDispatchSmsPhone?: string
   initialEmailRecordingsEnabled?: boolean
   companyUserId?: string
@@ -34,6 +36,7 @@ export function BusinessProfileModal({
   initialEmail = "",
   initialBusinessName = "",
   initialSmsLeadsEnabled = false,
+  initialSmsLatestEnabled = false,
   initialDispatchSmsPhone = "",
   initialEmailRecordingsEnabled = false,
   companyUserId = "",
@@ -42,6 +45,7 @@ export function BusinessProfileModal({
   const [businessName, setBusinessName] = useState(initialBusinessName)
   const [businessNameSaving, setBusinessNameSaving] = useState(false)
   const [smsLeadsEnabled, setSmsLeadsEnabled] = useState(initialSmsLeadsEnabled)
+  const [smsLatestEnabled, setSmsLatestEnabled] = useState(initialSmsLatestEnabled)
   const [dispatchSmsPhone, setDispatchSmsPhone] = useState(initialDispatchSmsPhone)
   const [emailRecordingsEnabled, setEmailRecordingsEnabled] = useState(initialEmailRecordingsEnabled)
   const [notificationSaving, setNotificationSaving] = useState(false)
@@ -50,9 +54,17 @@ export function BusinessProfileModal({
     if (!open) return
     setBusinessName(initialBusinessName)
     setSmsLeadsEnabled(initialSmsLeadsEnabled)
+    setSmsLatestEnabled(initialSmsLatestEnabled)
     setDispatchSmsPhone(initialDispatchSmsPhone)
     setEmailRecordingsEnabled(initialEmailRecordingsEnabled)
-  }, [open, initialBusinessName, initialSmsLeadsEnabled, initialDispatchSmsPhone, initialEmailRecordingsEnabled])
+  }, [
+    open,
+    initialBusinessName,
+    initialSmsLeadsEnabled,
+    initialSmsLatestEnabled,
+    initialDispatchSmsPhone,
+    initialEmailRecordingsEnabled,
+  ])
 
   async function saveBusinessName() {
     const trimmed = businessName.trim() || "My Business"
@@ -82,7 +94,13 @@ export function BusinessProfileModal({
     if (!companyUserId) return
     setNotificationSaving(true)
     try {
-      await updateNotificationPreferences(companyUserId, smsLeadsEnabled, dispatchSmsPhone)
+      const result = await updateNotificationPreferences(
+        companyUserId,
+        smsLeadsEnabled,
+        dispatchSmsPhone,
+        smsLatestEnabled
+      )
+      if (!result.ok) throw new Error(result.error)
       toast({ title: "Notification settings saved" })
       onOpenChange(false)
     } catch (e) {
@@ -126,7 +144,7 @@ export function BusinessProfileModal({
         <DialogHeader>
           <DialogTitle>Business profile</DialogTitle>
           <DialogDescription>
-            {initialName ? `${initialName} · ${initialEmail}` : "Your account and lead-alert delivery settings."}
+            {initialName ? `${initialName} · ${initialEmail}` : "Your account and SMS alert delivery settings."}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[calc(92vh-8rem)] space-y-5 overflow-y-auto pr-1">
@@ -158,7 +176,7 @@ export function BusinessProfileModal({
           </form>
 
           <div className="space-y-3 border-t border-border/60 pt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Lead alerts</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SMS alerts</p>
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
               <div className="flex items-start gap-3">
                 <Smartphone className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
@@ -168,6 +186,22 @@ export function BusinessProfileModal({
                 </div>
               </div>
               <Switch checked={smsLeadsEnabled} onCheckedChange={setSmsLeadsEnabled} aria-label="SMS lead alerts" />
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <MessageSquare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Latest activity SMS reminders</p>
+                  <p className="text-xs text-zinc-500">
+                    Text you when a customer reply needs an answer, or a finished job still needs Thanks + review.
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={smsLatestEnabled}
+                onCheckedChange={setSmsLatestEnabled}
+                aria-label="Latest activity SMS reminders"
+              />
             </div>
             <label className="block">
               <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
@@ -181,6 +215,9 @@ export function BusinessProfileModal({
                 value={dispatchSmsPhone}
                 onChange={(e) => setDispatchSmsPhone(e.target.value)}
               />
+              <p className="mt-1.5 text-xs text-zinc-500">
+                Your cell where Lyncr texts these alerts. Leave blank to use your profile phone.
+              </p>
             </label>
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
               <div className="flex items-start gap-3">
