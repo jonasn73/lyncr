@@ -39,10 +39,12 @@ import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
 import { ErrorBoundary } from "@/components/error-boundary"
 
 /**
- * TEMP safety switch — heavy realtime hosts were involved in React #185
- * (max update depth) flash→crash. Re-enable after the shell loads cleanly.
+ * Realtime hosts: LyncEngine, live stats, operator heartbeat, photo banner,
+ * and CallAnsweredModal (intake sheet on inbound ring via Pusher).
+ * Was temporarily false during React #185 triage; Radix Switch fix (773d798)
+ * was the real loop — keep hosts on so call intake can open.
  */
-const ENABLE_DASHBOARD_REALTIME_HOSTS = false
+const ENABLE_DASHBOARD_REALTIME_HOSTS = true
 
 // Keep the heavy intake modal (Leaflet, framer-motion, ~4k LOC) out of the shell chunk.
 const CallAnsweredModal = dynamic(

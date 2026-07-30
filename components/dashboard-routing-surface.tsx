@@ -3,8 +3,8 @@
 // Full Lines dashboard (not safe-mode placeholder).
 // Anti-#185 (permanent): plain Switch (no Radix bubble/ResizeObserver), Latest Sheet
 // mounts only when open, telemetry dialogs lazy-mount, single Latest card, no dock
-// indicator, no useClientSnapshot seeds, toast subscribe-once, stats EMPTY fallback,
-// ENABLE_DASHBOARD_REALTIME_HOSTS=false.
+// indicator, no useClientSnapshot seeds, toast subscribe-once, stats EMPTY fallback.
+// Realtime hosts (intake popup) stay enabled in dashboard-shell.tsx.
 
 import { memo } from "react"
 import Link from "next/link"
