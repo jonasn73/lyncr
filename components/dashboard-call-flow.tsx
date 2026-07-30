@@ -530,8 +530,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const { presenceStatus, presenceBypass, presenceReady } = useAccountPresence()
-  // Live calendar capacity + next open 1-hour block for Smart Overflow IVR Menu.
-  const smartOverflow = useSmartOverflowAutopilot(routingBusinessNumber)
+  // Static overflow stub — live autopilot hook disabled (React #185).
+  const smartOverflow = STATIC_SMART_OVERFLOW
   // Who Answers primary mode — gates the entire IVR configuration deck.
   const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>("your_phone")
   const routingModeCacheKey = persistedCacheKey(

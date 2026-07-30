@@ -12,6 +12,7 @@ import { DashboardWorkspaceProvider } from "@/components/dashboard-workspace-con
 import { InboundCallPanelProvider } from "@/lib/inbound-call-panel-context"
 import { LyncEngineProvider } from "@/lib/lync-engine-context"
 import { DashboardRealtimeStatsHost } from "@/components/dashboard/dashboard-realtime-stats-host"
+import { RealTimeStatsStubProvider } from "@/components/dashboard/real-time-stats-provider"
 import { DashboardBusinessNumbersSync } from "@/components/dashboard-business-numbers-sync"
 import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
