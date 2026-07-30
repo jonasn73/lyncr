@@ -1161,7 +1161,10 @@ export function OwnerCollectPaymentSheet({
               <>
                 <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                    Collected (sales — not bank balance)
+                    Collected (sales — not bank deposits)
+                  </p>
+                  <p className="mb-2 text-[10px] leading-snug text-emerald-200/55">
+                    Full customer totals. Bank transfers are lower after the card fee.
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>

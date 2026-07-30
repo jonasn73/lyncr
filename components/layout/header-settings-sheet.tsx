@@ -371,7 +371,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
             <p className="text-xs text-slate-500">
-              Balance is cash ready to send to your bank. Collected is what customers paid.
+              Collected is what customers paid (sales). Bank transfers are usually less — Lyncr
+              takes 2.9% + $0.30 per card payment, and cash never goes through Get paid.
             </p>
           </SheetHeader>
 
@@ -385,7 +386,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               </p>
               <p className="mt-1 text-xs text-emerald-200/60">
                 {connectReady
-                  ? "Available balance — goes down after you transfer to your bank."
+                  ? "Card money ready to send to your bank (after fees). Goes to $0 after you transfer."
                   : "Finish Get paid setup to hold and transfer card payments."}
               </p>
               <button
@@ -401,8 +402,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Collected
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Collected (sales total)
+              </p>
+              <p className="mb-2 text-[11px] leading-snug text-slate-500">
+                Not the same as bank deposits — this is the full amount customers paid.
               </p>
               <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/60">
                 {PERIOD_OPTIONS.map((opt) => (

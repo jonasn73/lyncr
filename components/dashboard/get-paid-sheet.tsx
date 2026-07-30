@@ -435,8 +435,9 @@ export function GetPaidSheet({
                       </div>
                     </div>
                     <p className="mt-2 text-[11px] text-emerald-200/70">
-                      Pending becomes Available after card funds clear (often 1–2 days). Lyncr fee:{" "}
-                      {status.feeLabel}.
+                      Pending becomes Available after card funds clear (often 1–2 days). Bank
+                      transfers are net of Lyncr’s fee ({status.feeLabel}) — they will not match
+                      Collected sales.
                     </p>
                   </div>
                 ) : (
@@ -577,9 +578,14 @@ export function GetPaidSheet({
                     {/* Bank transfer history */}
                     <section className="space-y-2">
                       <div className="flex items-center justify-between gap-2 px-0.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Bank transfers
-                        </p>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                            Bank transfers (net to bank)
+                          </p>
+                          <p className="mt-0.5 text-[10px] leading-snug text-zinc-600">
+                            Recent payouts only — amount after fees, not the Collected total.
+                          </p>
+                        </div>
                         <button
                           type="button"
                           disabled={payoutsLoading}
