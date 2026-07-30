@@ -42,14 +42,20 @@ export function BusinessProfileModal({
   companyUserId = "",
 }: Props) {
   const { toast } = useToast()
+  // Local copy of the business name while the user edits it.
   const [businessName, setBusinessName] = useState(initialBusinessName)
-  const [businessNameSaving, setBusinessNameSaving] = useState(false)
+  // SMS lead-alert toggle (instant texts for new leads).
   const [smsLeadsEnabled, setSmsLeadsEnabled] = useState(initialSmsLeadsEnabled)
+  // SMS when Latest / recent activity needs attention.
   const [smsLatestEnabled, setSmsLatestEnabled] = useState(initialSmsLatestEnabled)
+  // Cell number where dispatch SMS alerts are sent.
   const [dispatchSmsPhone, setDispatchSmsPhone] = useState(initialDispatchSmsPhone)
+  // Email call recordings toggle (saves immediately on flip — not part of Save profile).
   const [emailRecordingsEnabled, setEmailRecordingsEnabled] = useState(initialEmailRecordingsEnabled)
-  const [notificationSaving, setNotificationSaving] = useState(false)
+  // One saving spinner for the whole sheet (name + notification settings).
+  const [saving, setSaving] = useState(false)
 
+  // When the sheet opens (or props refresh), reset fields to the latest server values.
   useEffect(() => {
     if (!open) return
     setBusinessName(initialBusinessName)
@@ -66,54 +72,54 @@ export function BusinessProfileModal({
     initialEmailRecordingsEnabled,
   ])
 
-  async function saveBusinessName() {
-    const trimmed = businessName.trim() || "My Business"
-    setBusinessNameSaving(true)
+  // One Save: persist business name AND notification settings together.
+  async function saveProfile() {
+    // Need a company id for notification preferences.
+    if (!companyUserId) return
+    // Show the Saving… state on the button.
+    setSaving(true)
     try {
+      // Empty name falls back to a friendly default.
+      const trimmed = businessName.trim() || "My Business"
+      // Save the business name via the profile API.
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ business_name: trimmed }),
       })
-      if (!res.ok) throw new Error("Save failed")
+      // Bail if the name save failed.
+      if (!res.ok) throw new Error("Could not save business name")
+      // Keep the local field in sync with what we just saved.
       setBusinessName(trimmed)
-      toast({ title: "Business name saved" })
-    } catch (e) {
-      toast({
-        title: "Could not save",
-        description: e instanceof Error ? e.message : "Try again",
-        variant: "destructive",
-      })
-    } finally {
-      setBusinessNameSaving(false)
-    }
-  }
 
-  async function saveNotifications() {
-    if (!companyUserId) return
-    setNotificationSaving(true)
-    try {
+      // Save SMS / notification toggles + dispatch phone.
       const result = await updateNotificationPreferences(
         companyUserId,
         smsLeadsEnabled,
         dispatchSmsPhone,
         smsLatestEnabled
       )
+      // Bail if notification save failed.
       if (!result.ok) throw new Error(result.error)
-      toast({ title: "Notification settings saved" })
+
+      // Tell the user everything stuck, then close the sheet.
+      toast({ title: "Profile saved" })
       onOpenChange(false)
     } catch (e) {
+      // Show a clear error if either save step failed.
       toast({
-        title: "Could not save notifications",
+        title: "Could not save",
         description: e instanceof Error ? e.message : "Try again",
         variant: "destructive",
       })
     } finally {
-      setNotificationSaving(false)
+      // Always clear the spinner.
+      setSaving(false)
     }
   }
 
+  // Email recordings still saves right when the switch flips (separate from Save profile).
   async function toggleEmailRecordings(next: boolean) {
     setEmailRecordingsEnabled(next)
     try {
@@ -152,11 +158,12 @@ export function BusinessProfileModal({
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[calc(92vh-8rem)] space-y-5 overflow-y-auto pr-1">
+          {/* One form so Enter in any field runs the same Save profile action. */}
           <form
-            className="space-y-3"
+            className="space-y-5"
             onSubmit={(e) => {
               submitFormEvent(e)
-              if (!businessNameSaving && businessName.trim()) void saveBusinessName()
+              if (!saving) void saveProfile()
             }}
           >
             <label className="block">
@@ -182,89 +189,82 @@ export function BusinessProfileModal({
                 }}
               />
             </label>
-            <button
-              type="submit"
-              disabled={businessNameSaving || !businessName.trim()}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {businessNameSaving ? "Saving…" : "Save business name"}
-            </button>
-          </form>
 
-          <div className="space-y-3 border-t border-border/60 pt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SMS alerts</p>
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <Smartphone className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Instant SMS lead alerts</p>
-                  <p className="text-xs text-zinc-500">Texts include caller, service type, and intake notes.</p>
+            <div className="space-y-3 border-t border-border/60 pt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SMS alerts</p>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <Smartphone className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Instant SMS lead alerts</p>
+                    <p className="text-xs text-zinc-500">Texts include caller, service type, and intake notes.</p>
+                  </div>
                 </div>
+                <Switch checked={smsLeadsEnabled} onCheckedChange={setSmsLeadsEnabled} aria-label="SMS lead alerts" />
               </div>
-              <Switch checked={smsLeadsEnabled} onCheckedChange={setSmsLeadsEnabled} aria-label="SMS lead alerts" />
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <MessageSquare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Latest activity SMS reminders</p>
-                  <p className="text-xs text-zinc-500">
-                    Text you when a customer reply needs an answer, or a finished job still needs Thanks + review.
-                  </p>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Latest activity SMS reminders</p>
+                    <p className="text-xs text-zinc-500">
+                      Text you when a customer reply needs an answer, or a finished job still needs Thanks + review.
+                    </p>
+                  </div>
                 </div>
+                <Switch
+                  checked={smsLatestEnabled}
+                  onCheckedChange={setSmsLatestEnabled}
+                  aria-label="Latest activity SMS reminders"
+                />
               </div>
-              <Switch
-                checked={smsLatestEnabled}
-                onCheckedChange={setSmsLatestEnabled}
-                aria-label="Latest activity SMS reminders"
-              />
-            </div>
-            <label className="block">
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                Dedicated dispatch SMS number
-              </span>
-              <input
-                type="tel"
-                inputMode="tel"
-                placeholder="(555) 123-4567"
-                className={workspaceFieldClass}
-                value={dispatchSmsPhone}
-                onChange={(e) => setDispatchSmsPhone(e.target.value)}
-              />
-              <p className="mt-1.5 text-xs text-zinc-500">
-                Your cell where Lyncr texts these alerts. Leave blank to use your profile phone.
-              </p>
-            </label>
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <FileAudio className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Email call recordings</p>
-                  <p className="text-xs text-zinc-500">MP3 playback files sent to your primary email.</p>
-                </div>
-              </div>
-              <Switch
-                checked={emailRecordingsEnabled}
-                onCheckedChange={(v) => void toggleEmailRecordings(v)}
-                aria-label="Email recordings"
-              />
-            </div>
-            <button
-              type="button"
-              disabled={notificationSaving}
-              onClick={() => void saveNotifications()}
-              className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {notificationSaving ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  Saving…
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Dedicated dispatch SMS number
                 </span>
-              ) : (
-                "Save notification settings"
-              )}
-            </button>
-          </div>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="(555) 123-4567"
+                  className={workspaceFieldClass}
+                  value={dispatchSmsPhone}
+                  onChange={(e) => setDispatchSmsPhone(e.target.value)}
+                />
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  Your cell where Lyncr texts these alerts. Leave blank to use your profile phone.
+                </p>
+              </label>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <FileAudio className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Email call recordings</p>
+                    <p className="text-xs text-zinc-500">MP3 playback files sent to your primary email.</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={emailRecordingsEnabled}
+                  onCheckedChange={(v) => void toggleEmailRecordings(v)}
+                  aria-label="Email recordings"
+                />
+              </div>
+              {/* Single bottom button: saves name + SMS settings together. */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {saving ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Saving…
+                  </span>
+                ) : (
+                  "Save profile"
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       </DialogContent>
     </Dialog>
