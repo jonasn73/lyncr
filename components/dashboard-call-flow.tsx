@@ -612,30 +612,41 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
-  // Build mobile + desktop card variants so CSS breakpoints can show the right one
-  // without a useIsMobile remount (that was causing refresh lag under Live & Connected).
-  const overflowCardProps = {
-    step: String(primaryAndNetworkNodes.length + 2),
-    overflowActive: overflowCardActive,
-    presenceDriven: presenceBypass,
-    presenceStatus,
-    nextAvailableSlotText: smartOverflow.nextAvailableSlotText,
-    confirmedJobsToday: smartOverflow.confirmedJobsToday,
-    capacityThreshold: smartOverflow.config.capacityThreshold,
-    onOpenScriptEditor: () => setShowFallbackSettings(true),
-    loading: routingLineDetailLoading || smartOverflow.loading,
-    retellConnected: smartOverflow.retellConnected,
-  } as const
+  // Stable open handler — avoid new function identity every paint for memo children.
+  const openScriptEditor = useCallback(() => setShowFallbackSettings(true), [setShowFallbackSettings])
 
+  // Overflow cards are hook-free — mobile/desktop CSS twins are OK.
+  // JustFinished is NOT: only one mount (shared block below) to avoid twin useOwnerLatest + Sheet trees (#185).
   const overflowCardMobile = showIvrDeck ? (
-    <SmartOverflowFallbackCard compact {...overflowCardProps} />
+    <SmartOverflowFallbackCard
+      compact
+      step={String(primaryAndNetworkNodes.length + 2)}
+      overflowActive={overflowCardActive}
+      presenceDriven={presenceBypass}
+      presenceStatus={presenceStatus}
+      nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
+      confirmedJobsToday={smartOverflow.confirmedJobsToday}
+      capacityThreshold={smartOverflow.config.capacityThreshold}
+      onOpenScriptEditor={openScriptEditor}
+      loading={routingLineDetailLoading || smartOverflow.loading}
+      retellConnected={smartOverflow.retellConnected}
+    />
   ) : null
   const overflowCardDesktop = showIvrDeck ? (
-    <SmartOverflowFallbackCard compact={false} {...overflowCardProps} />
+    <SmartOverflowFallbackCard
+      compact={false}
+      step={String(primaryAndNetworkNodes.length + 2)}
+      overflowActive={overflowCardActive}
+      presenceDriven={presenceBypass}
+      presenceStatus={presenceStatus}
+      nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
+      confirmedJobsToday={smartOverflow.confirmedJobsToday}
+      capacityThreshold={smartOverflow.config.capacityThreshold}
+      onOpenScriptEditor={openScriptEditor}
+      loading={routingLineDetailLoading || smartOverflow.loading}
+      retellConnected={smartOverflow.retellConnected}
+    />
   ) : null
-
-  const justFinishedMobile = <JustFinishedReviewCard compact />
-  const justFinishedDesktop = <JustFinishedReviewCard compact={false} />
 
   // Opens the two-way SMS inbox (textbacks + customer replies).
   const messagesInboxMobile = (
@@ -749,8 +760,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               />
             ) : null}
             {overflowCardMobile}
-            {justFinishedMobile}
-            {messagesInboxMobile}
           </div>
           {/* Desktop layout — hidden on phones so SSR + first paint match. */}
           <div
@@ -785,10 +794,12 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
                 {overflowCardDesktop}
               </>
             ) : null}
-            <FlowConnector />
-            {justFinishedDesktop}
-            <FlowConnector />
-            {messagesInboxDesktop}
+          </div>
+          {/* Single Latest mount — was dual (compact + desktop) and each ran hooks/Sheet (#185 risk). */}
+          <div className="mt-3 flex flex-col gap-3 md:mt-4">
+            <JustFinishedReviewCard compact />
+            <div className="md:hidden">{messagesInboxMobile}</div>
+            <div className="hidden md:block">{messagesInboxDesktop}</div>
           </div>
         </div>
       )}

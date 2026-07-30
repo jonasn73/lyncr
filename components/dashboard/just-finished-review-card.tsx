@@ -97,12 +97,25 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const unrepliedCount = items.filter((i) => i.event === "replied").length
 
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
+  // Skip no-op setState so list refreshes cannot churn the Sheet open state (#185).
   const selectedPhone = selected?.customerPhone ?? null
   useEffect(() => {
     if (!selectedPhone) return
     const next = items.find((i) => i.customerPhone === selectedPhone)
-    if (next) setSelected(next)
-    else setSelected(null)
+    setSelected((prev) => {
+      if (!next) return null
+      if (
+        prev &&
+        prev.id === next.id &&
+        prev.at === next.at &&
+        prev.event === next.event &&
+        prev.lastOutbound?.id === next.lastOutbound?.id &&
+        prev.lastInbound?.id === next.lastInbound?.id
+      ) {
+        return prev
+      }
+      return next
+    })
   }, [items, selectedPhone])
 
   const markSeen = useCallback((phone: string) => {

@@ -59,16 +59,12 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
   const [loading, setLoading] = useState(true)
   const [interceptTick, setInterceptTick] = useState(0)
 
-  // Stable key — array identity from parents was re-firing /api/calls every render (#185 risk).
-  const linesKey = useMemo(
-    () =>
-      businessNumbers
-        .map((l) => l.number)
-        .filter(Boolean)
-        .sort()
-        .join("|"),
-    [businessNumbers]
-  )
+  // Stable string key — do not depend on businessNumbers array identity (#185 risk).
+  const linesKey = businessNumbers
+    .map((l) => l.number)
+    .filter(Boolean)
+    .sort()
+    .join("|")
 
   useEffect(() => {
     if (rows.length > 0) setLoading(false)
