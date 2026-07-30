@@ -1,22 +1,17 @@
 "use client"
 
-// Smart Busy — capacity → recommend / auto-engage Presence Busy (same Busy TeXML path).
+// Smart Busy — manual toggle only (auto-engage removed; it was a React #185 flash→crash source).
 
 import { useCallback, useEffect, useState } from "react"
 import { readActiveOrganizationId, organizationQueryString } from "@/lib/workspace-organizations"
 import {
-  computeCapacityLoad,
-  formatSmartBusyCapacitySummary,
-  isAtCapacity,
   readSmartBusyLocalState,
-  shouldRecommendBusy,
   writeSmartBusyLocalState,
   SMART_BUSY_EMPTY_LOCAL,
   type SmartBusyLocalState,
 } from "@/lib/smart-busy"
 import { PRESENCE_BUSY_WRITE_STATUS } from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
-import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
 import { toast } from "@/hooks/use-toast"
 
 export type UseSmartBusyResult = {
@@ -32,37 +27,34 @@ export type UseSmartBusyResult = {
   capacitySummary: string
   loading: boolean
   saving: boolean
-  /** One-tap Enable Busy (manual Busy path — same routing as Presence bar). */
   enableBusy: () => Promise<void>
-  /** Easy revert to Available (suppresses re-engage until capacity clears). */
   revertToAvailable: () => Promise<void>
 }
 
-function smartBusyLocalEqual(a: SmartBusyLocalState, b: SmartBusyLocalState): boolean {
+function localEqual(a: SmartBusyLocalState, b: SmartBusyLocalState): boolean {
   return a.enabled === b.enabled && a.engaged === b.engaged && a.suppressed === b.suppressed
 }
 
-export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBusyResult {
+export function useSmartBusy(_routingBusinessNumber?: string | null): UseSmartBusyResult {
+  void _routingBusinessNumber
   const { presenceStatus, setPresenceStatus, saving: presenceSaving } = useAccountPresence()
-  const overflow = useSmartOverflowAutopilot(routingBusinessNumber)
 
-  // localStorage preference loads via API hydrate below (no useClientSnapshot — React #185).
+  // Start empty — hydrate once from API / localStorage (no useSyncExternalStore).
   const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState | null>(null)
   const local = liveLocal ?? SMART_BUSY_EMPTY_LOCAL
-  const [poolCount, setPoolCount] = useState(0)
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const persistLocal = useCallback((next: SmartBusyLocalState) => {
     setLiveLocal((prev) => {
       const base = prev ?? SMART_BUSY_EMPTY_LOCAL
-      if (smartBusyLocalEqual(base, next)) return prev
+      if (localEqual(base, next)) return prev
       writeSmartBusyLocalState(next)
       return next
     })
   }, [])
 
-  // Hydrate preference from account_settings (falls back to localStorage).
+  // One-shot hydrate — never depends on unstable objects.
   useEffect(() => {
     let cancelled = false
     const orgQs = organizationQueryString(readActiveOrganizationId())
@@ -70,89 +62,31 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
       .then(async (res) => {
         if (!res.ok) return null
         return (await res.json()) as {
-          data?: {
-            smartBusyEnabled?: boolean
-            smart_busy_enabled?: boolean
-            pool_count?: number
-          }
+          data?: { smartBusyEnabled?: boolean; smart_busy_enabled?: boolean }
         }
       })
       .then((json) => {
-        if (cancelled || !json?.data) {
-          if (!cancelled) setHydrated(true)
-          return
-        }
-        const enabled =
-          json.data.smartBusyEnabled === true || json.data.smart_busy_enabled === true
-        const pool =
-          typeof json.data.pool_count === "number" ? Math.max(0, json.data.pool_count) : 0
-        setPoolCount(pool)
+        if (cancelled) return
         const prev = readSmartBusyLocalState()
+        const enabled =
+          json?.data?.smartBusyEnabled === true || json?.data?.smart_busy_enabled === true
         persistLocal({
-          enabled,
+          enabled: json?.data ? enabled : prev.enabled,
           engaged: prev.engaged,
           suppressed: prev.suppressed,
         })
         setHydrated(true)
       })
       .catch(() => {
-        if (!cancelled) setHydrated(true)
+        if (!cancelled) {
+          persistLocal(readSmartBusyLocalState())
+          setHydrated(true)
+        }
       })
     return () => {
       cancelled = true
     }
   }, [persistLocal])
-
-  // Refresh pool count periodically (hopper size is part of capacity load).
-  useEffect(() => {
-    let cancelled = false
-    const pull = () => {
-      const orgQs = organizationQueryString(readActiveOrganizationId())
-      void fetch(`/api/owner/jobs/pool${orgQs}`, { credentials: "include", cache: "no-store" })
-        .then(async (res) => {
-          if (!res.ok) return []
-          const json = (await res.json()) as { data?: { jobs?: unknown[] } }
-          return Array.isArray(json.data?.jobs) ? json.data!.jobs! : []
-        })
-        .then((jobs) => {
-          if (!cancelled) setPoolCount(jobs.length)
-        })
-        .catch(() => {
-          /* keep last pool count */
-        })
-    }
-    pull()
-    const id = window.setInterval(pull, 60_000)
-    return () => {
-      cancelled = true
-      window.clearInterval(id)
-    }
-  }, [])
-
-  const capacityThreshold = overflow.config.capacityThreshold
-  const confirmedJobsToday = overflow.confirmedJobsToday
-  const capacityLoad = computeCapacityLoad({ confirmedJobsToday, poolCount })
-  const atCapacity = hydrated && isAtCapacity(capacityLoad, capacityThreshold)
-  const recommendBusy = shouldRecommendBusy({ atCapacity, presenceStatus })
-  const capacitySummary = formatSmartBusyCapacitySummary({
-    confirmedJobsToday,
-    poolCount,
-    capacityThreshold,
-  })
-
-  // Clear suppress once capacity is healthy again so Smart Busy can re-arm later.
-  useEffect(() => {
-    if (!hydrated) return
-    if (!atCapacity && local.suppressed) {
-      persistLocal({
-        enabled: local.enabled,
-        engaged: local.engaged,
-        suppressed: false,
-      })
-    }
-    // Intentionally omit `local` object identity — only these fields gate the write.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, atCapacity, local.suppressed, local.enabled, local.engaged, persistLocal])
 
   const setSmartBusyEnabled = useCallback(
     async (next: boolean) => {
@@ -186,7 +120,7 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
         toast({
           title: next ? "Smart Busy on" : "Smart Busy off",
           description: next
-            ? "When the calendar is full, we’ll switch to Busy so new callers get booking text."
+            ? "Preference saved. Use Busy manually when the calendar is full."
             : "Presence stays under your manual control.",
         })
       } catch (e) {
@@ -200,7 +134,7 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
         setSaving(false)
       }
     },
-    [local, persistLocal, toast]
+    [local, persistLocal]
   )
 
   const enableBusy = useCallback(async () => {
@@ -213,37 +147,29 @@ export function useSmartBusy(routingBusinessNumber?: string | null): UseSmartBus
   }, [local, persistLocal, setPresenceStatus])
 
   const revertToAvailable = useCallback(async () => {
-    // If still full, suppress re-engage until capacity clears.
-    persistLocal({
-      ...local,
-      engaged: false,
-      suppressed: atCapacity,
-    })
+    persistLocal({ ...local, engaged: false, suppressed: false })
     await setPresenceStatus("AVAILABLE")
     toast({
       title: "Back to Available",
-      description: atCapacity
-        ? "Your phone rings first again. Smart Busy won’t re-engage until capacity clears."
-        : "Your phone will ring first again.",
+      description: "Your phone will ring first again.",
     })
-  }, [atCapacity, local, persistLocal, setPresenceStatus])
+  }, [local, persistLocal, setPresenceStatus])
 
-  // Auto-engage / auto-revert DISABLED — presence setState + toast on mount was a
-  // React #185 flash→error candidate after session-seed patches. Manual Busy still works.
+  void presenceStatus
 
   return {
     smartBusyEnabled: local.enabled,
     setSmartBusyEnabled,
     smartBusyEngaged: local.engaged,
-    atCapacity,
-    recommendBusy,
-    confirmedJobsToday,
-    poolCount,
-    capacityLoad,
-    capacityThreshold,
-    capacitySummary,
-    // Cached localStorage means the toggle can paint without waiting on the API.
-    loading: !hydrated || overflow.loading,
+    // Capacity auto-logic disabled until #185 is fully gone.
+    atCapacity: false,
+    recommendBusy: false,
+    confirmedJobsToday: 0,
+    poolCount: 0,
+    capacityLoad: 0,
+    capacityThreshold: 5,
+    capacitySummary: hydrated ? "Manual Busy only" : "Loading…",
+    loading: !hydrated,
     saving: saving || presenceSaving,
     enableBusy,
     revertToAvailable,

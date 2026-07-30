@@ -25,7 +25,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[lyncr] Client error:", error, info.componentStack)
-    // Feed the local Dev Log drawer (development only — push is a no-op cost if unused).
+    // Persist for app/error.tsx so production #185 dumps show which component looped.
+    void import("@/lib/client-crash-dump").then(({ writeClientCrashDump }) => {
+      writeClientCrashDump({
+        at: Date.now(),
+        message: error.message || error.name || "React render error",
+        stack: error.stack ?? null,
+        componentStack: info.componentStack ?? null,
+      })
+    })
     if (process.env.NODE_ENV === "development") {
       void import("@/lib/dev-error-log").then(({ pushDevErrorLog }) => {
         pushDevErrorLog({

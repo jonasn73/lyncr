@@ -43,25 +43,14 @@ function currentMonthKey(now = new Date()): string {
   return `${y}-${m}`
 }
 
+// No-op — auto IVR writes were a candidate for mount-time update loops (React #185).
 async function persistIvrMenuEnabled(
-  enabled: boolean,
-  routingBusinessNumber: string | null | undefined
+  _enabled: boolean,
+  _routingBusinessNumber: string | null | undefined
 ): Promise<boolean> {
-  try {
-    const res = await fetch("/api/routing/ivr", {
-      method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        business_number: routingBusinessNumber || null,
-        ivrMenuEnabled: enabled,
-        ivr_menu_enabled: enabled,
-      }),
-    })
-    return res.ok
-  } catch {
-    return false
-  }
+  void _enabled
+  void _routingBusinessNumber
+  return true
 }
 
 export type UseSmartOverflowAutopilotResult = {

@@ -1,8 +1,14 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import {
+  clearClientCrashDump,
+  readClientCrashDump,
+  writeClientCrashDump,
+  type ClientCrashDump,
+} from "@/lib/client-crash-dump"
 
-// Next.js segment error boundary: shows when an error occurs in this segment or a child
+// Next.js segment error boundary — also shows last component stack if we captured one.
 export default function Error({
   error,
   reset,
@@ -10,9 +16,23 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  // Always log the full error so we can diagnose production crashes (e.g. React #185).
+  const [dump, setDump] = useState<ClientCrashDump | null>(null)
+
   useEffect(() => {
     console.error("[lyncr] app/error.tsx", error.message, error.digest, error.stack)
+    const existing = readClientCrashDump()
+    // Prefer a dump that already has a component stack from ErrorBoundary.
+    if (existing?.componentStack) {
+      setDump(existing)
+      return
+    }
+    writeClientCrashDump({
+      at: Date.now(),
+      message: error.message || "Unknown error",
+      stack: error.stack ?? null,
+      componentStack: null,
+    })
+    setDump(readClientCrashDump())
   }, [error])
 
   return (
@@ -21,10 +41,18 @@ export default function Error({
       {error.message ? (
         <p className="max-w-md text-center text-xs text-muted-foreground">{error.message}</p>
       ) : null}
+      {dump?.componentStack ? (
+        <pre className="max-h-48 max-w-lg overflow-auto rounded-lg border border-border bg-card p-3 text-left text-[10px] leading-snug text-muted-foreground">
+          {dump.componentStack}
+        </pre>
+      ) : null}
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => reset()}
+          onClick={() => {
+            clearClientCrashDump()
+            reset()
+          }}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
         >
           Try again

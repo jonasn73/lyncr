@@ -115,7 +115,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
         <div className="min-w-0">
           <p className="text-[11px] font-semibold text-zinc-200">Smart Busy</p>
           <p className="text-[10px] leading-snug text-zinc-500">
-            Auto Busy when full · {smartBusy.capacitySummary}
+            Remembers preference · {smartBusy.capacitySummary}
           </p>
         </div>
         <button

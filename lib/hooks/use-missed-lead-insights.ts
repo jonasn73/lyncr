@@ -59,6 +59,17 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
   const [loading, setLoading] = useState(true)
   const [interceptTick, setInterceptTick] = useState(0)
 
+  // Stable key — array identity from parents was re-firing /api/calls every render (#185 risk).
+  const linesKey = useMemo(
+    () =>
+      businessNumbers
+        .map((l) => l.number)
+        .filter(Boolean)
+        .sort()
+        .join("|"),
+    [businessNumbers]
+  )
+
   useEffect(() => {
     if (rows.length > 0) setLoading(false)
   }, [rows.length])
@@ -69,17 +80,25 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
       if (!res.ok) throw new Error("load")
       const json = (await res.json()) as { calls?: Record<string, unknown>[] }
       const all = Array.isArray(json.calls) ? json.calls : []
+      const lineSet = new Set(linesKey ? linesKey.split("|") : [])
       const parsed = all
         .map(normalizeApiRow)
         .filter((r): r is MissedLeadCallRow => r != null)
         .filter((row) => {
-          if (businessNumbers.length === 0) return true
-          return businessNumbers.some((line) =>
-            businessNumbersMatch(String(row.to_number ?? ""), line.number)
-          )
+          if (lineSet.size === 0) return true
+          const to = String(row.to_number ?? "")
+          return [...lineSet].some((n) => businessNumbersMatch(to, n))
         })
-      setLiveRows(parsed)
-      // Cache raw rows + summary so the next refresh can paint the banner immediately.
+      setLiveRows((prev) => {
+        if (
+          prev &&
+          prev.length === parsed.length &&
+          prev.every((row, i) => row.id === parsed[i]?.id)
+        ) {
+          return prev
+        }
+        return parsed
+      })
       const summary = summarizeMissedLeadInsights(parsed, {
         interceptedKeys: readInterceptedPhoneKeys(),
       })
@@ -94,11 +113,10 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
     } finally {
       setLoading(false)
     }
-  }, [businessNumbers])
+  }, [linesKey])
 
   useEffect(() => {
     void load()
-    // Pause when the tab is hidden — avoids background /api/calls traffic.
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return
       void load()

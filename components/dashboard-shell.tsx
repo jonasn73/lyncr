@@ -35,6 +35,7 @@ import {
   useDashboardSessionOptional,
 } from "@/components/dashboard-session-context"
 import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 // Keep the heavy intake modal (Leaflet, framer-motion, ~4k LOC) out of the shell chunk.
 const CallAnsweredModal = dynamic(
@@ -212,6 +213,7 @@ export function DashboardShell({
   }, [initialBootstrap, sessionAccount?.hasActiveSubscription])
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={null}>
       <DashboardSessionProvider session={dashboardSession}>
       <DashboardActivationProvider activationSeed={activationSeed}>
@@ -259,5 +261,6 @@ export function DashboardShell({
       </DashboardActivationProvider>
       </DashboardSessionProvider>
     </Suspense>
+    </ErrorBoundary>
   )
 }
