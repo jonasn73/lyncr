@@ -157,13 +157,19 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     [businessNumbers]
   )
 
-  const workspaceLineSet = useMemo(() => {
-    return new Set(
+  const workspaceLineKey = useMemo(
+    () =>
       businessNumbers
         .map((line) => normalizeCallEventPhoneDigits(line.number))
         .filter((digits) => digits.length >= 10)
-    )
-  }, [businessNumbers])
+        .sort()
+        .join("|"),
+    [businessNumbers]
+  )
+
+  const workspaceLineSet = useMemo(() => {
+    return new Set(workspaceLineKey ? workspaceLineKey.split("|") : [])
+  }, [workspaceLineKey])
 
   const selectedLineDigits = useMemo(
     () => normalizeCallEventPhoneDigits(activeLineE164 ?? ""),
