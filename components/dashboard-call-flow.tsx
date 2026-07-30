@@ -39,7 +39,17 @@ import {
 } from "@/components/workspace-content-skeletons"
 import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
-import { useSmartOverflowAutopilot } from "@/hooks/use-smart-overflow-autopilot"
+import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-autopilot"
+// useSmartOverflowAutopilot disabled while hunting React #185 (capacity fetch + IVR sync loops).
+const STATIC_SMART_OVERFLOW = {
+  config: { capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD },
+  overflowActive: false,
+  nextAvailableSlotText: "Monday morning",
+  confirmedJobsToday: 0,
+  loading: false,
+  retellConnected: false,
+} as const
+
 import {
   LYNCR_ROUTING_MODE_CHANGED,
   normalizeActiveRoutingMode,

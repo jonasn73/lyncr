@@ -37,6 +37,12 @@ import {
 import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
 import { ErrorBoundary } from "@/components/error-boundary"
 
+/**
+ * TEMP safety switch — heavy realtime hosts were involved in React #185
+ * (max update depth) flash→crash. Re-enable after the shell loads cleanly.
+ */
+const ENABLE_DASHBOARD_REALTIME_HOSTS = false
+
 // Keep the heavy intake modal (Leaflet, framer-motion, ~4k LOC) out of the shell chunk.
 const CallAnsweredModal = dynamic(
   () =>
@@ -223,6 +229,7 @@ export function DashboardShell({
               initialBootstrap={initialBootstrap}
               initialActiveOrganizationId={initialActiveOrganizationId}
             >
+              {ENABLE_DASHBOARD_REALTIME_HOSTS ? (
               <LyncEngineProvider>
               <DashboardRealtimeStatsHost>
               <InboundCallPanelProvider>
@@ -247,7 +254,6 @@ export function DashboardShell({
                       <DashboardOperatorHeartbeatHost />
                       <PhotoUploadNotificationBanner />
                     </AppShell>
-                    {/* Outside AppShell/main so Map Leaflet stacking never traps intake chrome. */}
                     <DashboardAnsweredCallPopup enabled={popupEnabled} />
                   </DispatchCommandBridgeProvider>
                 </DashboardNumbersModalProvider>
@@ -255,6 +261,32 @@ export function DashboardShell({
               </InboundCallPanelProvider>
               </DashboardRealtimeStatsHost>
               </LyncEngineProvider>
+              ) : (
+              <InboundCallPanelProvider>
+              <DashboardBootstrapShellGate initialBootstrap={initialBootstrap}>
+                <DashboardBusinessNumbersSync />
+                <DashboardOrganizationsBootstrap />
+                <DashboardNumbersModalProvider>
+                  <UpgradeSubscriptionModal />
+                  <AddCarrierCreditModal />
+                  <Suspense fallback={null}>
+                    <DashboardSettingsModalsLazyHost sessionSeed={settingsSessionSeed} />
+                  </Suspense>
+                  <DispatchCommandBridgeProvider>
+                    <AppShell
+                      pathname={pathname}
+                      accountHeader={accountHeader}
+                      headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
+                    >
+                      <DashboardMainStreamGate activePage={activePage}>
+                        <DashboardMainContent activePage={activePage} routedChildren={children} />
+                      </DashboardMainStreamGate>
+                    </AppShell>
+                  </DispatchCommandBridgeProvider>
+                </DashboardNumbersModalProvider>
+              </DashboardBootstrapShellGate>
+              </InboundCallPanelProvider>
+              )}
             </DashboardWorkspaceProvider>
           </SwrProvider>
         </DashboardChromeProvider>

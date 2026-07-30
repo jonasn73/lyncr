@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { writeClientCrashDump } from "@/lib/client-crash-dump"
 
 interface Props {
   children: React.ReactNode
@@ -9,38 +10,42 @@ interface Props {
 
 interface State {
   hasError: boolean
+  message: string | null
+  componentStack: string | null
 }
 
-// Error boundary (must be a class component) to catch client-side React errors
-// and show a friendly message instead of "Application error"
+/** Catches client React crashes and shows enough detail to fix production #185 loops. */
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, message: null, componentStack: null }
   }
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true }
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return {
+      hasError: true,
+      message: error?.message || error?.name || "React render error",
+    }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[lyncr] Client error:", error, info.componentStack)
-    // Persist for app/error.tsx so production #185 dumps show which component looped.
-    void import("@/lib/client-crash-dump").then(({ writeClientCrashDump }) => {
-      writeClientCrashDump({
-        at: Date.now(),
-        message: error.message || error.name || "React render error",
-        stack: error.stack ?? null,
-        componentStack: info.componentStack ?? null,
-      })
+    const message = error.message || error.name || "React render error"
+    const componentStack = info.componentStack ?? null
+    console.error("[lyncr] Client error:", error, componentStack)
+    this.setState({ message, componentStack })
+    writeClientCrashDump({
+      at: Date.now(),
+      message,
+      stack: error.stack ?? null,
+      componentStack,
     })
     if (process.env.NODE_ENV === "development") {
       void import("@/lib/dev-error-log").then(({ pushDevErrorLog }) => {
         pushDevErrorLog({
           kind: "react",
-          message: error.message || error.name || "React render error",
+          message,
           stack: error.stack ?? null,
-          componentStack: info.componentStack ?? null,
+          componentStack,
         })
       })
     }
@@ -52,12 +57,32 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return (
         <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
           <p className="text-center text-foreground">Something went wrong.</p>
-          <a
-            href="/"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            Go to login
-          </a>
+          {this.state.message ? (
+            <p className="max-w-md text-center text-xs text-muted-foreground">{this.state.message}</p>
+          ) : null}
+          {this.state.componentStack ? (
+            <pre className="max-h-56 max-w-lg overflow-auto rounded-lg border border-border bg-card p-3 text-left text-[10px] leading-snug text-muted-foreground whitespace-pre-wrap">
+              {this.state.componentStack}
+            </pre>
+          ) : null}
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                this.setState({ hasError: false, message: null, componentStack: null })
+                window.location.reload()
+              }}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Try again
+            </button>
+            <a
+              href="/"
+              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              Go to login
+            </a>
+          </div>
         </div>
       )
     }
