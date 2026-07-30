@@ -22,7 +22,7 @@ export default function Error({
     console.error("[lyncr] app/error.tsx", error.message, error.digest, error.stack)
     const existing = readClientCrashDump()
     // Prefer a dump that already has a component stack from ErrorBoundary.
-    if (existing?.componentStack) {
+    if (existing?.componentStack || existing?.stack) {
       setDump(existing)
       return
     }
@@ -35,15 +35,18 @@ export default function Error({
     setDump(readClientCrashDump())
   }, [error])
 
+  // Component tree first; JS stack second (minified builds often only have the latter).
+  const dumpText = dump?.componentStack || dump?.stack || error.stack || null
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
       <p className="text-center text-foreground">Something went wrong.</p>
       {error.message ? (
         <p className="max-w-md text-center text-xs text-muted-foreground">{error.message}</p>
       ) : null}
-      {dump?.componentStack ? (
-        <pre className="max-h-48 max-w-lg overflow-auto rounded-lg border border-border bg-card p-3 text-left text-[10px] leading-snug text-muted-foreground">
-          {dump.componentStack}
+      {dumpText ? (
+        <pre className="max-h-48 max-w-lg overflow-auto rounded-lg border border-border bg-card p-3 text-left text-[10px] leading-snug text-muted-foreground whitespace-pre-wrap">
+          {dumpText}
         </pre>
       ) : null}
       <div className="flex gap-2">
