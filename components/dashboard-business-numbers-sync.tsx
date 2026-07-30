@@ -8,7 +8,7 @@ import {
   resolveActiveLineAfterNumbers,
   useBusinessNumbersQuery,
 } from "@/lib/hooks/use-business-numbers-query"
-import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import { businessNumbersMatch, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 
 function numbersUnchanged(a: DashboardBusinessNumber[], b: DashboardBusinessNumber[]): boolean {
   if (a === b) return true
@@ -61,7 +61,10 @@ export function DashboardBusinessNumbersSync() {
   useEffect(() => {
     if (hasBootstrap) return
     const next = resolveActiveLineAfterNumbers(numbers, reservedNumber, activeLine)
-    if (next !== activeLine) setActiveLine(next)
+    // Digits-equal is enough — string inequality alone reintroduced #185 flip-flops.
+    if (next === activeLine) return
+    if (next && activeLine && businessNumbersMatch(next, activeLine)) return
+    setActiveLine(next)
   }, [hasBootstrap, numbers, reservedNumber, activeLine, setActiveLine])
 
   useEffect(() => {

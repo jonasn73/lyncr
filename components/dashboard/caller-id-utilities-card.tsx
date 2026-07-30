@@ -102,8 +102,16 @@ export function CallerIdUtilitiesCard({
   // High-risk spam rings blocked this calendar week (status = blocked_spam).
   const [spamCount, setSpamCount] = useState<number | null>(null)
 
+  // Hydrate from localStorage once per org — skip setState when values match
+  // (avoids extra paints that used to pile onto the Radix Switch #185 loop).
   useEffect(() => {
-    setPrefs(readPrefs(organizationId))
+    const next = readPrefs(organizationId)
+    setPrefs((prev) =>
+      prev.spamShieldEnabled === next.spamShieldEnabled &&
+      prev.enhancedCnamEnabled === next.enhancedCnamEnabled
+        ? prev
+        : next
+    )
   }, [organizationId])
 
   useEffect(() => {

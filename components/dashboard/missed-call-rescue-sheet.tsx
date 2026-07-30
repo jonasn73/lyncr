@@ -337,6 +337,13 @@ export function MissedCallRescueSheet({
     Record<string, "idle" | "sending" | "sent" | "error">
   >({})
 
+  // Stable string key — businessNumbers array identity must not recreate loadMissed (#185).
+  const linesKey = businessNumbers
+    .map((l) => l.number)
+    .filter(Boolean)
+    .sort()
+    .join("|")
+
   const loadMissed = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -360,12 +367,11 @@ export function MissedCallRescueSheet({
         : Array.isArray(json.data)
           ? json.data
           : []
+      const lineSet = linesKey ? linesKey.split("|") : []
       const missed = all
         .filter((row) => {
-          if (businessNumbers.length > 0) {
-            const onLine = businessNumbers.some((line) =>
-              businessNumbersMatch(row.to_number, line.number)
-            )
+          if (lineSet.length > 0) {
+            const onLine = lineSet.some((line) => businessNumbersMatch(row.to_number, line))
             if (!onLine) return false
           }
           return isMissedCallTodayRecord({
@@ -406,7 +412,7 @@ export function MissedCallRescueSheet({
     } finally {
       setLoading(false)
     }
-  }, [businessNumbers])
+  }, [linesKey])
 
   useEffect(() => {
     if (!open) return

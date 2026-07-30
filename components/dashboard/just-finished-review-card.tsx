@@ -398,16 +398,18 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         </div>
       </div>
 
-      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent
-          side="right"
-          variant="drawer"
-          className={cn(
-            WORKSPACE_SHEET_CLASS,
-            "pb-[calc(env(safe-area-inset-bottom)+1rem)]"
-          )}
-        >
-          {selected ? (
+      {/* Mount Sheet only while open — always-mounted Radix Sheet+Close button
+          contributed to update-depth crashes when Latest refreshed (#185). */}
+      {selected ? (
+        <Sheet open onOpenChange={(open) => !open && setSelected(null)}>
+          <SheetContent
+            side="right"
+            variant="drawer"
+            className={cn(
+              WORKSPACE_SHEET_CLASS,
+              "pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+            )}
+          >
             <LatestActionDetail
               item={selected}
               organizationId={activeOrganizationId}
@@ -423,9 +425,9 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               onOpenMessages={openInMessages}
               onOpenJob={openJobDrawer}
             />
-          ) : null}
-        </SheetContent>
-      </Sheet>
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </>
   )
 })

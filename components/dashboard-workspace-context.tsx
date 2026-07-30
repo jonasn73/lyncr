@@ -13,7 +13,10 @@ import {
 import { useRouter } from "next/navigation"
 import type { PageId } from "@/components/app-shell"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
-import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import {
+  businessNumbersMatch,
+  type DashboardBusinessNumber,
+} from "@/lib/dashboard-routing-utils"
 import type { BusinessNumbersQueryResult } from "@/lib/hooks/use-business-numbers-query"
 import { persistedCacheKey, readPersistedCache } from "@/lib/swr/persisted-cache"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
@@ -200,10 +203,13 @@ export function DashboardWorkspaceProvider({
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
   }, [workspaceSeed])
 
-  // Bail out when the E.164 string is unchanged — prevents flip-flop loops across formats
-  // that still match via businessNumbersMatch but differ as raw strings.
+  // Bail out when digits match — E.164 vs raw "555…" must not flip-flop (#185).
   const setActiveLineStable = useCallback((line: string | null) => {
-    setActiveLine((prev) => (prev === line ? prev : line))
+    setActiveLine((prev) => {
+      if (prev === line) return prev
+      if (prev && line && businessNumbersMatch(prev, line)) return prev
+      return line
+    })
   }, [])
 
   const setActiveTab = useCallback(

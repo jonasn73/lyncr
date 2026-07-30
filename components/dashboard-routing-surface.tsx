@@ -1,9 +1,10 @@
 "use client"
 
-// Full Lines dashboard (restored from safe mode).
-// Keep anti-#185 safeguards elsewhere: no dock indicator, no useClientSnapshot seeds,
-// toast subscribe-once, stats EMPTY fallback, ENABLE_DASHBOARD_REALTIME_HOSTS=false.
-// Call flow mounts Latest once (not mobile+desktop twins) to avoid hook/Sheet loops.
+// Full Lines dashboard (not safe-mode placeholder).
+// Anti-#185 (permanent): plain Switch (no Radix bubble/ResizeObserver), Latest Sheet
+// mounts only when open, telemetry dialogs lazy-mount, single Latest card, no dock
+// indicator, no useClientSnapshot seeds, toast subscribe-once, stats EMPTY fallback,
+// ENABLE_DASHBOARD_REALTIME_HOSTS=false.
 
 import { memo } from "react"
 import Link from "next/link"

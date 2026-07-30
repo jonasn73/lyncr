@@ -306,17 +306,23 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         </Link>
       </section>
 
-      <RoutingCallHistoryDialog
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-        filter={historyFilter}
-        businessNumbers={businessNumbers}
-      />
-      <MissedCallRescueSheet
-        open={rescueOpen}
-        onOpenChange={setRescueOpen}
-        businessNumbers={businessNumbers}
-      />
+      {/* Lazy-mount dialogs — closed Radix roots still ran effects/close buttons
+          on every Lines paint and fed the #185 update-depth loop. */}
+      {historyOpen ? (
+        <RoutingCallHistoryDialog
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          filter={historyFilter}
+          businessNumbers={businessNumbers}
+        />
+      ) : null}
+      {rescueOpen ? (
+        <MissedCallRescueSheet
+          open={rescueOpen}
+          onOpenChange={setRescueOpen}
+          businessNumbers={businessNumbers}
+        />
+      ) : null}
     </>
   )
 })
