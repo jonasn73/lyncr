@@ -9,6 +9,7 @@ import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import type { BillingSummaryCache } from "@/lib/billing-summary-cache"
 import type { WorkspaceLabelCache } from "@/lib/workspace-label-cache"
 import type { LinesChromeCache } from "@/lib/lines-chrome-cache"
+import type { MissedLeadsPaintSeed } from "@/lib/missed-lead-insights-cache"
 
 /** Last-known dashboard values from paint cookies (SSR) or empty. */
 export type DashboardPaintSeeds = {
@@ -26,6 +27,8 @@ export type DashboardPaintSeeds = {
   workspace: WorkspaceLabelCache | null
   /** Main Line / Live & Connected chrome under the header. */
   lines: LinesChromeCache | null
+  /** MISSED ticker “N leads” sublabel — counts only. */
+  missedLeads: MissedLeadsPaintSeed | null
 }
 
 /** Stable empty sentinel — same reference on every miss. */
@@ -39,4 +42,5 @@ export const EMPTY_DASHBOARD_PAINT_SEEDS: DashboardPaintSeeds = {
   presence: null,
   workspace: null,
   lines: null,
+  missedLeads: null,
 }

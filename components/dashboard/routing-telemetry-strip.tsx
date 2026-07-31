@@ -188,15 +188,15 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const missedDisplay = baselineReady ? missedCalls : "—"
   const linesDisplay = baselineReady ? liveLineCount : "—"
 
-  // Only trust unique-lead count once insights are seeded or fetched (avoids leads jump).
-  const uniqueLeads =
+  // Prefer seeded/fetched unique-lead count; fall back to missedCalls only while truly unknown.
+  // uniqueMissedLeadsReady is true from cookie/session seed — do not wait for /api/calls.
+  const hasSeededLeads =
     uniqueMissedLeadsReady && typeof uniqueMissedLeads === "number" && uniqueMissedLeads >= 0
-      ? uniqueMissedLeads
-      : missedCalls
-  const missedLeadCollapse =
-    uniqueMissedLeadsReady && uniqueLeads > 0 && uniqueLeads < missedCalls
+  const uniqueLeads = hasSeededLeads ? uniqueMissedLeads : missedCalls
+  const missedLeadCollapse = hasSeededLeads && uniqueLeads > 0 && uniqueLeads < missedCalls
   const missedTickerLabel = formatMissedTickerLabel(missedCalls, uniqueLeads)
-  const missedTickerSublabel = uniqueMissedLeadsReady
+  // Show last seeded “N leads” as soon as ready — independent of slow insights fetch.
+  const missedTickerSublabel = hasSeededLeads
     ? formatMissedTickerSublabel(missedCalls, uniqueLeads)
     : null
   const missedDesktopLabel = missedLeadCollapse
@@ -230,7 +230,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
           <TelemetryTickerItem
             label={missedTickerLabel}
             value={missedDisplay}
-            sublabel={baselineReady && uniqueMissedLeadsReady ? missedTickerSublabel : null}
+            sublabel={baselineReady ? missedTickerSublabel : null}
             valueClassName={baselineReady && missedCalls > 0 ? "text-amber-300" : undefined}
             labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
             onClick={openMissedRescue}

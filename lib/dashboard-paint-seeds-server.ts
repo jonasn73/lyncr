@@ -30,6 +30,10 @@ import {
   LINES_CHROME_COOKIE,
   readLinesChromeFromCookieRaw,
 } from "@/lib/lines-chrome-cache"
+import {
+  MISSED_LEADS_COOKIE,
+  readMissedLeadsFromCookieRaw,
+} from "@/lib/missed-lead-insights-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
@@ -86,7 +90,19 @@ export function readDashboardPaintSeedsFromCookies(
   const linesRaw = getCookie(LINES_CHROME_COOKIE)
   const lines = readLinesChromeFromCookieRaw(linesRaw)
 
-  if (!moneyOk && !telemetry && !latest && !billingOk && !presence && !workspace && !lines) {
+  const missedLeadsRaw = getCookie(MISSED_LEADS_COOKIE)
+  const missedLeads = readMissedLeadsFromCookieRaw(missedLeadsRaw)
+
+  if (
+    !moneyOk &&
+    !telemetry &&
+    !latest &&
+    !billingOk &&
+    !presence &&
+    !workspace &&
+    !lines &&
+    !missedLeads
+  ) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
 
@@ -100,5 +116,6 @@ export function readDashboardPaintSeedsFromCookies(
     presence,
     workspace,
     lines,
+    missedLeads,
   }
 }

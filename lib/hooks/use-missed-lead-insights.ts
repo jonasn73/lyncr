@@ -10,12 +10,20 @@ import {
   readInterceptedPhoneKeys,
   summarizeMissedLeadInsights,
   type MissedLeadCallRow,
-  type MissedLeadHotProspect,
   type MissedLeadInsights,
 } from "@/lib/missed-lead-aggregation"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  hasMissedLeadsSeed,
+  MISSED_LEADS_CACHE_KEY,
+  readMissedLeadsPaintSeed,
+  writeMissedLeadsCache,
+  type MissedLeadsPaintSeed,
+  type MissedLeadsSessionCache,
+} from "@/lib/missed-lead-insights-cache"
+import { readPersistedCache } from "@/lib/swr/persisted-cache"
 
 const EMPTY: MissedLeadInsights = {
   totalMissedToday: 0,
@@ -23,15 +31,7 @@ const EMPTY: MissedLeadInsights = {
   recentUnreturned: [],
 }
 
-/** Keep the unreturned banner from popping in after /api/calls on hard refresh. */
-const MISSED_LEADS_CACHE_KEY = persistedCacheKey("missed-lead-insights", "banner")
-
-type MissedLeadsCache = {
-  rows: MissedLeadCallRow[]
-  recentUnreturned: MissedLeadHotProspect[]
-  uniqueLeadsToday: number
-  totalMissedToday: number
-}
+const EMPTY_ROWS: MissedLeadCallRow[] = []
 
 function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null {
   const id = String(raw.id ?? "").trim()
@@ -51,30 +51,40 @@ function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null
   }
 }
 
-const EMPTY_ROWS: MissedLeadCallRow[] = []
-
 function readCachedMissedLeads(): MissedLeadCallRow[] {
-  const cached = readPersistedCache<MissedLeadsCache>(MISSED_LEADS_CACHE_KEY)
+  const cached = readPersistedCache<MissedLeadsSessionCache>(MISSED_LEADS_CACHE_KEY)
   if (!cached || !Array.isArray(cached.rows)) return EMPTY_ROWS
   return cached.rows.length > 0 ? cached.rows : EMPTY_ROWS
 }
 
-/** Summary seed so “X leads” can paint before /api/calls returns (stops 0→N ticker jump). */
-function readCachedMissedLeadSummary(): MissedLeadInsights {
-  const cached = readPersistedCache<MissedLeadsCache>(MISSED_LEADS_CACHE_KEY)
-  if (!cached) return EMPTY
-  // Prefer recomputing from rows when we have them (respects intercept marks).
-  if (Array.isArray(cached.rows) && cached.rows.length > 0) {
-    return summarizeMissedLeadInsights(cached.rows, {
-      interceptedKeys: readInterceptedPhoneKeys(),
-    })
+/**
+ * Summary seed so “X leads” paints in first HTML (cookie) and on hydrate (session).
+ * Prefer recomputing from rows when present so intercept marks stay accurate.
+ */
+function readCachedMissedLeadSummary(paint?: MissedLeadsPaintSeed | null): MissedLeadInsights {
+  const cached = readPersistedCache<MissedLeadsSessionCache>(MISSED_LEADS_CACHE_KEY)
+  if (cached) {
+    if (Array.isArray(cached.rows) && cached.rows.length > 0) {
+      return summarizeMissedLeadInsights(cached.rows, {
+        interceptedKeys: readInterceptedPhoneKeys(),
+      })
+    }
+    if (typeof cached.uniqueLeadsToday === "number" && cached.uniqueLeadsToday >= 0) {
+      return {
+        totalMissedToday: cached.totalMissedToday ?? 0,
+        uniqueLeadsToday: cached.uniqueLeadsToday,
+        recentUnreturned: Array.isArray(cached.recentUnreturned) ? cached.recentUnreturned : [],
+      }
+    }
   }
-  // Summary-only fallback from last successful write.
-  if (typeof cached.uniqueLeadsToday === "number" && cached.uniqueLeadsToday >= 0) {
+
+  // SSR / hard refresh — cookie paint seed (sessionStorage is invisible to the server).
+  const seeded = readMissedLeadsPaintSeed(paint)
+  if (seeded) {
     return {
-      totalMissedToday: cached.totalMissedToday ?? 0,
-      uniqueLeadsToday: cached.uniqueLeadsToday,
-      recentUnreturned: Array.isArray(cached.recentUnreturned) ? cached.recentUnreturned : [],
+      totalMissedToday: seeded.totalMissedToday,
+      uniqueLeadsToday: seeded.uniqueLeadsToday,
+      recentUnreturned: [],
     }
   }
   return EMPTY
@@ -85,19 +95,45 @@ export function useMissedLeadInsights(
   /** When false, skip network (Lines pane hidden / inactive). */
   enabled = true
 ) {
+  // Cookie paint seed from layout — required for hard-refresh first HTML.
+  const paintSeeds = useDashboardPaintSeeds()
+  const paintMissed = paintSeeds.missedLeads
+
   // Last-known rows before paint — useSessionSeed (not useSyncExternalStore / #185).
   const cachedRows = useSessionSeed(readCachedMissedLeads, EMPTY_ROWS, "missed-leads")
-  // Seed uniqueLeadsToday independently so the MISSED ticker sublabel does not jump 0→N.
-  const cachedSummary = useSessionSeed(readCachedMissedLeadSummary, EMPTY, "missed-leads-summary")
+  // Seed uniqueLeadsToday from session + SSR cookie so the MISSED sublabel does not jump.
+  const cachedSummary = useSessionSeed(
+    () => readCachedMissedLeadSummary(paintMissed),
+    EMPTY,
+    // Re-read when paint seed identity changes (layout request / hydrate).
+    paintMissed
+      ? `missed-leads-summary:${paintMissed.uniqueLeadsToday}:${paintMissed.totalMissedToday}`
+      : "missed-leads-summary"
+  )
   const [liveRows, setLiveRows] = useState<MissedLeadCallRow[] | null>(null)
   const rows = liveRows ?? cachedRows
-  // Ready when we already know last-paint leads (even 0) — hide sublabel only while truly unknown.
+  // Ready when cookie/session already knows last-paint leads — do not wait for /api/calls.
   const hadSeed =
+    hasMissedLeadsSeed(paintMissed) ||
     cachedRows.length > 0 ||
     cachedSummary.uniqueLeadsToday > 0 ||
     cachedSummary.totalMissedToday > 0
   const [loading, setLoading] = useState(() => !hadSeed)
   const [interceptTick, setInterceptTick] = useState(0)
+
+  // One-time: mirror existing session summary into the paint cookie so the next
+  // hard refresh can SSR “N leads” (users who only had sessionStorage before).
+  useEffect(() => {
+    const cached = readPersistedCache<MissedLeadsSessionCache>(MISSED_LEADS_CACHE_KEY)
+    if (!cached || typeof cached.uniqueLeadsToday !== "number") return
+    writeMissedLeadsCache({
+      rows: Array.isArray(cached.rows) ? cached.rows : [],
+      recentUnreturned: Array.isArray(cached.recentUnreturned) ? cached.recentUnreturned : [],
+      uniqueLeadsToday: cached.uniqueLeadsToday,
+      totalMissedToday: cached.totalMissedToday ?? 0,
+      localDayPeriodKey: cached.localDayPeriodKey,
+    })
+  }, [])
 
   // Stable string key — do not depend on businessNumbers array identity (#185 risk).
   const linesKey = businessNumbers
@@ -115,12 +151,16 @@ export function useMissedLeadInsights(
     if (cachedRows.length > 0) setLoading(false)
   }, [cachedRows.length])
 
-  // Summary-only seed (uniqueLeadsToday) also means we can show “X leads” immediately.
+  // Summary-only seed (cookie or session) means we can show “X leads” immediately.
   useEffect(() => {
-    if (cachedSummary.uniqueLeadsToday > 0 || cachedSummary.totalMissedToday > 0) {
+    if (
+      hadSeed ||
+      cachedSummary.uniqueLeadsToday > 0 ||
+      cachedSummary.totalMissedToday > 0
+    ) {
       setLoading(false)
     }
-  }, [cachedSummary.uniqueLeadsToday, cachedSummary.totalMissedToday])
+  }, [hadSeed, cachedSummary.uniqueLeadsToday, cachedSummary.totalMissedToday])
 
   const load = useCallback(async () => {
     try {
@@ -150,12 +190,12 @@ export function useMissedLeadInsights(
       const summary = summarizeMissedLeadInsights(parsed, {
         interceptedKeys: readInterceptedPhoneKeys(),
       })
-      writePersistedCache(MISSED_LEADS_CACHE_KEY, {
+      writeMissedLeadsCache({
         rows: parsed,
         recentUnreturned: summary.recentUnreturned,
         uniqueLeadsToday: summary.uniqueLeadsToday,
         totalMissedToday: summary.totalMissedToday,
-      } satisfies MissedLeadsCache)
+      })
     } catch {
       /* keep last good rows */
     } finally {
@@ -202,15 +242,19 @@ export function useMissedLeadInsights(
     setInterceptTick((t) => t + 1)
   }, [])
 
+  // Seeded counts are safe to show immediately — never gate the ticker on fetch `loading`.
+  const ready =
+    hadSeed ||
+    !loading ||
+    rows.length > 0 ||
+    cachedSummary.uniqueLeadsToday > 0 ||
+    cachedSummary.totalMissedToday > 0
+
   return {
     ...insights,
     loading,
-    /** True once session seed or network settled — safe to show “X leads” sublabel. */
-    ready:
-      !loading ||
-      rows.length > 0 ||
-      cachedSummary.uniqueLeadsToday > 0 ||
-      cachedSummary.totalMissedToday > 0,
+    /** True once cookie/session seed or network settled — safe to show “X leads” sublabel. */
+    ready,
     refresh: load,
     markIntercepted,
   }
