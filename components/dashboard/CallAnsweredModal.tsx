@@ -247,6 +247,7 @@ function ReturningCallerDecisionCard({
   notesPreview,
   notesHasMore,
   emphasizeJob,
+  hasCrmHistory,
   onRestoreDraft,
   onDismissDraft,
   onContinueQuote,
@@ -268,6 +269,8 @@ function ReturningCallerDecisionCard({
   notesPreview: string | null
   notesHasMore: boolean
   emphasizeJob: boolean
+  /** CRM match / open lead / garage / active job — not draft-only. */
+  hasCrmHistory: boolean
   onRestoreDraft: () => void
   onDismissDraft: () => void
   onContinueQuote: () => void
@@ -340,7 +343,9 @@ function ReturningCallerDecisionCard({
 
   return (
     <div className="mx-4 mt-2 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-3">
-      <p className="text-[11px] font-semibold text-amber-100">Returning caller</p>
+      <p className="text-[11px] font-semibold text-amber-100">
+        {hasCrmHistory ? "Returning caller" : "Saved draft"}
+      </p>
       <p className="mt-0.5 text-base font-semibold text-foreground">{customerName}</p>
 
       <ul className="mt-2 space-y-1 text-[11px] leading-snug text-muted-foreground">
@@ -1170,13 +1175,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const activeDraftPhone = useMemo(() => {
     // Prefer the live call's from_number so a call switch never offers the
     // previous caller's draft while form state is still catching up.
-    const raw = (
-      effectiveCurrent?.from_number?.trim() ||
-      form.phoneNumber.trim() ||
-      ""
-    ).trim()
-    return isValidIntakeDraftPhone(raw) ? raw : null
-  }, [form.phoneNumber, effectiveCurrent?.from_number])
+    const callPhone = effectiveCurrent?.from_number?.trim() || ""
+    if (callPhone && isValidIntakeDraftPhone(callPhone)) return callPhone
+    // Manual dial pad may only have the typed form phone before from_number syncs.
+    if (effectiveCurrent?.isManual) {
+      const formPhone = form.phoneNumber.trim()
+      return isValidIntakeDraftPhone(formPhone) ? formPhone : null
+    }
+    // Never fall back to a stale form phone for live inbound — that loads
+    // the previous caller's draft onto a brand-new ring.
+    return null
+  }, [form.phoneNumber, effectiveCurrent?.from_number, effectiveCurrent?.isManual])
 
   /**
    * Offer an explicit Restore draft chip when a fresh, meaningful draft exists
@@ -1192,9 +1201,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setPendingDraft(null)
       return
     }
-    // Form still on a different number than the open call — wait for sync.
     const formPhone = form.phoneNumber.trim()
     const callPhone = effectiveCurrent.from_number?.trim() || ""
+    // Inbound must have a ringing E.164 before we offer any draft.
+    if (!effectiveCurrent.isManual && !callPhone) {
+      setPendingDraft(null)
+      return
+    }
+    // Form still on a different number than the open call — wait for sync.
     if (
       formPhone &&
       callPhone &&
@@ -1215,6 +1229,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
     // Only offer drafts keyed to the open caller — never another phone's snapshot.
     const draft = getDraftByPhoneNumber(activeDraftPhone)
+    // Drop leftover shells that are no longer considered meaningful (e.g. auto Lockout).
+    if (!draft) {
+      setPendingDraft(null)
+      return
+    }
+    if (
+      draft.form.phoneNumber?.trim() &&
+      !intakeDraftPhonesMatch(draft.form.phoneNumber, activeDraftPhone)
+    ) {
+      clearIntakeDraft(activeDraftPhone)
+      setPendingDraft(null)
+      return
+    }
     setPendingDraft(draft)
   }, [effectiveCurrent, activeDraftPhone, form.phoneNumber])
 
@@ -1365,6 +1392,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       skipNextDraftSaveRef.current = false
       return
     }
+    const callPhone = effectiveCurrent.from_number?.trim() || ""
+    const formPhone = form.phoneNumber.trim()
+    // Never write under the ringing number while form still belongs to another caller.
+    if (
+      formPhone &&
+      callPhone &&
+      isValidIntakeDraftPhone(formPhone) &&
+      isValidIntakeDraftPhone(callPhone) &&
+      !intakeDraftPhonesMatch(formPhone, callPhone)
+    ) {
+      return
+    }
+    // Live inbound: require the form phone to already match the draft key.
+    if (
+      !effectiveCurrent.isManual &&
+      formPhone &&
+      !intakeDraftPhonesMatch(formPhone, activeDraftPhone)
+    ) {
+      return
+    }
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
     // While a Restore chip is offered, do not overwrite the stored draft with a blank form.
     if (
@@ -1384,6 +1431,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           form,
           currentStep,
         })
+      ) {
+        return
+      }
+      // Re-check phone match at flush time (form may have switched mid-debounce).
+      const latestFormPhone = form.phoneNumber.trim()
+      const latestCallPhone = effectiveCurrent.from_number?.trim() || ""
+      if (
+        latestFormPhone &&
+        latestCallPhone &&
+        !intakeDraftPhonesMatch(latestFormPhone, latestCallPhone)
       ) {
         return
       }
@@ -3307,7 +3364,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 customerName={
                   matchedCustomer?.display_name?.trim() ||
                   form.displayName.trim() ||
-                  "Returning caller"
+                  (pendingDraft && !matchedCustomer && !crmOpenLeadId && !activeCallbackJobId
+                    ? "Continue where you left off"
+                    : "Returning caller")
                 }
                 vehicleLabel={returningCallerVehicleLabel}
                 openLeadId={crmOpenLeadId}
@@ -3320,6 +3379,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 notesPreview={returningCallerNotes?.preview ?? null}
                 notesHasMore={Boolean(returningCallerNotes?.hasMore)}
                 emphasizeJob={Boolean(activeCallbackJobId)}
+                hasCrmHistory={Boolean(
+                  matchedCustomer ||
+                    crmOpenLeadId ||
+                    garageVehicles.length > 0 ||
+                    activeCallbackJobId
+                )}
                 onRestoreDraft={restorePendingDraft}
                 onDismissDraft={dismissPendingDraft}
                 onContinueQuote={handleContinueOpenQuote}

@@ -216,6 +216,9 @@ export function resumeDraftIntakeStep(params: {
 /**
  * True when this phone should get the returning-caller decision card
  * (not a cold Service-first intake).
+ *
+ * Requires a real CRM bind and/or a meaningful pending draft for THIS E.164
+ * (see isIntakeDraftMeaningful) — never a global/cross-caller draft.
  */
 export function isKnownReturningCaller(params: {
   hasMatchedCustomer: boolean

@@ -118,6 +118,49 @@ describe("intake draft storage", () => {
     ).toBe(true)
   })
 
+  it("ignores auto Lockout jobType + quote dollars on Service", () => {
+    // Quote calculator fills these on a blank inbound — must not trigger Restore.
+    const autoLockoutShell: ActiveCallFormState = {
+      ...THIN_FORM,
+      serviceQuoteTypeId: "lockout",
+      jobType: "Lockout",
+      quotedPriceCents: 8500,
+      quotedPriceOverridden: false,
+    }
+    expect(
+      isIntakeDraftMeaningful({ form: autoLockoutShell, currentStep: "SERVICE_SELECT" })
+    ).toBe(false)
+
+    // Same shell with empty service id (seeded inbound) but stale Lockout jobType/price.
+    expect(
+      isIntakeDraftMeaningful({
+        form: { ...autoLockoutShell, serviceQuoteTypeId: "" },
+        currentStep: "SERVICE_SELECT",
+      })
+    ).toBe(false)
+
+    // Operator-locked price on Lockout still counts as progress.
+    expect(
+      isIntakeDraftMeaningful({
+        form: { ...autoLockoutShell, quotedPriceOverridden: true },
+        currentStep: "SERVICE_SELECT",
+      })
+    ).toBe(true)
+
+    // Non-lockout job type on Service counts.
+    expect(
+      isIntakeDraftMeaningful({
+        form: {
+          ...THIN_FORM,
+          serviceQuoteTypeId: "",
+          jobType: "Key replacement",
+          quotedPriceCents: 0,
+        },
+        currentStep: "SERVICE_SELECT",
+      })
+    ).toBe(true)
+  })
+
   it("does not persist thin drafts", () => {
     saveIntakeDraft("5025551234", {
       form: THIN_FORM,

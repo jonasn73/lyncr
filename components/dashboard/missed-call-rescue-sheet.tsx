@@ -198,7 +198,7 @@ function seedIntakeDraftForCallback(phone: string, displayName: string | null): 
     scheduledDate: "",
     scheduledTime: "",
     vehicleClarificationAnswers: [],
-    serviceQuoteTypeId: "lockout",
+    serviceQuoteTypeId: "",
     quotedPriceCents: 0,
     quotedPriceOverridden: false,
   }
@@ -212,6 +212,7 @@ function seedIntakeDraftForCallback(phone: string, displayName: string | null): 
     negotiationStep: 0,
     submitted: false,
   }
+  // Thin shells are ignored by saveIntakeDraft — only seeds when meaningful later.
   saveIntakeDraft(e164, snapshot)
 }
 

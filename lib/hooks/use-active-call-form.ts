@@ -173,7 +173,9 @@ const EMPTY_FORM: ActiveCallFormState = {
   scheduledDate: "",
   scheduledTime: "",
   vehicleClarificationAnswers: [],
-  serviceQuoteTypeId: "lockout",
+  // Empty until the operator picks — "lockout" here auto-fills jobType/price and
+  // falsely triggers Restore draft ("Returning caller") on brand-new numbers.
+  serviceQuoteTypeId: "",
   quotedPriceCents: 0,
   quotedPriceOverridden: false,
   serviceVenue: "",
@@ -555,6 +557,9 @@ export function useActiveCallForm(
       keyVariantId: form.keyVariantId,
     })
     setForm((prev) => {
+      // Stale effect after call switch may still see prior lockout — never write
+      // Lockout jobType/price onto a form that already cleared service selection.
+      if (!prev.serviceQuoteTypeId.trim()) return prev
       const nextJobType = quote.jobType
       const nextKeyMode = quote.keyReplacementMode
       const nextQuoted = quote.totalCents

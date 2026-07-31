@@ -115,6 +115,10 @@ function isFormSnapshot(value: unknown): value is ActiveCallFormState {
 /**
  * True when the draft has real operator progress — not just the blank Service
  * screen with default Lockout (or empty service) and empty fields.
+ *
+ * Important: the quote calculator auto-fills jobType "Lockout" + a dollar total
+ * whenever service is lockout. Those alone must NOT count as meaningful, or every
+ * new inbound gets a false "Returning caller / Restore draft" card.
  */
 export function isIntakeDraftMeaningful(
   draft: Pick<IntakeDraftSnapshot, "form" | "currentStep">
@@ -129,11 +133,20 @@ export function isIntakeDraftMeaningful(
   }
   if (form.addressLine1?.trim() || form.city?.trim() || form.postalCode?.trim()) return true
   if (form.notes?.trim()) return true
-  if (form.jobType?.trim()) return true
   if (form.plateNumber?.trim() || form.vehicleVin?.trim()) return true
-  // CNAM / seeded schedule alone don't count — need operator or CRM field progress.
-  if ((form.quotedPriceCents ?? 0) > 0 || form.quotedPriceOverridden) return true
+
   const service = String(form.serviceQuoteTypeId ?? "").trim()
+  const jobType = String(form.jobType ?? "").trim()
+  const isDefaultLockoutShell = !service || service === "lockout"
+
+  // Ignore auto jobType "Lockout" from the blank-form calculator default.
+  if (jobType && !(isDefaultLockoutShell && /^lockout$/i.test(jobType))) {
+    return true
+  }
+  // Operator-locked price counts; auto Lockout estimate dollars do not.
+  if (form.quotedPriceOverridden) return true
+  if ((form.quotedPriceCents ?? 0) > 0 && !isDefaultLockoutShell) return true
+
   // Empty or default Lockout alone on Service = thin — do not offer Restore.
   if (service && service !== "lockout") return true
   return false
