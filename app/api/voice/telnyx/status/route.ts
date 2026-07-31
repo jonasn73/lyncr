@@ -66,10 +66,12 @@ export async function POST(req: NextRequest) {
       duration < MIN_LIVE_ANSWER_DURATION_SECONDS
     // Press-1 confirmation owns answered_at for receptionist legs; owner Your Phone
     // stamps it on immediate bridge via receptionist-answer — ignore carrier "answered" here.
+    // Never treat voicemail / automated handlers as a protected human pickup.
     const alreadyHumanAnswered =
       !automated &&
       Boolean(snapshot?.answered_at) &&
       snapshot?.call_type !== "voicemail" &&
+      snapshot?.call_type !== "missed" &&
       !shortTalk
 
     // Your Phone / receptionist already accepted — never demote a real pickup to missed.
@@ -82,7 +84,8 @@ export async function POST(req: NextRequest) {
       callType !== "outgoing" &&
       duration >= MIN_LIVE_ANSWER_DURATION_SECONDS &&
       snapshot?.routed_to_name &&
-      !isAutomatedCallHandler(snapshot.routed_to_name)
+      !isAutomatedCallHandler(snapshot.routed_to_name) &&
+      snapshot.call_type !== "voicemail"
     ) {
       callType = snapshot.call_type === "voicemail" ? "voicemail" : "incoming"
     }
@@ -109,16 +112,26 @@ export async function POST(req: NextRequest) {
       callType = snapshot?.call_type === "voicemail" ? "voicemail" : "missed"
     }
 
+    // Explicit voicemail rows stay voicemail on terminal events.
+    if (snapshot?.call_type === "voicemail") {
+      callType = "voicemail"
+    }
+
     // Short "completed" legs (aborted connect / brief VM) → missed.
     if (
       callType !== "outgoing" &&
       (callStatus === "completed" || callStatus === "canceled" || callStatus === "no-answer") &&
       shortTalk
     ) {
-      callType = "missed"
+      callType = snapshot?.call_type === "voicemail" ? "voicemail" : "missed"
     }
 
-    const clearFalseAnswer = shortTalk || (callType === "missed" && !alreadyHumanAnswered)
+    const clearFalseAnswer =
+      shortTalk ||
+      callType === "voicemail" ||
+      callType === "missed" ||
+      automated ||
+      (callType === "missed" && !alreadyHumanAnswered)
 
     await updateCallLog(callSid, {
       call_type: callType,
@@ -128,8 +141,7 @@ export async function POST(req: NextRequest) {
           : callStatus || snapshot?.status || "completed",
       ...(duration > 0 ? { duration_seconds: duration } : {}),
       // Clear machine / voicemail answered_at so Activities treat the leg as Missed.
-      ...(automated && callType === "missed" ? { answered_at: null } : {}),
-      ...(clearFalseAnswer && callType === "missed" ? { answered_at: null } : {}),
+      ...(clearFalseAnswer ? { answered_at: null } : {}),
     })
 
     const terminal = ["completed", "busy", "failed", "no-answer", "canceled"].includes(

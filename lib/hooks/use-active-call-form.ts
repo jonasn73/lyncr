@@ -51,6 +51,14 @@ export type ActiveCallRow = {
   ended_at?: string | null
   /** Telnyx recording URL when the carrier callback has landed in call_logs. */
   recording_url?: string | null
+  /** call_logs.call_type — used to label Missed / Voicemail vs Answered. */
+  call_type?: string | null
+  /** Carrier / dial status (completed, no-answer, …). */
+  status?: string | null
+  /** Who handled the leg (Owner, Voicemail, AI Receptionist, …). */
+  routed_to_name?: string | null
+  /** Talk seconds when known from call-completed. */
+  duration_seconds?: number | null
   /** True when opened via openManualCallPanel (not a Telnyx webhook row). */
   isManual?: boolean
   manualCallStatus?: ManualCallStatus

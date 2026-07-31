@@ -93,6 +93,10 @@ import {
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import {
+  intakeCallHeaderLabel,
+  resolveIntakeCallLinePhase,
+} from "@/lib/intake-call-line-phase"
+import {
   consumePendingReturnToIntake,
   emitFocusDispatchMap,
   LYNCR_RETURN_TO_INTAKE_EVENT,
@@ -740,11 +744,35 @@ function applyCallEndedPatch(
   row: ActiveCallRow,
   payload: OwnerCallCompletedPayload
 ): ActiveCallRow {
+  const missed = isMissedCallTelemetry(payload)
+  const statusNorm = String(payload.status ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+  const terminal =
+    Boolean(payload.ended_at?.trim()) ||
+    ["completed", "busy", "failed", "no-answer", "canceled", "cancelled"].includes(statusNorm)
+  const callType =
+    payload.call_type ??
+    (missed
+      ? String(payload.routed_to_name ?? "").toLowerCase().includes("voicemail")
+        ? "voicemail"
+        : "missed"
+      : row.call_type)
   return {
     ...row,
-    manualCallStatus: "completed",
-    ended_at: payload.ended_at ?? new Date().toISOString(),
-    answered_at: row.answered_at ?? payload.answered_at ?? null,
+    // Mid-call demotion (Lyncr VM / AI) may fire call-completed before hangup — keep sheet open.
+    manualCallStatus: terminal ? "completed" : row.manualCallStatus === "answered" ? "ringing" : row.manualCallStatus,
+    ended_at: terminal ? payload.ended_at ?? new Date().toISOString() : row.ended_at ?? null,
+    // Missed / voicemail must not keep a false cell-VM answered_at (green Answered).
+    answered_at: missed ? null : row.answered_at ?? payload.answered_at ?? null,
+    call_type: callType ?? null,
+    status: payload.status ?? row.status ?? null,
+    routed_to_name: payload.routed_to_name ?? row.routed_to_name ?? null,
+    duration_seconds:
+      payload.duration_seconds != null ? payload.duration_seconds : row.duration_seconds ?? null,
+    // Prefer quick note when the leg never had a human pickup.
+    ...(missed && row.intakeMode !== "full" ? { intakeMode: "quick" as const } : {}),
   }
 }
 
@@ -1991,11 +2019,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
       const openManual = manualCallRowRef.current
       if (openManual && matchesOpenRow(openManual)) {
-        patchManualCallRow({
-          manualCallStatus: "completed",
-          ended_at: payload.ended_at ?? new Date().toISOString(),
-          answered_at: openManual.answered_at ?? payload.answered_at ?? null,
-        })
+        patchManualCallRow(applyCallEndedPatch(openManual, payload))
         return
       }
 
@@ -3135,20 +3159,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   if (!enabled && !manualCallRow) return null
 
-  const isCallEnded =
-    effectiveCurrent != null &&
-    (effectiveCurrent.manualCallStatus === "completed" || Boolean(effectiveCurrent.ended_at))
-  const isRinging =
-    effectiveCurrent != null &&
-    !isCallEnded &&
-    (effectiveCurrent.manualCallStatus === "ringing" ||
-      (!effectiveCurrent.manualCallStatus && !effectiveCurrent.answered_at))
-  const callLinePhase = isCallEnded ? "ended" : isRinging ? "ringing" : "answered"
-  const callHeaderLabel = isCallEnded
-    ? "Call ended"
-    : isRinging
-      ? "Incoming call"
-      : "Call answered"
+  const callLinePhase = effectiveCurrent
+    ? resolveIntakeCallLinePhase({
+        manualCallStatus: effectiveCurrent.manualCallStatus,
+        answered_at: effectiveCurrent.answered_at,
+        ended_at: effectiveCurrent.ended_at,
+        call_type: effectiveCurrent.call_type,
+        status: effectiveCurrent.status,
+        routed_to_name: effectiveCurrent.routed_to_name,
+        duration_seconds: effectiveCurrent.duration_seconds,
+      })
+    : "ringing"
+  const isRinging = callLinePhase === "ringing"
+  const callHeaderLabel = intakeCallHeaderLabel(callLinePhase)
+  const headerToneClass =
+    callLinePhase === "answered"
+      ? "text-primary"
+      : callLinePhase === "missed"
+        ? "text-rose-400"
+        : callLinePhase === "voicemail"
+          ? "text-violet-400"
+          : callLinePhase === "ringing"
+            ? "text-primary"
+            : "text-muted-foreground"
   const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
   const intakePhoneDisplay = formatPhoneDisplay(
@@ -3294,7 +3327,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               <p
                 className={cn(
                   "text-[10px] font-semibold uppercase tracking-wide",
-                  isCallEnded ? "text-muted-foreground" : "text-primary"
+                  headerToneClass
                 )}
               >
                 {callHeaderLabel}

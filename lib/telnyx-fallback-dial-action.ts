@@ -54,6 +54,7 @@ import {
   appendVoicemailRecordTexml,
   resolveVoicemailGreetingText,
 } from "@/lib/voicemail-greeting"
+import { demoteFalseInboundAnswer } from "@/lib/demote-false-inbound-answer"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildInboundPstnNumberAttributesWithAnswerUrl } from "@/lib/telnyx-inbound-media-quality"
 
@@ -194,19 +195,39 @@ function inferDialLegWasOwnerCell(formData: FormData, ownerPhoneRaw: string | nu
   return false
 }
 
-function playTelnyxAiUnavailableVoicemail(
+/** Lyncr Record path — clear any cell-VM answered_at stamp so intake drops green Answered. */
+function playLyncrVoicemail(
   texml: InstanceType<typeof VoiceResponse>,
   appUrl: string,
   userId: string,
   callSid: string,
-  greetingText: string
+  greetingText: string,
+  dialDurationSec = 0
 ) {
+  if (callSid.trim()) {
+    demoteFalseInboundAnswer({
+      callSid,
+      reason: "voicemail",
+      durationSeconds: dialDurationSec > 0 ? dialDurationSec : undefined,
+    })
+  }
   appendVoicemailRecordTexml(texml, {
     greetingText,
     appUrl,
     userId,
     callSid,
   })
+}
+
+function playTelnyxAiUnavailableVoicemail(
+  texml: InstanceType<typeof VoiceResponse>,
+  appUrl: string,
+  userId: string,
+  callSid: string,
+  greetingText: string,
+  dialDurationSec = 0
+) {
+  playLyncrVoicemail(texml, appUrl, userId, callSid, greetingText, dialDurationSec)
 }
 
 function resolveInboundVoicemailGreeting(
@@ -327,6 +348,12 @@ async function tryBuildAiAssistantResponse(args: {
       )
     }
     if (callSid) {
+      // Cell may have stamped answered_at via Number URL — AI is not a human pickup.
+      demoteFalseInboundAnswer({
+        callSid,
+        reason: "ai",
+        durationSeconds: dialTalkSeconds > 0 ? dialTalkSeconds : undefined,
+      })
       persistInboundDialTalkTime(callSid, dialTalkSeconds, {
         call_type: "incoming",
         status: dialStatus || rawStatus || "ai-handoff",
@@ -906,7 +933,7 @@ export async function handleTelnyxFallbackDialEnded(
       })
       if (aiRes && aiRes !== "missing-assistant") return aiRes
       if (aiRes === "missing-assistant") {
-        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting)
+        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
         return new NextResponse(texml.toString(), {
           headers: { "Content-Type": "text/xml" },
         })
@@ -914,12 +941,7 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     if (zingAfterRecv && !virtualFbAi && pathFallbackMode !== "recv-ai" && pathFallbackMode !== "owner-ai") {
-      appendVoicemailRecordTexml(texml, {
-        greetingText: voicemailGreeting,
-        appUrl,
-        userId,
-        callSid,
-      })
+      playLyncrVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },
       })
@@ -1119,16 +1141,11 @@ export async function handleTelnyxFallbackDialEnded(
                   dialStatus: dialStatus || rawStatus || null,
                 })
               )
-              playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting)
+              playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
               break
             }
           }
-          appendVoicemailRecordTexml(texml, {
-            greetingText: voicemailGreeting,
-            appUrl,
-            userId,
-            callSid,
-          })
+          playLyncrVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
           break
         }
         if (user) {
@@ -1180,12 +1197,7 @@ export async function handleTelnyxFallbackDialEnded(
             ownerPhoneE164
           )
         } else {
-          appendVoicemailRecordTexml(texml, {
-            greetingText: voicemailGreeting,
-            appUrl,
-            userId,
-            callSid,
-          })
+          playLyncrVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
         }
         break
       }
@@ -1208,17 +1220,12 @@ export async function handleTelnyxFallbackDialEnded(
             dialStatus: dialStatus || rawStatus || null,
           })
         )
-        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting)
+        playTelnyxAiUnavailableVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
         break
       }
 
       case "voicemail": {
-        appendVoicemailRecordTexml(texml, {
-          greetingText: voicemailGreeting,
-          appUrl,
-          userId,
-          callSid,
-        })
+        playLyncrVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
         break
       }
 
@@ -1229,10 +1236,34 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     if (callSid) {
+      const nextType: CallType = fallbackType === "voicemail" ? "voicemail" : "incoming"
       persistInboundDialTalkTime(callSid, dialDurationSec, {
-        call_type: fallbackType === "voicemail" ? "voicemail" : "incoming",
+        call_type: nextType,
         status: dialStatus || rawStatus || "unknown",
       })
+      // Belt-and-suspenders: dial ended into VM/AI — never leave a false answered_at.
+      if (fallbackType === "voicemail") {
+        demoteFalseInboundAnswer({
+          callSid,
+          reason: "voicemail",
+          durationSeconds: dialDurationSec > 0 ? dialDurationSec : undefined,
+        })
+      } else if (fallbackType === "ai" && !answeredAndHadConversation) {
+        demoteFalseInboundAnswer({
+          callSid,
+          reason: "ai",
+          durationSeconds: dialDurationSec > 0 ? dialDurationSec : undefined,
+        })
+      } else if (
+        (dialStatus === "no-answer" || dialStatus === "busy" || dialStatus === "canceled") &&
+        !answeredAndHadConversation
+      ) {
+        demoteFalseInboundAnswer({
+          callSid,
+          reason: "missed",
+          durationSeconds: dialDurationSec > 0 ? dialDurationSec : undefined,
+        })
+      }
     }
   } catch (error) {
     console.error("[Telnyx] Error in fallback webhook:", error)

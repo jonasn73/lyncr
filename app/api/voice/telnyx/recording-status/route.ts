@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { broadcastCallRecordingReady } from "@/lib/call-telemetry-realtime"
 import { getCallLogSnapshotForTelemetry, updateCallLog } from "@/lib/db"
+import { VOICEMAIL_ROUTED_TO_NAME, isAutomatedCallHandler } from "@/lib/missed-call-telemetry"
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
@@ -22,17 +23,38 @@ export async function POST(req: NextRequest) {
   try {
     if (recordingStatus === "completed" && recordingUrl) {
       const normalizedUrl = recordingUrl.endsWith(".mp3") ? recordingUrl : `${recordingUrl}.mp3`
+      const snapshot = await getCallLogSnapshotForTelemetry(callSid).catch(() => null)
+      // Only demote when this row is already tagged as machine-handled / voicemail.
+      // Do not invent voicemail from a bare recording URL (wrap-up legs also record).
+      const demoteFalseAnswer =
+        snapshot?.call_type === "voicemail" ||
+        snapshot?.call_type === "missed" ||
+        isAutomatedCallHandler(snapshot?.routed_to_name) ||
+        Boolean(snapshot?.routed_to_name && /\bvoicemail\b/i.test(snapshot.routed_to_name))
+
       await updateCallLog(callSid, {
         has_recording: true,
         recording_url: normalizedUrl,
         recording_duration_seconds: recordingDuration,
+        ...(demoteFalseAnswer
+          ? {
+              call_type: (snapshot?.call_type === "missed" ? "missed" : "voicemail") as
+                | "missed"
+                | "voicemail",
+              answered_at: null,
+              routed_to_name:
+                snapshot?.routed_to_name && isAutomatedCallHandler(snapshot.routed_to_name)
+                  ? snapshot.routed_to_name
+                  : snapshot?.routed_to_name?.trim() || VOICEMAIL_ROUTED_TO_NAME,
+            }
+          : {}),
       })
 
-      const snapshot = await getCallLogSnapshotForTelemetry(callSid)
-      if (snapshot?.user_id && snapshot.id) {
+      const snap2 = snapshot ?? (await getCallLogSnapshotForTelemetry(callSid))
+      if (snap2?.user_id && snap2.id) {
         await broadcastCallRecordingReady({
-          ownerUserId: snapshot.user_id,
-          callLogId: snapshot.id,
+          ownerUserId: snap2.user_id,
+          callLogId: snap2.id,
           recordingUrl: normalizedUrl,
         }).catch((e) => {
           console.warn("[Telnyx] call-recording-ready publish failed:", e)

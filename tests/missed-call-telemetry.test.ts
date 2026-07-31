@@ -8,6 +8,19 @@ describe("isMissedCallRecord", () => {
     expect(isMissedCallRecord({ call_type: "voicemail", status: "completed" })).toBe(true)
   })
 
+  it("counts voicemail even when a false answered_at stamp remains", () => {
+    expect(
+      isMissedCallRecord({
+        call_type: "voicemail",
+        status: "completed",
+        answered_at: "2026-07-30T12:00:00.000Z",
+        ended_at: "2026-07-30T12:01:00.000Z",
+        duration_seconds: 60,
+        routed_to_name: "Owner",
+      })
+    ).toBe(true)
+  })
+
   it("counts terminal statuses even when call_type is still incoming", () => {
     expect(isMissedCallRecord({ call_type: "incoming", status: "no-answer" })).toBe(true)
     expect(isMissedCallRecord({ call_type: "incoming", status: "canceled" })).toBe(true)

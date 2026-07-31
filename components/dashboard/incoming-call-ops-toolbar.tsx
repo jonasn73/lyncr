@@ -14,6 +14,10 @@ import {
 import type { SchedulerPhoneLookupResult } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import {
+  intakeCallBadgeClassName,
+  intakeCallBadgeLabel,
+} from "@/lib/intake-call-line-phase"
 
 const QUICK_SMS_TEMPLATES = [
   "Stuck on a job, text you right back!",
@@ -25,7 +29,7 @@ const BTN =
   "inline-flex items-center justify-center gap-1.5 rounded-lg border py-1.5 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
 
 /** Live-leg chrome next to Decline / SMS — mirrors intake header phase. */
-export type IncomingCallLinePhase = "ringing" | "answered" | "ended"
+export type IncomingCallLinePhase = "ringing" | "answered" | "missed" | "voicemail" | "ended"
 
 type IncomingCallOpsToolbarProps = {
   phoneE164: string
@@ -372,12 +376,10 @@ export function IncomingCallOpsToolbar({
         <span
           className={cn(
             "text-[10px] font-semibold uppercase tracking-wider",
-            linePhase === "ringing" && "text-primary/80",
-            linePhase === "answered" && "text-emerald-400/90",
-            linePhase === "ended" && "text-muted-foreground"
+            intakeCallBadgeClassName(linePhase)
           )}
         >
-          {linePhase === "ringing" ? "Ringing" : linePhase === "ended" ? "Ended" : "Answered"}
+          {intakeCallBadgeLabel(linePhase)}
         </span>
       </div>
 

@@ -30,6 +30,9 @@ export const IVR_MENU_ROUTED_TO_NAME = "IVR Menu"
 /** Canonical label when Your Phone (owner cell) accepts the inbound leg. */
 export const OWNER_PHONE_ROUTED_TO_NAME = "Owner"
 
+/** Canonical label when Lyncr Record / cell-VM fallback owns the leg (not a human pickup). */
+export const VOICEMAIL_ROUTED_TO_NAME = "Voicemail"
+
 /**
  * Talk seconds below this count as missed even if the carrier said "completed"
  * (voicemail / aborted connect / false answer). Press-1 confirmations normally
@@ -181,16 +184,21 @@ export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
   const type = normalizeCallType(input.call_type)
   const status = normalizeCallStatus(input.status)
 
-  // Explicit missed/voicemail rows without a bridge stamp — always missed (check before
+  // Lyncr / carrier voicemail is never a human pickup — even if a cell-VM leg stamped answered_at.
+  if (type === "voicemail") return true
+
+  // Explicit missed without a proven live bridge — always missed (check before
   // ownerLiveAnswered so ring duration + a UI "Owner" default cannot override).
-  if ((type === "missed" || type === "voicemail") && !input.answered_at?.trim()) {
+  if (type === "missed" && !input.answered_at?.trim()) {
     return true
   }
+
+  // Machine / IVR / AI handlers are never green "Answered" — check before answered_at wins.
+  if (isAutomatedCallHandler(input.routed_to_name)) return true
 
   // Human answer wins over a stale call_type=missed — only when answered_at proves it.
   if (ownerLiveAnswered(input)) return false
 
-  if (type === "voicemail") return true
   if (type === "missed") return true
   if (["no-answer", "busy", "missed", "canceled", "cancelled"].includes(status)) return true
 
@@ -200,9 +208,6 @@ export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
   if (talk != null && talk < MIN_LIVE_ANSWER_DURATION_SECONDS && type !== "outgoing") {
     return true
   }
-
-  // Automated handler — always an unhandled / machine-handled lead for callback metrics.
-  if (isAutomatedCallHandler(input.routed_to_name)) return true
 
   // Carrier marked completed but owner never bridged (early hangup or bad webhook ordering).
   if (
