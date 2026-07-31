@@ -43,6 +43,24 @@ function readHeaderMoneyCache(): HeaderMoneyCache | null {
   return cached
 }
 
+/** Last-known wallet for header skeleton / first paint (sessionStorage). */
+export function peekHeaderMoneyCache(): HeaderMoneyCache | null {
+  return readHeaderMoneyCache()
+}
+
+/** Client-safe currency label for the header chip. */
+export function formatHeaderMoneyCents(cents: number): string {
+  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  })
+}
+
+function formatMoneyCents(cents: number): string {
+  return formatHeaderMoneyCents(cents)
+}
+
 type CollectedPeriod = "today" | "week" | "month" | "all"
 
 const PERIOD_OPTIONS: { id: CollectedPeriod; label: string; hint: string }[] = [
@@ -68,15 +86,6 @@ const GetPaidSheet = dynamic(
     })),
   { ssr: false }
 )
-
-/** Client-safe currency label for the header chip. */
-function formatMoneyCents(cents: number): string {
-  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
-  })
-}
 
 const SettingsWorkspaceView = dynamic(
   () =>
@@ -117,27 +126,30 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Stripe available balance (ready to pay out) — null until cache or API (never invent $0).
-  const [availableCents, setAvailableCents] = useState<number | null>(null)
-  const [connectReady, setConnectReady] = useState(false)
+  // Stripe available balance — sync-read session cache so first paint is not a pulse bar.
+  const [availableCents, setAvailableCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache()
+    return cached?.availableCents ?? null
+  })
+  const [connectReady, setConnectReady] = useState(() => readHeaderMoneyCache()?.connectReady === true)
   // Collected period totals — shown only in the picker, not as the default chip.
-  const [todayCents, setTodayCents] = useState(0)
-  const [weekCents, setWeekCents] = useState(0)
-  const [monthCents, setMonthCents] = useState(0)
-  const [allTimeCents, setAllTimeCents] = useState(0)
+  const [todayCents, setTodayCents] = useState(() => readHeaderMoneyCache()?.todayCents ?? 0)
+  const [weekCents, setWeekCents] = useState(() => readHeaderMoneyCache()?.weekCents ?? 0)
+  const [monthCents, setMonthCents] = useState(() => readHeaderMoneyCache()?.monthCents ?? 0)
+  const [allTimeCents, setAllTimeCents] = useState(() => readHeaderMoneyCache()?.allTimeCents ?? 0)
   const amountReady = availableCents != null
   const isMobile = useIsMobile()
 
-  // Paint last-known wallet before fetch — useLayoutEffect, not useSyncExternalStore (#185).
+  // SSR hydration: lazy init was skipped — re-read once before paint.
   useLayoutEffect(() => {
     const cached = readHeaderMoneyCache()
     if (!cached) return
-    setAvailableCents(cached.availableCents)
-    setConnectReady(cached.connectReady === true)
-    setTodayCents(cached.todayCents ?? 0)
-    setWeekCents(cached.weekCents ?? 0)
-    setMonthCents(cached.monthCents ?? 0)
-    setAllTimeCents(cached.allTimeCents ?? 0)
+    setAvailableCents((prev) => (prev == null ? cached.availableCents : prev))
+    setConnectReady((prev) => prev || cached.connectReady === true)
+    setTodayCents((prev) => (prev === 0 ? cached.todayCents ?? 0 : prev))
+    setWeekCents((prev) => (prev === 0 ? cached.weekCents ?? 0 : prev))
+    setMonthCents((prev) => (prev === 0 ? cached.monthCents ?? 0 : prev))
+    setAllTimeCents((prev) => (prev === 0 ? cached.allTimeCents ?? 0 : prev))
   }, [])
 
   const refreshMoney = useCallback(() => {
@@ -329,12 +341,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
           <span className={WALLET_AMOUNT_SLOT_CLASS}>
             {balanceLabel && amountReady ? (
-              <span className="text-xs font-bold tabular-nums">{balanceLabel}</span>
+              <span className="text-xs font-bold tabular-nums" suppressHydrationWarning>
+                {balanceLabel}
+              </span>
             ) : (
-              <span
-                className="inline-block h-3 w-14 animate-pulse rounded bg-emerald-500/25"
-                aria-hidden
-              />
+              // Reserved width only — never pulse bars that look like broken "...." data.
+              <span className="inline-block h-3 w-14" aria-hidden />
             )}
             <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/70">
               in account

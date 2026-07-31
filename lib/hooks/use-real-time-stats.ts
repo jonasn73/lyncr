@@ -11,6 +11,7 @@ import {
   parseTalkSecondsFromDisplay,
   readRoutingTelemetryCache,
   writeRoutingTelemetryCache,
+  emptyRoutingTelemetrySnapshot,
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
 import type {
@@ -133,17 +134,26 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   // Telemetry HUD lives on Lines — defer / skip visibility refetch on other tabs.
   const linesActive = useDashboardActivePage() === "dashboard"
 
-  // Zeros until layout hydrate / API — never invent loaded $0 before baselineReady.
-  const [dailyCalls, setDailyCalls] = useState(0)
-  const [missedCalls, setMissedCalls] = useState(0)
-  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(0)
-  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(0)
-  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(0)
-  const [bookingRatePercent, setBookingRatePercent] = useState(0)
-  const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState<number | null>(null)
-  const [rescueRevenueCents, setRescueRevenueCents] = useState(0)
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
-  const [baselineReady, setBaselineReady] = useState(false)
+  // Sync-read session cache on first paint — avoids "—" / $0 flash before layout effect.
+  const [telemetrySeed] = useState(() => {
+    if (typeof window === "undefined") return null
+    return readRoutingTelemetryCache(activeOrganizationId) ?? null
+  })
+  const seed = telemetrySeed ?? emptyRoutingTelemetrySnapshot()
+  const hadSeed = telemetrySeed != null
+
+  const [dailyCalls, setDailyCalls] = useState(seed.dailyCalls)
+  const [missedCalls, setMissedCalls] = useState(seed.missedCalls)
+  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(seed.dailyTalkSeconds)
+  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(seed.weeklyTalkSeconds)
+  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(seed.monthlyTalkSeconds)
+  const [bookingRatePercent, setBookingRatePercent] = useState(seed.bookingRatePercent)
+  const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState<number | null>(
+    seed.avgDispatchSpeedMinutes
+  )
+  const [rescueRevenueCents, setRescueRevenueCents] = useState(seed.rescueRevenueCents)
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(seed.ownerUserId)
+  const [baselineReady, setBaselineReady] = useState(hadSeed)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   /** Bumps every second while answered legs are live so talk pills keep ticking. */

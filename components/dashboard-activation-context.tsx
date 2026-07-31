@@ -24,6 +24,12 @@ import { useToast } from "@/hooks/use-toast"
 import { ReplaceUnavailableLineModal } from "@/components/replace-unavailable-line-modal"
 import { dispatchBusinessNumbersChanged } from "@/components/dashboard-numbers-modal-context"
 import { extractUsAreaCode } from "@/lib/provision-line-types"
+import {
+  readActivationLineCache,
+  resolveInitialLineCarrierLive,
+  resolveInitialSubscriptionActive,
+  writeActivationLineCache,
+} from "@/lib/activation-line-cache"
 
 export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
 
@@ -76,8 +82,15 @@ export function DashboardActivationProvider({
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const [profile, setProfile] = useState<OnboardingProfile | null>(null)
-  const [carrierLive, setCarrierLive] = useState(() => activationSeed?.lineCarrierLive ?? false)
-  const [loading, setLoading] = useState(() => !activationSeed)
+  // Sync seed from props / session cache / bootstrap — never paint Activating… when last known was live.
+  const [carrierLive, setCarrierLive] = useState(() =>
+    resolveInitialLineCarrierLive(activationSeed?.lineCarrierLive)
+  )
+  const [loading, setLoading] = useState(() => {
+    if (activationSeed) return false
+    if (typeof window === "undefined") return true
+    return readActivationLineCache() == null && !resolveInitialLineCarrierLive(false)
+  })
   const [activating, setActivating] = useState(false)
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier>("starter")
   const [replacePrompt, setReplacePrompt] = useState<ReplaceLinePrompt>(null)
@@ -96,7 +109,7 @@ export function DashboardActivationProvider({
     } catch {
       if (!opts?.silent) {
         setProfile(null)
-        setCarrierLive(false)
+        // Keep last-known carrierLive — don’t flash Inactive / Activating… on errors.
       }
     } finally {
       if (!opts?.silent) setLoading(false)
@@ -254,19 +267,27 @@ export function DashboardActivationProvider({
     reservedDisplay,
   ])
 
-  const subscriptionActive =
-    loading && activationSeed
-      ? activationSeed.subscriptionActive
-      : isVerifiedActiveSubscription(profile, carrierLive)
-  const lineCarrierLive =
-    loading && activationSeed
-      ? activationSeed.lineCarrierLive
-      : carrierLive
+  const subscriptionActive = !loading
+    ? isVerifiedActiveSubscription(profile, carrierLive)
+    : activationSeed?.subscriptionActive === true ||
+      resolveInitialSubscriptionActive(false) ||
+      carrierLive
+  // State already seeded from cache/bootstrap — never fall back to false while fetching.
+  const lineCarrierLive = carrierLive
   const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
   const showProvisioningBanner = Boolean(reservedDisplay) && subscriptionActive && !carrierLive
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
-  const hasActivationSeed = Boolean(activationSeed)
+  const hasActivationSeed = Boolean(activationSeed) || carrierLive
+
+  // Persist last-known Live & Connected so hard refresh does not flash Activating… / Inactive.
+  useEffect(() => {
+    if (loading && !carrierLive) return
+    writeActivationLineCache({
+      subscriptionActive,
+      lineCarrierLive,
+    })
+  }, [loading, subscriptionActive, lineCarrierLive, carrierLive])
 
   useEffect(() => {
     void refreshProfile({ silent: hasActivationSeed })

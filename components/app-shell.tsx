@@ -9,7 +9,7 @@ import {
   memo,
 } from "react"
 import Link from "next/link"
-import { Loader2 } from "lucide-react"
+import { CreditCard, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
@@ -17,7 +17,11 @@ import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { CommandDock } from "@/components/layout/command-dock"
 import { GlobalLineCommunicationBar } from "@/components/layout/global-line-communication-bar"
-import { HeaderAccountMenu } from "@/components/layout/header-settings-sheet"
+import {
+  HeaderAccountMenu,
+  peekHeaderMoneyCache,
+  formatHeaderMoneyCents,
+} from "@/components/layout/header-settings-sheet"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { type PageId } from "@/lib/dashboard-nav"
@@ -108,6 +112,12 @@ const AppShellHeader = memo(function AppShellHeader({
 
 /** Same footprint as HeaderAccountMenu while session loads — wallet + avatar. */
 const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
+  // Sync cache so the loading→ready swap does not flash a pulse bar over a known amount.
+  const [cachedLabel] = useState(() => {
+    const cached = peekHeaderMoneyCache()
+    return cached != null ? formatHeaderMoneyCents(cached.availableCents) : null
+  })
+
   return (
     <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
       <Button
@@ -117,12 +127,16 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         disabled
         className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
       >
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300/70" aria-hidden />
-        {/* Match live wallet chip min-width so swap to real menu doesn’t collapse. */}
+        <CreditCard className="h-4 w-4 shrink-0 text-emerald-300/70" aria-hidden />
+        {/* Match live wallet chip — same label + cached amount when known. */}
         <span className="flex min-w-[4.75rem] flex-col items-end leading-none" aria-hidden>
-          <span className="inline-block h-3 w-14 animate-pulse rounded bg-emerald-500/25" />
+          {cachedLabel ? (
+            <span className="text-xs font-bold tabular-nums text-emerald-200">{cachedLabel}</span>
+          ) : (
+            <span className="inline-block h-3 w-14" />
+          )}
           <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/40">
-            month
+            in account
           </span>
         </span>
       </Button>
@@ -136,7 +150,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
         </span>
-        <span className="hidden h-2.5 w-12 animate-pulse rounded bg-muted/70 sm:inline-block" aria-hidden />
+        <span className="hidden h-2.5 w-12 sm:inline-block" aria-hidden />
       </Button>
     </div>
   )

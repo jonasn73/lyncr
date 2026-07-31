@@ -79,6 +79,7 @@ export function LineRoutingStatus({
     )
   }
   if (subscriptionActive) {
+    // No ellipsis / pulse — those read as broken "...." on refresh while status settles.
     return (
       <span
         className={cn(
@@ -86,8 +87,8 @@ export function LineRoutingStatus({
           className
         )}
       >
-        <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400" aria-hidden />
-        • Activating line…
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden />
+        • Activating line
       </span>
     )
   }

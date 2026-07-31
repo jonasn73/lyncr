@@ -191,12 +191,17 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             loading={routingLineDetailLoading}
           />
         ) : (
-          <div className="flex w-full min-w-0 items-center justify-between gap-3" aria-busy="true">
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="h-2.5 w-24 animate-pulse rounded bg-zinc-800" />
-              <div className="h-4 w-36 animate-pulse rounded bg-zinc-800/80" />
+          // Height reserved only — no pulse bars (look like "...." then swap to Live & Connected).
+          <div
+            className="flex w-full min-w-0 items-center justify-between gap-3"
+            aria-busy="true"
+            aria-label="Loading line status"
+          >
+            <div className="min-w-0 flex-1 space-y-1.5 opacity-0" aria-hidden>
+              <div className="h-2.5 w-24" />
+              <div className="h-4 w-36" />
             </div>
-            <div className="h-3 w-28 shrink-0 animate-pulse rounded bg-zinc-800" />
+            <div className="h-3 w-28 shrink-0 opacity-0" aria-hidden />
           </div>
         )}
       </div>

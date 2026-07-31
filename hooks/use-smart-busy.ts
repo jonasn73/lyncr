@@ -39,24 +39,26 @@ export function useSmartBusy(_routingBusinessNumber?: string | null): UseSmartBu
   void _routingBusinessNumber
   const { presenceStatus, setPresenceStatus, saving: presenceSaving } = useAccountPresence()
 
-  // Start empty — hydrate once from localStorage before paint (no useSyncExternalStore).
-  const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState | null>(null)
-  const local = liveLocal ?? SMART_BUSY_EMPTY_LOCAL
-  const [hydrated, setHydrated] = useState(false)
+  // Sync-read localStorage on first paint — no empty→Busy flash.
+  const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState>(() => readSmartBusyLocalState())
+  const local = liveLocal
+  const [hydrated, setHydrated] = useState(() => {
+    if (typeof window === "undefined") return false
+    return !localEqual(readSmartBusyLocalState(), SMART_BUSY_EMPTY_LOCAL)
+  })
   const [saving, setSaving] = useState(false)
 
   useLayoutEffect(() => {
     const prev = readSmartBusyLocalState()
     setLiveLocal((cur) => {
-      if (cur && localEqual(cur, prev)) return cur
+      if (localEqual(cur, prev)) return cur
       return prev
     })
   }, [])
 
   const persistLocal = useCallback((next: SmartBusyLocalState) => {
     setLiveLocal((prev) => {
-      const base = prev ?? SMART_BUSY_EMPTY_LOCAL
-      if (localEqual(base, next)) return prev
+      if (localEqual(prev, next)) return prev
       writeSmartBusyLocalState(next)
       return next
     })

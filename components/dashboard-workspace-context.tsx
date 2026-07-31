@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -194,6 +195,24 @@ export function DashboardWorkspaceProvider({
   useEffect(() => {
     ensureActiveOrganizationCookie()
   }, [])
+
+  // SSR cannot read sessionStorage — re-apply bootstrap/numbers cache before paint so
+  // Live & Connected / line picker do not flash pulse bars ("....") then real status.
+  useLayoutEffect(() => {
+    if (workspaceSeed) return
+    const orgId = readActiveOrganizationId()
+    const boot = readDashboardBootstrapCache()
+    if (boot) {
+      const seed = workspaceSeedFromBootstrap(boot, orgId)
+      hydrateWorkspaceFromBootstrap(seed)
+      return
+    }
+    const cached = readCachedBusinessNumbers(orgId)
+    if (!cached?.numbers?.length) return
+    setBusinessNumbers(cached.numbers)
+    setBusinessNumbersLoading(false)
+    if (orgId) setActiveOrganizationIdState(orgId)
+  }, [workspaceSeed, hydrateWorkspaceFromBootstrap])
 
   useEffect(() => {
     if (workspaceSeed) return

@@ -6,8 +6,10 @@
  * Do NOT use useSyncExternalStore here. That pattern caused React #185
  * (max update depth) on lyncr.app when storage re-reads churned.
  *
- * Safe approach: paint SSR fallback first, then hydrate once from
- * sessionStorage/localStorage in useLayoutEffect (before browser paint).
+ * Prefer lazy useState(() => read()) so client-only mounts paint cached
+ * values on the first render. For SSR-hydrated trees, React reuses the
+ * server state (initializer does not re-run) — useLayoutEffect re-reads
+ * once per revisionKey before browser paint.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react"
@@ -27,14 +29,14 @@ export function useClientSnapshot<T>(
 }
 
 /**
- * Last-known session value before paint — safe replacement for useClientSnapshot.
+ * Last-known session value on first client paint — safe replacement for useClientSnapshot.
  *
- * - First render: `serverFallback` (SSR / hydration match)
- * - useLayoutEffect: read storage once per `revisionKey`, setState before paint
+ * - Lazy useState: reads storage synchronously when the initializer runs (client mounts)
+ * - useLayoutEffect: re-reads once per revisionKey (fixes SSR hydration + org switches)
  * - No external-store subscription → no #185 loops from JSON re-reads
  *
  * @param read - Must return a stable empty sentinel on cache miss (same reference).
- * @param serverFallback - Same sentinel used on the server.
+ * @param serverFallback - Same sentinel used on the server / SSR HTML.
  * @param revisionKey - Re-read when org / filter / etc. changes (not on every render).
  */
 export function useSessionSeed<T>(
@@ -42,7 +44,14 @@ export function useSessionSeed<T>(
   serverFallback: T,
   revisionKey: string | number | null | undefined = ""
 ): T {
-  const [value, setValue] = useState<T>(serverFallback)
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === "undefined") return serverFallback
+    try {
+      return read()
+    } catch {
+      return serverFallback
+    }
+  })
 
   useLayoutEffect(() => {
     let next: T

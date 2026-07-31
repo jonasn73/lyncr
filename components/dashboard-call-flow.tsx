@@ -533,13 +533,19 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   // Static overflow stub — live autopilot hook disabled (React #185).
   const smartOverflow = STATIC_SMART_OVERFLOW
   // Who Answers primary mode — gates the entire IVR configuration deck.
-  const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>("your_phone")
   const routingModeCacheKey = persistedCacheKey(
     "active-routing-mode",
     routingBusinessNumber?.trim() || "none"
   )
+  const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>(() => {
+    if (typeof window === "undefined" || !routingBusinessNumber?.trim()) return "your_phone"
+    const cached = readPersistedCache<{ mode: string }>(
+      persistedCacheKey("active-routing-mode", routingBusinessNumber.trim())
+    )
+    return cached?.mode ? normalizeActiveRoutingMode(cached.mode) : "your_phone"
+  })
 
-  // Restore last Smart IVR / Your phone mode before paint (avoids IVR card popping in late).
+  // Re-seed when the active line changes (SSR hydrate + line switch).
   useLayoutEffect(() => {
     if (!routingBusinessNumber?.trim()) return
     const cached = readPersistedCache<{ mode: string }>(routingModeCacheKey)

@@ -59,10 +59,11 @@ function writeCachedPresence(status: PresenceStatus) {
 }
 
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
-  // Last-known Busy/Available before paint — useSessionSeed (not useSyncExternalStore).
+  // Sync-read last-known Busy/Available (lazy useState + layout re-seed via useSessionSeed).
   const cachedSeed = useSessionSeed(readCachedPresence, null, "account-presence")
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
+  // Don’t show a spinner when we already painted from cache.
   const [fetching, setFetching] = useState(false)
   const linesActive = useDashboardActivePage() === "dashboard"
   const pollEnabled = usePollBudget(linesActive)
