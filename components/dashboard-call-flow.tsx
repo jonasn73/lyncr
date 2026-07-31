@@ -428,25 +428,27 @@ export function buildCallFlowNodes(params: {
     })
   } else if (params.isRoutingToOwner && params.autopilotMode && !cellBypassed) {
     // Sunday Autopilot: Your phone stays listed, but rings are bypassed for the AI scheduler.
+    const phoneBit = params.ownerPhoneDisplay.trim()
     nodes.push({
       key: "primary",
       title: "Primary · Who answers",
       icon: Smartphone,
       value: "Your phone",
       // Muted slate number + bypass notice so operators see Autopilot at a glance.
-      detail: `${params.ownerPhoneDisplay} ⏸️ Rings bypassed`,
+      detail: phoneBit ? `${phoneBit} ⏸️ Rings bypassed` : "⏸️ Rings bypassed",
       valueBadge: "AUTOPILOT",
       detailMuted: true,
       onOpen: params.openWhoAnswers,
       accent: "primary",
     })
   } else if (params.isRoutingToOwner && presenceBypass) {
+    const phoneBit = params.ownerPhoneDisplay.trim()
     nodes.push({
       key: "primary",
       title: "Primary · Who answers",
       icon: Smartphone,
       value: "Your phone",
-      detail: `${params.ownerPhoneDisplay} · ${bypassDetail}`,
+      detail: phoneBit ? `${phoneBit} · ${bypassDetail}` : bypassDetail,
       valueBadge: presenceBadge,
       badgeTone: "amber",
       detailMuted: true,
@@ -456,12 +458,15 @@ export function buildCallFlowNodes(params: {
     })
   } else if (params.isRoutingToOwner && ivrLive) {
     // Off-duty IVR Menu owns the first answer — cell is no longer the initial hit.
+    const phoneBit = params.ownerPhoneDisplay.trim()
     nodes.push({
       key: "primary",
       title: "Primary · Who answers",
       icon: Smartphone,
       value: "Your phone",
-      detail: `${params.ownerPhoneDisplay} · cell bypassed while IVR is live`,
+      detail: phoneBit
+        ? `${phoneBit} · cell bypassed while IVR is live`
+        : "Cell bypassed while IVR is live",
       valueBadge: "[ Forwarding to IVR ]",
       badgeTone: "emerald",
       detailMuted: true,
@@ -478,7 +483,7 @@ export function buildCallFlowNodes(params: {
       detail: presenceBypass
         ? bypassDetail
         : params.isRoutingToOwner
-          ? params.ownerPhoneDisplay
+          ? params.ownerPhoneDisplay || undefined
           : params.selectedReceptionistPhone ?? undefined,
       onOpen: params.openWhoAnswers,
       accent: "primary",

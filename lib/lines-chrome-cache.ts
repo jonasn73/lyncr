@@ -40,6 +40,16 @@ export type LinesChromeCache = {
   fallbackType?: string | null
 }
 
+/** Labels that mean “route to owner cell” — not a real receptionist name. */
+const OWNER_WHO_ANSWERS_LABELS = new Set(["your phone", "you (owner)", "you"])
+
+/** True when paint-seed whoAnswers is the owner sentinel (avoid fake receptionist + parentheses flash). */
+export function isOwnerWhoAnswersLabel(label: string | null | undefined): boolean {
+  // Empty → treat as unknown (caller decides); only named owner sentinels match.
+  if (!label?.trim()) return false
+  return OWNER_WHO_ANSWERS_LABELS.has(label.trim().toLowerCase())
+}
+
 const MAX_LINES = 8
 
 function isValidChrome(cached: LinesChromeCache | null | undefined): cached is LinesChromeCache {

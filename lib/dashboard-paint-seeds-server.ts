@@ -68,10 +68,9 @@ export function readDashboardPaintSeedsFromCookies(
 
   const latestRaw = getCookie(OWNER_LATEST_COOKIE)
   const latestCookie = readPaintSeedCookieValue<LatestPaintCookie>(latestRaw)
+  // Keep empty arrays — they mean “confirmed nothing hot”, not “unknown / still loading”.
   const latest =
-    latestCookie?.items && Array.isArray(latestCookie.items) && latestCookie.items.length > 0
-      ? latestCookie.items
-      : null
+    latestCookie?.items && Array.isArray(latestCookie.items) ? latestCookie.items : null
 
   const billingRaw = getCookie(BILLING_SUMMARY_COOKIE)
   const billing = readPaintSeedCookieValue<BillingSummaryCache>(billingRaw)

@@ -326,6 +326,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
               <RoutingTelemetryStrip
                 businessNumbers={businessNumbers}
                 uniqueMissedLeads={missedLeadInsights.uniqueLeadsToday}
+                uniqueMissedLeadsReady={missedLeadInsights.ready}
               />
 
               <DashboardCallFlow

@@ -155,11 +155,14 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   businessNumbers,
   className,
   uniqueMissedLeads,
+  uniqueMissedLeadsReady = false,
 }: {
   businessNumbers: DashboardBusinessNumber[]
   className?: string
   /** Unique phones among today's misses — when lower than missedCalls, ticker shows LEADS. */
   uniqueMissedLeads?: number
+  /** When false, omit “X leads” so refresh does not jump 0→N after /api/calls. */
+  uniqueMissedLeadsReady?: boolean
 }) {
   const {
     dailyCalls,
@@ -185,14 +188,17 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const missedDisplay = baselineReady ? missedCalls : "—"
   const linesDisplay = baselineReady ? liveLineCount : "—"
 
-  // Prefer live ticker total; fall back to unique only when stats have not caught up.
+  // Only trust unique-lead count once insights are seeded or fetched (avoids leads jump).
   const uniqueLeads =
-    typeof uniqueMissedLeads === "number" && uniqueMissedLeads >= 0
+    uniqueMissedLeadsReady && typeof uniqueMissedLeads === "number" && uniqueMissedLeads >= 0
       ? uniqueMissedLeads
       : missedCalls
-  const missedLeadCollapse = uniqueLeads > 0 && uniqueLeads < missedCalls
+  const missedLeadCollapse =
+    uniqueMissedLeadsReady && uniqueLeads > 0 && uniqueLeads < missedCalls
   const missedTickerLabel = formatMissedTickerLabel(missedCalls, uniqueLeads)
-  const missedTickerSublabel = formatMissedTickerSublabel(missedCalls, uniqueLeads)
+  const missedTickerSublabel = uniqueMissedLeadsReady
+    ? formatMissedTickerSublabel(missedCalls, uniqueLeads)
+    : null
   const missedDesktopLabel = missedLeadCollapse
     ? `${missedCalls} missed today (${uniqueLeads} leads)`
     : "Missed today"
@@ -224,7 +230,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
           <TelemetryTickerItem
             label={missedTickerLabel}
             value={missedDisplay}
-            sublabel={baselineReady ? missedTickerSublabel : null}
+            sublabel={baselineReady && uniqueMissedLeadsReady ? missedTickerSublabel : null}
             valueClassName={baselineReady && missedCalls > 0 ? "text-amber-300" : undefined}
             labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
             onClick={openMissedRescue}

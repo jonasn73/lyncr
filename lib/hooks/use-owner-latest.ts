@@ -10,6 +10,7 @@ import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import {
   EMPTY_LATEST,
+  hasLatestSeed,
   readLatestCache,
   writeLatestCache,
 } from "@/lib/owner-latest-cache"
@@ -59,6 +60,8 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
 /** Latest customer actions — session/cookie/SSR seed before paint, then live fetch. */
 export function useOwnerLatest(activeOrganizationId: string | null | undefined) {
   const paint = useDashboardPaintSeeds()
+  // `latest !== null` means the paint cookie existed (even `[]` = confirmed empty).
+  const paintHasSeed = paint.latest != null
   const paintSeed = {
     items: paint.latest,
     organizationId: paint.latestOrganizationId,
@@ -71,8 +74,12 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   )
   const [liveItems, setLiveItems] = useState<LatestCustomerAction[] | null>(null)
   const items = liveItems ?? cachedItems
+  // Never start in “Loading…” when we already know empty or have cached rows (stops spinner flash).
   const [loading, setLoading] = useState(
-    () => readLatestCache(activeOrganizationId, paintSeed).length === 0
+    () =>
+      !paintHasSeed &&
+      !hasLatestSeed(activeOrganizationId, paintSeed) &&
+      readLatestCache(activeOrganizationId, paintSeed).length === 0
   )
   const documentVisible = useDocumentVisible()
 
@@ -81,8 +88,8 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   }, [items.length])
 
   useEffect(() => {
-    if (cachedItems.length > 0) setLoading(false)
-  }, [cachedItems.length])
+    if (cachedItems.length > 0 || paintHasSeed) setLoading(false)
+  }, [cachedItems.length, paintHasSeed])
 
   const load = useCallback(async () => {
     try {

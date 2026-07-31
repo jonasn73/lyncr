@@ -20,7 +20,11 @@ import {
 import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
 import { primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
-import { readLinesChromeCache, writeLinesChromeCache } from "@/lib/lines-chrome-cache"
+import {
+  isOwnerWhoAnswersLabel,
+  readLinesChromeCache,
+  writeLinesChromeCache,
+} from "@/lib/lines-chrome-cache"
 
 export function DashboardPage() {
   const { toast } = useToast()
@@ -54,14 +58,15 @@ export function DashboardPage() {
   )
   const [receptionists, setReceptionists] = useState<Contact[]>(() => {
     if (bootstrap?.routing.receptionists?.length) return bootstrap.routing.receptionists
-    // Compact paint seed — enough to label Who answers before full receptionist list loads.
-    if (linesPaint?.whoAnswers?.trim()) {
+    // Paint seed for a real teammate only — "Your phone" / "You (owner)" must stay owner mode.
+    const who = linesPaint?.whoAnswers?.trim()
+    if (who && !isOwnerWhoAnswersLabel(who)) {
       return [
         {
           id: "__paint-seed-receptionist__",
-          name: linesPaint.whoAnswers.trim(),
+          name: who,
           phone: "",
-          initials: linesPaint.whoAnswers.trim().slice(0, 2).toUpperCase() || "??",
+          initials: who.slice(0, 2).toUpperCase() || "??",
           color: "bg-primary",
         },
       ]
@@ -74,7 +79,9 @@ export function DashboardPage() {
       const recs = bootstrap.routing.receptionists
       return recId && recs.some((r) => r.id === recId) ? recId : recs[0]?.id ?? null
     }
-    return linesPaint?.whoAnswers?.trim() ? "__paint-seed-receptionist__" : null
+    // Owner sentinel → no receptionist selected so call-flow shows "Your phone" + seeded number.
+    const who = linesPaint?.whoAnswers?.trim()
+    return who && !isOwnerWhoAnswersLabel(who) ? "__paint-seed-receptionist__" : null
   })
   const [fallback, setFallback] = useState<FallbackOption>(
     () =>
@@ -196,16 +203,19 @@ export function DashboardPage() {
     setReceptionistsFetchDone(true)
     setNumbersRoutingFetchDone(true)
 
-    const who =
-      bootstrap.routing.receptionists.find((r) => r.id === bootstrap.routing.routing.selected_receptionist_id)
-        ?.name ?? bootstrap.routing.receptionists[0]?.name
+    const selectedRecId = bootstrap.routing.routing.selected_receptionist_id
+    const selectedRecName = selectedRecId
+      ? bootstrap.routing.receptionists.find((r) => r.id === selectedRecId)?.name
+      : null
+    // Owner cell when no receptionist id — never invent the first teammate’s name here.
+    const who = selectedRecName?.trim() || "Your phone"
     if (businessNumbers.length > 0) {
       writeLinesChromeCache({
         organizationId: activeOrganizationId,
         activeLine: activeLine ?? bootstrap.routing.primaryLineNumber,
         lines: businessNumbers,
         routingStrategy: bootstrap.routing.routing.routing_strategy,
-        whoAnswers: who ?? null,
+        whoAnswers: who,
         ownerPhone: bootstrap.routing.ownerPhone,
         fallbackType: bootstrap.routing.routing.fallback_type,
       })
@@ -391,6 +401,7 @@ export function DashboardPage() {
     }
   }, [routedNumbers, activeLine, setActiveLine])
 
+  // Seeded E.164 or live main line — formatPhoneDisplay returns "" until digits are ready (no `()`).
   const ownerPhoneDisplay = formatPhoneDisplay(mainLinePhone)
   const selectedReceptionist = receptionists.find((c) => c.id === selectedReceptionistId) || null
   const isRoutingToOwner = !selectedReceptionist
@@ -402,7 +413,9 @@ export function DashboardPage() {
   // Keep Who answers / fallback labels in the lines chrome cookie for the next hard refresh.
   useEffect(() => {
     if (businessNumbers.length === 0) return
-    const who = selectedReceptionist?.name?.trim() || (isRoutingToOwner ? "You (owner)" : null)
+    // Prefer "Your phone" (not "You (owner)") so refresh seed never looks like a parenthetical name.
+    const who =
+      selectedReceptionist?.name?.trim() || (isRoutingToOwner ? "Your phone" : null)
     writeLinesChromeCache({
       organizationId: activeOrganizationId,
       activeLine,

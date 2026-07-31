@@ -86,7 +86,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
   // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
-  const { items, loading, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
+  const { items, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   /** Job ids whose last Thanks+review send failed — show Retry on the row. */
@@ -277,14 +277,9 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           </button>
         </div>
 
-        {/* Reserve list height so refetch doesn’t collapse Latest into “Loading…”. */}
+        {/* Show empty or cached rows immediately — never flash a Loading spinner on refresh. */}
         <div className="mt-3 min-h-[3.5rem]">
-          {loading && items.length === 0 ? (
-            <div className="flex items-center gap-2 text-sm text-zinc-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading…
-            </div>
-          ) : items.length === 0 ? (
+          {items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
               Nothing hot right now. Customer replies and finished jobs that need a review text show up
               here.

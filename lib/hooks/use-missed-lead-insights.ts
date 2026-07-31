@@ -59,6 +59,27 @@ function readCachedMissedLeads(): MissedLeadCallRow[] {
   return cached.rows.length > 0 ? cached.rows : EMPTY_ROWS
 }
 
+/** Summary seed so “X leads” can paint before /api/calls returns (stops 0→N ticker jump). */
+function readCachedMissedLeadSummary(): MissedLeadInsights {
+  const cached = readPersistedCache<MissedLeadsCache>(MISSED_LEADS_CACHE_KEY)
+  if (!cached) return EMPTY
+  // Prefer recomputing from rows when we have them (respects intercept marks).
+  if (Array.isArray(cached.rows) && cached.rows.length > 0) {
+    return summarizeMissedLeadInsights(cached.rows, {
+      interceptedKeys: readInterceptedPhoneKeys(),
+    })
+  }
+  // Summary-only fallback from last successful write.
+  if (typeof cached.uniqueLeadsToday === "number" && cached.uniqueLeadsToday >= 0) {
+    return {
+      totalMissedToday: cached.totalMissedToday ?? 0,
+      uniqueLeadsToday: cached.uniqueLeadsToday,
+      recentUnreturned: Array.isArray(cached.recentUnreturned) ? cached.recentUnreturned : [],
+    }
+  }
+  return EMPTY
+}
+
 export function useMissedLeadInsights(
   businessNumbers: DashboardBusinessNumber[],
   /** When false, skip network (Lines pane hidden / inactive). */
@@ -66,9 +87,16 @@ export function useMissedLeadInsights(
 ) {
   // Last-known rows before paint — useSessionSeed (not useSyncExternalStore / #185).
   const cachedRows = useSessionSeed(readCachedMissedLeads, EMPTY_ROWS, "missed-leads")
+  // Seed uniqueLeadsToday independently so the MISSED ticker sublabel does not jump 0→N.
+  const cachedSummary = useSessionSeed(readCachedMissedLeadSummary, EMPTY, "missed-leads-summary")
   const [liveRows, setLiveRows] = useState<MissedLeadCallRow[] | null>(null)
   const rows = liveRows ?? cachedRows
-  const [loading, setLoading] = useState(() => cachedRows.length === 0)
+  // Ready when we already know last-paint leads (even 0) — hide sublabel only while truly unknown.
+  const hadSeed =
+    cachedRows.length > 0 ||
+    cachedSummary.uniqueLeadsToday > 0 ||
+    cachedSummary.totalMissedToday > 0
+  const [loading, setLoading] = useState(() => !hadSeed)
   const [interceptTick, setInterceptTick] = useState(0)
 
   // Stable string key — do not depend on businessNumbers array identity (#185 risk).
@@ -86,6 +114,13 @@ export function useMissedLeadInsights(
   useEffect(() => {
     if (cachedRows.length > 0) setLoading(false)
   }, [cachedRows.length])
+
+  // Summary-only seed (uniqueLeadsToday) also means we can show “X leads” immediately.
+  useEffect(() => {
+    if (cachedSummary.uniqueLeadsToday > 0 || cachedSummary.totalMissedToday > 0) {
+      setLoading(false)
+    }
+  }, [cachedSummary.uniqueLeadsToday, cachedSummary.totalMissedToday])
 
   const load = useCallback(async () => {
     try {
@@ -153,11 +188,14 @@ export function useMissedLeadInsights(
 
   const insights = useMemo(() => {
     void interceptTick
-    if (rows.length === 0) return EMPTY
-    return summarizeMissedLeadInsights(rows, {
-      interceptedKeys: readInterceptedPhoneKeys(),
-    })
-  }, [rows, interceptTick])
+    // Live / seeded rows win; otherwise keep last summary so “3 leads” does not flash away.
+    if (rows.length > 0) {
+      return summarizeMissedLeadInsights(rows, {
+        interceptedKeys: readInterceptedPhoneKeys(),
+      })
+    }
+    return cachedSummary
+  }, [rows, interceptTick, cachedSummary])
 
   const markIntercepted = useCallback((phones: string[]) => {
     markPhonesIntercepted(phones)
@@ -167,6 +205,12 @@ export function useMissedLeadInsights(
   return {
     ...insights,
     loading,
+    /** True once session seed or network settled — safe to show “X leads” sublabel. */
+    ready:
+      !loading ||
+      rows.length > 0 ||
+      cachedSummary.uniqueLeadsToday > 0 ||
+      cachedSummary.totalMissedToday > 0,
     refresh: load,
     markIntercepted,
   }

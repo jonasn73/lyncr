@@ -71,10 +71,23 @@ export function linePickerStatusLabel(isSelectedLine: boolean): "Active" | "Rout
   return isSelectedLine ? "Active" : "Routed"
 }
 
+/** Pretty US phone for UI — empty / incomplete never becomes `()` or `(   )`. */
 export function formatPhoneDisplay(phone: string | undefined | null): string {
-  if (phone == null || typeof phone !== "string") return "Your cell"
-  const digits = phone.replace(/\D/g, "")
+  // Missing value — show nothing until a real number is ready (avoids refresh flash).
+  if (phone == null || typeof phone !== "string") return ""
+  // Strip whitespace so "   " and "()" don't leak into the call-flow detail line.
+  const trimmed = phone.trim()
+  if (!trimmed) return ""
+  // Keep digits only so we can decide if the number is complete enough to format.
+  const digits = trimmed.replace(/\D/g, "")
+  // Punctuation-only / empty-digit strings (e.g. "()") — never render bare parentheses.
+  if (digits.length === 0) return ""
+  // Standard 10-digit NANP → (555) 123-4567.
   if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
-  if (digits.length === 11 && digits.startsWith("1")) return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
-  return phone
+  // 11-digit with leading 1 → same pretty form without the country code.
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  // Incomplete or non-US — show the raw trimmed value, not a fake empty mask.
+  return trimmed
 }
