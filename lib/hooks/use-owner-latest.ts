@@ -46,8 +46,8 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
     }
     const items = Array.isArray(json.data.latest) ? json.data.latest : []
     writeLatestCache(organizationId, items)
-    const cached = readLatestCache(organizationId)
-    return cached.length > 0 || items.length === 0 ? cached : items
+    // Prefer sanitized cache so hot-only filter matches session/cookie seeds.
+    return readLatestCache(organizationId)
   })().finally(() => {
     inflight.delete(key)
   })
