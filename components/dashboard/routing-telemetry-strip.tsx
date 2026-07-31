@@ -112,30 +112,29 @@ function TelemetryTickerItem({
 }) {
   const body = (
     <>
-      <span className={cn("text-base font-bold tabular-nums text-slate-100", valueClassName)}>
+      {/* Slightly smaller than before so the 3×2 block reads shorter on phones. */}
+      <span className={cn("text-sm font-bold leading-none tabular-nums text-slate-100", valueClassName)}>
         {value}
       </span>
       <span
         className={cn(
-          "max-w-full text-center text-[9px] font-semibold uppercase tracking-wider text-zinc-500 sm:text-[10px]",
+          "max-w-full text-center text-[9px] font-semibold uppercase leading-none tracking-wider text-zinc-500",
           labelClassName
         )}
       >
         {label}
       </span>
-      {/* Always reserve the sublabel line so “4 leads” appearing doesn’t resize the grid. */}
-      <span
-        className={cn(
-          "max-w-full min-h-[0.875rem] text-center text-[9px] font-medium leading-tight",
-          sublabel ? "text-amber-400/90" : "invisible"
-        )}
-      >
-        {sublabel || "·"}
-      </span>
+      {/* Overlay when present so empty cells don’t reserve a third line of height. */}
+      {sublabel ? (
+        <span className="max-w-full truncate text-center text-[8px] font-medium leading-none text-amber-400/90">
+          {sublabel}
+        </span>
+      ) : null}
     </>
   )
+  // ~44px min height keeps tappable cells usable without the old 60px+ rows.
   const shared =
-    "flex min-h-[3.75rem] min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5"
+    "flex min-h-11 min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-md px-0.5 py-1"
   if (onClick) {
     return (
       <button
@@ -217,10 +216,11 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <>
       <section
-        className={cn("w-full space-y-2 py-0 md:hidden", className)}
+        className={cn("w-full space-y-1.5 py-0 md:hidden", className)}
         aria-label="Today's dispatch metrics"
       >
-        <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
+        {/* Tighter 3×2 on mobile so Latest / Messages sit higher in the viewport. */}
+        <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-px p-1")}>
           <TelemetryTickerItem label="Live" value={linesDisplay} />
           <TelemetryTickerItem
             label="Calls"
@@ -238,7 +238,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
           <TelemetryTickerItem
             label="Booking"
             value={bookingDisplay}
-            valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-zinc-400" : undefined}
+            valueClassName={bookingEmpty || !baselineReady ? "font-medium text-zinc-400" : undefined}
           />
           <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
           <TelemetryTickerItem
@@ -254,7 +254,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
           scroll={false}
           className={cn(
             LINES_MOBILE_CARD,
-            "flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5",
+            "flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2",
             "text-sm font-semibold text-foreground touch-manipulation",
             "transition-colors hover:bg-zinc-900/60 active:scale-[0.99]"
           )}
