@@ -24,5 +24,7 @@ describe("formatRescueRevenueDollars", () => {
   it("converts cents to dollar labels", () => {
     expect(formatRescueRevenueDollars(85000)).toBe("$850")
     expect(formatRescueRevenueDollars(0)).toBe("$0")
+    expect(formatRescueRevenueDollars(null)).toBe("—")
+    expect(formatRescueRevenueDollars(undefined)).toBe("—")
   })
 })

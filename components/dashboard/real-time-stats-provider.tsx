@@ -24,6 +24,7 @@ const EMPTY_STATS: UseRealTimeStatsResult = {
   activeCallsOnSelectedLine: 0,
   activeCallSessions: [],
   realtimeConnected: false,
+  baselineReady: false,
   refreshBaseline: async () => {},
 }
 

@@ -168,6 +168,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     bookingRatePercent,
     avgDispatchSpeedMinutes,
     rescueRevenueCents,
+    baselineReady,
   } = useRealTimeStatsContext()
 
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -175,10 +176,14 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const [rescueOpen, setRescueOpen] = useState(false)
 
   const bookingEmpty = isBookingRateEmpty(bookingRatePercent)
-  const bookingDisplay = formatBookingRatePercent(bookingRatePercent)
-  const speedDisplay = formatAvgDispatchSpeedMinutes(avgDispatchSpeedMinutes)
-  const rescueDisplay = formatRescueRevenueDollars(rescueRevenueCents)
-  const rescueHot = rescueRevenueCents > 0
+  const bookingDisplay = baselineReady ? formatBookingRatePercent(bookingRatePercent) : "—"
+  const speedDisplay = baselineReady ? formatAvgDispatchSpeedMinutes(avgDispatchSpeedMinutes) : "—"
+  // Never flash $0 for Rescue before cache/API settles — show em dash instead.
+  const rescueDisplay = formatRescueRevenueDollars(baselineReady ? rescueRevenueCents : null)
+  const rescueHot = baselineReady && rescueRevenueCents > 0
+  const callsDisplay = baselineReady ? dailyCalls : "—"
+  const missedDisplay = baselineReady ? missedCalls : "—"
+  const linesDisplay = baselineReady ? liveLineCount : "—"
 
   // Prefer live ticker total; fall back to unique only when stats have not caught up.
   const uniqueLeads =
@@ -210,24 +215,24 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         aria-label="Dispatch performance"
       >
         <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
-          <TelemetryTickerItem label="Live" value={liveLineCount} />
+          <TelemetryTickerItem label="Live" value={linesDisplay} />
           <TelemetryTickerItem
             label="Calls"
-            value={dailyCalls}
+            value={callsDisplay}
             onClick={() => openCallHistory("daily")}
           />
           <TelemetryTickerItem
             label={missedTickerLabel}
-            value={missedCalls}
-            sublabel={missedTickerSublabel}
-            valueClassName={missedCalls > 0 ? "text-amber-300" : undefined}
+            value={missedDisplay}
+            sublabel={baselineReady ? missedTickerSublabel : null}
+            valueClassName={baselineReady && missedCalls > 0 ? "text-amber-300" : undefined}
             labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
             onClick={openMissedRescue}
           />
           <TelemetryTickerItem
             label="Booking"
             value={bookingDisplay}
-            valueClassName={bookingEmpty ? "text-sm font-medium text-zinc-400" : undefined}
+            valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-zinc-400" : undefined}
           />
           <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
           <TelemetryTickerItem
@@ -260,19 +265,19 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         aria-label="Workspace telemetry"
       >
         <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md">
-          <TelemetryPill label="Live lines" value={liveLineCount} icon={Phone} tone="teal" />
+          <TelemetryPill label="Live lines" value={linesDisplay} icon={Phone} tone="teal" />
           <TelemetryPill
             label="Daily calls"
-            value={dailyCalls}
+            value={callsDisplay}
             icon={PhoneIncoming}
             onClick={() => openCallHistory("daily")}
           />
           <TelemetryPill
             label={missedDesktopLabel}
-            value={missedCalls}
+            value={missedDisplay}
             icon={PhoneMissed}
-            tone={missedCalls > 0 ? "amber" : "default"}
-            valueClassName={missedCalls > 0 ? "text-amber-400" : undefined}
+            tone={baselineReady && missedCalls > 0 ? "amber" : "default"}
+            valueClassName={baselineReady && missedCalls > 0 ? "text-amber-400" : undefined}
             labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
             onClick={openMissedRescue}
           />
@@ -281,7 +286,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             value={bookingDisplay}
             icon={Percent}
             tone="teal"
-            valueClassName={bookingEmpty ? "text-sm font-medium text-slate-400" : undefined}
+            valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-slate-400" : undefined}
           />
           <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
           <TelemetryPill

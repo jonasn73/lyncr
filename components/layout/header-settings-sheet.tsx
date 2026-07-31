@@ -2,7 +2,7 @@
 
 // Profile avatar opens Settings; wallet chip shows account balance + period picker.
 
-import { memo, useCallback, useEffect, useRef, useState, Suspense } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
@@ -21,7 +21,7 @@ import {
   openGetPaidModal,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
-import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
 const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[4.75rem] flex-col items-end leading-none"
@@ -35,6 +35,12 @@ type HeaderMoneyCache = {
   monthCents: number
   allTimeCents: number
   connectReady: boolean
+}
+
+function readHeaderMoneyCache(): HeaderMoneyCache | null {
+  const cached = readPersistedCache<HeaderMoneyCache>(HEADER_MONEY_CACHE_KEY)
+  if (!cached || typeof cached.availableCents !== "number") return null
+  return cached
 }
 
 type CollectedPeriod = "today" | "week" | "month" | "all"
@@ -111,7 +117,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Stripe available balance (ready to pay out) — default chip number.
+  // Stripe available balance (ready to pay out) — null until cache or API (never invent $0).
   const [availableCents, setAvailableCents] = useState<number | null>(null)
   const [connectReady, setConnectReady] = useState(false)
   // Collected period totals — shown only in the picker, not as the default chip.
@@ -121,6 +127,18 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [allTimeCents, setAllTimeCents] = useState(0)
   const amountReady = availableCents != null
   const isMobile = useIsMobile()
+
+  // Paint last-known wallet before fetch — useLayoutEffect, not useSyncExternalStore (#185).
+  useLayoutEffect(() => {
+    const cached = readHeaderMoneyCache()
+    if (!cached) return
+    setAvailableCents(cached.availableCents)
+    setConnectReady(cached.connectReady === true)
+    setTodayCents(cached.todayCents ?? 0)
+    setWeekCents(cached.weekCents ?? 0)
+    setMonthCents(cached.monthCents ?? 0)
+    setAllTimeCents(cached.allTimeCents ?? 0)
+  }, [])
 
   const refreshMoney = useCallback(() => {
     // Balance (Stripe Connect) + collected periods in parallel.
@@ -382,7 +400,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 In account
               </p>
               <p className="mt-0.5 text-2xl font-bold tabular-nums text-emerald-100">
-                {formatMoneyCents(availableCents ?? 0)}
+                {availableCents != null ? formatMoneyCents(availableCents) : "—"}
               </p>
               <p className="mt-1 text-xs text-emerald-200/60">
                 {connectReady

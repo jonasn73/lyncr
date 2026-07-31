@@ -20,9 +20,10 @@ export function formatAvgDispatchSpeedMinutes(minutes: number | null | undefined
   return `${rounded} min`
 }
 
-/** Rescue queue dollars from cents, e.g. "$850". */
+/** Rescue queue dollars from cents, e.g. "$850". Null = still loading (show em dash). */
 export function formatRescueRevenueDollars(cents: number | null | undefined): string {
-  const n = Number(cents ?? 0)
+  if (cents == null) return "—"
+  const n = Number(cents)
   if (!Number.isFinite(n) || n <= 0) return "$0"
   return `$${Math.round(n / 100).toLocaleString("en-US")}`
 }

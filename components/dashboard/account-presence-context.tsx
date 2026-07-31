@@ -14,7 +14,8 @@ import {
 } from "react"
 import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 import { toast } from "@/hooks/use-toast"
-import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 
@@ -47,20 +48,27 @@ function parsePresenceStatus(raw: string | undefined | null): PresenceStatus {
   return "AVAILABLE"
 }
 
+function readCachedPresence(): PresenceStatus | null {
+  const cached = readPersistedCache<PresenceCache>(PRESENCE_CACHE_KEY)
+  if (!cached?.status) return null
+  return parsePresenceStatus(cached.status)
+}
+
 function writeCachedPresence(status: PresenceStatus) {
   writePersistedCache(PRESENCE_CACHE_KEY, { status } satisfies PresenceCache)
 }
 
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
-  // No session-seed snapshot (useClientSnapshot caused React #185). Fetch owns status.
+  // Last-known Busy/Available before paint — useSessionSeed (not useSyncExternalStore).
+  const cachedSeed = useSessionSeed(readCachedPresence, null, "account-presence")
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
   const linesActive = useDashboardActivePage() === "dashboard"
   const pollEnabled = usePollBudget(linesActive)
 
-  const presenceStatus = liveStatus ?? "AVAILABLE"
-  const presenceReady = liveStatus != null
+  const presenceStatus = liveStatus ?? cachedSeed ?? "AVAILABLE"
+  const presenceReady = liveStatus != null || cachedSeed != null
 
   const paintedFromCacheRef = useRef(false)
   if (presenceReady) paintedFromCacheRef.current = true

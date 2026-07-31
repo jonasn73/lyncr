@@ -20,7 +20,16 @@ export function readPersistedCache<T>(key: string, opts?: { maxAgeMs?: number })
     const raw = sessionStorage.getItem(key)
     if (!raw) return undefined
     const parsed = JSON.parse(raw) as PersistedEnvelope<T>
-    if (parsed.v !== CACHE_VERSION || !parsed.data) return undefined
+    // Allow falsy payloads (false, 0, "") — only reject missing envelope fields.
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      parsed.v !== CACHE_VERSION ||
+      !("data" in parsed) ||
+      parsed.data === undefined
+    ) {
+      return undefined
+    }
     const maxAgeMs = opts?.maxAgeMs ?? MAX_AGE_MS
     if (Date.now() - parsed.t > maxAgeMs) {
       sessionStorage.removeItem(key)

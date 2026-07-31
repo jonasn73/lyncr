@@ -18,6 +18,7 @@ import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import type { SmsMessage } from "@/lib/types"
 
@@ -120,7 +121,11 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
       ? activeOrganizationId
       : null
 
-  const cachedMessages = EMPTY_MESSAGES
+  const cachedMessages = useSessionSeed(
+    () => readMessagesCache(orgId),
+    EMPTY_MESSAGES,
+    orgId ?? "default"
+  )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   const messages = liveMessages ?? cachedMessages
   // Spinner only on cold cache — seeded inbox paints immediately on revisit.
@@ -135,8 +140,15 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
   const threadOpen = Boolean(selectedPhone)
 
-  const hasPaintedMessagesRef = useRef(cachedMessages.length > 0)
+  const hasPaintedMessagesRef = useRef(false)
   if (messages.length > 0) hasPaintedMessagesRef.current = true
+
+  useEffect(() => {
+    if (cachedMessages.length > 0) {
+      hasPaintedMessagesRef.current = true
+      setLoading(false)
+    }
+  }, [cachedMessages.length])
 
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {

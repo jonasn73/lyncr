@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import {
   parseTalkSecondsFromDisplay,
+  readRoutingTelemetryCache,
   writeRoutingTelemetryCache,
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
@@ -73,6 +74,11 @@ export type UseRealTimeStatsResult = {
   activeCallSessions: ActiveCallSession[]
   /** True when Pusher client + owner channel subscription is active. */
   realtimeConnected: boolean
+  /**
+   * True after session cache hydrate or API baseline lands.
+   * UI should not paint $0 / 0 as “loaded” while this is false.
+   */
+  baselineReady: boolean
   /** One-shot baseline sync (mount, org switch, routing config saved). */
   refreshBaseline: () => Promise<void>
 }
@@ -127,7 +133,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   // Telemetry HUD lives on Lines — defer / skip visibility refetch on other tabs.
   const linesActive = useDashboardActivePage() === "dashboard"
 
-  // Session seeds disabled (React #185) — paint zeros until API baseline lands.
+  // Zeros until layout hydrate / API — never invent loaded $0 before baselineReady.
   const [dailyCalls, setDailyCalls] = useState(0)
   const [missedCalls, setMissedCalls] = useState(0)
   const [dailyTalkSeconds, setDailyTalkSeconds] = useState(0)
@@ -137,6 +143,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState<number | null>(null)
   const [rescueRevenueCents, setRescueRevenueCents] = useState(0)
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
+  const [baselineReady, setBaselineReady] = useState(false)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   /** Bumps every second while answered legs are live so talk pills keep ticking. */
@@ -246,6 +253,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         snap,
         { mergeTalk: true }
       )
+      setBaselineReady(true)
       writeRoutingTelemetryCache(activeOrganizationId, snap)
     } catch {
       /* Keep last values — avoids flashing zeros on transient network errors. */
@@ -282,14 +290,46 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
   const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
 
-  // Fetch baseline on org change. Idle-defer so hard refresh can paint shell first.
-  // Event-driven refresh (call-complete bus / routing-saved) still runs immediately.
+  // Copy last-known telemetry from sessionStorage before paint (no useSyncExternalStore).
+  // Depend only on org id — never on cache object identity (#185).
+  useLayoutEffect(() => {
+    const snap = readRoutingTelemetryCache(activeOrganizationId)
+    if (!snap) {
+      setBaselineReady(false)
+      return
+    }
+    applySnapshot(
+      {
+        setDailyCalls,
+        setMissedCalls,
+        setDailyTalkSeconds,
+        setWeeklyTalkSeconds,
+        setMonthlyTalkSeconds,
+        setBookingRatePercent,
+        setAvgDispatchSpeedMinutes,
+        setRescueRevenueCents,
+        setOwnerUserId,
+      },
+      snap
+    )
+    setBaselineReady(true)
+  }, [activeOrganizationId])
+
+  // Fetch baseline on org change. Idle-defer only when cache already painted values;
+  // cold miss fetches immediately so Rescue/$ metrics are not stuck on "—" / zeros.
   useEffect(() => {
     let cancelled = false
     let idleId: number | undefined
     let timerId: ReturnType<typeof setTimeout> | undefined
     const run = () => {
       if (!cancelled) void refreshBaseline()
+    }
+    const hasCache = Boolean(readRoutingTelemetryCache(activeOrganizationId))
+    if (!hasCache) {
+      run()
+      return () => {
+        cancelled = true
+      }
     }
     const ric = (
       window as Window & {
@@ -519,6 +559,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       activeCallsOnSelectedLine,
       activeCallSessions,
       realtimeConnected,
+      baselineReady,
       refreshBaseline,
     }),
     [
@@ -537,6 +578,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       activeCallsOnSelectedLine,
       activeCallSessions,
       realtimeConnected,
+      baselineReady,
       refreshBaseline,
     ]
   )

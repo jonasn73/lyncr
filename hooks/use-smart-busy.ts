@@ -2,7 +2,7 @@
 
 // Smart Busy — manual toggle only (auto-engage removed; it was a React #185 flash→crash source).
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { readActiveOrganizationId, organizationQueryString } from "@/lib/workspace-organizations"
 import {
   readSmartBusyLocalState,
@@ -39,11 +39,19 @@ export function useSmartBusy(_routingBusinessNumber?: string | null): UseSmartBu
   void _routingBusinessNumber
   const { presenceStatus, setPresenceStatus, saving: presenceSaving } = useAccountPresence()
 
-  // Start empty — hydrate once from API / localStorage (no useSyncExternalStore).
+  // Start empty — hydrate once from localStorage before paint (no useSyncExternalStore).
   const [liveLocal, setLiveLocal] = useState<SmartBusyLocalState | null>(null)
   const local = liveLocal ?? SMART_BUSY_EMPTY_LOCAL
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  useLayoutEffect(() => {
+    const prev = readSmartBusyLocalState()
+    setLiveLocal((cur) => {
+      if (cur && localEqual(cur, prev)) return cur
+      return prev
+    })
+  }, [])
 
   const persistLocal = useCallback((next: SmartBusyLocalState) => {
     setLiveLocal((prev) => {

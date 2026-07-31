@@ -20,9 +20,14 @@ import {
 } from "@/lib/mobile-shell"
 
 const TEXTBACK_CACHE_SCOPE = "missed-call-textback"
+const RESCUE_REVENUE_CACHE_SCOPE = "missed-call-rescue-revenue"
 
 function textbackCacheKey(): string {
   return persistedCacheKey(TEXTBACK_CACHE_SCOPE, "account")
+}
+
+function rescueRevenueCacheKey(organizationId: string | null): string {
+  return persistedCacheKey(RESCUE_REVENUE_CACHE_SCOPE, organizationId ?? "default")
 }
 
 function readCachedTextbackEnabled(): boolean | null {
@@ -32,6 +37,16 @@ function readCachedTextbackEnabled(): boolean | null {
 
 function writeCachedTextbackEnabled(enabled: boolean): void {
   writePersistedCache(textbackCacheKey(), enabled)
+}
+
+function readCachedRescueRevenue(organizationId: string | null): number | null {
+  const cached = readPersistedCache<{ cents: number }>(rescueRevenueCacheKey(organizationId))
+  if (!cached || typeof cached.cents !== "number" || !Number.isFinite(cached.cents)) return null
+  return cached.cents
+}
+
+function writeCachedRescueRevenue(organizationId: string | null, cents: number): void {
+  writePersistedCache(rescueRevenueCacheKey(organizationId), { cents })
 }
 
 export const MissedCallRescueCard = memo(function MissedCallRescueCard({
@@ -56,8 +71,10 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const [enabled, setEnabled] = useState<boolean | null>(() => readCachedTextbackEnabled())
   const [toggleLoading, setToggleLoading] = useState(() => readCachedTextbackEnabled() === null)
   const [saving, setSaving] = useState(false)
-  // Dollars booked via public /book textback links (ai_leads quoted totals).
-  const [rescueTotalCents, setRescueTotalCents] = useState(0)
+  // Dollars booked via public /book textback links — null until cache/API (never flash $0).
+  const [rescueTotalCents, setRescueTotalCents] = useState<number | null>(() =>
+    readCachedRescueRevenue(activeOrganizationId)
+  )
   const [localCapacity, setLocalCapacity] = useState(
     capacityThreshold ?? SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD
   )
@@ -102,6 +119,10 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   // Org-scoped rescued revenue — refresh when workspace changes.
   useEffect(() => {
     let cancelled = false
+    // Re-hydrate seed for this org before fetch (SPA org switch).
+    const seeded = readCachedRescueRevenue(activeOrganizationId)
+    if (seeded != null) setRescueTotalCents(seeded)
+    else setRescueTotalCents(null)
     const qs = routingTelemetryQueryString(activeOrganizationId)
     void fetch(`/api/routing/tracking-metrics${qs}`, {
       credentials: "include",
@@ -110,7 +131,9 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
       .then((r) => (r.ok ? r.json() : null))
       .then((metricsJson: { data?: { textback_rescue_revenue_cents?: number } } | null) => {
         if (cancelled || !metricsJson) return
-        setRescueTotalCents(Number(metricsJson.data?.textback_rescue_revenue_cents ?? 0))
+        const cents = Number(metricsJson.data?.textback_rescue_revenue_cents ?? 0)
+        setRescueTotalCents(Number.isFinite(cents) ? cents : 0)
+        writeCachedRescueRevenue(activeOrganizationId, Number.isFinite(cents) ? cents : 0)
       })
       .catch(() => {
         /* keep last known */

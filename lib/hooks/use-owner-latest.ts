@@ -8,8 +8,9 @@ import {
   type LatestCustomerAction,
 } from "@/lib/latest-customer-actions"
 import { useDocumentVisible } from "@/lib/hooks/use-poll-budget"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
-import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Slow backup poll while the browser tab is hidden (Lines stays mounted). */
 const LATEST_POLL_VISIBLE_MS = 30_000
@@ -27,6 +28,15 @@ function sanitizeItems(items: unknown): LatestCustomerAction[] {
   if (!Array.isArray(items)) return []
   // Drop legacy outbound “sent” cards from older session cache.
   return items.filter(isHotLatestAction)
+}
+
+const EMPTY_LATEST: LatestCustomerAction[] = []
+
+function readLatestCache(organizationId: string | null | undefined): LatestCustomerAction[] {
+  const cached = readPersistedCache<LatestCache>(cacheKey(organizationId))
+  if (!cached || !Array.isArray(cached.items)) return EMPTY_LATEST
+  const items = sanitizeItems(cached.items)
+  return items.length > 0 ? items : EMPTY_LATEST
 }
 
 function writeLatestCache(
@@ -75,11 +85,13 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
   return promise
 }
 
-const EMPTY_LATEST: LatestCustomerAction[] = []
-
-/** Latest customer actions — fetch on mount (session seeds disabled — React #185). */
+/** Latest customer actions — session seed before paint, then live fetch. */
 export function useOwnerLatest(activeOrganizationId: string | null | undefined) {
-  const cachedItems = EMPTY_LATEST
+  const cachedItems = useSessionSeed(
+    () => readLatestCache(activeOrganizationId),
+    EMPTY_LATEST,
+    activeOrganizationId ?? "default"
+  )
   const [liveItems, setLiveItems] = useState<LatestCustomerAction[] | null>(null)
   const items = liveItems ?? cachedItems
   // True only when we have nothing to show yet (cache miss).
@@ -91,6 +103,10 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   useEffect(() => {
     if (items.length > 0) setLoading(false)
   }, [items.length])
+
+  useEffect(() => {
+    if (cachedItems.length > 0) setLoading(false)
+  }, [cachedItems.length])
 
   const load = useCallback(async () => {
     try {
