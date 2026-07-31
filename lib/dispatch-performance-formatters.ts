@@ -13,14 +13,14 @@ export function isBookingRateEmpty(rate: number | null | undefined): boolean {
   return !Number.isFinite(n) || n <= 0
 }
 
-/** Avg dispatch speed in minutes, e.g. "2.4 min". */
+/** Avg dispatch speed in minutes for today, e.g. "2.4 min". */
 export function formatAvgDispatchSpeedMinutes(minutes: number | null | undefined): string {
   if (minutes == null || !Number.isFinite(minutes) || minutes < 0) return "—"
   const rounded = minutes < 10 ? Math.round(minutes * 10) / 10 : Math.round(minutes)
   return `${rounded} min`
 }
 
-/** Rescue queue dollars from cents, e.g. "$850". Null = still loading (show em dash). */
+/** Today's rescue opportunity dollars from cents, e.g. "$850". Null = still loading (show em dash). */
 export function formatRescueRevenueDollars(cents: number | null | undefined): string {
   if (cents == null) return "—"
   const n = Number(cents)

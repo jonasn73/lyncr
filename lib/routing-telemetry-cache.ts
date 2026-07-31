@@ -21,9 +21,9 @@ export type RoutingTelemetrySnapshot = {
   monthlyTalkSeconds: number
   /** Jobs booked ÷ unique callers today (0–100). */
   bookingRatePercent: number
-  /** Average minutes from call end → dispatched job (null when no samples). */
+  /** Average minutes from call end → dispatched job today (null when no samples). */
   avgDispatchSpeedMinutes: number | null
-  /** Open Price Denied queue total in cents. */
+  /** Today's open salvage-pending quote total in cents (created or denied today). */
   rescueRevenueCents: number
   ownerUserId: string | null
   /** When the snapshot was taken — used to drop stale week/month/day counters. */
@@ -48,15 +48,16 @@ export function normalizeRoutingTelemetrySnapshot(
   const cachedWeekKey = raw.weekPeriodKey ?? weekKey
   const cachedMonthKey = raw.monthPeriodKey ?? monthKey
   const cachedDayKey = raw.localDayPeriodKey ?? dayKey
+  const sameDay = cachedDayKey === dayKey
   return {
-    dailyCalls: raw.dailyCalls,
-    missedCalls: cachedDayKey === dayKey ? raw.missedCalls : 0,
-    dailyTalkSeconds: raw.dailyTalkSeconds,
+    dailyCalls: sameDay ? raw.dailyCalls : 0,
+    missedCalls: sameDay ? raw.missedCalls : 0,
+    dailyTalkSeconds: sameDay ? raw.dailyTalkSeconds : 0,
     weeklyTalkSeconds: cachedWeekKey === weekKey ? raw.weeklyTalkSeconds : 0,
     monthlyTalkSeconds: cachedMonthKey === monthKey ? raw.monthlyTalkSeconds : 0,
-    bookingRatePercent: cachedDayKey === dayKey ? raw.bookingRatePercent ?? 0 : 0,
-    avgDispatchSpeedMinutes: raw.avgDispatchSpeedMinutes ?? null,
-    rescueRevenueCents: raw.rescueRevenueCents ?? 0,
+    bookingRatePercent: sameDay ? raw.bookingRatePercent ?? 0 : 0,
+    avgDispatchSpeedMinutes: sameDay ? raw.avgDispatchSpeedMinutes ?? null : null,
+    rescueRevenueCents: sameDay ? raw.rescueRevenueCents ?? 0 : 0,
     ownerUserId: raw.ownerUserId,
     weekPeriodKey: weekKey,
     monthPeriodKey: monthKey,

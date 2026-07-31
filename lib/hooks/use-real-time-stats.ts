@@ -63,9 +63,9 @@ export type UseRealTimeStatsResult = {
   liveMonthlyTalkSeconds: number
   /** Jobs booked ÷ unique callers today (0–100). */
   bookingRatePercent: number
-  /** Average minutes from call end → dispatched job. */
+  /** Average minutes from call end → dispatched job today. */
   avgDispatchSpeedMinutes: number | null
-  /** Open Price Denied queue total in cents. */
+  /** Today's open salvage-pending quote total in cents (created or denied today). */
   rescueRevenueCents: number
   /** Count of provisioned active phone lines (static until numbers list changes). */
   liveLineCount: number
@@ -108,10 +108,10 @@ function applySnapshot(
   const snapDayKey = snap.localDayPeriodKey ?? currentDayKey
   const mergeTalk = options?.mergeTalk ?? false
 
-  setters.setDailyCalls(snap.dailyCalls)
+  setters.setDailyCalls(snapDayKey === currentDayKey ? snap.dailyCalls : 0)
   setters.setMissedCalls(snapDayKey === currentDayKey ? snap.missedCalls : 0)
-  // Rolling 24h window — always trust the API baseline (values can decrease).
-  setters.setDailyTalkSeconds(snap.dailyTalkSeconds)
+  // Local calendar day — zero talk when the cached snapshot is from a prior day.
+  setters.setDailyTalkSeconds(snapDayKey === currentDayKey ? snap.dailyTalkSeconds : 0)
   if (mergeTalk && snapWeekKey === currentWeekKey) {
     setters.setWeeklyTalkSeconds((prev) => Math.max(prev, snap.weeklyTalkSeconds))
   } else {
@@ -123,8 +123,10 @@ function applySnapshot(
     setters.setMonthlyTalkSeconds(snap.monthlyTalkSeconds)
   }
   setters.setBookingRatePercent(snapDayKey === currentDayKey ? snap.bookingRatePercent : 0)
-  setters.setAvgDispatchSpeedMinutes(snap.avgDispatchSpeedMinutes)
-  setters.setRescueRevenueCents(snap.rescueRevenueCents)
+  setters.setAvgDispatchSpeedMinutes(
+    snapDayKey === currentDayKey ? snap.avgDispatchSpeedMinutes : null
+  )
+  setters.setRescueRevenueCents(snapDayKey === currentDayKey ? snap.rescueRevenueCents : 0)
   setters.setOwnerUserId(snap.ownerUserId)
 }
 

@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarToday, isWithinLast24Hours } from "@/lib/daily-call-telemetry"
+import { formatTalkDuration, formatTalkTime, isLocalCalendarThisMonth, isLocalCalendarToday } from "@/lib/daily-call-telemetry"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -56,8 +56,8 @@ const FILTER_META: Record<
 > = {
   daily: {
     title: "Call history today",
-    description: "Every inbound and outbound call logged in the last 24 hours for this workspace.",
-    emptyMessage: "No calls logged in the last 24 hours for this workspace.",
+    description: "Every inbound and outbound call logged today on this workspace (resets at local midnight).",
+    emptyMessage: "No calls logged today for this workspace.",
   },
   missed: {
     title: "Missed calls today",
@@ -66,8 +66,8 @@ const FILTER_META: Record<
   },
   daily_talk: {
     title: "Daily talk summary",
-    description: "Calls with talk time in the last 24 hours — who called, how long, and who answered.",
-    emptyMessage: "No talk time logged in the last 24 hours.",
+    description: "Calls with talk time today — who called, how long, and who answered (resets at local midnight).",
+    emptyMessage: "No talk time logged today.",
   },
   weekly_talk: {
     title: "Weekly talk summary",
@@ -108,10 +108,6 @@ function formatTimestamp(iso: string): string {
   const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
   if (sameDay) return `Today, ${time}`
   return `${d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`
-}
-
-function isRollingDay(iso: string): boolean {
-  return isWithinLast24Hours(iso)
 }
 
 function isLocalToday(iso: string): boolean {
@@ -194,7 +190,7 @@ function filterRows(
     .filter((row) => {
       if (!matchesWorkspaceLine(row, businessNumbers)) return false
       if (filter === "daily" || filter === "daily_talk") {
-        if (!isRollingDay(row.created_at)) return false
+        if (!isLocalToday(row.created_at)) return false
       }
       if (filter === "missed") {
         if (!isLocalToday(row.created_at)) return false

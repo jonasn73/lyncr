@@ -25,10 +25,12 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
     expect(normalized.weeklyTalkSeconds).toBe(0)
     expect(normalized.monthlyTalkSeconds).toBe(7800)
     expect(normalized.missedCalls).toBe(2)
+    expect(normalized.dailyCalls).toBe(5)
+    expect(normalized.rescueRevenueCents).toBe(85000)
     expect(normalized.weekPeriodKey).toBe("2026-07-06")
   })
 
-  it("zeros monthly talk and missed calls when the month or day rolled over", () => {
+  it("zeros day-scoped strip metrics when the local day rolled over", () => {
     const stale: RoutingTelemetrySnapshot = {
       dailyCalls: 3,
       missedCalls: 4,
@@ -36,8 +38,8 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
       weeklyTalkSeconds: 1200,
       monthlyTalkSeconds: 9000,
       bookingRatePercent: 10,
-      avgDispatchSpeedMinutes: null,
-      rescueRevenueCents: 0,
+      avgDispatchSpeedMinutes: 2.4,
+      rescueRevenueCents: 46000,
       ownerUserId: "user-1",
       weekPeriodKey: "2026-07-06",
       monthPeriodKey: "2026-06",
@@ -47,6 +49,11 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
     const normalized = normalizeRoutingTelemetrySnapshot(stale, now)
     expect(normalized.monthlyTalkSeconds).toBe(0)
     expect(normalized.missedCalls).toBe(0)
+    expect(normalized.dailyCalls).toBe(0)
+    expect(normalized.dailyTalkSeconds).toBe(0)
+    expect(normalized.bookingRatePercent).toBe(0)
+    expect(normalized.avgDispatchSpeedMinutes).toBeNull()
+    expect(normalized.rescueRevenueCents).toBe(0)
     expect(normalized.weeklyTalkSeconds).toBe(1200)
   })
 })

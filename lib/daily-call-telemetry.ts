@@ -49,7 +49,7 @@ export function isLocalCalendarToday(iso: string, now: Date = new Date()): boole
   )
 }
 
-/** Rolling 24h window — routing HUD “today” stats (no midnight cliff for late-night calls). */
+/** Rolling 24h window — legacy helper; Lines strip CALLS now uses local calendar day. */
 export function isWithinLast24Hours(iso: string, now: Date = new Date()): boolean {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return false

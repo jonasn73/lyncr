@@ -194,8 +194,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const missedTickerLabel = formatMissedTickerLabel(missedCalls, uniqueLeads)
   const missedTickerSublabel = formatMissedTickerSublabel(missedCalls, uniqueLeads)
   const missedDesktopLabel = missedLeadCollapse
-    ? `${missedCalls} missed (${uniqueLeads} leads)`
-    : "Missed calls"
+    ? `${missedCalls} missed today (${uniqueLeads} leads)`
+    : "Missed today"
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -212,7 +212,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     <>
       <section
         className={cn("w-full space-y-2 py-0 md:hidden", className)}
-        aria-label="Dispatch performance"
+        aria-label="Today's dispatch metrics"
       >
         <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-1 p-2")}>
           <TelemetryTickerItem label="Live" value={linesDisplay} />
@@ -262,12 +262,12 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       </section>
       <section
         className={cn("hidden w-full space-y-2 md:block", className)}
-        aria-label="Workspace telemetry"
+        aria-label="Today's workspace telemetry"
       >
         <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md">
           <TelemetryPill label="Live lines" value={linesDisplay} icon={Phone} tone="teal" />
           <TelemetryPill
-            label="Daily calls"
+            label="Calls today"
             value={callsDisplay}
             icon={PhoneIncoming}
             onClick={() => openCallHistory("daily")}
@@ -282,15 +282,15 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             onClick={openMissedRescue}
           />
           <TelemetryPill
-            label="Booking rate"
+            label="Booking today"
             value={bookingDisplay}
             icon={Percent}
             tone="teal"
             valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-slate-400" : undefined}
           />
-          <TelemetryPill label="Avg dispatch" value={speedDisplay} icon={Timer} tone="teal" />
+          <TelemetryPill label="Avg dispatch today" value={speedDisplay} icon={Timer} tone="teal" />
           <TelemetryPill
-            label="Rescue revenue"
+            label="Rescue today"
             value={rescueDisplay}
             icon={DollarSign}
             tone={rescueHot ? "amber" : "emerald"}

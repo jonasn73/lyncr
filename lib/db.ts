@@ -3957,7 +3957,7 @@ export async function getDailyCallTelemetryForOwner(
   `
 
   const tz = sanitizeIanaTimezone(timezone)
-  const rollingDayMatch = sql`created_at >= now() - interval '24 hours'`
+  // Lines strip CALLS / MISSED use the business-local calendar day (resets at local midnight).
   const localDayMatch = sql`date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))`
   const localWeekMatch = sql`date_trunc('week', timezone(${tz}, created_at)) = date_trunc('week', timezone(${tz}, now()))`
   const localMonthMatch = sql`date_trunc('month', timezone(${tz}, created_at)) = date_trunc('month', timezone(${tz}, now()))`
@@ -3993,20 +3993,20 @@ export async function getDailyCallTelemetryForOwner(
             AND created_at >= now() - interval '40 days'
         )
         SELECT
-          COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
+          COUNT(*) FILTER (WHERE ${localDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
             WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
-              WHERE ${rollingDayMatch} AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::float8 AS avg_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE ${rollingDayMatch} AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::int AS daily_talk_seconds,
@@ -4051,20 +4051,20 @@ export async function getDailyCallTelemetryForOwner(
             AND created_at >= now() - interval '40 days'
         )
         SELECT
-          COUNT(*) FILTER (WHERE ${rollingDayMatch})::int AS daily_calls,
+          COUNT(*) FILTER (WHERE ${localDayMatch})::int AS daily_calls,
           COUNT(*) FILTER (
             WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
-              WHERE ${rollingDayMatch} AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::float8 AS avg_talk_seconds,
           COALESCE(
             SUM(talk_seconds) FILTER (
-              WHERE ${rollingDayMatch} AND ${talkableWhere}
+              WHERE ${localDayMatch} AND ${talkableWhere}
             ),
             0
           )::int AS daily_talk_seconds,
@@ -4095,7 +4095,7 @@ export async function getDailyCallTelemetryForOwner(
   }
 }
 
-/** High-value dispatch KPIs for the Lines analytics strip (booking rate, speed, rescue $). */
+/** High-value dispatch KPIs for the Lines strip — all scoped to the local calendar day. */
 export async function getDispatchPerformanceTelemetry(
   sessionUserId: string,
   organizationId?: string | null,
@@ -4155,7 +4155,7 @@ export async function getDispatchPerformanceTelemetry(
     const booking_rate_percent =
       uniqueCallers > 0 ? Math.min(100, Math.round((jobsCreated / uniqueCallers) * 100)) : 0
 
-    // Avg minutes from call end → job created with a tech (proxy for dispatch speed).
+    // Avg minutes from call end → job created with a tech (today only — matches strip day scope).
     let avg_dispatch_speed_minutes: number | null = null
     try {
       const speedRows = await sql`
@@ -4176,7 +4176,7 @@ export async function getDispatchPerformanceTelemetry(
           WHERE l.user_id = ${telemetryOwnerUserId}
             -- assigned_tech_id is uuid — TRIM() is invalid (btrim(uuid) does not exist).
             AND l.assigned_tech_id IS NOT NULL
-            AND l.created_at >= now() - interval '7 days'
+            AND date_trunc('day', timezone(${tz}, l.created_at)) = date_trunc('day', timezone(${tz}, now()))
             AND l.created_at >= COALESCE(cl.ended_at, cl.created_at)
             AND EXTRACT(EPOCH FROM (l.created_at - COALESCE(cl.ended_at, cl.created_at))) / 60.0 BETWEEN 0 AND 120
             AND (
@@ -4195,7 +4195,8 @@ export async function getDispatchPerformanceTelemetry(
       }
     }
 
-    // Open Price Denied queue — sum of quoted cents still salvageable.
+    // Daily rescue $ = open salvage_pending quotes for leads that became salvage today
+    // (created today, or stamped price_denied_at today) — not all-time open salvage.
     let rescue_revenue_cents = 0
     try {
       const rescueRows = await sql`
@@ -4218,6 +4219,16 @@ export async function getDispatchPerformanceTelemetry(
           AND (
             lower(trim(COALESCE(dispatch_status, ''))) = 'salvage_pending'
             OR lower(trim(COALESCE(collected->>'dispatch_status', ''))) = 'salvage_pending'
+          )
+          AND (
+            date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
+            OR (
+              NULLIF(trim(collected->>'price_denied_at'), '') IS NOT NULL
+              AND date_trunc(
+                'day',
+                timezone(${tz}, (collected->>'price_denied_at')::timestamptz)
+              ) = date_trunc('day', timezone(${tz}, now()))
+            )
           )
           AND (
             ${orgUuid}::uuid IS NULL
@@ -10480,12 +10491,33 @@ export async function setLeadDispatchStatus(leadId: string, dispatchStatus: stri
   } catch (e) {
     if (pgErrorCode(e) !== "42703" && !isUndefinedRelationError(e, "ai_leads")) throw e
   }
+  const status = dispatchStatus.trim()
+  const deniedAt = new Date().toISOString()
   try {
-    await sql`
-      UPDATE ai_leads
-      SET collected = jsonb_set(coalesce(collected, '{}'::jsonb), '{dispatch_status}', to_jsonb(${dispatchStatus}::text), true)
-      WHERE id = ${leadId}
-    `
+    if (status.toLowerCase() === "salvage_pending") {
+      // First time a lead enters Price Denied — stamp for daily Rescue $ scoping.
+      await sql`
+        UPDATE ai_leads
+        SET collected = jsonb_set(
+          jsonb_set(
+            coalesce(collected, '{}'::jsonb),
+            '{dispatch_status}',
+            to_jsonb(${status}::text),
+            true
+          ),
+          '{price_denied_at}',
+          to_jsonb(COALESCE(collected->>'price_denied_at', ${deniedAt})),
+          true
+        )
+        WHERE id = ${leadId}
+      `
+    } else {
+      await sql`
+        UPDATE ai_leads
+        SET collected = jsonb_set(coalesce(collected, '{}'::jsonb), '{dispatch_status}', to_jsonb(${status}::text), true)
+        WHERE id = ${leadId}
+      `
+    }
   } catch (e) {
     if (!isUndefinedRelationError(e, "ai_leads")) throw e
   }
@@ -11197,6 +11229,25 @@ export async function applyLeadDisposition(
   } catch (e) {
     if (pgErrorCode(e) === "42703" || isUndefinedRelationError(e, "ai_leads")) return
     throw e
+  }
+  // Stamp first denial time so Lines Rescue $ can count leads denied today (not only created today).
+  if (params.disposition === "PRICE_REJECTED") {
+    const deniedAt = new Date().toISOString()
+    try {
+      await sql`
+        UPDATE ai_leads
+        SET collected = coalesce(collected, '{}'::jsonb)
+          || jsonb_build_object(
+            'disposition', ${params.disposition}::text,
+            'dispatch_status', COALESCE(${params.dispatch_status}, 'salvage_pending'),
+            'is_salvageable', ${params.is_salvageable},
+            'price_denied_at', COALESCE(collected->>'price_denied_at', ${deniedAt})
+          )
+        WHERE id = ${leadId}
+      `
+    } catch (e) {
+      if (!isUndefinedRelationError(e, "ai_leads")) throw e
+    }
   }
 }
 
