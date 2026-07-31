@@ -15,6 +15,7 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { buildTelHref } from "@/lib/phone-e164"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
@@ -258,6 +259,13 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
     }
   }, [threads, selectedPhone])
 
+  // tel:+1… for the open thread header (one-tap call on phones).
+  const threadTelHref = activeThread ? buildTelHref(activeThread.customerPhone) : null
+  // Pretty display next to the dial link (keeps parentheses/dashes).
+  const threadPhoneLabel = activeThread
+    ? formatPhoneDisplay(activeThread.customerPhone)
+    : ""
+
   // Opening a thread clears the Latest unread dot for that phone.
   useEffect(() => {
     if (!isActive || !selectedPhone) return
@@ -474,9 +482,20 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                   <ArrowLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {formatPhoneDisplay(activeThread.customerPhone)}
-                  </p>
+                  {threadTelHref ? (
+                    // One-tap call: tap the number → phone dialer opens.
+                    <a
+                      href={threadTelHref}
+                      className="inline-flex min-h-11 max-w-full items-center truncate text-sm font-semibold text-foreground underline-offset-2 hover:underline"
+                      aria-label={`Call ${threadPhoneLabel}`}
+                    >
+                      {threadPhoneLabel}
+                    </a>
+                  ) : (
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {threadPhoneLabel}
+                    </p>
+                  )}
                   <p className="text-[11px] text-muted-foreground">
                     {activeThread.messages.length} message
                     {activeThread.messages.length === 1 ? "" : "s"}
