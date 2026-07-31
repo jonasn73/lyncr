@@ -79,7 +79,7 @@ export function OperatorPayoutLedger() {
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Operator audit &amp; payouts</h1>
+          <h1 className="text-xl font-semibold text-slate-100">Operator payouts</h1>
           <p className="mt-1 text-sm text-slate-400">
             Talk-time, answer speed, and accrued balances across every network agent.
           </p>
@@ -112,7 +112,7 @@ export function OperatorPayoutLedger() {
 
       <Card className="border-slate-800 bg-slate-900/40">
         <CardHeader className="border-b border-slate-800/80 pb-4">
-          <CardTitle className="text-lg text-slate-100">Network agents</CardTitle>
+          <CardTitle className="text-lg text-slate-100">Talk-time ledger</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {loading ? (

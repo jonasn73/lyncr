@@ -22,7 +22,6 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ROUTING_POOL_SKILL_TAGS, formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
-import { InviteModal } from "@/components/InviteModal"
 
 // One shared network agent (matches GET /api/admin/network-agents).
 type NetworkAgent = {
@@ -112,14 +111,14 @@ export function AdminNetworkAgentsBoard() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
       <header className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Lyncr network agents</h1>
+          <h1 className="text-xl font-semibold text-slate-100">Network pool</h1>
           <p className="mt-1 text-sm text-slate-400">
             Shared, platform-managed receptionists (no owning business). Businesses on{" "}
             <span className="font-medium text-slate-300">Only Ring Lyncr Network</span> or{" "}
             <span className="font-medium text-slate-300">Ring My Team, Fallback to Lyncr</span> route to these by skill.
+            Operator login invites live under <span className="font-medium text-slate-300">People</span>.
           </p>
         </div>
-        <InviteModal />
       </header>
 
       {/* Onboarding form */}

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 
-const POLL_MS = 20000
+const POLL_MS = 60_000 // slower than live traffic so Home doesn’t double-hammer Neon
 
 /** Readable local timestamp, e.g. "Jun 4, 7:02 PM". */
 function formatTimestamp(iso: string): string {

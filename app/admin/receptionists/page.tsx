@@ -1,7 +1,5 @@
-import { OperatorOnboardingDashboard } from "@/components/admin/operator-onboarding-dashboard"
+import { redirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export default function AdminReceptionistsPage() {
-  return <OperatorOnboardingDashboard />
+export default function AdminReceptionistsRedirect() {
+  redirect("/admin/people")
 }

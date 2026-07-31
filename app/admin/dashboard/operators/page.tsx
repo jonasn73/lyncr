@@ -1,7 +1,5 @@
-import { OperatorPayoutLedger } from "@/components/admin/operator-payout-ledger"
+import { redirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export default function AdminOperatorsPage() {
-  return <OperatorPayoutLedger />
+export default function AdminOperatorsPayoutsRedirect() {
+  redirect("/admin/payouts")
 }

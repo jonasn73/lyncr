@@ -63,10 +63,8 @@ import {
 } from "@/components/ui/dialog"
 import { accountStatusLabel } from "@/lib/account-status"
 import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
-import { AdminInviteReceptionistDialog } from "@/components/admin-invite-receptionist-dialog"
 import { LiveTrafficPulse } from "@/components/admin/live-traffic"
 import { CallHistoryTable } from "@/components/admin/call-history"
-import { PlatformNotificationSettings } from "@/components/admin/platform-notification-settings"
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
@@ -603,6 +601,8 @@ export function LyncrAdminDashboard({
   refreshing,
   fetchLatestAdminStats,
   onManageUser,
+  /** home = KPIs + live traffic; businesses = tenant directory + Manage */
+  view = "home",
 }: {
   metrics: LyncrAdminMetrics | null
   users: LyncrAdminDirectoryRow[]
@@ -610,6 +610,7 @@ export function LyncrAdminDashboard({
   refreshing: boolean
   fetchLatestAdminStats: (silent?: boolean) => Promise<void>
   onManageUser: (row: LyncrAdminDirectoryRow) => void
+  view?: "home" | "businesses"
 }) {
   const [filter, setFilter] = useState("")
   const [tierFilter, setTierFilter] = useState("all")
@@ -659,16 +660,22 @@ export function LyncrAdminDashboard({
     )
   }
 
+  const pageTitle = view === "home" ? "Ops home" : "Businesses"
+  const pageSubtitle =
+    view === "home"
+      ? "Platform health, live calls, and recent traffic"
+      : "Search tenants — open Manage for credit, lines, porting, and impersonation"
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-violet-300">
-            <Shield className="h-5 w-5" aria-hidden />
-            <span className="text-xs font-bold uppercase tracking-[0.2em]">Platform admin</span>
+            <Shield className="h-4 w-4" aria-hidden />
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em]">Platform ops</span>
           </div>
-          <h1 className="mt-1 text-2xl font-bold text-slate-50">Operator dashboard</h1>
-          <p className="mt-1 text-sm text-slate-500">Exclusive access for admin@lyncr.app</p>
+          <h1 className="mt-0.5 text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
+          <p className="mt-0.5 text-sm text-slate-500">{pageSubtitle}</p>
         </div>
         <Button
           type="button"
@@ -683,82 +690,86 @@ export function LyncrAdminDashboard({
         </Button>
       </div>
 
-      <PlatformNotificationSettings variant="admin" />
+      {view === "home" ? (
+        <>
+          <RoutingPoolLowBalanceBanner balanceUsd={routingPoolAvailableUsd} balanceLabel={routingPoolAvailableLabel} />
 
-      <RoutingPoolLowBalanceBanner balanceUsd={routingPoolAvailableUsd} balanceLabel={routingPoolAvailableLabel} />
+          <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90 shadow-[0_12px_40px_-16px_rgba(139,92,246,0.45)]">
+            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-base font-semibold text-violet-100">Lyncr routing pool</CardTitle>
+                <p className="mt-1 text-xs text-slate-500">Master Telnyx developer balance — platform monitoring only</p>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/25 ring-1 ring-violet-400/40">
+                <Wallet className="h-5 w-5 text-violet-200" aria-hidden />
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Available credit</p>
+                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
+                  {routingPoolAvailableLabel || "—"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Account balance</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-slate-300">
+                  {metrics?.telnyx_routing_pool?.balance_label ?? "—"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90 shadow-[0_12px_40px_-16px_rgba(139,92,246,0.45)]">
-        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
-          <div>
-            <CardTitle className="text-base font-semibold text-violet-100">Lyncr routing pool</CardTitle>
-            <p className="mt-1 text-xs text-slate-500">Master Telnyx developer balance — platform monitoring only</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title="Total users" value={String(metrics?.total_users ?? 0)} icon={Users} subtitle="onboarding_profiles rows" />
+            <MetricCard
+              title="Active subscriptions"
+              value={String(metrics?.active_subscriptions ?? 0)}
+              icon={CreditCard}
+              subtitle="has_active_subscription = true"
+            />
+            <MetricCard
+              title="Platform carrier credit"
+              value={formatUsd(metrics?.total_carrier_credit ?? 0)}
+              icon={Wallet}
+              subtitle="Sum of all user balances"
+            />
+            <Card className="border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400">System health</CardTitle>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/15 ring-1 ring-emerald-500/25">
+                  <Activity className="h-4 w-4 text-emerald-300" aria-hidden />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                    <Database className="h-3.5 w-3.5" aria-hidden /> Neon DB
+                  </span>
+                  <HealthDot status={metrics?.health.neon ?? "error"} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                    <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx API
+                  </span>
+                  <HealthDot status={metrics?.health.telnyx ?? "error"} />
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/25 ring-1 ring-violet-400/40">
-            <Wallet className="h-5 w-5 text-violet-200" aria-hidden />
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Available credit</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
-              {routingPoolAvailableLabel || "—"}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Account balance</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-slate-300">
-              {metrics?.telnyx_routing_pool?.balance_label ?? "—"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Total users" value={String(metrics?.total_users ?? 0)} icon={Users} subtitle="onboarding_profiles rows" />
-        <MetricCard
-          title="Active subscriptions"
-          value={String(metrics?.active_subscriptions ?? 0)}
-          icon={CreditCard}
-          subtitle="has_active_subscription = true"
-        />
-        <MetricCard
-          title="Platform carrier credit"
-          value={formatUsd(metrics?.total_carrier_credit ?? 0)}
-          icon={Wallet}
-          subtitle="Sum of all user balances"
-        />
-        <Card className="border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">System health</CardTitle>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/15 ring-1 ring-emerald-500/25">
-              <Activity className="h-4 w-4 text-emerald-300" aria-hidden />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                <Database className="h-3.5 w-3.5" aria-hidden /> Neon DB
-              </span>
-              <HealthDot status={metrics?.health.neon ?? "error"} />
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx API
-              </span>
-              <HealthDot status={metrics?.health.telnyx ?? "error"} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <LiveTrafficPulse />
+            <CallHistoryTable />
+          </div>
+        </>
+      ) : null}
 
-      {/* Two-column workflow grid: User Directory (left, wide) + Live Traffic Pulse (right, narrow). */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      {view === "businesses" ? (
           <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader className="border-b border-slate-800/80 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-lg text-slate-100">User directory</CardTitle>
-            <AdminInviteReceptionistDialog />
+            <CardTitle className="text-lg text-slate-100">Tenant directory</CardTitle>
           </div>
           <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
             <div className="relative max-w-md flex-1">
@@ -918,15 +929,7 @@ export function LyncrAdminDashboard({
           </div>
         </CardContent>
           </Card>
-        </div>
-
-        <div className="flex h-full flex-col lg:col-span-1">
-          <LiveTrafficPulse />
-        </div>
-      </div>
-
-      {/* Full-width historical call log spanning the bottom of the dashboard. */}
-      <CallHistoryTable />
+      ) : null}
     </div>
   )
 }

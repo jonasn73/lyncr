@@ -1,5 +1,10 @@
 "use client"
 
+/**
+ * @deprecated Unused — Support triage lives in `components/admin/admin-support-board.tsx`.
+ * Kept temporarily for reference; do not mount.
+ */
+
 // Operator console: loads fleet stats, user rows, and feedback; only renders the sidebar-selected panel.
 
 import { useCallback, useEffect, useMemo, useState } from "react"

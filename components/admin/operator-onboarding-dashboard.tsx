@@ -314,7 +314,10 @@ export function OperatorOnboardingDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Operator onboarding</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-100">People</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Invite operators by SMS, track onboarding status, and resend setup links.
+        </p>
         <p className="mt-1 max-w-2xl text-sm text-slate-400">
           Text a setup link to each operator&apos;s cell. They tap the link, test their mic, set a password, and
           enter the live console — no email required.
