@@ -3,6 +3,10 @@
 // On-the-go Collect Payment — job pick OR walk-up charge, then optional invoice send.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  readHeaderMoneyCache,
+  writeHeaderMoneyCache,
+} from "@/lib/header-money-cache"
 import dynamic from "next/dynamic"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
@@ -263,10 +267,19 @@ export function OwnerCollectPaymentSheet({
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
-  /** Collected period totals (sales) — separate from Stripe “in account” balance. */
-  const [collectedTodayCents, setCollectedTodayCents] = useState(0)
-  const [collectedWeekCents, setCollectedWeekCents] = useState(0)
-  const [collectedMonthCents, setCollectedMonthCents] = useState(0)
+  /** Collected period totals — seed from header money cache; null until known (never fake $0). */
+  const [collectedTodayCents, setCollectedTodayCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache()
+    return cached && typeof cached.todayCents === "number" ? cached.todayCents : null
+  })
+  const [collectedWeekCents, setCollectedWeekCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache()
+    return cached && typeof cached.weekCents === "number" ? cached.weekCents : null
+  })
+  const [collectedMonthCents, setCollectedMonthCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache()
+    return cached && typeof cached.monthCents === "number" ? cached.monthCents : null
+  })
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
   const [taxEnabled, setTaxEnabled] = useState(false)
@@ -373,14 +386,23 @@ export function OwnerCollectPaymentSheet({
           data?: { todayCents?: number; weekCents?: number; monthCents?: number }
         }
         if (cancelled || !res.ok) return
-        if (typeof json.data?.todayCents === "number") {
-          setCollectedTodayCents(json.data.todayCents)
-        }
-        if (typeof json.data?.weekCents === "number") {
-          setCollectedWeekCents(json.data.weekCents)
-        }
-        if (typeof json.data?.monthCents === "number") {
-          setCollectedMonthCents(json.data.monthCents)
+        const today = json.data?.todayCents
+        const week = json.data?.weekCents
+        const month = json.data?.monthCents
+        if (typeof today === "number") setCollectedTodayCents(today)
+        if (typeof week === "number") setCollectedWeekCents(week)
+        if (typeof month === "number") setCollectedMonthCents(month)
+        // Mirror into header money cache so Money sheet + next Collect open stay warm.
+        if (typeof today === "number" && typeof month === "number") {
+          const prev = readHeaderMoneyCache()
+          writeHeaderMoneyCache({
+            availableCents: prev?.availableCents ?? 0,
+            connectReady: prev?.connectReady ?? false,
+            todayCents: today,
+            weekCents: typeof week === "number" ? week : prev?.weekCents ?? 0,
+            monthCents: month,
+            allTimeCents: prev?.allTimeCents ?? 0,
+          })
         }
       } catch {
         /* keep last */

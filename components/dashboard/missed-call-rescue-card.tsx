@@ -53,7 +53,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   compact = false,
   loading: parentLoading = false,
   capacityThreshold,
-  confirmedJobsToday = 0,
+  confirmedJobsToday,
   onCapacityThresholdChange,
   capacitySaving = false,
 }: {
@@ -61,7 +61,8 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   loading?: boolean
   /** Confirmed-jobs threshold for auto IVR bypass (account_settings). */
   capacityThreshold?: number
-  confirmedJobsToday?: number
+  /** Null until calendar seed/fetch — show "—" not fake 0. */
+  confirmedJobsToday?: number | null
   onCapacityThresholdChange?: (next: number) => void
   capacitySaving?: boolean
 }) {
@@ -231,7 +232,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
         />
       </label>
       <p className="mt-1.5 text-[10px] text-zinc-500">
-        Today: {confirmedJobsToday} confirmed
+        Today: {confirmedJobsToday == null ? "—" : confirmedJobsToday} confirmed
         {capacitySaving ? " · Saving…" : ""}
       </p>
     </div>

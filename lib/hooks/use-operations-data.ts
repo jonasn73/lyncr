@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -97,6 +98,25 @@ function writeSessionOperationsCache(c: OperationsCache) {
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(trimmed))
   } catch {
     /* quota / private mode */
+  }
+}
+
+/** Read last Activity rows from sessionStorage (hard refresh seed). */
+function readSessionOperationsCache(): OperationsCache | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as OperationsCache
+    if (!parsed || !Array.isArray(parsed.calls)) return null
+    return {
+      calls: parsed.calls.map(normalizeUiCallRecord),
+      quality: parsed.quality ?? null,
+      insights: parsed.insights ?? null,
+      fetchedAt: typeof parsed.fetchedAt === "number" ? parsed.fetchedAt : 0,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -199,8 +219,9 @@ export type UseOperationsDataOptions = {
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
   const enabled = options?.enabled !== false
-  // Session seeds disabled (React #185) — in-memory operationsCache still helps within the tab.
-  const seed = operationsCache
+  // Session seed via useSessionSeed (#185-safe) — paints last Activity rows on hard refresh.
+  const sessionSeed = useSessionSeed(readSessionOperationsCache, null, "operations-v2")
+  const seed = operationsCache ?? sessionSeed
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
@@ -210,6 +231,16 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
+
+  // Warm in-memory cache from session once — never write module state during render (#185).
+  useEffect(() => {
+    if (!sessionSeed) return
+    if (!operationsCache) operationsCache = sessionSeed
+    setCalls((prev) => (prev.length > 0 ? prev : sessionSeed.calls))
+    setQuality((prev) => prev ?? sessionSeed.quality)
+    setInsights((prev) => prev ?? sessionSeed.insights)
+    if (sessionSeed.calls.length > 0) setLoading(false)
+  }, [sessionSeed])
 
   useEffect(() => {
     if (!enabled) return

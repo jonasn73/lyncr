@@ -107,7 +107,9 @@ export async function getOwnerCollectedSummary(
   }
 }
 
-export function formatCollectedDollars(cents: number): string {
+/** Null/undefined = still loading — never paint "$0" as a fake loaded total. */
+export function formatCollectedDollars(cents: number | null | undefined): string {
+  if (cents == null || !Number.isFinite(cents)) return "—"
   return (Math.max(0, cents) / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",

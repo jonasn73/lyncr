@@ -45,7 +45,7 @@ const STATIC_SMART_OVERFLOW = {
   config: { capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD },
   overflowActive: false,
   nextAvailableSlotText: "Monday morning",
-  confirmedJobsToday: 0,
+  confirmedJobsToday: null as number | null,
   loading: false,
   retellConnected: false,
 } as const

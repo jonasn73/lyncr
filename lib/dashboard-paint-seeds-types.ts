@@ -2,6 +2,7 @@
  * Shared paint-seed types (no "use client") — safe for layout + client Provider.
  */
 
+import type { PresenceStatus } from "@/lib/account-presence"
 import type { HeaderMoneyCache } from "@/lib/header-money-cache"
 import type { RoutingTelemetrySnapshot } from "@/lib/routing-telemetry-cache"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
@@ -17,6 +18,8 @@ export type DashboardPaintSeeds = {
   latestOrganizationId: string | null
   /** Carrier credit / Pay tab. */
   billing: BillingSummaryCache | null
+  /** Presence Busy / Available / On-job / Closed. */
+  presence: PresenceStatus | null
 }
 
 /** Stable empty sentinel — same reference on every miss. */
@@ -27,4 +30,5 @@ export const EMPTY_DASHBOARD_PAINT_SEEDS: DashboardPaintSeeds = {
   latest: null,
   latestOrganizationId: null,
   billing: null,
+  presence: null,
 }

@@ -215,7 +215,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   )
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
   const rows = liveRows ?? cachedRows
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => cachedRows.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(customerParam)
   const [profileLoading, setProfileLoading] = useState(false)
@@ -325,14 +325,28 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       const c = json.data?.customer
       const hist = json.data?.history ?? []
       if (c) {
-        setSelected((prev) => ({
-          ...(prev && prev.id === c.id ? prev : ({} as CrmCustomerListItem)),
-          ...c,
-          jobs_completed: prev?.id === c.id ? prev.jobs_completed : 0,
-          lifetime_revenue_cents: prev?.id === c.id ? prev.lifetime_revenue_cents : 0,
-          lead_badge: prev?.id === c.id ? prev.lead_badge : "new_contact",
-          open_lead_count: prev?.id === c.id ? prev.open_lead_count : 0,
-        }))
+        // Prefer API fields when present; otherwise keep list-row LTV/jobs (never flash $0).
+        const fromApi = c as Partial<CrmCustomerListItem>
+        setSelected((prev) => {
+          const listRow = prev?.id === c.id ? prev : null
+          return {
+            ...(listRow ?? ({} as CrmCustomerListItem)),
+            ...c,
+            jobs_completed:
+              typeof fromApi.jobs_completed === "number"
+                ? fromApi.jobs_completed
+                : listRow?.jobs_completed ?? 0,
+            lifetime_revenue_cents:
+              typeof fromApi.lifetime_revenue_cents === "number"
+                ? fromApi.lifetime_revenue_cents
+                : listRow?.lifetime_revenue_cents ?? 0,
+            lead_badge: fromApi.lead_badge ?? listRow?.lead_badge ?? "new_contact",
+            open_lead_count:
+              typeof fromApi.open_lead_count === "number"
+                ? fromApi.open_lead_count
+                : listRow?.open_lead_count ?? 0,
+          }
+        })
         setEditName(c.display_name ?? "")
       }
       setVehicles(json.data?.vehicles ?? [])
@@ -1227,7 +1241,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                     <li key={row.id}>
                       <button
                         type="button"
-                        onClick={() => setSelectedId(row.id)}
+                        onClick={() => {
+                          // Paint list-row LTV/jobs immediately — profile fetch must not zero them.
+                          setSelected(row)
+                          setSelectedId(row.id)
+                          setEditName(row.display_name || "")
+                        }}
                         className={cn(
                           "w-full rounded-xl border px-3 py-2.5 text-left transition-colors",
                           active

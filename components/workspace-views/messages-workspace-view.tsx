@@ -130,7 +130,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   const messages = liveMessages ?? cachedMessages
   // Spinner only on cold cache — seeded inbox paints immediately on revisit.
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const [draft, setDraft] = useState("")

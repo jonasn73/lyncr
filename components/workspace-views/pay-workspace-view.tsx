@@ -170,20 +170,22 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
     })()
   }, [searchParams, refreshBilling, toast])
 
-  const balanceLabel = billing?.credit_balance_label ?? (billingSeed || liveBilling ? "$0.00" : "—")
+  const balanceLabel = billing?.credit_balance_label ?? "—"
   const subscriptionActive = billing?.subscription_active === true
   const needsCarrierCredit = billing?.needs_carrier_credit === true
   const lowCarrierCreditWarning = billing?.low_carrier_credit_warning === true
   const lowCreditThreshold = billing?.low_carrier_credit_threshold_usd ?? LOW_CARRIER_CREDIT_THRESHOLD_USD
 
   const meteredRate = billing?.metered_voice_cents_per_minute ?? 0
-  const balanceCents = billing?.credit_balance_cents ?? 0
+  // Only use 0 cents when we have a real billing object — never while still loading.
+  const balanceCents = billing?.credit_balance_cents ?? null
+  const balanceKnown = balanceCents != null
 
   // Reframe the prepaid balance as available talk-time at the metered per-minute rate.
   const availableTalkMinutes = useMemo(() => {
-    if (meteredRate <= 0) return null
+    if (!balanceKnown || balanceCents == null || meteredRate <= 0) return null
     return Math.max(0, Math.floor(balanceCents / meteredRate))
-  }, [balanceCents, meteredRate])
+  }, [balanceCents, balanceKnown, meteredRate])
 
   // Build the consumption ledger from answered/talked calls: each call's billed cost = minutes × rate.
   const ledger = useMemo(() => {

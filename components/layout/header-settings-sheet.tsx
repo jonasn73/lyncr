@@ -123,18 +123,25 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [connectReady, setConnectReady] = useState(
     () => readHeaderMoneyCache(undefined, moneyPaint)?.connectReady === true
   )
-  // Collected period totals — shown only in the picker, not as the default chip.
-  const [todayCents, setTodayCents] = useState(
-    () => readHeaderMoneyCache(undefined, moneyPaint)?.todayCents ?? 0
-  )
-  const [weekCents, setWeekCents] = useState(
-    () => readHeaderMoneyCache(undefined, moneyPaint)?.weekCents ?? 0
-  )
-  const [monthCents, setMonthCents] = useState(
-    () => readHeaderMoneyCache(undefined, moneyPaint)?.monthCents ?? 0
-  )
-  const [allTimeCents, setAllTimeCents] = useState(
-    () => readHeaderMoneyCache(undefined, moneyPaint)?.allTimeCents ?? 0
+  // Collected period totals — null until a real cache/fetch (never paint fake $0).
+  const [todayCents, setTodayCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached ? cached.todayCents : null
+  })
+  const [weekCents, setWeekCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached ? cached.weekCents : null
+  })
+  const [monthCents, setMonthCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached ? cached.monthCents : null
+  })
+  const [allTimeCents, setAllTimeCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached ? cached.allTimeCents : null
+  })
+  const [periodsReady, setPeriodsReady] = useState(
+    () => readHeaderMoneyCache(undefined, moneyPaint) != null
   )
   const amountReady = availableCents != null
   const isMobile = useIsMobile()
@@ -145,10 +152,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     if (!cached) return
     setAvailableCents((prev) => (prev == null ? cached.availableCents : prev))
     setConnectReady((prev) => prev || cached.connectReady === true)
-    setTodayCents((prev) => (prev === 0 ? cached.todayCents ?? 0 : prev))
-    setWeekCents((prev) => (prev === 0 ? cached.weekCents ?? 0 : prev))
-    setMonthCents((prev) => (prev === 0 ? cached.monthCents ?? 0 : prev))
-    setAllTimeCents((prev) => (prev === 0 ? cached.allTimeCents ?? 0 : prev))
+    setTodayCents((prev) => (prev == null ? cached.todayCents : prev))
+    setWeekCents((prev) => (prev == null ? cached.weekCents : prev))
+    setMonthCents((prev) => (prev == null ? cached.monthCents : prev))
+    setAllTimeCents((prev) => (prev == null ? cached.allTimeCents : prev))
+    setPeriodsReady(true)
     // moneyPaint is stable per layout; do not depend on object identity (#185).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -207,6 +215,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           setWeekCents(next.weekCents)
           setMonthCents(next.monthCents)
           setAllTimeCents(next.allTimeCents)
+          setPeriodsReady(true)
           return next
         }
       )
@@ -214,15 +223,19 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
     void Promise.all([balanceP, collectedP]).then(([bal, col]) => {
       if (!bal && !col) return
+      // Merge — never wipe seeded periods when only balance returns (or vice versa).
+      const prev = readHeaderMoneyCache(undefined, moneyPaint)
       writeHeaderMoneyCache({
-        availableCents: bal?.availableCents ?? 0,
-        connectReady: bal?.connectReady ?? false,
-        todayCents: col?.todayCents ?? 0,
-        weekCents: col?.weekCents ?? 0,
-        monthCents: col?.monthCents ?? 0,
-        allTimeCents: col?.allTimeCents ?? 0,
+        availableCents: bal?.availableCents ?? prev?.availableCents ?? 0,
+        connectReady: bal?.connectReady ?? prev?.connectReady ?? false,
+        todayCents: col?.todayCents ?? prev?.todayCents ?? 0,
+        weekCents: col?.weekCents ?? prev?.weekCents ?? 0,
+        monthCents: col?.monthCents ?? prev?.monthCents ?? 0,
+        allTimeCents: col?.allTimeCents ?? prev?.allTimeCents ?? 0,
       })
     })
+    // moneyPaint is request-stable; omit from deps (#185).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -308,7 +321,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const balanceLabel =
     availableCents != null ? formatMoneyCents(availableCents) : null
 
-  const periodCents = (id: CollectedPeriod): number => {
+  const periodCents = (id: CollectedPeriod): number | null => {
+    if (!periodsReady) return null
     if (id === "today") return todayCents
     if (id === "week") return weekCents
     if (id === "month") return monthCents
@@ -450,7 +464,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                       <p className="text-[11px] text-slate-500">{opt.hint}</p>
                     </div>
                     <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-200">
-                      {formatMoneyCents(periodCents(opt.id))}
+                      {periodCents(opt.id) != null
+                        ? formatMoneyCents(periodCents(opt.id)!)
+                        : "—"}
                     </p>
                   </li>
                 ))}

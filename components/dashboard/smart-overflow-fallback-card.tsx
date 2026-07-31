@@ -17,7 +17,7 @@ export type SmartOverflowFallbackCardProps = {
   /** Active line presence — drives the read-only IVR trigger summary. */
   presenceStatus?: PresenceStatus
   nextAvailableSlotText: string
-  confirmedJobsToday: number
+  confirmedJobsToday: number | null
   capacityThreshold: number
   /** Opens the Voice & AI / Greetings IVR editor. */
   onOpenScriptEditor: () => void
@@ -254,10 +254,12 @@ function IvrTriggerSummary({
 }: {
   compact?: boolean
   presenceStatus: PresenceStatus
-  confirmedJobsToday: number
+  confirmedJobsToday: number | null
   capacityThreshold: number
 }) {
   const driven = isBusyPresenceStatus(presenceStatus)
+  const confirmedLabel =
+    confirmedJobsToday == null ? "—" : String(confirmedJobsToday)
   return (
     <div className={cn("mt-3 space-y-2 border-t border-white/5 pt-3", compact && "pt-2")}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
@@ -280,7 +282,7 @@ function IvrTriggerSummary({
           {routeCauseLabel(presenceStatus)}
         </p>
         <p className="mt-1 text-[10px] text-zinc-500">
-          Today: {confirmedJobsToday} confirmed · auto-bypass at {capacityThreshold}
+          Today: {confirmedLabel} confirmed · auto-bypass at {capacityThreshold}
         </p>
       </div>
     </div>

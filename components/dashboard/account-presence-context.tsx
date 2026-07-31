@@ -15,7 +15,11 @@ import {
 import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 import { toast } from "@/hooks/use-toast"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  readCachedPresence,
+  writeCachedPresence,
+} from "@/lib/account-presence-cache"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 
@@ -36,11 +40,6 @@ type AccountPresenceContextValue = {
 
 const AccountPresenceContext = createContext<AccountPresenceContextValue | null>(null)
 
-/** Session cache so Busy/Available paints correctly on hard refresh (no Available flash). */
-const PRESENCE_CACHE_KEY = persistedCacheKey("account-presence", "status")
-
-type PresenceCache = { status: PresenceStatus }
-
 function parsePresenceStatus(raw: string | undefined | null): PresenceStatus {
   const upper = String(raw || "AVAILABLE").toUpperCase()
   if (upper === "ON_JOB") return "ON_JOB"
@@ -48,19 +47,14 @@ function parsePresenceStatus(raw: string | undefined | null): PresenceStatus {
   return "AVAILABLE"
 }
 
-function readCachedPresence(): PresenceStatus | null {
-  const cached = readPersistedCache<PresenceCache>(PRESENCE_CACHE_KEY)
-  if (!cached?.status) return null
-  return parsePresenceStatus(cached.status)
-}
-
-function writeCachedPresence(status: PresenceStatus) {
-  writePersistedCache(PRESENCE_CACHE_KEY, { status } satisfies PresenceCache)
-}
-
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
-  // Sync-read last-known Busy/Available (lazy useState + layout re-seed via useSessionSeed).
-  const cachedSeed = useSessionSeed(readCachedPresence, null, "account-presence")
+  // Cookie + session seed — Busy/Available paints correctly on hard refresh (SSR too).
+  const paintSeeds = useDashboardPaintSeeds()
+  const cachedSeed = useSessionSeed(
+    () => readCachedPresence(paintSeeds.presence),
+    null,
+    "account-presence"
+  )
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   // Don’t show a spinner when we already painted from cache.

@@ -68,7 +68,8 @@ export type UseSmartOverflowAutopilotResult = {
   overflowActive: boolean
   nextAvailableSlotText: string
   nextAvailableSlotIso: string | null
-  confirmedJobsToday: number
+  /** Null until calendar seed/fetch — never paint fake "0 confirmed". */
+  confirmedJobsToday: number | null
   events: SchedulerEvent[]
   loading: boolean
   retellConnected: boolean
@@ -246,16 +247,19 @@ export function useSmartOverflowAutopilot(
     () => countConfirmedJobsOnDay(events, todayKey),
     [events, todayKey]
   )
-  // Prefer live calendar counts once ready; otherwise use the cached seed.
-  const confirmedJobsToday = eventsReady
+  // Prefer live calendar counts once ready; otherwise use the cached seed (null = unknown).
+  const confirmedJobsToday: number | null = eventsReady
     ? confirmedFromEvents
-    : (seedConfirmedJobs ?? confirmedFromEvents)
-  const overflowActive = hydrated && isSmartOverflowActive(config, confirmedJobsToday)
+    : seedConfirmedJobs
+  const overflowActive =
+    hydrated &&
+    confirmedJobsToday != null &&
+    isSmartOverflowActive(config, confirmedJobsToday)
   const nextSlot = useMemo(() => getNextAvailableSlot(now, events), [now, events])
 
   // Persist a small snapshot whenever overflow math settles (next refresh paints instantly).
   useEffect(() => {
-    if (!hydrated || !eventsReady) return
+    if (!hydrated || !eventsReady || confirmedJobsToday == null) return
     writeOverflowCache({
       capacityThreshold: config.capacityThreshold,
       confirmedJobsToday,

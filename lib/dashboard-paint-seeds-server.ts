@@ -18,6 +18,10 @@ import {
 } from "@/lib/routing-telemetry-cache"
 import { BILLING_SUMMARY_COOKIE, type BillingSummaryCache } from "@/lib/billing-summary-cache"
 import { OWNER_LATEST_COOKIE } from "@/lib/owner-latest-cache"
+import {
+  PRESENCE_COOKIE,
+  readPresencePaintFromCookieRaw,
+} from "@/lib/account-presence-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
@@ -66,7 +70,10 @@ export function readDashboardPaintSeedsFromCookies(
   const billingOk =
     billing && typeof billing.credit_balance_cents === "number" ? billing : null
 
-  if (!moneyOk && !telemetry && !latest && !billingOk) {
+  const presenceRaw = getCookie(PRESENCE_COOKIE)
+  const presence = readPresencePaintFromCookieRaw(presenceRaw)
+
+  if (!moneyOk && !telemetry && !latest && !billingOk && !presence) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
 
@@ -77,5 +84,6 @@ export function readDashboardPaintSeedsFromCookies(
     latest,
     latestOrganizationId: latestCookie?.organizationId ?? null,
     billing: billingOk,
+    presence,
   }
 }
