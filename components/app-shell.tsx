@@ -22,6 +22,7 @@ import {
   peekHeaderMoneyCache,
   formatHeaderMoneyCents,
 } from "@/components/layout/header-settings-sheet"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { type PageId } from "@/lib/dashboard-nav"
@@ -113,10 +114,17 @@ const AppShellHeader = memo(function AppShellHeader({
 /** Same footprint as HeaderAccountMenu while session loads — wallet + avatar. */
 const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   // Sync cache so the loading→ready swap does not flash a pulse bar over a known amount.
-  const [cachedLabel] = useState(() => {
-    const cached = peekHeaderMoneyCache()
+  const paintSeeds = useDashboardPaintSeeds()
+  const [cachedLabel, setCachedLabel] = useState(() => {
+    const cached = peekHeaderMoneyCache(paintSeeds.money)
     return cached != null ? formatHeaderMoneyCents(cached.availableCents) : null
   })
+  useLayoutEffect(() => {
+    const cached = peekHeaderMoneyCache(paintSeeds.money)
+    if (cached == null) return
+    setCachedLabel(formatHeaderMoneyCents(cached.availableCents))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- paint seed is stable per layout request
+  }, [])
 
   return (
     <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">

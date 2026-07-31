@@ -116,17 +116,21 @@ export function DashboardWorkspaceProvider({
   const [activeLine, setActiveLine] = useState<string | null>(() => workspaceSeed?.activeLine ?? null)
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>(() => {
     if (workspaceSeed?.phoneLines.length) return workspaceSeed.phoneLines
-    const cached = readCachedBusinessNumbers(readActiveOrganizationId())
+    const orgHint = initialActiveOrganizationId ?? readActiveOrganizationId()
+    const cached = readCachedBusinessNumbers(orgHint)
     return cached?.numbers ?? []
   })
   const [businessNumbersLoading, setBusinessNumbersLoading] = useState(() => {
     if (workspaceSeed) return false
-    return readCachedBusinessNumbers(readActiveOrganizationId()) === undefined
+    const orgHint = initialActiveOrganizationId ?? readActiveOrganizationId()
+    return readCachedBusinessNumbers(orgHint) === undefined
   })
   const [activityLogs, setActivityLogs] = useState<UiCallRecord[]>([])
   const [selectedActivityLog, setSelectedActivityLog] = useState<UiCallRecord | null>(null)
   const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(() => {
     if (workspaceSeed?.activeOrganizationId) return workspaceSeed.activeOrganizationId
+    // Cookie from layout — keep SSR org id aligned with session cache keys (telemetry / Latest).
+    if (initialActiveOrganizationId) return initialActiveOrganizationId
     if (typeof window === "undefined") return null
     return readActiveOrganizationId()
   })

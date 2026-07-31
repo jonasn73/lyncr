@@ -5,11 +5,38 @@ import { Suspense, memo, useEffect, useLayoutEffect, useState, type ReactNode } 
 import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
+import { readBillingSummaryCache } from "@/lib/billing-summary-cache"
 
 /** Lightweight placeholder while a deferred tab chunk loads. */
 function PaneLoadingFallback({ label }: { label: string }) {
   return (
     <div className="min-h-[40vh] w-full" aria-busy="true" aria-label={`Loading ${label}`} />
+  )
+}
+
+/** Pay chunk loading — paint last-known carrier credit so the tab doesn’t flash blank→$0→real. */
+function PayLoadingFallback() {
+  const cached = typeof window !== "undefined" ? readBillingSummaryCache() : null
+  const label = cached?.credit_balance_label
+  return (
+    <div className="min-h-[40vh] w-full px-4 pt-6" aria-busy="true" aria-label="Loading Pay">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
+      <p className="mt-1 text-lg font-semibold text-foreground">Pay</p>
+      <div className="mt-6 grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Lyncr Talk-Time Balance
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{label ?? "—"}</p>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3 opacity-60">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Talk-time used (recent)
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -59,7 +86,7 @@ const PayWorkspaceView = dynamic(
     import("@/components/workspace-views/pay-workspace-view").then((m) => ({
       default: m.PayWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="Pay" /> }
+  { ssr: false, loading: () => <PayLoadingFallback /> }
 )
 
 const SettingsWorkspaceView = dynamic(
@@ -162,7 +189,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="Pay" />}>
+        <Suspense fallback={<PayLoadingFallback />}>
           <PayWorkspaceView isActive={activePage === "pay"} />
         </Suspense>
       </PresencePane>

@@ -8,6 +8,12 @@ import { formatUsdFromCents } from "@/lib/billing-pricing"
 import { confirmCreditPackCheckout, startCreditPackCheckout, startStripeSubscriptionCheckout } from "@/lib/onboarding-profile-client"
 import { LOW_CARRIER_CREDIT_THRESHOLD_USD } from "@/lib/carrier-credit-threshold"
 import { CHECKOUT_TIER_OPTIONS, type CheckoutSubscriptionTier } from "@/lib/subscription-checkout"
+import {
+  readBillingSummaryCache,
+  writeBillingSummaryCache,
+  type BillingSummaryCache,
+} from "@/lib/billing-summary-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { useToast } from "@/hooks/use-toast"
@@ -22,22 +28,7 @@ import {
   WORKSPACE_TABLE_ROW_CLASS,
 } from "@/components/dashboard-workspace-ui"
 
-type BillingSummary = {
-  current_plan: string
-  credit_balance_cents: number
-  credit_balance_label: string
-  telnyx_number_purchase_label: string
-  metered_voice_cents_per_minute: number
-  suggested_credit_packs_cents: number[]
-  subscription_active?: boolean
-  subscription_tier?: string
-  subscription_tier_label?: string
-  needs_carrier_credit?: boolean
-  low_balance_notified?: boolean
-  low_carrier_credit_warning?: boolean
-  low_carrier_credit_threshold_usd?: number
-  plans?: { key: string; monthly_price_label: string; included_minutes_per_month: number }[]
-}
+type BillingSummary = BillingSummaryCache
 
 /** Minimal shape we read from /api/calls for the talk-time consumption ledger. */
 type TalkTimeCall = {
@@ -48,13 +39,8 @@ type TalkTimeCall = {
   status: string
 }
 
-const BILLING_CACHE_KEY = persistedCacheKey("billing-summary", "default")
 const CALLS_LEDGER_CACHE_KEY = persistedCacheKey("pay-talk-ledger", "default")
 const EMPTY_CALLS: TalkTimeCall[] = []
-
-function readBillingCache(): BillingSummary | null {
-  return readPersistedCache<BillingSummary>(BILLING_CACHE_KEY) ?? null
-}
 
 function readCallsLedgerCache(): TalkTimeCall[] {
   const cached = readPersistedCache<{ calls: TalkTimeCall[] }>(CALLS_LEDGER_CACHE_KEY)
@@ -81,8 +67,14 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
 }) {
   const { toast } = useToast()
   const searchParams = useSearchParams()
+  const paint = useDashboardPaintSeeds()
+  const billingPaint = paint.billing
   // Last-known wallet / ledger before fetch — avoids $0.00 flash on Pay tab.
-  const billingSeed = useSessionSeed(readBillingCache, null, "billing-summary")
+  const billingSeed = useSessionSeed(
+    () => readBillingSummaryCache(undefined, billingPaint),
+    null,
+    "billing-summary"
+  )
   const callsSeed = useSessionSeed(readCallsLedgerCache, EMPTY_CALLS, "calls-ledger")
   const [liveBilling, setLiveBilling] = useState<BillingSummary | null>(null)
   const billing = liveBilling ?? billingSeed
@@ -108,7 +100,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
     const json = (await res.json()) as { data?: BillingSummary }
     const next = json.data ?? null
     setLiveBilling(next)
-    if (next) writePersistedCache(BILLING_CACHE_KEY, next)
+    if (next) writeBillingSummaryCache(next)
   }, [])
 
   useEffect(() => {

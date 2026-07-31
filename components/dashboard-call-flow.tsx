@@ -801,14 +801,19 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               </>
             ) : null}
           </div>
-          {/* Single Latest mount — was dual (compact + desktop) and each ran hooks/Sheet (#185 risk). */}
-          <div className="mt-3 flex flex-col gap-3 md:mt-4">
-            <JustFinishedReviewCard compact />
-            <div className="md:hidden">{messagesInboxMobile}</div>
-            <div className="hidden md:block">{messagesInboxDesktop}</div>
-          </div>
         </div>
       )}
+
+      {/* Latest always mounts — was gated on callFlowUiReady so refresh showed skeleton then jumped. */}
+      <div className="mt-3 flex flex-col gap-3 md:mt-4">
+        <JustFinishedReviewCard compact />
+        {callFlowUiReady && businessNumbers.length > 0 ? (
+          <>
+            <div className="md:hidden">{messagesInboxMobile}</div>
+            <div className="hidden md:block">{messagesInboxDesktop}</div>
+          </>
+        ) : null}
+      </div>
     </section>
   )
 })

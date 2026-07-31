@@ -6,10 +6,31 @@ import {
   telemetryMonthPeriodKey,
   telemetryWeekPeriodKey,
 } from "@/lib/daily-call-telemetry"
+import {
+  paintSeedCookieName,
+  readPaintSeedCookie,
+  readPaintSeedCookieValue,
+  writePaintSeedCookie,
+} from "@/lib/paint-seed-cookie"
 import { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 export { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
+
+/** Cookie scope — compact snapshot for SSR hard refresh. */
+export const ROUTING_TELEMETRY_COOKIE_SCOPE = "routing-telemetry"
+export const ROUTING_TELEMETRY_COOKIE = paintSeedCookieName(ROUTING_TELEMETRY_COOKIE_SCOPE)
+
+type TelemetryPaintCookie = {
+  organizationId: string | null
+  snapshot: RoutingTelemetrySnapshot
+}
+
+/** Optional SSR paint seed (from DashboardPaintSeedsProvider). */
+export type RoutingTelemetryPaintSeed = {
+  snapshot: RoutingTelemetrySnapshot | null
+  organizationId: string | null
+}
 
 /** Snapshot of call metrics shown in the routing telemetry strip. */
 export type RoutingTelemetrySnapshot = {
@@ -65,13 +86,9 @@ export function normalizeRoutingTelemetrySnapshot(
   }
 }
 
-/** Read the last successful telemetry fetch for this org (if still fresh). */
-export function readRoutingTelemetryCache(
-  organizationId: string | null
+function parseTelemetryRaw(
+  raw: (RoutingTelemetrySnapshot & { dailyTalkDisplay?: string }) | undefined
 ): RoutingTelemetrySnapshot | undefined {
-  const raw = readPersistedCache<RoutingTelemetrySnapshot & { dailyTalkDisplay?: string }>(
-    routingTelemetryCacheKey(organizationId)
-  )
   if (!raw) return undefined
   const parsed: RoutingTelemetrySnapshot = {
     dailyCalls: raw.dailyCalls,
@@ -98,6 +115,42 @@ export function readRoutingTelemetryCache(
   return normalizeRoutingTelemetrySnapshot(parsed)
 }
 
+function orgKey(organizationId: string | null | undefined): string {
+  return organizationId && !organizationId.startsWith("legacy-") ? organizationId : "default"
+}
+
+/**
+ * Read the last successful telemetry fetch for this org (if still fresh).
+ * Pass `paint` from useDashboardPaintSeeds() so SSR can seed without sessionStorage.
+ */
+export function readRoutingTelemetryCache(
+  organizationId: string | null,
+  cookieRaw?: string | null,
+  paint?: RoutingTelemetryPaintSeed | null
+): RoutingTelemetrySnapshot | undefined {
+  const fromSession = parseTelemetryRaw(
+    readPersistedCache<RoutingTelemetrySnapshot & { dailyTalkDisplay?: string }>(
+      routingTelemetryCacheKey(organizationId)
+    )
+  )
+  if (fromSession) return fromSession
+
+  // Warm paint seed / cookie — only when org id matches (or both are default).
+  const want = orgKey(organizationId)
+  if (paint?.snapshot && orgKey(paint.organizationId) === want) {
+    return normalizeRoutingTelemetrySnapshot(paint.snapshot)
+  }
+
+  const fromCookie =
+    cookieRaw !== undefined
+      ? readPaintSeedCookieValue<TelemetryPaintCookie>(cookieRaw)
+      : readPaintSeedCookie<TelemetryPaintCookie>(ROUTING_TELEMETRY_COOKIE_SCOPE)
+  if (fromCookie?.snapshot && orgKey(fromCookie.organizationId) === want) {
+    return normalizeRoutingTelemetrySnapshot(fromCookie.snapshot)
+  }
+  return undefined
+}
+
 /** Persist telemetry after a successful API response. */
 export function writeRoutingTelemetryCache(
   organizationId: string | null,
@@ -110,6 +163,10 @@ export function writeRoutingTelemetryCache(
     localDayPeriodKey: snapshot.localDayPeriodKey ?? telemetryLocalDayPeriodKey(),
   }
   writePersistedCache(routingTelemetryCacheKey(organizationId), stamped)
+  writePaintSeedCookie(ROUTING_TELEMETRY_COOKIE_SCOPE, {
+    organizationId: organizationId && !organizationId.startsWith("legacy-") ? organizationId : null,
+    snapshot: stamped,
+  } satisfies TelemetryPaintCookie)
 }
 
 /** Safe defaults when no cache exists yet. */

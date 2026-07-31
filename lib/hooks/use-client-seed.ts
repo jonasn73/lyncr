@@ -44,8 +44,10 @@ export function useSessionSeed<T>(
   serverFallback: T,
   revisionKey: string | number | null | undefined = ""
 ): T {
+  // Always call read() — including on SSR — so cookie-backed paint seeds can
+  // land in the first HTML. (Old code returned serverFallback on the server,
+  // which forced $0 / empty until hydrate and caused the refresh jump.)
   const [value, setValue] = useState<T>(() => {
-    if (typeof window === "undefined") return serverFallback
     try {
       return read()
     } catch {

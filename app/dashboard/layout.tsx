@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { cookies, headers } from "next/headers"
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
+import { readDashboardPaintSeedsFromCookies } from "@/lib/dashboard-paint-seeds-server"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
@@ -41,6 +42,10 @@ export default async function DashboardLayout({
   const pathnameFromRequest = h.get("x-sigo-pathname")
   const initialActiveOrganizationId =
     cookieStore.get(ACTIVE_ORGANIZATION_COOKIE)?.value?.trim() || null
+
+  // Cookie paint seeds — SSR HTML can match last-known wallet / telemetry / Latest / Pay.
+  const paintSeeds = readDashboardPaintSeedsFromCookies((name) => cookieStore.get(name)?.value)
+
   const isSecondaryDashboardRoute =
     pathnameFromRequest === "/dashboard/help" ||
     pathnameFromRequest?.startsWith("/dashboard/help/") ||
@@ -103,6 +108,7 @@ export default async function DashboardLayout({
         sessionBusinessName={user.business_name}
         initialBootstrap={null}
         initialActiveOrganizationId={initialActiveOrganizationId}
+        paintSeeds={paintSeeds}
         sessionAccount={{
           name: user.name?.trim() || "Account",
           email: user.email,

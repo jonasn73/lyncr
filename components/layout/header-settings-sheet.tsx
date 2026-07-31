@@ -21,41 +21,26 @@ import {
   openGetPaidModal,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
-import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  formatHeaderMoneyCents,
+  readHeaderMoneyCache,
+  writeHeaderMoneyCache,
+  type HeaderMoneyCache,
+} from "@/lib/header-money-cache"
 
 /** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
 const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[4.75rem] flex-col items-end leading-none"
 
-const HEADER_MONEY_CACHE_KEY = persistedCacheKey("header-money", "balance")
-
-type HeaderMoneyCache = {
-  availableCents: number
-  todayCents: number
-  weekCents: number
-  monthCents: number
-  allTimeCents: number
-  connectReady: boolean
+/**
+ * Last-known wallet for header skeleton / first paint.
+ * Prefer passing paint from useDashboardPaintSeeds() when inside the shell.
+ */
+export function peekHeaderMoneyCache(paint?: HeaderMoneyCache | null): HeaderMoneyCache | null {
+  return readHeaderMoneyCache(undefined, paint)
 }
 
-function readHeaderMoneyCache(): HeaderMoneyCache | null {
-  const cached = readPersistedCache<HeaderMoneyCache>(HEADER_MONEY_CACHE_KEY)
-  if (!cached || typeof cached.availableCents !== "number") return null
-  return cached
-}
-
-/** Last-known wallet for header skeleton / first paint (sessionStorage). */
-export function peekHeaderMoneyCache(): HeaderMoneyCache | null {
-  return readHeaderMoneyCache()
-}
-
-/** Client-safe currency label for the header chip. */
-export function formatHeaderMoneyCents(cents: number): string {
-  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
-  })
-}
+export { formatHeaderMoneyCents }
 
 function formatMoneyCents(cents: number): string {
   return formatHeaderMoneyCents(cents)
@@ -126,23 +111,37 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
   const [busy, setBusy] = useState(false)
-  // Stripe available balance — sync-read session cache so first paint is not a pulse bar.
+  // Cookie-backed seeds from layout — available on SSR first paint.
+  const paintSeeds = useDashboardPaintSeeds()
+  const moneyPaint = paintSeeds.money
+
+  // Stripe available balance — sync-read session/cookie seed so first paint is not a pulse bar.
   const [availableCents, setAvailableCents] = useState<number | null>(() => {
-    const cached = readHeaderMoneyCache()
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
     return cached?.availableCents ?? null
   })
-  const [connectReady, setConnectReady] = useState(() => readHeaderMoneyCache()?.connectReady === true)
+  const [connectReady, setConnectReady] = useState(
+    () => readHeaderMoneyCache(undefined, moneyPaint)?.connectReady === true
+  )
   // Collected period totals — shown only in the picker, not as the default chip.
-  const [todayCents, setTodayCents] = useState(() => readHeaderMoneyCache()?.todayCents ?? 0)
-  const [weekCents, setWeekCents] = useState(() => readHeaderMoneyCache()?.weekCents ?? 0)
-  const [monthCents, setMonthCents] = useState(() => readHeaderMoneyCache()?.monthCents ?? 0)
-  const [allTimeCents, setAllTimeCents] = useState(() => readHeaderMoneyCache()?.allTimeCents ?? 0)
+  const [todayCents, setTodayCents] = useState(
+    () => readHeaderMoneyCache(undefined, moneyPaint)?.todayCents ?? 0
+  )
+  const [weekCents, setWeekCents] = useState(
+    () => readHeaderMoneyCache(undefined, moneyPaint)?.weekCents ?? 0
+  )
+  const [monthCents, setMonthCents] = useState(
+    () => readHeaderMoneyCache(undefined, moneyPaint)?.monthCents ?? 0
+  )
+  const [allTimeCents, setAllTimeCents] = useState(
+    () => readHeaderMoneyCache(undefined, moneyPaint)?.allTimeCents ?? 0
+  )
   const amountReady = availableCents != null
   const isMobile = useIsMobile()
 
-  // SSR hydration: lazy init was skipped — re-read once before paint.
+  // SSR hydration: re-read session/cookie once before paint (org/key lag).
   useLayoutEffect(() => {
-    const cached = readHeaderMoneyCache()
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
     if (!cached) return
     setAvailableCents((prev) => (prev == null ? cached.availableCents : prev))
     setConnectReady((prev) => prev || cached.connectReady === true)
@@ -150,6 +149,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setWeekCents((prev) => (prev === 0 ? cached.weekCents ?? 0 : prev))
     setMonthCents((prev) => (prev === 0 ? cached.monthCents ?? 0 : prev))
     setAllTimeCents((prev) => (prev === 0 ? cached.allTimeCents ?? 0 : prev))
+    // moneyPaint is stable per layout; do not depend on object identity (#185).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const refreshMoney = useCallback(() => {
@@ -213,14 +214,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
     void Promise.all([balanceP, collectedP]).then(([bal, col]) => {
       if (!bal && !col) return
-      writePersistedCache(HEADER_MONEY_CACHE_KEY, {
+      writeHeaderMoneyCache({
         availableCents: bal?.availableCents ?? 0,
         connectReady: bal?.connectReady ?? false,
         todayCents: col?.todayCents ?? 0,
         weekCents: col?.weekCents ?? 0,
         monthCents: col?.monthCents ?? 0,
         allTimeCents: col?.allTimeCents ?? 0,
-      } satisfies HeaderMoneyCache)
+      })
     })
   }, [])
 

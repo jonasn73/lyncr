@@ -38,6 +38,10 @@ import {
 } from "@/components/dashboard-session-context"
 import { DispatchCommandBridgeProvider } from "@/lib/dispatch-command-bridge"
 import { ErrorBoundary } from "@/components/error-boundary"
+import {
+  DashboardPaintSeedsProvider,
+  type DashboardPaintSeeds,
+} from "@/lib/dashboard-paint-seeds"
 
 /**
  * Realtime hosts: LyncEngine, live stats, operator heartbeat, photo banner,
@@ -90,6 +94,7 @@ export function DashboardShell({
   sessionAccount,
   initialBootstrap,
   initialActiveOrganizationId = null,
+  paintSeeds = null,
 }: {
   children: React.ReactNode
   pathnameFromRequest: string | null
@@ -99,6 +104,8 @@ export function DashboardShell({
   initialBootstrap?: DashboardMainBootstrap | null
   /** Cookie-backed active org — keeps business name stable across SSR → hydrate. */
   initialActiveOrganizationId?: string | null
+  /** Cookie paint seeds so wallet/telemetry/Latest SSR matches warm session. */
+  paintSeeds?: DashboardPaintSeeds | null
   /** Server session snapshot — avoids header width jump while /api/auth/session loads. */
   sessionAccount?: {
     name: string
@@ -225,6 +232,7 @@ export function DashboardShell({
   return (
     <ErrorBoundary>
     <Suspense fallback={null}>
+      <DashboardPaintSeedsProvider seeds={paintSeeds}>
       <DashboardSessionProvider session={dashboardSession}>
       <DashboardActivationProvider activationSeed={activationSeed}>
         <DashboardChromeProvider activePage={activePage}>
@@ -302,6 +310,7 @@ export function DashboardShell({
         </DashboardChromeProvider>
       </DashboardActivationProvider>
       </DashboardSessionProvider>
+      </DashboardPaintSeedsProvider>
     </Suspense>
     </ErrorBoundary>
   )

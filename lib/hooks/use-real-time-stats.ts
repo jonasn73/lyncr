@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import {
@@ -14,6 +15,7 @@ import {
   emptyRoutingTelemetrySnapshot,
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import type {
   OwnerCallAnsweredPayload,
   OwnerCallCompletedPayload,
@@ -136,26 +138,34 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   // Telemetry HUD lives on Lines — defer / skip visibility refetch on other tabs.
   const linesActive = useDashboardActivePage() === "dashboard"
 
-  // Sync-read session cache on first paint — avoids "—" / $0 flash before layout effect.
-  const [telemetrySeed] = useState(() => {
-    if (typeof window === "undefined") return null
-    return readRoutingTelemetryCache(activeOrganizationId) ?? null
-  })
+  // Cookie-backed seeds from layout — available on SSR first paint.
+  const paintSeeds = useDashboardPaintSeeds()
+  const telemetryPaint = {
+    snapshot: paintSeeds.telemetry,
+    organizationId: paintSeeds.telemetryOrganizationId,
+  }
+
+  // Org-keyed session/cookie seed — re-reads when activeOrganizationId resolves after SSR.
+  const telemetrySeed = useSessionSeed<RoutingTelemetrySnapshot | undefined>(
+    () => readRoutingTelemetryCache(activeOrganizationId, undefined, telemetryPaint),
+    undefined,
+    activeOrganizationId ?? "default"
+  )
   const seed = telemetrySeed ?? emptyRoutingTelemetrySnapshot()
   const hadSeed = telemetrySeed != null
 
-  const [dailyCalls, setDailyCalls] = useState(seed.dailyCalls)
-  const [missedCalls, setMissedCalls] = useState(seed.missedCalls)
-  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(seed.dailyTalkSeconds)
-  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(seed.weeklyTalkSeconds)
-  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(seed.monthlyTalkSeconds)
-  const [bookingRatePercent, setBookingRatePercent] = useState(seed.bookingRatePercent)
+  const [dailyCalls, setDailyCalls] = useState(() => seed.dailyCalls)
+  const [missedCalls, setMissedCalls] = useState(() => seed.missedCalls)
+  const [dailyTalkSeconds, setDailyTalkSeconds] = useState(() => seed.dailyTalkSeconds)
+  const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(() => seed.weeklyTalkSeconds)
+  const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(() => seed.monthlyTalkSeconds)
+  const [bookingRatePercent, setBookingRatePercent] = useState(() => seed.bookingRatePercent)
   const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState<number | null>(
-    seed.avgDispatchSpeedMinutes
+    () => seed.avgDispatchSpeedMinutes
   )
-  const [rescueRevenueCents, setRescueRevenueCents] = useState(seed.rescueRevenueCents)
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(seed.ownerUserId)
-  const [baselineReady, setBaselineReady] = useState(hadSeed)
+  const [rescueRevenueCents, setRescueRevenueCents] = useState(() => seed.rescueRevenueCents)
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(() => seed.ownerUserId)
+  const [baselineReady, setBaselineReady] = useState(() => hadSeed)
   const [activeCallSessions, setActiveCallSessions] = useState<ActiveCallSession[]>([])
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   /** Bumps every second while answered legs are live so talk pills keep ticking. */
@@ -302,14 +312,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
   const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
 
-  // Copy last-known telemetry from sessionStorage before paint (no useSyncExternalStore).
-  // Depend only on org id — never on cache object identity (#185).
+  // When useSessionSeed resolves a cache hit (org/cookie lag), copy into live counters.
   useLayoutEffect(() => {
-    const snap = readRoutingTelemetryCache(activeOrganizationId)
-    if (!snap) {
-      setBaselineReady(false)
-      return
-    }
+    if (!telemetrySeed) return
     applySnapshot(
       {
         setDailyCalls,
@@ -322,10 +327,10 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         setRescueRevenueCents,
         setOwnerUserId,
       },
-      snap
+      telemetrySeed
     )
     setBaselineReady(true)
-  }, [activeOrganizationId])
+  }, [telemetrySeed])
 
   // Fetch baseline on org change. Idle-defer only when cache already painted values;
   // cold miss fetches immediately so Rescue/$ metrics are not stuck on "—" / zeros.
@@ -336,7 +341,9 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     const run = () => {
       if (!cancelled) void refreshBaseline()
     }
-    const hasCache = Boolean(readRoutingTelemetryCache(activeOrganizationId))
+    const hasCache = Boolean(
+      readRoutingTelemetryCache(activeOrganizationId, undefined, telemetryPaint)
+    )
     if (!hasCache) {
       run()
       return () => {
