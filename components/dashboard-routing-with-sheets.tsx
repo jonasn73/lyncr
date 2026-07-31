@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { DashboardRoutingSurface, type DashboardRoutingSurfaceProps } from "@/components/dashboard-routing-surface"
 import { DashboardRoutingSheets, type DashboardRoutingSheetsProps } from "@/components/dashboard-routing-sheets"
@@ -44,11 +44,30 @@ function isRoutingDashboardPath(pathname: string | null): boolean {
   return pathname === "/dashboard" || pathname === "/dashboard/"
 }
 
+/** Deep-link ?ai=1 — isolated so useSearchParams cannot blank Lines chrome. */
+function RoutingAiSearchParamsBridge({
+  pathname,
+  onOpenFallback,
+}: {
+  pathname: string | null
+  onOpenFallback: () => void
+}) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams.get("ai") !== "1") return
+    if (!isRoutingDashboardPath(pathname)) return
+    onOpenFallback()
+    router.replace("/dashboard", { scroll: false })
+  }, [searchParams, router, pathname, onOpenFallback])
+
+  return null
+}
+
 /** Owns drawer open state so toggling sheets does not re-render the call-flow surface. */
 export function DashboardRoutingWithSheets(props: Props) {
-  const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [whoAnswersOpen, setWhoAnswersOpen] = useState(false)
   const [ringBackupOpen, setRingBackupOpen] = useState(false)
   const [showFallbackSettings, setShowFallbackSettings] = useState(false)
@@ -89,13 +108,6 @@ export function DashboardRoutingWithSheets(props: Props) {
     }
   }, [])
 
-  useEffect(() => {
-    if (searchParams.get("ai") !== "1") return
-    if (!isRoutingDashboardPath(pathname)) return
-    setShowFallbackSettings(true)
-    router.replace("/dashboard", { scroll: false })
-  }, [searchParams, router, pathname])
-
   // Derive Sunday Autopilot from Voice AI fallback + rings-bypassed + Your phone primary.
   const autopilotMode = isSundayAutopilotActive({
     fallback: props.fallback,
@@ -133,6 +145,12 @@ export function DashboardRoutingWithSheets(props: Props) {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <RoutingAiSearchParamsBridge
+          pathname={pathname}
+          onOpenFallback={() => setShowFallbackSettings(true)}
+        />
+      </Suspense>
       <DashboardRoutingSurface {...surfaceProps} />
       {strategyDialogOpen && onRoutingTab ? (
         <RoutingStrategyDialog

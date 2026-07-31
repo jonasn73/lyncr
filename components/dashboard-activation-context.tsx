@@ -1,6 +1,15 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  createContext,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
 import { useSearchParams } from "next/navigation"
 import {
   fetchOnboardingProfile,
@@ -30,6 +39,8 @@ import {
   resolveInitialSubscriptionActive,
   writeActivationLineCache,
 } from "@/lib/activation-line-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { readLinesChromeCache } from "@/lib/lines-chrome-cache"
 
 export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
 
@@ -80,14 +91,20 @@ export function DashboardActivationProvider({
   activationSeed?: DashboardActivationSeed
 }) {
   const { toast } = useToast()
-  const searchParams = useSearchParams()
+  const paintSeeds = useDashboardPaintSeeds()
+  const linesPaint = readLinesChromeCache(paintSeeds.lines)
+  // Prefer explicit seed → lines chrome cookie → session activation cache.
+  const seededLive =
+    activationSeed?.lineCarrierLive === true || linesPaint?.lineCarrierLive === true
+  const seededSub =
+    activationSeed?.subscriptionActive === true ||
+    linesPaint?.subscriptionActive === true ||
+    seededLive
   const [profile, setProfile] = useState<OnboardingProfile | null>(null)
   // Sync seed from props / session cache / bootstrap — never paint Activating… when last known was live.
-  const [carrierLive, setCarrierLive] = useState(() =>
-    resolveInitialLineCarrierLive(activationSeed?.lineCarrierLive)
-  )
+  const [carrierLive, setCarrierLive] = useState(() => resolveInitialLineCarrierLive(seededLive))
   const [loading, setLoading] = useState(() => {
-    if (activationSeed) return false
+    if (activationSeed || linesPaint) return false
     if (typeof window === "undefined") return true
     return readActivationLineCache() == null && !resolveInitialLineCarrierLive(false)
   })
@@ -270,6 +287,7 @@ export function DashboardActivationProvider({
   const subscriptionActive = !loading
     ? isVerifiedActiveSubscription(profile, carrierLive)
     : activationSeed?.subscriptionActive === true ||
+      seededSub ||
       resolveInitialSubscriptionActive(false) ||
       carrierLive
   // State already seeded from cache/bootstrap — never fall back to false while fetching.
@@ -340,6 +358,79 @@ export function DashboardActivationProvider({
     reservedDisplay,
   ])
 
+  const value = useMemo(
+    (): DashboardActivationContextValue => ({
+      profile,
+      loading,
+      activating,
+      subscriptionActive,
+      showTrialBanner,
+      showProvisioningBanner,
+      lineCarrierLive,
+      billingCycleEnd,
+      reservedDisplay,
+      simulationMode: provisionMode.simulation_mode,
+      refreshProfile,
+      applyActivatedProfile,
+      requestLineActivation,
+    }),
+    [
+      profile,
+      loading,
+      activating,
+      subscriptionActive,
+      showTrialBanner,
+      showProvisioningBanner,
+      lineCarrierLive,
+      billingCycleEnd,
+      reservedDisplay,
+      provisionMode.simulation_mode,
+      refreshProfile,
+      applyActivatedProfile,
+      requestLineActivation,
+    ]
+  )
+
+  return (
+    <DashboardActivationContext.Provider value={value}>
+      {children}
+      {/* Isolate useSearchParams so it cannot blank the whole dashboard shell via Suspense. */}
+      <Suspense fallback={null}>
+        <ActivationCheckoutSearchParamsBridge
+          refreshProfile={refreshProfile}
+          toast={toast}
+        />
+      </Suspense>
+      <ReplaceUnavailableLineModal
+        open={replacePrompt != null}
+        onOpenChange={(open) => {
+          if (!open) setReplacePrompt(null)
+        }}
+        unavailableDisplay={replacePrompt?.unavailableDisplay ?? "Your reserved number"}
+        areaCode={replacePrompt?.areaCode ?? "502"}
+        onConfirmLine={async (line) => {
+          const { phone_number } = await reserveAndProvisionLine({
+            reserved_number: line.number,
+            reserved_number_display: line.display,
+          })
+          setReplacePrompt(null)
+          await handleProvisionSuccess(phone_number)
+        }}
+      />
+    </DashboardActivationContext.Provider>
+  )
+}
+
+/** Stripe return URL handler — must not sit under a shell-wide Suspense fallback={null}. */
+function ActivationCheckoutSearchParamsBridge({
+  refreshProfile,
+  toast,
+}: {
+  refreshProfile: (opts?: { silent?: boolean }) => Promise<void>
+  toast: ReturnType<typeof useToast>["toast"]
+}) {
+  const searchParams = useSearchParams()
+
   useEffect(() => {
     const checkout = searchParams.get("stripe_checkout")
     const sessionId = searchParams.get("session_id")
@@ -379,60 +470,7 @@ export function DashboardActivationProvider({
     }
   }, [searchParams, refreshProfile, toast])
 
-  const value = useMemo(
-    (): DashboardActivationContextValue => ({
-      profile,
-      loading,
-      activating,
-      subscriptionActive,
-      showTrialBanner,
-      showProvisioningBanner,
-      lineCarrierLive,
-      billingCycleEnd,
-      reservedDisplay,
-      simulationMode: provisionMode.simulation_mode,
-      refreshProfile,
-      applyActivatedProfile,
-      requestLineActivation,
-    }),
-    [
-      profile,
-      loading,
-      activating,
-      subscriptionActive,
-      showTrialBanner,
-      showProvisioningBanner,
-      lineCarrierLive,
-      billingCycleEnd,
-      reservedDisplay,
-      provisionMode.simulation_mode,
-      refreshProfile,
-      applyActivatedProfile,
-      requestLineActivation,
-    ]
-  )
-
-  return (
-    <DashboardActivationContext.Provider value={value}>
-      {children}
-      <ReplaceUnavailableLineModal
-        open={replacePrompt != null}
-        onOpenChange={(open) => {
-          if (!open) setReplacePrompt(null)
-        }}
-        unavailableDisplay={replacePrompt?.unavailableDisplay ?? "Your reserved number"}
-        areaCode={replacePrompt?.areaCode ?? "502"}
-        onConfirmLine={async (line) => {
-          const { phone_number } = await reserveAndProvisionLine({
-            reserved_number: line.number,
-            reserved_number_display: line.display,
-          })
-          setReplacePrompt(null)
-          await handleProvisionSuccess(phone_number)
-        }}
-      />
-    </DashboardActivationContext.Provider>
-  )
+  return null
 }
 
 export function useDashboardActivation(): DashboardActivationContextValue {

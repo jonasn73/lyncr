@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
 import type { RoutingStrategy } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
@@ -19,10 +19,14 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
 import { primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { readLinesChromeCache, writeLinesChromeCache } from "@/lib/lines-chrome-cache"
 
 export function DashboardPage() {
   const { toast } = useToast()
   const bootstrap = useDashboardBootstrapEffective()
+  const paintSeeds = useDashboardPaintSeeds()
+  const linesPaint = readLinesChromeCache(paintSeeds.lines)
   const {
     activeLine,
     setActiveLine,
@@ -46,19 +50,37 @@ export function DashboardPage() {
   }, [activeOrganizationId])
 
   const [mainLinePhone, setMainLinePhone] = useState<string | null>(
-    () => bootstrap?.routing.ownerPhone ?? null
+    () => bootstrap?.routing.ownerPhone ?? linesPaint?.ownerPhone ?? null
   )
-  const [receptionists, setReceptionists] = useState<Contact[]>(
-    () => bootstrap?.routing.receptionists ?? []
-  )
+  const [receptionists, setReceptionists] = useState<Contact[]>(() => {
+    if (bootstrap?.routing.receptionists?.length) return bootstrap.routing.receptionists
+    // Compact paint seed — enough to label Who answers before full receptionist list loads.
+    if (linesPaint?.whoAnswers?.trim()) {
+      return [
+        {
+          id: "__paint-seed-receptionist__",
+          name: linesPaint.whoAnswers.trim(),
+          phone: "",
+          initials: linesPaint.whoAnswers.trim().slice(0, 2).toUpperCase() || "??",
+          color: "bg-primary",
+        },
+      ]
+    }
+    return []
+  })
   const [selectedReceptionistId, setSelectedReceptionistId] = useState<string | null>(() => {
-    if (!bootstrap) return null
-    const recId = bootstrap.routing.routing.selected_receptionist_id
-    const recs = bootstrap.routing.receptionists
-    return recId && recs.some((r) => r.id === recId) ? recId : recs[0]?.id ?? null
+    if (bootstrap) {
+      const recId = bootstrap.routing.routing.selected_receptionist_id
+      const recs = bootstrap.routing.receptionists
+      return recId && recs.some((r) => r.id === recId) ? recId : recs[0]?.id ?? null
+    }
+    return linesPaint?.whoAnswers?.trim() ? "__paint-seed-receptionist__" : null
   })
   const [fallback, setFallback] = useState<FallbackOption>(
-    () => bootstrap?.routing.routing.fallback_type || "owner"
+    () =>
+      bootstrap?.routing.routing.fallback_type ||
+      (linesPaint?.fallbackType as FallbackOption | undefined) ||
+      "owner"
   )
   const [aiRingOwnerFirst, setAiRingOwnerFirst] = useState(
     () => bootstrap?.routing.routing.ai_ring_owner_first ?? false
@@ -67,7 +89,10 @@ export function DashboardPage() {
     snapDashboardRingTimeoutSec(bootstrap?.routing.routing.ring_timeout_seconds ?? 30)
   )
   const [routingStrategy, setRoutingStrategy] = useState<RoutingStrategy>(
-    () => bootstrap?.routing.routing.routing_strategy ?? "private_only"
+    () =>
+      bootstrap?.routing.routing.routing_strategy ??
+      linesPaint?.routingStrategy ??
+      "private_only"
   )
   const [allowLyncrNetworkFallback, setAllowLyncrNetworkFallback] = useState(
     () => bootstrap?.routing.routing.allow_lyncr_network_fallback ?? false
@@ -83,18 +108,27 @@ export function DashboardPage() {
   const [hasTelnyxAiAssistant, setHasTelnyxAiAssistant] = useState(false)
   const [routingLineDetailLoading, setRoutingLineDetailLoading] = useState(false)
   const routingFetchSeqRef = useRef(0)
-  const skipNextRoutingFetchRef = useRef(Boolean(bootstrap || routingBootstrapPromise))
+  const skipNextRoutingFetchRef = useRef(Boolean(bootstrap || routingBootstrapPromise || linesPaint))
 
-  const [sessionFetchDone, setSessionFetchDone] = useState(() => bootstrap != null)
-  const [receptionistsFetchDone, setReceptionistsFetchDone] = useState(() => bootstrap != null)
-  const [numbersRoutingFetchDone, setNumbersRoutingFetchDone] = useState(() => bootstrap != null)
+  const [sessionFetchDone, setSessionFetchDone] = useState(
+    () => bootstrap != null || Boolean(linesPaint?.lines.length)
+  )
+  const [receptionistsFetchDone, setReceptionistsFetchDone] = useState(
+    () => bootstrap != null || Boolean(linesPaint?.whoAnswers)
+  )
+  const [numbersRoutingFetchDone, setNumbersRoutingFetchDone] = useState(
+    () => bootstrap != null || Boolean(linesPaint?.lines.length)
+  )
   const quickSetupDecided =
     sessionFetchDone && receptionistsFetchDone && numbersRoutingFetchDone
 
   const callFlowUiReady =
-    routedNumbers.length > 0 || bootstrap != null || !businessNumbersLoading
+    routedNumbers.length > 0 ||
+    bootstrap != null ||
+    Boolean(linesPaint?.lines.length) ||
+    !businessNumbersLoading
 
-  const hadBootstrapOnMountRef = useRef(Boolean(bootstrap))
+  const hadBootstrapOnMountRef = useRef(Boolean(bootstrap || linesPaint?.lines.length))
   const showRoutingDetailLoading = routingLineDetailLoading && !hadBootstrapOnMountRef.current
   const bootstrapHydratedRef = useRef(bootstrap != null)
   const prevActiveLineForRoutingRef = useRef<string | null>(activeLine)
@@ -132,7 +166,8 @@ export function DashboardPage() {
       .catch(() => {})
   }, [activeOrganizationId, activeLine, routedNumbers, receptionistsUrl, setActiveLine])
 
-  useEffect(() => {
+  // Apply session/bootstrap routing before paint — useEffect left one blank frame of Who answers.
+  useLayoutEffect(() => {
     if (!bootstrap || bootstrapHydratedRef.current) return
     bootstrapHydratedRef.current = true
     setMainLinePhone(bootstrap.routing.ownerPhone ?? null)
@@ -160,7 +195,22 @@ export function DashboardPage() {
     setSessionFetchDone(true)
     setReceptionistsFetchDone(true)
     setNumbersRoutingFetchDone(true)
-  }, [bootstrap, activeLine, routedNumbers, setActiveLine])
+
+    const who =
+      bootstrap.routing.receptionists.find((r) => r.id === bootstrap.routing.routing.selected_receptionist_id)
+        ?.name ?? bootstrap.routing.receptionists[0]?.name
+    if (businessNumbers.length > 0) {
+      writeLinesChromeCache({
+        organizationId: activeOrganizationId,
+        activeLine: activeLine ?? bootstrap.routing.primaryLineNumber,
+        lines: businessNumbers,
+        routingStrategy: bootstrap.routing.routing.routing_strategy,
+        whoAnswers: who ?? null,
+        ownerPhone: bootstrap.routing.ownerPhone,
+        fallbackType: bootstrap.routing.routing.fallback_type,
+      })
+    }
+  }, [bootstrap, activeLine, routedNumbers, setActiveLine, businessNumbers, activeOrganizationId])
 
   // Platform-admin inbound override for the active line only (scoped per workspace / DID — not global).
   const adminRoutingOverridePhone = useMemo(() => {
@@ -348,6 +398,30 @@ export function DashboardPage() {
   const hasReceptionists = receptionists.length > 0
   const isSetupComplete = hasBusinessNumbers && (hasReceptionists || Boolean(mainLinePhone))
   const activeFallbackMeta = fallbackOptions.find((o) => o.id === fallback)
+
+  // Keep Who answers / fallback labels in the lines chrome cookie for the next hard refresh.
+  useEffect(() => {
+    if (businessNumbers.length === 0) return
+    const who = selectedReceptionist?.name?.trim() || (isRoutingToOwner ? "You (owner)" : null)
+    writeLinesChromeCache({
+      organizationId: activeOrganizationId,
+      activeLine,
+      lines: businessNumbers,
+      routingStrategy,
+      whoAnswers: who,
+      ownerPhone: mainLinePhone,
+      fallbackType: fallback,
+    })
+  }, [
+    businessNumbers,
+    activeLine,
+    activeOrganizationId,
+    selectedReceptionist?.name,
+    isRoutingToOwner,
+    routingStrategy,
+    mainLinePhone,
+    fallback,
+  ])
 
   // Save routing for the line shown in the UI (`routingBusinessNumber`), or the account default when you have no numbers yet.
   // When fallback_type is "ai", the API auto-provisions voice AI and returns voiceAi.

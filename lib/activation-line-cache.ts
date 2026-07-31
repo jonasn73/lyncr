@@ -2,6 +2,7 @@
 
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { readDashboardBootstrapCache } from "@/lib/dashboard-bootstrap-cache"
+import { readLinesChromeCache, writeLinesChromeCache } from "@/lib/lines-chrome-cache"
 
 export type ActivationLineCache = {
   subscriptionActive: boolean
@@ -21,6 +22,15 @@ export function readActivationLineCache(): ActivationLineCache | null {
 
 export function writeActivationLineCache(next: ActivationLineCache): void {
   writePersistedCache(ACTIVATION_CACHE_KEY, next)
+  // Keep lines chrome cookie in sync so SSR can paint Live & Connected.
+  const chrome = readLinesChromeCache()
+  if (chrome?.lines.length) {
+    writeLinesChromeCache({
+      ...chrome,
+      lineCarrierLive: next.lineCarrierLive,
+      subscriptionActive: next.subscriptionActive,
+    })
+  }
 }
 
 /**
@@ -32,6 +42,8 @@ export function resolveInitialLineCarrierLive(seedLive?: boolean): boolean {
   if (typeof window === "undefined") return Boolean(seedLive)
   const cached = readActivationLineCache()
   if (cached?.lineCarrierLive) return true
+  const chrome = readLinesChromeCache()
+  if (chrome?.lineCarrierLive) return true
   const boot = readDashboardBootstrapCache()
   if (boot?.phoneLines?.some((line) => line.status === "active")) return true
   return Boolean(seedLive)
@@ -42,6 +54,8 @@ export function resolveInitialSubscriptionActive(seedActive?: boolean): boolean 
   if (typeof window === "undefined") return Boolean(seedActive)
   const cached = readActivationLineCache()
   if (cached?.subscriptionActive || cached?.lineCarrierLive) return true
+  const chrome = readLinesChromeCache()
+  if (chrome?.subscriptionActive || chrome?.lineCarrierLive) return true
   const boot = readDashboardBootstrapCache()
   if (boot?.phoneLines?.some((line) => line.status === "active")) return true
   return Boolean(seedActive)

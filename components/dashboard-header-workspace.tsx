@@ -8,6 +8,8 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { Organization } from "@/lib/types"
 import { organizationLabelFromBootstrap } from "@/lib/dashboard-bootstrap-seed"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { readWorkspaceLabelCache } from "@/lib/workspace-label-cache"
 
 function headerSeedOrganization(name: string): Organization {
   return {
@@ -197,21 +199,35 @@ function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusi
 /** Business workspace switcher mounted in the dashboard app header. */
 export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusinessName?: string }) {
   const bootstrap = useDashboardBootstrapEffective()
-  const { activeOrganizationId } = useDashboardWorkspace()
+  const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const { dashboardMainBootstrapPromise, organizationsPromise } = useDashboardStream()
+  const paintSeeds = useDashboardPaintSeeds()
+  // Cookie / session paint name — SSR must not paint empty then “Key Squad 502”.
+  const paintLabel = readWorkspaceLabelCache(paintSeeds.workspace)?.name
+  const sessionLabel = sessionBusinessName?.trim() || ""
+  const fallbackLabel = paintLabel || sessionLabel || "Business"
+
   // Prefer the active org name so the chip does not flash account business_name → org name.
   const placeholderLabel = bootstrap?.organizations.length
     ? organizationLabelFromBootstrap(
         bootstrap.organizations,
         activeOrganizationId,
-        sessionBusinessName
+        fallbackLabel
       )
-    : sessionBusinessName?.trim() || "Business"
+    : organizations.length
+      ? organizationLabelFromBootstrap(organizations, activeOrganizationId, fallbackLabel)
+      : fallbackLabel
 
   const switcher = bootstrap?.organizations.length ? (
     <HeaderOrganizationsFromData
       organizations={bootstrap.organizations}
-      sessionBusinessName={sessionBusinessName}
+      sessionBusinessName={placeholderLabel}
+    />
+  ) : organizations.length > 0 ? (
+    // Paint-seed / workspace orgs — real chip on SSR before bootstrap promise resolves.
+    <HeaderOrganizationsFromData
+      organizations={organizations}
+      sessionBusinessName={placeholderLabel}
     />
   ) : dashboardMainBootstrapPromise ? (
     <OrganizationSwitcherPlaceholder label={placeholderLabel} />
@@ -219,11 +235,11 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
     <Suspense fallback={<OrganizationSwitcherPlaceholder label={placeholderLabel} />}>
       <HeaderOrganizationsFromStream
         organizationsPromise={organizationsPromise}
-        sessionBusinessName={sessionBusinessName}
+        sessionBusinessName={placeholderLabel}
       />
     </Suspense>
   ) : (
-    <HeaderOrganizationsFromWorkspace sessionBusinessName={sessionBusinessName} />
+    <HeaderOrganizationsFromWorkspace sessionBusinessName={placeholderLabel} />
   )
 
   return (

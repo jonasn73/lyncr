@@ -6,11 +6,66 @@ import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import { readBillingSummaryCache } from "@/lib/billing-summary-cache"
+import {
+  ActivityTableSkeleton,
+  CallFlowStepsSkeleton,
+} from "@/components/workspace-content-skeletons"
+import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 
-/** Lightweight placeholder while a deferred tab chunk loads. */
+/** Layout-matched placeholder while a deferred tab chunk loads (not an empty black flash). */
 function PaneLoadingFallback({ label }: { label: string }) {
+  if (label === "Activity") {
+    return (
+      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading Activity">
+        <p className="mb-3 text-lg font-semibold text-foreground">Activity</p>
+        <ActivityTableSkeleton />
+      </div>
+    )
+  }
+  if (label === "CRM") {
+    return (
+      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading CRM">
+        <p className="mb-3 text-lg font-semibold text-foreground">Customers</p>
+        <ActivityTableSkeleton />
+      </div>
+    )
+  }
+  if (label === "scheduler") {
+    return (
+      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading Scheduler">
+        <p className="mb-3 text-lg font-semibold text-foreground">Scheduler</p>
+        <SchedulerCalendarStatsSkeleton />
+        <div className="mt-4">
+          <CallFlowStepsSkeleton />
+        </div>
+      </div>
+    )
+  }
+  if (label === "Map") {
+    return (
+      <div
+        className="relative min-h-[70vh] w-full overflow-hidden bg-zinc-950"
+        aria-busy="true"
+        aria-label="Loading Map"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.9),transparent_55%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 border-t border-zinc-800/80 bg-zinc-950/90" />
+      </div>
+    )
+  }
+  if (label === "Messages") {
+    return (
+      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading Messages">
+        <p className="mb-3 text-lg font-semibold text-foreground">Messages</p>
+        <div className="min-h-[20rem] rounded-2xl border border-border/60 bg-card/40" />
+      </div>
+    )
+  }
   return (
-    <div className="min-h-[40vh] w-full" aria-busy="true" aria-label={`Loading ${label}`} />
+    <div className="min-h-[40vh] w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label={`Loading ${label}`}>
+      <p className="text-lg font-semibold text-foreground capitalize">{label}</p>
+      <div className="mt-4 min-h-[12rem] rounded-2xl border border-border/60 bg-card/40" />
+    </div>
   )
 }
 

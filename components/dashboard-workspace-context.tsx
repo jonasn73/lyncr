@@ -32,6 +32,13 @@ import {
   readActiveOrganizationId,
   writeActiveOrganizationId,
 } from "@/lib/workspace-organizations"
+import type { DashboardPaintSeeds } from "@/lib/dashboard-paint-seeds-types"
+import {
+  linesChromeToBusinessNumbers,
+  readLinesChromeCache,
+  writeLinesChromeCache,
+} from "@/lib/lines-chrome-cache"
+import { writeWorkspaceLabelCache } from "@/lib/workspace-label-cache"
 
 const PAGE_HREF: Record<PageId, string> = {
   dashboard: "/dashboard",
@@ -100,28 +107,38 @@ export function DashboardWorkspaceProvider({
   children,
   initialBootstrap,
   initialActiveOrganizationId = null,
+  paintSeeds = null,
 }: {
   children: ReactNode
   initialBootstrap?: DashboardMainBootstrap | null
   /** Cookie-backed org id from the server so SSR matches the client switcher. */
   initialActiveOrganizationId?: string | null
+  /** SSR paint cookies — seed Main Line / org name before sessionStorage hydrates. */
+  paintSeeds?: DashboardPaintSeeds | null
 }) {
   const bootstrapSeed = resolveWorkspaceBootstrapSeed(initialBootstrap)
   const workspaceSeed = bootstrapSeed
     ? workspaceSeedFromBootstrap(bootstrapSeed, initialActiveOrganizationId)
     : null
+  // Cookie chrome when bootstrap session cache is invisible to SSR.
+  const linesPaint = readLinesChromeCache(paintSeeds?.lines ?? null)
 
   const router = useRouter()
   const activeTab = useDashboardActivePage()
-  const [activeLine, setActiveLine] = useState<string | null>(() => workspaceSeed?.activeLine ?? null)
+  const [activeLine, setActiveLine] = useState<string | null>(() => {
+    if (workspaceSeed?.activeLine) return workspaceSeed.activeLine
+    return linesPaint?.activeLine ?? null
+  })
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>(() => {
     if (workspaceSeed?.phoneLines.length) return workspaceSeed.phoneLines
+    if (linesPaint?.lines.length) return linesChromeToBusinessNumbers(linesPaint)
     const orgHint = initialActiveOrganizationId ?? readActiveOrganizationId()
     const cached = readCachedBusinessNumbers(orgHint)
     return cached?.numbers ?? []
   })
   const [businessNumbersLoading, setBusinessNumbersLoading] = useState(() => {
     if (workspaceSeed) return false
+    if (linesPaint?.lines.length) return false
     const orgHint = initialActiveOrganizationId ?? readActiveOrganizationId()
     return readCachedBusinessNumbers(orgHint) === undefined
   })
@@ -131,12 +148,28 @@ export function DashboardWorkspaceProvider({
     if (workspaceSeed?.activeOrganizationId) return workspaceSeed.activeOrganizationId
     // Cookie from layout — keep SSR org id aligned with session cache keys (telemetry / Latest).
     if (initialActiveOrganizationId) return initialActiveOrganizationId
+    if (linesPaint?.organizationId) return linesPaint.organizationId
+    if (paintSeeds?.workspace?.organizationId) return paintSeeds.workspace.organizationId
     if (typeof window === "undefined") return null
     return readActiveOrganizationId()
   })
-  const [organizations, setOrganizations] = useState<Organization[]>(
-    () => workspaceSeed?.organizations ?? []
-  )
+  const [organizations, setOrganizations] = useState<Organization[]>(() => {
+    if (workspaceSeed?.organizations.length) return workspaceSeed.organizations
+    // Minimal org row so the header chip can paint the business name on SSR.
+    const label = paintSeeds?.workspace
+    if (label?.name?.trim()) {
+      return [
+        {
+          id: label.organizationId || "__paint-seed__",
+          owner_user_id: "",
+          name: label.name.trim(),
+          is_default: true,
+          created_at: new Date(0).toISOString(),
+        },
+      ]
+    }
+    return []
+  })
   const activeOrganizationIdRef = useRef(activeOrganizationId)
   activeOrganizationIdRef.current = activeOrganizationId
 
@@ -191,6 +224,24 @@ export function DashboardWorkspaceProvider({
       )
       if (payload.activeOrganizationId) writeActiveOrganizationId(payload.activeOrganizationId)
       setActiveLine((prev) => (prev === payload.activeLine ? prev : payload.activeLine))
+
+      // Mirror into paint cookies so the next hard refresh SSR can paint name + Main Line.
+      const activeOrg =
+        payload.organizations.find((o) => o.id === payload.activeOrganizationId) ??
+        payload.organizations[0]
+      if (activeOrg?.name?.trim()) {
+        writeWorkspaceLabelCache({
+          organizationId: activeOrg.id,
+          name: activeOrg.name,
+        })
+      }
+      if (payload.phoneLines.length > 0) {
+        writeLinesChromeCache({
+          organizationId: payload.activeOrganizationId,
+          activeLine: payload.activeLine,
+          lines: payload.phoneLines,
+        })
+      }
     },
     []
   )
@@ -199,6 +250,23 @@ export function DashboardWorkspaceProvider({
   useEffect(() => {
     ensureActiveOrganizationCookie()
   }, [])
+
+  // Keep paint cookies warm when workspace state changes outside bootstrap hydrate.
+  useEffect(() => {
+    const active =
+      organizations.find((o) => o.id === activeOrganizationId) ?? organizations[0]
+    if (!active?.name?.trim() || active.id.startsWith("__")) return
+    writeWorkspaceLabelCache({ organizationId: active.id, name: active.name })
+  }, [organizations, activeOrganizationId])
+
+  useEffect(() => {
+    if (businessNumbers.length === 0) return
+    writeLinesChromeCache({
+      organizationId: activeOrganizationId,
+      activeLine,
+      lines: businessNumbers,
+    })
+  }, [businessNumbers, activeLine, activeOrganizationId])
 
   // SSR cannot read sessionStorage — re-apply bootstrap/numbers cache before paint so
   // Live & Connected / line picker do not flash pulse bars ("....") then real status.

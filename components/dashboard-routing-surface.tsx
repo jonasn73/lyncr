@@ -174,11 +174,12 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const missedLeadInsights = useMissedLeadInsights(businessNumbers, linesActive)
 
   // Always reserve Presence + main-line row height so refresh doesn’t collapse under Live & Connected.
+  // Prefer real ActiveLineSubHeader whenever we have seeded/live numbers — never opacity-0 blank chrome.
   const stickyChrome = (
     <div className="sticky top-0 z-50 w-full bg-slate-950">
       <PresenceStatusBar />
       <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
-        {callFlowUiReady ? (
+        {businessNumbers.length > 0 || callFlowUiReady ? (
           <ActiveLineSubHeader
             bare
             businessNumbers={businessNumbers}

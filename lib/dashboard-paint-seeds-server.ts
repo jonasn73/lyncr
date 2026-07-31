@@ -22,6 +22,14 @@ import {
   PRESENCE_COOKIE,
   readPresencePaintFromCookieRaw,
 } from "@/lib/account-presence-cache"
+import {
+  WORKSPACE_LABEL_COOKIE,
+  readWorkspaceLabelFromCookieRaw,
+} from "@/lib/workspace-label-cache"
+import {
+  LINES_CHROME_COOKIE,
+  readLinesChromeFromCookieRaw,
+} from "@/lib/lines-chrome-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
@@ -73,7 +81,13 @@ export function readDashboardPaintSeedsFromCookies(
   const presenceRaw = getCookie(PRESENCE_COOKIE)
   const presence = readPresencePaintFromCookieRaw(presenceRaw)
 
-  if (!moneyOk && !telemetry && !latest && !billingOk && !presence) {
+  const workspaceRaw = getCookie(WORKSPACE_LABEL_COOKIE)
+  const workspace = readWorkspaceLabelFromCookieRaw(workspaceRaw)
+
+  const linesRaw = getCookie(LINES_CHROME_COOKIE)
+  const lines = readLinesChromeFromCookieRaw(linesRaw)
+
+  if (!moneyOk && !telemetry && !latest && !billingOk && !presence && !workspace && !lines) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
 
@@ -85,5 +99,7 @@ export function readDashboardPaintSeedsFromCookies(
     latestOrganizationId: latestCookie?.organizationId ?? null,
     billing: billingOk,
     presence,
+    workspace,
+    lines,
   }
 }

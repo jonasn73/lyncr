@@ -221,17 +221,25 @@ export function DashboardShell({
   }, [sessionAccount])
 
   const activationSeed = useMemo((): DashboardActivationSeed | undefined => {
-    if (!initialBootstrap && sessionAccount?.hasActiveSubscription == null) return undefined
-    const lineCarrierLive = initialBootstrap?.phoneLines.some((line) => line.status === "active") ?? false
+    const linesPaint = paintSeeds?.lines
+    const lineCarrierLive =
+      initialBootstrap?.phoneLines.some((line) => line.status === "active") === true ||
+      linesPaint?.lineCarrierLive === true ||
+      linesPaint?.lines.some((line) => line.status === "active" || line.carrier_live === true) === true
+    if (!initialBootstrap && sessionAccount?.hasActiveSubscription == null && !linesPaint) {
+      return undefined
+    }
     return {
-      subscriptionActive: lineCarrierLive || sessionAccount?.hasActiveSubscription === true,
+      subscriptionActive:
+        lineCarrierLive ||
+        linesPaint?.subscriptionActive === true ||
+        sessionAccount?.hasActiveSubscription === true,
       lineCarrierLive,
     }
-  }, [initialBootstrap, sessionAccount?.hasActiveSubscription])
+  }, [initialBootstrap, sessionAccount?.hasActiveSubscription, paintSeeds?.lines])
 
   return (
     <ErrorBoundary>
-    <Suspense fallback={null}>
       <DashboardPaintSeedsProvider seeds={paintSeeds}>
       <DashboardSessionProvider session={dashboardSession}>
       <DashboardActivationProvider activationSeed={activationSeed}>
@@ -240,6 +248,7 @@ export function DashboardShell({
             <DashboardWorkspaceProvider
               initialBootstrap={initialBootstrap}
               initialActiveOrganizationId={initialActiveOrganizationId}
+              paintSeeds={paintSeeds}
             >
               {ENABLE_DASHBOARD_REALTIME_HOSTS ? (
               <LyncEngineProvider>
@@ -311,7 +320,6 @@ export function DashboardShell({
       </DashboardActivationProvider>
       </DashboardSessionProvider>
       </DashboardPaintSeedsProvider>
-    </Suspense>
     </ErrorBoundary>
   )
 }

@@ -715,7 +715,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         ) : null}
       </div>
 
-      {!callFlowUiReady ? (
+      {!callFlowUiReady && businessNumbers.length === 0 ? (
         <CallFlowStepsSkeleton />
       ) : businessNumbers.length === 0 ? (
         <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">
@@ -804,10 +804,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         </div>
       )}
 
-      {/* Latest always mounts — was gated on callFlowUiReady so refresh showed skeleton then jumped. */}
+      {/* Latest + messages stay mounted when lines are known — don’t wait on callFlowUiReady. */}
       <div className="mt-3 flex flex-col gap-3 md:mt-4">
         <JustFinishedReviewCard compact />
-        {callFlowUiReady && businessNumbers.length > 0 ? (
+        {businessNumbers.length > 0 ? (
           <>
             <div className="md:hidden">{messagesInboxMobile}</div>
             <div className="hidden md:block">{messagesInboxDesktop}</div>
