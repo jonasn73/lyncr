@@ -64,7 +64,11 @@ function minutesFromSeconds(seconds: number): number {
   return Math.round((seconds / 60) * 10) / 10
 }
 
-export const PayWorkspaceView = memo(function PayWorkspaceView() {
+export const PayWorkspaceView = memo(function PayWorkspaceView({
+  isActive = true,
+}: {
+  isActive?: boolean
+}) {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const billingSeed: BillingSummary | null = null
@@ -93,14 +97,16 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
   }, [])
 
   useEffect(() => {
+    if (!isActive) return
     void refreshBilling().catch((e) => {
       // Keep session seed on failure — avoid blanking a painted wallet.
       if (!billingSeed) setLiveBilling(null)
       setLoadError(e instanceof Error ? e.message : "Could not load billing")
     })
-  }, [refreshBilling, billingSeed])
+  }, [refreshBilling, billingSeed, isActive])
 
   useEffect(() => {
+    if (!isActive) return
     let cancelled = false
     fetch("/api/calls?limit=50", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("calls"))))
@@ -117,7 +123,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isActive])
 
   useEffect(() => {
     const checkout = searchParams.get("credit_checkout")

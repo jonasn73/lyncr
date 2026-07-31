@@ -132,7 +132,8 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
 
   return (
     <div className="w-full min-h-0 md:min-h-[calc(100dvh-4rem)]">
-      <PresencePane active={activePage === "dashboard"} label="Routing">
+      {/* Lines defer when refreshing on another tab — intake lives in shell (LyncEngine), not here. */}
+      <PresencePane active={activePage === "dashboard"} label="Routing" deferUntilVisit>
         <RoutingPane />
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
@@ -162,12 +163,12 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
         <Suspense fallback={<PaneLoadingFallback label="Pay" />}>
-          <PayWorkspaceView />
+          <PayWorkspaceView isActive={activePage === "pay"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "settings"} label="Settings" deferUntilVisit>
         <Suspense fallback={<PaneLoadingFallback label="Settings" />}>
-          <SettingsWorkspaceView />
+          <SettingsWorkspaceView isActive={activePage === "settings"} />
         </Suspense>
       </PresencePane>
     </div>

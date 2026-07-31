@@ -15,6 +15,8 @@ import {
 import { isBusyPresenceStatus, type PresenceStatus } from "@/lib/account-presence"
 import { toast } from "@/hooks/use-toast"
 import { persistedCacheKey, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 
 type AccountPresenceContextValue = {
   presenceStatus: PresenceStatus
@@ -54,6 +56,8 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
+  const linesActive = useDashboardActivePage() === "dashboard"
+  const pollEnabled = usePollBudget(linesActive)
 
   const presenceStatus = liveStatus ?? "AVAILABLE"
   const presenceReady = liveStatus != null
@@ -89,16 +93,18 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
+    if (!pollEnabled) return
     void refresh()
-  }, [refresh])
+  }, [refresh, pollEnabled])
 
   // Re-read presence periodically so the bar matches the DB if something else changes it.
   useEffect(() => {
+    if (!pollEnabled) return
     const id = window.setInterval(() => {
       void refresh({ silent: true })
     }, 60_000)
     return () => window.clearInterval(id)
-  }, [refresh])
+  }, [refresh, pollEnabled])
 
   const setPresenceStatus = useCallback(
     async (next: PresenceStatus) => {

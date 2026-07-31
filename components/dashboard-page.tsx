@@ -254,6 +254,8 @@ export function DashboardPage() {
   }, [bootstrap, businessNumbersLoading, businessNumbers.length])
 
   useEffect(() => {
+    // Only needed when AI is the active fallback — skip on every Lines mount.
+    if (fallback !== "ai") return
     let cancelled = false
     fetch("/api/ai-assistant", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -264,7 +266,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [fallback])
 
   // After numbers load or you tap a different line, pull effective routing (per-number row merged with account default).
   useEffect(() => {

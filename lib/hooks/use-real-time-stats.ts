@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import {
   isDashboardVisibleLineStatus,
   type DashboardBusinessNumber,
@@ -123,6 +124,8 @@ function applySnapshot(
 export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeStatsResult {
   const { businessNumbers, activeLineE164 } = options
   const { activeOrganizationId } = useDashboardWorkspace()
+  // Telemetry HUD lives on Lines — defer / skip visibility refetch on other tabs.
+  const linesActive = useDashboardActivePage() === "dashboard"
 
   // Session seeds disabled (React #185) — paint zeros until API baseline lands.
   const [dailyCalls, setDailyCalls] = useState(0)
@@ -279,10 +282,34 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const liveWeeklyTalkSeconds = weeklyTalkSeconds + inProgressTalkSeconds
   const liveMonthlyTalkSeconds = monthlyTalkSeconds + inProgressTalkSeconds
 
-  // Fetch baseline on org change only. Do not apply an empty snapshot first —
-  // that was a multi-setState storm on every mount (React #185 flash→error).
+  // Fetch baseline on org change. Idle-defer so hard refresh can paint shell first.
+  // Event-driven refresh (call-complete bus / routing-saved) still runs immediately.
   useEffect(() => {
-    void refreshBaseline()
+    let cancelled = false
+    let idleId: number | undefined
+    let timerId: ReturnType<typeof setTimeout> | undefined
+    const run = () => {
+      if (!cancelled) void refreshBaseline()
+    }
+    const ric = (
+      window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+        cancelIdleCallback?: (id: number) => void
+      }
+    ).requestIdleCallback
+    if (typeof ric === "function") {
+      idleId = ric(run, { timeout: 3_000 })
+    } else {
+      timerId = setTimeout(run, 1_200)
+    }
+    return () => {
+      cancelled = true
+      const cic = (
+        window as Window & { cancelIdleCallback?: (id: number) => void }
+      ).cancelIdleCallback
+      if (idleId != null && typeof cic === "function") cic(idleId)
+      if (timerId != null) clearTimeout(timerId)
+    }
   }, [activeOrganizationId, refreshBaseline])
 
   useEffect(() => {
@@ -298,14 +325,16 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   }, [refreshBaseline])
 
   useEffect(() => {
+    if (!linesActive) return
     const onVisible = () => {
       if (document.visibilityState === "visible") void refreshBaseline()
     }
     document.addEventListener("visibilitychange", onVisible)
     return () => document.removeEventListener("visibilitychange", onVisible)
-  }, [refreshBaseline])
+  }, [refreshBaseline, linesActive])
 
   useEffect(() => {
+    if (!linesActive) return
     const id = window.setInterval(() => {
       const weekKey = telemetryWeekPeriodKey()
       const monthKey = telemetryMonthPeriodKey()
@@ -317,7 +346,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       }
     }, 60_000)
     return () => window.clearInterval(id)
-  }, [refreshBaseline])
+  }, [refreshBaseline, linesActive])
 
   const [engineOwnsRealtime, setEngineOwnsRealtime] = useState(isLyncEngineOwningRealtime)
 

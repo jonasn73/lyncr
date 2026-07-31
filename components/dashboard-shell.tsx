@@ -18,6 +18,7 @@ import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { PhotoUploadNotificationBanner } from "@/components/dashboard/photo-upload-notification-banner"
 import { DashboardOperatorHeartbeatHost } from "@/components/dashboard/dashboard-operator-heartbeat-host"
+import { DeferredShellHost } from "@/components/dashboard/deferred-shell-host"
 import {
   DashboardActivationProvider,
   type DashboardActivationSeed,
@@ -254,9 +255,13 @@ export function DashboardShell({
                       <DashboardMainStreamGate activePage={activePage}>
                         <DashboardMainContent activePage={activePage} routedChildren={children} />
                       </DashboardMainStreamGate>
-                      <DashboardOperatorHeartbeatHost />
-                      <PhotoUploadNotificationBanner />
+                      {/* Heartbeat + photo toast are non-critical — idle-defer so tab refresh paints first. */}
+                      <DeferredShellHost>
+                        <DashboardOperatorHeartbeatHost />
+                        <PhotoUploadNotificationBanner />
+                      </DeferredShellHost>
                     </AppShell>
+                    {/* Intake must stay mounted with LyncEngine — do not defer this popup. */}
                     <DashboardAnsweredCallPopup enabled={popupEnabled} />
                   </DispatchCommandBridgeProvider>
                 </DashboardNumbersModalProvider>

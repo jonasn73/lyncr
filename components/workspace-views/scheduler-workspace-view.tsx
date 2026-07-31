@@ -436,8 +436,10 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [monthKey, orgQuery, orgId])
 
   useEffect(() => {
+    // Skip bootstrap network while Scheduler pane is hidden (SWR already paused via pollEnabled).
+    if (!isActive) return
     void load()
-  }, [load])
+  }, [load, isActive])
 
   const refreshSchedulerData = useCallback(() => {
     load()
@@ -446,15 +448,16 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
   }, [load, mutatePool, mutateActivePipeline])
 
   useEffect(() => {
+    if (!isActive) return
     const onWorkspaceChanged = () => refreshSchedulerData()
     window.addEventListener("lyncr-workspace-data-changed", onWorkspaceChanged)
     return () => window.removeEventListener("lyncr-workspace-data-changed", onWorkspaceChanged)
-  }, [refreshSchedulerData])
+  }, [refreshSchedulerData, isActive])
 
   // Pool/pipeline SWR already fetch when keys are live — don't burst-revalidate on every tab focus.
 
   useEffect(() => {
-    if (!ownerUserId) return
+    if (!isActive || !ownerUserId) return
     const pusher = getPusherClient()
     if (!pusher) return
     const channel = pusher.subscribe(`owner-${ownerUserId}`)
@@ -512,13 +515,13 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
     channel.bind("job-assigned", onJobAssigned)
     channel.bind("disposition-updated", refreshSchedulerData)
     return () => {
+      // Unbind only — CallAnsweredModal may share owner-* for legacy events.
       channel.unbind("job-status-updated", onJobStatus)
       channel.unbind("job-booked", refreshSchedulerData)
       channel.unbind("job-assigned", onJobAssigned)
       channel.unbind("disposition-updated", refreshSchedulerData)
-      pusher.unsubscribe(`owner-${ownerUserId}`)
     }
-  }, [ownerUserId, refreshSchedulerData, load, mutatePool, mutateActivePipeline, registerJobCompletedToday])
+  }, [ownerUserId, refreshSchedulerData, load, mutatePool, mutateActivePipeline, registerJobCompletedToday, isActive])
 
   const drawerOpen = Boolean(drawerPoolJob || drawerScheduledEvent)
   const [drawerEditIntentTick, setDrawerEditIntentTick] = useState(0)

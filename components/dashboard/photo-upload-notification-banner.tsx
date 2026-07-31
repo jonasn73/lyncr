@@ -79,10 +79,9 @@ export function PhotoUploadNotificationBanner() {
     legacy.bind("notification.photo_uploaded", onPhotoUploaded)
 
     return () => {
+      // Unbind only — do not unsubscribe; LyncEngine / CallAnsweredModal share these channels.
       channel.unbind("notification.photo_uploaded", onPhotoUploaded)
       legacy.unbind("notification.photo_uploaded", onPhotoUploaded)
-      pusher.unsubscribe(channel.name)
-      pusher.unsubscribe(legacy.name)
     }
   }, [ownerUserId])
 

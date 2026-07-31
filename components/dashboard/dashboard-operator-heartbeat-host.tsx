@@ -17,7 +17,8 @@ export function DashboardOperatorHeartbeatHost() {
     // No session → nothing to heartbeat.
     if (!companyUserId) return
 
-    // Fire one immediate ping, then on an interval while visible.
+    // Fire first ping after a short delay so hard-refresh network isn't contested,
+    // then on an interval while visible.
     const ping = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return
       void fetch("/api/operator/heartbeat", {
@@ -28,7 +29,7 @@ export function DashboardOperatorHeartbeatHost() {
       })
     }
 
-    ping()
+    const startId = window.setTimeout(ping, 8_000)
     const id = window.setInterval(ping, HEARTBEAT_MS)
 
     // Re-ping when the user returns to this tab.
@@ -38,6 +39,7 @@ export function DashboardOperatorHeartbeatHost() {
     document.addEventListener("visibilitychange", onVis)
 
     return () => {
+      window.clearTimeout(startId)
       window.clearInterval(id)
       document.removeEventListener("visibilitychange", onVis)
     }

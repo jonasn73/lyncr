@@ -232,9 +232,12 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 
 export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
   embedded = false,
+  isActive = true,
 }: {
   /** Compact mode for the header avatar Settings sheet. */
   embedded?: boolean
+  /** When false (presence host inactive), skip profile / 10DLC network. */
+  isActive?: boolean
 }) {
   const { toast } = useToast()
   const sessionSeed = useDashboardSessionOptional()
@@ -255,6 +258,8 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
   const [whisperSaving, setWhisperSaving] = useState(false)
 
   useEffect(() => {
+    // Header-embedded sheet always loads; tab pane waits until Settings is active.
+    if (!embedded && !isActive) return
     let cancelled = false
 
     void fetchOnboardingProfile()
@@ -294,9 +299,10 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
     return () => {
       cancelled = true
     }
-  }, [sessionSeed])
+  }, [sessionSeed, isActive, embedded])
 
   useEffect(() => {
+    if (!embedded && !isActive) return
     const orgId = activeOrganizationId ?? readActiveOrganizationId()
     const qs =
       orgId && !orgId.startsWith("legacy-")
@@ -310,7 +316,7 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
         setCarrierRegistrationPending(pending)
       })
       .catch(() => setCarrierRegistrationPending(false))
-  }, [activeOrganizationId])
+  }, [activeOrganizationId, isActive, embedded])
 
   async function saveWhisper(next: boolean) {
     setWhisperSaving(true)

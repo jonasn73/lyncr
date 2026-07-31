@@ -52,11 +52,15 @@ function normalizeApiRow(raw: Record<string, unknown>): MissedLeadCallRow | null
 
 const EMPTY_ROWS: MissedLeadCallRow[] = []
 
-export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]) {
+export function useMissedLeadInsights(
+  businessNumbers: DashboardBusinessNumber[],
+  /** When false, skip network (Lines pane hidden / inactive). */
+  enabled = true
+) {
   const cachedRows = EMPTY_ROWS
   const [liveRows, setLiveRows] = useState<MissedLeadCallRow[] | null>(null)
   const rows = liveRows ?? cachedRows
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [interceptTick, setInterceptTick] = useState(0)
 
   // Stable string key — do not depend on businessNumbers array identity (#185 risk).
@@ -112,6 +116,10 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
   }, [linesKey])
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
     void load()
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return
@@ -128,7 +136,7 @@ export function useMissedLeadInsights(businessNumbers: DashboardBusinessNumber[]
       window.removeEventListener(LYNCR_ACTIVITY_REFRESH_EVENT, onRefresh)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [load])
+  }, [load, enabled])
 
   const insights = useMemo(() => {
     void interceptTick

@@ -19,6 +19,7 @@ import { PresenceStatusBar } from "@/components/dashboard/presence-status-bar"
 import { AccountPresenceProvider } from "@/components/dashboard/account-presence-context"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
+import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
 import { useMissedLeadInsights } from "@/lib/hooks/use-missed-lead-insights"
 import {
@@ -168,7 +169,9 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   openManageModal: () => void
 }) {
   const realtimeStats = useRealTimeStatsContextOptional()
-  const missedLeadInsights = useMissedLeadInsights(businessNumbers)
+  // Only hit /api/calls while Lines is the active tab — Activity owns the full log elsewhere.
+  const linesActive = useDashboardActivePage() === "dashboard"
+  const missedLeadInsights = useMissedLeadInsights(businessNumbers, linesActive)
 
   // Always reserve Presence + main-line row height so refresh doesn’t collapse under Live & Connected.
   const stickyChrome = (
