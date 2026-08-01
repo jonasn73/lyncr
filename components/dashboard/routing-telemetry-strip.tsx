@@ -1,8 +1,7 @@
 "use client"
 
 import { memo, useCallback, useState } from "react"
-import Link from "next/link"
-import { ChevronRight, Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
+import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
@@ -21,12 +20,7 @@ import {
   formatMissedTickerLabel,
   formatMissedTickerSublabel,
 } from "@/lib/missed-lead-aggregation"
-import { DASHBOARD_MOBILE_PAGE_HREF, DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
 import { LINES_MOBILE_CARD } from "@/lib/mobile-shell"
-
-/** Full call log — same deep link the Activity mobile tab uses. */
-const ALL_CALLS_HREF =
-  DASHBOARD_MOBILE_PAGE_HREF.activity ?? `${DASHBOARD_PAGE_HREF.activity}?filter=all`
 
 type TelemetryPillProps = {
   label: string
@@ -247,24 +241,6 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
-        {/* Deep-link to the full Activity call log (missed callbacks + history). */}
-        <Link
-          href={ALL_CALLS_HREF}
-          prefetch
-          scroll={false}
-          className={cn(
-            LINES_MOBILE_CARD,
-            "flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2",
-            "text-sm font-semibold text-foreground touch-manipulation",
-            "transition-colors hover:bg-zinc-900/60 active:scale-[0.99]"
-          )}
-        >
-          <span className="inline-flex items-center gap-2">
-            <PhoneIncoming className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
-            All calls
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
-        </Link>
       </section>
       <section
         className={cn("hidden w-full space-y-2 md:block", className)}
@@ -303,18 +279,6 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
-        <Link
-          href={ALL_CALLS_HREF}
-          prefetch
-          scroll={false}
-          className={cn(
-            "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-1 py-1.5",
-            "text-xs font-semibold text-primary hover:underline"
-          )}
-        >
-          All calls
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-        </Link>
       </section>
 
       {/* Lazy-mount dialogs — closed Radix roots still ran effects/close buttons
