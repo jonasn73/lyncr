@@ -2,7 +2,7 @@
 
 // Lines “Latest” card — hot work only: unreplied inbound + jobs needing review SMS.
 
-import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle2,
@@ -24,7 +24,11 @@ import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
-import { isLatestReplyUnread, markLatestReplySeen } from "@/lib/latest-seen"
+import {
+  excludeReadRepliesFromLatest,
+  LATEST_SEEN_CHANGED_EVENT,
+  markLatestReplySeen,
+} from "@/lib/latest-seen"
 import {
   LINES_MOBILE_CARD,
   LINES_MOBILE_SECTION_LABEL,
@@ -86,24 +90,30 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
   // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
-  const { items, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
+  const { items: rawItems, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   /** Job ids whose last Thanks+review send failed — show Retry on the row. */
   const [failedReviewJobIds, setFailedReviewJobIds] = useState<Set<string>>(() => new Set())
   const [markingOpened, setMarkingOpened] = useState(false)
-  // Bumps when we mark a reply seen so unread dots re-render.
+  // Bumps when we mark a reply seen so read rows leave Latest immediately.
   const [seenTick, setSeenTick] = useState(0)
+  // Drop opened “Customer replied” rows; job-finished review items stay.
+  const items = useMemo(() => {
+    void seenTick
+    return excludeReadRepliesFromLatest(rawItems)
+  }, [rawItems, seenTick])
   const unrepliedCount = items.filter((i) => i.event === "replied").length
 
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
   // Skip no-op setState so list refreshes cannot churn the Sheet open state (#185).
+  // Do NOT close when the row was dismissed as read — selected stays until the user closes.
   const selectedPhone = selected?.customerPhone ?? null
   useEffect(() => {
     if (!selectedPhone) return
-    const next = items.find((i) => i.customerPhone === selectedPhone)
+    const next = rawItems.find((i) => i.customerPhone === selectedPhone)
+    if (!next) return
     setSelected((prev) => {
-      if (!next) return null
       if (
         prev &&
         prev.id === next.id &&
@@ -116,16 +126,24 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       }
       return next
     })
-  }, [items, selectedPhone])
+  }, [rawItems, selectedPhone])
 
   const markSeen = useCallback((phone: string) => {
     if (!phone.trim()) return
     markLatestReplySeen(phone)
     setSeenTick((n) => n + 1)
-  }, [])
+    // Optimistic: remove this reply from the shared Latest list + cache.
+    const key = phoneMatchKey(phone)
+    setItems((prev) =>
+      prev.filter(
+        (i) => !(i.event === "replied" && phoneMatchKey(i.customerPhone) === key)
+      )
+    )
+  }, [setItems])
 
   const openDetail = useCallback(
     (item: LatestCustomerAction) => {
+      // Opening a customer-reply card counts as read → leaves Latest.
       if (item.event === "replied" && item.customerPhone) {
         markSeen(item.customerPhone)
       }
@@ -222,11 +240,15 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [markSeen, router]
   )
 
-  // Re-read unread dots when returning to the tab (Messages may have marked seen).
+  // Re-filter when returning to the tab or when Messages marks a thread seen.
   useEffect(() => {
-    const onFocus = () => setSeenTick((n) => n + 1)
-    window.addEventListener("focus", onFocus)
-    return () => window.removeEventListener("focus", onFocus)
+    const bump = () => setSeenTick((n) => n + 1)
+    window.addEventListener("focus", bump)
+    window.addEventListener(LATEST_SEEN_CHANGED_EVENT, bump)
+    return () => {
+      window.removeEventListener("focus", bump)
+      window.removeEventListener(LATEST_SEEN_CHANGED_EVENT, bump)
+    }
   }, [])
 
   return (
@@ -287,13 +309,9 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           ) : (
             <ul className="space-y-2">
               {items.map((item) => {
-                // seenTick re-reads localStorage after markSeen / window focus.
-                void seenTick
-                const unread =
-                  item.event === "replied" &&
-                  Boolean(item.lastInbound) &&
-                  isLatestReplyUnread(item.customerPhone, item.lastInbound!.created_at)
                 const isJob = item.event === "job_finished"
+                // Replies in this list are unread by definition (read ones were filtered out).
+                const unread = item.event === "replied"
                 return (
                   <li key={item.id}>
                     <div

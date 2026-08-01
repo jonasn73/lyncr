@@ -302,6 +302,8 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
         data?: { message?: SmsMessage | null; delivery_warning?: string | null }
       }
       if (!res.ok) throw new Error(json.error || "Could not send message")
+      // Sending a reply clears this thread from Latest (same as opening it).
+      markLatestReplySeen(to)
       if (json.data?.message) {
         setLiveMessages((prev) => [json.data!.message!, ...(prev ?? cachedMessages)])
       } else {

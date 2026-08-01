@@ -1,6 +1,12 @@
-// Track which inbound Latest replies the owner has already opened (localStorage v1).
+// Track which inbound Latest replies the owner has already opened (localStorage).
+// Read replies leave Latest until a newer inbound arrives.
+
+import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
 const STORAGE_KEY = "lyncr-latest-reply-seen-v1"
+
+/** Same-tab signal so Latest can drop a row without waiting for the next poll. */
+export const LATEST_SEEN_CHANGED_EVENT = "lyncr:latest-seen-changed"
 
 /** Last 10 digits — same phone key as Latest / Messages. */
 export function latestPhoneKey(phone: string): string {
@@ -36,6 +42,17 @@ function writeMap(map: SeenMap) {
   }
 }
 
+function notifySeenChanged(phoneKey: string) {
+  if (typeof window === "undefined") return
+  try {
+    window.dispatchEvent(
+      new CustomEvent(LATEST_SEEN_CHANGED_EVENT, { detail: { phoneKey } })
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
 /** When the owner last opened this phone’s Latest detail or Messages thread. */
 export function getLatestReplySeenAt(phone: string): string | null {
   const key = latestPhoneKey(phone)
@@ -50,14 +67,19 @@ export function markLatestReplySeen(phone: string, at = new Date().toISOString()
   const map = readMap()
   const prev = map[key]
   // Only move forward — never un-see a newer stamp with an older one.
-  if (prev && (Date.parse(prev) || 0) >= (Date.parse(at) || 0)) return
+  if (prev && (Date.parse(prev) || 0) >= (Date.parse(at) || 0)) {
+    // Still notify so Latest can drop a row that was already stamped.
+    notifySeenChanged(key)
+    return
+  }
   map[key] = at
   writeMap(map)
+  notifySeenChanged(key)
 }
 
 /**
  * True when there is a newer inbound reply than the last time the owner opened it.
- * Used for the unread dot (status stays “Needs reply” until they text back).
+ * Used to keep “Customer replied” rows in Latest only while unread.
  */
 export function isLatestReplyUnread(phone: string, inboundAt: string): boolean {
   const inboundMs = Date.parse(inboundAt) || 0
@@ -65,4 +87,19 @@ export function isLatestReplyUnread(phone: string, inboundAt: string): boolean {
   const seen = getLatestReplySeenAt(phone)
   if (!seen) return true
   return inboundMs > (Date.parse(seen) || 0)
+}
+
+/**
+ * Drop customer-reply Latest rows the owner already opened.
+ * Job-finished “needs review text” rows stay until Thanks + review is sent.
+ */
+export function excludeReadRepliesFromLatest(
+  items: LatestCustomerAction[]
+): LatestCustomerAction[] {
+  return items.filter((item) => {
+    if (item.event !== "replied") return true
+    const inboundAt = item.lastInbound?.created_at
+    if (!inboundAt) return true
+    return isLatestReplyUnread(item.customerPhone, inboundAt)
+  })
 }

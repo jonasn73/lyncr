@@ -14,6 +14,10 @@ import {
   readLatestCache,
   writeLatestCache,
 } from "@/lib/owner-latest-cache"
+import {
+  excludeReadRepliesFromLatest,
+  LATEST_SEEN_CHANGED_EVENT,
+} from "@/lib/latest-seen"
 
 /** Slow backup poll while the browser tab is hidden (Lines stays mounted). */
 const LATEST_POLL_VISIBLE_MS = 30_000
@@ -45,7 +49,9 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
     if (!res.ok || !json?.data) {
       throw new Error("latest-load-failed")
     }
-    const items = Array.isArray(json.data.latest) ? json.data.latest : []
+    const raw = Array.isArray(json.data.latest) ? json.data.latest : []
+    // Hide replies the owner already opened (localStorage seen stamps).
+    const items = excludeReadRepliesFromLatest(raw)
     writeLatestCache(organizationId, items)
     // Prefer sanitized cache so hot-only filter matches session/cookie seeds.
     return readLatestCache(organizationId)
@@ -115,11 +121,29 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     (next: LatestCustomerAction[] | ((prev: LatestCustomerAction[]) => LatestCustomerAction[])) => {
       setLiveItems((prev) => {
         const base = prev ?? cachedItems
-        return typeof next === "function" ? next(base) : next
+        const resolved = typeof next === "function" ? next(base) : next
+        const filtered = excludeReadRepliesFromLatest(resolved)
+        writeLatestCache(activeOrganizationId, filtered)
+        return filtered
       })
     },
-    [cachedItems]
+    [activeOrganizationId, cachedItems]
   )
+
+  // When Messages / Latest marks a phone seen, drop that reply row immediately.
+  useEffect(() => {
+    const onSeen = () => {
+      setLiveItems((prev) => {
+        const base = prev ?? cachedItems
+        const filtered = excludeReadRepliesFromLatest(base)
+        if (filtered.length === base.length) return prev
+        writeLatestCache(activeOrganizationId, filtered)
+        return filtered
+      })
+    }
+    window.addEventListener(LATEST_SEEN_CHANGED_EVENT, onSeen)
+    return () => window.removeEventListener(LATEST_SEEN_CHANGED_EVENT, onSeen)
+  }, [activeOrganizationId, cachedItems])
 
   useEffect(() => {
     void load()
