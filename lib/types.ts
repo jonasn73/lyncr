@@ -739,6 +739,43 @@ export interface LyncrAdminMetrics {
   }
 }
 
+/**
+ * Per-business money for Ops Home / Businesses drawer.
+ * Net ≈ plan + card fees + credit packs − est. Telnyx phone cost (this month, US Eastern).
+ */
+export interface AdminBusinessEconomics {
+  user_id: string
+  business_name: string
+  email: string
+  subscription_tier: string
+  has_active_subscription: boolean
+  plan_revenue_cents: number
+  plan_revenue_label: string
+  plan_tier_label: string
+  est_phone_cost_mtd_cents: number
+  est_phone_cost_mtd_label: string
+  card_fee_mtd_cents: number
+  card_fee_mtd_label: string
+  credit_pack_mtd_cents: number
+  credit_pack_mtd_label: string
+  net_cents: number
+  net_label: string
+  ahead: boolean
+  verdict_label: string
+  month_label: string
+  talk_minutes_mtd: number
+  call_count_mtd: number
+  sms_count_mtd: number
+  wallet_burn_mtd_cents: number
+  wallet_burn_mtd_label: string
+  number_purchase_mtd_cents: number
+  number_purchase_mtd_label: string
+  phone_cost_method: "estimate_minutes" | "wallet_burn" | "mixed"
+  carrier_credit_usd: number
+  stripe_connect_account_id: string | null
+  breakdown_notes: string[]
+}
+
 // --- Receptionists / Agents ---
 export type ReceptionistPayMode = "FLAT_RATE" | "PER_MINUTE"
 

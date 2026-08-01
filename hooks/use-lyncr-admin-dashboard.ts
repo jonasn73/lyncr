@@ -4,11 +4,16 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import type { LyncrAdminDirectoryRow, LyncrAdminMetrics } from "@/lib/types"
+import type {
+  AdminBusinessEconomics,
+  LyncrAdminDirectoryRow,
+  LyncrAdminMetrics,
+} from "@/lib/types"
 
 export type LyncrAdminDashboardData = {
   metrics: LyncrAdminMetrics | null
   users: LyncrAdminDirectoryRow[]
+  businessEconomics: AdminBusinessEconomics[]
   loading: boolean
   refreshing: boolean
   fetchLatestAdminStats: (silent?: boolean) => Promise<void>
@@ -17,6 +22,7 @@ export type LyncrAdminDashboardData = {
 export function useLyncrAdminDashboardData(): LyncrAdminDashboardData {
   const [metrics, setMetrics] = useState<LyncrAdminMetrics | null>(null)
   const [users, setUsers] = useState<LyncrAdminDirectoryRow[]>([])
+  const [businessEconomics, setBusinessEconomics] = useState<AdminBusinessEconomics[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -27,11 +33,16 @@ export function useLyncrAdminDashboardData(): LyncrAdminDashboardData {
       const res = await fetch("/api/admin/data", { credentials: "include", cache: "no-store" })
       const json = (await res.json()) as {
         error?: string
-        data?: { metrics?: LyncrAdminMetrics; users?: LyncrAdminDirectoryRow[] }
+        data?: {
+          metrics?: LyncrAdminMetrics
+          users?: LyncrAdminDirectoryRow[]
+          business_economics?: AdminBusinessEconomics[]
+        }
       }
       if (!res.ok) throw new Error(json.error ?? "Failed to load admin data")
       setMetrics(json.data?.metrics ?? null)
       setUsers(json.data?.users ?? [])
+      setBusinessEconomics(json.data?.business_economics ?? [])
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load admin data")
     } finally {
@@ -44,5 +55,5 @@ export function useLyncrAdminDashboardData(): LyncrAdminDashboardData {
     void fetchLatestAdminStats()
   }, [fetchLatestAdminStats])
 
-  return { metrics, users, loading, refreshing, fetchLatestAdminStats }
+  return { metrics, users, businessEconomics, loading, refreshing, fetchLatestAdminStats }
 }

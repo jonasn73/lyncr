@@ -7,7 +7,8 @@ import { useLyncrAdminDashboardData } from "@/hooks/use-lyncr-admin-dashboard"
 import type { LyncrAdminDirectoryRow } from "@/lib/types"
 
 export default function AdminBusinessesPage() {
-  const { metrics, users, loading, refreshing, fetchLatestAdminStats } = useLyncrAdminDashboardData()
+  const { metrics, users, businessEconomics, loading, refreshing, fetchLatestAdminStats } =
+    useLyncrAdminDashboardData()
   const [manageUser, setManageUser] = useState<LyncrAdminDirectoryRow | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -22,6 +23,7 @@ export default function AdminBusinessesPage() {
         view="businesses"
         metrics={metrics}
         users={users}
+        businessEconomics={businessEconomics}
         loading={loading}
         refreshing={refreshing}
         fetchLatestAdminStats={fetchLatestAdminStats}
@@ -32,6 +34,11 @@ export default function AdminBusinessesPage() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         fetchLatestAdminStats={fetchLatestAdminStats}
+        businessEconomics={
+          manageUser
+            ? businessEconomics.find((b) => b.user_id === manageUser.user_id) ?? null
+            : null
+        }
       />
     </>
   )

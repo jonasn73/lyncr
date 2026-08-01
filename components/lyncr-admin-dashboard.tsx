@@ -4,7 +4,6 @@
 
 import { useMemo, useState, useTransition } from "react"
 import {
-  Activity,
   Check,
   Copy,
   Database,
@@ -67,8 +66,11 @@ import {
 } from "@/components/ui/sheet"
 import { accountStatusLabel } from "@/lib/account-status"
 import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
-import { LiveTrafficPulse } from "@/components/admin/live-traffic"
-import { CallHistoryTable } from "@/components/admin/call-history"
+import {
+  BusinessMoneyBreakdown,
+  BusinessMoneyChip,
+} from "@/components/admin/business-money"
+import type { AdminBusinessEconomics } from "@/lib/types"
 
 type MoneySheetKey = "telnyx" | "saas" | "card_fees" | "credits" | "stripe" | "wallets" | "paying" | null
 
@@ -625,15 +627,17 @@ function UserRowActions({
 export function LyncrAdminDashboard({
   metrics,
   users,
+  businessEconomics = [],
   loading,
   refreshing,
   fetchLatestAdminStats,
   onManageUser,
-  /** home = KPIs + live traffic; businesses = tenant directory + Manage */
+  /** home = platform money + per-business P&L; businesses = tenant directory + Manage */
   view = "home",
 }: {
   metrics: LyncrAdminMetrics | null
   users: LyncrAdminDirectoryRow[]
+  businessEconomics?: AdminBusinessEconomics[]
   loading: boolean
   refreshing: boolean
   fetchLatestAdminStats: (silent?: boolean) => Promise<void>
@@ -648,6 +652,8 @@ export function LyncrAdminDashboard({
   // Optimistic phone edits keyed by user_id so saves render instantly without a refetch.
   const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({})
   const [moneySheet, setMoneySheet] = useState<MoneySheetKey>(null)
+  const [bizMoneyQuery, setBizMoneyQuery] = useState("")
+  const [selectedBizMoney, setSelectedBizMoney] = useState<AdminBusinessEconomics | null>(null)
 
   function handlePhoneSaved(userId: string, phone: string) {
     setPhoneOverrides((prev) => ({ ...prev, [userId]: phone }))
@@ -681,6 +687,26 @@ export function LyncrAdminDashboard({
   const routingPoolAvailableUsd = metrics?.telnyx_routing_pool?.available_credit_usd ?? NaN
   const routingPoolAvailableLabel = metrics?.telnyx_routing_pool?.available_credit_label ?? ""
 
+  // Prefer shops with money activity this month; keep names searchable (e.g. Key Squad 502).
+  const filteredBizMoney = useMemo(() => {
+    const q = bizMoneyQuery.trim().toLowerCase()
+    const rows = businessEconomics.filter((b) => {
+      if (!q) return true
+      return (
+        b.business_name.toLowerCase().includes(q) ||
+        b.email.toLowerCase().includes(q)
+      )
+    })
+    return [...rows].sort((a, b) => {
+      const aScore =
+        Math.abs(a.net_cents) + a.card_fee_mtd_cents + a.est_phone_cost_mtd_cents + a.plan_revenue_cents
+      const bScore =
+        Math.abs(b.net_cents) + b.card_fee_mtd_cents + b.est_phone_cost_mtd_cents + b.plan_revenue_cents
+      if (bScore !== aScore) return bScore - aScore
+      return a.business_name.localeCompare(b.business_name)
+    })
+  }, [businessEconomics, bizMoneyQuery])
+
   if (loading && !metrics) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -692,7 +718,7 @@ export function LyncrAdminDashboard({
   const pageTitle = view === "home" ? "Ops home" : "Manage businesses"
   const pageSubtitle =
     view === "home"
-      ? "Phone balance, fees, and live traffic"
+      ? "Platform money + per-business profit / loss"
       : "Find a business, then tap Manage"
 
   return (
@@ -955,38 +981,81 @@ export function LyncrAdminDashboard({
             </SheetContent>
           </Sheet>
 
-          <div className="grid gap-3 sm:grid-cols-1">
-            <Card className="border-slate-800 bg-slate-900/60">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div>
-                  <CardTitle className="text-sm font-medium text-slate-200">System health</CardTitle>
-                  <p className="mt-0.5 text-xs text-slate-500">Can Lyncr reach the database and phone network?</p>
-                </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/15 ring-1 ring-emerald-500/25">
-                  <Activity className="h-4 w-4 text-emerald-300" aria-hidden />
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-2 sm:grid-cols-2">
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
-                    <Database className="h-3.5 w-3.5" aria-hidden /> Database (Neon)
-                  </span>
-                  <HealthDot status={metrics?.health.neon ?? "error"} />
-                </div>
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
-                    <Phone className="h-3.5 w-3.5" aria-hidden /> Phone API (Telnyx)
-                  </span>
-                  <HealthDot status={metrics?.health.telnyx ?? "error"} />
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+            <span className="font-medium text-slate-300">System</span>
+            <span className="inline-flex items-center gap-1.5">
+              <Database className="h-3.5 w-3.5" aria-hidden /> Neon
+              <HealthDot status={metrics?.health.neon ?? "error"} />
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
+              <HealthDot status={metrics?.health.telnyx ?? "error"} />
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <LiveTrafficPulse />
-            <CallHistoryTable />
-          </div>
+          <section className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-100">Business money</h2>
+                <p className="hidden text-xs text-slate-500 md:block">
+                  Tap a shop to see plan, phone cost, card fees, and whether Lyncr is ahead or behind.
+                </p>
+              </div>
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+                <Input
+                  type="search"
+                  placeholder="Search Key Squad, email…"
+                  value={bizMoneyQuery}
+                  onChange={(e) => setBizMoneyQuery(e.target.value)}
+                  className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
+                />
+              </div>
+            </div>
+
+            {filteredBizMoney.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-6 text-center text-sm text-slate-500">
+                No businesses match. Try “Key Squad” or clear the search.
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {filteredBizMoney.slice(0, 24).map((row) => (
+                  <BusinessMoneyChip
+                    key={row.user_id}
+                    row={row}
+                    onClick={() => setSelectedBizMoney(row)}
+                  />
+                ))}
+              </div>
+            )}
+            {filteredBizMoney.length > 24 ? (
+              <p className="text-center text-[11px] text-slate-500">
+                Showing top 24 of {filteredBizMoney.length} — refine search to find others.
+              </p>
+            ) : null}
+          </section>
+
+          <Sheet
+            open={selectedBizMoney != null}
+            onOpenChange={(open) => !open && setSelectedBizMoney(null)}
+          >
+            <SheetContent
+              side="right"
+              className="w-full border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md"
+            >
+              <SheetHeader>
+                <SheetTitle className="text-slate-50">
+                  {selectedBizMoney?.business_name ?? "Business money"}
+                </SheetTitle>
+                <SheetDescription className="text-slate-400">
+                  {selectedBizMoney?.email ?? "What this shop pays Lyncr vs what it costs."}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 px-1">
+                {selectedBizMoney ? <BusinessMoneyBreakdown row={selectedBizMoney} /> : null}
+              </div>
+            </SheetContent>
+          </Sheet>
         </>
       ) : null}
 

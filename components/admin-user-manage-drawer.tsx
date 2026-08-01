@@ -6,7 +6,12 @@ import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Loader2, Phone, Wallet, Zap, Building2, Users, Mail, MessageSquare, HardHat } from "lucide-react"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
-import type { AdminTenantControls, LyncrAdminDirectoryRow, SmsRegistrationOrgStatus } from "@/lib/types"
+import type {
+  AdminBusinessEconomics,
+  AdminTenantControls,
+  LyncrAdminDirectoryRow,
+  SmsRegistrationOrgStatus,
+} from "@/lib/types"
 import { ACCOUNT_STATUSES, accountStatusLabel } from "@/lib/account-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +20,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { BusinessMoneyBreakdown } from "@/components/admin/business-money"
 import {
   Accordion,
   AccordionContent,
@@ -88,11 +94,14 @@ export function AdminUserManageDrawer({
   open,
   onOpenChange,
   fetchLatestAdminStats,
+  businessEconomics = null,
 }: {
   row: LyncrAdminDirectoryRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
   fetchLatestAdminStats: (silent?: boolean) => Promise<void>
+  /** Precomputed P&L from Ops Home /admin/data — shown at top of the drawer. */
+  businessEconomics?: AdminBusinessEconomics | null
 }) {
   const [targetStatus, setTargetStatus] = useState("active")
   const [adminNotes, setAdminNotes] = useState("")
@@ -286,6 +295,15 @@ export function AdminUserManageDrawer({
             className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-2"
             onSubmit={(e) => void handleSaveSubmit(e)}
           >
+            {businessEconomics ? (
+              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Business money
+                </p>
+                <BusinessMoneyBreakdown row={businessEconomics} />
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <Label className="text-slate-300">Account status</Label>
               <div className="flex flex-wrap gap-2" role="group" aria-label="Account status">

@@ -12206,6 +12206,198 @@ export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "h
   }
 }
 
+/** Raw Neon rows for per-business Ops P&L (assembled in admin-business-economics). */
+export type AdminBusinessEconomicsRawRow = {
+  user_id: string
+  email: string
+  business_name: string
+  stripe_connect_account_id: string | null
+  subscription_tier: string
+  has_active_subscription: boolean
+  carrier_credit: number
+  call_count_mtd: number
+  talk_seconds_mtd: number
+  sms_count_mtd: number
+  wallet_burn_mtd_cents: number
+  number_purchase_mtd_cents: number
+  credit_pack_mtd_cents: number
+}
+
+/**
+ * Owner businesses + this-month usage/ledger rollups (US Eastern month start).
+ * Card fees come from wallet_transactions via getAdminBusinessEconomicsWalletCharges.
+ */
+export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessEconomicsRawRow[]> {
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      WITH month_start AS (
+        SELECT (date_trunc('month', timezone('America/New_York', now())) AT TIME ZONE 'America/New_York') AS ts
+      ),
+      owners AS (
+        SELECT
+          u.id AS user_id,
+          u.email,
+          coalesce(nullif(trim(u.business_name), ''), 'Unnamed business') AS business_name,
+          u.stripe_connect_account_id,
+          lower(coalesce(nullif(trim(op.subscription_tier), ''), 'free_trial')) AS subscription_tier,
+          coalesce(op.has_active_subscription, false) AS has_active_subscription,
+          coalesce(op.carrier_credit, 0)::numeric AS carrier_credit
+        FROM users u
+        LEFT JOIN onboarding_profiles op ON op.user_id = u.id
+        WHERE coalesce(u.account_role, 'owner') = 'owner'
+          AND nullif(trim(u.business_name), '') IS NOT NULL
+      ),
+      calls AS (
+        SELECT cl.user_id,
+               count(*)::int AS call_count,
+               coalesce(sum(cl.duration_seconds), 0)::bigint AS talk_seconds
+        FROM call_logs cl, month_start m
+        WHERE cl.created_at >= m.ts
+        GROUP BY cl.user_id
+      ),
+      sms AS (
+        SELECT sm.owner_user_id AS user_id, count(*)::int AS sms_count
+        FROM sms_messages sm, month_start m
+        WHERE sm.created_at >= m.ts
+        GROUP BY sm.owner_user_id
+      ),
+      ledger AS (
+        SELECT bl.user_id,
+               coalesce(sum(CASE WHEN bl.delta_cents < 0 THEN -bl.delta_cents ELSE 0 END), 0)::bigint AS wallet_burn_cents,
+               coalesce(sum(CASE WHEN bl.reason = 'carrier_number_purchase' AND bl.delta_cents < 0 THEN -bl.delta_cents ELSE 0 END), 0)::bigint AS number_purchase_cents,
+               coalesce(sum(CASE WHEN bl.reason IN ('stripe_credit_pack', 'stripe_credit_pack_manual_backfill') AND bl.delta_cents > 0 THEN bl.delta_cents ELSE 0 END), 0)::bigint AS credit_pack_cents
+        FROM billing_ledger bl, month_start m
+        WHERE bl.created_at >= m.ts
+        GROUP BY bl.user_id
+      )
+      SELECT
+        o.user_id,
+        o.email,
+        o.business_name,
+        o.stripe_connect_account_id,
+        o.subscription_tier,
+        o.has_active_subscription,
+        o.carrier_credit,
+        coalesce(c.call_count, 0)::int AS call_count_mtd,
+        coalesce(c.talk_seconds, 0)::bigint AS talk_seconds_mtd,
+        coalesce(s.sms_count, 0)::int AS sms_count_mtd,
+        coalesce(l.wallet_burn_cents, 0)::bigint AS wallet_burn_mtd_cents,
+        coalesce(l.number_purchase_cents, 0)::bigint AS number_purchase_mtd_cents,
+        coalesce(l.credit_pack_cents, 0)::bigint AS credit_pack_mtd_cents
+      FROM owners o
+      LEFT JOIN calls c ON c.user_id = o.user_id
+      LEFT JOIN sms s ON s.user_id = o.user_id
+      LEFT JOIN ledger l ON l.user_id = o.user_id
+      ORDER BY o.business_name ASC
+    `) as Record<string, unknown>[]
+
+    return rows.map((row) => ({
+      user_id: String(row.user_id),
+      email: String(row.email ?? ""),
+      business_name: String(row.business_name ?? "Unnamed business"),
+      stripe_connect_account_id:
+        row.stripe_connect_account_id != null ? String(row.stripe_connect_account_id) : null,
+      subscription_tier: String(row.subscription_tier ?? "free_trial"),
+      has_active_subscription: pgBool(row.has_active_subscription),
+      carrier_credit: Number(row.carrier_credit ?? 0),
+      call_count_mtd: Number(row.call_count_mtd ?? 0),
+      talk_seconds_mtd: Number(row.talk_seconds_mtd ?? 0),
+      sms_count_mtd: Number(row.sms_count_mtd ?? 0),
+      wallet_burn_mtd_cents: Number(row.wallet_burn_mtd_cents ?? 0),
+      number_purchase_mtd_cents: Number(row.number_purchase_mtd_cents ?? 0),
+      credit_pack_mtd_cents: Number(row.credit_pack_mtd_cents ?? 0),
+    }))
+  } catch (e) {
+    // sms_messages or billing_ledger may be missing on older DBs — retry without them.
+    if (
+      isUndefinedRelationError(e, "sms_messages") ||
+      isUndefinedRelationError(e, "billing_ledger") ||
+      isUndefinedRelationError(e, "onboarding_profiles")
+    ) {
+      try {
+        const rows = (await sql`
+          WITH month_start AS (
+            SELECT (date_trunc('month', timezone('America/New_York', now())) AT TIME ZONE 'America/New_York') AS ts
+          )
+          SELECT
+            u.id AS user_id,
+            u.email,
+            coalesce(nullif(trim(u.business_name), ''), 'Unnamed business') AS business_name,
+            u.stripe_connect_account_id,
+            'free_trial' AS subscription_tier,
+            false AS has_active_subscription,
+            0::numeric AS carrier_credit,
+            coalesce((
+              SELECT count(*)::int FROM call_logs cl, month_start m
+              WHERE cl.user_id = u.id AND cl.created_at >= m.ts
+            ), 0) AS call_count_mtd,
+            coalesce((
+              SELECT coalesce(sum(cl.duration_seconds), 0)::bigint FROM call_logs cl, month_start m
+              WHERE cl.user_id = u.id AND cl.created_at >= m.ts
+            ), 0) AS talk_seconds_mtd,
+            0::int AS sms_count_mtd,
+            0::bigint AS wallet_burn_mtd_cents,
+            0::bigint AS number_purchase_mtd_cents,
+            0::bigint AS credit_pack_mtd_cents
+          FROM users u
+          WHERE coalesce(u.account_role, 'owner') = 'owner'
+            AND nullif(trim(u.business_name), '') IS NOT NULL
+          ORDER BY business_name ASC
+        `) as Record<string, unknown>[]
+        return rows.map((row) => ({
+          user_id: String(row.user_id),
+          email: String(row.email ?? ""),
+          business_name: String(row.business_name ?? "Unnamed business"),
+          stripe_connect_account_id:
+            row.stripe_connect_account_id != null ? String(row.stripe_connect_account_id) : null,
+          subscription_tier: String(row.subscription_tier ?? "free_trial"),
+          has_active_subscription: pgBool(row.has_active_subscription),
+          carrier_credit: Number(row.carrier_credit ?? 0),
+          call_count_mtd: Number(row.call_count_mtd ?? 0),
+          talk_seconds_mtd: Number(row.talk_seconds_mtd ?? 0),
+          sms_count_mtd: Number(row.sms_count_mtd ?? 0),
+          wallet_burn_mtd_cents: Number(row.wallet_burn_mtd_cents ?? 0),
+          number_purchase_mtd_cents: Number(row.number_purchase_mtd_cents ?? 0),
+          credit_pack_mtd_cents: Number(row.credit_pack_mtd_cents ?? 0),
+        }))
+      } catch (e2) {
+        console.error("[db] getAdminBusinessEconomicsRawRows fallback:", e2)
+        return []
+      }
+    }
+    console.error("[db] getAdminBusinessEconomicsRawRows:", e)
+    return []
+  }
+}
+
+/** Completed Collect/Tap charges this month — used to estimate Lyncr application fees per shop. */
+export async function getAdminBusinessEconomicsWalletCharges(): Promise<
+  { user_id: string; amount_usd: number }[]
+> {
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      WITH month_start AS (
+        SELECT (date_trunc('month', timezone('America/New_York', now())) AT TIME ZONE 'America/New_York') AS ts
+      )
+      SELECT wt.user_id, wt.amount::numeric AS amount_usd
+      FROM wallet_transactions wt, month_start m
+      WHERE wt.created_at >= m.ts
+        AND upper(wt.status) = 'COMPLETED'
+        AND wt.amount > 0
+    `) as { user_id?: string; amount_usd?: number | string }[]
+    return rows.map((r) => ({
+      user_id: String(r.user_id),
+      amount_usd: Number(r.amount_usd ?? 0),
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "wallet_transactions")) return []
+    console.error("[db] getAdminBusinessEconomicsWalletCharges:", e)
+    return []
+  }
+}
+
 /** Neon finance bits for admin Ops Home (MRR estimate + credit-pack cash-in this month). */
 export async function getAdminFinanceNeonSnapshot(): Promise<{
   estimated_mrr_cents: number
