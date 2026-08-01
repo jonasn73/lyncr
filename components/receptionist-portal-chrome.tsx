@@ -1,6 +1,6 @@
 "use client"
 
-// Chrome for the receptionist portal — Home / Calls / Earnings + Sign out (no Training).
+// Chrome for the receptionist portal — Home / Calls / Earnings; Sign out only in bottom nav.
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -82,27 +82,7 @@ export function ReceptionistPortalChrome({
                 </Button>
               )
             })}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="ml-1 border-zinc-700"
-              onClick={() => void handleLogout()}
-            >
-              <LogOut className="mr-2 h-3.5 w-3.5" aria-hidden />
-              Sign out
-            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="border-zinc-700 sm:hidden"
-            onClick={() => void handleLogout()}
-          >
-            <LogOut className="h-3.5 w-3.5" aria-hidden />
-            <span className="sr-only">Sign out</span>
-          </Button>
         </div>
       </header>
 
