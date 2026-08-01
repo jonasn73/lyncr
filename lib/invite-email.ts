@@ -3,6 +3,8 @@
 // IMPORTANT: no third-party provider names (the mail vendor, telephony vendor, etc.) may appear in
 // the subject, body, or footer. Sender + copy are Lyncr-only. The send transport is an internal
 // detail and is never surfaced to the recipient.
+//
+// Owner-facing errors (returned to the Team UI) MAY mention Resend so beginners know what to fix.
 
 export type ReceptionistInviteEmailPayload = {
   from: string
@@ -12,8 +14,9 @@ export type ReceptionistInviteEmailPayload = {
   text: string
 }
 
-/** Lyncr-branded sender. Override with LYNCR_INVITE_FROM_EMAIL / RESEND_FROM_EMAIL (must be a verified lyncr.app mailer). */
+/** Lyncr-branded sender. Override with LYNCR_INVITE_FROM_EMAIL / RESEND_FROM_EMAIL (must be verified in Resend). */
 function inviteSender(): string {
+  // Prefer explicit env override, then shared from-address, then lyncr.app default.
   return (
     process.env.LYNCR_INVITE_FROM_EMAIL?.trim() ||
     process.env.RESEND_FROM_EMAIL?.trim() ||
@@ -126,6 +129,60 @@ export function buildReceptionistInviteEmailPayload(params: {
   }
 }
 
+/**
+ * Turn a Resend API error into a short, beginner-friendly owner message.
+ * Never includes API keys or raw JSON dumps.
+ */
+export function friendlyInviteEmailError(params: {
+  status: number
+  message?: string
+  fromAddress: string
+}): string {
+  const msg = (params.message ?? "").trim()
+  const lower = msg.toLowerCase()
+
+  // Bad / revoked / mistyped API key
+  if (
+    lower.includes("api key is invalid") ||
+    lower.includes("invalid api key") ||
+    lower.includes("missing api key") ||
+    params.status === 401
+  ) {
+    return "Email API key is invalid. In Vercel → Project Settings → Environment Variables, replace RESEND_API_KEY with a fresh key from resend.com/api-keys, then redeploy."
+  }
+
+  // Domain / from-address not verified in Resend
+  if (
+    lower.includes("not verified") ||
+    lower.includes("domain is not") ||
+    lower.includes("from address") ||
+    lower.includes("invalid from") ||
+    (params.status === 403 && lower.includes("domain"))
+  ) {
+    return `From address not verified in Resend (${params.fromAddress}). Verify lyncr.app under Resend → Domains, or set RESEND_FROM_EMAIL to a verified sender (testing: Lyncr <onboarding@resend.dev>).`
+  }
+
+  // Test-domain restriction: onboarding@resend.dev can only email the account owner
+  if (lower.includes("only send testing emails") || lower.includes("verify a domain")) {
+    return "Resend is in test mode for that from-address. Verify lyncr.app in Resend → Domains (DNS records), then use Lyncr Team <system@lyncr.app> — or set RESEND_FROM_EMAIL to that verified address."
+  }
+
+  // Rate / validation without leaking vendor payload
+  if (params.status === 422) {
+    return msg
+      ? `Email could not be sent: ${msg.slice(0, 180)}`
+      : "Email could not be sent (invalid request). Check the from-address and recipient email."
+  }
+
+  if (msg) {
+    // Keep short; strip anything that looks like a secret
+    const safe = msg.replace(/re_[A-Za-z0-9_]+/g, "re_…").slice(0, 180)
+    return `Email could not be sent: ${safe}`
+  }
+
+  return `Email send failed (HTTP ${params.status}). Copy the activation link and share it manually.`
+}
+
 /** Send the invite via the configured Lyncr mailer. Provider is an internal detail — never surfaced to recipients. */
 export async function sendReceptionistInviteEmail(
   payload: ReceptionistInviteEmailPayload
@@ -133,6 +190,16 @@ export async function sendReceptionistInviteEmail(
   const apiKey = process.env.RESEND_API_KEY?.trim()
   if (!apiKey) {
     return { sent: false, error: "Email delivery is not configured yet — copy the activation link manually." }
+  }
+
+  // Catch obvious paste mistakes before calling the API (no secret logged).
+  if (!apiKey.startsWith("re_")) {
+    console.error("[invite-email] RESEND_API_KEY does not look like a Resend key (expected prefix re_)")
+    return {
+      sent: false,
+      error:
+        "Email API key looks wrong (should start with re_). Update RESEND_API_KEY in Vercel from resend.com/api-keys, then redeploy.",
+    }
   }
 
   try {
@@ -145,12 +212,27 @@ export async function sendReceptionistInviteEmail(
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
-      const json = (await res.json().catch(() => ({}))) as { message?: string }
-      // Keep vendor names out of any message that could bubble up to UI/recipients.
-      return { sent: false, error: json.message ? "Email could not be sent." : `Email send failed (HTTP ${res.status}).` }
+      const json = (await res.json().catch(() => ({}))) as { message?: string; name?: string }
+      // Log status + message for Vercel runtime logs (never the API key).
+      console.error("[invite-email] send failed", {
+        status: res.status,
+        name: json.name ?? null,
+        message: json.message ?? null,
+        from: payload.from,
+        to: payload.to,
+      })
+      return {
+        sent: false,
+        error: friendlyInviteEmailError({
+          status: res.status,
+          message: json.message,
+          fromAddress: payload.from,
+        }),
+      }
     }
     return { sent: true }
-  } catch {
+  } catch (e) {
+    console.error("[invite-email] network/send error", e instanceof Error ? e.message : e)
     return { sent: false, error: "Email send failed — please try again." }
   }
 }
