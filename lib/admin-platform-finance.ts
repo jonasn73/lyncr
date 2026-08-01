@@ -1,9 +1,8 @@
 // Platform finance snapshot for admin Ops Home — plain-English money view.
 
-import Stripe from "stripe"
-import { getSql, isUndefinedRelationError } from "@/lib/db"
+import type Stripe from "stripe"
+import { getAdminFinanceNeonSnapshot } from "@/lib/db"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
-import { CHECKOUT_TIER_OPTIONS } from "@/lib/subscription-checkout"
 
 function formatUsdFromCents(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -12,27 +11,15 @@ function formatUsdFromCents(cents: number): string {
   }).format(Math.round(cents) / 100)
 }
 
-function formatUsd(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount)
-}
-
 export type PlatformFinanceSnapshot = {
-  /** Estimated monthly SaaS from active paid tiers (list prices). */
   estimated_mrr_cents: number
   estimated_mrr_label: string
   active_paid_by_tier: { starter: number; professional: number; business: number }
-  /** Money users paid Lyncr for phone credit packs this calendar month (USD cents). */
   credit_pack_revenue_mtd_cents: number
   credit_pack_revenue_mtd_label: string
-  /** Lyncr application fees collected this month (card Collect payments). */
   card_fee_revenue_mtd_cents: number | null
   card_fee_revenue_mtd_label: string
-  /** Effective fee copy, e.g. "2.9% + $0.30 per card charge". */
   card_fee_formula_label: string
-  /** Platform Stripe balance (Lyncr's Stripe account, not Connect shops). */
   stripe_platform_available_cents: number | null
   stripe_platform_pending_cents: number | null
   stripe_platform_available_label: string
@@ -40,7 +27,7 @@ export type PlatformFinanceSnapshot = {
   stripe_configured: boolean
 }
 
-function cardFeeFormulaLabel(): string {
+export function cardFeeFormulaLabel(): string {
   const bpsRaw = Number(process.env.LYNCR_PAYMENT_FEE_BPS ?? "290")
   const flatRaw = Number(process.env.LYNCR_PAYMENT_FEE_FLAT_CENTS ?? "30")
   const bps = Number.isFinite(bpsRaw) && bpsRaw >= 0 ? bpsRaw : 290
@@ -54,74 +41,8 @@ function startOfMonthUnixSeconds(): number {
   return Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) / 1000)
 }
 
-/** Neon: estimated MRR + credit-pack cash-in MTD. */
-export async function fetchNeonPlatformFinance(): Promise<
-  Pick<
-    PlatformFinanceSnapshot,
-    | "estimated_mrr_cents"
-    | "estimated_mrr_label"
-    | "active_paid_by_tier"
-    | "credit_pack_revenue_mtd_cents"
-    | "credit_pack_revenue_mtd_label"
-  >
-> {
-  const empty = {
-    estimated_mrr_cents: 0,
-    estimated_mrr_label: formatUsdFromCents(0),
-    active_paid_by_tier: { starter: 0, professional: 0, business: 0 },
-    credit_pack_revenue_mtd_cents: 0,
-    credit_pack_revenue_mtd_label: formatUsdFromCents(0),
-  }
-  const sql = getSql()
-  try {
-    const tierRows = await sql`
-      SELECT lower(coalesce(nullif(trim(subscription_tier), ''), 'starter')) AS tier,
-             count(*)::int AS n
-      FROM onboarding_profiles
-      WHERE has_active_subscription = true
-      GROUP BY 1
-    `
-    const byTier = { starter: 0, professional: 0, business: 0 }
-    for (const raw of tierRows as { tier?: string; n?: number }[]) {
-      const t = String(raw.tier ?? "starter")
-      const n = Number(raw.n ?? 0)
-      if (t === "professional" || t === "pro") byTier.professional += n
-      else if (t === "business" || t === "enterprise") byTier.business += n
-      else if (t !== "free_trial" && t !== "trial") byTier.starter += n
-    }
-    let mrr = 0
-    for (const opt of CHECKOUT_TIER_OPTIONS) {
-      mrr += byTier[opt.tier] * opt.monthlyCents
-    }
-
-    let creditPackMtd = 0
-    try {
-      const packRows = await sql`
-        SELECT coalesce(sum(delta_cents), 0)::bigint AS cents
-        FROM billing_ledger
-        WHERE reason = 'stripe_credit_pack'
-          AND delta_cents > 0
-          AND created_at >= date_trunc('month', now())
-      `
-      creditPackMtd = Number((packRows[0] as { cents?: number })?.cents ?? 0)
-    } catch (e) {
-      if (!isUndefinedRelationError(e, "billing_ledger")) throw e
-    }
-
-    return {
-      estimated_mrr_cents: mrr,
-      estimated_mrr_label: formatUsdFromCents(mrr),
-      active_paid_by_tier: byTier,
-      credit_pack_revenue_mtd_cents: creditPackMtd,
-      credit_pack_revenue_mtd_label: formatUsdFromCents(creditPackMtd),
-    }
-  } catch {
-    return empty
-  }
-}
-
 /** Stripe platform account: available/pending + application fee MTD. */
-export async function fetchStripePlatformFinance(): Promise<
+async function fetchStripePlatformFinance(): Promise<
   Pick<
     PlatformFinanceSnapshot,
     | "card_fee_revenue_mtd_cents"
@@ -133,7 +54,6 @@ export async function fetchStripePlatformFinance(): Promise<
     | "stripe_configured"
   >
 > {
-  const formula = cardFeeFormulaLabel()
   if (!isStripeConfigured()) {
     return {
       card_fee_revenue_mtd_cents: null,
@@ -158,7 +78,6 @@ export async function fetchStripePlatformFinance(): Promise<
     let feeMtd = 0
     const gte = startOfMonthUnixSeconds()
     let startingAfter: string | undefined
-    // Cap pages so Home stays snappy.
     for (let page = 0; page < 8; page++) {
       const batch: Stripe.ApiList<Stripe.BalanceTransaction> = await stripe.balanceTransactions.list({
         type: "application_fee",
@@ -198,12 +117,14 @@ export async function fetchStripePlatformFinance(): Promise<
 }
 
 export async function buildPlatformFinanceSnapshot(): Promise<PlatformFinanceSnapshot> {
-  const [neon, stripe] = await Promise.all([fetchNeonPlatformFinance(), fetchStripePlatformFinance()])
+  const [neon, stripe] = await Promise.all([getAdminFinanceNeonSnapshot(), fetchStripePlatformFinance()])
   return {
-    ...neon,
+    estimated_mrr_cents: neon.estimated_mrr_cents,
+    estimated_mrr_label: formatUsdFromCents(neon.estimated_mrr_cents),
+    active_paid_by_tier: neon.active_paid_by_tier,
+    credit_pack_revenue_mtd_cents: neon.credit_pack_revenue_mtd_cents,
+    credit_pack_revenue_mtd_label: formatUsdFromCents(neon.credit_pack_revenue_mtd_cents),
     ...stripe,
     card_fee_formula_label: cardFeeFormulaLabel(),
   }
 }
-
-export { formatUsd, formatUsdFromCents, cardFeeFormulaLabel }

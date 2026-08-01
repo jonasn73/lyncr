@@ -12165,7 +12165,7 @@ export async function pingNeonDatabase(): Promise<boolean> {
 }
 
 /** Operator KPI strip — onboarding_profiles counts + carrier credit sum. */
-export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "health" | "telnyx_routing_pool">> {
+export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "health" | "telnyx_routing_pool" | "finance">> {
   const sql = getSql()
   try {
     const rows = await sql`
@@ -12203,6 +12203,62 @@ export async function getLyncrAdminMetrics(): Promise<Omit<LyncrAdminMetrics, "h
       }
     }
     throw e
+  }
+}
+
+/** Neon finance bits for admin Ops Home (MRR estimate + credit-pack cash-in this month). */
+export async function getAdminFinanceNeonSnapshot(): Promise<{
+  estimated_mrr_cents: number
+  active_paid_by_tier: { starter: number; professional: number; business: number }
+  credit_pack_revenue_mtd_cents: number
+}> {
+  const empty = {
+    estimated_mrr_cents: 0,
+    active_paid_by_tier: { starter: 0, professional: 0, business: 0 },
+    credit_pack_revenue_mtd_cents: 0,
+  }
+  const sql = getSql()
+  try {
+    const tierRows = await sql`
+      SELECT lower(coalesce(nullif(trim(subscription_tier), ''), 'starter')) AS tier,
+             count(*)::int AS n
+      FROM onboarding_profiles
+      WHERE has_active_subscription = true
+      GROUP BY 1
+    `
+    const byTier = { starter: 0, professional: 0, business: 0 }
+    for (const raw of tierRows as { tier?: string; n?: number }[]) {
+      const t = String(raw.tier ?? "starter")
+      const n = Number(raw.n ?? 0)
+      if (t === "professional" || t === "pro") byTier.professional += n
+      else if (t === "business" || t === "enterprise") byTier.business += n
+      else if (t !== "free_trial" && t !== "trial") byTier.starter += n
+    }
+    // List prices: Starter $19 / Pro $49 / Business $99
+    const mrr =
+      byTier.starter * 1900 + byTier.professional * 4900 + byTier.business * 9900
+
+    let creditPackMtd = 0
+    try {
+      const packRows = await sql`
+        SELECT coalesce(sum(delta_cents), 0)::bigint AS cents
+        FROM billing_ledger
+        WHERE reason = 'stripe_credit_pack'
+          AND delta_cents > 0
+          AND created_at >= date_trunc('month', now())
+      `
+      creditPackMtd = Number((packRows[0] as { cents?: number })?.cents ?? 0)
+    } catch (e) {
+      if (!isUndefinedRelationError(e, "billing_ledger")) throw e
+    }
+
+    return {
+      estimated_mrr_cents: mrr,
+      active_paid_by_tier: byTier,
+      credit_pack_revenue_mtd_cents: creditPackMtd,
+    }
+  } catch {
+    return empty
   }
 }
 
