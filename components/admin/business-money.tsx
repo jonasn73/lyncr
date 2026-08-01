@@ -59,23 +59,23 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         </p>
         <p className="mt-1 text-2xl font-bold tabular-nums text-slate-50">{row.net_label}</p>
         <p className="mt-1 text-xs text-slate-400">
-          Net for Lyncr this month · {row.month_label}
+          Est. net for Lyncr this month · {row.month_label}
         </p>
         <p className="mt-1 text-[11px] leading-snug text-slate-500">
-          Plan + card fees + credit packs − est. phone cost
+          List-price plan + est. card fees + credit packs − est. phone cost
         </p>
       </div>
 
       <MoneyLine
-        label="Monthly plan"
+        label="Plan (list price)"
         value={row.plan_revenue_label}
-        note={row.plan_tier_label}
+        note={`${row.plan_tier_label} · not Stripe invoice cash`}
         tone="in"
       />
       <MoneyLine
-        label="Card fees to Lyncr"
+        label="Est. card fees to Lyncr"
         value={row.card_fee_mtd_label}
-        note="Connect take on Collect / Tap / pay links this month"
+        note="Formula on Collect / Tap / pay links this month (2.9% + $0.30)"
         tone="in"
       />
       {row.credit_pack_mtd_cents > 0 ? (
@@ -89,10 +89,10 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       <MoneyLine
         label="Est. phone cost"
         value={row.est_phone_cost_mtd_label}
-        note={`${row.talk_minutes_mtd} talk min · ${row.call_count_mtd} calls · ${row.sms_count_mtd} SMS`}
+        note={`${row.talk_minutes_mtd} talk min · ${row.call_count_mtd} calls · ${row.sms_count_mtd} SMS · this month only`}
         tone="out"
       />
-      <MoneyLine label="Net for Lyncr" value={row.net_label} tone="net" />
+      <MoneyLine label="Est. net for Lyncr" value={row.net_label} tone="net" />
 
       {row.breakdown_notes.length > 0 ? (
         <ul className="mt-3 space-y-1.5 px-0.5">

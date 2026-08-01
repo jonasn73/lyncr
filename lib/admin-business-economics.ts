@@ -101,6 +101,9 @@ function assembleRow(
   const minutes = talkMinutesFromSeconds(row.talk_seconds_mtd)
 
   const notes: string[] = []
+  notes.push(
+    "Plan dollars are list price if Neon marks the shop active — not what Stripe actually collected this month."
+  )
   if (phone.method === "wallet_burn") {
     notes.push(
       "Phone cost uses prepaid wallet burn this month (higher than the minutes×rate estimate)."
