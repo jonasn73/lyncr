@@ -11,13 +11,13 @@ import type {
 } from "@/lib/types"
 
 /** Money window chips on Ops Home Business money. */
-export type AdminMoneyPeriodUi = "this_month" | "last_month" | "last_30_days"
+export type AdminMoneyPeriodUi = "all_time" | "this_month" | "last_month" | "this_year"
 
 export type LyncrAdminDashboardData = {
   metrics: LyncrAdminMetrics | null
   users: LyncrAdminDirectoryRow[]
   businessEconomics: AdminBusinessEconomics[]
-  /** Selected Business money period (This month / Last month / Last 30 days). */
+  /** Selected Business money period (All time / This month / Last month / This year). */
   moneyPeriod: AdminMoneyPeriodUi
   setMoneyPeriod: (period: AdminMoneyPeriodUi) => void
   loading: boolean
@@ -29,8 +29,8 @@ export function useLyncrAdminDashboardData(): LyncrAdminDashboardData {
   const [metrics, setMetrics] = useState<LyncrAdminMetrics | null>(null)
   const [users, setUsers] = useState<LyncrAdminDirectoryRow[]>([])
   const [businessEconomics, setBusinessEconomics] = useState<AdminBusinessEconomics[]>([])
-  // Default This month — period chips let you flip to Last month / Last 30 days.
-  const [moneyPeriod, setMoneyPeriodState] = useState<AdminMoneyPeriodUi>("this_month")
+  // Default All time — so Ops sees cumulative real numbers immediately (not a fresh-month $0).
+  const [moneyPeriod, setMoneyPeriodState] = useState<AdminMoneyPeriodUi>("all_time")
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 

@@ -778,15 +778,15 @@ export interface AdminBusinessEconomics {
   ahead: boolean
   /** e.g. "We're behind by $12.34" — amount always included. */
   verdict_label: string
-  /** Human window, e.g. "August 2026 (US Eastern)" or "Last 30 days (rolling)". */
+  /** Human window, e.g. "All time…", "August 2026 (US Eastern)", "2026 year to date…". */
   month_label: string
   /** Selected Ops money window. */
-  period: "this_month" | "last_month" | "last_30_days"
+  period: "all_time" | "this_month" | "last_month" | "this_year" | "last_30_days"
   /** Short chip label for the selected period. */
   period_chip_label: string
   /**
    * When This month is empty but last month had activity —
-   * e.g. "Showing August only · July had 550 calls / $23.02 card fees — tap Last month…"
+   * e.g. "Showing August only · July had 550 calls / $23.02 card fees — tap Last month or All time…"
    */
   prior_period_note: string | null
   talk_minutes_mtd: number

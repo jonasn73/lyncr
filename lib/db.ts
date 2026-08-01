@@ -12234,7 +12234,8 @@ export type AdminBusinessPriorUsageRow = {
 }
 
 /**
- * Owner businesses + usage/ledger rollups for a money period (US Eastern month or rolling 30d).
+ * Owner businesses + usage/ledger rollups for a money period
+ * (all time, US Eastern month/year, or rolling 30d).
  * Card fees come from Stripe (or wallet_transactions via getAdminBusinessEconomicsWalletCharges).
  * Call/SMS counts match Activity: every call_logs row for that owner in the window (no status filter).
  */

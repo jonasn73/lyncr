@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
   if (ctx instanceof NextResponse) return ctx
   try {
-    // Optional period for Business money chips (defaults to this_month).
+    // Optional period for Business money chips (defaults to all_time).
     const period = parseAdminMoneyPeriod(req.nextUrl.searchParams.get("period"))
 
     const [counts, users, neonOk, telnyxStatus, telnyxRoutingPool, finance, businessEconomics] =

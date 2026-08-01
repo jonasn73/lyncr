@@ -38,14 +38,19 @@ describe("planRevenueCentsForTier", () => {
 })
 
 describe("parseAdminMoneyPeriod", () => {
-  it("defaults unknown values to this_month", () => {
-    expect(parseAdminMoneyPeriod(null)).toBe("this_month")
-    expect(parseAdminMoneyPeriod("nope")).toBe("this_month")
+  it("defaults unknown values to all_time", () => {
+    expect(parseAdminMoneyPeriod(null)).toBe("all_time")
+    expect(parseAdminMoneyPeriod("nope")).toBe("all_time")
   })
 
-  it("accepts last_month and last_30_days aliases", () => {
+  it("accepts all chip periods and last_30_days aliases", () => {
+    expect(parseAdminMoneyPeriod("all_time")).toBe("all_time")
+    expect(parseAdminMoneyPeriod("all")).toBe("all_time")
+    expect(parseAdminMoneyPeriod("this_month")).toBe("this_month")
     expect(parseAdminMoneyPeriod("last_month")).toBe("last_month")
     expect(parseAdminMoneyPeriod("last-month")).toBe("last_month")
+    expect(parseAdminMoneyPeriod("this_year")).toBe("this_year")
+    expect(parseAdminMoneyPeriod("year")).toBe("this_year")
     expect(parseAdminMoneyPeriod("last_30_days")).toBe("last_30_days")
     expect(parseAdminMoneyPeriod("30d")).toBe("last_30_days")
   })
@@ -63,7 +68,25 @@ describe("resolveAdminMoneyPeriodBounds", () => {
     expect(thisMonth.label).toMatch(/August 2026/)
   })
 
-  it("uses a rolling 30-day open-ended window", () => {
+  it("uses open-ended all_time from epoch", () => {
+    const now = new Date("2026-08-01T04:17:00.000Z")
+    const all = resolveAdminMoneyPeriodBounds("all_time", now)
+    expect(all.gteUnix).toBe(0)
+    expect(all.ltUnix).toBeNull()
+    expect(all.chip_label).toBe("All time")
+    expect(all.label).toMatch(/All time/)
+  })
+
+  it("uses this_year from Jan 1 Eastern open-ended", () => {
+    const now = new Date("2026-08-01T04:17:00.000Z")
+    const year = resolveAdminMoneyPeriodBounds("this_year", now)
+    expect(year.ltUnix).toBeNull()
+    expect(year.chip_label).toBe("This year")
+    expect(year.label).toMatch(/2026 year to date/)
+    expect(year.gteUnix).toBeLessThan(resolveAdminMoneyPeriodBounds("this_month", now).gteUnix)
+  })
+
+  it("keeps rolling last_30_days for API compatibility", () => {
     const now = new Date("2026-08-01T04:17:00.000Z")
     const d30 = resolveAdminMoneyPeriodBounds("last_30_days", now)
     expect(d30.ltUnix).toBeNull()
@@ -91,6 +114,7 @@ describe("buildPriorPeriodNote", () => {
     expect(note).toContain("31 SMS")
     expect(note).toContain("$23.02 card fees")
     expect(note).toContain("Last month")
+    expect(note).toContain("All time")
   })
 
   it("returns null when prior month had no activity", () => {

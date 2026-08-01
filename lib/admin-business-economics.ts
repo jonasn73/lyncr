@@ -389,12 +389,17 @@ function assembleRow(
     hasStripe: hasStripeIds,
   })
 
+  // Plain-English phrase used in breakdown notes under each money line.
   const periodPhrase =
-    bounds.period === "last_30_days"
-      ? "last 30 days"
-      : bounds.period === "last_month"
-        ? "last month"
-        : "this month"
+    bounds.period === "all_time"
+      ? "all time"
+      : bounds.period === "this_year"
+        ? "this year"
+        : bounds.period === "last_30_days"
+          ? "last 30 days"
+          : bounds.period === "last_month"
+            ? "last month"
+            : "this month"
 
   const notes: string[] = []
   if (hasStripeIds) {
@@ -572,14 +577,16 @@ export function buildPriorPeriodNote(opts: {
   // Strip " (US Eastern)" for a shorter month name in the note.
   const currentShort = opts.currentMonthLabel.replace(/\s*\(US Eastern\)\s*$/i, "")
   const priorShort = opts.priorMonthLabel.replace(/\s*\(US Eastern\)\s*$/i, "")
-  return `Showing ${currentShort} only · ${priorShort} had ${parts.join(" / ")} — tap Last month to see that money.`
+  // Point them at Last month or All time so August zeros don’t look like “no money ever.”
+  return `Showing ${currentShort} only · ${priorShort} had ${parts.join(" / ")} — tap Last month or All time to see that money.`
 }
 
 /** All owner businesses with P&L for the selected period (Stripe actuals + Neon usage). */
 export async function listAdminBusinessEconomics(
-  period: AdminMoneyPeriod = "this_month"
+  period: AdminMoneyPeriod = "all_time"
 ): Promise<AdminBusinessEconomics[]> {
   const bounds = resolveAdminMoneyPeriodBounds(period)
+  // Only when viewing This month: load last month so we can show a cross-period hint banner.
   const priorBounds =
     period === "this_month" ? resolveAdminMoneyPeriodBounds("last_month") : null
 
@@ -667,7 +674,7 @@ export async function listAdminBusinessEconomics(
 /** One business P&L — null if not found. */
 export async function getAdminBusinessEconomics(
   userId: string,
-  period: AdminMoneyPeriod = "this_month"
+  period: AdminMoneyPeriod = "all_time"
 ): Promise<AdminBusinessEconomics | null> {
   const all = await listAdminBusinessEconomics(period)
   return all.find((r) => r.user_id === userId) ?? null

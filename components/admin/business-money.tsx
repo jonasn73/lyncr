@@ -47,13 +47,15 @@ function MoneyLine({
   )
 }
 
+// Chip order: All time first (default), then calendar windows Ops asked for.
 const PERIOD_OPTIONS: { id: AdminMoneyPeriodUi; label: string }[] = [
+  { id: "all_time", label: "All time" },
   { id: "this_month", label: "This month" },
   { id: "last_month", label: "Last month" },
-  { id: "last_30_days", label: "Last 30 days" },
+  { id: "this_year", label: "This year" },
 ]
 
-/** This month / Last month / Last 30 days chips — reloads call counts + Stripe fees. */
+/** All time / This month / Last month / This year chips — reloads call counts + Stripe fees. */
 export function BusinessMoneyPeriodChips({
   period,
   onChange,
@@ -95,13 +97,17 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
   const cardBadge =
     row.card_fee_source === "stripe" ? "Actual" : row.card_fee_source === "estimate" ? "Est." : undefined
   const phoneBadge = row.phone_cost_is_estimate ? "Est." : "Actual"
-  // Plain-English window for “this month only” vs last month / 30 days.
+  // Plain-English window under fee / phone lines (matches the selected chip).
   const windowNote =
-    row.period === "last_30_days"
-      ? "last 30 days"
-      : row.period === "last_month"
-        ? "last month"
-        : "this month only"
+    row.period === "all_time"
+      ? "all time"
+      : row.period === "this_year"
+        ? "this year"
+        : row.period === "last_30_days"
+          ? "last 30 days"
+          : row.period === "last_month"
+            ? "last month"
+            : "this month only"
 
   return (
     <div className="space-y-1">

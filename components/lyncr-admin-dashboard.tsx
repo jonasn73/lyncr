@@ -630,7 +630,7 @@ export function LyncrAdminDashboard({
   metrics,
   users,
   businessEconomics = [],
-  moneyPeriod = "this_month",
+  moneyPeriod = "all_time",
   setMoneyPeriod,
   loading,
   refreshing,

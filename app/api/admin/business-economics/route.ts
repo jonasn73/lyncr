@@ -1,6 +1,6 @@
 // GET /api/admin/business-economics — per-shop P&L (admin only).
 // Optional ?user_id= for one business; omit for the full list.
-// Optional ?period=this_month|last_month|last_30_days (default this_month).
+// Optional ?period=all_time|this_month|last_month|this_year (default all_time).
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
   if (ctx instanceof NextResponse) return ctx
   try {
-    // Read which time window the Ops UI asked for (This month / Last month / Last 30 days).
+    // Read which time window the Ops UI asked for (All time / This month / Last month / This year).
     const period = parseAdminMoneyPeriod(req.nextUrl.searchParams.get("period"))
     const userId = req.nextUrl.searchParams.get("user_id")?.trim()
     if (userId) {

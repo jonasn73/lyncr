@@ -112,8 +112,27 @@ export function startOfPreviousMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): nu
   return Math.floor(instant / 1000)
 }
 
-/** Business-money window the Ops UI can pick. */
-export type AdminMoneyPeriod = "this_month" | "last_month" | "last_30_days"
+/** Unix seconds for local midnight Jan 1 of the current year in `timeZone`. */
+export function startOfYearUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
+  // Read today's year in US Eastern (or whatever zone we pass in).
+  const { year } = zonedYmd(new Date(), timeZone)
+  // Pretend Jan 1 midnight is UTC, then correct for the real zone offset (handles DST).
+  const asUtcMidnight = Date.UTC(year, 0, 1, 0, 0, 0)
+  let instant = asUtcMidnight - timeZoneOffsetMs(asUtcMidnight, timeZone)
+  instant = asUtcMidnight - timeZoneOffsetMs(instant, timeZone)
+  return Math.floor(instant / 1000)
+}
+
+/**
+ * Business-money window the Ops UI can pick.
+ * Keep last_30_days for API compatibility even though chips no longer show it.
+ */
+export type AdminMoneyPeriod =
+  | "all_time"
+  | "this_month"
+  | "last_month"
+  | "this_year"
+  | "last_30_days"
 
 /** Inclusive start + exclusive end (null end = open-ended through now). */
 export type AdminMoneyPeriodBounds = {
@@ -128,7 +147,7 @@ export type AdminMoneyPeriodBounds = {
   ltIso: string | null
   /** Plain-English window, e.g. "July 2026 (US Eastern)". */
   label: string
-  /** Short chip label: "This month" / "Last month" / "Last 30 days". */
+  /** Short chip label: "All time" / "This month" / "Last month" / "This year". */
   chip_label: string
 }
 
@@ -141,14 +160,24 @@ function monthYearLabelFromUnix(unixSeconds: number, timeZone = ADMIN_FINANCE_TZ
   return `${label} (US Eastern)`
 }
 
+function yearLabelFromUnix(unixSeconds: number, timeZone = ADMIN_FINANCE_TZ): string {
+  // Just the calendar year, e.g. "2026 (US Eastern)" — used for This year chip.
+  const year = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+  }).format(new Date(unixSeconds * 1000))
+  return `${year} year to date (US Eastern)`
+}
+
 /** Resolve Ops money window bounds in US Eastern (same clock as Activity “this month”). */
 export function resolveAdminMoneyPeriodBounds(
-  period: AdminMoneyPeriod = "this_month",
+  period: AdminMoneyPeriod = "all_time",
   now = new Date(),
   timeZone = ADMIN_FINANCE_TZ
 ): AdminMoneyPeriodBounds {
   const thisMonthUnix = startOfMonthUnixSeconds(timeZone)
   const lastMonthUnix = startOfPreviousMonthUnixSeconds(timeZone)
+  const thisYearUnix = startOfYearUnixSeconds(timeZone)
 
   if (period === "last_month") {
     return {
@@ -162,7 +191,21 @@ export function resolveAdminMoneyPeriodBounds(
     }
   }
 
+  if (period === "this_year") {
+    // Jan 1 this year (Eastern) → now (open-ended).
+    return {
+      period,
+      gteUnix: thisYearUnix,
+      ltUnix: null,
+      gteIso: new Date(thisYearUnix * 1000).toISOString(),
+      ltIso: null,
+      label: yearLabelFromUnix(thisYearUnix, timeZone),
+      chip_label: "This year",
+    }
+  }
+
   if (period === "last_30_days") {
+    // Kept for older bookmarks / API callers — not shown on chips anymore.
     const gteUnix = Math.floor(now.getTime() / 1000) - 30 * 24 * 60 * 60
     return {
       period,
@@ -175,24 +218,41 @@ export function resolveAdminMoneyPeriodBounds(
     }
   }
 
-  // this_month (default)
+  if (period === "this_month") {
+    return {
+      period: "this_month",
+      gteUnix: thisMonthUnix,
+      ltUnix: null,
+      gteIso: new Date(thisMonthUnix * 1000).toISOString(),
+      ltIso: null,
+      label: monthYearLabelFromUnix(thisMonthUnix, timeZone),
+      chip_label: "This month",
+    }
+  }
+
+  // all_time (default) — epoch → now so every call / fee / invoice counts.
+  const gteUnix = 0
   return {
-    period: "this_month",
-    gteUnix: thisMonthUnix,
+    period: "all_time",
+    gteUnix,
     ltUnix: null,
-    gteIso: new Date(thisMonthUnix * 1000).toISOString(),
+    gteIso: new Date(gteUnix * 1000).toISOString(),
     ltIso: null,
-    label: monthYearLabelFromUnix(thisMonthUnix, timeZone),
-    chip_label: "This month",
+    label: "All time (first activity → now)",
+    chip_label: "All time",
   }
 }
 
-/** Parse ?period= from admin APIs — unknown values fall back to this month. */
+/** Parse ?period= from admin APIs — unknown / missing values fall back to all time. */
 export function parseAdminMoneyPeriod(raw: string | null | undefined): AdminMoneyPeriod {
   const v = (raw ?? "").trim().toLowerCase()
+  if (v === "this_month" || v === "this-month" || v === "month") return "this_month"
   if (v === "last_month" || v === "last-month") return "last_month"
+  if (v === "this_year" || v === "this-year" || v === "year") return "this_year"
   if (v === "last_30_days" || v === "last-30-days" || v === "30d") return "last_30_days"
-  return "this_month"
+  if (v === "all_time" || v === "all-time" || v === "all") return "all_time"
+  // Empty or unrecognized → show cumulative numbers by default.
+  return "all_time"
 }
 
 function cardFeeMonthLabel(timeZone = ADMIN_FINANCE_TZ): string {
