@@ -13,6 +13,7 @@ import {
   Package,
   Shield,
   ShieldCheck,
+  Users,
   Volume2,
   Zap,
 } from "lucide-react"
@@ -143,6 +144,16 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Calls & SMS</p>
         <SettingsGroupedList>
+          <SettingsMenuRow
+            grouped
+            icon={<Users className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="Team"
+            subtitle="Add people who answer — phone or invite link"
+            onClick={() => {
+              closeHeaderSettings()
+              router.push("/dashboard/team")
+            }}
+          />
           <SettingsMenuRow
             grouped
             icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}

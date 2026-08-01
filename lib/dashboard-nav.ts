@@ -23,6 +23,7 @@ export type PageId =
   | "settings"
   | "scheduler"
   | "inventory"
+  | "team"
   | "help"
 
 export type DashboardNavItem = {
@@ -68,6 +69,7 @@ export const DASHBOARD_PAGE_HREF: Record<PageId, string> = {
   settings: "/dashboard/settings",
   scheduler: "/dashboard/scheduler",
   inventory: "/dashboard/inventory",
+  team: "/dashboard/team",
   help: "/dashboard/help",
 }
 

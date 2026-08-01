@@ -1,15 +1,20 @@
 // POST /api/auth/register-invited — complete a receptionist profile from an invite token.
 //
 // Body: { token, name, password, phone }
-// Re-validates the token, bcrypt-hashes the password, then runs ONE atomic SQL transaction that
-// (a) inserts the users row, (b) inserts the linked receptionists row (sip_username placeholder),
-// and (c) marks the invitation ACCEPTED — all-or-nothing. On success the client is redirected to
-// /login to sign in with their new credentials.
+// Tries (in order): users invite stub (054), invitations table (053), team_invites (041).
+// team_invites path sets a session cookie and lands on /receptionist.
 
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { registerInvitedReceptionist } from "@/lib/invitations"
 import { activateReceptionistInviteStub } from "@/lib/receptionist-invite-stub"
+import { acceptReceptionistInviteRegistration, getTeamInviteByToken } from "@/lib/db"
+import {
+  createSessionCookie,
+  getSessionCookieName,
+  getSessionCookieOptions,
+} from "@/lib/auth"
+import { postAuthPayload } from "@/lib/post-auth-redirect"
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +23,7 @@ export async function POST(req: NextRequest) {
     const name = String(body.name ?? body.full_name ?? body.fullName ?? "").trim()
     const phone = String(body.phone ?? "").trim()
     const password = String(body.password ?? "")
+    const email = String(body.email ?? "").trim()
 
     if (!token) return NextResponse.json({ error: "Missing invitation token" }, { status: 400 })
     if (name.length < 2) return NextResponse.json({ error: "Enter your full name" }, { status: 400 })
@@ -34,12 +40,37 @@ export async function POST(req: NextRequest) {
     // Email invites activate an existing `users` stub (migration 054); SMS/legacy invites insert
     // fresh rows via the invitations-table flow. Try the stub first, then fall back.
     const stub = await activateReceptionistInviteStub({ token, name, phone, passwordHash })
-    const userId = stub
-      ? stub.userId
-      : (await registerInvitedReceptionist({ token, name, phone, passwordHash })).userId
+    if (stub) {
+      return NextResponse.json({ data: { user_id: stub.userId, redirect: "/login" } })
+    }
 
+    // Owner team invites (and some admin channel invites) live on team_invites.
+    const teamInvite = await getTeamInviteByToken(token)
+    if (teamInvite) {
+      const { user } = await acceptReceptionistInviteRegistration({
+        token,
+        full_name: name,
+        phone,
+        password_hash: passwordHash,
+        email: email || null,
+      })
+      const authMeta = postAuthPayload(user)
+      const res = NextResponse.json({
+        data: {
+          user_id: user.id,
+          user,
+          ...authMeta,
+          // Prefer receptionist home after owner invite redeem.
+          redirect: "/receptionist",
+        },
+      })
+      res.cookies.set(getSessionCookieName(), createSessionCookie(user.id), getSessionCookieOptions())
+      return res
+    }
+
+    const registered = await registerInvitedReceptionist({ token, name, phone, passwordHash })
     // Account created — send them to sign in with their new credentials.
-    return NextResponse.json({ data: { user_id: userId, redirect: "/login" } })
+    return NextResponse.json({ data: { user_id: registered.userId, redirect: "/login" } })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes("Invite")) return NextResponse.json({ error: msg }, { status: 400 })

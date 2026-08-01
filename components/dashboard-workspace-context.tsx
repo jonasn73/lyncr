@@ -52,6 +52,7 @@ const PAGE_HREF: Record<PageId, string> = {
   pay: "/dashboard/pay",
   settings: "/dashboard/settings",
   inventory: "/dashboard/inventory",
+  team: "/dashboard/team",
   help: "/dashboard/help",
 }
 

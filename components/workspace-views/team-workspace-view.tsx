@@ -11,9 +11,14 @@ import {
   WorkspacePageHeader,
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
-import { openTeamInviteModal } from "@/lib/team-invite-events"
+import Link from "next/link"
+import {
+  openTeamInviteModal,
+  TEAM_ROSTER_CHANGED_EVENT,
+} from "@/lib/team-invite-events"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
+import type { TeamInvite } from "@/lib/types"
 
 const AVATAR_COLORS = ["bg-primary", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"]
 
@@ -171,12 +176,14 @@ function NetworkInstructionsPanel() {
 
 export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   const [members, setMembers] = useState<Receptionist[]>([])
+  const [pendingInvites, setPendingInvites] = useState<TeamInvite[]>([])
   const [payoutsById, setPayoutsById] = useState<Record<string, ReceptionistPayoutMetrics>>({})
   const [billingCycleLabel, setBillingCycleLabel] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [availability, setAvailability] = useState<Record<string, boolean>>({})
+  const [showRoutingTip, setShowRoutingTip] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -196,8 +203,13 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         }
         return json.data ?? null
       }),
+      fetch("/api/team/invites", { credentials: "include" }).then(async (res) => {
+        if (!res.ok) return [] as TeamInvite[]
+        const json = (await res.json()) as { data?: TeamInvite[] }
+        return Array.isArray(json.data) ? json.data : []
+      }),
     ])
-      .then(([rows, payoutData]) => {
+      .then(([rows, payoutData, invites]) => {
         setMembers(rows)
         setAvailability(Object.fromEntries(rows.map((m) => [m.id, m.is_active])))
         const byId = Object.fromEntries((payoutData?.agents ?? []).map((agent) => [agent.receptionist_id, agent]))
@@ -213,6 +225,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         } else {
           setBillingCycleLabel(null)
         }
+        // Only show invites that have not been accepted yet.
+        setPendingInvites(invites.filter((i) => i.status === "PENDING" && !i.accepted_at))
         setError(null)
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
@@ -221,6 +235,16 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
 
   useEffect(() => {
     load()
+  }, [load])
+
+  // Reload after Add phone / Create invite succeeds in the shared modal.
+  useEffect(() => {
+    const onChanged = () => {
+      setShowRoutingTip(true)
+      load()
+    }
+    window.addEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
   }, [load])
 
   function isMemberOnline(member: Receptionist): boolean {
@@ -256,6 +280,42 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
     <WorkspacePage>
       <WorkspacePageHeader eyebrow="Dispatch" title="Team" />
 
+      <WorkspacePanel className="p-4 sm:p-5">
+        <p className="text-sm leading-relaxed text-zinc-300">
+          Add people who can answer your business calls.{" "}
+          <span className="font-medium text-foreground">Phone contacts</span> ring their cell when you pick them under{" "}
+          <span className="font-medium text-foreground">Who answers</span> (Custom Routing).{" "}
+          <span className="font-medium text-foreground">App invites</span> let them create a receptionist login for your
+          business.
+        </p>
+        <p className="mt-2 hidden text-xs text-zinc-500 md:block">
+          Adding someone here does not start forwarding by itself — open Routing → Who answers and select them.
+        </p>
+      </WorkspacePanel>
+
+      {showRoutingTip ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">
+            Nice — next, set <span className="font-semibold">Who answers</span> so calls reach them.
+          </p>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Open Who answers
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowRoutingTip(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Live tech availability — dense roster for the mobile Team tab. */}
       <TeamLiveRoster />
 
@@ -272,9 +332,9 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 <Network className="h-5 w-5 text-primary" aria-hidden />
               </span>
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-foreground sm:text-base">Your Active Operator Network</h2>
+                <h2 className="text-sm font-semibold text-foreground sm:text-base">People who can answer</h2>
                 <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-                  Lyncr operators assigned to watch your inbound line.
+                  Your phone contacts and invited receptionists for this business.
                 </p>
               </div>
             </div>
@@ -293,6 +353,19 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             </div>
           ) : null}
 
+          {pendingInvites.length > 0 ? (
+            <div className="mt-3 space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/90">
+                Waiting to accept ({pendingInvites.length})
+              </p>
+              {pendingInvites.slice(0, 5).map((inv) => (
+                <p key={inv.id} className="truncate text-xs text-zinc-400">
+                  {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
           <div className="mt-4 flex-1">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-500">
@@ -303,7 +376,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 <span className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-600">
                   <Users className="h-5 w-5" aria-hidden />
                 </span>
-                <p className="text-sm text-zinc-500">No operators assigned yet.</p>
+                <p className="text-sm text-zinc-500">No one added yet.</p>
+                <p className="max-w-[16rem] text-xs text-zinc-600">
+                  Tap Add to save a phone contact or send an invite link.
+                </p>
                 {error ? <p className="text-xs text-destructive">{error}</p> : null}
               </div>
             ) : (

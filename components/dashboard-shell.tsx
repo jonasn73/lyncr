@@ -68,6 +68,7 @@ const VALID_PAGES: PageId[] = [
   "settings",
   "scheduler",
   "inventory",
+  "team",
   "help",
 ]
 

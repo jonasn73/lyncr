@@ -26,11 +26,19 @@ const INVITE_SUBJECT = "You've been invited to join the Lyncr Operator Network"
 /** Build the white-labeled receptionist invite email (dark theme, single onboarding CTA). */
 export function buildReceptionistInviteEmailPayload(params: {
   toEmail: string
-  onboardingUrl: string
+  /** Activation link — prefer /register?token=… or /onboarding?token=… */
+  onboardingUrl?: string
+  /** Alias used by older admin invite callers. */
+  signupUrl?: string
   firstName?: string
+  /** Ignored in copy (kept so older callers stay type-compatible). */
+  payoutRateUsd?: number
 }): ReceptionistInviteEmailPayload {
   const name = (params.firstName ?? "").trim() || "there"
-  const url = params.onboardingUrl
+  const url = (params.onboardingUrl ?? params.signupUrl ?? "").trim()
+  if (!url) {
+    throw new Error("Invite email needs onboardingUrl or signupUrl")
+  }
 
   const text = [
     `Hi ${name},`,

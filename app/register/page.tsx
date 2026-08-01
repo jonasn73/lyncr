@@ -3,7 +3,8 @@
 // /register?token=… — invited receptionist completes their profile.
 // 1. Reads the token from the URL and validates it against /api/auth/validate-token.
 // 2. If valid, shows Full Name, Cell Phone (pre-filled + locked for SMS invites), and Password.
-// 3. POSTs to /api/auth/register-invited, then redirects to /receptionist.
+// 3. POSTs to /api/auth/register-invited, then redirects to /receptionist (owner team_invites)
+//    or /login (admin stub / invitations table flows).
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -181,7 +182,7 @@ function RegisterForm() {
         {done && (
           <div className="mt-6 flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
             <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
-            Account created — taking you to sign in…
+            Account created — taking you in…
           </div>
         )}
       </div>
