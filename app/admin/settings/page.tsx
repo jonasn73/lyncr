@@ -6,25 +6,31 @@ export const dynamic = "force-dynamic"
 export default function AdminSettingsPage() {
   const feeLabel = cardFeeFormulaLabel()
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3 sm:p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-3 sm:p-6">
       <div>
         <h1 className="text-xl font-bold text-slate-50">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Platform-owner notification channels — receptionists and field techs never see this panel.
+          Alerts for you as the platform owner — not shown to businesses or receptionists.
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-        <h2 className="text-sm font-semibold text-slate-100">Card payment fee (Lyncr take)</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          When a business runs Collect / Tap to Pay, Lyncr keeps{" "}
-          <span className="font-medium text-violet-200">{feeLabel}</span>. Change with env vars{" "}
-          <code className="text-violet-200">LYNCR_PAYMENT_FEE_BPS</code> and{" "}
-          <code className="text-violet-200">LYNCR_PAYMENT_FEE_FLAT_CENTS</code> in Vercel (then redeploy).
-        </p>
-      </div>
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notifications</h2>
+        <PlatformNotificationSettings variant="admin" />
+      </section>
 
-      <PlatformNotificationSettings variant="admin" />
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Card payment fee</h2>
+        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+          <p className="text-sm text-slate-300">
+            When a business collects a card payment, Lyncr keeps{" "}
+            <span className="font-medium text-violet-200">{feeLabel}</span>.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            To change this, update fee settings in Vercel and redeploy. You do not need to edit this page.
+          </p>
+        </div>
+      </section>
     </div>
   )
 }

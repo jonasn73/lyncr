@@ -1,9 +1,9 @@
 "use client"
 
-// Ops tools: Telnyx TeXML sync, Stripe charge remediation, sandbox environment.
+// Ops tools: phone webhook sync, Stripe money fixes, optional sandbox.
 
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { ChevronDown, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AdminSandboxBoard } from "@/components/admin-sandbox-board"
 import type { SandboxEnvironment, SandboxIntakeLogRow } from "@/lib/sandbox-engine"
+import { cn } from "@/lib/utils"
 
 export function AdminToolsBoard({
   initialEnvironment,
@@ -23,6 +24,7 @@ export function AdminToolsBoard({
   const [remediateBusy, setRemediateBusy] = useState(false)
   const [chargeId, setChargeId] = useState("")
   const [destinationAccountId, setDestinationAccountId] = useState("")
+  const [sandboxOpen, setSandboxOpen] = useState(false)
 
   async function syncTexml() {
     setTexmlBusy(true)
@@ -33,10 +35,10 @@ export function AdminToolsBoard({
       })
       const json = (await res.json().catch(() => ({}))) as { data?: Record<string, unknown>; error?: string }
       if (!res.ok) {
-        toast.error(json.error ?? "TeXML sync failed")
+        toast.error(json.error ?? "Phone sync failed")
         return
       }
-      toast.success("TeXML / Call Control apps synced")
+      toast.success("Phone call routing updated")
       console.info("[admin tools] sync-texml-voice", json.data)
     } finally {
       setTexmlBusy(false)
@@ -63,7 +65,7 @@ export function AdminToolsBoard({
         error?: string
       }
       if (!res.ok) {
-        toast.error(json.error ?? "Remediation failed")
+        toast.error(json.error ?? "Transfer failed")
         return
       }
       toast.success(
@@ -77,21 +79,21 @@ export function AdminToolsBoard({
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-3 sm:p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-3 sm:p-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-50">Tools</h1>
+        <h1 className="text-xl font-bold text-slate-50">Finance tools</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Platform ops actions and the dev sandbox. Porting webhook setup still uses{" "}
-          <code className="text-violet-200">PORTING_WEBHOOK_SECRET</code> via curl — not session auth.
+          Fix phone routing and move stuck card payments. Everyday money totals stay on Home.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone system</h2>
         <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-base text-slate-100">Sync TeXML voice</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-slate-100">Update call routing</CardTitle>
             <CardDescription className="text-slate-400">
-              Point Telnyx Call Router / TeXML app at the current app URL greeting + routing webhooks.
+              Point Lyncr phone numbers at this live app (after a deploy or URL change).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -102,21 +104,24 @@ export function AdminToolsBoard({
               onClick={() => void syncTexml()}
             >
               {texmlBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Sync now
+              Sync phone routing
             </Button>
           </CardContent>
         </Card>
+      </section>
 
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Card payments</h2>
         <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-base text-slate-100">Remediate platform charge</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-slate-100">Send stuck payment to a business</CardTitle>
             <CardDescription className="text-slate-400">
-              Move stranded Stripe platform charge net funds to a Connect account.
+              Use when a customer paid Lyncr but the business never received their share.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-slate-400">Charge ID</Label>
+              <Label className="text-slate-400">Stripe charge ID</Label>
               <Input
                 value={chargeId}
                 onChange={(e) => setChargeId(e.target.value)}
@@ -125,7 +130,7 @@ export function AdminToolsBoard({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-400">Connect account</Label>
+              <Label className="text-slate-400">Business Stripe account</Label>
               <Input
                 value={destinationAccountId}
                 onChange={(e) => setDestinationAccountId(e.target.value)}
@@ -133,36 +138,44 @@ export function AdminToolsBoard({
                 className="border-slate-700 bg-slate-950 text-slate-100"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-slate-600 text-slate-200"
-                disabled={remediateBusy || !chargeId.trim() || !destinationAccountId.trim()}
-                onClick={() => void remediate(false)}
-              >
-                Transfer
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={remediateBusy}
-                onClick={() => void remediate(true)}
-              >
-                Michael preset
-              </Button>
-            </div>
+            <Button
+              type="button"
+              className="bg-violet-600 text-white hover:bg-violet-500"
+              disabled={remediateBusy || !chargeId.trim() || !destinationAccountId.trim()}
+              onClick={() => void remediate(false)}
+            >
+              {remediateBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Transfer now
+            </Button>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      <div className="border-t border-slate-800 pt-6">
-        <h2 className="mb-4 text-lg font-semibold text-slate-100">Dev sandbox</h2>
-        <AdminSandboxBoard
-          initialEnvironment={initialEnvironment}
-          initialIntakeLogs={initialIntakeLogs}
-        />
-      </div>
+      <section className="border-t border-slate-800 pt-4">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-sm text-slate-400 hover:text-slate-200"
+          aria-expanded={sandboxOpen}
+          onClick={() => setSandboxOpen((o) => !o)}
+        >
+          <span>
+            <span className="font-medium text-slate-300">Dev sandbox</span>
+            <span className="ml-2 text-xs text-slate-500">Optional — test data only</span>
+          </span>
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 transition-transform", sandboxOpen && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+        {sandboxOpen ? (
+          <div className="mt-3">
+            <AdminSandboxBoard
+              initialEnvironment={initialEnvironment}
+              initialIntakeLogs={initialIntakeLogs}
+            />
+          </div>
+        ) : null}
+      </section>
     </div>
   )
 }

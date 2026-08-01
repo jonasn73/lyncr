@@ -17,47 +17,47 @@ type PreferenceRow = {
 
 const SECTIONS: { title: string; rows: PreferenceRow[] }[] = [
   {
-    title: "SMS Alerts",
+    title: "Text messages",
     rows: [
       {
         key: "sms_local_job_assignments",
-        label: "Local Job Assignments",
-        description: "Text alerts when a nearby job is assigned or dispatched to your roster.",
+        label: "Nearby job assigned",
+        description: "Text when a nearby job is assigned to someone on your roster.",
       },
       {
         key: "sms_global_out_of_state_bookings",
-        label: "Global Out-of-State Bookings",
-        description: "Text alerts for bookings outside your home service state.",
+        label: "Out-of-state booking",
+        description: "Text when a booking is outside the usual service area.",
       },
     ],
   },
   {
-    title: "App Push Notifications",
+    title: "In-app alerts",
     rows: [
       {
         key: "push_live_inbound_ringing",
-        label: "Live Inbound Ringing",
-        description: "In-app buzz and sounds when a new call hits your business lines.",
+        label: "Incoming call",
+        description: "Buzz when a new call hits a business line.",
       },
       {
         key: "push_operator_dispositions",
-        label: "Operator Dispositions",
-        description: "Toasts and pings when receptionists log booked jobs or dispositions.",
+        label: "Job booked or updated",
+        description: "Ping when a receptionist logs a booked job or outcome.",
       },
     ],
   },
   {
-    title: "Email Reports",
+    title: "Email",
     rows: [
       {
         key: "email_daily_revenue_digest",
-        label: "Daily Revenue / Talk-Time Digest",
-        description: "Morning summary of revenue, talk time, and agent utilization.",
+        label: "Daily summary",
+        description: "Morning email with revenue and talk-time totals.",
       },
       {
         key: "email_system_fallback_alerts",
-        label: "System Fallback Alerts",
-        description: "Email when routing fails over to AI, voicemail, or a carrier rejects a port.",
+        label: "Routing problems",
+        description: "Email when calls fall to AI/voicemail or a number port fails.",
       },
     ],
   },
@@ -148,6 +148,9 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
 
   if (!loading && !allowed) return null
 
+  // Admin Settings page already has the page title — skip a second “Notification Settings” header.
+  const showCardChrome = !isAdminChrome
+
   return (
     <Card
       className={cn(
@@ -155,23 +158,23 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
         className
       )}
     >
-      <CardHeader className="pb-3">
-        <CardTitle className={cn("text-base", isAdminChrome && "text-slate-100")}>
-          Notification Settings
-        </CardTitle>
-        <CardDescription className={cn(isAdminChrome && "text-slate-400")}>
-          Platform-owner channels only — receptionists and field techs never see this panel.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+      {showCardChrome ? (
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Notification Settings</CardTitle>
+          <CardDescription>
+            Choose which alerts you want. Receptionists and field techs never see this panel.
+          </CardDescription>
+        </CardHeader>
+      ) : null}
+      <CardContent className={cn("space-y-5", !showCardChrome && "pt-4")}>
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Loading notification settings…
+            Loading…
           </div>
         ) : (
           SECTIONS.map((section) => (
-            <div key={section.title} className="space-y-3">
+            <div key={section.title} className="space-y-2">
               <h3
                 className={cn(
                   "text-xs font-semibold uppercase tracking-wide",

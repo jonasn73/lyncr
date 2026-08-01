@@ -1,18 +1,18 @@
 "use client"
 
-// Compact platform admin shell — dense header + nav so ops content is visible first.
+// Compact platform admin shell — desktop sidebar + mobile bottom tabs (no duplicate Menu).
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Building2,
   FlaskConical,
   Headphones,
   Home,
   LogOut,
-  Menu,
   MessageSquareWarning,
+  MoreHorizontal,
   Network,
   Settings,
   Shield,
@@ -71,17 +71,25 @@ const NAV = [
   },
 ] as const
 
-/** Always-visible mobile bottom tabs — primary destinations (rest stay in Menu). */
+/** Primary mobile bottom tabs — Settings/Network/Support live under More. */
 const MOBILE_TAB_HREFS = new Set([
   "/admin",
   "/admin/businesses",
   "/admin/people",
   "/admin/payouts",
   "/admin/tools",
-  "/admin/settings",
 ])
 
 const MOBILE_TABS = NAV.filter((item) => MOBILE_TAB_HREFS.has(item.href))
+
+/** Only extras not on the bottom bar — short overflow list, not a full nav clone. */
+const MORE_LINKS = NAV.filter((item) =>
+  item.href === "/admin/network" || item.href === "/admin/support" || item.href === "/admin/settings"
+)
+
+function moreIsActive(pathname: string) {
+  return MORE_LINKS.some((item) => item.match(pathname))
+}
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? ""
@@ -111,8 +119,16 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function MobileBottomTabs() {
+function MobileBottomTabs({
+  moreOpen,
+  onMoreToggle,
+}: {
+  moreOpen: boolean
+  onMoreToggle: () => void
+}) {
   const pathname = usePathname() ?? ""
+  const moreActive = moreIsActive(pathname) || moreOpen
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-[#060a12]/95 backdrop-blur-md lg:hidden"
@@ -141,8 +157,81 @@ function MobileBottomTabs() {
             </Link>
           )
         })}
+        <button
+          type="button"
+          aria-label={moreOpen ? "Close more pages" : "More pages"}
+          aria-expanded={moreOpen}
+          onClick={onMoreToggle}
+          className={cn(
+            "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center transition-colors",
+            moreActive
+              ? "bg-violet-600/25 text-violet-100"
+              : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
+          )}
+        >
+          <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">More</span>
+        </button>
       </div>
     </nav>
+  )
+}
+
+function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const pathname = usePathname() ?? ""
+  if (!open) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Dismiss more menu"
+        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        onClick={onClose}
+      />
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-slate-800 bg-[#060a12] shadow-2xl lg:hidden"
+        style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
+        role="dialog"
+        aria-label="More admin pages"
+      >
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+          <p className="text-sm font-semibold text-slate-100">More</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-slate-400 hover:text-slate-100"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </Button>
+        </div>
+        <nav className="flex flex-col gap-0.5 p-2">
+          {MORE_LINKS.map((item) => {
+            const Icon = item.icon
+            const active = item.match(pathname)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
+                    : "text-slate-300 hover:bg-slate-800/80 hover:text-slate-100"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
+    </>
   )
 }
 
@@ -155,17 +244,22 @@ export function AdminChrome({
   userName: string
   userEmail: string
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const pathname = usePathname() ?? ""
   const pageLabel = NAV.find((n) => n.match(pathname))?.label ?? "Admin"
+
+  // Close overflow sheet when the route changes (e.g. user tapped another bottom tab).
+  useEffect(() => {
+    setMoreOpen(false)
+  }, [pathname])
 
   return (
     <div
       className="flex min-h-dvh flex-col bg-[#0b1120] text-slate-200 antialiased lg:flex-row"
       data-sigo-surface="operator"
     >
-      {/* Desktop sidebar — compact */}
+      {/* Desktop sidebar — full nav */}
       <aside className="hidden w-48 shrink-0 flex-col border-r border-slate-800 bg-[#060a12] lg:flex">
         <div className="flex items-center gap-2 border-b border-slate-800 px-3 py-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600">
@@ -186,19 +280,6 @@ export function AdminChrome({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-[#0b1120]/95 px-3 py-2 backdrop-blur-md sm:px-4">
-          {/* Labeled Menu — icon-only hamburger was too easy to miss on phones */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5 border-violet-500/40 bg-violet-950/40 px-2.5 text-violet-100 hover:bg-violet-900/50 hover:text-white lg:hidden"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((o) => !o)}
-          >
-            {menuOpen ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />}
-            <span className="text-sm font-semibold">{menuOpen ? "Close" : "Menu"}</span>
-          </Button>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Headphones className="hidden h-4 w-4 text-violet-300 sm:block" aria-hidden />
             <div className="min-w-0">
@@ -225,22 +306,14 @@ export function AdminChrome({
           </Button>
         </header>
 
-        {menuOpen ? (
-          <div className="border-b border-slate-800 bg-[#060a12] lg:hidden">
-            <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-              All admin pages
-            </p>
-            <NavLinks onNavigate={() => setMenuOpen(false)} />
-          </div>
-        ) : null}
-
         {/* pb clears fixed mobile bottom tabs + safe area */}
         <div className="min-h-0 flex-1 overflow-auto bg-[linear-gradient(180deg,#0b1120_0%,#070b14_100%)] pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
           {children}
         </div>
       </div>
 
-      <MobileBottomTabs />
+      <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
+      <MobileBottomTabs moreOpen={moreOpen} onMoreToggle={() => setMoreOpen((o) => !o)} />
     </div>
   )
 }

@@ -2,7 +2,6 @@
 
 // Lyncr platform operator dashboard — KPIs, user directory, credit + subscription overrides.
 
-import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 import {
   Activity,
@@ -15,7 +14,6 @@ import {
   Phone,
   RefreshCw,
   Search,
-  Shield,
   Users,
   X,
 } from "lucide-react"
@@ -691,33 +689,30 @@ export function LyncrAdminDashboard({
     )
   }
 
-  const pageTitle = view === "home" ? "Ops home" : "Businesses"
+  const pageTitle = view === "home" ? "Ops home" : "Manage businesses"
   const pageSubtitle =
     view === "home"
-      ? "Money in/out, phone balance, health, and live traffic — in plain English"
-      : "Search tenants — open Manage for credit, lines, porting, and impersonation"
+      ? "Phone balance, fees, and live traffic"
+      : "Find a business, then tap Manage"
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-violet-300">
-            <Shield className="h-4 w-4" aria-hidden />
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em]">Platform ops</span>
-          </div>
-          <h1 className="mt-0.5 text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
+    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-5 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
           <p className="mt-0.5 text-sm text-slate-500">{pageSubtitle}</p>
         </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="border-slate-700 text-slate-200"
+          className="shrink-0 border-slate-700 text-slate-200"
           disabled={refreshing}
           onClick={() => void fetchLatestAdminStats(true)}
+          aria-label="Refresh"
         >
-          <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} aria-hidden />
-          Refresh
+          <RefreshCw className={cn("h-4 w-4 sm:mr-2", refreshing && "animate-spin")} aria-hidden />
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
 
@@ -727,24 +722,11 @@ export function LyncrAdminDashboard({
 
           {/* Compact money strip — tap a cell for the full explanation sheet */}
           <section className="space-y-2">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-100">Platform money</h2>
-                <p className="hidden text-xs text-slate-500 md:block">
-                  Tap a total for the breakdown. Telnyx = phone spend · Stripe = Lyncr fees + SaaS.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-200">
-                  <Link href="/admin/settings">Notification settings</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-200">
-                  <Link href="/admin/tools">Finance tools</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-200">
-                  <Link href="/admin/businesses">Manage businesses</Link>
-                </Button>
-              </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-100">Platform money</h2>
+              <p className="hidden text-xs text-slate-500 md:block">
+                Tap a total for the breakdown. Telnyx = phone spend · Stripe = Lyncr fees + SaaS.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1010,27 +992,24 @@ export function LyncrAdminDashboard({
 
       {view === "businesses" ? (
           <Card className="border-slate-800 bg-slate-900/40">
-            <CardHeader className="border-b border-slate-800/80 pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-lg text-slate-100">Tenant directory</CardTitle>
-          </div>
-          <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+            <CardHeader className="space-y-3 border-b border-slate-800/80 pb-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
             <div className="relative max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
               <Input
                 type="search"
-                placeholder="Filter by email or phone number…"
+                placeholder="Search by email or phone…"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
               />
             </div>
             <Select value={tierFilter} onValueChange={setTierFilter}>
-              <SelectTrigger className="h-9 w-full border-slate-700 bg-slate-950 text-slate-100 sm:w-[180px]">
-                <SelectValue placeholder="Subscription tier" />
+              <SelectTrigger className="h-9 w-full border-slate-700 bg-slate-950 text-slate-100 sm:w-[160px]">
+                <SelectValue placeholder="Plan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All tiers</SelectItem>
+                <SelectItem value="all">All plans</SelectItem>
                 <SelectItem value="starter">Starter</SelectItem>
                 <SelectItem value="professional">Professional</SelectItem>
                 <SelectItem value="business">Business</SelectItem>
@@ -1038,8 +1017,8 @@ export function LyncrAdminDashboard({
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-full border-slate-700 bg-slate-950 text-slate-100 sm:w-[180px]">
-                <SelectValue placeholder="Account status" />
+              <SelectTrigger className="h-9 w-full border-slate-700 bg-slate-950 text-slate-100 sm:w-[160px]">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
@@ -1049,41 +1028,39 @@ export function LyncrAdminDashboard({
               </SelectContent>
             </Select>
           </div>
+          <Tabs value={roleTab} onValueChange={setRoleTab}>
+            <TabsList className="h-auto w-full flex-wrap justify-start bg-slate-800/60 sm:w-auto">
+              <TabsTrigger
+                value="all"
+                className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+              >
+                All
+                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                  {roleCounts.all}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="OWNER"
+                className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+              >
+                Owners
+                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                  {roleCounts.owner}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="RECEPTIONIST"
+                className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+              >
+                Receptionists
+                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                  {roleCounts.receptionist}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="px-4 pt-4">
-            <Tabs value={roleTab} onValueChange={setRoleTab}>
-              <TabsList className="bg-slate-800/60">
-                <TabsTrigger
-                  value="all"
-                  className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
-                >
-                  All Accounts
-                  <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
-                    {roleCounts.all}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="OWNER"
-                  className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
-                >
-                  Business Owners
-                  <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
-                    {roleCounts.owner}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="RECEPTIONIST"
-                  className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
-                >
-                  Receptionists
-                  <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
-                    {roleCounts.receptionist}
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
