@@ -1120,7 +1120,7 @@ export interface RoutingConfig {
    */
   forward_original_caller_id: boolean
   /** Unified Lines Who Answers mode (`089`). */
-  active_routing_mode?: "your_phone" | "smart_ivr" | "lyncr_pool" | "custom_routing" | string | null
+  active_routing_mode?: "your_phone" | "team_receptionist" | "smart_ivr" | "lyncr_pool" | "custom_routing" | string | null
   /** E.164 forward target when mode is custom_routing (`089`). */
   custom_routing_phone?: string | null
   updated_at: string

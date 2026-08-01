@@ -25,6 +25,7 @@ import {
   readLinesChromeCache,
   writeLinesChromeCache,
 } from "@/lib/lines-chrome-cache"
+import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
 
 export function DashboardPage() {
   const { toast } = useToast()
@@ -307,6 +308,18 @@ export function DashboardPage() {
       cancelled = true
     }
   }, [bootstrap, receptionistsUrl, routingBootstrapPromise])
+
+  // Who Answers / Configure save — keep selected receptionist badge in sync without full reload.
+  useEffect(() => {
+    const onModeChanged = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ selectedReceptionistId?: string | null }>).detail
+      if (!detail || !("selectedReceptionistId" in detail)) return
+      const next = detail.selectedReceptionistId?.trim() || null
+      setSelectedReceptionistId(next)
+    }
+    window.addEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
+    return () => window.removeEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
+  }, [])
 
   useEffect(() => {
     if (bootstrap) return

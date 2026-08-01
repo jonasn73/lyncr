@@ -2,6 +2,7 @@
 
 export type ActiveRoutingMode =
   | "your_phone"
+  | "team_receptionist"
   | "smart_ivr"
   | "lyncr_pool"
   | "custom_routing"
@@ -15,6 +16,11 @@ export const ACTIVE_ROUTING_MODE_OPTIONS: {
     value: "your_phone",
     label: "Your Phone",
     description: "Ring your cell first. Configure backup ring delay below.",
+  },
+  {
+    value: "team_receptionist",
+    label: "Team receptionist",
+    description: "Ring a Team member first (e.g. Alex). Falls back to you, then voice menu if busy.",
   },
   {
     value: "smart_ivr",
@@ -36,6 +42,7 @@ export const ACTIVE_ROUTING_MODE_OPTIONS: {
 export function normalizeActiveRoutingMode(raw: unknown): ActiveRoutingMode {
   const v = typeof raw === "string" ? raw.trim().toLowerCase() : ""
   if (v === "your_phone" || v === "owner" || v === "phone") return "your_phone"
+  if (v === "team_receptionist" || v === "receptionist" || v === "team") return "team_receptionist"
   if (v === "smart_ivr" || v === "ivr" || v === "smart_overflow") return "smart_ivr"
   if (v === "lyncr_pool" || v === "pool" || v === "lyncr_only") return "lyncr_pool"
   if (v === "custom_routing" || v === "custom") return "custom_routing"
@@ -57,6 +64,8 @@ export function inferActiveRoutingMode(row: {
   if (row.ivr_menu_enabled === true) return "smart_ivr"
   if (row.routing_strategy === "lyncr_only") return "lyncr_pool"
   if (row.custom_routing_phone?.trim()) return "custom_routing"
+  // Legacy: a selected team member with no unified mode → team receptionist first.
+  if (row.selected_receptionist_id?.trim()) return "team_receptionist"
   return "your_phone"
 }
 

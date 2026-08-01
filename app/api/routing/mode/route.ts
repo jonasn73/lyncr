@@ -71,6 +71,13 @@ export async function PUT(req: NextRequest) {
         ? body.ringTimeoutSeconds
         : undefined
 
+  const receptionistIdRaw =
+    typeof body.selected_receptionist_id === "string"
+      ? body.selected_receptionist_id
+      : typeof body.selectedReceptionistId === "string"
+        ? body.selectedReceptionistId
+        : null
+
   try {
     const saved = await applyActiveRoutingMode({
       ownerUserId: userId,
@@ -78,6 +85,7 @@ export async function PUT(req: NextRequest) {
       mode,
       customRoutingPhone: customPhone,
       ringTimeoutSeconds: ringTimeout,
+      selectedReceptionistId: mode === "team_receptionist" ? receptionistIdRaw : null,
     })
     return NextResponse.json({ data: saved })
   } catch (e) {

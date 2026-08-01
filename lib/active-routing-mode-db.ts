@@ -25,6 +25,8 @@ export type ActiveRoutingState = {
   activeRoutingMode: ActiveRoutingMode
   customRoutingPhone: string | null
   ringTimeoutSeconds: number
+  /** Team member who answers first when mode is team_receptionist. */
+  selectedReceptionistId: string | null
   ivrGreetingText?: string
 }
 
@@ -61,26 +63,32 @@ export async function getActiveRoutingState(
         LIMIT 1
       `
       const d = (def[0] || {}) as Record<string, unknown>
+      const defRecId = (d.selected_receptionist_id as string) || null
       return {
         activeRoutingMode: inferActiveRoutingMode({
           active_routing_mode: d.active_routing_mode as string | null,
           ivr_menu_enabled: d.ivr_menu_enabled as boolean | null,
           routing_strategy: d.routing_strategy as string | null,
           custom_routing_phone: d.custom_routing_phone as string | null,
+          selected_receptionist_id: defRecId,
         }),
         customRoutingPhone: (d.custom_routing_phone as string) || null,
         ringTimeoutSeconds: Number(d.ring_timeout_seconds ?? 30),
+        selectedReceptionistId: defRecId,
       }
     }
+    const recId = (row.selected_receptionist_id as string) || null
     return {
       activeRoutingMode: inferActiveRoutingMode({
         active_routing_mode: row.active_routing_mode as string | null,
         ivr_menu_enabled: row.ivr_menu_enabled as boolean | null,
         routing_strategy: row.routing_strategy as string | null,
         custom_routing_phone: row.custom_routing_phone as string | null,
+        selected_receptionist_id: recId,
       }),
       customRoutingPhone: (row.custom_routing_phone as string) || null,
       ringTimeoutSeconds: Number(row.ring_timeout_seconds ?? 30),
+      selectedReceptionistId: recId,
     }
   } catch (e) {
     if (!isMissingModeColumn(e)) throw e
@@ -88,13 +96,15 @@ export async function getActiveRoutingState(
       activeRoutingMode: "your_phone",
       customRoutingPhone: null,
       ringTimeoutSeconds: 30,
+      selectedReceptionistId: null,
     }
   }
 }
 
 /**
  * Set active_routing_mode and sync legacy columns so inbound webhooks stay consistent:
- * smart_ivr → ivr_menu_enabled; lyncr_pool → routing_strategy=lyncr_only; etc.
+ * smart_ivr → ivr_menu_enabled; lyncr_pool → routing_strategy=lyncr_only;
+ * team_receptionist → selected_receptionist_id; etc.
  */
 export async function applyActiveRoutingMode(params: {
   ownerUserId: string
@@ -102,6 +112,8 @@ export async function applyActiveRoutingMode(params: {
   mode: ActiveRoutingMode
   customRoutingPhone?: string | null
   ringTimeoutSeconds?: number
+  /** Required when mode is team_receptionist — Team member who rings first. */
+  selectedReceptionistId?: string | null
 }): Promise<ActiveRoutingState> {
   const sql = sqlClient()
   const mode = normalizeActiveRoutingMode(params.mode)
@@ -116,9 +128,27 @@ export async function applyActiveRoutingMode(params: {
     throw new Error("Enter a valid 10-digit phone number for Custom Routing.")
   }
 
+  // Team receptionist mode stores who answers first; other modes clear the legacy column.
+  let selectedReceptionistId: string | null = null
+  if (mode === "team_receptionist") {
+    const raw = typeof params.selectedReceptionistId === "string" ? params.selectedReceptionistId.trim() : ""
+    if (!raw) {
+      throw new Error("Pick a Team receptionist who should answer first.")
+    }
+    // Confirm the receptionist belongs to this owner account.
+    const owned = await sql`
+      SELECT id FROM receptionists
+      WHERE id = ${raw}::uuid AND user_id = ${params.ownerUserId}
+      LIMIT 1
+    `
+    if (!owned[0]) {
+      throw new Error("That Team receptionist was not found on your account.")
+    }
+    selectedReceptionistId = raw
+  }
+
   const ivrEnabled = mode === "smart_ivr"
   const routingStrategy = mode === "lyncr_pool" ? "lyncr_only" : "private_only"
-  const selectedReceptionistId = null // owner / pool / IVR / custom — never a team member in this mode set
   const ringTimeout =
     typeof params.ringTimeoutSeconds === "number" && params.ringTimeoutSeconds > 0
       ? Math.min(120, Math.floor(params.ringTimeoutSeconds))
@@ -157,7 +187,7 @@ export async function applyActiveRoutingMode(params: {
             ai_greeting, ring_timeout_seconds, ai_ring_owner_first, routing_strategy,
             ivr_menu_enabled, active_routing_mode, custom_routing_phone, updated_at
           ) VALUES (
-            ${crypto.randomUUID()}, ${params.ownerUserId}, ${bn}, NULL, 'owner',
+            ${crypto.randomUUID()}, ${params.ownerUserId}, ${bn}, ${selectedReceptionistId}, 'owner',
             '', ${ringTimeout ?? 30}, false, ${routingStrategy},
             ${ivrEnabled}, ${mode}, ${customPhone}, now()
           )
@@ -221,6 +251,61 @@ export async function applyActiveRoutingMode(params: {
     activeRoutingMode: mode,
     customRoutingPhone: customPhone,
     ringTimeoutSeconds: ringTimeout ?? 30,
+    selectedReceptionistId,
+  }
+}
+
+/** Team receptionist dial target for an inbound DID (null when not in that mode). */
+export async function getTeamReceptionistForDid(toNumber: string): Promise<{
+  receptionistId: string
+  name: string | null
+  phoneE164: string | null
+  isActive: boolean
+  ringTimeoutSeconds: number
+  ownerUserId: string
+} | null> {
+  const sql = sqlClient()
+  const normalized = normalizePhoneNumberE164(toNumber)
+  if (!normalized) return null
+  const digitKey = normalized.replace(/\D/g, "").slice(-10)
+  try {
+    const rows = await sql`
+      SELECT
+        rc.user_id,
+        rc.active_routing_mode,
+        rc.selected_receptionist_id,
+        rc.ring_timeout_seconds,
+        r.name AS receptionist_name,
+        r.phone AS receptionist_phone,
+        r.is_active AS receptionist_is_active
+      FROM phone_numbers pn
+      JOIN routing_config rc ON rc.user_id = pn.user_id
+        AND (rc.business_number = pn.number OR rc.business_number IS NULL)
+      LEFT JOIN receptionists r ON r.id = rc.selected_receptionist_id
+      WHERE pn.number = ${normalized}
+         OR RIGHT(regexp_replace(pn.number, '[^0-9]', '', 'g'), 10) = ${digitKey}
+      ORDER BY CASE WHEN rc.business_number = pn.number THEN 0 ELSE 1 END
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    if (normalizeActiveRoutingMode(row.active_routing_mode) !== "team_receptionist") return null
+    const receptionistId = String(row.selected_receptionist_id || "").trim()
+    if (!receptionistId) return null
+    const phoneRaw = typeof row.receptionist_phone === "string" ? row.receptionist_phone : ""
+    const phoneE164 = normalizePhoneNumberE164(phoneRaw) || (phoneRaw.trim() || null)
+    return {
+      receptionistId,
+      name: typeof row.receptionist_name === "string" ? row.receptionist_name : null,
+      phoneE164,
+      isActive: row.receptionist_is_active === true,
+      ringTimeoutSeconds: Number(row.ring_timeout_seconds ?? 30) || 30,
+      ownerUserId: String(row.user_id),
+    }
+  } catch (e) {
+    if (isMissingModeColumn(e)) return null
+    console.warn("[active-routing-mode] team receptionist DID lookup failed:", e)
+    return null
   }
 }
 

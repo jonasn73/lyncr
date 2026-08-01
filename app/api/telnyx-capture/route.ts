@@ -48,6 +48,7 @@ import {
   buildCaptureSmsAlreadySentHangupXml,
   buildDayBusyFallbackGatherXml,
   buildDayCaptureDialXml,
+  clampDayCaptureDialTimeoutSeconds,
   buildHoldQueueGatherXml,
   isCaptureDialLineBusy,
   isCaptureDialLiveHumanBridge,
@@ -394,6 +395,100 @@ export async function POST(req: NextRequest) {
         source: "capture_emergency_miss",
       })
     )
+  }
+
+  // Team receptionist Dial action — answered → hangup; miss → try owner if Available, else busy VR.
+  if (step === "recv-fallback") {
+    const dialCallDurationSec = parseInt(
+      pickField(fields, ["DialCallDuration", "DialCallDurationSeconds", "DialDuration"]),
+      10
+    )
+    const dialBridgedDurationSec = parseInt(
+      pickField(fields, ["DialBridgedDuration", "BridgeDuration", "BridgedDuration"]),
+      10
+    )
+    const dialBridgedTo = pickField(fields, [
+      "DialBridgedTo",
+      "DialBridgedNumber",
+      "BridgedTo",
+      "BridgeTarget",
+    ])
+    let answeredAt: string | null = null
+    if (callSid) {
+      try {
+        const snap = await getCallLogSnapshotForTelemetry(callSid)
+        answeredAt = snap?.answered_at ?? null
+      } catch (e) {
+        console.warn("[telnyx-capture] answered_at lookup skipped:", e)
+      }
+    }
+
+    const liveBridge = isCaptureDialLiveHumanBridge({
+      dialStatus,
+      answeredAt,
+      dialCallDurationSec: Number.isFinite(dialCallDurationSec) ? dialCallDurationSec : 0,
+      dialBridgedDurationSec: Number.isFinite(dialBridgedDurationSec) ? dialBridgedDurationSec : 0,
+      dialBridgedTo,
+    })
+
+    if (liveBridge) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-capture-recv-fallback-live-bridge-hangup",
+          callSid: callSid || null,
+          dialStatus: dialStatus || null,
+        })
+      )
+      return xmlResponse(buildCaptureHangupXml())
+    }
+
+    // Receptionist line busy → booking SMS immediately.
+    if (isCaptureDialLineBusy(dialStatus)) {
+      return xmlResponse(
+        await sendBookingSmsAndHangup({
+          fromE164,
+          ownerUserId,
+          businessLineE164,
+          callSid,
+          routedToName: CAPTURE_STATUS_CALL_WAITING,
+          source: "capture_recv_call_waiting",
+          sayPrompt: LIVE_CALL_WAITING_PROMPT,
+        })
+      )
+    }
+
+    // Cascade step 2: owner Available → ring cell; else busy voice menu (press 1).
+    const plan = await resolveInboundCapturePlan({ ownerUserId })
+    if (plan.kind === "day_dial") {
+      void tagCall(callSid, {
+        routed_to_name: "Owner",
+        call_type: "incoming",
+        status: "ringing",
+      })
+      const timeoutSec = clampDayCaptureDialTimeoutSeconds(DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-capture-recv-fallback-owner-dial",
+          callSid: callSid || null,
+          dialStatus: dialStatus || null,
+          timeoutSec,
+        })
+      )
+      return xmlResponse(
+        buildDayCaptureDialXml({
+          ringE164,
+          actionUrl: captureUrl({ step: "day-fallback" }),
+          callerId: businessLineE164 || null,
+          timeoutSeconds: timeoutSec,
+        })
+      )
+    }
+
+    void tagCall(callSid, {
+      routed_to_name: CAPTURE_STATUS_DAY_BUSY,
+      call_type: "missed",
+    })
+    return xmlResponse(buildDayBusyFallbackGatherXml(captureUrl({ step: "day-busy" })))
   }
 
   // Day Dial action — live bridge (answered + talk) → hangup; no-answer/busy → Gather / SMS.

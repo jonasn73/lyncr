@@ -1,6 +1,6 @@
 -- Unified Lines routing mode + booking deposit holds.
 
--- Primary radio mode for Who Answers (your_phone | smart_ivr | lyncr_pool | custom_routing).
+-- Primary radio mode for Who Answers (your_phone | team_receptionist | smart_ivr | lyncr_pool | custom_routing).
 ALTER TABLE routing_config
   ADD COLUMN IF NOT EXISTS active_routing_mode TEXT NOT NULL DEFAULT 'your_phone';
 
@@ -8,7 +8,7 @@ ALTER TABLE routing_config
   ADD COLUMN IF NOT EXISTS custom_routing_phone TEXT;
 
 COMMENT ON COLUMN routing_config.active_routing_mode IS
-  'Unified Lines mode: your_phone | smart_ivr | lyncr_pool | custom_routing.';
+  'Unified Lines mode: your_phone | team_receptionist | smart_ivr | lyncr_pool | custom_routing.';
 
 COMMENT ON COLUMN routing_config.custom_routing_phone IS
   'E.164 target when active_routing_mode = custom_routing.';

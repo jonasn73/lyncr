@@ -43,6 +43,8 @@ type ConfigureTab = (typeof TABS)[number]["id"]
 type ConfigureDraft = {
   mode: ActiveRoutingMode
   customPhone: string
+  /** Team receptionist who answers first (team_receptionist mode). */
+  selectedReceptionistId: string | null
   ringTimeout: number
   voice: string
   /** Unified Busy greeting — written to both on-job and closed columns. */
@@ -57,6 +59,7 @@ type ConfigureDraft = {
 const DEFAULT_DRAFT: ConfigureDraft = {
   mode: "your_phone",
   customPhone: "",
+  selectedReceptionistId: null,
   ringTimeout: 30,
   voice: DEFAULT_IVR_VOICE_ENGINE_MODEL,
   busy: TELNYX_MENU_BUSY_PROMPT,
@@ -109,6 +112,10 @@ export function DashboardCallFlowConfigureDrawer({
   const [holidayOpen, setHolidayOpen] = useState(false)
   const [draft, setDraft] = useState<ConfigureDraft>(DEFAULT_DRAFT)
   const baselineRef = useRef(draftSnapshot(DEFAULT_DRAFT))
+  // Team list for the receptionist picker (id + name + availability).
+  const [teamMembers, setTeamMembers] = useState<
+    { id: string; name: string; is_active: boolean }[]
+  >([])
 
   // Keep tab in sync when opener switches (Who Answers vs Greetings card).
   useEffect(() => {
@@ -121,12 +128,17 @@ export function DashboardCallFlowConfigureDrawer({
       const qs = routingBusinessNumber
         ? `?number=${encodeURIComponent(routingBusinessNumber)}`
         : ""
-      const res = await fetch(`/api/routing/configure${qs}`, { credentials: "include" })
+      // Load configure payload + Team roster in parallel.
+      const [res, teamRes] = await Promise.all([
+        fetch(`/api/routing/configure${qs}`, { credentials: "include" }),
+        fetch("/api/receptionists", { credentials: "include" }),
+      ])
       const json = (await res.json()) as {
         data?: {
           activeRoutingMode?: string
           customRoutingPhone?: string | null
           ringTimeoutSeconds?: number
+          selectedReceptionistId?: string | null
           fallbackType?: string
           onJobGreetingText?: string
           closedGreetingText?: string
@@ -137,15 +149,35 @@ export function DashboardCallFlowConfigureDrawer({
           holidayGreetingText?: string | null
         }
       }
+      const teamJson = (await teamRes.json()) as {
+        data?: { id: string; name: string; is_active?: boolean }[]
+      }
+      const members = Array.isArray(teamJson.data)
+        ? teamJson.data.map((r) => ({
+            id: r.id,
+            name: r.name,
+            is_active: r.is_active !== false,
+          }))
+        : []
+      setTeamMembers(members)
+
       const d = json.data || {}
       const nextRing = Number(d.ringTimeoutSeconds ?? 30)
       const ring = RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30
       const fb = String(d.fallbackType || "owner").toLowerCase()
       const fallbackType: FallbackOption =
         fb === "ai" || fb === "voicemail" ? fb : "owner"
+      const savedRecId =
+        typeof d.selectedReceptionistId === "string" && d.selectedReceptionistId.trim()
+          ? d.selectedReceptionistId.trim()
+          : null
       const next: ConfigureDraft = {
         mode: normalizeActiveRoutingMode(d.activeRoutingMode),
         customPhone: phoneDigits10(d.customRoutingPhone),
+        selectedReceptionistId:
+          savedRecId && members.some((m) => m.id === savedRecId)
+            ? savedRecId
+            : members[0]?.id || null,
         ringTimeout: ring,
         voice: d.ivrVoiceEngineModel || DEFAULT_IVR_VOICE_ENGINE_MODEL,
         busy:
@@ -191,7 +223,12 @@ export function DashboardCallFlowConfigureDrawer({
           business_number: routingBusinessNumber,
           active_routing_mode: draft.mode,
           custom_routing_phone: draft.mode === "custom_routing" ? draft.customPhone : null,
-          ring_timeout_seconds: draft.mode === "your_phone" ? draft.ringTimeout : undefined,
+          selected_receptionist_id:
+            draft.mode === "team_receptionist" ? draft.selectedReceptionistId : null,
+          ring_timeout_seconds:
+            draft.mode === "your_phone" || draft.mode === "team_receptionist"
+              ? draft.ringTimeout
+              : undefined,
           fallback_type: draft.fallbackType,
           onJobGreetingText: draft.busy,
           closedGreetingText: draft.busy,
@@ -217,12 +254,19 @@ export function DashboardCallFlowConfigureDrawer({
       if (draft.mode === "lyncr_pool") setRoutingStrategy("lyncr_only")
       else setRoutingStrategy("private_only")
       setFallback(draft.fallbackType)
-      if (draft.mode === "your_phone") setRingTimeoutSec(snapDashboardRingTimeoutSec(draft.ringTimeout))
+      if (draft.mode === "your_phone" || draft.mode === "team_receptionist") {
+        setRingTimeoutSec(snapDashboardRingTimeoutSec(draft.ringTimeout))
+      }
 
       baselineRef.current = draftSnapshot(draft)
       window.dispatchEvent(
         new CustomEvent(LYNCR_ROUTING_MODE_CHANGED, {
-          detail: { mode: draft.mode, businessNumber: routingBusinessNumber },
+          detail: {
+            mode: draft.mode,
+            businessNumber: routingBusinessNumber,
+            selectedReceptionistId:
+              draft.mode === "team_receptionist" ? draft.selectedReceptionistId : null,
+          },
         })
       )
       toast({
@@ -369,6 +413,65 @@ export function DashboardCallFlowConfigureDrawer({
                               <p className="text-[10px] text-zinc-600">
                                 Every inbound call to this business line forwards to this number.
                               </p>
+                            </section>
+                          ) : null}
+
+                          {opt.value === "team_receptionist" && active ? (
+                            <section className="ml-1 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                              <label
+                                htmlFor="configure-team-receptionist"
+                                className="text-xs font-semibold text-zinc-300"
+                              >
+                                Who on your Team answers first
+                              </label>
+                              {teamMembers.length === 0 ? (
+                                <p className="text-[11px] text-amber-200/90">
+                                  Add a receptionist on the Team page first, then come back here.
+                                </p>
+                              ) : (
+                                <select
+                                  id="configure-team-receptionist"
+                                  value={draft.selectedReceptionistId || ""}
+                                  onChange={(e) =>
+                                    setDraft((d) => ({
+                                      ...d,
+                                      selectedReceptionistId: e.target.value || null,
+                                    }))
+                                  }
+                                  className={cn(fieldClass, "min-h-11")}
+                                >
+                                  {teamMembers.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.name}
+                                      {m.is_active ? "" : " (Unavailable)"}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              <p className="text-[10px] text-zinc-600">
+                                Available → rings them first. Unavailable → your phone if Available,
+                                otherwise the busy voice menu (press 1 for booking form).
+                              </p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                                Ring delay before next step
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {RING_OPTIONS.map((sec) => (
+                                  <button
+                                    key={sec}
+                                    type="button"
+                                    onClick={() => setDraft((d) => ({ ...d, ringTimeout: sec }))}
+                                    className={cn(
+                                      "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
+                                      draft.ringTimeout === sec
+                                        ? "border-primary bg-primary/15 text-primary"
+                                        : "border-zinc-800 text-zinc-300 hover:border-zinc-600"
+                                    )}
+                                  >
+                                    {sec}s
+                                  </button>
+                                ))}
+                              </div>
                             </section>
                           ) : null}
 

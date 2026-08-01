@@ -52,6 +52,7 @@ function serializeConfigure(
     activeRoutingMode: modeState.activeRoutingMode,
     customRoutingPhone: modeState.customRoutingPhone,
     ringTimeoutSeconds: modeState.ringTimeoutSeconds,
+    selectedReceptionistId: modeState.selectedReceptionistId,
     fallbackType,
     onJobGreetingText: presence.onJobGreetingText,
     closedGreetingText: presence.closedGreetingText,
@@ -130,6 +131,13 @@ export async function PUT(req: NextRequest) {
         ? body.ringTimeoutSeconds
         : undefined
 
+  const receptionistIdRaw =
+    typeof body.selected_receptionist_id === "string"
+      ? body.selected_receptionist_id
+      : typeof body.selectedReceptionistId === "string"
+        ? body.selectedReceptionistId
+        : null
+
   const fallbackRaw = String(body.fallback_type ?? body.fallbackType ?? "").toLowerCase()
   const fallbackType =
     fallbackRaw === "ai" || fallbackRaw === "voicemail" || fallbackRaw === "owner"
@@ -161,6 +169,7 @@ export async function PUT(req: NextRequest) {
         mode,
         customRoutingPhone: customPhone,
         ringTimeoutSeconds: ringTimeout,
+        selectedReceptionistId: mode === "team_receptionist" ? receptionistIdRaw : null,
       }),
       setAccountPresenceGreetings({
         ownerUserId: userId,
@@ -184,12 +193,13 @@ export async function PUT(req: NextRequest) {
       }),
     ])
 
+    // Fallback + ring timeout only — receptionist id already set by applyActiveRoutingMode.
     await updateRoutingConfig(
       userId,
       {
-        selected_receptionist_id: null,
         ...(fallbackType ? { fallback_type: fallbackType } : {}),
-        ...(mode === "your_phone" && typeof ringTimeout === "number"
+        ...((mode === "your_phone" || mode === "team_receptionist") &&
+        typeof ringTimeout === "number"
           ? { ring_timeout_seconds: ringTimeout }
           : {}),
       },

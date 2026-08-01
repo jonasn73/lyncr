@@ -450,8 +450,9 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           business.
         </p>
         <p className="mt-2 hidden text-xs text-zinc-500 md:block">
-          Adding someone or flipping Available does not change Who answers. Open Lines → Who answers and choose
-          Custom Routing with their number (or Your Phone) when you want calls to go to them.
+          Adding someone or flipping Available does not change Who answers. Open Lines → Who answers →{" "}
+          <span className="font-medium text-foreground">Team receptionist</span> and pick them (or use Custom
+          Routing for any one-off phone number).
         </p>
       </WorkspacePanel>
 
