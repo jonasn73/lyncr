@@ -866,7 +866,6 @@ async function handleIncomingCall(
 
     const cfgDid = businessLineE164 || normalizePhoneNumberE164(calledNumber) || calledNumber.trim()
     const routingRecId = routing.selected_receptionist_id?.trim() || ""
-    const routingHasRecvPhone = Boolean(routingRecId && routing.receptionist_phone?.trim())
 
     const [accountStatus, firstLegDone, routingCfgResult, prefetchedRoutingRec] = await Promise.all([
       statusFromJoin != null ? Promise.resolve(statusFromJoin) : getUserAccountStatus(routing.user_id),
@@ -877,7 +876,8 @@ async function handleIncomingCall(
             return null
           })
         : Promise.resolve(null),
-      routingRecId && !routingHasRecvPhone
+      // Always load the selected receptionist so Unavailable (is_active=false) can skip the dial.
+      routingRecId
         ? getReceptionist(routingRecId).catch(() => null)
         : Promise.resolve(null),
     ])
@@ -994,32 +994,46 @@ async function handleIncomingCall(
           receptionistDisplayName = routing.receptionist_name ?? receptionistDisplayName
         }
       }
-      if (!receptionistDialE164) {
-        let rec =
-          routingStillMatches &&
-          prefetchedRoutingRec &&
-          String(prefetchedRoutingRec.id) === selectedReceptionistId
-            ? prefetchedRoutingRec
-            : null
-        if (!rec) rec = await getReceptionist(selectedReceptionistId)
-        const recOk = Boolean(rec && String(rec.user_id) === String(routing.user_id))
-        if (recOk && rec) {
+
+      // Resolve the receptionist row (prefetch when IDs match; else DB). Always check is_active.
+      let rec =
+        prefetchedRoutingRec && String(prefetchedRoutingRec.id) === selectedReceptionistId
+          ? prefetchedRoutingRec
+          : null
+      if (!rec) rec = await getReceptionist(selectedReceptionistId)
+      const recOk = Boolean(rec && String(rec.user_id) === String(routing.user_id))
+
+      if (recOk && rec && !rec.is_active) {
+        // Unavailable: do not dial this receptionist — owner fallback / AI path below.
+        console.log(
+          JSON.stringify({
+            zing: "telnyx-incoming-receptionist-unavailable-skip",
+            userId: routing.user_id,
+            receptionistId: selectedReceptionistId,
+            callSid,
+          })
+        )
+        selectedReceptionistId = ""
+        receptionistDialE164 = ""
+        receptionistDisplayName = null
+      } else {
+        if (!receptionistDialE164 && recOk && rec?.phone?.trim()) {
           receptionistDisplayName = rec.name ?? receptionistDisplayName
-          if (rec.phone?.trim()) {
-            receptionistDialE164 = resolveReceptionistDialE164(rec.phone)
-            if (receptionistDialE164 && !routingStillMatches) {
-              console.log(
-                JSON.stringify({
-                  zing: "telnyx-incoming-receptionist-phone-from-db",
-                  userId: routing.user_id,
-                  receptionistId: selectedReceptionistId,
-                  callSid,
-                })
-              )
-            }
+          receptionistDialE164 = resolveReceptionistDialE164(rec.phone)
+          if (receptionistDialE164 && !routingStillMatches) {
+            console.log(
+              JSON.stringify({
+                zing: "telnyx-incoming-receptionist-phone-from-db",
+                userId: routing.user_id,
+                receptionistId: selectedReceptionistId,
+                callSid,
+              })
+            )
           }
+        } else if (recOk && rec) {
+          receptionistDisplayName = rec.name ?? receptionistDisplayName
         }
-        if (!receptionistDialE164) {
+        if (selectedReceptionistId && !receptionistDialE164) {
           console.error(
             JSON.stringify({
               zing: "telnyx-incoming-receptionist-phone-missing",

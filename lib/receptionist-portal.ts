@@ -96,20 +96,24 @@ export async function buildReceptionistPortalDashboard(
   const todayStart = startOfUtcDayIso()
   const todayEnd = startOfNextUtcDayIso()
 
-  const [today_earnings, pay_period_earnings, periodAggregate, ledgerCalls, live_status] = await Promise.all([
-    earningsForRange(ctx, todayStart, todayEnd),
-    earningsForRange(ctx, billing_cycle.start, billing_cycle.end),
-    getReceptionistTalkAggregate(ctx.owner_user_id, ctx.receptionist.id, billing_cycle.start, billing_cycle.end),
-    listCallLogsForReceptionist(ctx.owner_user_id, ctx.receptionist.id, {
-      limit: 40,
-      start: billing_cycle.start,
-      end: billing_cycle.end,
-    }),
-    buildLiveStatus(ctx),
-  ])
+  const [today_earnings, pay_period_earnings, periodAggregate, ledgerCalls, recentCalls, live_status] =
+    await Promise.all([
+      earningsForRange(ctx, todayStart, todayEnd),
+      earningsForRange(ctx, billing_cycle.start, billing_cycle.end),
+      getReceptionistTalkAggregate(ctx.owner_user_id, ctx.receptionist.id, billing_cycle.start, billing_cycle.end),
+      listCallLogsForReceptionist(ctx.owner_user_id, ctx.receptionist.id, {
+        limit: 40,
+        start: billing_cycle.start,
+        end: billing_cycle.end,
+      }),
+      // Calls tab: all calls that actually routed to this receptionist (not company-wide).
+      listCallLogsForReceptionist(ctx.owner_user_id, ctx.receptionist.id, { limit: 50 }),
+      buildLiveStatus(ctx),
+    ])
 
   const payConfig = receptionistPayConfig(ctx.receptionist)
   const ledger = ledgerCalls.map((call) => ledgerRowFromCall(call, ctx.business_name, payConfig))
+  const recent_calls = recentCalls.map((call) => ledgerRowFromCall(call, ctx.business_name, payConfig))
 
   return {
     receptionist: {
@@ -133,5 +137,6 @@ export async function buildReceptionistPortalDashboard(
     },
     billing_cycle,
     ledger,
+    recent_calls,
   }
 }

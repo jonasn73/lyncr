@@ -5,6 +5,7 @@ import {
   getReceptionistByPortalUserId,
   getReceptionists,
   getUser,
+  listOrganizationsForOwner,
   tryLinkReceptionistPortalUser,
 } from "@/lib/db"
 import { SANDBOX_OWNER_EMAIL, SANDBOX_TEST_RECEPTIONIST_EMAIL } from "@/lib/sandbox-engine"
@@ -65,7 +66,16 @@ export async function getReceptionistPortalContext(
   if (!linked) return null
 
   const owner = await getUser(linked.user_id)
-  const business_name = owner?.business_name?.trim() || "Business line"
+  // Prefer workspace org name (e.g. "Key Squad 502"), then owner business_name.
+  let business_name = owner?.business_name?.trim() || "Business line"
+  try {
+    const orgs = await listOrganizationsForOwner(linked.user_id)
+    const defaultOrg = orgs.find((o) => o.is_default) ?? orgs[0]
+    const orgName = defaultOrg?.name?.trim()
+    if (orgName) business_name = orgName
+  } catch {
+    /* org lookup optional */
+  }
 
   return {
     portal_user,

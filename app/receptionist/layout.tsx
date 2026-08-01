@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { ReceptionistPortalChrome } from "@/components/receptionist-portal-chrome"
-import { ReceptionistPortalView } from "@/components/receptionist-portal-view"
 import { getReceptionistPortalContext, isReceptionistPortalUser } from "@/lib/receptionist-portal-auth"
 import { getSessionUser } from "@/lib/server-session-user"
 import { isLyncrAdminUser } from "@/lib/lyncr-admin"
@@ -33,5 +32,9 @@ export default async function ReceptionistPortalLayout({ children }: { children:
   }
 
   const portalName = ctx.receptionist.name?.trim() || displayName
-  return <ReceptionistPortalChrome userName={portalName}>{children}</ReceptionistPortalChrome>
+  return (
+    <ReceptionistPortalChrome userName={portalName} businessName={ctx.business_name}>
+      {children}
+    </ReceptionistPortalChrome>
+  )
 }

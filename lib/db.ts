@@ -2419,17 +2419,32 @@ export async function syncInboundDialSnapshotForNumber(toNumber: string): Promis
   if (!normalized) return
   const digitKey = phoneDigitsKey(toNumber)
   let full = await resolveIncomingRoutingFromDb(normalized, digitKey)
-  if (full?.selected_receptionist_id?.trim() && !full.receptionist_phone?.trim()) {
+
+  // Honor receptionist Available/Unavailable (is_active). Unavailable → clear receptionist from the
+  // dial snapshot so inbound rings the owner's configured fallback (cell / AI / voicemail) instead.
+  if (full?.selected_receptionist_id?.trim()) {
     const rec = await getReceptionist(full.selected_receptionist_id)
-    if (rec?.phone?.trim() && String(rec.user_id) === String(full.user_id)) {
-      const dial = normalizePhoneNumberE164(rec.phone)
-      full = {
-        ...full,
-        receptionist_phone: isReasonablePstnDialString(dial) ? dial : rec.phone.trim(),
-        receptionist_name: rec.name ?? full.receptionist_name,
+    if (rec && String(rec.user_id) === String(full.user_id)) {
+      if (!rec.is_active) {
+        full = {
+          ...full,
+          selected_receptionist_id: null,
+          receptionist_name: null,
+          receptionist_phone: null,
+          receptionist_routing_endpoint: "CELL",
+          receptionist_sip_username: null,
+        }
+      } else if (!full.receptionist_phone?.trim() && rec.phone?.trim()) {
+        const dial = normalizePhoneNumberE164(rec.phone)
+        full = {
+          ...full,
+          receptionist_phone: isReasonablePstnDialString(dial) ? dial : rec.phone.trim(),
+          receptionist_name: rec.name ?? full.receptionist_name,
+        }
       }
     }
   }
+
   if (full?.receptionist_phone?.trim()) {
     const dial = normalizePhoneNumberE164(full.receptionist_phone)
     if (isReasonablePstnDialString(dial)) {

@@ -887,7 +887,10 @@ export interface ReceptionistPortalDashboard {
     total_active_talk_minutes: number
   }
   billing_cycle: { start: string; end: string }
+  /** Pay-period answered/routed rows for the Earnings tab. */
   ledger: ReceptionistLedgerRow[]
+  /** Recent calls routed to this receptionist (Calls tab) — not limited to the pay window. */
+  recent_calls: ReceptionistLedgerRow[]
 }
 
 /**

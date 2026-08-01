@@ -1,14 +1,17 @@
 "use client"
 
-// Receptionist workspace — live status, payout metrics, and personal call ledger.
+// Receptionist workspace — Home (status), Calls (ledger + intake), Earnings (pay metrics).
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Loader2, PhoneCall, PhoneIncoming, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ReceptionistPortalDashboard } from "@/lib/types"
+import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
+import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
+import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
 import { CompanyBriefingCard } from "@/components/receptionist-company-briefing"
 import { useTelnyxWebRtc, WEBRTC_REMOTE_AUDIO_ID } from "@/lib/webrtc/use-telnyx-webrtc"
 import {
@@ -21,6 +24,14 @@ import {
   WorkspaceTd,
   WORKSPACE_TABLE_ROW_CLASS,
 } from "@/components/dashboard-workspace-ui"
+
+type PortalTab = "home" | "calls" | "earnings"
+
+function tabFromPath(pathname: string): PortalTab {
+  if (pathname.startsWith("/receptionist/calls")) return "calls"
+  if (pathname.startsWith("/receptionist/earnings")) return "earnings"
+  return "home"
+}
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
@@ -58,6 +69,7 @@ function billingCycleLabel(start: string, end: string): string {
 function LiveStatusPanel({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
   const { live_status, receptionist } = dashboard
   const onCall = live_status.mode === "on_call"
+  const available = receptionist.is_active
 
   return (
     <WorkspacePanel
@@ -79,7 +91,7 @@ function LiveStatusPanel({ dashboard }: { dashboard: ReceptionistPortalDashboard
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Live status</p>
             <p className="mt-1 text-lg font-semibold text-foreground">
-              {onCall ? "On an active call" : receptionist.is_active ? "Online & ready" : "Off duty"}
+              {onCall ? "On an active call" : available ? "Online & ready" : "Stepped away"}
             </p>
             <p className="mt-1 text-sm text-zinc-400">
               {onCall ? (
@@ -89,9 +101,15 @@ function LiveStatusPanel({ dashboard }: { dashboard: ReceptionistPortalDashboard
                   {formatPhoneDisplay(live_status.caller_number)}
                   {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
                 </>
+              ) : available ? (
+                <>
+                  Waiting for calls for{" "}
+                  <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+                </>
               ) : (
                 <>
-                  Waiting for calls routed to <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+                  Not receiving calls for{" "}
+                  <span className="font-medium text-zinc-200">{live_status.business_name}</span>
                 </>
               )}
             </p>
@@ -102,23 +120,94 @@ function LiveStatusPanel({ dashboard }: { dashboard: ReceptionistPortalDashboard
             "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
             onCall
               ? "bg-emerald-500/15 text-emerald-300"
-              : receptionist.is_active
+              : available
                 ? "bg-success/15 text-success"
                 : "bg-zinc-800 text-zinc-400"
           )}
         >
-          {onCall ? "In call" : receptionist.is_active ? "Available" : "Unavailable"}
+          {onCall ? "In call" : available ? "Available" : "Unavailable"}
         </span>
       </div>
     </WorkspacePanel>
   )
 }
 
+function CallRows({
+  rows,
+  emptyMessage,
+  showIntake,
+}: {
+  rows: ReceptionistLedgerRow[]
+  emptyMessage: string
+  showIntake: boolean
+}) {
+  const [openId, setOpenId] = useState<string | null>(null)
+
+  if (rows.length === 0) {
+    return <p className="px-5 py-10 text-center text-sm text-zinc-500">{emptyMessage}</p>
+  }
+
+  return (
+    <WorkspaceTableWrap>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-zinc-500">
+            <WorkspaceTh>When</WorkspaceTh>
+            <WorkspaceTh>Caller</WorkspaceTh>
+            <WorkspaceTh>Duration</WorkspaceTh>
+            <WorkspaceTh>Status</WorkspaceTh>
+            {showIntake ? <WorkspaceTh>Notes</WorkspaceTh> : <WorkspaceTh className="text-right">Your payout</WorkspaceTh>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className={cn(WORKSPACE_TABLE_ROW_CLASS, "border-b border-border/40 last:border-0 align-top")}>
+              <WorkspaceTd className="text-zinc-400">{formatTimestamp(row.created_at)}</WorkspaceTd>
+              <WorkspaceTd>
+                <div className="font-medium text-foreground">{formatPhoneDisplay(row.from_number)}</div>
+                {row.caller_name ? <div className="text-xs text-zinc-500">{row.caller_name}</div> : null}
+              </WorkspaceTd>
+              <WorkspaceTd>{formatDuration(row.duration_seconds)}</WorkspaceTd>
+              <WorkspaceTd className="capitalize text-zinc-400">{row.status.replace(/-/g, " ")}</WorkspaceTd>
+              {showIntake ? (
+                <WorkspaceTd>
+                  {openId === row.id ? (
+                    <ReceptionistSimpleIntake
+                      callLogId={row.id}
+                      callerNumber={row.from_number}
+                      initialCallerName={row.caller_name}
+                      businessName={row.business_name}
+                      onSaved={() => setOpenId(null)}
+                      onCancel={() => setOpenId(null)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(row.id)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Add notes
+                    </button>
+                  )}
+                </WorkspaceTd>
+              ) : (
+                <WorkspaceTd className="text-right font-medium text-foreground">{formatUsd(row.payout_usd)}</WorkspaceTd>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </WorkspaceTableWrap>
+  )
+}
+
 export function ReceptionistPortalView() {
+  const pathname = usePathname() || "/receptionist"
+  const tab = tabFromPath(pathname)
+
   const [dashboard, setDashboard] = useState<ReceptionistPortalDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // The live call that should take over the HUD with the intake form (real-time).
   const [activeCall, setActiveCall] = useState<LiveCallSession | null>(null)
 
   const load = useCallback((opts?: { silent?: boolean }) => {
@@ -140,8 +229,6 @@ export function ReceptionistPortalView() {
     return () => window.clearInterval(timer)
   }, [load])
 
-  // Real-time: subscribe to receptionist-{id} so the intake form pops instantly on answer,
-  // bypassing the 15s poll. Falls back silently to polling when Pusher isn't configured.
   const receptionistId = dashboard?.receptionist.id ?? null
   const dashboardRef = useRef<ReceptionistPortalDashboard | null>(null)
   dashboardRef.current = dashboard
@@ -177,14 +264,12 @@ export function ReceptionistPortalView() {
     }
   }, [receptionistId, load])
 
-  // Where this receptionist answers calls. Seeded from the server, then driven locally by the toggle.
   const [endpoint, setEndpoint] = useState<"WEB" | "CELL">("CELL")
   const serverEndpoint = dashboard?.receptionist.routing_endpoint
   useEffect(() => {
     if (serverEndpoint === "WEB" || serverEndpoint === "CELL") setEndpoint(serverEndpoint)
   }, [serverEndpoint])
 
-  // Browser-calling engine — only runs when WEB is selected AND a SIP endpoint is provisioned.
   const webCallingAvailable = dashboard?.web_calling_available ?? false
   const web = useTelnyxWebRtc({ enabled: endpoint === "WEB" && webCallingAvailable })
 
@@ -208,34 +293,40 @@ export function ReceptionistPortalView() {
   if (!dashboard) return null
 
   const cycleLabel = billingCycleLabel(dashboard.billing_cycle.start, dashboard.billing_cycle.end)
+  const callRows = dashboard.recent_calls?.length ? dashboard.recent_calls : dashboard.ledger
+
+  const titles: Record<PortalTab, { eyebrow: string; title: string }> = {
+    home: { eyebrow: "Your workspace", title: dashboard.business_name },
+    calls: { eyebrow: "Your calls", title: "Calls that rang you" },
+    earnings: { eyebrow: "Pay", title: "Earnings" },
+  }
 
   return (
     <WorkspacePage>
       <WorkspacePageHeader
-        eyebrow="Your workspace"
-        title="Payouts & calls"
+        eyebrow={titles[tab].eyebrow}
+        title={titles[tab].title}
         action={
-          <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
-            <Wallet className="h-3.5 w-3.5" aria-hidden />
-            {dashboard.receptionist.pay_mode === "FLAT_RATE"
-              ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / answered call`
-              : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`}
-          </span>
+          tab === "earnings" ? (
+            <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
+              <Wallet className="h-3.5 w-3.5" aria-hidden />
+              {dashboard.receptionist.pay_mode === "FLAT_RATE"
+                ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / answered call`
+                : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`}
+            </span>
+          ) : (
+            <span className="text-xs text-zinc-500">
+              {dashboard.receptionist.pay_mode === "FLAT_RATE"
+                ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / call`
+                : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`}
+            </span>
+          )
         }
       />
 
-      <ReceptionistEndpointToggle
-        endpoint={endpoint}
-        webCallingAvailable={webCallingAvailable}
-        webStatus={web.status}
-        webError={web.error}
-        onChange={(next) => {
-          setEndpoint(next)
-          load({ silent: true })
-        }}
-      />
+      {/* Live call HUD stays available on every tab so intake isn’t lost when navigating. */}
+      <audio id={WEBRTC_REMOTE_AUDIO_ID} autoPlay />
 
-      {/* Company Briefing screen-pop — opens the instant a WEB call rings or connects. */}
       {endpoint === "WEB" && (web.status === "ringing" || web.status === "active") ? (
         <CompanyBriefingCard
           status={web.status}
@@ -249,9 +340,6 @@ export function ReceptionistPortalView() {
         />
       ) : null}
 
-      {/* Hidden audio sink the Telnyx SDK pipes the caller's audio into. */}
-      <audio id={WEBRTC_REMOTE_AUDIO_ID} autoPlay />
-
       {activeCall ? (
         <ReceptionistLiveIntake
           session={activeCall}
@@ -261,69 +349,88 @@ export function ReceptionistPortalView() {
             load({ silent: true })
           }}
         />
-      ) : (
-        <LiveStatusPanel dashboard={dashboard} />
-      )}
+      ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <WorkspaceStatCard
-          label="Today's earnings"
-          value={formatUsd(dashboard.metrics.today_earnings)}
-          hint="Answered calls since midnight UTC"
-          accent="primary"
-        />
-        <WorkspaceStatCard
-          label="Current pay period"
-          value={formatUsd(dashboard.metrics.pay_period_earnings)}
-          hint={cycleLabel}
-          accent="success"
-        />
-        <WorkspaceStatCard
-          label="Total active talk time"
-          value={`${dashboard.metrics.total_active_talk_minutes} min`}
-          hint={`${dashboard.metrics.total_active_talk_seconds}s this pay period`}
-        />
-      </div>
+      {tab === "home" ? (
+        <>
+          <ReceptionistAvailabilityToggle
+            isAvailable={dashboard.receptionist.is_active}
+            businessName={dashboard.business_name}
+            onChange={() => load({ silent: true })}
+          />
 
-      <WorkspacePanel className="overflow-hidden">
-        <div className="border-b border-border/60 px-5 py-4">
-          <h2 className="text-sm font-semibold text-foreground">Your call ledger</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Calls routed to you for {dashboard.business_name}. Payout calculated per row.
+          <ReceptionistEndpointToggle
+            endpoint={endpoint}
+            webCallingAvailable={webCallingAvailable}
+            webStatus={web.status}
+            webError={web.error}
+            onChange={(next) => {
+              setEndpoint(next)
+              load({ silent: true })
+            }}
+          />
+
+          {!activeCall ? <LiveStatusPanel dashboard={dashboard} /> : null}
+
+          <p className="text-center text-xs text-zinc-500">
+            Calls &amp; earnings moved to their own tabs — use the menu above (or bottom bar on phones).
           </p>
-        </div>
-        {dashboard.ledger.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-zinc-500">No answered calls this pay period yet.</p>
-        ) : (
-          <WorkspaceTableWrap>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-zinc-500">
-                  <WorkspaceTh>When</WorkspaceTh>
-                  <WorkspaceTh>Caller</WorkspaceTh>
-                  <WorkspaceTh>Duration</WorkspaceTh>
-                  <WorkspaceTh>Status</WorkspaceTh>
-                  <WorkspaceTh className="text-right">Your payout</WorkspaceTh>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboard.ledger.map((row) => (
-                  <tr key={row.id} className={cn(WORKSPACE_TABLE_ROW_CLASS, "border-b border-border/40 last:border-0")}>
-                    <WorkspaceTd className="text-zinc-400">{formatTimestamp(row.created_at)}</WorkspaceTd>
-                    <WorkspaceTd>
-                      <div className="font-medium text-foreground">{formatPhoneDisplay(row.from_number)}</div>
-                      {row.caller_name ? <div className="text-xs text-zinc-500">{row.caller_name}</div> : null}
-                    </WorkspaceTd>
-                    <WorkspaceTd>{formatDuration(row.duration_seconds)}</WorkspaceTd>
-                    <WorkspaceTd className="capitalize text-zinc-400">{row.status.replace(/-/g, " ")}</WorkspaceTd>
-                    <WorkspaceTd className="text-right font-medium text-foreground">{formatUsd(row.payout_usd)}</WorkspaceTd>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </WorkspaceTableWrap>
-        )}
-      </WorkspacePanel>
+        </>
+      ) : null}
+
+      {tab === "calls" ? (
+        <WorkspacePanel className="overflow-hidden">
+          <div className="border-b border-border/60 px-5 py-4">
+            <h2 className="text-sm font-semibold text-foreground">Calls that rang your line</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Only calls routed to you for {dashboard.business_name} — not every company call.
+            </p>
+          </div>
+          <CallRows
+            rows={callRows}
+            emptyMessage="No calls have rung your phone yet. When a customer is routed to you, it shows up here."
+            showIntake
+          />
+        </WorkspacePanel>
+      ) : null}
+
+      {tab === "earnings" ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <WorkspaceStatCard
+              label="Today's earnings"
+              value={formatUsd(dashboard.metrics.today_earnings)}
+              hint="Answered calls since midnight UTC"
+              accent="primary"
+            />
+            <WorkspaceStatCard
+              label="Current pay period"
+              value={formatUsd(dashboard.metrics.pay_period_earnings)}
+              hint={cycleLabel}
+              accent="success"
+            />
+            <WorkspaceStatCard
+              label="Total active talk time"
+              value={`${dashboard.metrics.total_active_talk_minutes} min`}
+              hint={`${dashboard.metrics.total_active_talk_seconds}s this pay period`}
+            />
+          </div>
+
+          <WorkspacePanel className="overflow-hidden">
+            <div className="border-b border-border/60 px-5 py-4">
+              <h2 className="text-sm font-semibold text-foreground">Pay period ledger</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Answered calls this pay period for {dashboard.business_name}. Payout calculated per row.
+              </p>
+            </div>
+            <CallRows
+              rows={dashboard.ledger}
+              emptyMessage="No answered calls this pay period yet — nothing to pay out."
+              showIntake={false}
+            />
+          </WorkspacePanel>
+        </>
+      ) : null}
     </WorkspacePage>
   )
 }
