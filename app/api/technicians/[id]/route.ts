@@ -1,10 +1,11 @@
 // ============================================
-// PATCH /api/technicians/[id]   — toggle active or move tech to another workspace
+// PATCH  /api/technicians/[id] — toggle active or move tech to another workspace
+// DELETE /api/technicians/[id] — remove tech from the owner roster
 // ============================================
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { patchFieldTechnicianForOwner } from "@/lib/db"
+import { deleteFieldTechnicianForOwner, patchFieldTechnicianForOwner } from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
@@ -43,5 +44,22 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   } catch (e) {
     console.error("[PATCH /api/technicians/[id]] failed:", e)
     return NextResponse.json({ error: "Could not update technician" }, { status: 500 })
+  }
+}
+
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const userId = getUserIdFromRequest(_req.headers.get("cookie"))
+  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  const { id } = await ctx.params
+  try {
+    const ok = await deleteFieldTechnicianForOwner(userId, id)
+    if (!ok) {
+      return NextResponse.json({ error: "Technician not found" }, { status: 404 })
+    }
+    return NextResponse.json({ data: { deleted: true, id } })
+  } catch (e) {
+    console.error("[DELETE /api/technicians/[id]] failed:", e)
+    return NextResponse.json({ error: "Could not remove technician" }, { status: 500 })
   }
 }

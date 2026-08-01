@@ -9,6 +9,7 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import { calculateTechETA, type DispatchGeoPoint } from "@/lib/dispatch-eta"
 import type { DispatchJob, FieldTechnician, TechLiveLocation } from "@/lib/types"
+import { TEAM_ROSTER_CHANGED_EVENT } from "@/lib/team-invite-events"
 
 type RosterPresence = "on_job" | "standby" | "away"
 
@@ -207,6 +208,14 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
     load()
     const id = window.setInterval(load, 30_000)
     return () => window.clearInterval(id)
+  }, [load, isActive])
+
+  // Instant refresh when someone is added/removed on the Team page.
+  useEffect(() => {
+    if (!isActive) return
+    const onChanged = () => load()
+    window.addEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
   }, [load, isActive])
 
   const rows = useMemo(

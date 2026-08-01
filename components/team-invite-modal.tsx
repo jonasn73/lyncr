@@ -81,7 +81,7 @@ export function TeamInviteModal({
           setError(json.error || "Could not add phone contact")
           return
         }
-        notifyTeamRosterChanged()
+        notifyTeamRosterChanged({ action: "added" })
         setPhoneDone(true)
         return
       }
@@ -104,7 +104,7 @@ export function TeamInviteModal({
         setError(json.error || "Could not create invite")
         return
       }
-      notifyTeamRosterChanged()
+      notifyTeamRosterChanged({ action: "added" })
       setInviteDone({
         register_url: json.data.register_url,
         email: json.data.email,

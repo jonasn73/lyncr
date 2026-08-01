@@ -4,7 +4,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { HardHat, Loader2, Plus, Send, Check } from "lucide-react"
+import { HardHat, Loader2, Plus, Send, Check, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import { AddTechnicianModal } from "@/components/team/add-technician-modal"
@@ -13,6 +13,20 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { organizationQueryString } from "@/lib/workspace-organizations"
 import type { TechInviteSmsErrorType } from "@/lib/tech-invite-sms-types"
 import type { FieldTechnician } from "@/lib/types"
+import {
+  notifyTeamRosterChanged,
+  TEAM_ROSTER_CHANGED_EVENT,
+} from "@/lib/team-invite-events"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type InviteResult = {
   name: string
@@ -50,6 +64,10 @@ export function FieldTechniciansPanel() {
   const [resentId, setResentId] = useState<string | null>(null)
   const [resendError, setResendError] = useState<{ techId: string; message: string } | null>(null)
   const [movingId, setMovingId] = useState<string | null>(null)
+  // Confirm-dialog target before deleting a technician from the roster.
+  const [removeTarget, setRemoveTarget] = useState<FieldTechnician | null>(null)
+  const [removing, setRemoving] = useState(false)
+  const [removeError, setRemoveError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -62,6 +80,13 @@ export function FieldTechniciansPanel() {
   }, [orgId])
 
   useEffect(() => load(), [load])
+
+  // Reload when another Team panel changes the roster (invite, phone contact, etc.).
+  useEffect(() => {
+    const onChanged = () => load()
+    window.addEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
+  }, [load])
 
   async function resend(tech: FieldTechnician) {
     setResentId(tech.id)
@@ -150,6 +175,30 @@ export function FieldTechniciansPanel() {
       )
     } finally {
       setMovingId(null)
+    }
+  }
+
+  /** Delete the technician after the owner confirms in the dialog. */
+  async function confirmRemoveTech() {
+    if (!removeTarget) return
+    setRemoving(true)
+    setRemoveError(null)
+    try {
+      const res = await fetch(`/api/technicians/${removeTarget.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(j.error || "Could not remove technician")
+      }
+      setTechs((prev) => prev.filter((t) => t.id !== removeTarget.id))
+      notifyTeamRosterChanged({ action: "removed" })
+      setRemoveTarget(null)
+    } catch (e) {
+      setRemoveError(e instanceof Error ? e.message : "Could not remove technician")
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -266,6 +315,18 @@ export function FieldTechniciansPanel() {
                     {resentId === tech.id ? "Sent" : "Resend"}
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRemoveError(null)
+                    setRemoveTarget(tech)
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  aria-label={`Remove ${tech.name} from your team`}
+                >
+                  <Trash2 className="h-3 w-3" aria-hidden />
+                  Remove
+                </button>
                 <span className={`text-[11px] font-medium ${tech.is_active ? "text-success" : "text-zinc-500"}`}>
                   {tech.is_active ? "Active" : "Off"}
                 </span>
@@ -284,6 +345,49 @@ export function FieldTechniciansPanel() {
           if (inviteResult) setInvite(inviteResult)
         }}
       />
+
+      {/* Confirm before removing a field technician from the roster. */}
+      <AlertDialog
+        open={removeTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !removing) {
+            setRemoveTarget(null)
+            setRemoveError(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {removeTarget?.name ?? "this technician"} from your team?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              They will disappear from Field Technicians and the live roster. Active/Off toggles stay
+              available for everyone else — this only removes this person.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {removeError ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {removeError}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing} className="border-zinc-700 bg-zinc-900">
+              Keep
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removing}
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmRemoveTech()
+              }}
+            >
+              {removing ? "Removing…" : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </WorkspacePanel>
   )
 }

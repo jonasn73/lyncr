@@ -8530,6 +8530,28 @@ export async function patchFieldTechnicianForOwner(
   return false
 }
 
+/**
+ * Remove a field technician from the owner's roster (hard delete of the roster row).
+ * Does not delete the tech's login user — only the owner↔tech link.
+ */
+export async function deleteFieldTechnicianForOwner(
+  ownerUserId: string,
+  techId: string
+): Promise<boolean> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      DELETE FROM field_technicians
+      WHERE id = ${techId} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isMissingFieldTechTableError(e)) return false
+    throw e
+  }
+}
+
 /** Read a job site + customer from a lead's collected JSONB. */
 function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
   const collected = (row.collected as Record<string, unknown>) || {}
@@ -15011,6 +15033,30 @@ export async function listTeamInvitesForInviter(invitedByUserId: string): Promis
     return rows.map((r) => parseTeamInviteRow(r as Record<string, unknown>))
   } catch (e) {
     if (isMissingTeamInvitesTableError(e)) return []
+    throw e
+  }
+}
+
+/**
+ * Cancel a pending invite the owner created (delete the row so the link stops working).
+ * Already-accepted invites are left alone.
+ */
+export async function cancelTeamInviteForInviter(
+  inviteId: string,
+  invitedByUserId: string
+): Promise<boolean> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      DELETE FROM team_invites
+      WHERE id = ${inviteId}
+        AND invited_by_user_id = ${invitedByUserId}
+        AND accepted_at IS NULL
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isMissingTeamInvitesTableError(e)) return false
     throw e
   }
 }

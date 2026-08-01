@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useEffect, useState } from "react"
-import { Check, Loader2, Network, Plus, Save, Users } from "lucide-react"
+import { Check, Loader2, Network, Plus, Save, Trash2, Users } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -13,12 +13,28 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import Link from "next/link"
 import {
+  notifyTeamRosterChanged,
   openTeamInviteModal,
   TEAM_ROSTER_CHANGED_EVENT,
 } from "@/lib/team-invite-events"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { TeamInvite } from "@/lib/types"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
+/** What the confirm dialog is about to delete. */
+type PendingRemove =
+  | { kind: "member"; id: string; name: string }
+  | { kind: "invite"; id: string; name: string }
 
 const AVATAR_COLORS = ["bg-primary", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"]
 
@@ -184,6 +200,9 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [availability, setAvailability] = useState<Record<string, boolean>>({})
   const [showRoutingTip, setShowRoutingTip] = useState(false)
+  // Confirm-dialog target for removing a phone contact or canceling an invite.
+  const [pendingRemove, setPendingRemove] = useState<PendingRemove | null>(null)
+  const [removing, setRemoving] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -239,8 +258,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
 
   // Reload after Add phone / Create invite succeeds in the shared modal.
   useEffect(() => {
-    const onChanged = () => {
-      setShowRoutingTip(true)
+    const onChanged = (event: Event) => {
+      const action = (event as CustomEvent<{ action?: string }>).detail?.action
+      // Only nudge “Who answers” after someone was added — not after a remove.
+      if (action === "added") setShowRoutingTip(true)
       load()
     }
     window.addEventListener(TEAM_ROSTER_CHANGED_EVENT, onChanged)
@@ -273,6 +294,41 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
       setError("Could not update availability")
     } finally {
       setTogglingId(null)
+    }
+  }
+
+  /** Run the confirmed delete for a phone contact or pending invite. */
+  async function confirmRemove() {
+    if (!pendingRemove) return
+    setRemoving(true)
+    setError(null)
+    try {
+      if (pendingRemove.kind === "member") {
+        const res = await fetch(`/api/receptionists/${pendingRemove.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        })
+        if (!res.ok) throw new Error("Could not remove team member")
+        setMembers((prev) => prev.filter((m) => m.id !== pendingRemove.id))
+        setAvailability((prev) => {
+          const next = { ...prev }
+          delete next[pendingRemove.id]
+          return next
+        })
+      } else {
+        const res = await fetch(`/api/team/invites?id=${encodeURIComponent(pendingRemove.id)}`, {
+          method: "DELETE",
+          credentials: "include",
+        })
+        if (!res.ok) throw new Error("Could not cancel invite")
+        setPendingInvites((prev) => prev.filter((i) => i.id !== pendingRemove.id))
+      }
+      notifyTeamRosterChanged({ action: "removed" })
+      setPendingRemove(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not remove")
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -358,15 +414,36 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
               <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/90">
                 Waiting to accept ({pendingInvites.length})
               </p>
-              {pendingInvites.slice(0, 5).map((inv) => (
-                <p key={inv.id} className="truncate text-xs text-zinc-400">
-                  {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
-                </p>
-              ))}
+              {pendingInvites.slice(0, 5).map((inv) => {
+                const inviteLabel = inv.first_name || inv.email || inv.phone || "Invite"
+                return (
+                  <div key={inv.id} className="flex items-center justify-between gap-2">
+                    <p className="min-w-0 truncate text-xs text-zinc-400">
+                      {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
+                      }
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Cancel invite for ${inviteLabel}`}
+                    >
+                      <Trash2 className="h-3 w-3" aria-hidden />
+                      Cancel
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           ) : null}
 
           <div className="mt-4 flex-1">
+            {error ? (
+              <p className="mb-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {error}
+              </p>
+            ) : null}
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-500">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" /> Loading…
@@ -380,7 +457,6 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 <p className="max-w-[16rem] text-xs text-zinc-600">
                   Tap Add to save a phone contact or send an invite link.
                 </p>
-                {error ? <p className="text-xs text-destructive">{error}</p> : null}
               </div>
             ) : (
               <div className="max-h-[420px] space-y-2.5 overflow-y-auto pr-0.5">
@@ -411,12 +487,24 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             <p className="truncate text-xs text-zinc-500">{formatPhoneDisplay(member.phone)}</p>
                           </div>
                         </div>
-                        <Switch
-                          checked={online}
-                          disabled={togglingId === member.id}
-                          onCheckedChange={() => void toggleActive(member)}
-                          aria-label={`${member.name} availability`}
-                        />
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPendingRemove({ kind: "member", id: member.id, name: member.name })
+                            }
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-zinc-500 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Remove ${member.name} from your team`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                          <Switch
+                            checked={online}
+                            disabled={togglingId === member.id}
+                            onCheckedChange={() => void toggleActive(member)}
+                            aria-label={`${member.name} availability`}
+                          />
+                        </div>
                       </div>
                       {payout ? (
                         <p className="mt-2 text-[11px] text-zinc-400">
@@ -435,6 +523,44 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
 
       {/* Lower field staff: unified fleet directory. */}
       <FieldTechniciansPanel />
+
+      {/* Confirm before removing a phone contact or canceling an invite. */}
+      <AlertDialog
+        open={pendingRemove != null}
+        onOpenChange={(open) => {
+          if (!open && !removing) setPendingRemove(null)
+        }}
+      >
+        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingRemove?.kind === "invite"
+                ? `Cancel invite for ${pendingRemove.name}?`
+                : `Remove ${pendingRemove?.name ?? "this person"} from your team?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {pendingRemove?.kind === "invite"
+                ? "Their invite link will stop working. You can send a new invite later."
+                : "They will no longer appear under People who can answer. You can add them again anytime."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing} className="border-zinc-700 bg-zinc-900">
+              Keep
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removing}
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmRemove()
+              }}
+            >
+              {removing ? "Removing…" : pendingRemove?.kind === "invite" ? "Cancel invite" : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </WorkspacePage>
   )
 })

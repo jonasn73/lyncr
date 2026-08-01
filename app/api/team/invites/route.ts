@@ -1,6 +1,7 @@
 // ============================================
-// GET  /api/team/invites — list invites this owner created
-// POST /api/team/invites — create a receptionist invite (email + copy link)
+// GET    /api/team/invites — list invites this owner created
+// POST   /api/team/invites — create a receptionist invite (email + copy link)
+// DELETE /api/team/invites — cancel a pending invite (?id= or body.id)
 // ============================================
 // Owner-session API (not admin-only). Uses team_invites + invited_by_user_id = owner.
 // Redeem at /register?token=… → account_role=receptionist bound to this business.
@@ -8,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
+  cancelTeamInviteForInviter,
   createTeamInvite,
   getUser,
   isReasonablePstnDialString,
@@ -127,5 +129,39 @@ export async function POST(req: NextRequest) {
       )
     }
     return NextResponse.json({ error: "Failed to create invite" }, { status: 500 })
+  }
+}
+
+/** Cancel a pending invite so the register link stops working. */
+export async function DELETE(req: NextRequest) {
+  const userId = getUserIdFromRequest(req.headers.get("cookie"))
+  if (!userId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  try {
+    const sessionUser = await getUser(userId)
+    if (!sessionUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 401 })
+    }
+    if (sessionUser.account_role === "receptionist" || sessionUser.account_role === "field_tech") {
+      return NextResponse.json({ error: "Only business owners can cancel team invites" }, { status: 403 })
+    }
+
+    const urlId = req.nextUrl.searchParams.get("id")?.trim() ?? ""
+    const body = (await req.json().catch(() => ({}))) as { id?: string }
+    const inviteId = urlId || String(body.id ?? "").trim()
+    if (!inviteId) {
+      return NextResponse.json({ error: "Invite id is required" }, { status: 400 })
+    }
+
+    const ok = await cancelTeamInviteForInviter(inviteId, userId)
+    if (!ok) {
+      return NextResponse.json({ error: "Invite not found or already accepted" }, { status: 404 })
+    }
+    return NextResponse.json({ data: { deleted: true, id: inviteId } })
+  } catch (e) {
+    console.error("[DELETE /api/team/invites]", e)
+    return NextResponse.json({ error: "Failed to cancel invite" }, { status: 500 })
   }
 }
