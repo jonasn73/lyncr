@@ -71,6 +71,18 @@ const NAV = [
   },
 ] as const
 
+/** Always-visible mobile bottom tabs — primary destinations (rest stay in Menu). */
+const MOBILE_TAB_HREFS = new Set([
+  "/admin",
+  "/admin/businesses",
+  "/admin/people",
+  "/admin/payouts",
+  "/admin/tools",
+  "/admin/settings",
+])
+
+const MOBILE_TABS = NAV.filter((item) => MOBILE_TAB_HREFS.has(item.href))
+
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? ""
   return (
@@ -95,6 +107,41 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         )
       })}
+    </nav>
+  )
+}
+
+function MobileBottomTabs() {
+  const pathname = usePathname() ?? ""
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-[#060a12]/95 backdrop-blur-md lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      aria-label="Admin primary navigation"
+    >
+      <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5 px-1 py-1.5">
+        {MOBILE_TABS.map((item) => {
+          const Icon = item.icon
+          const active = item.match(pathname)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center transition-colors",
+                active
+                  ? "bg-violet-600/25 text-violet-100"
+                  : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">
+                {item.label}
+              </span>
+            </Link>
+          )
+        })}
+      </div>
     </nav>
   )
 }
@@ -139,15 +186,18 @@ export function AdminChrome({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-[#0b1120]/95 px-3 py-2 backdrop-blur-md sm:px-4">
+          {/* Labeled Menu — icon-only hamburger was too easy to miss on phones */}
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-slate-300 lg:hidden"
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 border-violet-500/40 bg-violet-950/40 px-2.5 text-violet-100 hover:bg-violet-900/50 hover:text-white lg:hidden"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {menuOpen ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />}
+            <span className="text-sm font-semibold">{menuOpen ? "Close" : "Menu"}</span>
           </Button>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Headphones className="hidden h-4 w-4 text-violet-300 sm:block" aria-hidden />
@@ -177,14 +227,20 @@ export function AdminChrome({
 
         {menuOpen ? (
           <div className="border-b border-slate-800 bg-[#060a12] lg:hidden">
+            <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              All admin pages
+            </p>
             <NavLinks onNavigate={() => setMenuOpen(false)} />
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-auto bg-[linear-gradient(180deg,#0b1120_0%,#070b14_100%)]">
+        {/* pb clears fixed mobile bottom tabs + safe area */}
+        <div className="min-h-0 flex-1 overflow-auto bg-[linear-gradient(180deg,#0b1120_0%,#070b14_100%)] pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
           {children}
         </div>
       </div>
+
+      <MobileBottomTabs />
     </div>
   )
 }

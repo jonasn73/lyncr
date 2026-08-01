@@ -766,7 +766,9 @@ export function LyncrAdminDashboard({
                 value={metrics?.finance?.card_fee_revenue_mtd_label ?? "—"}
                 hint={
                   metrics?.finance?.card_fee_revenue_mtd_cents === 0
-                    ? "None yet"
+                    ? metrics?.finance?.card_fee_month_label
+                      ? `None in ${metrics.finance.card_fee_month_label.replace(" (US Eastern)", "")}`
+                      : "None yet"
                     : metrics?.finance?.card_fee_count_mtd
                       ? `${metrics.finance.card_fee_count_mtd} charges`
                       : "Connect take"
@@ -836,7 +838,7 @@ export function LyncrAdminDashboard({
                     : moneySheet === "saas"
                       ? "List-price estimate from active paid subscription tiers (not Stripe invoice cash)."
                       : moneySheet === "card_fees"
-                        ? "Lyncr’s Connect application fee when shops run Collect / Tap / pay links."
+                        ? "Lyncr’s Connect application fee when shops run Collect / Tap / pay links. Charged only when Stripe creates an application_fee on the Connect charge."
                         : moneySheet === "credits"
                           ? "What businesses paid Lyncr for prepaid phone minutes this calendar month."
                           : moneySheet === "stripe"
@@ -887,6 +889,11 @@ export function LyncrAdminDashboard({
                 {moneySheet === "card_fees" ? (
                   <>
                     <MoneyDetailRow
+                      label="Month window"
+                      value={metrics?.finance?.card_fee_month_label ?? "US Eastern"}
+                      note="Counted in US Eastern time so late evenings don’t jump to next month early."
+                    />
+                    <MoneyDetailRow
                       label="Collected this month"
                       value={metrics?.finance?.card_fee_revenue_mtd_label ?? "—"}
                       note={
@@ -899,7 +906,7 @@ export function LyncrAdminDashboard({
                     <MoneyDetailRow
                       label="Fee formula"
                       value={metrics?.finance?.card_fee_formula_label ?? "—"}
-                      note="Set via LYNCR_PAYMENT_FEE_BPS / LYNCR_PAYMENT_FEE_FLAT_CENTS."
+                      note="Lyncr’s Connect take (2.9% + $0.30 by default). Stripe’s own processing fee is separate."
                     />
                     <MoneyDetailRow
                       label="Charges this month"
@@ -908,6 +915,7 @@ export function LyncrAdminDashboard({
                           ? String(metrics.finance.card_fee_count_mtd)
                           : "—"
                       }
+                      note="Only Connect charges with an application_fee count. Platform-only charges (no application_fee) = $0 for Lyncr."
                     />
                     <MoneyDetailRow
                       label="Last fee"
@@ -916,7 +924,7 @@ export function LyncrAdminDashboard({
                     <MoneyDetailRow
                       label="All-time (approx)"
                       value={metrics?.finance?.card_fee_all_time_label ?? "—"}
-                      note="Sum of Application Fee objects from Stripe (paged)."
+                      note="Sum of Lyncr application fees from Stripe."
                     />
                   </>
                 ) : null}

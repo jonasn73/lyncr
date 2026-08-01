@@ -4,6 +4,9 @@ import type Stripe from "stripe"
 import { getAdminFinanceNeonSnapshot } from "@/lib/db"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 
+/** Ops Home “this month” uses US Eastern so evenings don’t flip to next month early (UTC). */
+const ADMIN_FINANCE_TZ = "America/New_York"
+
 function formatUsdFromCents(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -16,7 +19,7 @@ function formatShortDate(unixSeconds: number): string {
     month: "short",
     day: "numeric",
     year: "numeric",
-    timeZone: "UTC",
+    timeZone: ADMIN_FINANCE_TZ,
   }).format(new Date(unixSeconds * 1000))
 }
 
@@ -31,6 +34,8 @@ export type PlatformFinanceSnapshot = {
   /** Extra plain-English line under the MTD total (empty-state / last fee / all-time). */
   card_fee_revenue_mtd_detail: string
   card_fee_formula_label: string
+  /** Human month window, e.g. "July 2026 (US Eastern)". */
+  card_fee_month_label: string
   card_fee_last_at_unix: number | null
   card_fee_last_at_label: string | null
   card_fee_all_time_cents: number | null
@@ -43,6 +48,66 @@ export type PlatformFinanceSnapshot = {
   stripe_configured: boolean
 }
 
+function zonedYmd(
+  date: Date,
+  timeZone: string
+): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(date)
+  const num = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value)
+  return { year: num("year"), month: num("month"), day: num("day") }
+}
+
+/** Offset ms such that `utcMs + offset ≈ wall clock as UTC digits` in `timeZone`. */
+function timeZoneOffsetMs(utcMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcMs))
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value)
+  const asUtc = Date.UTC(
+    pick("year"),
+    pick("month") - 1,
+    pick("day"),
+    pick("hour"),
+    pick("minute"),
+    pick("second")
+  )
+  return asUtc - utcMs
+}
+
+/** Unix seconds for local midnight on day 1 of the current month in `timeZone`. */
+function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
+  const { year, month } = zonedYmd(new Date(), timeZone)
+  // Wall-clock Y-M-01 00:00 as if it were UTC, then subtract the zone offset at that instant.
+  const asUtcMidnight = Date.UTC(year, month - 1, 1, 0, 0, 0)
+  let instant = asUtcMidnight - timeZoneOffsetMs(asUtcMidnight, timeZone)
+  // Recompute offset at the candidate (handles DST edges).
+  instant = asUtcMidnight - timeZoneOffsetMs(instant, timeZone)
+  return Math.floor(instant / 1000)
+}
+
+function cardFeeMonthLabel(timeZone = ADMIN_FINANCE_TZ): string {
+  const label = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "long",
+    year: "numeric",
+  }).format(new Date())
+  return `${label} (US Eastern)`
+}
+
 export function cardFeeFormulaLabel(): string {
   const bpsRaw = Number(process.env.LYNCR_PAYMENT_FEE_BPS ?? "290")
   const flatRaw = Number(process.env.LYNCR_PAYMENT_FEE_FLAT_CENTS ?? "30")
@@ -50,11 +115,6 @@ export function cardFeeFormulaLabel(): string {
   const flat = Number.isFinite(flatRaw) && flatRaw >= 0 ? Math.round(flatRaw) : 30
   const pct = (bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)
   return `${pct}% + $${(flat / 100).toFixed(2)} per card charge`
-}
-
-function startOfMonthUnixSeconds(): number {
-  const now = new Date()
-  return Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) / 1000)
 }
 
 type CardFeeAgg = {
@@ -188,27 +248,26 @@ async function fetchLatestAndAllTimeFees(stripe: Stripe): Promise<{
 async function aggregateConnectCardFees(stripe: Stripe, gte: number): Promise<CardFeeAgg> {
   let mtdCents = 0
   let mtdCount = 0
-  let usedAppFeesApi = false
 
+  // Prefer balanceTransactions type=application_fee — matches platform earnings and
+  // stays available even when Application Fees list is empty/restricted.
   try {
-    const fromFees = await sumApplicationFeesMtd(stripe, gte)
-    mtdCents = fromFees.cents
-    mtdCount = fromFees.count
-    usedAppFeesApi = true
+    const fromBt = await sumBalanceTxApplicationFeesMtd(stripe, gte)
+    mtdCents = fromBt.cents
+    mtdCount = fromBt.count
   } catch (e) {
-    console.warn("[admin-platform-finance] applicationFees.list MTD:", e)
+    console.warn("[admin-platform-finance] balanceTransactions MTD:", e)
   }
 
-  // Fallback (or cross-check when Application Fees returned empty — rare API lag).
-  if (!usedAppFeesApi || mtdCents === 0) {
+  if (mtdCents === 0) {
     try {
-      const fromBt = await sumBalanceTxApplicationFeesMtd(stripe, gte)
-      if (fromBt.cents > mtdCents) {
-        mtdCents = fromBt.cents
-        mtdCount = fromBt.count
+      const fromFees = await sumApplicationFeesMtd(stripe, gte)
+      if (fromFees.cents > mtdCents) {
+        mtdCents = fromFees.cents
+        mtdCount = fromFees.count
       }
     } catch (e) {
-      console.warn("[admin-platform-finance] balanceTransactions MTD:", e)
+      console.warn("[admin-platform-finance] applicationFees.list MTD:", e)
     }
   }
 
@@ -233,19 +292,19 @@ async function aggregateConnectCardFees(stripe: Stripe, gte: number): Promise<Ca
   }
 }
 
-function cardFeeEmptyDetail(agg: CardFeeAgg): string {
+function cardFeeEmptyDetail(agg: CardFeeAgg, monthLabel: string): string {
   if (agg.lastAtUnix != null && agg.allTimeCents > 0) {
-    return `No card fees collected yet this month · Last fee ${formatShortDate(agg.lastAtUnix)} · All-time ${formatUsdFromCents(agg.allTimeCents)}`
+    return `No Lyncr card fees in ${monthLabel} yet · Last fee ${formatShortDate(agg.lastAtUnix)} · All-time ${formatUsdFromCents(agg.allTimeCents)}. Platform-only charges (no Connect application_fee) do not create Lyncr fees.`
   }
   if (agg.allTimeCents > 0) {
-    return `No card fees collected yet this month · All-time ${formatUsdFromCents(agg.allTimeCents)}`
+    return `No Lyncr card fees in ${monthLabel} yet · All-time ${formatUsdFromCents(agg.allTimeCents)}. Platform-only charges do not create Lyncr fees.`
   }
-  return "No card fees collected yet this month — Collect / Tap charges with Connect create them"
+  return `No Lyncr card fees in ${monthLabel} yet. Collect / Tap through Connect creates them; platform-only charges do not.`
 }
 
-function cardFeeMtdDetail(agg: CardFeeAgg): string {
-  if (agg.mtdCents <= 0) return cardFeeEmptyDetail(agg)
-  const parts = [`${agg.mtdCount} Connect charge${agg.mtdCount === 1 ? "" : "s"}`]
+function cardFeeMtdDetail(agg: CardFeeAgg, monthLabel: string): string {
+  if (agg.mtdCents <= 0) return cardFeeEmptyDetail(agg, monthLabel)
+  const parts = [`${agg.mtdCount} Connect charge${agg.mtdCount === 1 ? "" : "s"}`, monthLabel]
   if (agg.lastAtUnix != null) parts.push(`Last ${formatShortDate(agg.lastAtUnix)}`)
   return parts.join(" · ")
 }
@@ -257,6 +316,7 @@ async function fetchStripePlatformFinance(): Promise<
     | "card_fee_revenue_mtd_cents"
     | "card_fee_revenue_mtd_label"
     | "card_fee_revenue_mtd_detail"
+    | "card_fee_month_label"
     | "card_fee_last_at_unix"
     | "card_fee_last_at_label"
     | "card_fee_all_time_cents"
@@ -269,11 +329,13 @@ async function fetchStripePlatformFinance(): Promise<
     | "stripe_configured"
   >
 > {
+  const monthLabel = cardFeeMonthLabel()
   if (!isStripeConfigured()) {
     return {
       card_fee_revenue_mtd_cents: null,
       card_fee_revenue_mtd_label: "Stripe not configured",
       card_fee_revenue_mtd_detail: "Add STRIPE_SECRET_KEY to load Connect card fees",
+      card_fee_month_label: monthLabel,
       card_fee_last_at_unix: null,
       card_fee_last_at_label: null,
       card_fee_all_time_cents: null,
@@ -302,7 +364,8 @@ async function fetchStripePlatformFinance(): Promise<
     return {
       card_fee_revenue_mtd_cents: feeAgg.mtdCents,
       card_fee_revenue_mtd_label: formatUsdFromCents(feeAgg.mtdCents),
-      card_fee_revenue_mtd_detail: cardFeeMtdDetail(feeAgg),
+      card_fee_revenue_mtd_detail: cardFeeMtdDetail(feeAgg, monthLabel),
+      card_fee_month_label: monthLabel,
       card_fee_last_at_unix: feeAgg.lastAtUnix,
       card_fee_last_at_label: feeAgg.lastAtUnix != null ? formatShortDate(feeAgg.lastAtUnix) : null,
       card_fee_all_time_cents: feeAgg.allTimeCents,
@@ -320,6 +383,7 @@ async function fetchStripePlatformFinance(): Promise<
       card_fee_revenue_mtd_cents: null,
       card_fee_revenue_mtd_label: "Could not load",
       card_fee_revenue_mtd_detail: "Stripe request failed — try Refresh",
+      card_fee_month_label: monthLabel,
       card_fee_last_at_unix: null,
       card_fee_last_at_label: null,
       card_fee_all_time_cents: null,

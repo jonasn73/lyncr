@@ -724,6 +724,8 @@ export interface LyncrAdminMetrics {
     /** Empty-state / charge count copy under the MTD total. */
     card_fee_revenue_mtd_detail?: string
     card_fee_formula_label: string
+    /** Human month window, e.g. "July 2026 (US Eastern)". */
+    card_fee_month_label?: string
     card_fee_last_at_unix?: number | null
     card_fee_last_at_label?: string | null
     card_fee_all_time_cents?: number | null
