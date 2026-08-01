@@ -1,8 +1,9 @@
 "use client"
 
-// Available ↔ Unavailable control for the receptionist Home tab.
-// Available = inbound calls for this business ring this receptionist.
-// Unavailable = skip this receptionist; use the owner's configured fallback.
+// Available ↔ Unavailable for the receptionist Home tab.
+// Available = eligible to ring IF the owner already chose you under Who answers.
+// Unavailable = skip you even when selected; owner backup runs instead.
+// This toggle does NOT change Who answers — only the business owner does that.
 
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -68,12 +69,14 @@ export function ReceptionistAvailabilityToggle({
           <p className="mt-1 text-sm text-zinc-400">
             {current ? (
               <>
-                New calls for <span className="font-medium text-zinc-200">{businessName}</span> ring you.
+                You&apos;re eligible for <span className="font-medium text-zinc-200">{businessName}</span>{" "}
+                when the owner has set you under Who answers. This does not choose you by itself.
               </>
             ) : (
               <>
-                Calls for <span className="font-medium text-zinc-200">{businessName}</span> go to the
-                owner&apos;s backup (their cell, Voice AI, or voicemail) — not you.
+                You won&apos;t get rings for{" "}
+                <span className="font-medium text-zinc-200">{businessName}</span> — calls use the
+                owner&apos;s backup instead. Who answers is still the owner&apos;s choice.
               </>
             )}
           </p>

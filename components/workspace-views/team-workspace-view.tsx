@@ -450,7 +450,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           business.
         </p>
         <p className="mt-2 hidden text-xs text-zinc-500 md:block">
-          Adding someone here does not start forwarding by itself — open Routing → Who answers and select them.
+          Adding someone or flipping Available does not change Who answers. Open Lines → Who answers and choose
+          Custom Routing with their number (or Your Phone) when you want calls to go to them.
         </p>
       </WorkspacePanel>
 
@@ -495,7 +496,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-foreground sm:text-base">People who can answer</h2>
                 <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-                  Your phone contacts and invited receptionists for this business.
+                  Available means they can take calls when you pick them in Who answers — it does not select them.
                 </p>
               </div>
             </div>

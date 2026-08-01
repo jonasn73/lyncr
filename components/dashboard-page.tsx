@@ -77,7 +77,8 @@ export function DashboardPage() {
     if (bootstrap) {
       const recId = bootstrap.routing.routing.selected_receptionist_id
       const recs = bootstrap.routing.receptionists
-      return recId && recs.some((r) => r.id === recId) ? recId : recs[0]?.id ?? null
+      // null selected_receptionist_id = Your phone — never invent the first teammate.
+      return recId && recs.some((r) => r.id === recId) ? recId : null
     }
     // Owner sentinel → no receptionist selected so call-flow shows "Your phone" + seeded number.
     const who = linesPaint?.whoAnswers?.trim()
@@ -166,8 +167,9 @@ export function DashboardPage() {
           color: r.color || "bg-primary",
         }))
         setReceptionists(mapped)
+        // Keep a still-valid selection; otherwise stay on Your phone (null) until routing fetch.
         setSelectedReceptionistId((prev) =>
-          prev && mapped.some((r: Contact) => r.id === prev) ? prev : mapped[0]?.id ?? null
+          prev && mapped.some((r: Contact) => r.id === prev) ? prev : null
         )
       })
       .catch(() => {})
@@ -180,10 +182,9 @@ export function DashboardPage() {
     setMainLinePhone(bootstrap.routing.ownerPhone ?? null)
     setReceptionists(bootstrap.routing.receptionists)
     const recId = bootstrap.routing.routing.selected_receptionist_id
+    // Owner when id is missing — do not auto-pick receptionists[0] (false "Who answers").
     setSelectedReceptionistId(
-      recId && bootstrap.routing.receptionists.some((r) => r.id === recId)
-        ? recId
-        : bootstrap.routing.receptionists[0]?.id ?? null
+      recId && bootstrap.routing.receptionists.some((r) => r.id === recId) ? recId : null
     )
     setFallback(bootstrap.routing.routing.fallback_type || "owner")
     setAiRingOwnerFirst(bootstrap.routing.routing.ai_ring_owner_first ?? false)
@@ -241,7 +242,7 @@ export function DashboardPage() {
         setReceptionists(data.receptionists)
         const recId = data.routing.selected_receptionist_id
         setSelectedReceptionistId(
-          recId && data.receptionists.some((r) => r.id === recId) ? recId : data.receptionists[0]?.id ?? null
+          recId && data.receptionists.some((r) => r.id === recId) ? recId : null
         )
         setFallback(data.routing.fallback_type || "owner")
         setAiRingOwnerFirst(data.routing.ai_ring_owner_first)
@@ -290,8 +291,9 @@ export function DashboardPage() {
             color: r.color || "bg-primary",
           }))
           setReceptionists(mapped)
+          // Roster load must not invent a Who answers pick — null stays Your phone.
           setSelectedReceptionistId((prev) =>
-            prev && mapped.some((r: Contact) => r.id === prev) ? prev : mapped[0]?.id ?? null
+            prev && mapped.some((r: Contact) => r.id === prev) ? prev : null
           )
         })
         .catch(() => {}),
