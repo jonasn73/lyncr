@@ -8,7 +8,6 @@ import {
   Activity,
   Check,
   Copy,
-  CreditCard,
   Database,
   Loader2,
   MoreVertical,
@@ -18,7 +17,6 @@ import {
   Search,
   Shield,
   Users,
-  Wallet,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -62,10 +60,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { accountStatusLabel } from "@/lib/account-status"
 import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
 import { LiveTrafficPulse } from "@/components/admin/live-traffic"
 import { CallHistoryTable } from "@/components/admin/call-history"
+
+type MoneySheetKey = "telnyx" | "saas" | "card_fees" | "credits" | "stripe" | "wallets" | "paying" | null
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
@@ -276,30 +283,52 @@ function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
   )
 }
 
-function MetricCard({
-  title,
+/** Compact tappable money cell — details open in a sheet instead of stacking tall cards. */
+function MoneyStripCell({
+  label,
   value,
-  icon: Icon,
-  subtitle,
+  hint,
+  onClick,
+  emphasize,
 }: {
-  title: string
+  label: string
   value: string
-  icon: typeof Users
-  subtitle?: string
+  hint?: string
+  onClick: () => void
+  emphasize?: boolean
 }) {
   return (
-    <Card className="border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-slate-400">{title}</CardTitle>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/20 ring-1 ring-violet-500/30">
-          <Icon className="h-4 w-4 text-violet-300" aria-hidden />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold tracking-tight text-slate-50">{value}</p>
-        {subtitle ? <p className="mt-1 text-xs leading-snug text-slate-500">{subtitle}</p> : null}
-      </CardContent>
-    </Card>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
+        "hover:border-violet-500/40 hover:bg-violet-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+        emphasize
+          ? "border-violet-500/35 bg-violet-950/40"
+          : "border-slate-800 bg-slate-900/60"
+      )}
+    >
+      <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      <span className="truncate text-lg font-bold tabular-nums tracking-tight text-slate-50 sm:text-xl">
+        {value}
+      </span>
+      {hint ? <span className="truncate text-[11px] text-slate-500">{hint}</span> : null}
+    </button>
+  )
+}
+
+function MoneyDetailRow({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-2.5 last:border-0">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-200">{label}</p>
+        {note ? <p className="mt-0.5 text-xs leading-snug text-slate-500">{note}</p> : null}
+      </div>
+      <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-50">{value}</p>
+    </div>
   )
 }
 
@@ -620,6 +649,7 @@ export function LyncrAdminDashboard({
   const [roleTab, setRoleTab] = useState("all")
   // Optimistic phone edits keyed by user_id so saves render instantly without a refetch.
   const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({})
+  const [moneySheet, setMoneySheet] = useState<MoneySheetKey>(null)
 
   function handlePhoneSaved(userId: string, phone: string) {
     setPhoneOverrides((prev) => ({ ...prev, [userId]: phone }))
@@ -695,14 +725,13 @@ export function LyncrAdminDashboard({
         <>
           <RoutingPoolLowBalanceBanner balanceUsd={routingPoolAvailableUsd} balanceLabel={routingPoolAvailableLabel} />
 
-          {/* Money — what Lyncr spends / earns / holds */}
-          <section className="space-y-3">
+          {/* Compact money strip — tap a cell for the full explanation sheet */}
+          <section className="space-y-2">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 className="text-sm font-semibold text-slate-100">Platform money</h2>
-                <p className="text-xs text-slate-500">
-                  Telnyx pays for calls/SMS. Stripe holds Lyncr fees + subscriptions. User phone wallets are prepaid
-                  liability.
+                <p className="hidden text-xs text-slate-500 md:block">
+                  Tap a total for the breakdown. Telnyx = phone spend · Stripe = Lyncr fees + SaaS.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -718,86 +747,223 @@ export function LyncrAdminDashboard({
               </div>
             </div>
 
-            <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90">
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
-                <div>
-                  <CardTitle className="text-base font-semibold text-violet-100">Telnyx phone balance</CardTitle>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Money sitting in Telnyx to pay for inbound/outbound calls, SMS, and numbers. Top up in the Telnyx
-                    Mission Control when this gets low (under ~$15).
-                  </p>
-                </div>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/25 ring-1 ring-violet-400/40">
-                  <Phone className="h-5 w-5 text-violet-200" aria-hidden />
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ready to spend</p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
-                    {routingPoolAvailableLabel || "—"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Account balance</p>
-                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-300">
-                    {metrics?.telnyx_routing_pool?.balance_label ?? "—"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <MetricCard
-                title="Est. SaaS revenue / month"
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <MoneyStripCell
+                emphasize
+                label="Telnyx balance"
+                value={routingPoolAvailableLabel || "—"}
+                hint="Phone API ready"
+                onClick={() => setMoneySheet("telnyx")}
+              />
+              <MoneyStripCell
+                label="SaaS / mo"
                 value={metrics?.finance?.estimated_mrr_label ?? formatUsd(0)}
-                icon={CreditCard}
-                subtitle={
-                  metrics?.finance
-                    ? `Paid plans: ${metrics.finance.active_paid_by_tier.starter} Starter · ${metrics.finance.active_paid_by_tier.professional} Pro · ${metrics.finance.active_paid_by_tier.business} Business (list prices)`
-                    : "Loading subscription estimate…"
-                }
+                hint="Est. paid plans"
+                onClick={() => setMoneySheet("saas")}
               />
-              <MetricCard
-                title="Card fees this month"
+              <MoneyStripCell
+                label="Card fees MTD"
                 value={metrics?.finance?.card_fee_revenue_mtd_label ?? "—"}
-                icon={Wallet}
-                subtitle={
-                  metrics?.finance?.card_fee_formula_label
-                    ? `Lyncr’s cut when shops run cards (Collect / Tap). Formula: ${metrics.finance.card_fee_formula_label}`
-                    : "Application fees from Stripe Connect charges"
+                hint={
+                  metrics?.finance?.card_fee_revenue_mtd_cents === 0
+                    ? "None yet"
+                    : metrics?.finance?.card_fee_count_mtd
+                      ? `${metrics.finance.card_fee_count_mtd} charges`
+                      : "Connect take"
                 }
+                onClick={() => setMoneySheet("card_fees")}
               />
-              <MetricCard
-                title="Credit packs sold (this month)"
-                value={metrics?.finance?.credit_pack_revenue_mtd_label ?? formatUsd(0)}
-                icon={Wallet}
-                subtitle="What businesses paid Lyncr for prepaid phone minutes/credit"
-              />
-              <MetricCard
-                title="Stripe balance (Lyncr)"
+              <MoneyStripCell
+                label="Stripe (Lyncr)"
                 value={metrics?.finance?.stripe_platform_available_label ?? "—"}
-                icon={CreditCard}
-                subtitle={
-                  metrics?.finance
-                    ? `Available now · Pending ${metrics.finance.stripe_platform_pending_label} (not shop Connect wallets)`
-                    : "Platform Stripe account"
-                }
-              />
-              <MetricCard
-                title="Prepaid phone wallets"
-                value={formatUsd(metrics?.total_carrier_credit ?? 0)}
-                icon={Wallet}
-                subtitle="Sum of credit sitting in customer Pay wallets — liability until they burn minutes"
-              />
-              <MetricCard
-                title="Paying businesses"
-                value={String(metrics?.active_subscriptions ?? 0)}
-                icon={Users}
-                subtitle={`${metrics?.total_users ?? 0} total accounts with a profile (owners + invites)`}
+                hint="Available now"
+                onClick={() => setMoneySheet("stripe")}
               />
             </div>
+            <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+              <button
+                type="button"
+                className="rounded-md px-1.5 py-0.5 underline-offset-2 hover:text-slate-300 hover:underline"
+                onClick={() => setMoneySheet("credits")}
+              >
+                Credit packs {metrics?.finance?.credit_pack_revenue_mtd_label ?? formatUsd(0)}
+              </button>
+              <span aria-hidden>·</span>
+              <button
+                type="button"
+                className="rounded-md px-1.5 py-0.5 underline-offset-2 hover:text-slate-300 hover:underline"
+                onClick={() => setMoneySheet("wallets")}
+              >
+                Prepaid wallets {formatUsd(metrics?.total_carrier_credit ?? 0)}
+              </button>
+              <span aria-hidden>·</span>
+              <button
+                type="button"
+                className="rounded-md px-1.5 py-0.5 underline-offset-2 hover:text-slate-300 hover:underline"
+                onClick={() => setMoneySheet("paying")}
+              >
+                Paying businesses {metrics?.active_subscriptions ?? 0}
+              </button>
+            </div>
           </section>
+
+          <Sheet open={moneySheet != null} onOpenChange={(open) => !open && setMoneySheet(null)}>
+            <SheetContent
+              side="right"
+              className="w-full border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md"
+            >
+              <SheetHeader>
+                <SheetTitle className="text-slate-50">
+                  {moneySheet === "telnyx"
+                    ? "Telnyx phone balance"
+                    : moneySheet === "saas"
+                      ? "Estimated SaaS revenue"
+                      : moneySheet === "card_fees"
+                        ? "Card fees this month"
+                        : moneySheet === "credits"
+                          ? "Credit packs sold"
+                          : moneySheet === "stripe"
+                            ? "Stripe balance (Lyncr)"
+                            : moneySheet === "wallets"
+                              ? "Prepaid phone wallets"
+                              : moneySheet === "paying"
+                                ? "Paying businesses"
+                                : "Platform money"}
+                </SheetTitle>
+                <SheetDescription className="text-slate-400">
+                  {moneySheet === "telnyx"
+                    ? "Money sitting in Telnyx to pay for inbound/outbound calls, SMS, and numbers."
+                    : moneySheet === "saas"
+                      ? "List-price estimate from active paid subscription tiers (not Stripe invoice cash)."
+                      : moneySheet === "card_fees"
+                        ? "Lyncr’s Connect application fee when shops run Collect / Tap / pay links."
+                        : moneySheet === "credits"
+                          ? "What businesses paid Lyncr for prepaid phone minutes this calendar month."
+                          : moneySheet === "stripe"
+                            ? "Lyncr’s platform Stripe account — not shop Connect wallets."
+                            : moneySheet === "wallets"
+                              ? "Sum of credit sitting in customer Pay wallets — liability until they burn minutes."
+                              : moneySheet === "paying"
+                                ? "Accounts marked with an active subscription in onboarding."
+                                : ""}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 space-y-1 px-1">
+                {moneySheet === "telnyx" ? (
+                  <>
+                    <MoneyDetailRow
+                      label="Ready to spend"
+                      value={routingPoolAvailableLabel || "—"}
+                      note="Available credit for calls, SMS, and numbers. Top up in Telnyx Mission Control under ~$15."
+                    />
+                    <MoneyDetailRow
+                      label="Account balance"
+                      value={metrics?.telnyx_routing_pool?.balance_label ?? "—"}
+                      note="Full Telnyx balance line (may include pending)."
+                    />
+                  </>
+                ) : null}
+                {moneySheet === "saas" ? (
+                  <>
+                    <MoneyDetailRow
+                      label="Estimated MRR"
+                      value={metrics?.finance?.estimated_mrr_label ?? formatUsd(0)}
+                      note="Starter $19 · Pro $49 · Business $99 list prices × active paid counts."
+                    />
+                    <MoneyDetailRow
+                      label="Starter"
+                      value={String(metrics?.finance?.active_paid_by_tier.starter ?? 0)}
+                    />
+                    <MoneyDetailRow
+                      label="Professional"
+                      value={String(metrics?.finance?.active_paid_by_tier.professional ?? 0)}
+                    />
+                    <MoneyDetailRow
+                      label="Business"
+                      value={String(metrics?.finance?.active_paid_by_tier.business ?? 0)}
+                    />
+                  </>
+                ) : null}
+                {moneySheet === "card_fees" ? (
+                  <>
+                    <MoneyDetailRow
+                      label="Collected this month"
+                      value={metrics?.finance?.card_fee_revenue_mtd_label ?? "—"}
+                      note={
+                        metrics?.finance?.card_fee_revenue_mtd_detail ||
+                        (metrics?.finance?.card_fee_formula_label
+                          ? `Formula: ${metrics.finance.card_fee_formula_label}`
+                          : undefined)
+                      }
+                    />
+                    <MoneyDetailRow
+                      label="Fee formula"
+                      value={metrics?.finance?.card_fee_formula_label ?? "—"}
+                      note="Set via LYNCR_PAYMENT_FEE_BPS / LYNCR_PAYMENT_FEE_FLAT_CENTS."
+                    />
+                    <MoneyDetailRow
+                      label="Charges this month"
+                      value={
+                        metrics?.finance?.card_fee_count_mtd != null
+                          ? String(metrics.finance.card_fee_count_mtd)
+                          : "—"
+                      }
+                    />
+                    <MoneyDetailRow
+                      label="Last fee"
+                      value={metrics?.finance?.card_fee_last_at_label ?? "—"}
+                    />
+                    <MoneyDetailRow
+                      label="All-time (approx)"
+                      value={metrics?.finance?.card_fee_all_time_label ?? "—"}
+                      note="Sum of Application Fee objects from Stripe (paged)."
+                    />
+                  </>
+                ) : null}
+                {moneySheet === "credits" ? (
+                  <MoneyDetailRow
+                    label="Credit packs MTD"
+                    value={metrics?.finance?.credit_pack_revenue_mtd_label ?? formatUsd(0)}
+                    note="From billing_ledger reason stripe_credit_pack this month."
+                  />
+                ) : null}
+                {moneySheet === "stripe" ? (
+                  <>
+                    <MoneyDetailRow
+                      label="Available"
+                      value={metrics?.finance?.stripe_platform_available_label ?? "—"}
+                      note="Ready to pay out from Lyncr’s Stripe account."
+                    />
+                    <MoneyDetailRow
+                      label="Pending"
+                      value={metrics?.finance?.stripe_platform_pending_label ?? "—"}
+                      note="Not yet available (processing)."
+                    />
+                  </>
+                ) : null}
+                {moneySheet === "wallets" ? (
+                  <MoneyDetailRow
+                    label="Prepaid liability"
+                    value={formatUsd(metrics?.total_carrier_credit ?? 0)}
+                    note="Customer phone wallets — Lyncr owes this as minute credit."
+                  />
+                ) : null}
+                {moneySheet === "paying" ? (
+                  <>
+                    <MoneyDetailRow
+                      label="Paying businesses"
+                      value={String(metrics?.active_subscriptions ?? 0)}
+                    />
+                    <MoneyDetailRow
+                      label="Total accounts"
+                      value={String(metrics?.total_users ?? 0)}
+                      note="Owners + invites with an onboarding profile."
+                    />
+                  </>
+                ) : null}
+              </div>
+            </SheetContent>
+          </Sheet>
 
           <div className="grid gap-3 sm:grid-cols-1">
             <Card className="border-slate-800 bg-slate-900/60">

@@ -721,7 +721,14 @@ export interface LyncrAdminMetrics {
     credit_pack_revenue_mtd_label: string
     card_fee_revenue_mtd_cents: number | null
     card_fee_revenue_mtd_label: string
+    /** Empty-state / charge count copy under the MTD total. */
+    card_fee_revenue_mtd_detail?: string
     card_fee_formula_label: string
+    card_fee_last_at_unix?: number | null
+    card_fee_last_at_label?: string | null
+    card_fee_all_time_cents?: number | null
+    card_fee_all_time_label?: string | null
+    card_fee_count_mtd?: number | null
     stripe_platform_available_cents: number | null
     stripe_platform_pending_cents: number | null
     stripe_platform_available_label: string
