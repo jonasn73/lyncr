@@ -28,6 +28,7 @@ import {
   isVerifiedActiveSubscription,
   needsLineProvisioning,
   needsStripeSubscriptionCheckout,
+  shouldShowSandboxTrialBanner,
 } from "@/lib/onboarding-subscription-status"
 import { useToast } from "@/hooks/use-toast"
 import { ReplaceUnavailableLineModal } from "@/components/replace-unavailable-line-modal"
@@ -292,7 +293,12 @@ export function DashboardActivationProvider({
       carrierLive
   // State already seeded from cache/bootstrap — never fall back to false while fetching.
   const lineCarrierLive = carrierLive
-  const showTrialBanner = Boolean(reservedDisplay) && !subscriptionActive
+  // Sandbox alert only when the DID is not live yet — cancelled Stripe + live Telnyx is not sandbox.
+  const showTrialBanner = shouldShowSandboxTrialBanner({
+    reservedDisplay,
+    subscriptionActive,
+    carrierLive,
+  })
   const showProvisioningBanner = Boolean(reservedDisplay) && subscriptionActive && !carrierLive
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
