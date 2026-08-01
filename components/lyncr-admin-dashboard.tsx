@@ -2,6 +2,7 @@
 
 // Lyncr platform operator dashboard — KPIs, user directory, credit + subscription overrides.
 
+import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 import {
   Activity,
@@ -296,7 +297,7 @@ function MetricCard({
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-bold tracking-tight text-slate-50">{value}</p>
-        {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-1 text-xs leading-snug text-slate-500">{subtitle}</p> : null}
       </CardContent>
     </Card>
   )
@@ -663,7 +664,7 @@ export function LyncrAdminDashboard({
   const pageTitle = view === "home" ? "Ops home" : "Businesses"
   const pageSubtitle =
     view === "home"
-      ? "Platform health, live calls, and recent traffic"
+      ? "Money in/out, phone balance, health, and live traffic — in plain English"
       : "Search tenants — open Manage for credit, lines, porting, and impersonation"
 
   return (
@@ -694,63 +695,131 @@ export function LyncrAdminDashboard({
         <>
           <RoutingPoolLowBalanceBanner balanceUsd={routingPoolAvailableUsd} balanceLabel={routingPoolAvailableLabel} />
 
-          <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90 shadow-[0_12px_40px_-16px_rgba(139,92,246,0.45)]">
-            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
+          {/* Money — what Lyncr spends / earns / holds */}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <CardTitle className="text-base font-semibold text-violet-100">Lyncr routing pool</CardTitle>
-                <p className="mt-1 text-xs text-slate-500">Master Telnyx developer balance — platform monitoring only</p>
-              </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/25 ring-1 ring-violet-400/40">
-                <Wallet className="h-5 w-5 text-violet-200" aria-hidden />
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Available credit</p>
-                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
-                  {routingPoolAvailableLabel || "—"}
+                <h2 className="text-sm font-semibold text-slate-100">Platform money</h2>
+                <p className="text-xs text-slate-500">
+                  Telnyx pays for calls/SMS. Stripe holds Lyncr fees + subscriptions. User phone wallets are prepaid
+                  liability.
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Account balance</p>
-                <p className="mt-1 text-lg font-semibold tabular-nums text-slate-300">
-                  {metrics?.telnyx_routing_pool?.balance_label ?? "—"}
-                </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-200">
+                  <Link href="/admin/settings">Notification settings</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-200">
+                  <Link href="/admin/tools">Finance tools</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="border-slate-700 text-slate-200">
+                  <Link href="/admin/businesses">Manage businesses</Link>
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard title="Total users" value={String(metrics?.total_users ?? 0)} icon={Users} subtitle="onboarding_profiles rows" />
-            <MetricCard
-              title="Active subscriptions"
-              value={String(metrics?.active_subscriptions ?? 0)}
-              icon={CreditCard}
-              subtitle="has_active_subscription = true"
-            />
-            <MetricCard
-              title="Platform carrier credit"
-              value={formatUsd(metrics?.total_carrier_credit ?? 0)}
-              icon={Wallet}
-              subtitle="Sum of all user balances"
-            />
-            <Card className="border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
+            <Card className="border-violet-500/35 bg-gradient-to-br from-violet-950/50 via-slate-900/80 to-slate-950/90">
+              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
+                <div>
+                  <CardTitle className="text-base font-semibold text-violet-100">Telnyx phone balance</CardTitle>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Money sitting in Telnyx to pay for inbound/outbound calls, SMS, and numbers. Top up in the Telnyx
+                    Mission Control when this gets low (under ~$15).
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/25 ring-1 ring-violet-400/40">
+                  <Phone className="h-5 w-5 text-violet-200" aria-hidden />
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ready to spend</p>
+                  <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-slate-50">
+                    {routingPoolAvailableLabel || "—"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Account balance</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-300">
+                    {metrics?.telnyx_routing_pool?.balance_label ?? "—"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricCard
+                title="Est. SaaS revenue / month"
+                value={metrics?.finance?.estimated_mrr_label ?? formatUsd(0)}
+                icon={CreditCard}
+                subtitle={
+                  metrics?.finance
+                    ? `Paid plans: ${metrics.finance.active_paid_by_tier.starter} Starter · ${metrics.finance.active_paid_by_tier.professional} Pro · ${metrics.finance.active_paid_by_tier.business} Business (list prices)`
+                    : "Loading subscription estimate…"
+                }
+              />
+              <MetricCard
+                title="Card fees this month"
+                value={metrics?.finance?.card_fee_revenue_mtd_label ?? "—"}
+                icon={Wallet}
+                subtitle={
+                  metrics?.finance?.card_fee_formula_label
+                    ? `Lyncr’s cut when shops run cards (Collect / Tap). Formula: ${metrics.finance.card_fee_formula_label}`
+                    : "Application fees from Stripe Connect charges"
+                }
+              />
+              <MetricCard
+                title="Credit packs sold (this month)"
+                value={metrics?.finance?.credit_pack_revenue_mtd_label ?? formatUsd(0)}
+                icon={Wallet}
+                subtitle="What businesses paid Lyncr for prepaid phone minutes/credit"
+              />
+              <MetricCard
+                title="Stripe balance (Lyncr)"
+                value={metrics?.finance?.stripe_platform_available_label ?? "—"}
+                icon={CreditCard}
+                subtitle={
+                  metrics?.finance
+                    ? `Available now · Pending ${metrics.finance.stripe_platform_pending_label} (not shop Connect wallets)`
+                    : "Platform Stripe account"
+                }
+              />
+              <MetricCard
+                title="Prepaid phone wallets"
+                value={formatUsd(metrics?.total_carrier_credit ?? 0)}
+                icon={Wallet}
+                subtitle="Sum of credit sitting in customer Pay wallets — liability until they burn minutes"
+              />
+              <MetricCard
+                title="Paying businesses"
+                value={String(metrics?.active_subscriptions ?? 0)}
+                icon={Users}
+                subtitle={`${metrics?.total_users ?? 0} total accounts with a profile (owners + invites)`}
+              />
+            </div>
+          </section>
+
+          <div className="grid gap-3 sm:grid-cols-1">
+            <Card className="border-slate-800 bg-slate-900/60">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-400">System health</CardTitle>
+                <div>
+                  <CardTitle className="text-sm font-medium text-slate-200">System health</CardTitle>
+                  <p className="mt-0.5 text-xs text-slate-500">Can Lyncr reach the database and phone network?</p>
+                </div>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/15 ring-1 ring-emerald-500/25">
                   <Activity className="h-4 w-4 text-emerald-300" aria-hidden />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                    <Database className="h-3.5 w-3.5" aria-hidden /> Neon DB
+              <CardContent className="grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                    <Database className="h-3.5 w-3.5" aria-hidden /> Database (Neon)
                   </span>
                   <HealthDot status={metrics?.health.neon ?? "error"} />
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                    <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx API
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                    <Phone className="h-3.5 w-3.5" aria-hidden /> Phone API (Telnyx)
                   </span>
                   <HealthDot status={metrics?.health.telnyx ?? "error"} />
                 </div>

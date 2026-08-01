@@ -712,6 +712,22 @@ export interface LyncrAdminMetrics {
     neon: LyncrAdminHealthStatus
     telnyx: LyncrAdminHealthStatus
   }
+  /** Platform money snapshot for Ops Home (SaaS + card fees + balances). */
+  finance?: {
+    estimated_mrr_cents: number
+    estimated_mrr_label: string
+    active_paid_by_tier: { starter: number; professional: number; business: number }
+    credit_pack_revenue_mtd_cents: number
+    credit_pack_revenue_mtd_label: string
+    card_fee_revenue_mtd_cents: number | null
+    card_fee_revenue_mtd_label: string
+    card_fee_formula_label: string
+    stripe_platform_available_cents: number | null
+    stripe_platform_pending_cents: number | null
+    stripe_platform_available_label: string
+    stripe_platform_pending_label: string
+    stripe_configured: boolean
+  }
 }
 
 // --- Receptionists / Agents ---

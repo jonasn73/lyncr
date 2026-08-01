@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { getLyncrAdminMetrics, listLyncrAdminDirectory, pingNeonDatabase } from "@/lib/db"
 import { fetchTelnyxRoutingPoolForAdmin } from "@/lib/admin-telnyx-routing-pool"
+import { buildPlatformFinanceSnapshot } from "@/lib/admin-platform-finance"
 import { pingTelnyxApi } from "@/lib/telnyx"
 import type { LyncrAdminMetrics } from "@/lib/types"
 
@@ -11,12 +12,13 @@ export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
   if (ctx instanceof NextResponse) return ctx
   try {
-    const [counts, users, neonOk, telnyxStatus, telnyxRoutingPool] = await Promise.all([
+    const [counts, users, neonOk, telnyxStatus, telnyxRoutingPool, finance] = await Promise.all([
       getLyncrAdminMetrics(),
       listLyncrAdminDirectory(),
       pingNeonDatabase(),
       pingTelnyxApi(),
       fetchTelnyxRoutingPoolForAdmin(),
+      buildPlatformFinanceSnapshot(),
     ])
     const metrics: LyncrAdminMetrics = {
       ...counts,
@@ -25,6 +27,7 @@ export async function GET(req: NextRequest) {
         neon: neonOk ? "ok" : "error",
         telnyx: telnyxStatus,
       },
+      finance,
     }
     return NextResponse.json({ data: { metrics, users } })
   } catch (e) {
